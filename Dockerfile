@@ -7,4 +7,4 @@ RUN apt-get install -y python-qt4
 RUN apt-get install -y pyfai
 RUN pip install --upgrade pip
 RUN pip install --upgrade musclex
-RUN python -m unittest discover -s /tests -p '*_test.py'
+# RUN python -m unittest discover -s /tests -p '*_test.py'
