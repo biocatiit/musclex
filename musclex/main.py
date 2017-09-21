@@ -10,8 +10,8 @@ from PyQt4 import QtGui
 def main(arguments=None):
     if arguments is None:
         arguments = sys.argv
-    if len(arguments) == 1:
-        arguments = [arguments[0], 'qf']
+    # if len(arguments) == 1:
+    #     arguments = [arguments[0], 'bm']
     if len(arguments) == 2:
         prog = arguments[1]
         if prog == 'bm':

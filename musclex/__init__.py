@@ -1,2 +1,2 @@
 __author__ = 'Jiranun.J'
-__version__ = '0.24dev'
+__version__ = '0.25dev'

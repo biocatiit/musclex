@@ -242,6 +242,8 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
     :param height_thres: Height threshold (default = mean value of histogram)
     :return: sorted peak list
     """
+    if len(orig_hist) < 10:
+        return []
     if width_thres == 0:
         width_thres = 5
     if height_thres == 0:
