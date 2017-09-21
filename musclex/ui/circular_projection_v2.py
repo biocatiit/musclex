@@ -1,6 +1,5 @@
 #!/usr/bin/python
 __author__ = 'Miguel Menendez, Jiranun.J'
-VERSION = '2.19'
 
 from PyQt4 import QtCore, QtGui
 import sys
@@ -12,9 +11,10 @@ from matplotlib.collections import PatchCollection
 import h5py
 import logging
 import argparse
-from bio_utils.file_manager import *
-from biocat_modules.CircularProjection import *
-from CalibrationSettings import CalibrationSettings
+from musclex.bio_utils.file_manager import *
+from musclex.biocat_modules.CircularProjection import *
+from musclex.CalibrationSettings import CalibrationSettings
+import musclex
 
 class CP_CSVManager():
     def __init__(self, dir_path):
@@ -161,7 +161,7 @@ class CPImageWindow(QtGui.QMainWindow):
                     self.ring_colors.append([b,g,r])
 
     def initUI(self):
-        self.setWindowTitle("Circular Projection v." + VERSION)
+        self.setWindowTitle("Circular Projection v." + musclex.__version__)
         self.setStyleSheet(getStyleSheet())
         self.centralWidget = QtGui.QWidget(self)
         self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
@@ -659,7 +659,7 @@ class CPImageWindow(QtGui.QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.filePath, VERSION)
+        settingDialog = CalibrationSettings(self.filePath)
         self.calSettings = None
         cal_setting = settingDialog.calSettings
         if cal_setting is not None or force:
@@ -799,7 +799,7 @@ class CPImageWindow(QtGui.QMainWindow):
         fileName = self.imgList[self.currentFileNumber]
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
-        self.cirProj = CircularProjection(self.filePath, fileName, version=VERSION, logger=self.logger)
+        self.cirProj = CircularProjection(self.filePath, fileName, logger=self.logger)
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         self.processImage()
         self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
@@ -1403,7 +1403,7 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.processFolder(self.filePath)
 
     def initUI(self):
-        self.setWindowTitle("Circular Projection v." + VERSION)
+        self.setWindowTitle("Circular Projection v." + musclex.__version__)
         self.setStyleSheet(getStyleSheet())
         self.centralWidget = QtGui.QWidget(self)
         self.mainLayout = QtGui.QGridLayout(self.centralWidget)
@@ -2228,7 +2228,7 @@ class CircularProjectionGUI(QtGui.QMainWindow):
 
     def initUI(self):
         self.setStyleSheet(getStyleSheet())
-        self.setWindowTitle("Circular Projection v." + VERSION)
+        self.setWindowTitle("Circular Projection v." + musclex.__version__)
         self.centralWidget = QtGui.QWidget(self)
         self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)

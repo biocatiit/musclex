@@ -1,6 +1,5 @@
 #!/usr/bin/python
 __author__ = 'Jiranun.J'
-VERSION = "1.11"
 
 from PyQt4 import QtCore, QtGui
 import matplotlib.pyplot as plt
@@ -13,10 +12,10 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import pickle
 import csv
 import traceback
-from bio_utils.file_manager import *
-from bio_utils.image_processor import *
-from biocat_modules.DiffractionCentroids import DiffractionCentroids
-
+from musclex.bio_utils.file_manager import *
+from musclex.bio_utils.image_processor import *
+from musclex.biocat_modules.DiffractionCentroids import DiffractionCentroids
+import musclex
 class CSVManager():
     """
     A class taking care of writing summary file
@@ -1357,7 +1356,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         :param pnEnable:
         :return:
         """
-        self.setWindowTitle("Diffraction Centroids v."+VERSION)
+        self.setWindowTitle("Diffraction Centroids v."+musclex.__version__)
         self.centralWidget = QtGui.QWidget(self)
         self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -2052,7 +2051,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
     def onImageChanged(self):
         # Create a new DiffractionCentroids object and process it
         imgList = self.groupList[self.currentGroup]
-        self.difCent = DiffractionCentroids(self.dir_path, imgList, self.currentGroup, self.fixRanges, self.off_mer, VERSION)
+        self.difCent = DiffractionCentroids(self.dir_path, imgList, self.currentGroup, self.fixRanges, self.off_mer)
         img = self.difCent.avgImg
         self.right_status.setText(str(img.shape[0])+"x"+str(img.shape[1])+" "+str(img.dtype))
         self.initMinMaxIntensities(self.difCent.avgImg)
@@ -2209,7 +2208,7 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         self.imgList = []
         self.selectedImages = []
         self.dir_path = ""
-        self.setWindowTitle("Diffraction Centroids v."+VERSION)
+        self.setWindowTitle("Diffraction Centroids v."+musclex.__version__)
         self.fixRanges = []
         self.fixRangeNames = []
         self.initUI()

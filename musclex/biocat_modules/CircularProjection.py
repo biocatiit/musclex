@@ -19,23 +19,24 @@ import pyFAI
 from os.path import  exists
 from sklearn.metrics import r2_score, mean_squared_error
 import collections
-from bio_utils.file_manager import fullPath, createFolder
-from bio_utils.histogram_processor import *
-from bio_utils.image_processor import *
+from musclex.bio_utils.file_manager import fullPath, createFolder
+from musclex.bio_utils.histogram_processor import *
+from musclex.bio_utils.image_processor import *
 import pickle
+import musclex
 
 
 class CircularProjection:
     """
     A class for Circular Projection processing - go to process() to see all processing steps
     """
-    def __init__(self, filepath, filename, version = 2.0, logger = None):
+    def __init__(self, filepath, filename, logger = None):
         original_image = fabio.open(fullPath(filepath, filename)).data
         self.original_image = original_image
         self.filepath = filepath
         self.filename = filename
         self.logger = logger
-        self.version = version
+        self.version = musclex.__version__
         self.noBGImg = getImgAfterWhiteTopHat(self.original_image)
         self.info = self.loadCache()
 

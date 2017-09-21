@@ -1,0 +1,14 @@
+scikit-image
+tifffile
+numpy
+pandas
+scikit-learn
+lmfit
+ConfigParser
+pillow
+cython
+fabio
+peakutils
+h5py
+scipy
+matplotlib

@@ -1,0 +1,21 @@
+Metadata-Version: 1.2
+Name: musclex
+Version: 0.24.dev0
+Summary: Muscle X
+Home-page: https://github.com/biocatiit/musclex
+Author: Jiranun J.
+Author-email: jjiratra@hawk.iit.edu
+License: UNKNOWN
+Download-URL: https://github.com/biocatiit/musclex/archive/0.1.tar.gz
+Description-Content-Type: UNKNOWN
+Description: UNKNOWN
+Keywords: musclex,biomuscle,diffraction
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: X11 Applications :: Qt
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Operating System :: Other OS
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Cython
+Requires-Python: >=2.7.10, <=2.7.12

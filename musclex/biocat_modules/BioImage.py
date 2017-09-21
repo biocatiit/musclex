@@ -10,27 +10,27 @@ import fabio
 # import pyFAI
 from os.path import isfile, exists
 from os import makedirs
-from bio_utils.file_manager import fullPath
-from bio_utils.histogram_processor import *
-from bio_utils.image_processor import *
+from musclex.bio_utils.file_manager import fullPath
+from musclex.bio_utils.histogram_processor import *
+from musclex.bio_utils.image_processor import *
+import musclex
 
 class BioImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, filename, version):
+    def __init__(self, dir_path, filename):
         """
         Initial value for bioImage object
         :param dir_path: directory path of input image
         :param filename: image file name
-        :param version: current version of Bio-muscle (This will affect cache downloading)
         """
         self.sigmaS = 0.0001
         self.dir_path = dir_path
         self.filename = filename
         self.orig_img = fabio.open(fullPath(dir_path, filename)).data
         self.rotated_img = None
-        self.version = version
+        self.version = musclex.__version__
         cache = self.loadCache()
         if cache is None:
             # info dictionary will save all results

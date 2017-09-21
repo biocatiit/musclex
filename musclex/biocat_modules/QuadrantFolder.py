@@ -5,29 +5,29 @@ import fabio
 import pickle
 # import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
-from bio_utils.file_manager import fullPath, createFolder
-from bio_utils.histogram_processor import *
-from bio_utils.image_processor import *
+from musclex.bio_utils.file_manager import fullPath, createFolder
+from musclex.bio_utils.histogram_processor import *
+from musclex.bio_utils.image_processor import *
 from skimage.morphology import white_tophat, disk
 from tifffile import imsave
 from scipy.interpolate import UnivariateSpline
+import musclex
 
 # Make sure the cython part is compiled
-from subprocess import call
-call(["python biocat_modules/setup2.py build_ext --inplace"], shell = True)
+# from subprocess import call
+# call(["python biocat_modules/setup2.py build_ext --inplace"], shell = True)
 
-import QF_utilities as qfu
+import musclex.biocat_modules.QF_utilities as qfu
 
 class QuadrantFolder(object):
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img_path, img_name, version):
+    def __init__(self, img_path, img_name):
         """
         Initial value for QuadrantFolder object
         :param img_path: directory path of input image
         :param img_name: image file name
-        :param version: current version of Quadrant Folding (This will affect cache downloading)
         """
         self.orig_img = fabio.open(fullPath(img_path, img_name)).data
         self.empty = False
@@ -35,8 +35,7 @@ class QuadrantFolder(object):
         self.img_name = img_name
         self.imgCache = {} # displayed images will be saved in this param
         self.ignoreFolds = set()
-        self.version = version
-
+        self.version = musclex.__version__
         cache = self.loadCache() # load from cache if it's available
 
         # info dictionary will save all results

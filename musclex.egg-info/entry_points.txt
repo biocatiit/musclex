@@ -1,0 +1,3 @@
+[console_scripts]
+musclex = musclex.main:main
+

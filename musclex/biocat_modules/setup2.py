@@ -6,7 +6,7 @@ from Cython.Distutils import build_ext
 import numpy
 
 ext_modules=[ Extension("QF_utilities",
-              ["biocat_modules/QF_utilities.pyx"],
+              ["QF_utilities.pyx"],
               libraries=["m"],
               extra_compile_args = ["-ffast-math"])]
 

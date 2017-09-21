@@ -1,12 +1,12 @@
 #!/usr/bin/python
 __author__ = 'Jiranun.J'
-VERSION = '2.14'
 
 import sys
 import os
 from PyQt4 import QtGui
 from os.path import split
-from ui.BioMuscleWindow import BioMuscleWindow
+from musclex.ui.BioMuscleWindow import BioMuscleWindow
+import musclex
 
 class BMStartWindow(QtGui.QMainWindow):
     """
@@ -15,7 +15,7 @@ class BMStartWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QWidget.__init__(self)
         self.dir_path = ""
-        self.setWindowTitle("Bio-Muscle v."+VERSION)
+        self.setWindowTitle("Bio-Muscle v."+musclex.__version__)
         self.windowList = [] # use this list to keep BioMuscleWindow objects to prevent python delete it
         self.browseFile() # start program by browse a file
 
@@ -81,7 +81,7 @@ class BMStartWindow(QtGui.QMainWindow):
         """
         Popup an input file dialog. Users can select .tif for image or .txt for failed cases list
         """
-        file_name = QtGui.QFileDialog.getOpenFileName(self, "Please Select a File for Bio-Muscle v."+VERSION,
+        file_name = QtGui.QFileDialog.getOpenFileName(self, "Please Select a File for Bio-Muscle v."+musclex.__version__,
                                                       filter='Images (*.tif);;Failed cases (*.txt)')
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
@@ -106,11 +106,6 @@ class BMStartWindow(QtGui.QMainWindow):
         :param filename: input filename (str)
         :return:
         """
-        newWindow = BioMuscleWindow(self, filename, VERSION)
+        newWindow = BioMuscleWindow(self, filename)
         self.windowList.append(newWindow)
         self.hide()
-
-if __name__ == "__main__":
-    app = QtGui.QApplication(sys.argv)
-    myapp = BMStartWindow()
-    sys.exit(app.exec_())

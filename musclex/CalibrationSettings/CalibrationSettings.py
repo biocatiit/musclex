@@ -10,18 +10,19 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 from os.path import isfile, exists
 from os import makedirs
-from bio_utils.file_manager import fullPath, getStyleSheet
-from bio_utils.image_processor import *
+from musclex.bio_utils.file_manager import fullPath, getStyleSheet
+from musclex.bio_utils.image_processor import *
+import musclex
 
 class CalibrationSettings(QtGui.QDialog):
-    def __init__(self, dir_path, version):
+    def __init__(self, dir_path):
         super(CalibrationSettings, self).__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.dir_path = str(dir_path)
         self.manualCalPoints = None
         self.cal_img = None
         self.disp_img = None
-        self.version = version
+        self.version = musclex.__version__
         cache = self.loadSettings()
 
         if cache is not None:

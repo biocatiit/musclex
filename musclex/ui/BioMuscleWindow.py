@@ -7,19 +7,20 @@ import matplotlib.patches as patches
 from os.path import split
 import traceback
 import webbrowser
-from CalibrationSettings import CalibrationSettings
-from bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
-from biocat_modules.BioImage import BioImage, getCardiacGraph
-from bio_utils.image_processor import *
-from csv_manager.BM_CVSManager import BM_CVSManager
-from ui.BM_FittingTab import BM_FittingTab
+from musclex.CalibrationSettings import CalibrationSettings
+from musclex.bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
+from musclex.biocat_modules.BioImage import BioImage, getCardiacGraph
+from musclex.bio_utils.image_processor import *
+from musclex.csv_manager.BM_CVSManager import BM_CVSManager
+from musclex.ui.BM_FittingTab import BM_FittingTab
+import musclex
 
 class BioMuscleWindow(QtGui.QMainWindow):
     """
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, mainWin, filename, version = 1.0):
+    def __init__(self, mainWin, filename):
         """
         Init window with main window object and selected file name
         :param mainWin: main window object
@@ -27,7 +28,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         QtGui.QWidget.__init__(self)
         self.mainWindow = mainWin
-        self.version = version
+        self.version = musclex.__version__
         self.bioImg = None  # Current BioImage object
         self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
@@ -960,7 +961,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.dir_path, self.version)
+        settingDialog = CalibrationSettings(self.dir_path)
         self.calSettings = None
         cal_setting = settingDialog.calSettings
         if cal_setting is not None or force:
@@ -1505,7 +1506,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         This will create a new BioImage object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        self.bioImg = BioImage(self.dir_path, self.imgList[self.currentImg], self.version)
+        self.bioImg = BioImage(self.dir_path, self.imgList[self.currentImg])
         self.initSpinBoxes(self.bioImg.info)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None

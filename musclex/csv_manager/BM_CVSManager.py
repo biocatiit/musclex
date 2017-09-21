@@ -2,7 +2,7 @@
 from os.path import exists
 from os import makedirs
 import pandas as pd
-from bio_utils.file_manager import fullPath
+from musclex.bio_utils.file_manager import fullPath
 
 class BM_CVSManager:
     """

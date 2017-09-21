@@ -1,6 +1,5 @@
 #!/usr/bin/python
 __author__ = 'Jiranun.J'
-VERSION = '1.0'
 
 import sys
 from PyQt4 import QtCore, QtGui
@@ -8,9 +7,10 @@ import matplotlib.pyplot as plt
 from tifffile import imsave
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
-from bio_utils.file_manager import *
-from bio_utils.image_processor import *
-from biocat_modules.QuadrantFolder import QuadrantFolder
+from musclex.bio_utils.file_manager import *
+from musclex.bio_utils.image_processor import *
+from musclex.biocat_modules.QuadrantFolder import QuadrantFolder
+import musclex
 import traceback
 
 class QuadrantFoldingGUI(QtGui.QMainWindow):
@@ -40,7 +40,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
     def initUI(self):
         self.setStyleSheet(getStyleSheet())
-        self.setWindowTitle("Quadrant Folding v." + VERSION)
+        self.setWindowTitle("Quadrant Folding v." + musclex.__version__)
 
         self.centralWidget = QtGui.QWidget(self)
         self.setCentralWidget(self.centralWidget)
@@ -1317,7 +1317,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             'Current File (' + str(self.currentFileNumber + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
         self.img_zoom = None
         self.result_zoom = None
-        self.quadFold = QuadrantFolder(self.filePath, self.imgList[self.currentFileNumber], VERSION)
+        self.quadFold = QuadrantFolder(self.filePath, self.imgList[self.currentFileNumber])
         original_image = self.quadFold.orig_img
         self.imgDetailOnStatusBar.setText(
             str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))

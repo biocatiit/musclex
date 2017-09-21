@@ -9,15 +9,16 @@ from lmfit.models import VoigtModel
 from os import makedirs
 from os.path import isfile, exists
 import pickle
-from bio_utils.file_manager import fullPath
-from bio_utils.image_processor import *
-from bio_utils.histogram_processor import *
+from musclex.bio_utils.file_manager import fullPath
+from musclex.bio_utils.image_processor import *
+from musclex.bio_utils.histogram_processor import *
+import musclex
 
 class DiffractionCentroids():
     """
     A class for Diffraction Centroids processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, imgList, grp_number, fixRanges, off_mer, version = 0):
+    def __init__(self, dir_path, imgList, grp_number, fixRanges, off_mer):
         """
         Initial value for DiffractionCentroids object
         :param dir_path: directory path of input images (str)
@@ -25,11 +26,10 @@ class DiffractionCentroids():
         :param grp_number: image group number - used for writing csv (int)
         :param fixRanges: fixed peak ranges configured my users
         :param off_mer: configuration of off-meridian peaks configured my users
-        :param version: current version of Diffraction Centroids (This will affect cache downloading)
         """
         self.avgImg = self.mergeImages(dir_path, imgList) # avarage all image in a group
         self.dir_path = dir_path
-        self.version = version
+        self.version = musclex.__version__
         self.info = {
             "reject" : {"top":[], "bottom": [] }
         }

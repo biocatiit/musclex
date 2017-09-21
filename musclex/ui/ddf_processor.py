@@ -1,14 +1,14 @@
 __author__ = 'Jiranun.J'
-VERSION = '1.0'
 
 from PyQt4 import QtGui, QtCore
 import os, sys
 import pandas as pd
+import musclex
 
 class DDFWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.setWindowTitle("DDF-Processor v." + VERSION)
+        self.setWindowTitle("DDF-Processor v." + musclex.__version__)
         self.current_file = ""
         self.data = None
         self.colChkBxs = []
