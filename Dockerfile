@@ -4,6 +4,7 @@ RUN apt-get update
 RUN apt-get install -y python python-dev python-pip
 RUN apt-get install -y libjpeg-dev libopencv-dev python-opencv
 RUN apt-get install -y python-qt4
+RUN apt-get install -y cython
 RUN apt-get install -y pyfai
 RUN pip install --upgrade pip
 RUN pip install --upgrade musclex
