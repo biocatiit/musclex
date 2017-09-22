@@ -355,18 +355,19 @@ class BioMuscleWindow(QtGui.QMainWindow):
         fileMenu.addAction(clearCacheAction)
 
         launchManualAct = QtGui.QAction('User Manual', self)
-        launchManualAct.setShortcut('Ctrl+M')
+        # launchManualAct.setShortcut('Ctrl+M')
         launchManualAct.triggered.connect(self.launchManual)
         shortcutKeysAct = QtGui.QAction('Shortcut keys', self)
-        shortcutKeysAct.setShortcut('Ctrl+K')
+        # shortcutKeysAct.setShortcut('Ctrl+K')
         shortcutKeysAct.triggered.connect(self.showKeysHelpDialog)
         aboutAct = QtGui.QAction('About', self)
-        aboutAct.setShortcut('Ctrl+A')
+        # aboutAct.setShortcut('Ctrl+A')
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
+        helpMenu.addAction(aboutAct)
         helpMenu.addAction(launchManualAct)
         helpMenu.addAction(shortcutKeysAct)
-        helpMenu.addAction(aboutAct)
+        # helpMenu.addAction(aboutAct)
 
         #
         ### Status Bar ###
@@ -770,13 +771,13 @@ class BioMuscleWindow(QtGui.QMainWindow):
         Display About Dialog
         """
         msgBox = QtGui.QMessageBox()
-        msgBox.setWindowTitle(self.tr("About Bio-Muscle v." + self.version))
+        msgBox.setWindowTitle("About")
         msgBox.setTextFormat(QtCore.Qt.RichText)
         msgBox.setText("<br><br><br>" +
-                       "Bio-Muscle" +
-                       " v" +
+                       "This Bio-Muscle is running under" +
+                       "<h2>Muscle X v" +
                        self.version +
-                       "<br><br>" +
+                       "</h2><br><br>" +
                        "&copy;2017 BioCAT <br>" +
                        "<a href='{0}'>{0}</a><br><br>".format("http://www.bio.aps.anl.gov/") +
                        "Wiki Page : <br>" +
