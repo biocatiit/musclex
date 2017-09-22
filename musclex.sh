@@ -19,7 +19,7 @@ elif [ "$1" == "ddf" ]; then
 elif [ "$1" == "update" ]; then
     echo "biocat is updating"
     runapp=false
-    docker rmi $(docker images | grep 'biocat/biocat')
+    docker rmi $(docker images | grep 'biocat/musclex')
     docker pull biocat/biocat
 fi
 
