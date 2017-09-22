@@ -1616,8 +1616,8 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.minIntSpnBx.setMaximum(img.max())
         self.maxIntSpnBx.setMinimum(img.min())
         self.maxIntSpnBx.setMaximum(img.max())
-        self.minIntLabel.setText("Min Intensity </br>("+str(img.min())+")")
-        self.maxIntLabel.setText("Max Intensity </br>("+str(img.max())+")")
+        self.minIntLabel.setText("Min Intensity <br/>("+str(img.min())+")")
+        self.maxIntLabel.setText("Max Intensity <br/>("+str(img.max())+")")
         step = (img.max() - img.min()) * 0.07  # set spinboxes step as 7% of image range
         self.minIntSpnBx.setSingleStep(step)
         self.maxIntSpnBx.setSingleStep(step)
