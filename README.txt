@@ -1,11 +1,11 @@
-# Welcome to Muscle X Application Suite! 
+Welcome to Muscle X Application Suite! 
 The Muscle X program suite is a collection of programs intended to assist with analyzing diffraction X-ray images. 
 
-# The collection includes:
-* Bio-muscle (bm)
-* Quadrant Folding (qf)
-* Circular Projection (cp)
-* Diffraction Centroids (dc)
-* DDF Processor (ddf)
+The collection includes:
+- Bio-muscle (bm)
+- Quadrant Folding (qf)
+- Circular Projection (cp)
+- Diffraction Centroids (dc)
+- DDF Processor (ddf)
 
-## For more information, Please go to [wiki page](https://github.com/biocatiit/musclex/wiki)
+For more information, Please go to wiki page at https://github.com/biocatiit/musclex/wiki
