@@ -779,8 +779,10 @@ class BioMuscleWindow(QtGui.QMainWindow):
                        "<br><br>" +
                        "&copy;2017 BioCAT <br>" +
                        "<a href='{0}'>{0}</a><br><br>".format("http://www.bio.aps.anl.gov/") +
+                       "Wiki Page : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/wiki") +
                        "Send Feedback or Issues : <br>" +
-                       "<a href='{0}'>{0}</a><br><br>".format("https://bitbucket.org/biocatiit/biocat/"))
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
         msgBox.setStandardButtons(QtGui.QMessageBox.Ok)
         msgBox.exec_()
 
