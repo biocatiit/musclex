@@ -39,8 +39,8 @@ from PyQt4 import QtGui
 def main(arguments=None):
     if arguments is None:
         arguments = sys.argv
-    if len(arguments) == 1:
-        arguments = [arguments[0], 'bm']
+        
+    run = True
     if len(arguments) == 2:
         prog = arguments[1]
         if prog == 'bm':
@@ -64,9 +64,26 @@ def main(arguments=None):
             myapp = DDFWindow()
             sys.exit(app.exec_())
         else:
-            print "Please specify correct program shortcut i.e. bm, qf, cp"
+            run = False
     else:
-        print "please specify correct program shortcut i.e. bm, qf, cp"
+        run = False
+
+    if not run:
+        print "Please specify the program shortcut that you want to run"
+        print ""
+        print "  $ muscle [--program]"
+        print ""
+        print "          bm - Bio Muscle "
+        print "          qf - Quadrant Folding"
+        print "          cp - Circular Projection"
+        print "          dc - Diffraction Centroids"
+        print "          ddf - DDF Processor"
+        print ""
+        print "For example,"
+        print "\t$ musclex bm"
+        print
+        print "More details : https://www.github.com/biocatiit/musclex/wiki"
+        print "Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues"
 
 if __name__ == "__main__":
     main(sys.argv)

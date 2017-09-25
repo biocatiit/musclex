@@ -166,6 +166,7 @@ def getCenter(img):
 
     ##  Find init center by apply thresholding and fit ellipse to the contour which has the maximum size
     cimg = bkImg(copy.copy(img), 0.005, 50)
+    # display_test(cimg, "threshold")
 
     contours, _ = cv2.findContours(cimg, 1, 2)
     cnt = max(contours, key=lambda c: len(c))
@@ -175,7 +176,7 @@ def getCenter(img):
         # im = getBGR(img)
         # cv2.ellipse(im, ellipse, (0, 255, 0), 2)
         # cv2.circle(im, init_center, 2, (0, 0, 255), thickness=-1)
-        # display_test(cimg, "img+ellipse")
+        # display_test(im, "img+ellipse")
 
     ## Find center by apply thresholding and fit ellipse to the contour of reflections and find the average center of reflections
     if init_center is not None:
@@ -285,6 +286,15 @@ def getRotationAngle(img, center):
     I2D = I2D[:, :int(len(tth)/3.)]
     hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0
+
+    # import matplotlib.pyplot as plt
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # ax.plot(hist)
+    # ax.set_xlabel("Angle (degree)")
+    # ax.set_ylabel("Intensity")
+    # ax.set_title("Azimuthal Integration Histogram")
+    # fig.show()
 
     # Find degree which has maximum intensity
     max_degree = max(np.arange(180), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]) + np.sum(

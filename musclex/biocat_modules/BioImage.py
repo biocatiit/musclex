@@ -151,6 +151,15 @@ class BioImage:
             tth, I = ai.integrate1d(img, npt_rad, unit="r_mm") # Get 1D Azimuthal integrated histogram
             self.info['rmin'] = getFirstVallay(I) # R-min is value before the first valley
             self.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
+            #
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111)
+            # ax.plot(I[:int(len(I)/4)])
+            # ax.axvline(self.info['rmin'], color = 'r')
+            # ax.set_xlabel("radius (pixel)")
+            # ax.set_ylabel("intensity (pixel)")
+            # ax.set_xlim((0, len(I[:int(len(I)/4)])))
+            # fig.show()
 
         print "Done. R-min is", self.info['rmin']
 
@@ -643,6 +652,7 @@ class BioImage:
 def cardiacFit(x, centerX, S10, model, isSkeletal
                , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz
                , right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz, **kwargs):
+
     """
     Using for fitting model by lmfit
     :param x: x range (list)
@@ -660,6 +670,28 @@ def cardiacFit(x, centerX, S10, model, isSkeletal
     :param kwargs: area1, area2, ..., areaN as parameters or areas as a list
     :return:
     """
+    # print "center=", centerX
+    # print "S10=",S10
+    # print "model=",model
+    # print "isSkeletal=",isSkeletal
+    # print "left_sigmad=", left_sigmad
+    # print "left_sigmas=", left_sigmas
+    # print "left_sigmac=", left_sigmac
+    # print "left_gamma=", left_gamma
+    # print "left_intz=", left_intz
+    # print "left_sigmaz=", left_sigmaz
+    # print "left_zline=", left_zline
+    # print "left_gammaz=", left_gammaz
+    # print "right_sigmad=", right_sigmad
+    # print "right_sigmas=", right_sigmas
+    # print "right_sigmac=", right_sigmac
+    # print "right_gamma=", right_gamma
+    # print "right_intz=", right_intz
+    # print "right_sigmaz=", right_sigmaz
+    # print "right_zline=", right_zline
+    # print "right_gammaz=", right_gammaz
+    # print "kwargs=", kwargs
+    # print "======================"
     if kwargs is not None:
 
         if 'left_areas' in kwargs.keys() and 'right_areas' in kwargs.keys() :

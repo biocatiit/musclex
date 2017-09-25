@@ -186,7 +186,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.resultTab = QtGui.QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
         self.resultTabLayout = QtGui.QHBoxLayout(self.resultTab)
-        self.tabWidget.addTab(self.resultTab, "Result")
+        self.tabWidget.addTab(self.resultTab, "Results")
 
         self.resultFigure = plt.figure(facecolor='#606060')
         self.resultVLayout = QtGui.QVBoxLayout()
