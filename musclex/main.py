@@ -39,7 +39,7 @@ from PyQt4 import QtGui
 def main(arguments=None):
     if arguments is None:
         arguments = sys.argv
-        
+
     run = True
     if len(arguments) == 2:
         prog = arguments[1]
