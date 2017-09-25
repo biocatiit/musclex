@@ -63,6 +63,10 @@ def main(arguments=None):
             app = QtGui.QApplication(sys.argv)
             myapp = DDFWindow()
             sys.exit(app.exec_())
+        elif prog == 'lp':
+            app = QtGui.QApplication(sys.argv)
+            myapp = DDFWindow()
+            sys.exit(app.exec_())
         else:
             run = False
     else:

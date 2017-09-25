@@ -25,108 +25,78 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-from PyQt4 import QtGui, QtCore
+import matplotlib.pyplot as plt
+from PyQt4 import QtCore, QtGui
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import os, sys
 import pandas as pd
 import musclex
 
-class DDFWindow(QtGui.QMainWindow):
+class LayerLineProcessorGUI(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.setWindowTitle("DDF-Processor v." + musclex.__version__)
-        self.current_file = ""
-        self.data = None
-        self.colChkBxs = []
+        self.setWindowTitle("Layer Line Processor v." + musclex.__version__)
+        self.current_file = 0
+        self.imgList = []
+        self.layerProc = None
+        self.checkableButtons = []
         self.initUI()
-        self.setConnections()
+        # self.setConnections()
+
 
     def initUI(self):
         self.centralWidget = QtGui.QWidget(self)
         self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
-        self.inputField = QtGui.QLineEdit()
-        self.inputField.setEnabled(False)
+        self.tabWidget = QtGui.QTabWidget()
+        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget.setDocumentMode(False)
+        self.tabWidget.setTabsClosable(False)
+        self.tabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 200px; }")
 
-        self.browseFileButton = QtGui.QPushButton("Browse")
-
-        separator = QtGui.QFrame()
-        separator.setFrameShape(QtGui.QFrame.HLine)
-        separator.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        separator.setLineWidth(1)
-
-        separator2 = QtGui.QFrame()
-        separator2.setFrameShape(QtGui.QFrame.HLine)
-        separator2.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        separator2.setLineWidth(1)
-
-        self.columnGrid = QtGui.QGridLayout()
-
-        self.freqLayout = QtGui.QHBoxLayout()
-        self.freqSpnBx = QtGui.QSpinBox()
-        self.freqSpnBx.setValue(1)
-        # self.freqSpnBx.setSuffix(" point(s)")
-        self.freqLayout.addWidget(QtGui.QLabel("3. Average every : "))
-        self.freqLayout.addWidget(self.freqSpnBx)
-        self.freqLayout.addWidget(QtGui.QLabel("point(s)"))
+        self.imageTab = QtGui.QWidget()
+        self.imageTabLayer = QtGui.QHBoxLayout(self.imageTab)
+        self.displayImgFigure = plt.figure(facecolor='#606060')
+        self.imageVLayout = QtGui.QVBoxLayout()
+        self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
+        self.imageVLayout.addWidget(self.displayImgCanvas)
 
 
-        self.mainGrid = QtGui.QGridLayout()
-        self.mainGrid.addWidget(QtGui.QLabel("1. Input file : "), 0, 0, 1, 1)
-        self.mainGrid.addWidget(self.inputField, 0, 1, 1, 1)
-        self.mainGrid.addWidget(self.browseFileButton, 0, 2, 1, 1)
-        self.mainGrid.addWidget(separator, 1, 0, 1, 3)
-        self.mainGrid.addWidget(QtGui.QLabel("2. Column Selection"), 2, 0, 1, 3, alignment = QtCore.Qt.AlignCenter)
-        self.mainGrid.addLayout(self.columnGrid, 3, 0, 1, 3)
-        self.mainGrid.addWidget(separator2, 4, 0, 1, 3)
-        self.mainGrid.addLayout(self.freqLayout, 5, 0, 1, 3, alignment = QtCore.Qt.AlignCenter)
-        # self.mainGrid.addWidget(QtGui.QLabel("Average every : "), 3, 1, 1, 1, alignment = QtCore.Qt.AlignRight)
-        # self.mainGrid.addWidget(self.freqSpnBx, 3, 2, 1, 1)
-        self.columnGrid.rowMinimumHeight(50)
-        self.generateButton = QtGui.QPushButton("Generate")
-        self.generateButton.setFixedWidth(150)
-        self.generateButton.setEnabled(False)
-        
-        ### Status Bar ###
-        self.statusBar = QtGui.QStatusBar()
-        self.statusText = QtGui.QLabel("Please browse a data file")
-        self.progressBar = QtGui.QProgressBar()
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        self.statusBar.addWidget(self.statusText)
-        self.statusBar.addPermanentWidget(self.progressBar)
+        self.imageLeftFrame = QtGui.QFrame()
+        self.imageLeftFrame.setFixedWidth(200)
+        self.leftFrameLayout = QtGui.QVBoxLayout(self.imageLeftFrame)
 
-        self.mainLayout.addLayout(self.mainGrid)
-        self.mainLayout.addStretch()
-        self.mainLayout.addWidget(self.generateButton)
-        self.mainLayout.addWidget(self.statusBar)
-        self.mainLayout.setAlignment(self.generateButton, QtCore.Qt.AlignCenter)
+        self.browseImageButton = QtGui.QPushButton("Browse")
+        self.selectBoxButton = QtGui.QPushButton("Select Layer Line Box")
+        self.selectBoxButton.setCheckable(True)
+        self.checkableButtons.append(self.selectBoxButton)
+        self.selectPeaksButton = QtGui.QPushButton("Select Peak Locations")
+        self.selectPeaksButton.setCheckable(True)
+        self.checkableButtons.append(self.selectPeaksButton)
+
+        self.leftFrameLayout.addWidget(QtGui.QLabel("1. Select an image"))
+        self.leftFrameLayout.addWidget(self.browseImageButton)
+        self.leftFrameLayout.addWidget(QtGui.QLabel("2. Select layer line box"))
+        self.leftFrameLayout.addWidget(self.selectBoxButton)
+        self.leftFrameLayout.addWidget(QtGui.QLabel("3. Select Peaks"))
+        self.leftFrameLayout.addWidget(self.selectPeaksButton)
+
+        self.imageTabLayer.addWidget(self.imageLeftFrame)
+        self.imageTabLayer.addWidget(self.displayImgCanvas)
 
         self.show()
         self.resize(700, 50)
 
     def setConnections(self):
         self.browseFileButton.clicked.connect(self.browseFile)
-        self.generateButton.clicked.connect(self.generateFile)
 
-    def browseFile(self):
-        file_name = str(QtGui.QFileDialog.getOpenFileName(self, "Select a File"))
+    def browseFile(self, cancel_to_close = False):
+        file_name = str(QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'Images (*.tif)', None))
         if file_name != "":
-            _, ext = os.path.splitext(str(file_name))
-            if ext == ".txt" or ext == ".ddf":
-                self.current_file = file_name
-                self.inputField.setText(file_name)
-                self.processFile()
-                self.updateUI()
-            else:
-                errMsg = QtGui.QMessageBox()
-                errMsg.setText('Invalid Input')
-                errMsg.setInformativeText("Please select a .txt or .ddf file\n\n")
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
-                errMsg.exec_()
-                self.browseFile()
+            self.onImageSelect(file_name)
+        elif cancel_to_close:
+            sys.exit()
 
     def processFile(self):
         self.data = None
@@ -135,9 +105,9 @@ class DDFWindow(QtGui.QMainWindow):
         self.generateButton.setEnabled(False)
         QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
         for i, row in enumerate(open(self.current_file)):
-            if (i/100)%3 == 0:
+            if (i / 100) % 3 == 0:
                 self.statusText.setText(reading)
-            elif (i/100)%3 == 1:
+            elif (i / 100) % 3 == 1:
                 self.statusText.setText(reading + " .")
             else:
                 self.statusText.setText(reading + " . .")
@@ -156,8 +126,8 @@ class DDFWindow(QtGui.QMainWindow):
             r = row.rstrip("\n")
             r = r.rstrip("\r")
             line = r.split("\t")
-            line =  list(map(float, line))[:len(cols)]
-            d = dict(zip(cols,line))
+            line = list(map(float, line))[:len(cols)]
+            d = dict(zip(cols, line))
             self.data = self.data.append(d, ignore_index=True)
 
         # print self.data.head().to_string()
@@ -178,12 +148,12 @@ class DDFWindow(QtGui.QMainWindow):
         if self.data is not None:
             cols = list(self.data.columns)
             cols.remove("Sample")
-            for i,col_name in enumerate(cols):
-                r = i/3
-                c = (i%3)
+            for i, col_name in enumerate(cols):
+                r = i / 3
+                c = (i % 3)
                 col_cb = QtGui.QCheckBox(col_name)
                 self.colChkBxs.append(col_cb)
-                self.columnGrid.addWidget(col_cb, r, c , 1, 1)
+                self.columnGrid.addWidget(col_cb, r, c, 1, 1)
                 self.columnGrid.setAlignment(col_cb, QtCore.Qt.AlignCenter)
         self.resize(700, 50)
 
@@ -194,7 +164,7 @@ class DDFWindow(QtGui.QMainWindow):
         for i, c in enumerate(self.colChkBxs):
             if c.isChecked():
                 selected_cols.append(cols[i])
-        if len(selected_cols) == 0 :
+        if len(selected_cols) == 0:
             errMsg = QtGui.QMessageBox()
             errMsg.setText('No column selected')
             errMsg.setInformativeText("Please select at least 1 column.\n\n")
@@ -205,7 +175,8 @@ class DDFWindow(QtGui.QMainWindow):
         genData = self.data.groupby(self.data.index / self.freqSpnBx.value()).mean()
         genData = genData[selected_cols]
         dir_path, _ = os.path.split(str(self.inputField.text()))
-        output = str(QtGui.QFileDialog.getSaveFileName(self, "Save an output file", dir_path, "CSV (*.csv);; Excel (*.xlsx);; HTML (*.html)"))
+        output = str(QtGui.QFileDialog.getSaveFileName(self, "Save an output file", dir_path,
+                                                       "CSV (*.csv);; Excel (*.xlsx);; HTML (*.html)"))
         if output != "":
             _, ext = os.path.splitext(output)
             if ext == ".xlsx":
@@ -214,9 +185,4 @@ class DDFWindow(QtGui.QMainWindow):
                 genData.to_html(output, index=False)
             else:
                 genData.to_csv(output, index=False)
-            self.statusText.setText(output+" has been saved.")
-
-if __name__ == "__main__":
-    app = QtGui.QApplication(sys.argv)
-    myapp = DDFWindow()
-    sys.exit(app.exec_())
+            self.statusText.setText(output + " has been saved.")
