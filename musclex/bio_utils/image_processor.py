@@ -359,8 +359,11 @@ def rotateImage(img, center, angle, mask_thres = -999):
     :param angle: rotation angle
     :return: rotated image
     """
+    if angle == 0:
+        return img
+
     M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
-    size = max(img.shape[0], img.shape[1])
+    # size = max(img.shape[0], img.shape[1])
 
     if img.shape == (1043, 981):
         img = img.astype('float32')
@@ -368,13 +371,13 @@ def rotateImage(img, center, angle, mask_thres = -999):
             mask_thres = getMaskThreshold(img)
         mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
         mask[img <= mask_thres] = 255
-        rotated_img = cv2.warpAffine(img, M, (size, size))
-        rotated_mask = cv2.warpAffine(mask, M, (size, size))
+        rotated_img = cv2.warpAffine(img, M, (img.shape[0],  img.shape[1]))
+        rotated_mask = cv2.warpAffine(mask, M, (img.shape[0], img.shape[1]))
         rotated_mask[rotated_mask > 0.] = 255
         rotated_img[rotated_mask > 0] = mask_thres
         return rotated_img
     else:
-        return cv2.warpAffine(img, M, (size, size))
+        return cv2.warpAffine(img, M, (img.shape[0],  img.shape[1]))
 
 def getMaskThreshold(img):
     min_val = img.min()

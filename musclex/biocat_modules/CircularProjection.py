@@ -50,7 +50,6 @@ from musclex.bio_utils.image_processor import *
 import pickle
 import musclex
 
-
 class CircularProjection:
     """
     A class for Circular Projection processing - go to process() to see all processing steps

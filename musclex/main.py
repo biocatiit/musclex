@@ -33,6 +33,8 @@ from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
 from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
 from musclex.ui.circular_projection_v2 import CircularProjectionGUI
 from musclex.ui.ddf_processor import DDFWindow
+from musclex.ui.LayerLineTracesGUI import LayerLineTracesGUI
+
 import sys
 from PyQt4 import QtGui
 
@@ -65,7 +67,7 @@ def main(arguments=None):
             sys.exit(app.exec_())
         elif prog == 'lp':
             app = QtGui.QApplication(sys.argv)
-            myapp = DDFWindow()
+            myapp = LayerLineTracesGUI()
             sys.exit(app.exec_())
         else:
             run = False

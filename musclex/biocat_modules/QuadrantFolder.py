@@ -345,6 +345,11 @@ class QuadrantFolder(object):
         # Subtract original average fold by background
         self.info['bgimg1'] = copy_img - background
 
+        result_path = fullPath(self.img_path, "qf_results")
+        createFolder(result_path)
+        background = background.astype("float32")
+        imsave(fullPath(result_path, "cir_bg.tif"), background)
+
     def getFirstPeak(self, hist):
         # Start from index 5 and go to the right until slope is less than -10
         for i in range(5, len(hist)/2):
