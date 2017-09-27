@@ -2,16 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9d7c19e9-41bd-4f14-b219-b354dbeed836" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/Timesheet_Jiranun.xlsx" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/musclex/ui/LayerLineProcessorGUI.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/stylesheet.txt" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.so" afterPath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.so" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/bio_utils/image_processor.py" afterPath="$PROJECT_DIR$/musclex/bio_utils/image_processor.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/CircularProjection.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/CircularProjection.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/__init__.py" afterPath="$PROJECT_DIR$/musclex/__init__.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/main.py" afterPath="$PROJECT_DIR$/musclex/main.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py" afterPath="$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -25,20 +21,28 @@
       <file leaf-file-name="BioMuscleWindow.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="165">
-              <caret line="700" column="44" lean-forward="false" selection-start-line="700" selection-start-column="34" selection-end-line="700" selection-end-column="44" />
-              <folding>
-                <element signature="e#1344#1354#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="-689">
+              <caret line="1477" column="24" lean-forward="true" selection-start-line="1477" selection-start-column="24" selection-end-line="1477" selection-end-column="24" />
+              <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="LayerLineTracesGUI.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="__init__.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/musclex/__init__.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="405">
+              <caret line="27" column="20" lean-forward="false" selection-start-line="27" selection-start-column="20" selection-end-line="27" selection-end-column="20" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="LayerLineTracesGUI.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="440">
-              <caret line="298" column="31" lean-forward="false" selection-start-line="298" selection-start-column="31" selection-end-line="298" selection-end-column="31" />
+            <state relative-caret-position="290">
+              <caret line="705" column="27" lean-forward="false" selection-start-line="705" selection-start-column="27" selection-end-line="705" selection-end-column="27" />
               <folding>
                 <element signature="e#1344#1375#0" expanded="true" />
               </folding>
@@ -50,27 +54,39 @@
         <entry file="file://$PROJECT_DIR$/musclex/bio_utils/image_processor.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="165">
-              <caret line="324" column="4" lean-forward="false" selection-start-line="324" selection-start-column="4" selection-end-line="324" selection-end-column="4" />
+              <caret line="357" column="14" lean-forward="false" selection-start-line="357" selection-start-column="14" selection-end-line="357" selection-end-column="14" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="QTabWidget.py" pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/Library/Caches/PyCharmCE2017.2/python_stubs/-1247972723/PyQt4/QtGui/QTabWidget.py">
+      <file leaf-file-name="LayerLineTab.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/ui/LayerLineTab.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="135">
-              <caret line="12" column="22" lean-forward="false" selection-start-line="12" selection-start-column="22" selection-end-line="12" selection-end-column="22" />
+            <state relative-caret-position="488">
+              <caret line="58" column="15" lean-forward="true" selection-start-line="58" selection-start-column="15" selection-end-line="58" selection-end-column="15" />
+              <folding>
+                <element signature="e#1343#1374#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="QuadrantFolder.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="448">
+              <caret line="101" column="59" lean-forward="false" selection-start-line="101" selection-start-column="59" selection-end-line="101" selection-end-column="59" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="QWidget.py" pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/Library/Caches/PyCharmCE2017.2/python_stubs/-1247972723/PyQt4/QtGui/QWidget.py">
+      <file leaf-file-name="QuadrantFoldingGUI.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-2495">
-              <caret line="12" column="6" lean-forward="false" selection-start-line="12" selection-start-column="6" selection-end-line="12" selection-end-column="6" />
+            <state relative-caret-position="165">
+              <caret line="1279" column="12" lean-forward="false" selection-start-line="1279" selection-start-column="8" selection-end-line="1279" selection-end-column="12" />
               <folding />
             </state>
           </provider>
@@ -79,12 +95,10 @@
       <file leaf-file-name="LayerLineProcessor.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="266">
-              <caret line="125" column="38" lean-forward="false" selection-start-line="125" selection-start-column="38" selection-end-line="125" selection-end-column="38" />
+            <state relative-caret-position="306">
+              <caret line="64" column="41" lean-forward="false" selection-start-line="64" selection-start-column="41" selection-end-line="64" selection-end-column="41" />
               <folding>
                 <element signature="e#1344#1358#0" expanded="true" />
-                <element signature="e#2564#3099#0" expanded="false" />
-                <element signature="e#3141#3988#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -101,41 +115,45 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
+      <find>on</find>
+      <find>propLayout</find>
+      <find>propGrp</find>
+      <find>nextButton</find>
+      <find>Pattern Prop</find>
+      <find>currentImg</find>
+      <find>onimage</find>
+      <find>init</find>
+      <find>maxIntSpnBx</find>
+      <find>addLa</find>
+      <find>tight</find>
       <find>onimagese</find>
-      <find>plt</find>
-      <find>setconnec</find>
-      <find>setMin</find>
-      <find>Select</find>
-      <find>ect Layer Line</find>
-      <find>stConne</find>
-      <find>addboex</find>
-      <find>boxes</find>
-      <find>selectPeaksButton</find>
-      <find>getSettings</find>
-      <find>ge</find>
-      <find>layerlineboxes</find>
-      <find>zoomin</find>
-      <find>reset</find>
-      <find>ftStatus( &quot;(&quot; + str(self.currentImg + 1) + &quot;/&quot; + str(len(self.imgList)) + &quot;) &quot; + fullPath(self.dir_path,</find>
-      <find>update_plot</find>
-      <find>imgZoomIn</find>
-      <find>imgZoomIn(se</find>
-      <find>updateImageTab</find>
-      <find>updateImage</find>
-      <find>Select Layer Line Boxe</find>
-      <find>Full</find>
-      <find>imgZoomInB</find>
-      <find>ax.pa</find>
-      <find>updateImage(se</find>
-      <find>del ax.li</find>
+      <find>remove</find>
+      <find>LayerLineTab import LayerLineTab</find>
+      <find>updateUI</find>
+      <find>onimagechan</find>
+      <find>tabWidget</find>
+      <find>tabWidgettabWidget</find>
+      <find>addtab</find>
+      <find>addpeaks</find>
+      <find>add</find>
+      <find>removeInfo</find>
+      <find>addbo</find>
+      <find>addLayerLineTabs</find>
+      <find>imgScrolled</find>
+      <find>setConnet</find>
       <find>getNewZoom</find>
-      <find>getnew</find>
-      <find>selectBoxButton</find>
+      <find>img_size</find>
+      <find>img_size =</find>
+      <find>leaveI</find>
     </findStrings>
     <replaceStrings>
       <replace>=&quot;,</replace>
       <replace>print</replace>
       <replace>setRotationButton</replace>
+      <replace>orig_img</replace>
+      <replace>current_file</replace>
+      <replace>layerProc</replace>
+      <replace>rightFrameLayout</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -162,29 +180,30 @@
         <option value="$PROJECT_DIR$/musclex/csv_manager/BM_CVSManager.py" />
         <option value="$PROJECT_DIR$/musclex/bio_utils/file_manager.py" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/BioImage.py" />
-        <option value="$PROJECT_DIR$/musclex/__init__.py" />
         <option value="$PROJECT_DIR$/musclex/ui/__init__.py" />
         <option value="$PROJECT_DIR$/musclex/ui/BM_FittingTab.py" />
         <option value="$PROJECT_DIR$/musclex/ui/BMStartWindow.py" />
         <option value="$PROJECT_DIR$/musclex/ui/circular_projection_v2.py" />
         <option value="$PROJECT_DIR$/musclex/ui/ddf_processor.py" />
         <option value="$PROJECT_DIR$/musclex/ui/diffraction_centroids.py" />
-        <option value="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" />
-        <option value="$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py" />
         <option value="$PROJECT_DIR$/musclex/ui/LayerLineProcessorGUI.py" />
         <option value="$PROJECT_DIR$/musclex/main.py" />
         <option value="$PROJECT_DIR$/musclex/bio_utils/image_processor.py" />
-        <option value="$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/CircularProjection.py" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.pyx" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py" />
+        <option value="$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py" />
+        <option value="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" />
+        <option value="$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py" />
+        <option value="$PROJECT_DIR$/musclex/ui/LayerLineTab.py" />
         <option value="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" />
+        <option value="$PROJECT_DIR$/musclex/__init__.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
     <option name="x" value="14" />
-    <option name="y" value="24" />
+    <option name="y" value="23" />
     <option name="width" value="1905" />
     <option name="height" value="1053" />
   </component>
@@ -206,6 +225,8 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
+      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -257,8 +278,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scratches" />
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -374,20 +393,20 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="14" y="24" width="1905" height="1053" extended-state="0" />
+    <frame x="14" y="23" width="1905" height="1053" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.26838434" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.27106816" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32985386" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32925585" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.39874738" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39874738" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -428,16 +447,6 @@
           <line>82</line>
           <option name="timeStamp" value="7" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py</url>
-          <line>344</line>
-          <option name="timeStamp" value="26" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py</url>
-          <line>343</line>
-          <option name="timeStamp" value="27" />
-        </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -446,24 +455,17 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="28" />
+      <option name="time" value="42" />
     </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
         <watch expression="img.shape" language="Python" />
+        <watch expression="x+w, y+h/2." language="Python" />
+        <watch expression="self.layerlineboxes" language="Python" />
       </configuration>
     </watches-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/stylesheet.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-276">
-          <caret line="23" column="43" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="71" selection-end-column="56" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/README.md" />
-    <entry file="file://$PROJECT_DIR$/README.txt" />
     <entry file="file://$PROJECT_DIR$/requirements">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
@@ -503,14 +505,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.c">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/musclex/csv_manager/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="390">
@@ -544,7 +538,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -552,9 +545,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#26#41#0" expanded="false" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -569,9 +559,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#26#41#0" expanded="false" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -600,7 +587,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="405">
           <caret line="27" column="0" lean-forward="false" selection-start-line="27" selection-start-column="0" selection-end-line="27" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -618,7 +604,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="390">
           <caret line="26" column="3" lean-forward="false" selection-start-line="26" selection-start-column="3" selection-end-line="26" selection-end-column="3" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -646,7 +631,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="285">
           <caret line="19" column="42" lean-forward="false" selection-start-line="19" selection-start-column="42" selection-end-line="19" selection-end-column="42" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -672,25 +656,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="356">
           <caret line="61" column="31" lean-forward="true" selection-start-line="60" selection-start-column="8" selection-end-line="61" selection-end-column="31" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="405">
-          <caret line="27" column="0" lean-forward="false" selection-start-line="27" selection-start-column="0" selection-end-line="27" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/ui/BM_FittingTab.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="434">
-          <caret line="40" column="8" lean-forward="false" selection-start-line="40" selection-start-column="8" selection-end-line="40" selection-end-column="36" />
-          <folding>
-            <element signature="e#1343#1374#0" expanded="false" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -698,23 +663,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="150">
           <caret line="89" column="0" lean-forward="true" selection-start-line="89" selection-start-column="0" selection-end-line="101" selection-end-column="32" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="281">
-          <caret line="1450" column="12" lean-forward="false" selection-start-line="1450" selection-start-column="12" selection-end-line="1450" selection-end-column="53" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/ui/circular_projection_v2.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="148">
-          <caret line="1047" column="8" lean-forward="false" selection-start-line="1047" selection-start-column="8" selection-end-line="1049" selection-end-column="25" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -722,7 +670,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="360">
           <caret line="24" column="0" lean-forward="false" selection-start-line="24" selection-start-column="0" selection-end-line="24" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -730,9 +677,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="631">
           <caret line="51" column="0" lean-forward="false" selection-start-line="51" selection-start-column="0" selection-end-line="51" selection-end-column="0" />
-          <folding>
-            <element signature="e#1343#1353#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -740,7 +684,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="60">
           <caret line="7" column="25" lean-forward="false" selection-start-line="7" selection-start-column="25" selection-end-line="7" selection-end-column="25" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -752,21 +695,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="308">
-          <caret line="53" column="47" lean-forward="true" selection-start-line="53" selection-start-column="47" selection-end-line="53" selection-end-column="47" />
-          <folding>
-            <element signature="e#1344#1353#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.pyx">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="220">
           <caret line="494" column="54" lean-forward="false" selection-start-line="494" selection-start-column="54" selection-end-line="494" selection-end-column="54" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -778,21 +710,9 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
-          <caret line="125" column="38" lean-forward="false" selection-start-line="125" selection-start-column="38" selection-end-line="125" selection-end-column="38" />
-          <folding>
-            <element signature="e#1344#1358#0" expanded="true" />
-            <element signature="e#2564#3099#0" expanded="false" />
-            <element signature="e#3141#3988#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/Library/Caches/PyCharmCE2017.2/python_stubs/-1247972723/PyQt4/QtGui/QWidget.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-2495">
+        <state relative-caret-position="135">
           <caret line="12" column="6" lean-forward="false" selection-start-line="12" selection-start-column="6" selection-end-line="12" selection-end-column="6" />
           <folding />
         </state>
@@ -806,12 +726,78 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py">
+    <entry file="file://$PROJECT_DIR$/musclex/ui/circular_projection_v2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="178">
+          <caret line="588" column="98" lean-forward="true" selection-start-line="588" selection-start-column="12" selection-end-line="588" selection-end-column="98" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///usr/local/lib/python2.7/site-packages/requests/models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-106">
+          <caret line="830" column="8" lean-forward="false" selection-start-line="830" selection-start-column="8" selection-end-line="830" selection-end-column="8" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/ui/BM_FittingTab.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-163">
+          <caret line="14" column="52" lean-forward="true" selection-start-line="14" selection-start-column="52" selection-end-line="14" selection-end-column="52" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///usr/local/lib/python2.7/site-packages/matplotlib/cbook.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="182">
+          <caret line="415" column="0" lean-forward="false" selection-start-line="415" selection-start-column="0" selection-end-line="415" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="306">
+          <caret line="64" column="41" lean-forward="false" selection-start-line="64" selection-start-column="41" selection-end-line="64" selection-end-column="41" />
+          <folding>
+            <element signature="e#1344#1358#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="448">
+          <caret line="101" column="59" lean-forward="false" selection-start-line="101" selection-start-column="59" selection-end-line="101" selection-end-column="59" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="165">
-          <caret line="700" column="44" lean-forward="false" selection-start-line="700" selection-start-column="34" selection-end-line="700" selection-end-column="44" />
+          <caret line="1279" column="12" lean-forward="false" selection-start-line="1279" selection-start-column="8" selection-end-line="1279" selection-end-column="12" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/ui/LayerLineTab.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="488">
+          <caret line="58" column="15" lean-forward="true" selection-start-line="58" selection-start-column="15" selection-end-line="58" selection-end-column="15" />
           <folding>
-            <element signature="e#1344#1354#0" expanded="true" />
+            <element signature="e#1343#1374#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -819,18 +805,34 @@
     <entry file="file://$PROJECT_DIR$/musclex/bio_utils/image_processor.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="165">
-          <caret line="324" column="4" lean-forward="false" selection-start-line="324" selection-start-column="4" selection-end-line="324" selection-end-column="4" />
+          <caret line="357" column="14" lean-forward="false" selection-start-line="357" selection-start-column="14" selection-end-line="357" selection-end-column="14" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="440">
-          <caret line="298" column="31" lean-forward="false" selection-start-line="298" selection-start-column="31" selection-end-line="298" selection-end-column="31" />
+        <state relative-caret-position="290">
+          <caret line="705" column="27" lean-forward="false" selection-start-line="705" selection-start-column="27" selection-end-line="705" selection-end-column="27" />
           <folding>
             <element signature="e#1344#1375#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-689">
+          <caret line="1477" column="24" lean-forward="true" selection-start-line="1477" selection-start-column="24" selection-end-line="1477" selection-end-column="24" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="405">
+          <caret line="27" column="20" lean-forward="false" selection-start-line="27" selection-start-column="20" selection-end-line="27" selection-end-column="20" />
+          <folding />
         </state>
       </provider>
     </entry>

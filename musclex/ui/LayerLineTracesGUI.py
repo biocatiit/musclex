@@ -34,6 +34,7 @@ import matplotlib.patches as patches
 from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
 from musclex.bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
 from musclex.biocat_modules.LayerLineProcessor import LayerLineProcessor
+from musclex.ui.LayerLineTab import LayerLineTab
 from musclex.bio_utils.image_processor import getBGR, get8bitImage, getNewZoom
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import sys
@@ -58,6 +59,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.img_zoom = None
         self.function = None
         self.layerlineboxes = []
+        self.peaks = []
         self.qf = None
         self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
@@ -97,30 +99,30 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.selectImageLayout.addWidget(self.browseImageButton)
 
         # Pattern Properties
-        self.propGrp = QtGui.QGroupBox("2. Pattern Properties")
+        self.propGrp = QtGui.QGroupBox("2. Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QtGui.QGridLayout(self.propGrp)
         self.calibrateButton = QtGui.QPushButton("Calibration Settings")
-        self.quadFoldButton = QtGui.QPushButton("Quadrant Folding")
-        self.setCenterButton = QtGui.QPushButton("Set Rotation and Center")
-        self.setCenterButton.setCheckable(True)
-        self.checkableButtons.append(self.setCenterButton)
-        self.setRotationButton = QtGui.QPushButton("Set Rotation Angle")
-        self.setRotationButton.setCheckable(True)
-        self.checkableButtons.append(self.setRotationButton)
-        self.lockAngleChkBx = QtGui.QCheckBox("Lock Angle")
-        self.lockAngleSpnBx = QtGui.QSpinBox()
-        self.lockAngleSpnBx.setEnabled(False)
-        self.lockAngleSpnBx.setRange(-180, 180)
-        self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 2)
-        self.propLayout.addWidget(self.quadFoldButton, 1, 0, 1, 2)
-        self.propLayout.addWidget(self.setCenterButton, 2, 0, 1, 2)
-        self.propLayout.addWidget(self.setRotationButton, 3, 0, 1, 2)
-        self.propLayout.addWidget(self.lockAngleChkBx, 4, 0, 1, 1)
-        self.propLayout.addWidget(self.lockAngleSpnBx, 4, 1, 1, 1)
+        # self.quadFoldButton = QtGui.QPushButton("Quadrant Folding")
+        # self.setCenterButton = QtGui.QPushButton("Set Rotation and Center")
+        # self.setCenterButton.setCheckable(True)
+        # self.checkableButtons.append(self.setCenterButton)
+        # self.setRotationButton = QtGui.QPushButton("Set Rotation Angle")
+        # self.setRotationButton.setCheckable(True)
+        # self.checkableButtons.append(self.setRotationButton)
+        # self.lockAngleChkBx = QtGui.QCheckBox("Lock Angle")
+        # self.lockAngleSpnBx = QtGui.QSpinBox()
+        # self.lockAngleSpnBx.setEnabled(False)
+        # self.lockAngleSpnBx.setRange(-180, 180)
+        self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 1)
+        # self.propLayout.addWidget(self.quadFoldButton, 1, 0, 1, 2)
+        # self.propLayout.addWidget(self.setCenterButton, 2, 0, 1, 2)
+        # self.propLayout.addWidget(self.setRotationButton, 3, 0, 1, 2)
+        # self.propLayout.addWidget(self.lockAngleChkBx, 4, 0, 1, 1)
+        # self.propLayout.addWidget(self.lockAngleSpnBx, 4, 1, 1, 1)
 
         # Layer Line selection
-        self.layerlineBoxGrp = QtGui.QGroupBox("3. Layer line box")
+        self.layerlineBoxGrp = QtGui.QGroupBox("3. Layer line boxes")
         self.layerlineBoxGrp.setEnabled(False)
         self.layerlineBoxLayout = QtGui.QVBoxLayout(self.layerlineBoxGrp)
         self.selectBoxButton = QtGui.QPushButton("Select Layer Line Boxes")
@@ -156,6 +158,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
         self.boxesChkBx = QtGui.QCheckBox("Layer Line Boxes")
         self.boxesChkBx.setChecked(True)
+        self.peaksChkBx = QtGui.QCheckBox("Peaks")
+        self.peaksChkBx.setChecked(True)
         self.imgZoomInB = QtGui.QPushButton("Zoom In")
         self.imgZoomInB.setCheckable(True)
         self.imgZoomOutB = QtGui.QPushButton("Full")
@@ -166,18 +170,27 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.minIntSpnBx.setKeyboardTracking(False)
         self.maxIntLabel = QtGui.QLabel("Max Intensity")
         self.maxIntSpnBx = QtGui.QDoubleSpinBox()
+        self.maxIntSpnBx.setValue(0)
         self.maxIntSpnBx.setKeyboardTracking(False)
 
         self.dispOptLayout.addWidget(self.boxesChkBx, 0, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 1, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 1, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntLabel, 2, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntSpnBx, 2, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntSpnBx, 3, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.peaksChkBx, 1, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomInB, 2, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.imgZoomOutB, 2, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.minIntLabel, 3, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.minIntSpnBx, 3, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.maxIntLabel, 4, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.maxIntSpnBx, 4, 1, 1, 1)
 
+        # next previos buttons
+        self.nextButton = QtGui.QPushButton(">>>")
+        self.prevButton = QtGui.QPushButton(">>>")
+        self.pnLayout = QtGui.QHBoxLayout()
+        self.pnLayout.addWidget(self.nextButton)
+        self.pnLayout.addWidget(self.prevButton)
         self.rightFrameLayout.addWidget(self.dispOptGrp)
         self.rightFrameLayout.addStretch()
+        self.rightFrameLayout.addLayout(self.pnLayout)
 
         self.imageTabLayer.addWidget(self.imageLeftFrame)
         self.imageTabLayer.addWidget(self.displayImgCanvas)
@@ -210,21 +223,48 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         Set connection for interactive widgets
         """
+        self.tabWidget.currentChanged.connect(self.updateUI)
+
+        # Image seletion
         self.browseImageButton.clicked.connect(self.browseFile)
-        self.lockAngleChkBx.stateChanged.connect(self.lockAngle)
-        self.quadFoldButton.clicked.connect(self.launchQF)
+
+        # # Pattern Properties
+        # self.lockAngleChkBx.stateChanged.connect(self.lockAngle)
+        # self.quadFoldButton.clicked.connect(self.launchQF)
+        # self.setCenterButton.clicked.connect(self.setAngleAndCenterClicked)
+        # self.setRotationButton.clicked.connect(self.setAngleClicked)
+
+        # Display options
         self.maxIntSpnBx.valueChanged.connect(self.updateImage)
         self.minIntSpnBx.valueChanged.connect(self.updateImage)
         self.boxesChkBx.stateChanged.connect(self.updateImage)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
+        # select boxes
         self.selectBoxButton.clicked.connect(self.addBoxes)
+
+        # select peaks
         self.selectPeaksButton.clicked.connect(self.addPeaks)
+
+        self.prevButton.clicked.connect(self.prevClicked)
+        self.nextButton.clicked.connect(self.nextClicked)
 
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
+        self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
+        self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
+
+    def clearImage(self):
+        ax = self.displayImgFigure.add_subplot(111)
+        del ax.lines
+        ax.lines = []
+        del ax.patches
+        ax.patches = []
+        del ax.texts
+        ax.texts = []
+        self.displayImgCanvas.draw_idle()
 
     def imgZoomIn(self):
         """
@@ -232,12 +272,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         if self.imgZoomInB.isChecked():
             self.setLeftStatus("Please select zoom-in area by clicking 2 points to make a rectangle (ESC to cancel)")
-            ax = self.displayImgFigure.add_subplot(111)
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
-            self.displayImgCanvas.draw_idle()
+            self.clearImage()
             self.function = ["im_zoomin"]
         else:
             self.function = None
@@ -268,34 +303,28 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
         if self.selectPeaksButton.isChecked():
             # Start function
-            self.selectPeaksButton.setText("Done")
-            self.setLeftStatus(
-                "Add Boxes to the image by drawing rectangles, press Done when all boxes added (ESC to cancel)")
-            self.function = ['peaks']
-            for i in range(len(self.layerlineboxes)):
-                self.function.append([])
-            ax = self.displayImgFigure.add_subplot(111)
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
-            self.displayImgCanvas.draw_idle()
+            if self.function is None:
+                self.selectPeaksButton.setText("Done")
+                self.setLeftStatus(
+                    "Add peaks to boxes by clicking inside a box (ESC to cancel)")
+                self.function = ['peaks']
+                peaks = []
+                for _ in range(len(self.layerlineboxes)):
+                    peaks.append([])
+                ax = self.displayImgFigure.add_subplot(111)
+                del ax.lines
+                ax.lines = []
+                self.displayImgCanvas.draw_idle()
+                self.function.append(peaks)
+            else:
+                # ignore if there're other function being active
+                self.selectPeaksButton.setChecked(False)
+                return
         else:
-            if self.function is not None and len(self.function) > 2:
+            if self.function is not None and len(self.function) == 2:
                 # When Done clicked
-                all_points = self.function[1:]
-                if len(all_points) > 1:
-                    if len(all_points) % 2 != 0:
-                        all_points = all_points[:-1]
-                    self.layerlineboxes = []
-                    for i in np.arange(0, len(all_points), 2):
-                        w = int(round(abs(all_points[i][0] - all_points[i + 1][0])))
-                        h = int(round(abs(all_points[i][1] - all_points[i + 1][1])))
-                        x = int(round(min(all_points[i][0], all_points[i + 1][0])))
-                        y = int(round(min(all_points[i][1], all_points[i + 1][1])))
-                        self.layerlineboxes.append(((x, y), (w, h)))
-                    self.addLayerLineTabs()
-            self.selectPeaksButton.setText("Select Approximate Peak Locations")
+                self.peaks = self.function[1]
+                self.layerProc.removeInfo('fit_resutls')
             self.processImage()
 
     def addBoxes(self):
@@ -308,16 +337,15 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             return
 
         if self.selectBoxButton.isChecked():
-            # Start function
-            self.selectBoxButton.setText("Done")
-            self.setLeftStatus("Add Boxes to the image by drawing rectangles, press Done when all boxes added (ESC to cancel)")
-            self.function = ['box']
-            ax = self.displayImgFigure.add_subplot(111)
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
-            self.displayImgCanvas.draw_idle()
+            if self.function is None:
+                # Start function
+                self.selectBoxButton.setText("Done")
+                self.setLeftStatus("Add Boxes to the image by drawing rectangles, press Done when all boxes added (ESC to cancel)")
+                self.function = ['box']
+                self.clearImage()
+            else:
+                self.selectBoxButton.setChecked(False)
+                return
         else:
             if self.function is not None and len(self.function) > 2:
                 # When Done clicked
@@ -327,23 +355,73 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
                         all_points = all_points[:-1]
                     self.layerlineboxes = []
                     for i in np.arange(0, len(all_points), 2):
-                        w = int(round(abs(all_points[i][0] - all_points[i+1][0])))
-                        h = int(round(abs(all_points[i][1] - all_points[i+1][1])))
-                        x = int(round(min(all_points[i][0], all_points[i+1][0])))
-                        y = int(round(min(all_points[i][1], all_points[i+1][1])))
-                        self.layerlineboxes.append(((x,y),(w,h)))
-                    self.removeLayerLineTabs()
-            self.selectBoxButton.setText("Select Layer Line Boxes")
+                        x1 = int(round(min(all_points[i][0], all_points[i + 1][0])))
+                        y1 = int(round(min(all_points[i][1], all_points[i + 1][1])))
+                        x2 = int(round(max(all_points[i][0], all_points[i + 1][0])))
+                        y2 = int(round(max(all_points[i][1], all_points[i + 1][1])))
+                        self.layerlineboxes.append(((x1,x2),(y1,y2)))
+                    self.peaks = []
+                    self.addLayerLineTabs()
+                    self.layerProc.removeInfo('hists')
             self.processImage()
+
+    def keyPressEvent(self, event):
+        """
+        Manage key press event on keyboard
+        """
+        key = event.key()
+
+        if key == QtCore.Qt.Key_Right:
+            self.nextClicked()
+        elif key == QtCore.Qt.Key_Left:
+            self.prevClicked()
+        elif key == QtCore.Qt.Key_Escape:
+            self.resetUI()
+        elif key == QtCore.Qt.Key_D:
+            self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())
+        elif key == QtCore.Qt.Key_A:
+            self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() - 1) % self.tabWidget.count())
+        elif key == QtCore.Qt.Key_S:
+            self.maxIntSpnBx.stepDown()
+        elif key == QtCore.Qt.Key_W:
+            self.maxIntSpnBx.stepUp()
+        elif key == QtCore.Qt.Key_Q:
+            self.close()
+
+    def prevClicked(self):
+        """
+        Going to the previous image
+        """
+        self.current_file = (self.current_file - 1) % len(self.imgList)
+        self.onImageChanged()
+
+    def nextClicked(self):
+        """
+        Going to the next image
+        """
+        self.current_file = (self.current_file + 1) % len(self.imgList)
+        self.onImageChanged()
 
     def removeLayerLineTabs(self):
         """
-        Remove old layer line tabs and add new layer line tabs
+        Remove old layer line tabs
         :return:
         """
         while self.tabWidget.count() > 1:
             self.tabWidget.removeTab(1)
-        # self.tabWidget.removeTab()
+        self.all_tabs = []
+
+    def addLayerLineTabs(self):
+        """
+        Add old layer line tabs
+        :return:
+        """
+        self.removeLayerLineTabs()
+
+        for i in range(len(self.layerlineboxes)):
+            layerline_tab = LayerLineTab(self, i)
+            self.all_tabs.append(layerline_tab)
+            self.tabWidget.addTab(layerline_tab, "Layer Line "+str(i+1))
 
     def imgClicked(self, event):
         """
@@ -378,54 +456,54 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # Provide different behavior depending on current active function
         if func is None:
             self.function = ["im_move", (x, y)]
-        elif func[0] == "angle_center":
-            # draw X at points and a line between points
-            ax = self.displayImgFigure.add_subplot(111)
-            axis_size = 5
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.displayImgCanvas.draw_idle()
-            func.append((x, y))
-            if len(func) == 3:
-                if func[1][0] < func[2][0]:
-                    x1, y1 = func[1]
-                    x2, y2 = func[2]
-                else:
-                    x1, y1 = func[2]
-                    x2, y2 = func[1]
-
-                if abs(x2 - x1) == 0:
-                    new_angle = -90
-                else:
-                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                # new_angle += 90.
-
-                cx = int(round((x1 + x2) / 2.))
-                cy = int(round((y1 + y2) / 2.))
-                M = cv2.getRotationMatrix2D(tuple(self.layerProc.info['center']), self.layerProc.info['rotationAngle'], 1)
-                invM = cv2.invertAffineTransform(M)
-                homo_coords = [cx, cy, 1.]
-                new_center = np.dot(invM, homo_coords)
-                # Set new center and rotaion angle , re-calculate R-min
-                self.layerProc.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
-                self.layerProc.info['rotationAngle'] = self.layerProc.info['rotationAngle'] + new_angle
-                self.layerProc.removeInfo('hists')
-                self.setCenterButton.setChecked(False)
-                self.processImage()
-        elif func[0] == "angle":
-            center = self.layerProc.info['center']
-            x1 = center[0]
-            y1 = center[1]
-            if abs(x - x1) == 0:
-                new_angle = -90
-            else:
-                new_angle = -180. * np.arctan((y1 - y) / (x1 - x)) / np.pi
-
-            # Set new rotaion angle , re-calculate from R-min calculation process
-            self.layerProc.info['rotationAngle'] = self.layerProc.info['rotationAngle'] - new_angle
-            self.layerProc.removeInfo('hists')
-            self.setRotationButton.setChecked(False)
-            self.processImage()
+        # elif func[0] == "angle_center":
+        #     # draw X at points and a line between points
+        #     ax = self.displayImgFigure.add_subplot(111)
+        #     axis_size = 5
+        #     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+        #     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        #     self.displayImgCanvas.draw_idle()
+        #     func.append((x, y))
+        #     if len(func) == 3:
+        #         if func[1][0] < func[2][0]:
+        #             x1, y1 = func[1]
+        #             x2, y2 = func[2]
+        #         else:
+        #             x1, y1 = func[2]
+        #             x2, y2 = func[1]
+        #
+        #         if abs(x2 - x1) == 0:
+        #             new_angle = -90
+        #         else:
+        #             new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
+        #         # new_angle += 90.
+        #
+        #         cx = int(round((x1 + x2) / 2.))
+        #         cy = int(round((y1 + y2) / 2.))
+        #         M = cv2.getRotationMatrix2D(tuple(self.layerProc.info['center']), self.layerProc.info['rotationAngle'], 1)
+        #         invM = cv2.invertAffineTransform(M)
+        #         homo_coords = [cx, cy, 1.]
+        #         new_center = np.dot(invM, homo_coords)
+        #         # Set new center and rotaion angle , re-calculate R-min
+        #         self.layerProc.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+        #         self.layerProc.info['rotationAngle'] = self.layerProc.info['rotationAngle'] + new_angle
+        #         self.layerProc.removeInfo('hists')
+        #         self.setCenterButton.setChecked(False)
+        #         self.processImage()
+        # elif func[0] == "angle":
+        #     center = self.layerProc.info['center']
+        #     x1 = center[0]
+        #     y1 = center[1]
+        #     if abs(x - x1) == 0:
+        #         new_angle = -90
+        #     else:
+        #         new_angle = -180. * np.arctan((y1 - y) / (x1 - x)) / np.pi
+        #
+        #     # Set new rotaion angle , re-calculate from R-min calculation process
+        #     self.layerProc.info['rotationAngle'] = self.layerProc.info['rotationAngle'] - new_angle
+        #     self.layerProc.removeInfo('hists')
+        #     self.setRotationButton.setChecked(False)
+        #     self.processImage()
         elif func[0] == "box":
             func.append((x, y))
             if len(func) < 3 or (len(func)-1)%2 != 0:
@@ -440,8 +518,20 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             y = min(start_pt[1], y)
             ax.add_patch(patches.Rectangle((x, y), w, h,
                                            linewidth=1, edgecolor='y', facecolor='none', linestyle='dotted'))
+            ax.text(x+w+10, y+h/2., str((len(self.function)-1)/2), color='y', fontsize=10, horizontalalignment='left', verticalalignment='center')
             self.displayImgCanvas.draw_idle()
-
+        elif func[0] == "peaks":
+            peaks = func[1]
+            if len(self.layerlineboxes) > 0:
+                ax = self.displayImgFigure.add_subplot(111)
+                for i in range(len(self.layerlineboxes)):
+                    box = self.layerlineboxes[i]
+                    boxx = box[0]
+                    boxy = box[1]
+                    if boxx[0] <= x <= boxx[1] and boxy[0] <= y <= boxy[1]:
+                        peaks[i].append(x-boxx[0])
+                        ax.plot((x,x), boxy, color='r')
+                self.displayImgCanvas.draw_idle()
         else:
             if func[0] == "im_zoomin":
                 func.append((x, y))
@@ -458,13 +548,13 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         Triggered when mouse hovers on image in image tab
         """
-        if self.layerProc is None or 'rotationAngle' not in self.layerProc.info.keys():
+        if self.layerProc is None:
             return
 
         x = event.xdata
         y = event.ydata
 
-        img = self.layerProc.getRotatedImage()
+        img = self.layerProc.orig_img
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
@@ -529,59 +619,59 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
 
-        elif func[0] == "angle":
-            # draw line as angle
-            center = self.layerProc.info["center"]
-            deltax = x - center[0]
-            deltay = y - center[1]
-            x2 = center[0] - deltax
-            y2 = center[1] - deltay
-            ax = self.displayImgFigure.add_subplot(111)
-            del ax.lines
-            ax.lines = []
-            ax.plot([x, x2], [y, y2], color="g")
-            self.displayImgCanvas.draw_idle()
-
-        elif func[0] == "angle_center":
-            # draw X on points and a line between points
-            ax = self.displayImgFigure.add_subplot(111)
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    del ax.lines
-                    ax.lines = []
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    first_cross = ax.lines[:2]
-                    del ax.lines
-                    ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-
-            # bound = 10
-            # ax2.set_xlim((x-bound, x+bound))
-            # ax2.set_ylim((y-bound, y+bound))
-            # del ax2.lines
-            # ax2.lines = []
-            # ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            # ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            self.displayImgCanvas.draw_idle()
-            # self.displayImgCanvas.flush_events()
+        # elif func[0] == "angle":
+        #     # draw line as angle
+        #     center = self.layerProc.info["center"]
+        #     deltax = x - center[0]
+        #     deltay = y - center[1]
+        #     x2 = center[0] - deltax
+        #     y2 = center[1] - deltay
+        #     ax = self.displayImgFigure.add_subplot(111)
+        #     del ax.lines
+        #     ax.lines = []
+        #     ax.plot([x, x2], [y, y2], color="g")
+        #     self.displayImgCanvas.draw_idle()
+        #
+        # elif func[0] == "angle_center":
+        #     # draw X on points and a line between points
+        #     ax = self.displayImgFigure.add_subplot(111)
+        #     # ax2 = self.displayImgFigure.add_subplot(4,4,13)
+        #     axis_size = 5
+        #
+        #     if len(func) == 1:
+        #         if len(ax.lines) > 0:
+        #             del ax.lines
+        #             ax.lines = []
+        #         ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+        #         ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        #
+        #     elif len(func) == 2:
+        #         start_pt = func[1]
+        #         if len(ax.lines) > 2:
+        #             first_cross = ax.lines[:2]
+        #             del ax.lines
+        #             ax.lines = first_cross
+        #         ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+        #         ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        #         ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+        #
+        #     # bound = 10
+        #     # ax2.set_xlim((x-bound, x+bound))
+        #     # ax2.set_ylim((y-bound, y+bound))
+        #     # del ax2.lines
+        #     # ax2.lines = []
+        #     # ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+        #     # ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        #
+        #     self.displayImgCanvas.draw_idle()
+        #     # self.displayImgCanvas.flush_events()
 
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
                 ax = self.displayImgFigure.add_subplot(111)
                 move = (func[1][0] - x, func[1][1] - y)
-                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[0], img.shape[1])
+                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
@@ -594,6 +684,111 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         if self.function is not None and self.function[0] == "im_move":
             self.function = None
 
+    def leaveImage(self, event):
+        """
+        Set pixel information is empty if mouse leaves figure
+        """
+        self.pixel_detail.setText("")
+        
+    def imgScrolled(self, event):
+        """
+        This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out
+        """
+        if self.layerProc is None or event.xdata is None or event.ydata is None:
+            return
+
+        direction = event.button
+        x = event.xdata
+        y = event.ydata
+        img_size = self.layerProc.orig_img.shape
+
+        if self.img_zoom is None:
+            # init values if it's None
+            self.img_zoom = [(0, img_size[1]), (0, img_size[0])]
+
+        zoom_height = self.img_zoom[1][1] - self.img_zoom[1][0]
+        zoom_width = self.img_zoom[0][1] - self.img_zoom[0][0]
+
+        clicked_x_percentage = 1. * (x - self.img_zoom[0][0]) / zoom_width
+        clicked_y_percentage = 1. * (y - self.img_zoom[1][0]) / zoom_height
+
+        step_x = .1 * zoom_width
+        step_y = .1 * zoom_height
+        if direction == 'up':  # zoom in
+            step_x *= -1
+            step_y *= -1
+        zoom_width = min(img_size[1], max(zoom_width + step_x, 50))
+        zoom_height = min(img_size[0], max(zoom_height + step_y, 50))
+
+        x1 = x - clicked_x_percentage * zoom_width
+        x2 = x1 + zoom_width
+        y1 = y - clicked_y_percentage * zoom_height
+        y2 = y1 + zoom_height
+
+        if x1 < 0:
+            x1 = 0
+            x2 = zoom_width
+
+        if y1 < 0:
+            y1 = 0
+            y2 = zoom_height
+
+        if x2 > img_size[1]:
+            x2 = img_size[1]
+            x1 = img_size[1] - zoom_width
+
+        if y2 > img_size[0]:
+            y2 = img_size[0]
+            y1 = img_size[0] - zoom_height
+
+        # Set new x, y ranges
+        self.img_zoom = [(x1, x2), (y1, y2)]
+
+        # To zoom-in or zoom-out is setting x and y limit of figure
+        ax = self.displayImgFigure.add_subplot(111)
+        ax.set_xlim(self.img_zoom[0])
+        ax.set_ylim(self.img_zoom[1])
+        ax.invert_yaxis()
+        self.displayImgCanvas.draw_idle()
+
+    # def setAngleAndCenterClicked(self):
+    #     """
+    #     Prepare for manual rotation angle and center setting
+    #     """
+    #     if self.layerProc is None:
+    #         return
+    #
+    #     if self.setRotAndCentB.isChecked():
+    #         self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
+    #         ax = self.displayImgFigure.add_subplot(111)
+    #         del ax.lines
+    #         ax.lines = []
+    #         del ax.patches
+    #         ax.patches = []
+    #         self.displayImgCanvas.draw_idle()
+    #         self.function = ["angle_center"]  # set current active function
+    #     else:
+    #         self.resetUI()
+    #
+    # def setAngleClicked(self):
+    #     """
+    #     Prepare for manual rotation angle setting
+    #     """
+    #     if self.layerProc is None:
+    #         return
+    #
+    #     if self.setAngleB.isChecked():
+    #         self.setLeftStatus("Click on image to select the angle of the equator (ESC to cancel)")
+    #         ax = self.displayImgFigure.add_subplot(111)
+    #         del ax.lines
+    #         ax.lines = []
+    #         del ax.patches
+    #         ax.patches = []
+    #         self.displayImgCanvas.draw_idle()
+    #         self.function = ["angle"]  # set current active function
+    #     else:
+    #         self.resetUI()
+
     def browseFile(self):
         file_name = str(QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'Images (*.tif)', None))
         if file_name != "":
@@ -604,6 +799,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.propGrp.setEnabled(True)
         self.layerlineBoxGrp.setEnabled(True)
         self.layerlineboxes = []
+        self.peaks = []
+        self.all_tabs = []
         self.selectPeaksGrp.setEnabled(False)
         self.onImageChanged()
 
@@ -652,8 +849,9 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             self.minIntSpnBx.setValue(self.layerProc.info["minInt"])
             self.maxIntSpnBx.setValue(self.layerProc.info["maxInt"])
         else:
-            self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
-            self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
+            if self.maxIntSpnBx.value() == 0:
+                self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
+                self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
         self.syncUI = False
 
     def processImage(self):
@@ -681,7 +879,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.csvManager.writeNewData(self.bioImg)
+        # self.csvManager.writeNewData(self.layerProc)
         self.resetUI()
         self.refreshStatusbar()
         QtGui.QApplication.restoreOverrideCursor()
@@ -690,6 +888,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         settings = {}
         if len(self.layerlineboxes) > 0:
             settings['boxes'] = self.layerlineboxes
+        if len(self.peaks) > 0:
+            settings['peaks'] = self.peaks
         return settings
 
     def refreshStatusbar(self):
@@ -714,9 +914,9 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         self.left_status.setText(s)
         QtGui.QApplication.processEvents()
-
-    def lockAngle(self):
-        self.lockAngleSpnBx.setEnabled(self.lockAngleChkBx.isChecked())
+    #
+    # def lockAngle(self):
+    #     self.lockAngleSpnBx.setEnabled(self.lockAngleChkBx.isChecked())
 
     def resetUI(self):
         """
@@ -725,10 +925,15 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.function = None
         # self.graph_zoom = None
         QtGui.QApplication.restoreOverrideCursor()
+        self.selectPeaksButton.setText("Select Approximate Peak Locations")
+        self.selectBoxButton.setText("Select Layer Line Boxes")
+
         for b in self.checkableButtons:
             b.setChecked(False)
         for k in self.update_plot.keys():
             self.update_plot[k] = True
+        for tab in self.all_tabs:
+            tab.clearFlags()
 
         self.updateUI()
 
@@ -738,6 +943,9 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             if ind == 0:
                 # if image tab is selected
                 self.updateImageTab()
+            else:
+                tab = self.all_tabs[ind-1]
+                tab.updateUI()
 
     def updateImageTab(self):
         """
@@ -746,7 +954,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         if self.layerProc is None or self.syncUI or not self.update_plot['img']:
             return
 
-        img = self.layerProc.getRotatedImage()
+        img = self.layerProc.orig_img
         img = getBGR(get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value()))
         ax = self.displayImgFigure.add_subplot(111)
         ax.cla()
@@ -755,9 +963,21 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         if len(self.layerlineboxes) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
-                for b in self.layerlineboxes:
-                    ax.add_patch(patches.Rectangle(b[0], b[1][0], b[1][1],
+                for i,b in enumerate(self.layerlineboxes):
+                    x = b[0][0]
+                    y = b[1][0]
+                    w = b[0][1] - b[0][0]
+                    h = b[1][1] - b[1][0]
+                    ax.add_patch(patches.Rectangle((x,y), w, h,
                                                    linewidth=1, edgecolor='y', facecolor='none'))
+                    ax.text(x + w + 10, y + h / 2., str(i+1), color='y', fontsize=10,
+                        horizontalalignment='left', verticalalignment='center')
+            if self.peaksChkBx.isChecked():
+                for i in range(len(self.peaks)):
+                    start_box = self.layerlineboxes[i][0][0]
+                    for p in self.peaks[i]:
+                        x = p + start_box
+                        ax.plot((x, x), self.layerlineboxes[i][1], color='r')
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -772,31 +992,31 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.displayImgFigure.tight_layout()
         self.displayImgCanvas.draw()
 
-    def launchQF(self):
-        self.qf = QFExtend(self)
-        self.qf.onNewFileSelected(fullPath(self.dir_path, self.imgList[self.current_file]))
-
-    def childWindowClosed(self, quadFold):
-        fold = quadFold.info['avg_fold']
-        self.layerProc.orig_img = quadFold.imgCache['resultImg']
-        self.layerProc.info['center'] = (fold.shape[1], fold.shape[0])
-        self.layerProc.info['rotationAngle'] = 0
-        self.qf = None
-        self.img_zoom = None
-        self.resetUI()
-
-class QFExtend(QuadrantFoldingGUI):
-    def __init__(self, mainwin):
-        QuadrantFoldingGUI.__init__(self)
-        self.mainwin = mainwin
-        self.nextButton.setEnabled(False)
-        self.prevButton.setEnabled(False)
-        self.nextButton2.setEnabled(False)
-        self.prevButton2.setEnabled(False)
-
-    def closeEvent(self, ev):
-        """
-        Trigger when window is closed
-        """
-        # delete window object from main window
-        self.mainwin.childWindowClosed(self.quadFold)
+#     def launchQF(self):
+#         self.qf = QFExtend(self)
+#         self.qf.onNewFileSelected(fullPath(self.dir_path, self.imgList[self.current_file]))
+#
+#     def childWindowClosed(self, quadFold):
+#         fold = quadFold.info['avg_fold']
+#         self.layerProc.orig_img = quadFold.imgCache['resultImg']
+#         self.layerProc.info['center'] = (fold.shape[1], fold.shape[0])
+#         self.layerProc.info['rotationAngle'] = 0
+#         self.qf = None
+#         self.img_zoom = None
+#         self.resetUI()
+#
+# class QFExtend(QuadrantFoldingGUI):
+#     def __init__(self, mainwin):
+#         QuadrantFoldingGUI.__init__(self)
+#         self.mainwin = mainwin
+#         self.nextButton.setEnabled(False)
+#         self.prevButton.setEnabled(False)
+#         self.nextButton2.setEnabled(False)
+#         self.prevButton2.setEnabled(False)
+#
+#     def closeEvent(self, ev):
+#         """
+#         Trigger when window is closed
+#         """
+#         # delete window object from main window
+#         self.mainwin.childWindowClosed(self.quadFold)

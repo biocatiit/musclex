@@ -98,8 +98,8 @@ class QuadrantFolder(object):
         resultImg[fold_height:fold_height * 2, 0:fold_width] = buttom_left
         resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = buttom_right
 
-        result_path = fullPath(fullPath(self.img_path, "qf_results"), self.img_name + ".bg.tif")
-        createFolder(fullPath(self.img_path, "qf_results"))
+        result_path = fullPath(fullPath(self.img_path, "qf_results/bg"), self.img_name + ".bg.tif")
+        createFolder(fullPath(self.img_path, "qf_results/bg"))
         resultImg = resultImg.astype("float32")
         imsave(result_path, resultImg)
 
@@ -348,7 +348,7 @@ class QuadrantFolder(object):
         result_path = fullPath(self.img_path, "qf_results")
         createFolder(result_path)
         background = background.astype("float32")
-        imsave(fullPath(result_path, "cir_bg.tif"), background)
+        # imsave(fullPath(result_path, "cir_bg.tif"), background)
 
     def getFirstPeak(self, hist):
         # Start from index 5 and go to the right until slope is less than -10

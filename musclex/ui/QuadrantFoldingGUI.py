@@ -275,7 +275,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.cirMinPix.setSuffix("%")
         self.cirMinPix.setDecimals(2)
         self.cirMinPix.setSingleStep(2)
-        self.cirMinPix.setValue(5)
+        self.cirMinPix.setValue(0)
         self.cirMinPix.setRange(0, 100)
         self.cirMinPix.setKeyboardTracking(False)
 
@@ -283,7 +283,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.cirMaxPix.setSuffix("%")
         self.cirMaxPix.setDecimals(2)
         self.cirMaxPix.setSingleStep(2)
-        self.cirMaxPix.setValue(30)
+        self.cirMaxPix.setValue(25)
         self.cirMaxPix.setRange(0, 100)
         self.cirMaxPix.setKeyboardTracking(False)
         self.pixRangeLabel = QtGui.QLabel("Pixel Range : ")
@@ -302,7 +302,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.smoothSpnBx = QtGui.QDoubleSpinBox()
         self.smoothSpnBx.setRange(0, 1000)
-        self.smoothSpnBx.setValue(5)
+        self.smoothSpnBx.setValue(1)
         self.smoothSpnBx.setKeyboardTracking(False)
         self.smoothLabel = QtGui.QLabel("Smoothing factor : ")
 

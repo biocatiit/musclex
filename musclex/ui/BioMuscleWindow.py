@@ -832,8 +832,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         direction = event.button
         x = event.xdata
         y = event.ydata
-        img_size = max(self.bioImg.orig_img.shape)
-        img_size = [img_size, img_size]
+        img_size = self.bioImg.orig_img.shape
 
         if self.img_zoom is None:
             # init values of it's None
@@ -1457,7 +1456,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
             if self.img_zoom is not None:
                 ax = self.displayImgFigure.add_subplot(111)
                 move = (func[1][0] - x, func[1][1] - y)
-                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[0], img.shape[1])
+                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
