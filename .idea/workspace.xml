@@ -2,30 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="9d7c19e9-41bd-4f14-b219-b354dbeed836" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.so" afterPath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.so" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/build/temp.macosx-10.10-x86_64-2.7/QF_utilities.o" afterPath="$PROJECT_DIR$/musclex/biocat_modules/build/temp.macosx-10.10-x86_64-2.7/QF_utilities.o" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex.sh" afterPath="$PROJECT_DIR$/musclex.sh" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" afterPath="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/bio_utils/histogram_processor.py" afterPath="$PROJECT_DIR$/musclex/bio_utils/histogram_processor.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/BioImage.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/BioImage.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/CircularProjection.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/CircularProjection.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/DiffractionCentroids.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/DiffractionCentroids.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.c" afterPath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.c" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.pyx" afterPath="$PROJECT_DIR$/musclex/biocat_modules/QF_utilities.pyx" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py" afterPath="$PROJECT_DIR$/musclex/biocat_modules/QuadrantFolder.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/csv_manager/BM_CVSManager.py" afterPath="$PROJECT_DIR$/musclex/csv_manager/BM_CVSManager.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/csv_manager/__init__.py" afterPath="$PROJECT_DIR$/musclex/csv_manager/__init__.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/main.py" afterPath="$PROJECT_DIR$/musclex/main.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/BMStartWindow.py" afterPath="$PROJECT_DIR$/musclex/ui/BMStartWindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/BM_FittingTab.py" afterPath="$PROJECT_DIR$/musclex/ui/BM_FittingTab.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py" afterPath="$PROJECT_DIR$/musclex/ui/BioMuscleWindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/LayerLineTab.py" afterPath="$PROJECT_DIR$/musclex/ui/LayerLineTab.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/circular_projection_v2.py" afterPath="$PROJECT_DIR$/musclex/ui/circular_projection_v2.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/ui/diffraction_centroids.py" afterPath="$PROJECT_DIR$/musclex/ui/diffraction_centroids.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/musclex/__init__.py" afterPath="$PROJECT_DIR$/musclex/__init__.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -88,7 +65,7 @@
         <entry file="file://$PROJECT_DIR$/musclex/bio_utils/histogram_processor.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="432">
-              <caret line="435" column="33" lean-forward="true" selection-start-line="435" selection-start-column="33" selection-end-line="435" selection-end-column="33" />
+              <caret line="435" column="33" lean-forward="false" selection-start-line="435" selection-start-column="33" selection-end-line="435" selection-end-column="33" />
               <folding />
             </state>
           </provider>
@@ -97,8 +74,8 @@
       <file leaf-file-name="__init__.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/musclex/__init__.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="420">
-              <caret line="28" column="0" lean-forward="false" selection-start-line="28" selection-start-column="0" selection-end-line="28" selection-end-column="0" />
+            <state relative-caret-position="405">
+              <caret line="27" column="18" lean-forward="false" selection-start-line="27" selection-start-column="18" selection-end-line="27" selection-end-column="18" />
               <folding />
             </state>
           </provider>
@@ -226,7 +203,6 @@
         <option value="$PROJECT_DIR$/musclex/ui/LayerLineProcessorGUI.py" />
         <option value="$PROJECT_DIR$/musclex/bio_utils/image_processor.py" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/CircularProjection.py" />
-        <option value="$PROJECT_DIR$/musclex/__init__.py" />
         <option value="$PROJECT_DIR$/tests/background_compare.py" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/setup2.py" />
         <option value="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" />
@@ -248,6 +224,7 @@
         <option value="$PROJECT_DIR$/musclex/ui/LayerLineTracesGUI.py" />
         <option value="$PROJECT_DIR$/musclex/biocat_modules/LayerLineProcessor.py" />
         <option value="$PROJECT_DIR$/musclex/ui/LayerLineTab.py" />
+        <option value="$PROJECT_DIR$/musclex/__init__.py" />
       </list>
     </option>
   </component>
@@ -914,15 +891,15 @@
     <entry file="file://$PROJECT_DIR$/musclex/bio_utils/histogram_processor.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="432">
-          <caret line="435" column="33" lean-forward="true" selection-start-line="435" selection-start-column="33" selection-end-line="435" selection-end-column="33" />
+          <caret line="435" column="33" lean-forward="false" selection-start-line="435" selection-start-column="33" selection-end-line="435" selection-end-column="33" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/musclex/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="420">
-          <caret line="28" column="0" lean-forward="false" selection-start-line="28" selection-start-column="0" selection-end-line="28" selection-end-column="0" />
+        <state relative-caret-position="405">
+          <caret line="27" column="18" lean-forward="false" selection-start-line="27" selection-start-column="18" selection-end-line="27" selection-end-column="18" />
           <folding />
         </state>
       </provider>
