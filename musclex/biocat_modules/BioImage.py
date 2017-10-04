@@ -36,9 +36,9 @@ import fabio
 # import pyFAI
 from os.path import isfile, exists
 from os import makedirs
-from musclex.bio_utils.file_manager import fullPath
-from musclex.bio_utils.histogram_processor import *
-from musclex.bio_utils.image_processor import *
+from ..bio_utils.file_manager import fullPath
+from ..bio_utils.histogram_processor import *
+from ..bio_utils.image_processor import *
 import musclex
 
 class BioImage:

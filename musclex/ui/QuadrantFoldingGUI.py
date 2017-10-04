@@ -33,9 +33,9 @@ import matplotlib.pyplot as plt
 from tifffile import imsave
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
-from musclex.bio_utils.file_manager import *
-from musclex.bio_utils.image_processor import *
-from musclex.biocat_modules.QuadrantFolder import QuadrantFolder
+from ..bio_utils.file_manager import *
+from ..bio_utils.image_processor import *
+from ..biocat_modules.QuadrantFolder import QuadrantFolder
 import musclex
 import traceback
 
@@ -186,13 +186,18 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.fixCenterLayout.addWidget(self.fixCY, 0, 3)
         self.fixCenterGrpBx.setLayout(self.fixCenterLayout)
 
+        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
+        self.processFolderButton = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton.setStyleSheet(pfss)
+
         self.nextButton = QtGui.QPushButton()
         self.nextButton.setText(">>>")
         self.prevButton = QtGui.QPushButton()
         self.prevButton.setText("<<<")
-        self.buttonsLayout = QtGui.QHBoxLayout()
-        self.buttonsLayout.addWidget(self.prevButton)
-        self.buttonsLayout.addWidget(self.nextButton)
+        self.buttonsLayout = QtGui.QGridLayout()
+        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
+        self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
+        self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
@@ -448,6 +453,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         self.fixCX.returnPressed.connect(self.fixcxEntered)
         self.fixCY.returnPressed.connect(self.fixcyEntered)
+        self.processFolderButton.clicked.connect(self.processFolder)
         self.nextButton.clicked.connect(self.nextClicked)
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton2.clicked.connect(self.nextClicked)
@@ -1601,12 +1607,28 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.imgList.sort()
         self.numberOfFiles = len(self.imgList)
 
-        self.progressBar.setVisible(True)
-        for i in range(self.numberOfFiles):
-            self.progressBar.setValue(100. / self.numberOfFiles * i)
-            QtGui.QApplication.processEvents()
-            self.nextClicked()
-        self.progressBar.setVisible(False)
+        errMsg = QtGui.QMessageBox()
+        errMsg.setText('Process Current Folder')
+        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
+        # flags = self.getFlags()
+        # text += "\nCurrent Settings"
+        # if 'center' in flags.keys():
+        #     text += "\n  - Center : " + str(flags["center"])
+
+        text += '\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.'
+        errMsg.setInformativeText(text)
+        errMsg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel)
+        errMsg.setIcon(QtGui.QMessageBox.Warning)
+        ret = errMsg.exec_()
+
+        # If "yes" is pressed
+        if ret == QtGui.QMessageBox.Yes:
+            self.progressBar.setVisible(True)
+            for i in range(self.numberOfFiles):
+                self.progressBar.setValue(100. / self.numberOfFiles * i)
+                QtGui.QApplication.processEvents()
+                self.nextClicked()
+            self.progressBar.setVisible(False)
 
     def browseFile(self):
         """

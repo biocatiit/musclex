@@ -359,7 +359,7 @@ from libc.math cimport ceil
 # from numpy.math cimport rad2deg
 
 @cython.cdivision(True)
-def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):
+def make2DConvexhullBG(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):
     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
     cdef int x, y
     cdef int irad, irad_floor, irad_ceil
@@ -432,19 +432,90 @@ def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, 
     return backgound
 
 @cython.cdivision(True)
-def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):
+def make2DConvexhullBG2(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):
+    cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
+    cdef int x, y
+    cdef int irad, irad_floor, irad_ceil
+    cdef np.float32_t deg, slope, floor_deg, alpha, ceil_deg, beta, round_deg, deltay, deltax, subv, tmpdeg
+    cdef np.float32_t rad, ceil_rad, floor_rad, alpha_rad, beta_rad
+    cdef np.float32_t zero = 0.0
+    cdef int intzero = 0
+    cdef int pos1, pos2
+    cdef int ifloor, iceil, ideg
+
+    for x in range(width):
+        for y in range(height):
+
+            rad = distance(centerX, centerY, x, y)
+            irad = int(round(rad))
+            ceil_rad = ceil(rad)
+            floor_rad = floor(rad)
+            irad_ceil = int(ceil_rad)
+            irad_floor = int(floor_rad)
+
+            if irad_floor == irad_ceil:
+                beta_rad = 0.5
+                alpha_rad = 0.5
+            else:
+                alpha_rad = 1. - (rad - floor_rad)
+                beta_rad = 1. - (ceil_rad - rad)
+
+            deltax = float(abs(x - centerX))
+            if deltax == zero:
+                deg = 90.0
+            else:
+                deltay = float(abs(y - centerY))
+                slope = deltay / deltax
+                deg = atan(slope)*180.0/M_PI
+
+            ideg = int(round(deg))
+            floor_deg = floor(deg)
+            ceil_deg = ceil(deg)
+            ifloor = int(floor_deg)
+            iceil = int(ceil_deg)
+
+            if ifloor == iceil:
+                alpha = 0.5
+                beta = 0.5
+            else:
+                alpha = 1. - (deg - floor_deg)
+                beta = 1. - (ceil_deg - deg)
+
+            if irad_ceil < rmax and irad_floor >= rmin:
+                pos1 = irad_floor - rmin
+                pos2 = irad_ceil - rmin
+                backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
+                                  + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
+    return backgound
+
+
+@cython.cdivision(True)
+def createAngularBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):
     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
     cdef int x,y, irad, ideg
     cdef int centerX = width - 1
     cdef int centerY = height - 1
-    cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta
-    cdef int theta_size = 90/nBins
-    cdef int ifloor, iceil, ibin
+    cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta, floor_rad, ceil_rad, alpha_rad, beta_rad
+    cdef np.float32_t theta_size = 90./nBins
+    cdef int ifloor, iceil, ibin, ifloor_rad, iceil_rad
 
     for x in range(0, width):
         for y in range(0, height):
             rad = distance(centerX, centerY, x, y)
+            floor_rad = floor(rad)
+            ceil_rad = ceil(rad)
+            ifloor_rad = int(floor_rad)
+            iceil_rad = int(ceil_rad)
+
+            if ifloor_rad == iceil_rad:
+                beta_rad = 0.5
+                alpha_rad = 0.5
+            else:
+                alpha_rad = 1. - (rad - floor_rad)
+                beta_rad = 1. - (ceil_rad - rad)
+
             irad = int(round(rad))
+
             deltax = float(abs(x - centerX))
             bgsub = 0.0
             if deltax == 0.0:
@@ -454,13 +525,13 @@ def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, i
                 slope = deltay / deltax
                 deg = atan(slope)*180.0/M_PI
 
-            fbin = 1.*deg/float(theta_size)
+            fbin = 1.*deg/theta_size
             ibin = int(round(fbin))
 
             if ibin == 0:
-                backgound[y, x] = subtr[ibin, irad]
+                backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
             elif ibin == nBins:
-                backgound[y, x] = subtr[ibin-1, irad]
+                backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]
             else:
                 floor_bin = floor(fbin)
                 ceil_bin = ceil(fbin)
@@ -487,22 +558,31 @@ def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, i
                     ifloor = int(floor(floor_bin))
                     iceil = int(floor(ceil_bin))
 
-                backgound[y, x] = alpha * subtr[ifloor, irad] + beta * subtr[iceil, irad]
+                backgound[y, x] = alpha * (alpha_rad * subtr[ifloor, ifloor_rad] + beta_rad * subtr[ifloor, iceil_rad])+ beta * (alpha_rad * subtr[iceil, ifloor_rad] + beta_rad * subtr[iceil, iceil_rad])
 
     return backgound
 
 @cython.cdivision(True)
 def createCircularlySymBG(int width, int height, np.ndarray[np.float32_t, ndim=1] spline, int rmin, int rmax):
     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
-    cdef int x, y, r
+    cdef int x, y, ifloor, iceil, irad
     cdef int centerX = width - 1
     cdef int centerY = height - 1
-    cdef np.float32_t bg_val
+    cdef np.float32_t rad, alpha, beta, ffloor, fceil
 
     for x in range(width):
         for y in range(height):
-            r = int(round(distance( x, y, centerX, centerY)))
-            if r >= rmin and r < rmax:
-                backgound[y, x] = spline[r-rmin]
+            rad = distance( x, y, centerX, centerY)
+            irad = int(round(rad))
+            ffloor = floor(rad)
+            fceil = ceil(rad)
+            alpha = 1.-(rad-ffloor)
+            beta = 1.-(fceil-rad)
+            ifloor = int(ffloor)
+            iceil = int(fceil)
+            if ifloor == iceil and irad >= rmin and irad < rmax:
+                backgound[y, x] = spline[irad-rmin]
+            elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:
+                backgound[y, x] = alpha*spline[ifloor-rmin] + beta*spline[iceil-rmin]
 
     return backgound

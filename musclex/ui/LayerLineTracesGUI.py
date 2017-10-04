@@ -28,19 +28,21 @@ authorization from Illinois Institute of Technology.
 
 from PyQt4 import QtCore, QtGui
 import matplotlib.pyplot as plt
-import cv2
 import numpy as np
 import matplotlib.patches as patches
-from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
-from musclex.bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
-from musclex.biocat_modules.LayerLineProcessor import LayerLineProcessor
-from musclex.ui.LayerLineTab import LayerLineTab
-from musclex.bio_utils.image_processor import getBGR, get8bitImage, getNewZoom
+from ..bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFolder
+from ..biocat_modules.LayerLineProcessor import LayerLineProcessor
+from ..ui.LayerLineTab import LayerLineTab
+from ..bio_utils.image_processor import getBGR, get8bitImage, getNewZoom
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from ..CalibrationSettings import CalibrationSettings
+from ..csv_manager import LL_CVSManager
 import sys
 import traceback
 import musclex
 import copy
+from os.path import exists
+import pickle
 
 class LayerLineTracesGUI(QtGui.QMainWindow):
     """
@@ -56,11 +58,11 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.imgList = []
         self.layerProc = None
         self.syncUI = False
+        self.csvManager = None
         self.img_zoom = None
         self.function = None
-        self.layerlineboxes = []
-        self.peaks = []
-        self.qf = None
+        self.layerlineboxes = {}
+        self.peaks = {}
         self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -125,10 +127,12 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.layerlineBoxGrp = QtGui.QGroupBox("3. Layer line boxes")
         self.layerlineBoxGrp.setEnabled(False)
         self.layerlineBoxLayout = QtGui.QVBoxLayout(self.layerlineBoxGrp)
-        self.selectBoxButton = QtGui.QPushButton("Select Layer Line Boxes")
-        self.selectBoxButton.setCheckable(True)
-        self.checkableButtons.append(self.selectBoxButton)
-        self.layerlineBoxLayout.addWidget(self.selectBoxButton)
+        self.addBoxButton = QtGui.QPushButton("Add Layer Line Boxes")
+        self.addBoxButton.setCheckable(True)
+        self.clearBoxButton = QtGui.QPushButton('Clear All Boxes')
+        self.checkableButtons.append(self.addBoxButton)
+        self.layerlineBoxLayout.addWidget(self.addBoxButton)
+        self.layerlineBoxLayout.addWidget(self.clearBoxButton)
 
         # Peaks Selection
         self.selectPeaksGrp = QtGui.QGroupBox("4. Peaks")
@@ -168,9 +172,12 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.minIntLabel = QtGui.QLabel("Min Intensity")
         self.minIntSpnBx = QtGui.QDoubleSpinBox()
         self.minIntSpnBx.setKeyboardTracking(False)
+        self.minIntSpnBx.setDecimals(2)
+
         self.maxIntLabel = QtGui.QLabel("Max Intensity")
         self.maxIntSpnBx = QtGui.QDoubleSpinBox()
         self.maxIntSpnBx.setValue(0)
+        self.maxIntSpnBx.setDecimals(2)
         self.maxIntSpnBx.setKeyboardTracking(False)
 
         self.dispOptLayout.addWidget(self.boxesChkBx, 0, 0, 1, 2)
@@ -184,10 +191,10 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
         # next previos buttons
         self.nextButton = QtGui.QPushButton(">>>")
-        self.prevButton = QtGui.QPushButton(">>>")
+        self.prevButton = QtGui.QPushButton("<<<")
         self.pnLayout = QtGui.QHBoxLayout()
-        self.pnLayout.addWidget(self.nextButton)
         self.pnLayout.addWidget(self.prevButton)
+        self.pnLayout.addWidget(self.nextButton)
         self.rightFrameLayout.addWidget(self.dispOptGrp)
         self.rightFrameLayout.addStretch()
         self.rightFrameLayout.addLayout(self.pnLayout)
@@ -233,6 +240,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # self.quadFoldButton.clicked.connect(self.launchQF)
         # self.setCenterButton.clicked.connect(self.setAngleAndCenterClicked)
         # self.setRotationButton.clicked.connect(self.setAngleClicked)
+        self.calibrateButton.clicked.connect(self.calibrationClicked)
 
         # Display options
         self.maxIntSpnBx.valueChanged.connect(self.updateImage)
@@ -242,7 +250,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
         # select boxes
-        self.selectBoxButton.clicked.connect(self.addBoxes)
+        self.addBoxButton.clicked.connect(self.addBoxes)
+        self.clearBoxButton.clicked.connect(self.clearBoxes)
 
         # select peaks
         self.selectPeaksButton.clicked.connect(self.addPeaks)
@@ -255,6 +264,31 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
         self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
         self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
+
+    def calibrationClicked(self):
+        """
+        Triggered when calibration settings button pressed
+        """
+        success = self.launchCalibrationSettings(force=True)
+        if self.layerProc is not None and success:
+            self.processImage()
+
+
+    def launchCalibrationSettings(self, force=False):
+        """
+        Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
+        :param force: force to popup the window
+        :return: True if calibration set, False otherwise
+        """
+        settingDialog = CalibrationSettings(self.dir_path)
+        self.calSettings = None
+        cal_setting = settingDialog.calSettings
+        if cal_setting is not None or force:
+            result = settingDialog.exec_()
+            if result == 1:
+                self.calSettings = settingDialog.getValues()
+                return True
+        return False
 
     def clearImage(self):
         ax = self.displayImgFigure.add_subplot(111)
@@ -292,9 +326,13 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.update_plot['img'] = True
         self.updateUI()
 
+    def addPeakstoBox(self, num, peaks):
+        self.peaks[num] = peaks
+        self.processImage()
+
     def addPeaks(self):
         """
-        Triggered when Select Layer Line Boxes pressed
+        Triggered when Add a Layer Line Box pressed
         :return:
         """
         if self.layerProc is None:
@@ -306,16 +344,15 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             if self.function is None:
                 self.selectPeaksButton.setText("Done")
                 self.setLeftStatus(
-                    "Add peaks to boxes by clicking inside a box (ESC to cancel)")
-                self.function = ['peaks']
-                peaks = []
-                for _ in range(len(self.layerlineboxes)):
-                    peaks.append([])
+                    "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)")
+                peaks = {}
+                for num in self.layerlineboxes.keys():
+                    peaks[num] = []
+                self.function = ['peaks', peaks]
                 ax = self.displayImgFigure.add_subplot(111)
                 del ax.lines
                 ax.lines = []
                 self.displayImgCanvas.draw_idle()
-                self.function.append(peaks)
             else:
                 # ignore if there're other function being active
                 self.selectPeaksButton.setChecked(False)
@@ -324,46 +361,33 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             if self.function is not None and len(self.function) == 2:
                 # When Done clicked
                 self.peaks = self.function[1]
-                self.layerProc.removeInfo('fit_resutls')
             self.processImage()
+
+    def clearBoxes(self):
+        self.layerlineboxes = {}
+        self.peaks = {}
+        self.removeLayerLineTabs()
+        self.processImage()
 
     def addBoxes(self):
         """
-        Triggered when Select Layer Line Boxes pressed
+        Triggered when Add a Layer Line Box pressed
         :return:
         """
         if self.layerProc is None:
-            self.selectBoxButton.setChecked(False)
+            self.addBoxButton.setChecked(False)
             return
 
-        if self.selectBoxButton.isChecked():
+        if self.addBoxButton.isChecked():
             if self.function is None:
                 # Start function
-                self.selectBoxButton.setText("Done")
-                self.setLeftStatus("Add Boxes to the image by drawing rectangles, press Done when all boxes added (ESC to cancel)")
+                self.addBoxButton.setText("Done")
+                self.setLeftStatus("Add a box to the image by drawing a rectangles (ESC to cancel)")
                 self.function = ['box']
-                self.clearImage()
+                # self.clearImage()
             else:
-                self.selectBoxButton.setChecked(False)
+                self.addBoxButton.setChecked(False)
                 return
-        else:
-            if self.function is not None and len(self.function) > 2:
-                # When Done clicked
-                all_points = self.function[1:]
-                if len(all_points) > 1:
-                    if len(all_points)%2 != 0:
-                        all_points = all_points[:-1]
-                    self.layerlineboxes = []
-                    for i in np.arange(0, len(all_points), 2):
-                        x1 = int(round(min(all_points[i][0], all_points[i + 1][0])))
-                        y1 = int(round(min(all_points[i][1], all_points[i + 1][1])))
-                        x2 = int(round(max(all_points[i][0], all_points[i + 1][0])))
-                        y2 = int(round(max(all_points[i][1], all_points[i + 1][1])))
-                        self.layerlineboxes.append(((x1,x2),(y1,y2)))
-                    self.peaks = []
-                    self.addLayerLineTabs()
-                    self.layerProc.removeInfo('hists')
-            self.processImage()
 
     def keyPressEvent(self, event):
         """
@@ -387,6 +411,12 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             self.maxIntSpnBx.stepUp()
         elif key == QtCore.Qt.Key_Q:
             self.close()
+
+    def mousePressEvent(self, event):
+        # Clear focus when mouse pressed
+        focused_widget = QtGui.QApplication.focusWidget()
+        if focused_widget != None:
+            focused_widget.clearFocus()
 
     def prevClicked(self):
         """
@@ -418,10 +448,10 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         self.removeLayerLineTabs()
 
-        for i in range(len(self.layerlineboxes)):
+        for i in self.layerlineboxes.keys():
             layerline_tab = LayerLineTab(self, i)
             self.all_tabs.append(layerline_tab)
-            self.tabWidget.addTab(layerline_tab, "Layer Line "+str(i+1))
+            self.tabWidget.addTab(layerline_tab, "Layer Line "+str(i))
 
     def imgClicked(self, event):
         """
@@ -456,81 +486,33 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # Provide different behavior depending on current active function
         if func is None:
             self.function = ["im_move", (x, y)]
-        # elif func[0] == "angle_center":
-        #     # draw X at points and a line between points
-        #     ax = self.displayImgFigure.add_subplot(111)
-        #     axis_size = 5
-        #     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        #     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-        #     self.displayImgCanvas.draw_idle()
-        #     func.append((x, y))
-        #     if len(func) == 3:
-        #         if func[1][0] < func[2][0]:
-        #             x1, y1 = func[1]
-        #             x2, y2 = func[2]
-        #         else:
-        #             x1, y1 = func[2]
-        #             x2, y2 = func[1]
-        #
-        #         if abs(x2 - x1) == 0:
-        #             new_angle = -90
-        #         else:
-        #             new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-        #         # new_angle += 90.
-        #
-        #         cx = int(round((x1 + x2) / 2.))
-        #         cy = int(round((y1 + y2) / 2.))
-        #         M = cv2.getRotationMatrix2D(tuple(self.layerProc.info['center']), self.layerProc.info['rotationAngle'], 1)
-        #         invM = cv2.invertAffineTransform(M)
-        #         homo_coords = [cx, cy, 1.]
-        #         new_center = np.dot(invM, homo_coords)
-        #         # Set new center and rotaion angle , re-calculate R-min
-        #         self.layerProc.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
-        #         self.layerProc.info['rotationAngle'] = self.layerProc.info['rotationAngle'] + new_angle
-        #         self.layerProc.removeInfo('hists')
-        #         self.setCenterButton.setChecked(False)
-        #         self.processImage()
-        # elif func[0] == "angle":
-        #     center = self.layerProc.info['center']
-        #     x1 = center[0]
-        #     y1 = center[1]
-        #     if abs(x - x1) == 0:
-        #         new_angle = -90
-        #     else:
-        #         new_angle = -180. * np.arctan((y1 - y) / (x1 - x)) / np.pi
-        #
-        #     # Set new rotaion angle , re-calculate from R-min calculation process
-        #     self.layerProc.info['rotationAngle'] = self.layerProc.info['rotationAngle'] - new_angle
-        #     self.layerProc.removeInfo('hists')
-        #     self.setRotationButton.setChecked(False)
-        #     self.processImage()
         elif func[0] == "box":
             func.append((x, y))
-            if len(func) < 3 or (len(func)-1)%2 != 0:
-                return
-            ax = self.displayImgFigure.add_subplot(111)
-            if len(ax.patches) > 0:
-                ax.patches.pop()
-            start_pt = func[-2]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                           linewidth=1, edgecolor='y', facecolor='none', linestyle='dotted'))
-            ax.text(x+w+10, y+h/2., str((len(self.function)-1)/2), color='y', fontsize=10, horizontalalignment='left', verticalalignment='center')
-            self.displayImgCanvas.draw_idle()
+            if len(func) == 3:
+                # A box added
+                points = self.function[1:]
+                x1 = int(round(min(points[0][0], points[1][0])))
+                y1 = int(round(min(points[0][1], points[1][1])))
+                x2 = int(round(max(points[0][0], points[1][0])))
+                y2 = int(round(max(points[0][1], points[1][1])))
+                num = len(self.layerlineboxes.keys()) + 1
+                self.layerlineboxes[num] = ((x1, x2), (y1, y2))
+                self.addLayerLineTabs()
+                self.processImage()
         elif func[0] == "peaks":
             peaks = func[1]
-            if len(self.layerlineboxes) > 0:
+            if len(self.layerlineboxes.keys()) > 0:
                 ax = self.displayImgFigure.add_subplot(111)
-                for i in range(len(self.layerlineboxes)):
-                    box = self.layerlineboxes[i]
+                centerx = self.layerProc.orig_img.shape[1]/2
+                for num in self.layerlineboxes.keys():
+                    box = self.layerlineboxes[num]
                     boxx = box[0]
                     boxy = box[1]
                     if boxx[0] <= x <= boxx[1] and boxy[0] <= y <= boxy[1]:
-                        peaks[i].append(x-boxx[0])
-                        ax.plot((x,x), boxy, color='r')
+                        distance = int(round(abs(centerx-x)))
+                        peaks[num].append(distance)
+                        ax.plot((centerx-distance, centerx-distance), boxy, color='r')
+                        ax.plot((centerx+distance, centerx+distance), boxy, color='r')
                 self.displayImgCanvas.draw_idle()
         else:
             if func[0] == "im_zoomin":
@@ -605,11 +587,11 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
         elif func[0] == "box":
             # draw rectangle
-            if len(func) < 2 or (len(func)-1)%2 == 0:
+            if len(func) != 2:
                 return
             ax = self.displayImgFigure.add_subplot(111)
             if len(ax.patches) > 0:
-                ax.patches = ax.patches[:(len(func)-1)/2]
+                ax.patches = ax.patches[:len(self.layerlineboxes.keys())]
             start_pt = func[-1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -618,54 +600,6 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             ax.add_patch(patches.Rectangle((x, y), w, h,
                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
-
-        # elif func[0] == "angle":
-        #     # draw line as angle
-        #     center = self.layerProc.info["center"]
-        #     deltax = x - center[0]
-        #     deltay = y - center[1]
-        #     x2 = center[0] - deltax
-        #     y2 = center[1] - deltay
-        #     ax = self.displayImgFigure.add_subplot(111)
-        #     del ax.lines
-        #     ax.lines = []
-        #     ax.plot([x, x2], [y, y2], color="g")
-        #     self.displayImgCanvas.draw_idle()
-        #
-        # elif func[0] == "angle_center":
-        #     # draw X on points and a line between points
-        #     ax = self.displayImgFigure.add_subplot(111)
-        #     # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-        #     axis_size = 5
-        #
-        #     if len(func) == 1:
-        #         if len(ax.lines) > 0:
-        #             del ax.lines
-        #             ax.lines = []
-        #         ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        #         ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-        #
-        #     elif len(func) == 2:
-        #         start_pt = func[1]
-        #         if len(ax.lines) > 2:
-        #             first_cross = ax.lines[:2]
-        #             del ax.lines
-        #             ax.lines = first_cross
-        #         ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        #         ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-        #         ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-        #
-        #     # bound = 10
-        #     # ax2.set_xlim((x-bound, x+bound))
-        #     # ax2.set_ylim((y-bound, y+bound))
-        #     # del ax2.lines
-        #     # ax2.lines = []
-        #     # ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        #     # ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-        #
-        #     self.displayImgCanvas.draw_idle()
-        #     # self.displayImgCanvas.flush_events()
-
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
@@ -798,9 +732,15 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.dir_path, self.imgList, self.current_file = getImgFiles(fullfilename)
         self.propGrp.setEnabled(True)
         self.layerlineBoxGrp.setEnabled(True)
-        self.layerlineboxes = []
-        self.peaks = []
-        self.all_tabs = []
+        cache = self.loadBoxesAndPeaks()
+        if cache is not None:
+            self.layerlineboxes = cache['boxes']
+            self.peaks = cache['peaks']
+        else:
+            self.layerlineboxes = {}
+            self.peaks = {}
+        self.csvManager = LL_CVSManager(self.dir_path, self.layerlineboxes, self.peaks)
+        self.addLayerLineTabs()
         self.selectPeaksGrp.setEnabled(False)
         self.onImageChanged()
 
@@ -837,20 +777,13 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.minIntSpnBx.setSingleStep(step)
         self.maxIntSpnBx.setSingleStep(step)
 
-        if img.shape == (1043, 981):
-            self.minIntSpnBx.setDecimals(2)
-            self.maxIntSpnBx.setDecimals(2)
-        else:
-            self.minIntSpnBx.setDecimals(0)
-            self.maxIntSpnBx.setDecimals(0)
-
         # use cached values if they're available
         if "minInt" in self.layerProc.info and "maxInt" in self.layerProc.info:
             self.minIntSpnBx.setValue(self.layerProc.info["minInt"])
             self.maxIntSpnBx.setValue(self.layerProc.info["maxInt"])
         else:
             if self.maxIntSpnBx.value() == 0:
-                self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
+                self.minIntSpnBx.setValue(0)  # init min intensity as min value
                 self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
         self.syncUI = False
 
@@ -882,14 +815,45 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # self.csvManager.writeNewData(self.layerProc)
         self.resetUI()
         self.refreshStatusbar()
+        self.cacheBoxesAndPeaks()
+        self.csvManager.setColumnNames(self.layerlineboxes, self.peaks)
+        self.csvManager.writeNewData(self.layerProc)
         QtGui.QApplication.restoreOverrideCursor()
+
+    def cacheBoxesAndPeaks(self):
+        cache = {
+            'boxes' : self.layerlineboxes,
+            'peaks' : self.peaks
+        }
+
+        cache_dir = fullPath(self.dir_path, 'll_cache')
+        createFolder(cache_dir)
+        cache_file = fullPath(cache_dir, 'boxes_peaks.info')
+        pickle.dump(cache, open(cache_file, "wb"))
+
+    def loadBoxesAndPeaks(self):
+        cache_file = fullPath(fullPath(self.dir_path, 'll_cache'), 'boxes_peaks.info')
+        if exists(cache_file):
+            cache = pickle.load(open(cache_file, "rb"))
+            if cache is not None:
+                return cache
+        return None
 
     def getSettings(self):
         settings = {}
-        if len(self.layerlineboxes) > 0:
-            settings['boxes'] = self.layerlineboxes
-        if len(self.peaks) > 0:
-            settings['peaks'] = self.peaks
+
+        # add layer line boxes
+        settings['boxes'] = self.layerlineboxes
+
+        # add peaks location
+        settings['peaks'] = self.peaks
+
+        if self.calSettings is not None:
+            if self.calSettings["type"] == "img":
+                settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+            elif self.calSettings["type"] == "cont":
+                settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+
         return settings
 
     def refreshStatusbar(self):
@@ -926,7 +890,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # self.graph_zoom = None
         QtGui.QApplication.restoreOverrideCursor()
         self.selectPeaksButton.setText("Select Approximate Peak Locations")
-        self.selectBoxButton.setText("Select Layer Line Boxes")
+        self.addBoxButton.setText("Add a Layer Line Box")
 
         for b in self.checkableButtons:
             b.setChecked(False)
@@ -960,24 +924,26 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         ax.cla()
         ax.imshow(img)
 
-        if len(self.layerlineboxes) > 0:
+        if len(self.layerlineboxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
-                for i,b in enumerate(self.layerlineboxes):
+                for num in self.layerlineboxes.keys():
+                    b = self.layerlineboxes[num]
                     x = b[0][0]
                     y = b[1][0]
                     w = b[0][1] - b[0][0]
                     h = b[1][1] - b[1][0]
                     ax.add_patch(patches.Rectangle((x,y), w, h,
                                                    linewidth=1, edgecolor='y', facecolor='none'))
-                    ax.text(x + w + 10, y + h / 2., str(i+1), color='y', fontsize=10,
+                    ax.text(x + w + 10, y + h / 2., str(num), color='y', fontsize=10,
                         horizontalalignment='left', verticalalignment='center')
+
             if self.peaksChkBx.isChecked():
-                for i in range(len(self.peaks)):
-                    start_box = self.layerlineboxes[i][0][0]
-                    for p in self.peaks[i]:
-                        x = p + start_box
-                        ax.plot((x, x), self.layerlineboxes[i][1], color='r')
+                for num in self.peaks.keys():
+                    centerx = self.layerProc.orig_img.shape[1]/2
+                    for p in self.peaks[num]:
+                        ax.plot((centerx - p, centerx - p), self.layerlineboxes[num][1], color='r')
+                        ax.plot((centerx + p, centerx + p), self.layerlineboxes[num][1], color='r')
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:

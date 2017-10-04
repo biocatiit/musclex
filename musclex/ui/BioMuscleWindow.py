@@ -35,12 +35,12 @@ import matplotlib.patches as patches
 from os.path import split
 import traceback
 import webbrowser
-from musclex.CalibrationSettings import CalibrationSettings
-from musclex.bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
-from musclex.biocat_modules.BioImage import BioImage, getCardiacGraph
-from musclex.bio_utils.image_processor import *
-from musclex.csv_manager.BM_CVSManager import BM_CVSManager
-from musclex.ui.BM_FittingTab import BM_FittingTab
+from ..CalibrationSettings import CalibrationSettings
+from ..bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
+from ..biocat_modules.BioImage import BioImage, getCardiacGraph
+from ..bio_utils.image_processor import *
+from ..csv_manager import BM_CVSManager
+from ..ui.BM_FittingTab import BM_FittingTab
 import musclex
 
 class BioMuscleWindow(QtGui.QMainWindow):

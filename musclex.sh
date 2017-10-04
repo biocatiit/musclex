@@ -6,16 +6,6 @@ printinfo=false
 if [ -z "$1" ]; then
     runapp=false
     printinfo=true
-elif [ "$1" == "bm" ]; then
-	echo "bio_muscle is running"
-elif [ "$1" == "dc" ]; then
-	echo "diffraction_centroids is running"
-elif [ "$1" == "cp" ]; then
-	echo "Circular Projection is running"
-elif [ "$1" == "qf" ]; then
-	echo "Quadrant Folding is running"
-elif [ "$1" == "ddf" ]; then
-	echo "DDF Processor is running"
 elif [ "$1" == "update" ]; then
     echo "biocat is updating"
     runapp=false
@@ -32,6 +22,7 @@ elif [ "$printinfo" = true ]; then
 	echo ""
     echo "          bm - Bio Muscle "
     echo "          qf - Quadrant Folding"
+    echo "          ll - Layer Line Traces"
     echo "          cp - Circular Projection"
     echo "          dc - Diffraction Centroids"
     echo "          ddf - DDF Processor"

@@ -34,9 +34,9 @@ from lmfit.models import VoigtModel
 from os import makedirs
 from os.path import isfile, exists
 import pickle
-from musclex.bio_utils.file_manager import fullPath
-from musclex.bio_utils.image_processor import *
-from musclex.bio_utils.histogram_processor import *
+from ..bio_utils.file_manager import fullPath
+from ..bio_utils.image_processor import *
+from ..bio_utils.histogram_processor import *
 import musclex
 
 class DiffractionCentroids():
@@ -403,7 +403,7 @@ class DiffractionCentroids():
             hist = self.info['top_hull']
             peaks = self.info['top_peaks']
             baselines = self.info["top_baselines"]
-            results = self.getPeakInformations(hist, peaks, baselines)
+            results = getPeakInformations(hist, peaks, baselines)
             self.info['top_centroids'] = results['centroids']
             self.info['top_widths'] = results['widths']
             self.info['top_areas'] = results['areas']
@@ -412,7 +412,7 @@ class DiffractionCentroids():
             hist = self.info['bottom_hull']
             peaks = self.info['bottom_peaks']
             baselines = self.info["bottom_baselines"]
-            results = self.getPeakInformations(hist, peaks, baselines)
+            results = getPeakInformations(hist, peaks, baselines)
             self.info['bottom_centroids'] = results['centroids']
             self.info['bottom_widths'] = results['widths']
             self.info['bottom_areas'] = results['areas']
@@ -427,7 +427,7 @@ class DiffractionCentroids():
         for i in range(len(peaks)):
             p = peaks[i]
             baseline = baselines[i]
-            width, _ = self.getWidth(hist, p, baseline)
+            width, _ = getWidth(hist, p, baseline)
             new_hist[p - width:p + width] = hist[p - width:p + width]
             prefix = "v"+str(i + 1) + '_'
             init_amp = hist[p] * width * np.sqrt(2 * np.pi)
@@ -507,72 +507,6 @@ class DiffractionCentroids():
             baselines[ind] = baseline
 
         self.removeInfo("off_mer_peak_info")
-
-    def getPeakInformations(self, hist, peaks, baselines):
-        """
-        Get all peak informations including centroid, width, intersection with baseline, area (intensity)
-        :param hist: input histogram (list)
-        :param peaks: peak locations (list)
-        :param baselines: baselines of peaks (list)
-        :return: result with infomations (dict)
-        """
-        # self.fitModel(hist, peaks, baselines)
-        centroids = []
-        widths = []
-        intersectionsList = []
-        areas = []
-
-        for i in range(len(peaks)):
-            p = peaks[i]
-            baseline = baselines[i]
-            width, intersections = self.getWidth(hist, p, baseline)
-            cent = self.getCentroid(hist, p, intersections)
-            areas.append(hist[p] * width / (2.35 * 0.3989))
-            centroids.append(cent)
-            widths.append(width)
-            intersectionsList.append(intersections)
-        results = {}
-        results["centroids"] = centroids
-        results["widths"] = widths
-        results["intersections"] = intersectionsList
-        results["areas"] = areas
-        return results
-
-    def getCentroid(self, hist, p, intersections):
-        """
-        Get centroid
-        :param hist: input histogram (list)
-        :param p: peak location (int)
-        :param intersections: intersections of histogram and baseline at peak (tuple)
-        :return: centroid
-        """
-        xs = np.arange(intersections[0], intersections[1] + 1)
-        ys = hist[xs]
-        numerator = np.dot(xs, ys)
-        denominator = sum(ys)
-        if denominator != 0:
-            cent = numerator / denominator
-        else:
-            cent = p
-        return cent
-
-    def getWidth(self, hist, max_loc, baseline):
-        """
-        Get peak width
-        :param hist: input histogram
-        :param max_loc: peak location
-        :param baseline: baseline of peak
-        :return: peak width
-        """
-        l = 1
-        r = 1
-        while max_loc - l >= 0 and max_loc + r < len(hist) and (
-                hist[max_loc - l] > baseline or hist[max_loc + r] > baseline):
-            if hist[max_loc - l] > baseline:
-                l += 1
-            if hist[max_loc + r] > baseline:
-                r += 1
-        return l+r, (max_loc - l, max_loc + r)
 
     def getOffMeridianRanges(self):
         """
@@ -702,7 +636,7 @@ class DiffractionCentroids():
                 peak_list = peaks[k]
                 hull = hulls[k]
                 baseline_list = baselines[k]
-                results = self.getPeakInformations(hull, peak_list, baseline_list)
+                results = getPeakInformations(hull, peak_list, baseline_list)
                 all_info[k] = copy.copy(results)
 
             self.info["off_mer_peak_info"] = all_info

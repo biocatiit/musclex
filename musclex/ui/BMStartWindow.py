@@ -32,7 +32,7 @@ import sys
 import os
 from PyQt4 import QtGui
 from os.path import split
-from musclex.ui.BioMuscleWindow import BioMuscleWindow
+from ..ui.BioMuscleWindow import BioMuscleWindow
 import musclex
 
 class BMStartWindow(QtGui.QMainWindow):

@@ -65,7 +65,7 @@ def main(arguments=None):
             app = QtGui.QApplication(sys.argv)
             myapp = DDFWindow()
             sys.exit(app.exec_())
-        elif prog == 'lp':
+        elif prog == 'll':
             app = QtGui.QApplication(sys.argv)
             myapp = LayerLineTracesGUI()
             sys.exit(app.exec_())
@@ -75,7 +75,7 @@ def main(arguments=None):
         run = False
 
     if not run:
-        print "Please specify the program shortcut that you want to run"
+        print "\n\nPlease specify the program shortcut that you want to run"
         print ""
         print "  $ muscle [--program]"
         print ""
@@ -84,12 +84,13 @@ def main(arguments=None):
         print "          cp - Circular Projection"
         print "          dc - Diffraction Centroids"
         print "          ddf - DDF Processor"
+        print "          lp - Layer Line Traces"
         print ""
         print "For example,"
         print "\t$ musclex bm"
         print
         print "More details : https://www.github.com/biocatiit/musclex/wiki"
-        print "Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues"
+        print "Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n"
 
 if __name__ == "__main__":
     main(sys.argv)

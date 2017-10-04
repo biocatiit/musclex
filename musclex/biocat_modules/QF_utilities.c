@@ -477,8 +477,8 @@ static CYTHON_INLINE float __PYX_NAN() {
   #endif
 #endif
 
-#define __PYX_HAVE__QF_utilities
-#define __PYX_HAVE_API__QF_utilities
+#define __PYX_HAVE__musclex__biocat_modules__QF_utilities
+#define __PYX_HAVE_API__musclex__biocat_modules__QF_utilities
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1508,17 +1508,17 @@ static CYTHON_INLINE char *__pyx_f_5numpy__util_dtypestring(PyArray_Descr *, cha
 
 /* Module declarations from 'libc.math' */
 
-/* Module declarations from 'QF_utilities' */
-static float __pyx_f_12QF_utilities_distance(int, int, int, int, int __pyx_skip_dispatch); /*proto*/
-static float __pyx_f_12QF_utilities_sigmoid(float, int, int); /*proto*/
+/* Module declarations from 'musclex.biocat_modules.QF_utilities' */
+static float __pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(int, int, int, int, int __pyx_skip_dispatch); /*proto*/
+static float __pyx_f_7musclex_14biocat_modules_12QF_utilities_sigmoid(float, int, int); /*proto*/
 static __Pyx_TypeInfo __Pyx_TypeInfo_nn___pyx_t_5numpy_uint16_t = { "uint16_t", NULL, sizeof(__pyx_t_5numpy_uint16_t), { 0 }, 0, IS_UNSIGNED(__pyx_t_5numpy_uint16_t) ? 'U' : 'I', IS_UNSIGNED(__pyx_t_5numpy_uint16_t), 0 };
 static __Pyx_TypeInfo __Pyx_TypeInfo_double = { "double", NULL, sizeof(double), { 0 }, 0, 'R', 0, 0 };
 static __Pyx_TypeInfo __Pyx_TypeInfo_nn___pyx_t_5numpy_uint8_t = { "uint8_t", NULL, sizeof(__pyx_t_5numpy_uint8_t), { 0 }, 0, IS_UNSIGNED(__pyx_t_5numpy_uint8_t) ? 'U' : 'I', IS_UNSIGNED(__pyx_t_5numpy_uint8_t), 0 };
 static __Pyx_TypeInfo __Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t = { "float32_t", NULL, sizeof(__pyx_t_5numpy_float32_t), { 0 }, 0, 'R', 0, 0 };
-#define __Pyx_MODULE_NAME "QF_utilities"
-int __pyx_module_is_main_QF_utilities = 0;
+#define __Pyx_MODULE_NAME "musclex.biocat_modules.QF_utilities"
+int __pyx_module_is_main_musclex__biocat_modules__QF_utilities = 0;
 
-/* Implementation of 'QF_utilities' */
+/* Implementation of 'musclex.biocat_modules.QF_utilities' */
 static PyObject *__pyx_builtin_range;
 static PyObject *__pyx_builtin_ValueError;
 static PyObject *__pyx_builtin_RuntimeError;
@@ -1558,6 +1558,7 @@ static const char __pyx_k_zero[] = "zero";
 static const char __pyx_k_alpha[] = "alpha";
 static const char __pyx_k_bgsub[] = "bgsub";
 static const char __pyx_k_dtype[] = "dtype";
+static const char __pyx_k_fceil[] = "fceil";
 static const char __pyx_k_iceil[] = "iceil";
 static const char __pyx_k_nBins[] = "nBins";
 static const char __pyx_k_numpy[] = "numpy";
@@ -1568,9 +1569,9 @@ static const char __pyx_k_uint8[] = "uint8";
 static const char __pyx_k_width[] = "width";
 static const char __pyx_k_zeros[] = "zeros";
 static const char __pyx_k_author[] = "__author__";
-static const char __pyx_k_bg_val[] = "bg_val";
 static const char __pyx_k_deltax[] = "deltax";
 static const char __pyx_k_deltay[] = "deltay";
+static const char __pyx_k_ffloor[] = "ffloor";
 static const char __pyx_k_height[] = "height";
 static const char __pyx_k_ifloor[] = "ifloor";
 static const char __pyx_k_import[] = "__import__";
@@ -1598,6 +1599,7 @@ static const char __pyx_k_backgound[] = "backgound";
 static const char __pyx_k_floor_bin[] = "floor_bin";
 static const char __pyx_k_floor_deg[] = "floor_deg";
 static const char __pyx_k_floor_rad[] = "floor_rad";
+static const char __pyx_k_iceil_rad[] = "iceil_rad";
 static const char __pyx_k_img_width[] = "img_width";
 static const char __pyx_k_irad_ceil[] = "irad_ceil";
 static const char __pyx_k_nQuadrant[] = "nQuadrant";
@@ -1607,6 +1609,7 @@ static const char __pyx_k_sigmoid_k[] = "sigmoid_k";
 static const char __pyx_k_threshold[] = "threshold";
 static const char __pyx_k_ValueError[] = "ValueError";
 static const char __pyx_k_fold_width[] = "fold_width";
+static const char __pyx_k_ifloor_rad[] = "ifloor_rad";
 static const char __pyx_k_img_height[] = "img_height";
 static const char __pyx_k_irad_floor[] = "irad_floor";
 static const char __pyx_k_pchipLines[] = "pchipLines";
@@ -1616,21 +1619,21 @@ static const char __pyx_k_subtr_hist[] = "subtr_hist";
 static const char __pyx_k_theta_size[] = "theta_size";
 static const char __pyx_k_tophat_val[] = "tophat_val";
 static const char __pyx_k_ImportError[] = "ImportError";
-static const char __pyx_k_createCirBG[] = "createCirBG";
 static const char __pyx_k_fold_height[] = "fold_height";
-static const char __pyx_k_QF_utilities[] = "QF_utilities";
 static const char __pyx_k_RuntimeError[] = "RuntimeError";
 static const char __pyx_k_radial_bgsub[] = "radial_bgsub";
 static const char __pyx_k_radial_ratio[] = "radial_ratio";
 static const char __pyx_k_tophat_ratio[] = "tophat_ratio";
 static const char __pyx_k_getCirSubtr_i8[] = "getCirSubtr_i8";
+static const char __pyx_k_createAngularBG[] = "createAngularBG";
 static const char __pyx_k_getCirSubtr_f32[] = "getCirSubtr_f32";
 static const char __pyx_k_getCirSubtr_i16[] = "getCirSubtr_i16";
 static const char __pyx_k_QF_utilities_pyx[] = "QF_utilities.pyx";
 static const char __pyx_k_get_avg_fold_int8[] = "get_avg_fold_int8";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_get_avg_fold_int16[] = "get_avg_fold_int16";
-static const char __pyx_k_makeBackgroundImage[] = "makeBackgroundImage";
+static const char __pyx_k_make2DConvexhullBG[] = "make2DConvexhullBG";
+static const char __pyx_k_make2DConvexhullBG2[] = "make2DConvexhullBG2";
 static const char __pyx_k_get_avg_fold_float32[] = "get_avg_fold_float32";
 static const char __pyx_k_combine_bgsub_float32[] = "combine_bgsub_float32";
 static const char __pyx_k_createCircularlySymBG[] = "createCircularlySymBG";
@@ -1640,6 +1643,7 @@ static const char __pyx_k_numpy_core_multiarray_failed_to[] = "numpy.core.multia
 static const char __pyx_k_unknown_dtype_code_in_numpy_pxd[] = "unknown dtype code in numpy.pxd (%d)";
 static const char __pyx_k_Format_string_allocated_too_shor[] = "Format string allocated too short, see comment in numpy.pxd";
 static const char __pyx_k_Non_native_byte_order_not_suppor[] = "Non-native byte order not supported";
+static const char __pyx_k_musclex_biocat_modules_QF_utilit[] = "musclex.biocat_modules.QF_utilities";
 static const char __pyx_k_ndarray_is_not_Fortran_contiguou[] = "ndarray is not Fortran contiguous";
 static const char __pyx_k_numpy_core_umath_failed_to_impor[] = "numpy.core.umath failed to import";
 static const char __pyx_k_Format_string_allocated_too_shor_2[] = "Format string allocated too short.";
@@ -1648,7 +1652,6 @@ static PyObject *__pyx_kp_u_Format_string_allocated_too_shor_2;
 static PyObject *__pyx_n_s_ImportError;
 static PyObject *__pyx_kp_s_Jiranun_J;
 static PyObject *__pyx_kp_u_Non_native_byte_order_not_suppor;
-static PyObject *__pyx_n_s_QF_utilities;
 static PyObject *__pyx_kp_s_QF_utilities_pyx;
 static PyObject *__pyx_n_s_RuntimeError;
 static PyObject *__pyx_n_s_ValueError;
@@ -1659,7 +1662,6 @@ static PyObject *__pyx_n_s_author;
 static PyObject *__pyx_n_s_backgound;
 static PyObject *__pyx_n_s_beta;
 static PyObject *__pyx_n_s_beta_rad;
-static PyObject *__pyx_n_s_bg_val;
 static PyObject *__pyx_n_s_bgsub;
 static PyObject *__pyx_n_s_ceil_bin;
 static PyObject *__pyx_n_s_ceil_deg;
@@ -1670,13 +1672,15 @@ static PyObject *__pyx_n_s_center_x;
 static PyObject *__pyx_n_s_center_y;
 static PyObject *__pyx_n_s_cline_in_traceback;
 static PyObject *__pyx_n_s_combine_bgsub_float32;
-static PyObject *__pyx_n_s_createCirBG;
+static PyObject *__pyx_n_s_createAngularBG;
 static PyObject *__pyx_n_s_createCircularlySymBG;
 static PyObject *__pyx_n_s_deg;
 static PyObject *__pyx_n_s_deltax;
 static PyObject *__pyx_n_s_deltay;
 static PyObject *__pyx_n_s_dtype;
 static PyObject *__pyx_n_s_fbin;
+static PyObject *__pyx_n_s_fceil;
+static PyObject *__pyx_n_s_ffloor;
 static PyObject *__pyx_n_s_float32;
 static PyObject *__pyx_n_s_floor_bin;
 static PyObject *__pyx_n_s_floor_deg;
@@ -1695,8 +1699,10 @@ static PyObject *__pyx_n_s_height;
 static PyObject *__pyx_n_s_i;
 static PyObject *__pyx_n_s_ibin;
 static PyObject *__pyx_n_s_iceil;
+static PyObject *__pyx_n_s_iceil_rad;
 static PyObject *__pyx_n_s_ideg;
 static PyObject *__pyx_n_s_ifloor;
+static PyObject *__pyx_n_s_ifloor_rad;
 static PyObject *__pyx_n_s_img;
 static PyObject *__pyx_n_s_img1;
 static PyObject *__pyx_n_s_img2;
@@ -1708,9 +1714,11 @@ static PyObject *__pyx_n_s_irad;
 static PyObject *__pyx_n_s_irad_ceil;
 static PyObject *__pyx_n_s_irad_floor;
 static PyObject *__pyx_n_s_main;
-static PyObject *__pyx_n_s_makeBackgroundImage;
+static PyObject *__pyx_n_s_make2DConvexhullBG;
+static PyObject *__pyx_n_s_make2DConvexhullBG2;
 static PyObject *__pyx_n_s_max;
 static PyObject *__pyx_n_s_min;
+static PyObject *__pyx_n_s_musclex_biocat_modules_QF_utilit;
 static PyObject *__pyx_n_s_nBins;
 static PyObject *__pyx_n_s_nQuadrant;
 static PyObject *__pyx_n_s_n_fold;
@@ -1763,18 +1771,19 @@ static PyObject *__pyx_n_s_y1;
 static PyObject *__pyx_n_s_y2;
 static PyObject *__pyx_n_s_zero;
 static PyObject *__pyx_n_s_zeros;
-static PyObject *__pyx_pf_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_x1, int __pyx_v_y1, int __pyx_v_x2, int __pyx_v_y2); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, double __pyx_v_threshold); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, int __pyx_v_threshold); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, __pyx_t_5numpy_float32_t __pyx_v_threshold); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_smooth_img, int __pyx_v_center_x, int __pyx_v_center_y, int __pyx_v_radius, int __pyx_v_threshold); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img1, PyArrayObject *__pyx_v_img2, int __pyx_v_center_x, int __pyx_v_center_y, float __pyx_v_sigmoid_k, int __pyx_v_radius); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_pchipLines, int __pyx_v_width, int __pyx_v_height, int __pyx_v_centerX, int __pyx_v_centerY, int __pyx_v_rmin, int __pyx_v_rmax); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_subtr, int __pyx_v_nBins); /* proto */
-static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_spline, int __pyx_v_rmin, int __pyx_v_rmax); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_x1, int __pyx_v_y1, int __pyx_v_x2, int __pyx_v_y2); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, double __pyx_v_threshold); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, int __pyx_v_threshold); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, __pyx_t_5numpy_float32_t __pyx_v_threshold); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_smooth_img, int __pyx_v_center_x, int __pyx_v_center_y, int __pyx_v_radius, int __pyx_v_threshold); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img1, PyArrayObject *__pyx_v_img2, int __pyx_v_center_x, int __pyx_v_center_y, float __pyx_v_sigmoid_k, int __pyx_v_radius); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_18make2DConvexhullBG(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_pchipLines, int __pyx_v_width, int __pyx_v_height, int __pyx_v_centerX, int __pyx_v_centerY, int __pyx_v_rmin, int __pyx_v_rmax); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_20make2DConvexhullBG2(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_pchipLines, int __pyx_v_width, int __pyx_v_height, int __pyx_v_centerX, int __pyx_v_centerY, int __pyx_v_rmin, int __pyx_v_rmax); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_22createAngularBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_subtr, int __pyx_v_nBins); /* proto */
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_24createCircularlySymBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_spline, int __pyx_v_rmin, int __pyx_v_rmax); /* proto */
 static int __pyx_pf_5numpy_7ndarray___getbuffer__(PyArrayObject *__pyx_v_self, Py_buffer *__pyx_v_info, int __pyx_v_flags); /* proto */
 static void __pyx_pf_5numpy_7ndarray_2__releasebuffer__(PyArrayObject *__pyx_v_self, Py_buffer *__pyx_v_info); /* proto */
 static PyObject *__pyx_int_1;
@@ -1798,6 +1807,7 @@ static PyObject *__pyx_tuple__24;
 static PyObject *__pyx_tuple__26;
 static PyObject *__pyx_tuple__28;
 static PyObject *__pyx_tuple__30;
+static PyObject *__pyx_tuple__32;
 static PyObject *__pyx_codeobj__11;
 static PyObject *__pyx_codeobj__13;
 static PyObject *__pyx_codeobj__15;
@@ -1809,8 +1819,9 @@ static PyObject *__pyx_codeobj__25;
 static PyObject *__pyx_codeobj__27;
 static PyObject *__pyx_codeobj__29;
 static PyObject *__pyx_codeobj__31;
+static PyObject *__pyx_codeobj__33;
 
-/* "QF_utilities.pyx":16
+/* "musclex/biocat_modules/QF_utilities.pyx":16
  * # every type in the np module there's a corresponding compile-time
  * # type with a _t-suffix.
  * cpdef float distance(int x1, int y1, int x2, int y2):             # <<<<<<<<<<<<<<
@@ -1818,13 +1829,13 @@ static PyObject *__pyx_codeobj__31;
  * 
  */
 
-static PyObject *__pyx_pw_12QF_utilities_1distance(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static float __pyx_f_12QF_utilities_distance(int __pyx_v_x1, int __pyx_v_y1, int __pyx_v_x2, int __pyx_v_y2, CYTHON_UNUSED int __pyx_skip_dispatch) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_1distance(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static float __pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(int __pyx_v_x1, int __pyx_v_y1, int __pyx_v_x2, int __pyx_v_y2, CYTHON_UNUSED int __pyx_skip_dispatch) {
   float __pyx_r;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("distance", 0);
 
-  /* "QF_utilities.pyx":17
+  /* "musclex/biocat_modules/QF_utilities.pyx":17
  * # type with a _t-suffix.
  * cpdef float distance(int x1, int y1, int x2, int y2):
  *     return sqrt((x1-x2)**2+(y1-y2)**2)             # <<<<<<<<<<<<<<
@@ -1834,7 +1845,7 @@ static float __pyx_f_12QF_utilities_distance(int __pyx_v_x1, int __pyx_v_y1, int
   __pyx_r = sqrt((__Pyx_pow_long(((long)(__pyx_v_x1 - __pyx_v_x2)), 2) + __Pyx_pow_long(((long)(__pyx_v_y1 - __pyx_v_y2)), 2)));
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":16
+  /* "musclex/biocat_modules/QF_utilities.pyx":16
  * # every type in the np module there's a corresponding compile-time
  * # type with a _t-suffix.
  * cpdef float distance(int x1, int y1, int x2, int y2):             # <<<<<<<<<<<<<<
@@ -1849,8 +1860,8 @@ static float __pyx_f_12QF_utilities_distance(int __pyx_v_x1, int __pyx_v_y1, int
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_1distance(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyObject *__pyx_pw_12QF_utilities_1distance(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_1distance(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_1distance(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   int __pyx_v_x1;
   int __pyx_v_y1;
   int __pyx_v_x2;
@@ -1920,24 +1931,24 @@ static PyObject *__pyx_pw_12QF_utilities_1distance(PyObject *__pyx_self, PyObjec
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("distance", 1, 4, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 16, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.distance", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.distance", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_12QF_utilities_distance(__pyx_self, __pyx_v_x1, __pyx_v_y1, __pyx_v_x2, __pyx_v_y2);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_self, __pyx_v_x1, __pyx_v_y1, __pyx_v_x2, __pyx_v_y2);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_x1, int __pyx_v_y1, int __pyx_v_x2, int __pyx_v_y2) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_x1, int __pyx_v_y1, int __pyx_v_x2, int __pyx_v_y2) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("distance", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_12QF_utilities_distance(__pyx_v_x1, __pyx_v_y1, __pyx_v_x2, __pyx_v_y2, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x1, __pyx_v_y1, __pyx_v_x2, __pyx_v_y2, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -1946,7 +1957,7 @@ static PyObject *__pyx_pf_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_AddTraceback("QF_utilities.distance", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.distance", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -1954,7 +1965,7 @@ static PyObject *__pyx_pf_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":20
+/* "musclex/biocat_modules/QF_utilities.pyx":20
  * 
  * 
  * def get_avg_fold_int16(np.ndarray[np.uint16_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, double threshold):             # <<<<<<<<<<<<<<
@@ -1963,9 +1974,9 @@ static PyObject *__pyx_pf_12QF_utilities_distance(CYTHON_UNUSED PyObject *__pyx_
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_3get_avg_fold_int16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_3get_avg_fold_int16 = {"get_avg_fold_int16", (PyCFunction)__pyx_pw_12QF_utilities_3get_avg_fold_int16, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_3get_avg_fold_int16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_3get_avg_fold_int16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_3get_avg_fold_int16 = {"get_avg_fold_int16", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_3get_avg_fold_int16, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_3get_avg_fold_int16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_quadrants = 0;
   int __pyx_v_nQuadrant;
   int __pyx_v_fold_height;
@@ -2046,12 +2057,12 @@ static PyObject *__pyx_pw_12QF_utilities_3get_avg_fold_int16(PyObject *__pyx_sel
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("get_avg_fold_int16", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 20, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.get_avg_fold_int16", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.get_avg_fold_int16", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_quadrants), __pyx_ptype_5numpy_ndarray, 1, "quadrants", 0))) __PYX_ERR(0, 20, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_2get_avg_fold_int16(__pyx_self, __pyx_v_quadrants, __pyx_v_nQuadrant, __pyx_v_fold_height, __pyx_v_fold_width, __pyx_v_threshold);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_2get_avg_fold_int16(__pyx_self, __pyx_v_quadrants, __pyx_v_nQuadrant, __pyx_v_fold_height, __pyx_v_fold_width, __pyx_v_threshold);
 
   /* function exit code */
   goto __pyx_L0;
@@ -2062,7 +2073,7 @@ static PyObject *__pyx_pw_12QF_utilities_3get_avg_fold_int16(PyObject *__pyx_sel
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, double __pyx_v_threshold) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, double __pyx_v_threshold) {
   PyArrayObject *__pyx_v_result = 0;
   Py_ssize_t __pyx_v_x;
   Py_ssize_t __pyx_v_y;
@@ -2123,7 +2134,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
   }
   __pyx_pybuffernd_quadrants.diminfo[0].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_quadrants.diminfo[0].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_quadrants.diminfo[1].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_quadrants.diminfo[1].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[1]; __pyx_pybuffernd_quadrants.diminfo[2].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[2]; __pyx_pybuffernd_quadrants.diminfo[2].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[2];
 
-  /* "QF_utilities.pyx":21
+  /* "musclex/biocat_modules/QF_utilities.pyx":21
  * 
  * def get_avg_fold_int16(np.ndarray[np.uint16_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, double threshold):
  *     cdef np.ndarray[double, ndim=2] result = np.zeros((fold_height, fold_width))             # <<<<<<<<<<<<<<
@@ -2207,7 +2218,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
   __pyx_v_result = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":27
+  /* "musclex/biocat_modules/QF_utilities.pyx":27
  * 
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:             # <<<<<<<<<<<<<<
@@ -2217,7 +2228,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
   __pyx_t_7 = ((__pyx_v_nQuadrant > 0) != 0);
   if (__pyx_t_7) {
 
-    /* "QF_utilities.pyx":28
+    /* "musclex/biocat_modules/QF_utilities.pyx":28
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:
  *         for x in range(fold_width):             # <<<<<<<<<<<<<<
@@ -2228,7 +2239,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
     for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
       __pyx_v_x = __pyx_t_9;
 
-      /* "QF_utilities.pyx":29
+      /* "musclex/biocat_modules/QF_utilities.pyx":29
  *     if nQuadrant > 0:
  *         for x in range(fold_width):
  *             for y in range(fold_height):             # <<<<<<<<<<<<<<
@@ -2239,7 +2250,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
       for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
         __pyx_v_y = __pyx_t_11;
 
-        /* "QF_utilities.pyx":30
+        /* "musclex/biocat_modules/QF_utilities.pyx":30
  *         for x in range(fold_width):
  *             for y in range(fold_height):
  *                 sum_val = 0.0             # <<<<<<<<<<<<<<
@@ -2248,7 +2259,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
  */
         __pyx_v_sum_val = 0.0;
 
-        /* "QF_utilities.pyx":31
+        /* "musclex/biocat_modules/QF_utilities.pyx":31
  *             for y in range(fold_height):
  *                 sum_val = 0.0
  *                 n_fold = 0             # <<<<<<<<<<<<<<
@@ -2257,7 +2268,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
  */
         __pyx_v_n_fold = 0;
 
-        /* "QF_utilities.pyx":32
+        /* "musclex/biocat_modules/QF_utilities.pyx":32
  *                 sum_val = 0.0
  *                 n_fold = 0
  *                 for i in range(nQuadrant):             # <<<<<<<<<<<<<<
@@ -2268,7 +2279,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
         for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
           __pyx_v_i = __pyx_t_13;
 
-          /* "QF_utilities.pyx":33
+          /* "musclex/biocat_modules/QF_utilities.pyx":33
  *                 n_fold = 0
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]             # <<<<<<<<<<<<<<
@@ -2299,7 +2310,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
           __Pyx_XDECREF_SET(__pyx_v_fold, ((PyArrayObject *)__pyx_t_1));
           __pyx_t_1 = 0;
 
-          /* "QF_utilities.pyx":34
+          /* "musclex/biocat_modules/QF_utilities.pyx":34
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :             # <<<<<<<<<<<<<<
@@ -2311,7 +2322,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
           __pyx_t_7 = (((*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint16_t *, __pyx_pybuffernd_fold.rcbuffer->pybuffer.buf, __pyx_t_19, __pyx_pybuffernd_fold.diminfo[0].strides, __pyx_t_20, __pyx_pybuffernd_fold.diminfo[1].strides)) > __pyx_v_threshold) != 0);
           if (__pyx_t_7) {
 
-            /* "QF_utilities.pyx":35
+            /* "musclex/biocat_modules/QF_utilities.pyx":35
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :
  *                         sum_val += fold[y,x]             # <<<<<<<<<<<<<<
@@ -2322,7 +2333,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
             __pyx_t_22 = __pyx_v_x;
             __pyx_v_sum_val = (__pyx_v_sum_val + (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint16_t *, __pyx_pybuffernd_fold.rcbuffer->pybuffer.buf, __pyx_t_21, __pyx_pybuffernd_fold.diminfo[0].strides, __pyx_t_22, __pyx_pybuffernd_fold.diminfo[1].strides)));
 
-            /* "QF_utilities.pyx":36
+            /* "musclex/biocat_modules/QF_utilities.pyx":36
  *                     if fold[y,x] > threshold :
  *                         sum_val += fold[y,x]
  *                         n_fold += 1             # <<<<<<<<<<<<<<
@@ -2331,7 +2342,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
  */
             __pyx_v_n_fold = (__pyx_v_n_fold + 1);
 
-            /* "QF_utilities.pyx":34
+            /* "musclex/biocat_modules/QF_utilities.pyx":34
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :             # <<<<<<<<<<<<<<
@@ -2341,7 +2352,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
           }
         }
 
-        /* "QF_utilities.pyx":37
+        /* "musclex/biocat_modules/QF_utilities.pyx":37
  *                         sum_val += fold[y,x]
  *                         n_fold += 1
  *                 if n_fold == 0 :             # <<<<<<<<<<<<<<
@@ -2351,7 +2362,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
         __pyx_t_7 = ((__pyx_v_n_fold == 0) != 0);
         if (__pyx_t_7) {
 
-          /* "QF_utilities.pyx":38
+          /* "musclex/biocat_modules/QF_utilities.pyx":38
  *                         n_fold += 1
  *                 if n_fold == 0 :
  *                     result[y,x] = 0             # <<<<<<<<<<<<<<
@@ -2362,7 +2373,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
           __pyx_t_24 = __pyx_v_x;
           *__Pyx_BufPtrStrided2d(double *, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_23, __pyx_pybuffernd_result.diminfo[0].strides, __pyx_t_24, __pyx_pybuffernd_result.diminfo[1].strides) = 0.0;
 
-          /* "QF_utilities.pyx":37
+          /* "musclex/biocat_modules/QF_utilities.pyx":37
  *                         sum_val += fold[y,x]
  *                         n_fold += 1
  *                 if n_fold == 0 :             # <<<<<<<<<<<<<<
@@ -2372,7 +2383,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
           goto __pyx_L11;
         }
 
-        /* "QF_utilities.pyx":40
+        /* "musclex/biocat_modules/QF_utilities.pyx":40
  *                     result[y,x] = 0
  *                 else:
  *                     result[y,x] = sum_val/n_fold             # <<<<<<<<<<<<<<
@@ -2392,7 +2403,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
       }
     }
 
-    /* "QF_utilities.pyx":27
+    /* "musclex/biocat_modules/QF_utilities.pyx":27
  * 
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:             # <<<<<<<<<<<<<<
@@ -2401,7 +2412,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
  */
   }
 
-  /* "QF_utilities.pyx":41
+  /* "musclex/biocat_modules/QF_utilities.pyx":41
  *                 else:
  *                     result[y,x] = sum_val/n_fold
  *     return result             # <<<<<<<<<<<<<<
@@ -2413,7 +2424,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":20
+  /* "musclex/biocat_modules/QF_utilities.pyx":20
  * 
  * 
  * def get_avg_fold_int16(np.ndarray[np.uint16_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, double threshold):             # <<<<<<<<<<<<<<
@@ -2436,7 +2447,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_quadrants.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.get_avg_fold_int16", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.get_avg_fold_int16", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -2451,7 +2462,7 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":43
+/* "musclex/biocat_modules/QF_utilities.pyx":43
  *     return result
  * 
  * def get_avg_fold_int8(np.ndarray[np.uint8_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, int threshold):             # <<<<<<<<<<<<<<
@@ -2460,9 +2471,9 @@ static PyObject *__pyx_pf_12QF_utilities_2get_avg_fold_int16(CYTHON_UNUSED PyObj
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_5get_avg_fold_int8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_5get_avg_fold_int8 = {"get_avg_fold_int8", (PyCFunction)__pyx_pw_12QF_utilities_5get_avg_fold_int8, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_5get_avg_fold_int8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_5get_avg_fold_int8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_5get_avg_fold_int8 = {"get_avg_fold_int8", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_5get_avg_fold_int8, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_5get_avg_fold_int8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_quadrants = 0;
   int __pyx_v_nQuadrant;
   int __pyx_v_fold_height;
@@ -2543,12 +2554,12 @@ static PyObject *__pyx_pw_12QF_utilities_5get_avg_fold_int8(PyObject *__pyx_self
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("get_avg_fold_int8", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 43, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.get_avg_fold_int8", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.get_avg_fold_int8", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_quadrants), __pyx_ptype_5numpy_ndarray, 1, "quadrants", 0))) __PYX_ERR(0, 43, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_4get_avg_fold_int8(__pyx_self, __pyx_v_quadrants, __pyx_v_nQuadrant, __pyx_v_fold_height, __pyx_v_fold_width, __pyx_v_threshold);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_4get_avg_fold_int8(__pyx_self, __pyx_v_quadrants, __pyx_v_nQuadrant, __pyx_v_fold_height, __pyx_v_fold_width, __pyx_v_threshold);
 
   /* function exit code */
   goto __pyx_L0;
@@ -2559,7 +2570,7 @@ static PyObject *__pyx_pw_12QF_utilities_5get_avg_fold_int8(PyObject *__pyx_self
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, int __pyx_v_threshold) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, int __pyx_v_threshold) {
   PyArrayObject *__pyx_v_result = 0;
   Py_ssize_t __pyx_v_x;
   Py_ssize_t __pyx_v_y;
@@ -2620,7 +2631,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
   }
   __pyx_pybuffernd_quadrants.diminfo[0].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_quadrants.diminfo[0].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_quadrants.diminfo[1].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_quadrants.diminfo[1].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[1]; __pyx_pybuffernd_quadrants.diminfo[2].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[2]; __pyx_pybuffernd_quadrants.diminfo[2].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[2];
 
-  /* "QF_utilities.pyx":44
+  /* "musclex/biocat_modules/QF_utilities.pyx":44
  * 
  * def get_avg_fold_int8(np.ndarray[np.uint8_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, int threshold):
  *     cdef np.ndarray[double, ndim=2] result = np.zeros((fold_height, fold_width))             # <<<<<<<<<<<<<<
@@ -2704,7 +2715,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
   __pyx_v_result = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":50
+  /* "musclex/biocat_modules/QF_utilities.pyx":50
  * 
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:             # <<<<<<<<<<<<<<
@@ -2714,7 +2725,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
   __pyx_t_7 = ((__pyx_v_nQuadrant > 0) != 0);
   if (__pyx_t_7) {
 
-    /* "QF_utilities.pyx":51
+    /* "musclex/biocat_modules/QF_utilities.pyx":51
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:
  *         for x in range(fold_width):             # <<<<<<<<<<<<<<
@@ -2725,7 +2736,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
     for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
       __pyx_v_x = __pyx_t_9;
 
-      /* "QF_utilities.pyx":52
+      /* "musclex/biocat_modules/QF_utilities.pyx":52
  *     if nQuadrant > 0:
  *         for x in range(fold_width):
  *             for y in range(fold_height):             # <<<<<<<<<<<<<<
@@ -2736,7 +2747,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
       for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
         __pyx_v_y = __pyx_t_11;
 
-        /* "QF_utilities.pyx":53
+        /* "musclex/biocat_modules/QF_utilities.pyx":53
  *         for x in range(fold_width):
  *             for y in range(fold_height):
  *                 sum_val = 0.0             # <<<<<<<<<<<<<<
@@ -2745,7 +2756,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
  */
         __pyx_v_sum_val = 0.0;
 
-        /* "QF_utilities.pyx":54
+        /* "musclex/biocat_modules/QF_utilities.pyx":54
  *             for y in range(fold_height):
  *                 sum_val = 0.0
  *                 n_fold = 0             # <<<<<<<<<<<<<<
@@ -2754,7 +2765,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
  */
         __pyx_v_n_fold = 0;
 
-        /* "QF_utilities.pyx":55
+        /* "musclex/biocat_modules/QF_utilities.pyx":55
  *                 sum_val = 0.0
  *                 n_fold = 0
  *                 for i in range(nQuadrant):             # <<<<<<<<<<<<<<
@@ -2765,7 +2776,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
         for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
           __pyx_v_i = __pyx_t_13;
 
-          /* "QF_utilities.pyx":56
+          /* "musclex/biocat_modules/QF_utilities.pyx":56
  *                 n_fold = 0
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]             # <<<<<<<<<<<<<<
@@ -2796,7 +2807,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
           __Pyx_XDECREF_SET(__pyx_v_fold, ((PyArrayObject *)__pyx_t_1));
           __pyx_t_1 = 0;
 
-          /* "QF_utilities.pyx":57
+          /* "musclex/biocat_modules/QF_utilities.pyx":57
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :             # <<<<<<<<<<<<<<
@@ -2808,7 +2819,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
           __pyx_t_7 = (((*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint8_t *, __pyx_pybuffernd_fold.rcbuffer->pybuffer.buf, __pyx_t_19, __pyx_pybuffernd_fold.diminfo[0].strides, __pyx_t_20, __pyx_pybuffernd_fold.diminfo[1].strides)) > __pyx_v_threshold) != 0);
           if (__pyx_t_7) {
 
-            /* "QF_utilities.pyx":58
+            /* "musclex/biocat_modules/QF_utilities.pyx":58
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :
  *                         sum_val += fold[y,x]             # <<<<<<<<<<<<<<
@@ -2819,7 +2830,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
             __pyx_t_22 = __pyx_v_x;
             __pyx_v_sum_val = (__pyx_v_sum_val + (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint8_t *, __pyx_pybuffernd_fold.rcbuffer->pybuffer.buf, __pyx_t_21, __pyx_pybuffernd_fold.diminfo[0].strides, __pyx_t_22, __pyx_pybuffernd_fold.diminfo[1].strides)));
 
-            /* "QF_utilities.pyx":59
+            /* "musclex/biocat_modules/QF_utilities.pyx":59
  *                     if fold[y,x] > threshold :
  *                         sum_val += fold[y,x]
  *                         n_fold += 1             # <<<<<<<<<<<<<<
@@ -2828,7 +2839,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
  */
             __pyx_v_n_fold = (__pyx_v_n_fold + 1);
 
-            /* "QF_utilities.pyx":57
+            /* "musclex/biocat_modules/QF_utilities.pyx":57
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :             # <<<<<<<<<<<<<<
@@ -2838,7 +2849,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
           }
         }
 
-        /* "QF_utilities.pyx":60
+        /* "musclex/biocat_modules/QF_utilities.pyx":60
  *                         sum_val += fold[y,x]
  *                         n_fold += 1
  *                 if n_fold == 0 :             # <<<<<<<<<<<<<<
@@ -2848,7 +2859,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
         __pyx_t_7 = ((__pyx_v_n_fold == 0) != 0);
         if (__pyx_t_7) {
 
-          /* "QF_utilities.pyx":61
+          /* "musclex/biocat_modules/QF_utilities.pyx":61
  *                         n_fold += 1
  *                 if n_fold == 0 :
  *                     result[y,x] = 0             # <<<<<<<<<<<<<<
@@ -2859,7 +2870,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
           __pyx_t_24 = __pyx_v_x;
           *__Pyx_BufPtrStrided2d(double *, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_23, __pyx_pybuffernd_result.diminfo[0].strides, __pyx_t_24, __pyx_pybuffernd_result.diminfo[1].strides) = 0.0;
 
-          /* "QF_utilities.pyx":60
+          /* "musclex/biocat_modules/QF_utilities.pyx":60
  *                         sum_val += fold[y,x]
  *                         n_fold += 1
  *                 if n_fold == 0 :             # <<<<<<<<<<<<<<
@@ -2869,7 +2880,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
           goto __pyx_L11;
         }
 
-        /* "QF_utilities.pyx":63
+        /* "musclex/biocat_modules/QF_utilities.pyx":63
  *                     result[y,x] = 0
  *                 else:
  *                     result[y,x] = sum_val/n_fold             # <<<<<<<<<<<<<<
@@ -2889,7 +2900,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
       }
     }
 
-    /* "QF_utilities.pyx":50
+    /* "musclex/biocat_modules/QF_utilities.pyx":50
  * 
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:             # <<<<<<<<<<<<<<
@@ -2898,7 +2909,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
  */
   }
 
-  /* "QF_utilities.pyx":64
+  /* "musclex/biocat_modules/QF_utilities.pyx":64
  *                 else:
  *                     result[y,x] = sum_val/n_fold
  *     return result             # <<<<<<<<<<<<<<
@@ -2910,7 +2921,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":43
+  /* "musclex/biocat_modules/QF_utilities.pyx":43
  *     return result
  * 
  * def get_avg_fold_int8(np.ndarray[np.uint8_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, int threshold):             # <<<<<<<<<<<<<<
@@ -2933,7 +2944,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_quadrants.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.get_avg_fold_int8", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.get_avg_fold_int8", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -2948,7 +2959,7 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":66
+/* "musclex/biocat_modules/QF_utilities.pyx":66
  *     return result
  * 
  * def get_avg_fold_float32(np.ndarray[np.float32_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, np.float32_t threshold):             # <<<<<<<<<<<<<<
@@ -2957,9 +2968,9 @@ static PyObject *__pyx_pf_12QF_utilities_4get_avg_fold_int8(CYTHON_UNUSED PyObje
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_7get_avg_fold_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_7get_avg_fold_float32 = {"get_avg_fold_float32", (PyCFunction)__pyx_pw_12QF_utilities_7get_avg_fold_float32, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_7get_avg_fold_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_7get_avg_fold_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_7get_avg_fold_float32 = {"get_avg_fold_float32", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_7get_avg_fold_float32, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_7get_avg_fold_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_quadrants = 0;
   int __pyx_v_nQuadrant;
   int __pyx_v_fold_height;
@@ -3040,12 +3051,12 @@ static PyObject *__pyx_pw_12QF_utilities_7get_avg_fold_float32(PyObject *__pyx_s
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("get_avg_fold_float32", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 66, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.get_avg_fold_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.get_avg_fold_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_quadrants), __pyx_ptype_5numpy_ndarray, 1, "quadrants", 0))) __PYX_ERR(0, 66, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_6get_avg_fold_float32(__pyx_self, __pyx_v_quadrants, __pyx_v_nQuadrant, __pyx_v_fold_height, __pyx_v_fold_width, __pyx_v_threshold);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_6get_avg_fold_float32(__pyx_self, __pyx_v_quadrants, __pyx_v_nQuadrant, __pyx_v_fold_height, __pyx_v_fold_width, __pyx_v_threshold);
 
   /* function exit code */
   goto __pyx_L0;
@@ -3056,7 +3067,7 @@ static PyObject *__pyx_pw_12QF_utilities_7get_avg_fold_float32(PyObject *__pyx_s
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, __pyx_t_5numpy_float32_t __pyx_v_threshold) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_quadrants, int __pyx_v_nQuadrant, int __pyx_v_fold_height, int __pyx_v_fold_width, __pyx_t_5numpy_float32_t __pyx_v_threshold) {
   PyArrayObject *__pyx_v_result = 0;
   Py_ssize_t __pyx_v_x;
   Py_ssize_t __pyx_v_y;
@@ -3117,7 +3128,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
   }
   __pyx_pybuffernd_quadrants.diminfo[0].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_quadrants.diminfo[0].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_quadrants.diminfo[1].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_quadrants.diminfo[1].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[1]; __pyx_pybuffernd_quadrants.diminfo[2].strides = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.strides[2]; __pyx_pybuffernd_quadrants.diminfo[2].shape = __pyx_pybuffernd_quadrants.rcbuffer->pybuffer.shape[2];
 
-  /* "QF_utilities.pyx":67
+  /* "musclex/biocat_modules/QF_utilities.pyx":67
  * 
  * def get_avg_fold_float32(np.ndarray[np.float32_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, np.float32_t threshold):
  *     cdef np.ndarray[double, ndim=2] result = np.zeros((fold_height, fold_width))             # <<<<<<<<<<<<<<
@@ -3201,7 +3212,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
   __pyx_v_result = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":73
+  /* "musclex/biocat_modules/QF_utilities.pyx":73
  * 
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:             # <<<<<<<<<<<<<<
@@ -3211,7 +3222,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
   __pyx_t_7 = ((__pyx_v_nQuadrant > 0) != 0);
   if (__pyx_t_7) {
 
-    /* "QF_utilities.pyx":74
+    /* "musclex/biocat_modules/QF_utilities.pyx":74
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:
  *         for x in range(fold_width):             # <<<<<<<<<<<<<<
@@ -3222,7 +3233,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
     for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
       __pyx_v_x = __pyx_t_9;
 
-      /* "QF_utilities.pyx":75
+      /* "musclex/biocat_modules/QF_utilities.pyx":75
  *     if nQuadrant > 0:
  *         for x in range(fold_width):
  *             for y in range(fold_height):             # <<<<<<<<<<<<<<
@@ -3233,7 +3244,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
       for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
         __pyx_v_y = __pyx_t_11;
 
-        /* "QF_utilities.pyx":76
+        /* "musclex/biocat_modules/QF_utilities.pyx":76
  *         for x in range(fold_width):
  *             for y in range(fold_height):
  *                 sum_val = 0.0             # <<<<<<<<<<<<<<
@@ -3242,7 +3253,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
  */
         __pyx_v_sum_val = 0.0;
 
-        /* "QF_utilities.pyx":77
+        /* "musclex/biocat_modules/QF_utilities.pyx":77
  *             for y in range(fold_height):
  *                 sum_val = 0.0
  *                 n_fold = 0             # <<<<<<<<<<<<<<
@@ -3251,7 +3262,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
  */
         __pyx_v_n_fold = 0;
 
-        /* "QF_utilities.pyx":78
+        /* "musclex/biocat_modules/QF_utilities.pyx":78
  *                 sum_val = 0.0
  *                 n_fold = 0
  *                 for i in range(nQuadrant):             # <<<<<<<<<<<<<<
@@ -3262,7 +3273,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
         for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
           __pyx_v_i = __pyx_t_13;
 
-          /* "QF_utilities.pyx":79
+          /* "musclex/biocat_modules/QF_utilities.pyx":79
  *                 n_fold = 0
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]             # <<<<<<<<<<<<<<
@@ -3293,7 +3304,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
           __Pyx_XDECREF_SET(__pyx_v_fold, ((PyArrayObject *)__pyx_t_1));
           __pyx_t_1 = 0;
 
-          /* "QF_utilities.pyx":80
+          /* "musclex/biocat_modules/QF_utilities.pyx":80
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :             # <<<<<<<<<<<<<<
@@ -3305,7 +3316,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
           __pyx_t_7 = (((*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_fold.rcbuffer->pybuffer.buf, __pyx_t_19, __pyx_pybuffernd_fold.diminfo[0].strides, __pyx_t_20, __pyx_pybuffernd_fold.diminfo[1].strides)) > __pyx_v_threshold) != 0);
           if (__pyx_t_7) {
 
-            /* "QF_utilities.pyx":81
+            /* "musclex/biocat_modules/QF_utilities.pyx":81
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :
  *                         sum_val += fold[y,x]             # <<<<<<<<<<<<<<
@@ -3316,7 +3327,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
             __pyx_t_22 = __pyx_v_x;
             __pyx_v_sum_val = (__pyx_v_sum_val + (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_fold.rcbuffer->pybuffer.buf, __pyx_t_21, __pyx_pybuffernd_fold.diminfo[0].strides, __pyx_t_22, __pyx_pybuffernd_fold.diminfo[1].strides)));
 
-            /* "QF_utilities.pyx":82
+            /* "musclex/biocat_modules/QF_utilities.pyx":82
  *                     if fold[y,x] > threshold :
  *                         sum_val += fold[y,x]
  *                         n_fold += 1             # <<<<<<<<<<<<<<
@@ -3325,7 +3336,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
  */
             __pyx_v_n_fold = (__pyx_v_n_fold + 1);
 
-            /* "QF_utilities.pyx":80
+            /* "musclex/biocat_modules/QF_utilities.pyx":80
  *                 for i in range(nQuadrant):
  *                     fold = quadrants[i]
  *                     if fold[y,x] > threshold :             # <<<<<<<<<<<<<<
@@ -3335,7 +3346,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
           }
         }
 
-        /* "QF_utilities.pyx":83
+        /* "musclex/biocat_modules/QF_utilities.pyx":83
  *                         sum_val += fold[y,x]
  *                         n_fold += 1
  *                 if n_fold == 0 :             # <<<<<<<<<<<<<<
@@ -3345,7 +3356,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
         __pyx_t_7 = ((__pyx_v_n_fold == 0) != 0);
         if (__pyx_t_7) {
 
-          /* "QF_utilities.pyx":84
+          /* "musclex/biocat_modules/QF_utilities.pyx":84
  *                         n_fold += 1
  *                 if n_fold == 0 :
  *                     result[y,x] = 0             # <<<<<<<<<<<<<<
@@ -3356,7 +3367,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
           __pyx_t_24 = __pyx_v_x;
           *__Pyx_BufPtrStrided2d(double *, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_23, __pyx_pybuffernd_result.diminfo[0].strides, __pyx_t_24, __pyx_pybuffernd_result.diminfo[1].strides) = 0.0;
 
-          /* "QF_utilities.pyx":83
+          /* "musclex/biocat_modules/QF_utilities.pyx":83
  *                         sum_val += fold[y,x]
  *                         n_fold += 1
  *                 if n_fold == 0 :             # <<<<<<<<<<<<<<
@@ -3366,7 +3377,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
           goto __pyx_L11;
         }
 
-        /* "QF_utilities.pyx":86
+        /* "musclex/biocat_modules/QF_utilities.pyx":86
  *                     result[y,x] = 0
  *                 else:
  *                     result[y,x] = sum_val/n_fold             # <<<<<<<<<<<<<<
@@ -3386,7 +3397,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
       }
     }
 
-    /* "QF_utilities.pyx":73
+    /* "musclex/biocat_modules/QF_utilities.pyx":73
  * 
  *     # cdef int end = center_y + box_width
  *     if nQuadrant > 0:             # <<<<<<<<<<<<<<
@@ -3395,7 +3406,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
  */
   }
 
-  /* "QF_utilities.pyx":87
+  /* "musclex/biocat_modules/QF_utilities.pyx":87
  *                 else:
  *                     result[y,x] = sum_val/n_fold
  *     return result             # <<<<<<<<<<<<<<
@@ -3407,7 +3418,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":66
+  /* "musclex/biocat_modules/QF_utilities.pyx":66
  *     return result
  * 
  * def get_avg_fold_float32(np.ndarray[np.float32_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, np.float32_t threshold):             # <<<<<<<<<<<<<<
@@ -3430,7 +3441,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_quadrants.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.get_avg_fold_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.get_avg_fold_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -3445,7 +3456,7 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":168
+/* "musclex/biocat_modules/QF_utilities.pyx":168
  * 
  * 
  * def apply_radial_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=2] smooth_img, int center_x, int center_y, int radius, int threshold):             # <<<<<<<<<<<<<<
@@ -3454,9 +3465,9 @@ static PyObject *__pyx_pf_12QF_utilities_6get_avg_fold_float32(CYTHON_UNUSED PyO
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_9apply_radial_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_9apply_radial_bgsub_float32 = {"apply_radial_bgsub_float32", (PyCFunction)__pyx_pw_12QF_utilities_9apply_radial_bgsub_float32, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_9apply_radial_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_9apply_radial_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_9apply_radial_bgsub_float32 = {"apply_radial_bgsub_float32", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_9apply_radial_bgsub_float32, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_9apply_radial_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_img = 0;
   PyArrayObject *__pyx_v_smooth_img = 0;
   int __pyx_v_center_x;
@@ -3548,13 +3559,13 @@ static PyObject *__pyx_pw_12QF_utilities_9apply_radial_bgsub_float32(PyObject *_
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("apply_radial_bgsub_float32", 1, 6, 6, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 168, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.apply_radial_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.apply_radial_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_img), __pyx_ptype_5numpy_ndarray, 1, "img", 0))) __PYX_ERR(0, 168, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_smooth_img), __pyx_ptype_5numpy_ndarray, 1, "smooth_img", 0))) __PYX_ERR(0, 168, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(__pyx_self, __pyx_v_img, __pyx_v_smooth_img, __pyx_v_center_x, __pyx_v_center_y, __pyx_v_radius, __pyx_v_threshold);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_8apply_radial_bgsub_float32(__pyx_self, __pyx_v_img, __pyx_v_smooth_img, __pyx_v_center_x, __pyx_v_center_y, __pyx_v_radius, __pyx_v_threshold);
 
   /* function exit code */
   goto __pyx_L0;
@@ -3565,7 +3576,7 @@ static PyObject *__pyx_pw_12QF_utilities_9apply_radial_bgsub_float32(PyObject *_
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_smooth_img, int __pyx_v_center_x, int __pyx_v_center_y, int __pyx_v_radius, int __pyx_v_threshold) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_smooth_img, int __pyx_v_center_x, int __pyx_v_center_y, int __pyx_v_radius, int __pyx_v_threshold) {
   int __pyx_v_img_height;
   int __pyx_v_img_width;
   PyArrayObject *__pyx_v_result = 0;
@@ -3639,7 +3650,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   }
   __pyx_pybuffernd_smooth_img.diminfo[0].strides = __pyx_pybuffernd_smooth_img.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_smooth_img.diminfo[0].shape = __pyx_pybuffernd_smooth_img.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_smooth_img.diminfo[1].strides = __pyx_pybuffernd_smooth_img.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_smooth_img.diminfo[1].shape = __pyx_pybuffernd_smooth_img.rcbuffer->pybuffer.shape[1];
 
-  /* "QF_utilities.pyx":169
+  /* "musclex/biocat_modules/QF_utilities.pyx":169
  * 
  * def apply_radial_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=2] smooth_img, int center_x, int center_y, int radius, int threshold):
  *     cdef int img_height = img.shape[0]             # <<<<<<<<<<<<<<
@@ -3648,7 +3659,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  */
   __pyx_v_img_height = (__pyx_v_img->dimensions[0]);
 
-  /* "QF_utilities.pyx":170
+  /* "musclex/biocat_modules/QF_utilities.pyx":170
  * def apply_radial_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=2] smooth_img, int center_x, int center_y, int radius, int threshold):
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]             # <<<<<<<<<<<<<<
@@ -3657,7 +3668,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  */
   __pyx_v_img_width = (__pyx_v_img->dimensions[1]);
 
-  /* "QF_utilities.pyx":171
+  /* "musclex/biocat_modules/QF_utilities.pyx":171
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  *     cdef np.ndarray[np.float32_t, ndim=2] result = np.zeros((img_height, img_width), dtype = np.float32)             # <<<<<<<<<<<<<<
@@ -3714,7 +3725,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   __pyx_v_result = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":172
+  /* "musclex/biocat_modules/QF_utilities.pyx":172
  *     cdef int img_width = img.shape[1]
  *     cdef np.ndarray[np.float32_t, ndim=2] result = np.zeros((img_height, img_width), dtype = np.float32)
  *     cdef np.ndarray[np.float32_t, ndim=2] radial_bgsub = np.full((radius,1), np.max(img), dtype = np.float32)             # <<<<<<<<<<<<<<
@@ -3820,7 +3831,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   __pyx_v_radial_bgsub = ((PyArrayObject *)__pyx_t_7);
   __pyx_t_7 = 0;
 
-  /* "QF_utilities.pyx":177
+  /* "musclex/biocat_modules/QF_utilities.pyx":177
  *     cdef np.float32_t bgsub
  *     cdef np.float32_t val, min
  *     cdef np.float32_t zero = 0.0             # <<<<<<<<<<<<<<
@@ -3829,7 +3840,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  */
   __pyx_v_zero = 0.0;
 
-  /* "QF_utilities.pyx":179
+  /* "musclex/biocat_modules/QF_utilities.pyx":179
  *     cdef np.float32_t zero = 0.0
  * 
  *     for x in range(img_width):             # <<<<<<<<<<<<<<
@@ -3840,7 +3851,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_x = __pyx_t_10;
 
-    /* "QF_utilities.pyx":180
+    /* "musclex/biocat_modules/QF_utilities.pyx":180
  * 
  *     for x in range(img_width):
  *         for y in range(img_height):             # <<<<<<<<<<<<<<
@@ -3851,7 +3862,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
     for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
       __pyx_v_y = __pyx_t_12;
 
-      /* "QF_utilities.pyx":181
+      /* "musclex/biocat_modules/QF_utilities.pyx":181
  *     for x in range(img_width):
  *         for y in range(img_height):
  *             val = smooth_img[y,x]             # <<<<<<<<<<<<<<
@@ -3862,7 +3873,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
       __pyx_t_14 = __pyx_v_x;
       __pyx_v_val = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_smooth_img.rcbuffer->pybuffer.buf, __pyx_t_13, __pyx_pybuffernd_smooth_img.diminfo[0].strides, __pyx_t_14, __pyx_pybuffernd_smooth_img.diminfo[1].strides));
 
-      /* "QF_utilities.pyx":182
+      /* "musclex/biocat_modules/QF_utilities.pyx":182
  *         for y in range(img_height):
  *             val = smooth_img[y,x]
  *             if val >= threshold:             # <<<<<<<<<<<<<<
@@ -3872,16 +3883,16 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
       __pyx_t_15 = ((__pyx_v_val >= __pyx_v_threshold) != 0);
       if (__pyx_t_15) {
 
-        /* "QF_utilities.pyx":183
+        /* "musclex/biocat_modules/QF_utilities.pyx":183
  *             val = smooth_img[y,x]
  *             if val >= threshold:
  *                 r = int(distance( x, y, center_x, center_y))             # <<<<<<<<<<<<<<
  *                 min = radial_bgsub[r]
  *                 if min > val:
  */
-        __pyx_v_r = ((int)__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_center_x, __pyx_v_center_y, 0));
+        __pyx_v_r = ((int)__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_center_x, __pyx_v_center_y, 0));
 
-        /* "QF_utilities.pyx":184
+        /* "musclex/biocat_modules/QF_utilities.pyx":184
  *             if val >= threshold:
  *                 r = int(distance( x, y, center_x, center_y))
  *                 min = radial_bgsub[r]             # <<<<<<<<<<<<<<
@@ -3894,7 +3905,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_v_min = __pyx_t_16;
 
-        /* "QF_utilities.pyx":185
+        /* "musclex/biocat_modules/QF_utilities.pyx":185
  *                 r = int(distance( x, y, center_x, center_y))
  *                 min = radial_bgsub[r]
  *                 if min > val:             # <<<<<<<<<<<<<<
@@ -3904,7 +3915,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
         __pyx_t_15 = ((__pyx_v_min > __pyx_v_val) != 0);
         if (__pyx_t_15) {
 
-          /* "QF_utilities.pyx":186
+          /* "musclex/biocat_modules/QF_utilities.pyx":186
  *                 min = radial_bgsub[r]
  *                 if min > val:
  *                     radial_bgsub[r] = val             # <<<<<<<<<<<<<<
@@ -3916,7 +3927,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
           if (unlikely(__Pyx_SetItemInt(((PyObject *)__pyx_v_radial_bgsub), __pyx_v_r, __pyx_t_7, int, 1, __Pyx_PyInt_From_int, 0, 0, 0) < 0)) __PYX_ERR(0, 186, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-          /* "QF_utilities.pyx":185
+          /* "musclex/biocat_modules/QF_utilities.pyx":185
  *                 r = int(distance( x, y, center_x, center_y))
  *                 min = radial_bgsub[r]
  *                 if min > val:             # <<<<<<<<<<<<<<
@@ -3925,7 +3936,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  */
         }
 
-        /* "QF_utilities.pyx":182
+        /* "musclex/biocat_modules/QF_utilities.pyx":182
  *         for y in range(img_height):
  *             val = smooth_img[y,x]
  *             if val >= threshold:             # <<<<<<<<<<<<<<
@@ -3936,7 +3947,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
     }
   }
 
-  /* "QF_utilities.pyx":188
+  /* "musclex/biocat_modules/QF_utilities.pyx":188
  *                     radial_bgsub[r] = val
  * 
  *     for x in range(img_width):             # <<<<<<<<<<<<<<
@@ -3947,7 +3958,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
     __pyx_v_x = __pyx_t_10;
 
-    /* "QF_utilities.pyx":189
+    /* "musclex/biocat_modules/QF_utilities.pyx":189
  * 
  *     for x in range(img_width):
  *         for y in range(img_height):             # <<<<<<<<<<<<<<
@@ -3958,7 +3969,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
     for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
       __pyx_v_y = __pyx_t_12;
 
-      /* "QF_utilities.pyx":190
+      /* "musclex/biocat_modules/QF_utilities.pyx":190
  *     for x in range(img_width):
  *         for y in range(img_height):
  *             val = img[y,x]             # <<<<<<<<<<<<<<
@@ -3969,7 +3980,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
       __pyx_t_18 = __pyx_v_x;
       __pyx_v_val = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_img.rcbuffer->pybuffer.buf, __pyx_t_17, __pyx_pybuffernd_img.diminfo[0].strides, __pyx_t_18, __pyx_pybuffernd_img.diminfo[1].strides));
 
-      /* "QF_utilities.pyx":191
+      /* "musclex/biocat_modules/QF_utilities.pyx":191
  *         for y in range(img_height):
  *             val = img[y,x]
  *             if val >= threshold:             # <<<<<<<<<<<<<<
@@ -3979,7 +3990,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
       __pyx_t_15 = ((__pyx_v_val >= __pyx_v_threshold) != 0);
       if (__pyx_t_15) {
 
-        /* "QF_utilities.pyx":192
+        /* "musclex/biocat_modules/QF_utilities.pyx":192
  *             val = img[y,x]
  *             if val >= threshold:
  *                 bgsub = 0.0             # <<<<<<<<<<<<<<
@@ -3988,16 +3999,16 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  */
         __pyx_v_bgsub = 0.0;
 
-        /* "QF_utilities.pyx":193
+        /* "musclex/biocat_modules/QF_utilities.pyx":193
  *             if val >= threshold:
  *                 bgsub = 0.0
  *                 r = int(distance( x, y, center_x, center_y))             # <<<<<<<<<<<<<<
  *                 if radius > r:
  *                     bgsub = radial_bgsub[r]
  */
-        __pyx_v_r = ((int)__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_center_x, __pyx_v_center_y, 0));
+        __pyx_v_r = ((int)__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_center_x, __pyx_v_center_y, 0));
 
-        /* "QF_utilities.pyx":194
+        /* "musclex/biocat_modules/QF_utilities.pyx":194
  *                 bgsub = 0.0
  *                 r = int(distance( x, y, center_x, center_y))
  *                 if radius > r:             # <<<<<<<<<<<<<<
@@ -4007,7 +4018,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
         __pyx_t_15 = ((__pyx_v_radius > __pyx_v_r) != 0);
         if (__pyx_t_15) {
 
-          /* "QF_utilities.pyx":195
+          /* "musclex/biocat_modules/QF_utilities.pyx":195
  *                 r = int(distance( x, y, center_x, center_y))
  *                 if radius > r:
  *                     bgsub = radial_bgsub[r]             # <<<<<<<<<<<<<<
@@ -4020,7 +4031,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __pyx_v_bgsub = __pyx_t_16;
 
-          /* "QF_utilities.pyx":194
+          /* "musclex/biocat_modules/QF_utilities.pyx":194
  *                 bgsub = 0.0
  *                 r = int(distance( x, y, center_x, center_y))
  *                 if radius > r:             # <<<<<<<<<<<<<<
@@ -4029,7 +4040,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  */
         }
 
-        /* "QF_utilities.pyx":197
+        /* "musclex/biocat_modules/QF_utilities.pyx":197
  *                     bgsub = radial_bgsub[r]
  * 
  *                 if bgsub <= val:             # <<<<<<<<<<<<<<
@@ -4039,7 +4050,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
         __pyx_t_15 = ((__pyx_v_bgsub <= __pyx_v_val) != 0);
         if (__pyx_t_15) {
 
-          /* "QF_utilities.pyx":198
+          /* "musclex/biocat_modules/QF_utilities.pyx":198
  * 
  *                 if bgsub <= val:
  *                     result[y,x] = val - bgsub             # <<<<<<<<<<<<<<
@@ -4050,7 +4061,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
           __pyx_t_20 = __pyx_v_x;
           *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_19, __pyx_pybuffernd_result.diminfo[0].strides, __pyx_t_20, __pyx_pybuffernd_result.diminfo[1].strides) = (__pyx_v_val - __pyx_v_bgsub);
 
-          /* "QF_utilities.pyx":197
+          /* "musclex/biocat_modules/QF_utilities.pyx":197
  *                     bgsub = radial_bgsub[r]
  * 
  *                 if bgsub <= val:             # <<<<<<<<<<<<<<
@@ -4060,7 +4071,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
           goto __pyx_L15;
         }
 
-        /* "QF_utilities.pyx":200
+        /* "musclex/biocat_modules/QF_utilities.pyx":200
  *                     result[y,x] = val - bgsub
  *                 else:
  *                     result[y,x] = zero             # <<<<<<<<<<<<<<
@@ -4074,7 +4085,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
         }
         __pyx_L15:;
 
-        /* "QF_utilities.pyx":191
+        /* "musclex/biocat_modules/QF_utilities.pyx":191
  *         for y in range(img_height):
  *             val = img[y,x]
  *             if val >= threshold:             # <<<<<<<<<<<<<<
@@ -4084,7 +4095,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
         goto __pyx_L13;
       }
 
-      /* "QF_utilities.pyx":202
+      /* "musclex/biocat_modules/QF_utilities.pyx":202
  *                     result[y,x] = zero
  *             else:
  *                result[y,x] = val             # <<<<<<<<<<<<<<
@@ -4100,7 +4111,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
     }
   }
 
-  /* "QF_utilities.pyx":204
+  /* "musclex/biocat_modules/QF_utilities.pyx":204
  *                result[y,x] = val
  * 
  *     return result             # <<<<<<<<<<<<<<
@@ -4112,7 +4123,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":168
+  /* "musclex/biocat_modules/QF_utilities.pyx":168
  * 
  * 
  * def apply_radial_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=2] smooth_img, int center_x, int center_y, int radius, int threshold):             # <<<<<<<<<<<<<<
@@ -4137,7 +4148,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_smooth_img.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.apply_radial_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.apply_radial_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -4153,7 +4164,7 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":207
+/* "musclex/biocat_modules/QF_utilities.pyx":207
  * 
  * 
  * cdef float sigmoid(float k, int x0, int x):             # <<<<<<<<<<<<<<
@@ -4161,13 +4172,13 @@ static PyObject *__pyx_pf_12QF_utilities_8apply_radial_bgsub_float32(CYTHON_UNUS
  * 
  */
 
-static float __pyx_f_12QF_utilities_sigmoid(float __pyx_v_k, int __pyx_v_x0, int __pyx_v_x) {
+static float __pyx_f_7musclex_14biocat_modules_12QF_utilities_sigmoid(float __pyx_v_k, int __pyx_v_x0, int __pyx_v_x) {
   float __pyx_r;
   __Pyx_RefNannyDeclarations
   double __pyx_t_1;
   __Pyx_RefNannySetupContext("sigmoid", 0);
 
-  /* "QF_utilities.pyx":208
+  /* "musclex/biocat_modules/QF_utilities.pyx":208
  * 
  * cdef float sigmoid(float k, int x0, int x):
  *     return 1.0/(1.0+exp(-k*(x-x0)))             # <<<<<<<<<<<<<<
@@ -4182,7 +4193,7 @@ static float __pyx_f_12QF_utilities_sigmoid(float __pyx_v_k, int __pyx_v_x0, int
   __pyx_r = (1.0 / __pyx_t_1);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":207
+  /* "musclex/biocat_modules/QF_utilities.pyx":207
  * 
  * 
  * cdef float sigmoid(float k, int x0, int x):             # <<<<<<<<<<<<<<
@@ -4192,14 +4203,14 @@ static float __pyx_f_12QF_utilities_sigmoid(float __pyx_v_k, int __pyx_v_x0, int
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_WriteUnraisable("QF_utilities.sigmoid", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
+  __Pyx_WriteUnraisable("musclex.biocat_modules.QF_utilities.sigmoid", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
   __pyx_r = 0;
   __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":211
+/* "musclex/biocat_modules/QF_utilities.pyx":211
  * 
  * 
  * def combine_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img1, np.ndarray[np.float32_t, ndim=2] img2, int center_x, int center_y, float sigmoid_k, int radius):             # <<<<<<<<<<<<<<
@@ -4208,9 +4219,9 @@ static float __pyx_f_12QF_utilities_sigmoid(float __pyx_v_k, int __pyx_v_x0, int
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_11combine_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_11combine_bgsub_float32 = {"combine_bgsub_float32", (PyCFunction)__pyx_pw_12QF_utilities_11combine_bgsub_float32, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_11combine_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_11combine_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_11combine_bgsub_float32 = {"combine_bgsub_float32", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_11combine_bgsub_float32, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_11combine_bgsub_float32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_img1 = 0;
   PyArrayObject *__pyx_v_img2 = 0;
   int __pyx_v_center_x;
@@ -4302,13 +4313,13 @@ static PyObject *__pyx_pw_12QF_utilities_11combine_bgsub_float32(PyObject *__pyx
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("combine_bgsub_float32", 1, 6, 6, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 211, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.combine_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.combine_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_img1), __pyx_ptype_5numpy_ndarray, 1, "img1", 0))) __PYX_ERR(0, 211, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_img2), __pyx_ptype_5numpy_ndarray, 1, "img2", 0))) __PYX_ERR(0, 211, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_10combine_bgsub_float32(__pyx_self, __pyx_v_img1, __pyx_v_img2, __pyx_v_center_x, __pyx_v_center_y, __pyx_v_sigmoid_k, __pyx_v_radius);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_10combine_bgsub_float32(__pyx_self, __pyx_v_img1, __pyx_v_img2, __pyx_v_center_x, __pyx_v_center_y, __pyx_v_sigmoid_k, __pyx_v_radius);
 
   /* function exit code */
   goto __pyx_L0;
@@ -4319,7 +4330,7 @@ static PyObject *__pyx_pw_12QF_utilities_11combine_bgsub_float32(PyObject *__pyx
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img1, PyArrayObject *__pyx_v_img2, int __pyx_v_center_x, int __pyx_v_center_y, float __pyx_v_sigmoid_k, int __pyx_v_radius) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img1, PyArrayObject *__pyx_v_img2, int __pyx_v_center_x, int __pyx_v_center_y, float __pyx_v_sigmoid_k, int __pyx_v_radius) {
   int __pyx_v_img_height;
   int __pyx_v_img_width;
   PyArrayObject *__pyx_v_result = 0;
@@ -4378,7 +4389,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
   }
   __pyx_pybuffernd_img2.diminfo[0].strides = __pyx_pybuffernd_img2.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_img2.diminfo[0].shape = __pyx_pybuffernd_img2.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_img2.diminfo[1].strides = __pyx_pybuffernd_img2.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_img2.diminfo[1].shape = __pyx_pybuffernd_img2.rcbuffer->pybuffer.shape[1];
 
-  /* "QF_utilities.pyx":212
+  /* "musclex/biocat_modules/QF_utilities.pyx":212
  * 
  * def combine_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img1, np.ndarray[np.float32_t, ndim=2] img2, int center_x, int center_y, float sigmoid_k, int radius):
  *     cdef int img_height = img1.shape[0]             # <<<<<<<<<<<<<<
@@ -4387,7 +4398,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
  */
   __pyx_v_img_height = (__pyx_v_img1->dimensions[0]);
 
-  /* "QF_utilities.pyx":213
+  /* "musclex/biocat_modules/QF_utilities.pyx":213
  * def combine_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img1, np.ndarray[np.float32_t, ndim=2] img2, int center_x, int center_y, float sigmoid_k, int radius):
  *     cdef int img_height = img1.shape[0]
  *     cdef int img_width = img1.shape[1]             # <<<<<<<<<<<<<<
@@ -4396,7 +4407,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
  */
   __pyx_v_img_width = (__pyx_v_img1->dimensions[1]);
 
-  /* "QF_utilities.pyx":214
+  /* "musclex/biocat_modules/QF_utilities.pyx":214
  *     cdef int img_height = img1.shape[0]
  *     cdef int img_width = img1.shape[1]
  *     cdef np.ndarray[np.float32_t, ndim=2] result = np.zeros((img_height, img_width), dtype = np.float32)             # <<<<<<<<<<<<<<
@@ -4453,7 +4464,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
   __pyx_v_result = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":220
+  /* "musclex/biocat_modules/QF_utilities.pyx":220
  *     cdef np.float32_t tophat_val, radial_val, th_tmp
  * 
  *     for x in range(img_width):             # <<<<<<<<<<<<<<
@@ -4464,7 +4475,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":221
+    /* "musclex/biocat_modules/QF_utilities.pyx":221
  * 
  *     for x in range(img_width):
  *         for y in range(img_height):             # <<<<<<<<<<<<<<
@@ -4475,25 +4486,25 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":222
+      /* "musclex/biocat_modules/QF_utilities.pyx":222
  *     for x in range(img_width):
  *         for y in range(img_height):
  *             r = int(round(distance( x, y, center_x, center_y)))             # <<<<<<<<<<<<<<
  *             tophat_ratio = sigmoid(sigmoid_k, radius, r)
  *             radial_ratio = 1.0 - tophat_ratio
  */
-      __pyx_v_r = ((int)round(__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_center_x, __pyx_v_center_y, 0)));
+      __pyx_v_r = ((int)round(__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_center_x, __pyx_v_center_y, 0)));
 
-      /* "QF_utilities.pyx":223
+      /* "musclex/biocat_modules/QF_utilities.pyx":223
  *         for y in range(img_height):
  *             r = int(round(distance( x, y, center_x, center_y)))
  *             tophat_ratio = sigmoid(sigmoid_k, radius, r)             # <<<<<<<<<<<<<<
  *             radial_ratio = 1.0 - tophat_ratio
  *             tophat_val = tophat_ratio * img2[y,x]
  */
-      __pyx_v_tophat_ratio = __pyx_f_12QF_utilities_sigmoid(__pyx_v_sigmoid_k, __pyx_v_radius, __pyx_v_r);
+      __pyx_v_tophat_ratio = __pyx_f_7musclex_14biocat_modules_12QF_utilities_sigmoid(__pyx_v_sigmoid_k, __pyx_v_radius, __pyx_v_r);
 
-      /* "QF_utilities.pyx":224
+      /* "musclex/biocat_modules/QF_utilities.pyx":224
  *             r = int(round(distance( x, y, center_x, center_y)))
  *             tophat_ratio = sigmoid(sigmoid_k, radius, r)
  *             radial_ratio = 1.0 - tophat_ratio             # <<<<<<<<<<<<<<
@@ -4502,7 +4513,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
  */
       __pyx_v_radial_ratio = (1.0 - __pyx_v_tophat_ratio);
 
-      /* "QF_utilities.pyx":225
+      /* "musclex/biocat_modules/QF_utilities.pyx":225
  *             tophat_ratio = sigmoid(sigmoid_k, radius, r)
  *             radial_ratio = 1.0 - tophat_ratio
  *             tophat_val = tophat_ratio * img2[y,x]             # <<<<<<<<<<<<<<
@@ -4513,7 +4524,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
       __pyx_t_12 = __pyx_v_x;
       __pyx_v_tophat_val = (__pyx_v_tophat_ratio * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_img2.rcbuffer->pybuffer.buf, __pyx_t_11, __pyx_pybuffernd_img2.diminfo[0].strides, __pyx_t_12, __pyx_pybuffernd_img2.diminfo[1].strides)));
 
-      /* "QF_utilities.pyx":226
+      /* "musclex/biocat_modules/QF_utilities.pyx":226
  *             radial_ratio = 1.0 - tophat_ratio
  *             tophat_val = tophat_ratio * img2[y,x]
  *             radial_val = radial_ratio * img1[y,x]             # <<<<<<<<<<<<<<
@@ -4524,7 +4535,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
       __pyx_t_14 = __pyx_v_x;
       __pyx_v_radial_val = (__pyx_v_radial_ratio * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_img1.rcbuffer->pybuffer.buf, __pyx_t_13, __pyx_pybuffernd_img1.diminfo[0].strides, __pyx_t_14, __pyx_pybuffernd_img1.diminfo[1].strides)));
 
-      /* "QF_utilities.pyx":227
+      /* "musclex/biocat_modules/QF_utilities.pyx":227
  *             tophat_val = tophat_ratio * img2[y,x]
  *             radial_val = radial_ratio * img1[y,x]
  *             result[y,x] = tophat_val+radial_val             # <<<<<<<<<<<<<<
@@ -4537,7 +4548,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
     }
   }
 
-  /* "QF_utilities.pyx":228
+  /* "musclex/biocat_modules/QF_utilities.pyx":228
  *             radial_val = radial_ratio * img1[y,x]
  *             result[y,x] = tophat_val+radial_val
  *     return result             # <<<<<<<<<<<<<<
@@ -4549,7 +4560,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":211
+  /* "musclex/biocat_modules/QF_utilities.pyx":211
  * 
  * 
  * def combine_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img1, np.ndarray[np.float32_t, ndim=2] img2, int center_x, int center_y, float sigmoid_k, int radius):             # <<<<<<<<<<<<<<
@@ -4572,7 +4583,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_img2.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.combine_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.combine_bgsub_float32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -4586,7 +4597,7 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":279
+/* "musclex/biocat_modules/QF_utilities.pyx":279
  * 
  * 
  * def getCirSubtr_f32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -4595,9 +4606,9 @@ static PyObject *__pyx_pf_12QF_utilities_10combine_bgsub_float32(CYTHON_UNUSED P
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_13getCirSubtr_f32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_13getCirSubtr_f32 = {"getCirSubtr_f32", (PyCFunction)__pyx_pw_12QF_utilities_13getCirSubtr_f32, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_13getCirSubtr_f32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_13getCirSubtr_f32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_13getCirSubtr_f32 = {"getCirSubtr_f32", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_13getCirSubtr_f32, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_13getCirSubtr_f32(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_img = 0;
   PyArrayObject *__pyx_v_subtr_hist = 0;
   int __pyx_v_radius;
@@ -4656,13 +4667,13 @@ static PyObject *__pyx_pw_12QF_utilities_13getCirSubtr_f32(PyObject *__pyx_self,
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("getCirSubtr_f32", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 279, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.getCirSubtr_f32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.getCirSubtr_f32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_img), __pyx_ptype_5numpy_ndarray, 1, "img", 0))) __PYX_ERR(0, 279, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtr_hist), __pyx_ptype_5numpy_ndarray, 1, "subtr_hist", 0))) __PYX_ERR(0, 279, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_12getCirSubtr_f32(__pyx_self, __pyx_v_img, __pyx_v_subtr_hist, __pyx_v_radius);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_12getCirSubtr_f32(__pyx_self, __pyx_v_img, __pyx_v_subtr_hist, __pyx_v_radius);
 
   /* function exit code */
   goto __pyx_L0;
@@ -4673,7 +4684,7 @@ static PyObject *__pyx_pw_12QF_utilities_13getCirSubtr_f32(PyObject *__pyx_self,
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius) {
   int __pyx_v_img_height;
   int __pyx_v_img_width;
   PyArrayObject *__pyx_v_result = 0;
@@ -4731,7 +4742,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
   }
   __pyx_pybuffernd_subtr_hist.diminfo[0].strides = __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_subtr_hist.diminfo[0].shape = __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.shape[0];
 
-  /* "QF_utilities.pyx":280
+  /* "musclex/biocat_modules/QF_utilities.pyx":280
  * 
  * def getCirSubtr_f32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=1] subtr_hist, int radius):
  *     cdef int img_height = img.shape[0]             # <<<<<<<<<<<<<<
@@ -4740,7 +4751,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
  */
   __pyx_v_img_height = (__pyx_v_img->dimensions[0]);
 
-  /* "QF_utilities.pyx":281
+  /* "musclex/biocat_modules/QF_utilities.pyx":281
  * def getCirSubtr_f32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=1] subtr_hist, int radius):
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]             # <<<<<<<<<<<<<<
@@ -4749,7 +4760,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
  */
   __pyx_v_img_width = (__pyx_v_img->dimensions[1]);
 
-  /* "QF_utilities.pyx":282
+  /* "musclex/biocat_modules/QF_utilities.pyx":282
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  *     cdef np.ndarray[np.float32_t, ndim=2] result = np.zeros((img_height, img_width), dtype = np.float32)             # <<<<<<<<<<<<<<
@@ -4806,7 +4817,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
   __pyx_v_result = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":287
+  /* "musclex/biocat_modules/QF_utilities.pyx":287
  *     cdef np.float32_t bgsub
  *     cdef np.float32_t val, min
  *     cdef np.float32_t zero = 0.0             # <<<<<<<<<<<<<<
@@ -4815,7 +4826,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
  */
   __pyx_v_zero = 0.0;
 
-  /* "QF_utilities.pyx":289
+  /* "musclex/biocat_modules/QF_utilities.pyx":289
  *     cdef np.float32_t zero = 0.0
  * 
  *     for x in range(img_width):             # <<<<<<<<<<<<<<
@@ -4826,7 +4837,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":290
+    /* "musclex/biocat_modules/QF_utilities.pyx":290
  * 
  *     for x in range(img_width):
  *         for y in range(img_height):             # <<<<<<<<<<<<<<
@@ -4837,7 +4848,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":291
+      /* "musclex/biocat_modules/QF_utilities.pyx":291
  *     for x in range(img_width):
  *         for y in range(img_height):
  *             val = img[y,x]             # <<<<<<<<<<<<<<
@@ -4848,7 +4859,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
       __pyx_t_12 = __pyx_v_x;
       __pyx_v_val = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_img.rcbuffer->pybuffer.buf, __pyx_t_11, __pyx_pybuffernd_img.diminfo[0].strides, __pyx_t_12, __pyx_pybuffernd_img.diminfo[1].strides));
 
-      /* "QF_utilities.pyx":292
+      /* "musclex/biocat_modules/QF_utilities.pyx":292
  *         for y in range(img_height):
  *             val = img[y,x]
  *             bgsub = 0.0             # <<<<<<<<<<<<<<
@@ -4857,16 +4868,16 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
  */
       __pyx_v_bgsub = 0.0;
 
-      /* "QF_utilities.pyx":293
+      /* "musclex/biocat_modules/QF_utilities.pyx":293
  *             val = img[y,x]
  *             bgsub = 0.0
  *             r = int(distance( x, y, img_width, img_height))             # <<<<<<<<<<<<<<
  *             if radius > r:
  *                 bgsub = subtr_hist[r]
  */
-      __pyx_v_r = ((int)__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_img_width, __pyx_v_img_height, 0));
+      __pyx_v_r = ((int)__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_img_width, __pyx_v_img_height, 0));
 
-      /* "QF_utilities.pyx":294
+      /* "musclex/biocat_modules/QF_utilities.pyx":294
  *             bgsub = 0.0
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:             # <<<<<<<<<<<<<<
@@ -4876,7 +4887,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
       __pyx_t_13 = ((__pyx_v_radius > __pyx_v_r) != 0);
       if (__pyx_t_13) {
 
-        /* "QF_utilities.pyx":295
+        /* "musclex/biocat_modules/QF_utilities.pyx":295
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:
  *                 bgsub = subtr_hist[r]             # <<<<<<<<<<<<<<
@@ -4886,7 +4897,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
         __pyx_t_14 = __pyx_v_r;
         __pyx_v_bgsub = (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.buf, __pyx_t_14, __pyx_pybuffernd_subtr_hist.diminfo[0].strides));
 
-        /* "QF_utilities.pyx":294
+        /* "musclex/biocat_modules/QF_utilities.pyx":294
  *             bgsub = 0.0
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:             # <<<<<<<<<<<<<<
@@ -4895,7 +4906,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
  */
       }
 
-      /* "QF_utilities.pyx":297
+      /* "musclex/biocat_modules/QF_utilities.pyx":297
  *                 bgsub = subtr_hist[r]
  * 
  *             result[y, x] = val - bgsub             # <<<<<<<<<<<<<<
@@ -4908,7 +4919,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
     }
   }
 
-  /* "QF_utilities.pyx":302
+  /* "musclex/biocat_modules/QF_utilities.pyx":302
  *             # else:
  *             #     result[y,x] = zero
  *     return result             # <<<<<<<<<<<<<<
@@ -4920,7 +4931,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":279
+  /* "musclex/biocat_modules/QF_utilities.pyx":279
  * 
  * 
  * def getCirSubtr_f32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -4943,7 +4954,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.getCirSubtr_f32", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.getCirSubtr_f32", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -4957,7 +4968,7 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":304
+/* "musclex/biocat_modules/QF_utilities.pyx":304
  *     return result
  * 
  * def getCirSubtr_i16(np.ndarray[np.uint16_t, ndim=2] img, np.ndarray[np.uint16_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -4966,9 +4977,9 @@ static PyObject *__pyx_pf_12QF_utilities_12getCirSubtr_f32(CYTHON_UNUSED PyObjec
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_15getCirSubtr_i16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_15getCirSubtr_i16 = {"getCirSubtr_i16", (PyCFunction)__pyx_pw_12QF_utilities_15getCirSubtr_i16, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_15getCirSubtr_i16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_15getCirSubtr_i16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_15getCirSubtr_i16 = {"getCirSubtr_i16", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_15getCirSubtr_i16, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_15getCirSubtr_i16(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_img = 0;
   PyArrayObject *__pyx_v_subtr_hist = 0;
   int __pyx_v_radius;
@@ -5027,13 +5038,13 @@ static PyObject *__pyx_pw_12QF_utilities_15getCirSubtr_i16(PyObject *__pyx_self,
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("getCirSubtr_i16", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 304, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.getCirSubtr_i16", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.getCirSubtr_i16", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_img), __pyx_ptype_5numpy_ndarray, 1, "img", 0))) __PYX_ERR(0, 304, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtr_hist), __pyx_ptype_5numpy_ndarray, 1, "subtr_hist", 0))) __PYX_ERR(0, 304, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_14getCirSubtr_i16(__pyx_self, __pyx_v_img, __pyx_v_subtr_hist, __pyx_v_radius);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_14getCirSubtr_i16(__pyx_self, __pyx_v_img, __pyx_v_subtr_hist, __pyx_v_radius);
 
   /* function exit code */
   goto __pyx_L0;
@@ -5044,7 +5055,7 @@ static PyObject *__pyx_pw_12QF_utilities_15getCirSubtr_i16(PyObject *__pyx_self,
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius) {
   int __pyx_v_img_height;
   int __pyx_v_img_width;
   PyArrayObject *__pyx_v_result = 0;
@@ -5104,7 +5115,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
   }
   __pyx_pybuffernd_subtr_hist.diminfo[0].strides = __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_subtr_hist.diminfo[0].shape = __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.shape[0];
 
-  /* "QF_utilities.pyx":305
+  /* "musclex/biocat_modules/QF_utilities.pyx":305
  * 
  * def getCirSubtr_i16(np.ndarray[np.uint16_t, ndim=2] img, np.ndarray[np.uint16_t, ndim=1] subtr_hist, int radius):
  *     cdef int img_height = img.shape[0]             # <<<<<<<<<<<<<<
@@ -5113,7 +5124,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
  */
   __pyx_v_img_height = (__pyx_v_img->dimensions[0]);
 
-  /* "QF_utilities.pyx":306
+  /* "musclex/biocat_modules/QF_utilities.pyx":306
  * def getCirSubtr_i16(np.ndarray[np.uint16_t, ndim=2] img, np.ndarray[np.uint16_t, ndim=1] subtr_hist, int radius):
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]             # <<<<<<<<<<<<<<
@@ -5122,7 +5133,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
  */
   __pyx_v_img_width = (__pyx_v_img->dimensions[1]);
 
-  /* "QF_utilities.pyx":307
+  /* "musclex/biocat_modules/QF_utilities.pyx":307
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  *     cdef np.ndarray[np.uint16_t, ndim=2] result = np.zeros((img_height, img_width), dtype = np.uint16)             # <<<<<<<<<<<<<<
@@ -5179,7 +5190,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
   __pyx_v_result = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":312
+  /* "musclex/biocat_modules/QF_utilities.pyx":312
  *     cdef np.uint16_t bgsub
  *     cdef np.uint16_t val, min
  *     cdef np.uint16_t zero = 0             # <<<<<<<<<<<<<<
@@ -5188,7 +5199,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
  */
   __pyx_v_zero = 0;
 
-  /* "QF_utilities.pyx":314
+  /* "musclex/biocat_modules/QF_utilities.pyx":314
  *     cdef np.uint16_t zero = 0
  * 
  *     for x in range(img_width):             # <<<<<<<<<<<<<<
@@ -5199,7 +5210,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":315
+    /* "musclex/biocat_modules/QF_utilities.pyx":315
  * 
  *     for x in range(img_width):
  *         for y in range(img_height):             # <<<<<<<<<<<<<<
@@ -5210,7 +5221,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":316
+      /* "musclex/biocat_modules/QF_utilities.pyx":316
  *     for x in range(img_width):
  *         for y in range(img_height):
  *             val = img[y,x]             # <<<<<<<<<<<<<<
@@ -5221,7 +5232,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
       __pyx_t_12 = __pyx_v_x;
       __pyx_v_val = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint16_t *, __pyx_pybuffernd_img.rcbuffer->pybuffer.buf, __pyx_t_11, __pyx_pybuffernd_img.diminfo[0].strides, __pyx_t_12, __pyx_pybuffernd_img.diminfo[1].strides));
 
-      /* "QF_utilities.pyx":317
+      /* "musclex/biocat_modules/QF_utilities.pyx":317
  *         for y in range(img_height):
  *             val = img[y,x]
  *             bgsub = 0             # <<<<<<<<<<<<<<
@@ -5230,16 +5241,16 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
  */
       __pyx_v_bgsub = 0;
 
-      /* "QF_utilities.pyx":318
+      /* "musclex/biocat_modules/QF_utilities.pyx":318
  *             val = img[y,x]
  *             bgsub = 0
  *             r = int(distance( x, y, img_width, img_height))             # <<<<<<<<<<<<<<
  *             if radius > r:
  *                 bgsub = subtr_hist[r]
  */
-      __pyx_v_r = ((int)__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_img_width, __pyx_v_img_height, 0));
+      __pyx_v_r = ((int)__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_img_width, __pyx_v_img_height, 0));
 
-      /* "QF_utilities.pyx":319
+      /* "musclex/biocat_modules/QF_utilities.pyx":319
  *             bgsub = 0
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:             # <<<<<<<<<<<<<<
@@ -5249,7 +5260,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
       __pyx_t_13 = ((__pyx_v_radius > __pyx_v_r) != 0);
       if (__pyx_t_13) {
 
-        /* "QF_utilities.pyx":320
+        /* "musclex/biocat_modules/QF_utilities.pyx":320
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:
  *                 bgsub = subtr_hist[r]             # <<<<<<<<<<<<<<
@@ -5259,7 +5270,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
         __pyx_t_14 = __pyx_v_r;
         __pyx_v_bgsub = (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_uint16_t *, __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.buf, __pyx_t_14, __pyx_pybuffernd_subtr_hist.diminfo[0].strides));
 
-        /* "QF_utilities.pyx":319
+        /* "musclex/biocat_modules/QF_utilities.pyx":319
  *             bgsub = 0
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:             # <<<<<<<<<<<<<<
@@ -5268,7 +5279,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
  */
       }
 
-      /* "QF_utilities.pyx":323
+      /* "musclex/biocat_modules/QF_utilities.pyx":323
  * 
  *             # result[y, x] = val - bgsub
  *             if bgsub <= val:             # <<<<<<<<<<<<<<
@@ -5278,7 +5289,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
       __pyx_t_13 = ((__pyx_v_bgsub <= __pyx_v_val) != 0);
       if (__pyx_t_13) {
 
-        /* "QF_utilities.pyx":324
+        /* "musclex/biocat_modules/QF_utilities.pyx":324
  *             # result[y, x] = val - bgsub
  *             if bgsub <= val:
  *                 result[y,x] = val - bgsub             # <<<<<<<<<<<<<<
@@ -5289,7 +5300,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
         __pyx_t_16 = __pyx_v_x;
         *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint16_t *, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_15, __pyx_pybuffernd_result.diminfo[0].strides, __pyx_t_16, __pyx_pybuffernd_result.diminfo[1].strides) = (__pyx_v_val - __pyx_v_bgsub);
 
-        /* "QF_utilities.pyx":323
+        /* "musclex/biocat_modules/QF_utilities.pyx":323
  * 
  *             # result[y, x] = val - bgsub
  *             if bgsub <= val:             # <<<<<<<<<<<<<<
@@ -5299,7 +5310,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
         goto __pyx_L8;
       }
 
-      /* "QF_utilities.pyx":326
+      /* "musclex/biocat_modules/QF_utilities.pyx":326
  *                 result[y,x] = val - bgsub
  *             else:
  *                 result[y,x] = zero             # <<<<<<<<<<<<<<
@@ -5315,7 +5326,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
     }
   }
 
-  /* "QF_utilities.pyx":327
+  /* "musclex/biocat_modules/QF_utilities.pyx":327
  *             else:
  *                 result[y,x] = zero
  *     return result             # <<<<<<<<<<<<<<
@@ -5327,7 +5338,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":304
+  /* "musclex/biocat_modules/QF_utilities.pyx":304
  *     return result
  * 
  * def getCirSubtr_i16(np.ndarray[np.uint16_t, ndim=2] img, np.ndarray[np.uint16_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -5350,7 +5361,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.getCirSubtr_i16", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.getCirSubtr_i16", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -5364,7 +5375,7 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":329
+/* "musclex/biocat_modules/QF_utilities.pyx":329
  *     return result
  * 
  * def getCirSubtr_i8(np.ndarray[np.uint8_t, ndim=2] img, np.ndarray[np.uint8_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -5373,9 +5384,9 @@ static PyObject *__pyx_pf_12QF_utilities_14getCirSubtr_i16(CYTHON_UNUSED PyObjec
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_17getCirSubtr_i8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_17getCirSubtr_i8 = {"getCirSubtr_i8", (PyCFunction)__pyx_pw_12QF_utilities_17getCirSubtr_i8, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_17getCirSubtr_i8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_17getCirSubtr_i8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_17getCirSubtr_i8 = {"getCirSubtr_i8", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_17getCirSubtr_i8, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_17getCirSubtr_i8(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_img = 0;
   PyArrayObject *__pyx_v_subtr_hist = 0;
   int __pyx_v_radius;
@@ -5434,13 +5445,13 @@ static PyObject *__pyx_pw_12QF_utilities_17getCirSubtr_i8(PyObject *__pyx_self, 
   __pyx_L5_argtuple_error:;
   __Pyx_RaiseArgtupleInvalid("getCirSubtr_i8", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 329, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.getCirSubtr_i8", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.getCirSubtr_i8", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_img), __pyx_ptype_5numpy_ndarray, 1, "img", 0))) __PYX_ERR(0, 329, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtr_hist), __pyx_ptype_5numpy_ndarray, 1, "subtr_hist", 0))) __PYX_ERR(0, 329, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_16getCirSubtr_i8(__pyx_self, __pyx_v_img, __pyx_v_subtr_hist, __pyx_v_radius);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_16getCirSubtr_i8(__pyx_self, __pyx_v_img, __pyx_v_subtr_hist, __pyx_v_radius);
 
   /* function exit code */
   goto __pyx_L0;
@@ -5451,7 +5462,7 @@ static PyObject *__pyx_pw_12QF_utilities_17getCirSubtr_i8(PyObject *__pyx_self, 
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_img, PyArrayObject *__pyx_v_subtr_hist, int __pyx_v_radius) {
   int __pyx_v_img_height;
   int __pyx_v_img_width;
   PyArrayObject *__pyx_v_result = 0;
@@ -5511,7 +5522,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
   }
   __pyx_pybuffernd_subtr_hist.diminfo[0].strides = __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_subtr_hist.diminfo[0].shape = __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.shape[0];
 
-  /* "QF_utilities.pyx":330
+  /* "musclex/biocat_modules/QF_utilities.pyx":330
  * 
  * def getCirSubtr_i8(np.ndarray[np.uint8_t, ndim=2] img, np.ndarray[np.uint8_t, ndim=1] subtr_hist, int radius):
  *     cdef int img_height = img.shape[0]             # <<<<<<<<<<<<<<
@@ -5520,7 +5531,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
  */
   __pyx_v_img_height = (__pyx_v_img->dimensions[0]);
 
-  /* "QF_utilities.pyx":331
+  /* "musclex/biocat_modules/QF_utilities.pyx":331
  * def getCirSubtr_i8(np.ndarray[np.uint8_t, ndim=2] img, np.ndarray[np.uint8_t, ndim=1] subtr_hist, int radius):
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]             # <<<<<<<<<<<<<<
@@ -5529,7 +5540,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
  */
   __pyx_v_img_width = (__pyx_v_img->dimensions[1]);
 
-  /* "QF_utilities.pyx":332
+  /* "musclex/biocat_modules/QF_utilities.pyx":332
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  *     cdef np.ndarray[np.uint8_t, ndim=2] result = np.zeros((img_height, img_width), dtype = np.uint8)             # <<<<<<<<<<<<<<
@@ -5586,7 +5597,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
   __pyx_v_result = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":337
+  /* "musclex/biocat_modules/QF_utilities.pyx":337
  *     cdef np.uint8_t bgsub
  *     cdef np.uint8_t val, min
  *     cdef np.uint8_t zero = 0             # <<<<<<<<<<<<<<
@@ -5595,7 +5606,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
  */
   __pyx_v_zero = 0;
 
-  /* "QF_utilities.pyx":339
+  /* "musclex/biocat_modules/QF_utilities.pyx":339
  *     cdef np.uint8_t zero = 0
  * 
  *     for x in range(img_width):             # <<<<<<<<<<<<<<
@@ -5606,7 +5617,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":340
+    /* "musclex/biocat_modules/QF_utilities.pyx":340
  * 
  *     for x in range(img_width):
  *         for y in range(img_height):             # <<<<<<<<<<<<<<
@@ -5617,7 +5628,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":341
+      /* "musclex/biocat_modules/QF_utilities.pyx":341
  *     for x in range(img_width):
  *         for y in range(img_height):
  *             val = img[y,x]             # <<<<<<<<<<<<<<
@@ -5628,7 +5639,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
       __pyx_t_12 = __pyx_v_x;
       __pyx_v_val = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint8_t *, __pyx_pybuffernd_img.rcbuffer->pybuffer.buf, __pyx_t_11, __pyx_pybuffernd_img.diminfo[0].strides, __pyx_t_12, __pyx_pybuffernd_img.diminfo[1].strides));
 
-      /* "QF_utilities.pyx":342
+      /* "musclex/biocat_modules/QF_utilities.pyx":342
  *         for y in range(img_height):
  *             val = img[y,x]
  *             bgsub = 0             # <<<<<<<<<<<<<<
@@ -5637,16 +5648,16 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
  */
       __pyx_v_bgsub = 0;
 
-      /* "QF_utilities.pyx":343
+      /* "musclex/biocat_modules/QF_utilities.pyx":343
  *             val = img[y,x]
  *             bgsub = 0
  *             r = int(distance( x, y, img_width, img_height))             # <<<<<<<<<<<<<<
  *             if radius > r:
  *                 bgsub = subtr_hist[r]
  */
-      __pyx_v_r = ((int)__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_img_width, __pyx_v_img_height, 0));
+      __pyx_v_r = ((int)__pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_img_width, __pyx_v_img_height, 0));
 
-      /* "QF_utilities.pyx":344
+      /* "musclex/biocat_modules/QF_utilities.pyx":344
  *             bgsub = 0
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:             # <<<<<<<<<<<<<<
@@ -5656,7 +5667,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
       __pyx_t_13 = ((__pyx_v_radius > __pyx_v_r) != 0);
       if (__pyx_t_13) {
 
-        /* "QF_utilities.pyx":345
+        /* "musclex/biocat_modules/QF_utilities.pyx":345
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:
  *                 bgsub = subtr_hist[r]             # <<<<<<<<<<<<<<
@@ -5666,7 +5677,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
         __pyx_t_14 = __pyx_v_r;
         __pyx_v_bgsub = (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_uint8_t *, __pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer.buf, __pyx_t_14, __pyx_pybuffernd_subtr_hist.diminfo[0].strides));
 
-        /* "QF_utilities.pyx":344
+        /* "musclex/biocat_modules/QF_utilities.pyx":344
  *             bgsub = 0
  *             r = int(distance( x, y, img_width, img_height))
  *             if radius > r:             # <<<<<<<<<<<<<<
@@ -5675,7 +5686,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
  */
       }
 
-      /* "QF_utilities.pyx":348
+      /* "musclex/biocat_modules/QF_utilities.pyx":348
  * 
  *             # result[y, x] = val - bgsub
  *             if bgsub <= val:             # <<<<<<<<<<<<<<
@@ -5685,7 +5696,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
       __pyx_t_13 = ((__pyx_v_bgsub <= __pyx_v_val) != 0);
       if (__pyx_t_13) {
 
-        /* "QF_utilities.pyx":349
+        /* "musclex/biocat_modules/QF_utilities.pyx":349
  *             # result[y, x] = val - bgsub
  *             if bgsub <= val:
  *                 result[y,x] = val - bgsub             # <<<<<<<<<<<<<<
@@ -5696,7 +5707,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
         __pyx_t_16 = __pyx_v_x;
         *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_uint8_t *, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_15, __pyx_pybuffernd_result.diminfo[0].strides, __pyx_t_16, __pyx_pybuffernd_result.diminfo[1].strides) = (__pyx_v_val - __pyx_v_bgsub);
 
-        /* "QF_utilities.pyx":348
+        /* "musclex/biocat_modules/QF_utilities.pyx":348
  * 
  *             # result[y, x] = val - bgsub
  *             if bgsub <= val:             # <<<<<<<<<<<<<<
@@ -5706,7 +5717,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
         goto __pyx_L8;
       }
 
-      /* "QF_utilities.pyx":351
+      /* "musclex/biocat_modules/QF_utilities.pyx":351
  *                 result[y,x] = val - bgsub
  *             else:
  *                 result[y,x] = zero             # <<<<<<<<<<<<<<
@@ -5722,7 +5733,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
     }
   }
 
-  /* "QF_utilities.pyx":352
+  /* "musclex/biocat_modules/QF_utilities.pyx":352
  *             else:
  *                 result[y,x] = zero
  *     return result             # <<<<<<<<<<<<<<
@@ -5734,7 +5745,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
   __pyx_r = ((PyObject *)__pyx_v_result);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":329
+  /* "musclex/biocat_modules/QF_utilities.pyx":329
  *     return result
  * 
  * def getCirSubtr_i8(np.ndarray[np.uint8_t, ndim=2] img, np.ndarray[np.uint8_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -5757,7 +5768,7 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_subtr_hist.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.getCirSubtr_i8", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.getCirSubtr_i8", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -5771,18 +5782,18 @@ static PyObject *__pyx_pf_12QF_utilities_16getCirSubtr_i8(CYTHON_UNUSED PyObject
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":362
+/* "musclex/biocat_modules/QF_utilities.pyx":362
  * 
  * @cython.cdivision(True)
- * def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x, y
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_19makeBackgroundImage(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_19makeBackgroundImage = {"makeBackgroundImage", (PyCFunction)__pyx_pw_12QF_utilities_19makeBackgroundImage, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_19makeBackgroundImage(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_19make2DConvexhullBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_19make2DConvexhullBG = {"make2DConvexhullBG", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_19make2DConvexhullBG, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_19make2DConvexhullBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyArrayObject *__pyx_v_pchipLines = 0;
   int __pyx_v_width;
   int __pyx_v_height;
@@ -5792,7 +5803,7 @@ static PyObject *__pyx_pw_12QF_utilities_19makeBackgroundImage(PyObject *__pyx_s
   int __pyx_v_rmax;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("makeBackgroundImage (wrapper)", 0);
+  __Pyx_RefNannySetupContext("make2DConvexhullBG (wrapper)", 0);
   {
     static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_pchipLines,&__pyx_n_s_width,&__pyx_n_s_height,&__pyx_n_s_centerX,&__pyx_n_s_centerY,&__pyx_n_s_rmin,&__pyx_n_s_rmax,0};
     PyObject* values[7] = {0,0,0,0,0,0,0};
@@ -5826,41 +5837,41 @@ static PyObject *__pyx_pw_12QF_utilities_19makeBackgroundImage(PyObject *__pyx_s
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_width)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, 1); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, 1); __PYX_ERR(0, 362, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_height)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, 2); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, 2); __PYX_ERR(0, 362, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_centerX)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, 3); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, 3); __PYX_ERR(0, 362, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
         if (likely((values[4] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_centerY)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, 4); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, 4); __PYX_ERR(0, 362, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  5:
         if (likely((values[5] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_rmin)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, 5); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, 5); __PYX_ERR(0, 362, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  6:
         if (likely((values[6] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_rmax)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, 6); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, 6); __PYX_ERR(0, 362, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "makeBackgroundImage") < 0)) __PYX_ERR(0, 362, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "make2DConvexhullBG") < 0)) __PYX_ERR(0, 362, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 7) {
       goto __pyx_L5_argtuple_error;
@@ -5883,14 +5894,14 @@ static PyObject *__pyx_pw_12QF_utilities_19makeBackgroundImage(PyObject *__pyx_s
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("makeBackgroundImage", 1, 7, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 362, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG", 1, 7, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 362, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.makeBackgroundImage", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.make2DConvexhullBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_pchipLines), __pyx_ptype_5numpy_ndarray, 1, "pchipLines", 0))) __PYX_ERR(0, 362, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_18makeBackgroundImage(__pyx_self, __pyx_v_pchipLines, __pyx_v_width, __pyx_v_height, __pyx_v_centerX, __pyx_v_centerY, __pyx_v_rmin, __pyx_v_rmax);
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_18make2DConvexhullBG(__pyx_self, __pyx_v_pchipLines, __pyx_v_width, __pyx_v_height, __pyx_v_centerX, __pyx_v_centerY, __pyx_v_rmin, __pyx_v_rmax);
 
   /* function exit code */
   goto __pyx_L0;
@@ -5901,7 +5912,7 @@ static PyObject *__pyx_pw_12QF_utilities_19makeBackgroundImage(PyObject *__pyx_s
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_pchipLines, int __pyx_v_width, int __pyx_v_height, int __pyx_v_centerX, int __pyx_v_centerY, int __pyx_v_rmin, int __pyx_v_rmax) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_18make2DConvexhullBG(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_pchipLines, int __pyx_v_width, int __pyx_v_height, int __pyx_v_centerX, int __pyx_v_centerY, int __pyx_v_rmin, int __pyx_v_rmax) {
   PyArrayObject *__pyx_v_backgound = 0;
   int __pyx_v_x;
   int __pyx_v_y;
@@ -5975,7 +5986,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
   Py_ssize_t __pyx_t_37;
   Py_ssize_t __pyx_t_38;
   Py_ssize_t __pyx_t_39;
-  __Pyx_RefNannySetupContext("makeBackgroundImage", 0);
+  __Pyx_RefNannySetupContext("make2DConvexhullBG", 0);
   __pyx_pybuffer_backgound.pybuffer.buf = NULL;
   __pyx_pybuffer_backgound.refcount = 0;
   __pyx_pybuffernd_backgound.data = NULL;
@@ -5990,9 +6001,9 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
   }
   __pyx_pybuffernd_pchipLines.diminfo[0].strides = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_pchipLines.diminfo[0].shape = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_pchipLines.diminfo[1].strides = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_pchipLines.diminfo[1].shape = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.shape[1];
 
-  /* "QF_utilities.pyx":363
+  /* "musclex/biocat_modules/QF_utilities.pyx":363
  * @cython.cdivision(True)
- * def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):
+ * def make2DConvexhullBG(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)             # <<<<<<<<<<<<<<
  *     cdef int x, y
  *     cdef int irad, irad_floor, irad_ceil
@@ -6047,7 +6058,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
   __pyx_v_backgound = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":368
+  /* "musclex/biocat_modules/QF_utilities.pyx":368
  *     cdef np.float32_t deg, slope, floor_deg, alpha, ceil_deg, beta, round_deg, deltay, deltax, subv, tmpdeg
  *     cdef np.float32_t rad, ceil_rad, floor_rad, alpha_rad, beta_rad
  *     cdef np.float32_t zero = 0.0             # <<<<<<<<<<<<<<
@@ -6056,7 +6067,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
   __pyx_v_zero = 0.0;
 
-  /* "QF_utilities.pyx":369
+  /* "musclex/biocat_modules/QF_utilities.pyx":369
  *     cdef np.float32_t rad, ceil_rad, floor_rad, alpha_rad, beta_rad
  *     cdef np.float32_t zero = 0.0
  *     cdef int intzero = 0             # <<<<<<<<<<<<<<
@@ -6065,7 +6076,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
   __pyx_v_intzero = 0;
 
-  /* "QF_utilities.pyx":373
+  /* "musclex/biocat_modules/QF_utilities.pyx":373
  *     cdef int ifloor, iceil, ideg
  * 
  *     for x in range(width):             # <<<<<<<<<<<<<<
@@ -6076,7 +6087,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":374
+    /* "musclex/biocat_modules/QF_utilities.pyx":374
  * 
  *     for x in range(width):
  *         for y in range(height):             # <<<<<<<<<<<<<<
@@ -6087,7 +6098,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":375
+      /* "musclex/biocat_modules/QF_utilities.pyx":375
  *     for x in range(width):
  *         for y in range(height):
  *             deltax = float(abs(x - centerX))             # <<<<<<<<<<<<<<
@@ -6097,7 +6108,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       __pyx_t_11 = __Pyx_abs_int((__pyx_v_x - __pyx_v_centerX)); 
       __pyx_v_deltax = ((double)__pyx_t_11);
 
-      /* "QF_utilities.pyx":376
+      /* "musclex/biocat_modules/QF_utilities.pyx":376
  *         for y in range(height):
  *             deltax = float(abs(x - centerX))
  *             if deltax == zero:             # <<<<<<<<<<<<<<
@@ -6107,7 +6118,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       __pyx_t_12 = ((__pyx_v_deltax == __pyx_v_zero) != 0);
       if (__pyx_t_12) {
 
-        /* "QF_utilities.pyx":377
+        /* "musclex/biocat_modules/QF_utilities.pyx":377
  *             deltax = float(abs(x - centerX))
  *             if deltax == zero:
  *                 deg = 90.0             # <<<<<<<<<<<<<<
@@ -6116,7 +6127,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
         __pyx_v_deg = 90.0;
 
-        /* "QF_utilities.pyx":376
+        /* "musclex/biocat_modules/QF_utilities.pyx":376
  *         for y in range(height):
  *             deltax = float(abs(x - centerX))
  *             if deltax == zero:             # <<<<<<<<<<<<<<
@@ -6126,7 +6137,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
         goto __pyx_L7;
       }
 
-      /* "QF_utilities.pyx":379
+      /* "musclex/biocat_modules/QF_utilities.pyx":379
  *                 deg = 90.0
  *             else:
  *                 deltay = float(abs(y - centerY))             # <<<<<<<<<<<<<<
@@ -6137,7 +6148,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
         __pyx_t_11 = __Pyx_abs_int((__pyx_v_y - __pyx_v_centerY)); 
         __pyx_v_deltay = ((double)__pyx_t_11);
 
-        /* "QF_utilities.pyx":380
+        /* "musclex/biocat_modules/QF_utilities.pyx":380
  *             else:
  *                 deltay = float(abs(y - centerY))
  *                 slope = deltay / deltax             # <<<<<<<<<<<<<<
@@ -6146,7 +6157,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
         __pyx_v_slope = (__pyx_v_deltay / __pyx_v_deltax);
 
-        /* "QF_utilities.pyx":381
+        /* "musclex/biocat_modules/QF_utilities.pyx":381
  *                 deltay = float(abs(y - centerY))
  *                 slope = deltay / deltax
  *                 deg = atan(slope)*180.0/M_PI             # <<<<<<<<<<<<<<
@@ -6157,16 +6168,16 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       }
       __pyx_L7:;
 
-      /* "QF_utilities.pyx":383
+      /* "musclex/biocat_modules/QF_utilities.pyx":383
  *                 deg = atan(slope)*180.0/M_PI
  * 
  *             rad = distance(centerX, centerY, x, y)             # <<<<<<<<<<<<<<
  *             irad = int(round(rad))
  *             ceil_rad = ceil(rad)
  */
-      __pyx_v_rad = __pyx_f_12QF_utilities_distance(__pyx_v_centerX, __pyx_v_centerY, __pyx_v_x, __pyx_v_y, 0);
+      __pyx_v_rad = __pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_centerX, __pyx_v_centerY, __pyx_v_x, __pyx_v_y, 0);
 
-      /* "QF_utilities.pyx":384
+      /* "musclex/biocat_modules/QF_utilities.pyx":384
  * 
  *             rad = distance(centerX, centerY, x, y)
  *             irad = int(round(rad))             # <<<<<<<<<<<<<<
@@ -6175,7 +6186,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_irad = ((int)round(__pyx_v_rad));
 
-      /* "QF_utilities.pyx":385
+      /* "musclex/biocat_modules/QF_utilities.pyx":385
  *             rad = distance(centerX, centerY, x, y)
  *             irad = int(round(rad))
  *             ceil_rad = ceil(rad)             # <<<<<<<<<<<<<<
@@ -6184,7 +6195,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_ceil_rad = ceil(__pyx_v_rad);
 
-      /* "QF_utilities.pyx":386
+      /* "musclex/biocat_modules/QF_utilities.pyx":386
  *             irad = int(round(rad))
  *             ceil_rad = ceil(rad)
  *             floor_rad = floor(rad)             # <<<<<<<<<<<<<<
@@ -6193,7 +6204,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_floor_rad = floor(__pyx_v_rad);
 
-      /* "QF_utilities.pyx":387
+      /* "musclex/biocat_modules/QF_utilities.pyx":387
  *             ceil_rad = ceil(rad)
  *             floor_rad = floor(rad)
  *             irad_ceil = int(ceil_rad)             # <<<<<<<<<<<<<<
@@ -6202,7 +6213,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_irad_ceil = ((int)__pyx_v_ceil_rad);
 
-      /* "QF_utilities.pyx":388
+      /* "musclex/biocat_modules/QF_utilities.pyx":388
  *             floor_rad = floor(rad)
  *             irad_ceil = int(ceil_rad)
  *             irad_floor = int(floor_rad)             # <<<<<<<<<<<<<<
@@ -6211,7 +6222,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_irad_floor = ((int)__pyx_v_floor_rad);
 
-      /* "QF_utilities.pyx":389
+      /* "musclex/biocat_modules/QF_utilities.pyx":389
  *             irad_ceil = int(ceil_rad)
  *             irad_floor = int(floor_rad)
  *             alpha_rad = 1. - (rad-floor_rad)             # <<<<<<<<<<<<<<
@@ -6220,7 +6231,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_alpha_rad = (1. - (__pyx_v_rad - __pyx_v_floor_rad));
 
-      /* "QF_utilities.pyx":390
+      /* "musclex/biocat_modules/QF_utilities.pyx":390
  *             irad_floor = int(floor_rad)
  *             alpha_rad = 1. - (rad-floor_rad)
  *             beta_rad = 1. - (ceil_rad-rad)             # <<<<<<<<<<<<<<
@@ -6229,7 +6240,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_beta_rad = (1. - (__pyx_v_ceil_rad - __pyx_v_rad));
 
-      /* "QF_utilities.pyx":392
+      /* "musclex/biocat_modules/QF_utilities.pyx":392
  *             beta_rad = 1. - (ceil_rad-rad)
  * 
  *             round_deg = round(deg)             # <<<<<<<<<<<<<<
@@ -6238,7 +6249,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_round_deg = round(__pyx_v_deg);
 
-      /* "QF_utilities.pyx":394
+      /* "musclex/biocat_modules/QF_utilities.pyx":394
  *             round_deg = round(deg)
  * 
  *             if round_deg < deg:             # <<<<<<<<<<<<<<
@@ -6248,7 +6259,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       __pyx_t_12 = ((__pyx_v_round_deg < __pyx_v_deg) != 0);
       if (__pyx_t_12) {
 
-        /* "QF_utilities.pyx":395
+        /* "musclex/biocat_modules/QF_utilities.pyx":395
  * 
  *             if round_deg < deg:
  *                 ceil_deg = round_deg + 0.5             # <<<<<<<<<<<<<<
@@ -6257,7 +6268,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
         __pyx_v_ceil_deg = (__pyx_v_round_deg + 0.5);
 
-        /* "QF_utilities.pyx":396
+        /* "musclex/biocat_modules/QF_utilities.pyx":396
  *             if round_deg < deg:
  *                 ceil_deg = round_deg + 0.5
  *                 floor_deg = round_deg             # <<<<<<<<<<<<<<
@@ -6266,7 +6277,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
         __pyx_v_floor_deg = __pyx_v_round_deg;
 
-        /* "QF_utilities.pyx":394
+        /* "musclex/biocat_modules/QF_utilities.pyx":394
  *             round_deg = round(deg)
  * 
  *             if round_deg < deg:             # <<<<<<<<<<<<<<
@@ -6276,7 +6287,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
         goto __pyx_L8;
       }
 
-      /* "QF_utilities.pyx":397
+      /* "musclex/biocat_modules/QF_utilities.pyx":397
  *                 ceil_deg = round_deg + 0.5
  *                 floor_deg = round_deg
  *             elif round_deg > deg:             # <<<<<<<<<<<<<<
@@ -6286,7 +6297,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       __pyx_t_12 = ((__pyx_v_round_deg > __pyx_v_deg) != 0);
       if (__pyx_t_12) {
 
-        /* "QF_utilities.pyx":398
+        /* "musclex/biocat_modules/QF_utilities.pyx":398
  *                 floor_deg = round_deg
  *             elif round_deg > deg:
  *                 ceil_deg = round_deg             # <<<<<<<<<<<<<<
@@ -6295,7 +6306,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
         __pyx_v_ceil_deg = __pyx_v_round_deg;
 
-        /* "QF_utilities.pyx":399
+        /* "musclex/biocat_modules/QF_utilities.pyx":399
  *             elif round_deg > deg:
  *                 ceil_deg = round_deg
  *                 floor_deg = round_deg - 0.5             # <<<<<<<<<<<<<<
@@ -6304,7 +6315,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
         __pyx_v_floor_deg = (__pyx_v_round_deg - 0.5);
 
-        /* "QF_utilities.pyx":397
+        /* "musclex/biocat_modules/QF_utilities.pyx":397
  *                 ceil_deg = round_deg + 0.5
  *                 floor_deg = round_deg
  *             elif round_deg > deg:             # <<<<<<<<<<<<<<
@@ -6314,7 +6325,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
         goto __pyx_L8;
       }
 
-      /* "QF_utilities.pyx":401
+      /* "musclex/biocat_modules/QF_utilities.pyx":401
  *                 floor_deg = round_deg - 0.5
  *             else:
  *                 ceil_deg = round_deg             # <<<<<<<<<<<<<<
@@ -6324,7 +6335,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       /*else*/ {
         __pyx_v_ceil_deg = __pyx_v_round_deg;
 
-        /* "QF_utilities.pyx":402
+        /* "musclex/biocat_modules/QF_utilities.pyx":402
  *             else:
  *                 ceil_deg = round_deg
  *                 floor_deg = round_deg             # <<<<<<<<<<<<<<
@@ -6335,7 +6346,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       }
       __pyx_L8:;
 
-      /* "QF_utilities.pyx":407
+      /* "musclex/biocat_modules/QF_utilities.pyx":407
  *             # beta = 1. - ((ceil_deg - deg) * 2.0)
  * 
  *             ifloor = int(floor_deg / 0.5)             # <<<<<<<<<<<<<<
@@ -6344,7 +6355,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_ifloor = ((int)(__pyx_v_floor_deg / 0.5));
 
-      /* "QF_utilities.pyx":408
+      /* "musclex/biocat_modules/QF_utilities.pyx":408
  * 
  *             ifloor = int(floor_deg / 0.5)
  *             iceil = int(ceil_deg / 0.5)             # <<<<<<<<<<<<<<
@@ -6353,7 +6364,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_iceil = ((int)(__pyx_v_ceil_deg / 0.5));
 
-      /* "QF_utilities.pyx":409
+      /* "musclex/biocat_modules/QF_utilities.pyx":409
  *             ifloor = int(floor_deg / 0.5)
  *             iceil = int(ceil_deg / 0.5)
  *             tmpdeg = deg/0.5             # <<<<<<<<<<<<<<
@@ -6362,7 +6373,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_tmpdeg = (__pyx_v_deg / 0.5);
 
-      /* "QF_utilities.pyx":410
+      /* "musclex/biocat_modules/QF_utilities.pyx":410
  *             iceil = int(ceil_deg / 0.5)
  *             tmpdeg = deg/0.5
  *             alpha = 1. - (tmpdeg - floor_deg / 0.5)             # <<<<<<<<<<<<<<
@@ -6371,7 +6382,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_alpha = (1. - (__pyx_v_tmpdeg - (__pyx_v_floor_deg / 0.5)));
 
-      /* "QF_utilities.pyx":411
+      /* "musclex/biocat_modules/QF_utilities.pyx":411
  *             tmpdeg = deg/0.5
  *             alpha = 1. - (tmpdeg - floor_deg / 0.5)
  *             beta = 1. - (ceil_deg / 0.5 - tmpdeg)             # <<<<<<<<<<<<<<
@@ -6380,7 +6391,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_beta = (1. - ((__pyx_v_ceil_deg / 0.5) - __pyx_v_tmpdeg));
 
-      /* "QF_utilities.pyx":412
+      /* "musclex/biocat_modules/QF_utilities.pyx":412
  *             alpha = 1. - (tmpdeg - floor_deg / 0.5)
  *             beta = 1. - (ceil_deg / 0.5 - tmpdeg)
  *             ideg = int(round(deg/0.5))             # <<<<<<<<<<<<<<
@@ -6389,7 +6400,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
       __pyx_v_ideg = ((int)round((__pyx_v_deg / 0.5)));
 
-      /* "QF_utilities.pyx":414
+      /* "musclex/biocat_modules/QF_utilities.pyx":414
  *             ideg = int(round(deg/0.5))
  * 
  *             if irad_ceil <= rmax and irad_floor >= rmin:             # <<<<<<<<<<<<<<
@@ -6407,7 +6418,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
       __pyx_L10_bool_binop_done:;
       if (__pyx_t_12) {
 
-        /* "QF_utilities.pyx":415
+        /* "musclex/biocat_modules/QF_utilities.pyx":415
  * 
  *             if irad_ceil <= rmax and irad_floor >= rmin:
  *                 if alpha == 1. and beta == 1.:             # <<<<<<<<<<<<<<
@@ -6425,7 +6436,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
         __pyx_L13_bool_binop_done:;
         if (__pyx_t_12) {
 
-          /* "QF_utilities.pyx":416
+          /* "musclex/biocat_modules/QF_utilities.pyx":416
  *             if irad_ceil <= rmax and irad_floor >= rmin:
  *                 if alpha == 1. and beta == 1.:
  *                     if alpha_rad == 1. and beta_rad == 1.:             # <<<<<<<<<<<<<<
@@ -6443,7 +6454,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
           __pyx_L16_bool_binop_done:;
           if (__pyx_t_12) {
 
-            /* "QF_utilities.pyx":417
+            /* "musclex/biocat_modules/QF_utilities.pyx":417
  *                 if alpha == 1. and beta == 1.:
  *                     if alpha_rad == 1. and beta_rad == 1.:
  *                         pos1 = irad - rmin             # <<<<<<<<<<<<<<
@@ -6452,7 +6463,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
             __pyx_v_pos1 = (__pyx_v_irad - __pyx_v_rmin);
 
-            /* "QF_utilities.pyx":418
+            /* "musclex/biocat_modules/QF_utilities.pyx":418
  *                     if alpha_rad == 1. and beta_rad == 1.:
  *                         pos1 = irad - rmin
  *                         backgound[y,x] = pchipLines[ideg, pos1]             # <<<<<<<<<<<<<<
@@ -6465,7 +6476,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
             __pyx_t_17 = __pyx_v_x;
             *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_16, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_17, __pyx_pybuffernd_backgound.diminfo[1].strides) = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_14, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_15, __pyx_pybuffernd_pchipLines.diminfo[1].strides));
 
-            /* "QF_utilities.pyx":416
+            /* "musclex/biocat_modules/QF_utilities.pyx":416
  *             if irad_ceil <= rmax and irad_floor >= rmin:
  *                 if alpha == 1. and beta == 1.:
  *                     if alpha_rad == 1. and beta_rad == 1.:             # <<<<<<<<<<<<<<
@@ -6475,7 +6486,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
             goto __pyx_L15;
           }
 
-          /* "QF_utilities.pyx":420
+          /* "musclex/biocat_modules/QF_utilities.pyx":420
  *                         backgound[y,x] = pchipLines[ideg, pos1]
  *                     else:
  *                         pos1 = irad_floor - rmin             # <<<<<<<<<<<<<<
@@ -6485,7 +6496,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
           /*else*/ {
             __pyx_v_pos1 = (__pyx_v_irad_floor - __pyx_v_rmin);
 
-            /* "QF_utilities.pyx":421
+            /* "musclex/biocat_modules/QF_utilities.pyx":421
  *                     else:
  *                         pos1 = irad_floor - rmin
  *                         pos2 = irad_ceil - rmin             # <<<<<<<<<<<<<<
@@ -6494,7 +6505,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
             __pyx_v_pos2 = (__pyx_v_irad_ceil - __pyx_v_rmin);
 
-            /* "QF_utilities.pyx":422
+            /* "musclex/biocat_modules/QF_utilities.pyx":422
  *                         pos1 = irad_floor - rmin
  *                         pos2 = irad_ceil - rmin
  *                         backgound[y, x] = alpha_rad * pchipLines[ideg, pos1] + beta_rad * pchipLines[ideg, pos2]             # <<<<<<<<<<<<<<
@@ -6511,7 +6522,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
           }
           __pyx_L15:;
 
-          /* "QF_utilities.pyx":415
+          /* "musclex/biocat_modules/QF_utilities.pyx":415
  * 
  *             if irad_ceil <= rmax and irad_floor >= rmin:
  *                 if alpha == 1. and beta == 1.:             # <<<<<<<<<<<<<<
@@ -6521,7 +6532,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
           goto __pyx_L12;
         }
 
-        /* "QF_utilities.pyx":424
+        /* "musclex/biocat_modules/QF_utilities.pyx":424
  *                         backgound[y, x] = alpha_rad * pchipLines[ideg, pos1] + beta_rad * pchipLines[ideg, pos2]
  *                 else:
  *                     if alpha_rad == 1. and beta_rad == 1.:             # <<<<<<<<<<<<<<
@@ -6540,7 +6551,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
           __pyx_L19_bool_binop_done:;
           if (__pyx_t_12) {
 
-            /* "QF_utilities.pyx":425
+            /* "musclex/biocat_modules/QF_utilities.pyx":425
  *                 else:
  *                     if alpha_rad == 1. and beta_rad == 1.:
  *                         pos1 = irad - rmin             # <<<<<<<<<<<<<<
@@ -6549,7 +6560,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
             __pyx_v_pos1 = (__pyx_v_irad - __pyx_v_rmin);
 
-            /* "QF_utilities.pyx":426
+            /* "musclex/biocat_modules/QF_utilities.pyx":426
  *                     if alpha_rad == 1. and beta_rad == 1.:
  *                         pos1 = irad - rmin
  *                         backgound[y,x] = alpha * pchipLines[ifloor, pos1] + beta * pchipLines[iceil, pos1]             # <<<<<<<<<<<<<<
@@ -6564,7 +6575,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
             __pyx_t_29 = __pyx_v_x;
             *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_28, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_29, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_24, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_25, __pyx_pybuffernd_pchipLines.diminfo[1].strides))) + (__pyx_v_beta * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_26, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_27, __pyx_pybuffernd_pchipLines.diminfo[1].strides))));
 
-            /* "QF_utilities.pyx":424
+            /* "musclex/biocat_modules/QF_utilities.pyx":424
  *                         backgound[y, x] = alpha_rad * pchipLines[ideg, pos1] + beta_rad * pchipLines[ideg, pos2]
  *                 else:
  *                     if alpha_rad == 1. and beta_rad == 1.:             # <<<<<<<<<<<<<<
@@ -6574,7 +6585,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
             goto __pyx_L18;
           }
 
-          /* "QF_utilities.pyx":428
+          /* "musclex/biocat_modules/QF_utilities.pyx":428
  *                         backgound[y,x] = alpha * pchipLines[ifloor, pos1] + beta * pchipLines[iceil, pos1]
  *                     else:
  *                         pos1 = irad_floor - rmin             # <<<<<<<<<<<<<<
@@ -6584,7 +6595,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
           /*else*/ {
             __pyx_v_pos1 = (__pyx_v_irad_floor - __pyx_v_rmin);
 
-            /* "QF_utilities.pyx":429
+            /* "musclex/biocat_modules/QF_utilities.pyx":429
  *                     else:
  *                         pos1 = irad_floor - rmin
  *                         pos2 = irad_ceil - rmin             # <<<<<<<<<<<<<<
@@ -6593,7 +6604,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
  */
             __pyx_v_pos2 = (__pyx_v_irad_ceil - __pyx_v_rmin);
 
-            /* "QF_utilities.pyx":430
+            /* "musclex/biocat_modules/QF_utilities.pyx":430
  *                         pos1 = irad_floor - rmin
  *                         pos2 = irad_ceil - rmin
  *                         backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \             # <<<<<<<<<<<<<<
@@ -6605,7 +6616,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
             __pyx_t_32 = __pyx_v_ifloor;
             __pyx_t_33 = __pyx_v_pos2;
 
-            /* "QF_utilities.pyx":431
+            /* "musclex/biocat_modules/QF_utilities.pyx":431
  *                         pos2 = irad_ceil - rmin
  *                         backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
  *                                           + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])             # <<<<<<<<<<<<<<
@@ -6617,7 +6628,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
             __pyx_t_36 = __pyx_v_iceil;
             __pyx_t_37 = __pyx_v_pos2;
 
-            /* "QF_utilities.pyx":430
+            /* "musclex/biocat_modules/QF_utilities.pyx":430
  *                         pos1 = irad_floor - rmin
  *                         pos2 = irad_ceil - rmin
  *                         backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \             # <<<<<<<<<<<<<<
@@ -6632,7 +6643,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
         }
         __pyx_L12:;
 
-        /* "QF_utilities.pyx":414
+        /* "musclex/biocat_modules/QF_utilities.pyx":414
  *             ideg = int(round(deg/0.5))
  * 
  *             if irad_ceil <= rmax and irad_floor >= rmin:             # <<<<<<<<<<<<<<
@@ -6643,7 +6654,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
     }
   }
 
-  /* "QF_utilities.pyx":432
+  /* "musclex/biocat_modules/QF_utilities.pyx":432
  *                         backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
  *                                           + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
  *     return backgound             # <<<<<<<<<<<<<<
@@ -6655,10 +6666,10 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
   __pyx_r = ((PyObject *)__pyx_v_backgound);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":362
+  /* "musclex/biocat_modules/QF_utilities.pyx":362
  * 
  * @cython.cdivision(True)
- * def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x, y
  */
@@ -6677,7 +6688,7 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_pchipLines.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.makeBackgroundImage", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.make2DConvexhullBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -6690,32 +6701,41 @@ static PyObject *__pyx_pf_12QF_utilities_18makeBackgroundImage(CYTHON_UNUSED PyO
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":435
+/* "musclex/biocat_modules/QF_utilities.pyx":435
  * 
  * @cython.cdivision(True)
- * def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG2(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
- *     cdef int x,y, irad, ideg
+ *     cdef int x, y
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_21createCirBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_21createCirBG = {"createCirBG", (PyCFunction)__pyx_pw_12QF_utilities_21createCirBG, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_21createCirBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_21make2DConvexhullBG2(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_21make2DConvexhullBG2 = {"make2DConvexhullBG2", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_21make2DConvexhullBG2, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_21make2DConvexhullBG2(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyArrayObject *__pyx_v_pchipLines = 0;
   int __pyx_v_width;
   int __pyx_v_height;
-  PyArrayObject *__pyx_v_subtr = 0;
-  int __pyx_v_nBins;
+  int __pyx_v_centerX;
+  int __pyx_v_centerY;
+  int __pyx_v_rmin;
+  int __pyx_v_rmax;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("createCirBG (wrapper)", 0);
+  __Pyx_RefNannySetupContext("make2DConvexhullBG2 (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_width,&__pyx_n_s_height,&__pyx_n_s_subtr,&__pyx_n_s_nBins,0};
-    PyObject* values[4] = {0,0,0,0};
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_pchipLines,&__pyx_n_s_width,&__pyx_n_s_height,&__pyx_n_s_centerX,&__pyx_n_s_centerY,&__pyx_n_s_rmin,&__pyx_n_s_rmax,0};
+    PyObject* values[7] = {0,0,0,0,0,0,0};
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
+        case  7: values[6] = PyTuple_GET_ITEM(__pyx_args, 6);
+        CYTHON_FALLTHROUGH;
+        case  6: values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
+        CYTHON_FALLTHROUGH;
+        case  5: values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
+        CYTHON_FALLTHROUGH;
         case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
         CYTHON_FALLTHROUGH;
         case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
@@ -6730,53 +6750,77 @@ static PyObject *__pyx_pw_12QF_utilities_21createCirBG(PyObject *__pyx_self, PyO
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_width)) != 0)) kw_args--;
+        if (likely((values[0] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_pchipLines)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
-        if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_height)) != 0)) kw_args--;
+        if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_width)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCirBG", 1, 4, 4, 1); __PYX_ERR(0, 435, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, 1); __PYX_ERR(0, 435, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
-        if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_subtr)) != 0)) kw_args--;
+        if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_height)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCirBG", 1, 4, 4, 2); __PYX_ERR(0, 435, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, 2); __PYX_ERR(0, 435, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
-        if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_nBins)) != 0)) kw_args--;
+        if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_centerX)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCirBG", 1, 4, 4, 3); __PYX_ERR(0, 435, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, 3); __PYX_ERR(0, 435, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  4:
+        if (likely((values[4] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_centerY)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, 4); __PYX_ERR(0, 435, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  5:
+        if (likely((values[5] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_rmin)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, 5); __PYX_ERR(0, 435, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  6:
+        if (likely((values[6] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_rmax)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, 6); __PYX_ERR(0, 435, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "createCirBG") < 0)) __PYX_ERR(0, 435, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "make2DConvexhullBG2") < 0)) __PYX_ERR(0, 435, __pyx_L3_error)
       }
-    } else if (PyTuple_GET_SIZE(__pyx_args) != 4) {
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 7) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
       values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
       values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
+      values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
+      values[5] = PyTuple_GET_ITEM(__pyx_args, 5);
+      values[6] = PyTuple_GET_ITEM(__pyx_args, 6);
     }
-    __pyx_v_width = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
-    __pyx_v_height = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_height == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
-    __pyx_v_subtr = ((PyArrayObject *)values[2]);
-    __pyx_v_nBins = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_nBins == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_pchipLines = ((PyArrayObject *)values[0]);
+    __pyx_v_width = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_height = __Pyx_PyInt_As_int(values[2]); if (unlikely((__pyx_v_height == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_centerX = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_centerX == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_centerY = __Pyx_PyInt_As_int(values[4]); if (unlikely((__pyx_v_centerY == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_rmin = __Pyx_PyInt_As_int(values[5]); if (unlikely((__pyx_v_rmin == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_rmax = __Pyx_PyInt_As_int(values[6]); if (unlikely((__pyx_v_rmax == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("createCirBG", 1, 4, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 435, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("make2DConvexhullBG2", 1, 7, 7, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 435, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.createCirBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.make2DConvexhullBG2", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtr), __pyx_ptype_5numpy_ndarray, 1, "subtr", 0))) __PYX_ERR(0, 435, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_20createCirBG(__pyx_self, __pyx_v_width, __pyx_v_height, __pyx_v_subtr, __pyx_v_nBins);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_pchipLines), __pyx_ptype_5numpy_ndarray, 1, "pchipLines", 0))) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_20make2DConvexhullBG2(__pyx_self, __pyx_v_pchipLines, __pyx_v_width, __pyx_v_height, __pyx_v_centerX, __pyx_v_centerY, __pyx_v_rmin, __pyx_v_rmax);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6787,32 +6831,37 @@ static PyObject *__pyx_pw_12QF_utilities_21createCirBG(PyObject *__pyx_self, PyO
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_subtr, int __pyx_v_nBins) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_20make2DConvexhullBG2(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_pchipLines, int __pyx_v_width, int __pyx_v_height, int __pyx_v_centerX, int __pyx_v_centerY, int __pyx_v_rmin, int __pyx_v_rmax) {
   PyArrayObject *__pyx_v_backgound = 0;
   int __pyx_v_x;
   int __pyx_v_y;
-  int __pyx_v_irad;
-  int __pyx_v_centerX;
-  int __pyx_v_centerY;
-  __pyx_t_5numpy_float32_t __pyx_v_rad;
+  CYTHON_UNUSED int __pyx_v_irad;
+  int __pyx_v_irad_floor;
+  int __pyx_v_irad_ceil;
   __pyx_t_5numpy_float32_t __pyx_v_deg;
   __pyx_t_5numpy_float32_t __pyx_v_slope;
-  __pyx_t_5numpy_float32_t __pyx_v_deltax;
-  __pyx_t_5numpy_float32_t __pyx_v_deltay;
-  CYTHON_UNUSED __pyx_t_5numpy_float32_t __pyx_v_bgsub;
-  __pyx_t_5numpy_float32_t __pyx_v_fbin;
-  __pyx_t_5numpy_float32_t __pyx_v_floor_bin;
-  __pyx_t_5numpy_float32_t __pyx_v_ceil_bin;
+  __pyx_t_5numpy_float32_t __pyx_v_floor_deg;
   __pyx_t_5numpy_float32_t __pyx_v_alpha;
+  __pyx_t_5numpy_float32_t __pyx_v_ceil_deg;
   __pyx_t_5numpy_float32_t __pyx_v_beta;
-  int __pyx_v_theta_size;
+  __pyx_t_5numpy_float32_t __pyx_v_deltay;
+  __pyx_t_5numpy_float32_t __pyx_v_deltax;
+  __pyx_t_5numpy_float32_t __pyx_v_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_ceil_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_floor_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_alpha_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_beta_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_zero;
+  CYTHON_UNUSED int __pyx_v_intzero;
+  int __pyx_v_pos1;
+  int __pyx_v_pos2;
   int __pyx_v_ifloor;
   int __pyx_v_iceil;
-  int __pyx_v_ibin;
+  CYTHON_UNUSED int __pyx_v_ideg;
   __Pyx_LocalBuf_ND __pyx_pybuffernd_backgound;
   __Pyx_Buffer __pyx_pybuffer_backgound;
-  __Pyx_LocalBuf_ND __pyx_pybuffernd_subtr;
-  __Pyx_Buffer __pyx_pybuffer_subtr;
+  __Pyx_LocalBuf_ND __pyx_pybuffernd_pchipLines;
+  __Pyx_Buffer __pyx_pybuffer_pchipLines;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -6825,9 +6874,9 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
   int __pyx_t_8;
   int __pyx_t_9;
   int __pyx_t_10;
-  unsigned int __pyx_t_11;
-  int __pyx_t_12;
-  Py_ssize_t __pyx_t_13;
+  int __pyx_t_11;
+  unsigned int __pyx_t_12;
+  int __pyx_t_13;
   Py_ssize_t __pyx_t_14;
   Py_ssize_t __pyx_t_15;
   Py_ssize_t __pyx_t_16;
@@ -6835,34 +6884,30 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
   Py_ssize_t __pyx_t_18;
   Py_ssize_t __pyx_t_19;
   Py_ssize_t __pyx_t_20;
-  int __pyx_t_21;
+  Py_ssize_t __pyx_t_21;
   Py_ssize_t __pyx_t_22;
   Py_ssize_t __pyx_t_23;
-  Py_ssize_t __pyx_t_24;
-  Py_ssize_t __pyx_t_25;
-  Py_ssize_t __pyx_t_26;
-  Py_ssize_t __pyx_t_27;
-  __Pyx_RefNannySetupContext("createCirBG", 0);
+  __Pyx_RefNannySetupContext("make2DConvexhullBG2", 0);
   __pyx_pybuffer_backgound.pybuffer.buf = NULL;
   __pyx_pybuffer_backgound.refcount = 0;
   __pyx_pybuffernd_backgound.data = NULL;
   __pyx_pybuffernd_backgound.rcbuffer = &__pyx_pybuffer_backgound;
-  __pyx_pybuffer_subtr.pybuffer.buf = NULL;
-  __pyx_pybuffer_subtr.refcount = 0;
-  __pyx_pybuffernd_subtr.data = NULL;
-  __pyx_pybuffernd_subtr.rcbuffer = &__pyx_pybuffer_subtr;
+  __pyx_pybuffer_pchipLines.pybuffer.buf = NULL;
+  __pyx_pybuffer_pchipLines.refcount = 0;
+  __pyx_pybuffernd_pchipLines.data = NULL;
+  __pyx_pybuffernd_pchipLines.rcbuffer = &__pyx_pybuffer_pchipLines;
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_subtr.rcbuffer->pybuffer, (PyObject*)__pyx_v_subtr, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 435, __pyx_L1_error)
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_pchipLines.rcbuffer->pybuffer, (PyObject*)__pyx_v_pchipLines, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 435, __pyx_L1_error)
   }
-  __pyx_pybuffernd_subtr.diminfo[0].strides = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_subtr.diminfo[0].shape = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_subtr.diminfo[1].strides = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_subtr.diminfo[1].shape = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.shape[1];
+  __pyx_pybuffernd_pchipLines.diminfo[0].strides = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_pchipLines.diminfo[0].shape = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_pchipLines.diminfo[1].strides = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_pchipLines.diminfo[1].shape = __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.shape[1];
 
-  /* "QF_utilities.pyx":436
+  /* "musclex/biocat_modules/QF_utilities.pyx":436
  * @cython.cdivision(True)
- * def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):
+ * def make2DConvexhullBG2(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)             # <<<<<<<<<<<<<<
- *     cdef int x,y, irad, ideg
- *     cdef int centerX = width - 1
+ *     cdef int x, y
+ *     cdef int irad, irad_floor, irad_ceil
  */
   __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 436, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6914,35 +6959,729 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
   __pyx_v_backgound = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":438
+  /* "musclex/biocat_modules/QF_utilities.pyx":441
+ *     cdef np.float32_t deg, slope, floor_deg, alpha, ceil_deg, beta, round_deg, deltay, deltax, subv, tmpdeg
+ *     cdef np.float32_t rad, ceil_rad, floor_rad, alpha_rad, beta_rad
+ *     cdef np.float32_t zero = 0.0             # <<<<<<<<<<<<<<
+ *     cdef int intzero = 0
+ *     cdef int pos1, pos2
+ */
+  __pyx_v_zero = 0.0;
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":442
+ *     cdef np.float32_t rad, ceil_rad, floor_rad, alpha_rad, beta_rad
+ *     cdef np.float32_t zero = 0.0
+ *     cdef int intzero = 0             # <<<<<<<<<<<<<<
+ *     cdef int pos1, pos2
+ *     cdef int ifloor, iceil, ideg
+ */
+  __pyx_v_intzero = 0;
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":446
+ *     cdef int ifloor, iceil, ideg
+ * 
+ *     for x in range(width):             # <<<<<<<<<<<<<<
+ *         for y in range(height):
+ * 
+ */
+  __pyx_t_7 = __pyx_v_width;
+  for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
+    __pyx_v_x = __pyx_t_8;
+
+    /* "musclex/biocat_modules/QF_utilities.pyx":447
+ * 
+ *     for x in range(width):
+ *         for y in range(height):             # <<<<<<<<<<<<<<
+ * 
+ *             rad = distance(centerX, centerY, x, y)
+ */
+    __pyx_t_9 = __pyx_v_height;
+    for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
+      __pyx_v_y = __pyx_t_10;
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":449
+ *         for y in range(height):
+ * 
+ *             rad = distance(centerX, centerY, x, y)             # <<<<<<<<<<<<<<
+ *             irad = int(round(rad))
+ *             ceil_rad = ceil(rad)
+ */
+      __pyx_v_rad = __pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_centerX, __pyx_v_centerY, __pyx_v_x, __pyx_v_y, 0);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":450
+ * 
+ *             rad = distance(centerX, centerY, x, y)
+ *             irad = int(round(rad))             # <<<<<<<<<<<<<<
+ *             ceil_rad = ceil(rad)
+ *             floor_rad = floor(rad)
+ */
+      __pyx_v_irad = ((int)round(__pyx_v_rad));
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":451
+ *             rad = distance(centerX, centerY, x, y)
+ *             irad = int(round(rad))
+ *             ceil_rad = ceil(rad)             # <<<<<<<<<<<<<<
+ *             floor_rad = floor(rad)
+ *             irad_ceil = int(ceil_rad)
+ */
+      __pyx_v_ceil_rad = ceil(__pyx_v_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":452
+ *             irad = int(round(rad))
+ *             ceil_rad = ceil(rad)
+ *             floor_rad = floor(rad)             # <<<<<<<<<<<<<<
+ *             irad_ceil = int(ceil_rad)
+ *             irad_floor = int(floor_rad)
+ */
+      __pyx_v_floor_rad = floor(__pyx_v_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":453
+ *             ceil_rad = ceil(rad)
+ *             floor_rad = floor(rad)
+ *             irad_ceil = int(ceil_rad)             # <<<<<<<<<<<<<<
+ *             irad_floor = int(floor_rad)
+ * 
+ */
+      __pyx_v_irad_ceil = ((int)__pyx_v_ceil_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":454
+ *             floor_rad = floor(rad)
+ *             irad_ceil = int(ceil_rad)
+ *             irad_floor = int(floor_rad)             # <<<<<<<<<<<<<<
+ * 
+ *             if irad_floor == irad_ceil:
+ */
+      __pyx_v_irad_floor = ((int)__pyx_v_floor_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":456
+ *             irad_floor = int(floor_rad)
+ * 
+ *             if irad_floor == irad_ceil:             # <<<<<<<<<<<<<<
+ *                 beta_rad = 0.5
+ *                 alpha_rad = 0.5
+ */
+      __pyx_t_11 = ((__pyx_v_irad_floor == __pyx_v_irad_ceil) != 0);
+      if (__pyx_t_11) {
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":457
+ * 
+ *             if irad_floor == irad_ceil:
+ *                 beta_rad = 0.5             # <<<<<<<<<<<<<<
+ *                 alpha_rad = 0.5
+ *             else:
+ */
+        __pyx_v_beta_rad = 0.5;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":458
+ *             if irad_floor == irad_ceil:
+ *                 beta_rad = 0.5
+ *                 alpha_rad = 0.5             # <<<<<<<<<<<<<<
+ *             else:
+ *                 alpha_rad = 1. - (rad - floor_rad)
+ */
+        __pyx_v_alpha_rad = 0.5;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":456
+ *             irad_floor = int(floor_rad)
+ * 
+ *             if irad_floor == irad_ceil:             # <<<<<<<<<<<<<<
+ *                 beta_rad = 0.5
+ *                 alpha_rad = 0.5
+ */
+        goto __pyx_L7;
+      }
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":460
+ *                 alpha_rad = 0.5
+ *             else:
+ *                 alpha_rad = 1. - (rad - floor_rad)             # <<<<<<<<<<<<<<
+ *                 beta_rad = 1. - (ceil_rad - rad)
+ * 
+ */
+      /*else*/ {
+        __pyx_v_alpha_rad = (1. - (__pyx_v_rad - __pyx_v_floor_rad));
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":461
+ *             else:
+ *                 alpha_rad = 1. - (rad - floor_rad)
+ *                 beta_rad = 1. - (ceil_rad - rad)             # <<<<<<<<<<<<<<
+ * 
+ *             deltax = float(abs(x - centerX))
+ */
+        __pyx_v_beta_rad = (1. - (__pyx_v_ceil_rad - __pyx_v_rad));
+      }
+      __pyx_L7:;
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":463
+ *                 beta_rad = 1. - (ceil_rad - rad)
+ * 
+ *             deltax = float(abs(x - centerX))             # <<<<<<<<<<<<<<
+ *             if deltax == zero:
+ *                 deg = 90.0
+ */
+      __pyx_t_12 = __Pyx_abs_int((__pyx_v_x - __pyx_v_centerX)); 
+      __pyx_v_deltax = ((double)__pyx_t_12);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":464
+ * 
+ *             deltax = float(abs(x - centerX))
+ *             if deltax == zero:             # <<<<<<<<<<<<<<
+ *                 deg = 90.0
+ *             else:
+ */
+      __pyx_t_11 = ((__pyx_v_deltax == __pyx_v_zero) != 0);
+      if (__pyx_t_11) {
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":465
+ *             deltax = float(abs(x - centerX))
+ *             if deltax == zero:
+ *                 deg = 90.0             # <<<<<<<<<<<<<<
+ *             else:
+ *                 deltay = float(abs(y - centerY))
+ */
+        __pyx_v_deg = 90.0;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":464
+ * 
+ *             deltax = float(abs(x - centerX))
+ *             if deltax == zero:             # <<<<<<<<<<<<<<
+ *                 deg = 90.0
+ *             else:
+ */
+        goto __pyx_L8;
+      }
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":467
+ *                 deg = 90.0
+ *             else:
+ *                 deltay = float(abs(y - centerY))             # <<<<<<<<<<<<<<
+ *                 slope = deltay / deltax
+ *                 deg = atan(slope)*180.0/M_PI
+ */
+      /*else*/ {
+        __pyx_t_12 = __Pyx_abs_int((__pyx_v_y - __pyx_v_centerY)); 
+        __pyx_v_deltay = ((double)__pyx_t_12);
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":468
+ *             else:
+ *                 deltay = float(abs(y - centerY))
+ *                 slope = deltay / deltax             # <<<<<<<<<<<<<<
+ *                 deg = atan(slope)*180.0/M_PI
+ * 
+ */
+        __pyx_v_slope = (__pyx_v_deltay / __pyx_v_deltax);
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":469
+ *                 deltay = float(abs(y - centerY))
+ *                 slope = deltay / deltax
+ *                 deg = atan(slope)*180.0/M_PI             # <<<<<<<<<<<<<<
+ * 
+ *             ideg = int(round(deg))
+ */
+        __pyx_v_deg = ((atan(__pyx_v_slope) * 180.0) / M_PI);
+      }
+      __pyx_L8:;
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":471
+ *                 deg = atan(slope)*180.0/M_PI
+ * 
+ *             ideg = int(round(deg))             # <<<<<<<<<<<<<<
+ *             floor_deg = floor(deg)
+ *             ceil_deg = ceil(deg)
+ */
+      __pyx_v_ideg = ((int)round(__pyx_v_deg));
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":472
+ * 
+ *             ideg = int(round(deg))
+ *             floor_deg = floor(deg)             # <<<<<<<<<<<<<<
+ *             ceil_deg = ceil(deg)
+ *             ifloor = int(floor_deg)
+ */
+      __pyx_v_floor_deg = floor(__pyx_v_deg);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":473
+ *             ideg = int(round(deg))
+ *             floor_deg = floor(deg)
+ *             ceil_deg = ceil(deg)             # <<<<<<<<<<<<<<
+ *             ifloor = int(floor_deg)
+ *             iceil = int(ceil_deg)
+ */
+      __pyx_v_ceil_deg = ceil(__pyx_v_deg);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":474
+ *             floor_deg = floor(deg)
+ *             ceil_deg = ceil(deg)
+ *             ifloor = int(floor_deg)             # <<<<<<<<<<<<<<
+ *             iceil = int(ceil_deg)
+ * 
+ */
+      __pyx_v_ifloor = ((int)__pyx_v_floor_deg);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":475
+ *             ceil_deg = ceil(deg)
+ *             ifloor = int(floor_deg)
+ *             iceil = int(ceil_deg)             # <<<<<<<<<<<<<<
+ * 
+ *             if ifloor == iceil:
+ */
+      __pyx_v_iceil = ((int)__pyx_v_ceil_deg);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":477
+ *             iceil = int(ceil_deg)
+ * 
+ *             if ifloor == iceil:             # <<<<<<<<<<<<<<
+ *                 alpha = 0.5
+ *                 beta = 0.5
+ */
+      __pyx_t_11 = ((__pyx_v_ifloor == __pyx_v_iceil) != 0);
+      if (__pyx_t_11) {
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":478
+ * 
+ *             if ifloor == iceil:
+ *                 alpha = 0.5             # <<<<<<<<<<<<<<
+ *                 beta = 0.5
+ *             else:
+ */
+        __pyx_v_alpha = 0.5;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":479
+ *             if ifloor == iceil:
+ *                 alpha = 0.5
+ *                 beta = 0.5             # <<<<<<<<<<<<<<
+ *             else:
+ *                 alpha = 1. - (deg - floor_deg)
+ */
+        __pyx_v_beta = 0.5;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":477
+ *             iceil = int(ceil_deg)
+ * 
+ *             if ifloor == iceil:             # <<<<<<<<<<<<<<
+ *                 alpha = 0.5
+ *                 beta = 0.5
+ */
+        goto __pyx_L9;
+      }
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":481
+ *                 beta = 0.5
+ *             else:
+ *                 alpha = 1. - (deg - floor_deg)             # <<<<<<<<<<<<<<
+ *                 beta = 1. - (ceil_deg - deg)
+ * 
+ */
+      /*else*/ {
+        __pyx_v_alpha = (1. - (__pyx_v_deg - __pyx_v_floor_deg));
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":482
+ *             else:
+ *                 alpha = 1. - (deg - floor_deg)
+ *                 beta = 1. - (ceil_deg - deg)             # <<<<<<<<<<<<<<
+ * 
+ *             if irad_ceil < rmax and irad_floor >= rmin:
+ */
+        __pyx_v_beta = (1. - (__pyx_v_ceil_deg - __pyx_v_deg));
+      }
+      __pyx_L9:;
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":484
+ *                 beta = 1. - (ceil_deg - deg)
+ * 
+ *             if irad_ceil < rmax and irad_floor >= rmin:             # <<<<<<<<<<<<<<
+ *                 pos1 = irad_floor - rmin
+ *                 pos2 = irad_ceil - rmin
+ */
+      __pyx_t_13 = ((__pyx_v_irad_ceil < __pyx_v_rmax) != 0);
+      if (__pyx_t_13) {
+      } else {
+        __pyx_t_11 = __pyx_t_13;
+        goto __pyx_L11_bool_binop_done;
+      }
+      __pyx_t_13 = ((__pyx_v_irad_floor >= __pyx_v_rmin) != 0);
+      __pyx_t_11 = __pyx_t_13;
+      __pyx_L11_bool_binop_done:;
+      if (__pyx_t_11) {
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":485
+ * 
+ *             if irad_ceil < rmax and irad_floor >= rmin:
+ *                 pos1 = irad_floor - rmin             # <<<<<<<<<<<<<<
+ *                 pos2 = irad_ceil - rmin
+ *                 backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
+ */
+        __pyx_v_pos1 = (__pyx_v_irad_floor - __pyx_v_rmin);
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":486
+ *             if irad_ceil < rmax and irad_floor >= rmin:
+ *                 pos1 = irad_floor - rmin
+ *                 pos2 = irad_ceil - rmin             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
+ *                                   + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
+ */
+        __pyx_v_pos2 = (__pyx_v_irad_ceil - __pyx_v_rmin);
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":487
+ *                 pos1 = irad_floor - rmin
+ *                 pos2 = irad_ceil - rmin
+ *                 backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \             # <<<<<<<<<<<<<<
+ *                                   + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
+ *     return backgound
+ */
+        __pyx_t_14 = __pyx_v_ifloor;
+        __pyx_t_15 = __pyx_v_pos1;
+        __pyx_t_16 = __pyx_v_ifloor;
+        __pyx_t_17 = __pyx_v_pos2;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":488
+ *                 pos2 = irad_ceil - rmin
+ *                 backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
+ *                                   + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])             # <<<<<<<<<<<<<<
+ *     return backgound
+ * 
+ */
+        __pyx_t_18 = __pyx_v_iceil;
+        __pyx_t_19 = __pyx_v_pos1;
+        __pyx_t_20 = __pyx_v_iceil;
+        __pyx_t_21 = __pyx_v_pos2;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":487
+ *                 pos1 = irad_floor - rmin
+ *                 pos2 = irad_ceil - rmin
+ *                 backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \             # <<<<<<<<<<<<<<
+ *                                   + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
+ *     return backgound
+ */
+        __pyx_t_22 = __pyx_v_y;
+        __pyx_t_23 = __pyx_v_x;
+        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_22, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_23, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha * ((__pyx_v_alpha_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_14, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_15, __pyx_pybuffernd_pchipLines.diminfo[1].strides))) + (__pyx_v_beta_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_16, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_17, __pyx_pybuffernd_pchipLines.diminfo[1].strides))))) + (__pyx_v_beta * ((__pyx_v_alpha_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_18, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_19, __pyx_pybuffernd_pchipLines.diminfo[1].strides))) + (__pyx_v_beta_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_pchipLines.rcbuffer->pybuffer.buf, __pyx_t_20, __pyx_pybuffernd_pchipLines.diminfo[0].strides, __pyx_t_21, __pyx_pybuffernd_pchipLines.diminfo[1].strides))))));
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":484
+ *                 beta = 1. - (ceil_deg - deg)
+ * 
+ *             if irad_ceil < rmax and irad_floor >= rmin:             # <<<<<<<<<<<<<<
+ *                 pos1 = irad_floor - rmin
+ *                 pos2 = irad_ceil - rmin
+ */
+      }
+    }
+  }
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":489
+ *                 backgound[y, x] = alpha * (alpha_rad * pchipLines[ifloor, pos1] + beta_rad * pchipLines[ifloor, pos2]) \
+ *                                   + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
+ *     return backgound             # <<<<<<<<<<<<<<
+ * 
+ * 
+ */
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(((PyObject *)__pyx_v_backgound));
+  __pyx_r = ((PyObject *)__pyx_v_backgound);
+  goto __pyx_L0;
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":435
+ * 
+ * @cython.cdivision(True)
+ * def make2DConvexhullBG2(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
+ *     cdef int x, y
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  { PyObject *__pyx_type, *__pyx_value, *__pyx_tb;
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ErrFetch(&__pyx_type, &__pyx_value, &__pyx_tb);
+    __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer);
+    __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_pchipLines.rcbuffer->pybuffer);
+  __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.make2DConvexhullBG2", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  goto __pyx_L2;
+  __pyx_L0:;
+  __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer);
+  __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_pchipLines.rcbuffer->pybuffer);
+  __pyx_L2:;
+  __Pyx_XDECREF((PyObject *)__pyx_v_backgound);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "musclex/biocat_modules/QF_utilities.pyx":493
+ * 
+ * @cython.cdivision(True)
+ * def createAngularBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
+ *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
+ *     cdef int x,y, irad, ideg
+ */
+
+/* Python wrapper */
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_23createAngularBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_23createAngularBG = {"createAngularBG", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_23createAngularBG, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_23createAngularBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  int __pyx_v_width;
+  int __pyx_v_height;
+  PyArrayObject *__pyx_v_subtr = 0;
+  int __pyx_v_nBins;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("createAngularBG (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_width,&__pyx_n_s_height,&__pyx_n_s_subtr,&__pyx_n_s_nBins,0};
+    PyObject* values[4] = {0,0,0,0};
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
+        CYTHON_FALLTHROUGH;
+        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
+        CYTHON_FALLTHROUGH;
+        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_width)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_height)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("createAngularBG", 1, 4, 4, 1); __PYX_ERR(0, 493, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  2:
+        if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_subtr)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("createAngularBG", 1, 4, 4, 2); __PYX_ERR(0, 493, __pyx_L3_error)
+        }
+        CYTHON_FALLTHROUGH;
+        case  3:
+        if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_nBins)) != 0)) kw_args--;
+        else {
+          __Pyx_RaiseArgtupleInvalid("createAngularBG", 1, 4, 4, 3); __PYX_ERR(0, 493, __pyx_L3_error)
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "createAngularBG") < 0)) __PYX_ERR(0, 493, __pyx_L3_error)
+      }
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 4) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
+      values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
+      values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
+    }
+    __pyx_v_width = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 493, __pyx_L3_error)
+    __pyx_v_height = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_height == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 493, __pyx_L3_error)
+    __pyx_v_subtr = ((PyArrayObject *)values[2]);
+    __pyx_v_nBins = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_nBins == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 493, __pyx_L3_error)
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("createAngularBG", 1, 4, 4, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 493, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.createAngularBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtr), __pyx_ptype_5numpy_ndarray, 1, "subtr", 0))) __PYX_ERR(0, 493, __pyx_L1_error)
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_22createAngularBG(__pyx_self, __pyx_v_width, __pyx_v_height, __pyx_v_subtr, __pyx_v_nBins);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_22createAngularBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_subtr, int __pyx_v_nBins) {
+  PyArrayObject *__pyx_v_backgound = 0;
+  int __pyx_v_x;
+  int __pyx_v_y;
+  CYTHON_UNUSED int __pyx_v_irad;
+  int __pyx_v_centerX;
+  int __pyx_v_centerY;
+  __pyx_t_5numpy_float32_t __pyx_v_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_deg;
+  __pyx_t_5numpy_float32_t __pyx_v_slope;
+  __pyx_t_5numpy_float32_t __pyx_v_deltax;
+  __pyx_t_5numpy_float32_t __pyx_v_deltay;
+  CYTHON_UNUSED __pyx_t_5numpy_float32_t __pyx_v_bgsub;
+  __pyx_t_5numpy_float32_t __pyx_v_fbin;
+  __pyx_t_5numpy_float32_t __pyx_v_floor_bin;
+  __pyx_t_5numpy_float32_t __pyx_v_ceil_bin;
+  __pyx_t_5numpy_float32_t __pyx_v_alpha;
+  __pyx_t_5numpy_float32_t __pyx_v_beta;
+  __pyx_t_5numpy_float32_t __pyx_v_floor_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_ceil_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_alpha_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_beta_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_theta_size;
+  int __pyx_v_ifloor;
+  int __pyx_v_iceil;
+  int __pyx_v_ibin;
+  int __pyx_v_ifloor_rad;
+  int __pyx_v_iceil_rad;
+  __Pyx_LocalBuf_ND __pyx_pybuffernd_backgound;
+  __Pyx_Buffer __pyx_pybuffer_backgound;
+  __Pyx_LocalBuf_ND __pyx_pybuffernd_subtr;
+  __Pyx_Buffer __pyx_pybuffer_subtr;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyArrayObject *__pyx_t_6 = NULL;
+  int __pyx_t_7;
+  int __pyx_t_8;
+  int __pyx_t_9;
+  int __pyx_t_10;
+  int __pyx_t_11;
+  unsigned int __pyx_t_12;
+  Py_ssize_t __pyx_t_13;
+  Py_ssize_t __pyx_t_14;
+  Py_ssize_t __pyx_t_15;
+  Py_ssize_t __pyx_t_16;
+  Py_ssize_t __pyx_t_17;
+  Py_ssize_t __pyx_t_18;
+  Py_ssize_t __pyx_t_19;
+  Py_ssize_t __pyx_t_20;
+  Py_ssize_t __pyx_t_21;
+  Py_ssize_t __pyx_t_22;
+  Py_ssize_t __pyx_t_23;
+  Py_ssize_t __pyx_t_24;
+  int __pyx_t_25;
+  Py_ssize_t __pyx_t_26;
+  Py_ssize_t __pyx_t_27;
+  Py_ssize_t __pyx_t_28;
+  Py_ssize_t __pyx_t_29;
+  Py_ssize_t __pyx_t_30;
+  Py_ssize_t __pyx_t_31;
+  Py_ssize_t __pyx_t_32;
+  Py_ssize_t __pyx_t_33;
+  Py_ssize_t __pyx_t_34;
+  Py_ssize_t __pyx_t_35;
+  __Pyx_RefNannySetupContext("createAngularBG", 0);
+  __pyx_pybuffer_backgound.pybuffer.buf = NULL;
+  __pyx_pybuffer_backgound.refcount = 0;
+  __pyx_pybuffernd_backgound.data = NULL;
+  __pyx_pybuffernd_backgound.rcbuffer = &__pyx_pybuffer_backgound;
+  __pyx_pybuffer_subtr.pybuffer.buf = NULL;
+  __pyx_pybuffer_subtr.refcount = 0;
+  __pyx_pybuffernd_subtr.data = NULL;
+  __pyx_pybuffernd_subtr.rcbuffer = &__pyx_pybuffer_subtr;
+  {
+    __Pyx_BufFmt_StackElem __pyx_stack[1];
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_subtr.rcbuffer->pybuffer, (PyObject*)__pyx_v_subtr, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 493, __pyx_L1_error)
+  }
+  __pyx_pybuffernd_subtr.diminfo[0].strides = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_subtr.diminfo[0].shape = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_subtr.diminfo[1].strides = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_subtr.diminfo[1].shape = __pyx_pybuffernd_subtr.rcbuffer->pybuffer.shape[1];
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":494
+ * @cython.cdivision(True)
+ * def createAngularBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):
+ *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)             # <<<<<<<<<<<<<<
+ *     cdef int x,y, irad, ideg
+ *     cdef int centerX = width - 1
+ */
+  __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_zeros); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_height); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_width); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_GIVEREF(__pyx_t_1);
+  PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_1);
+  __Pyx_GIVEREF(__pyx_t_3);
+  PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3);
+  __pyx_t_1 = 0;
+  __pyx_t_3 = 0;
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_GIVEREF(__pyx_t_4);
+  PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_4);
+  __pyx_t_4 = 0;
+  __pyx_t_4 = PyDict_New(); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_float32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_6 = ((PyArrayObject *)__pyx_t_5);
+  {
+    __Pyx_BufFmt_StackElem __pyx_stack[1];
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer, (PyObject*)__pyx_t_6, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES| PyBUF_WRITABLE, 2, 0, __pyx_stack) == -1)) {
+      __pyx_v_backgound = ((PyArrayObject *)Py_None); __Pyx_INCREF(Py_None); __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf = NULL;
+      __PYX_ERR(0, 494, __pyx_L1_error)
+    } else {__pyx_pybuffernd_backgound.diminfo[0].strides = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_backgound.diminfo[0].shape = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_backgound.diminfo[1].strides = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_backgound.diminfo[1].shape = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.shape[1];
+    }
+  }
+  __pyx_t_6 = 0;
+  __pyx_v_backgound = ((PyArrayObject *)__pyx_t_5);
+  __pyx_t_5 = 0;
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":496
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x,y, irad, ideg
  *     cdef int centerX = width - 1             # <<<<<<<<<<<<<<
  *     cdef int centerY = height - 1
- *     cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta
+ *     cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta, floor_rad, ceil_rad, alpha_rad, beta_rad
  */
   __pyx_v_centerX = (__pyx_v_width - 1);
 
-  /* "QF_utilities.pyx":439
+  /* "musclex/biocat_modules/QF_utilities.pyx":497
  *     cdef int x,y, irad, ideg
  *     cdef int centerX = width - 1
  *     cdef int centerY = height - 1             # <<<<<<<<<<<<<<
- *     cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta
- *     cdef int theta_size = 90/nBins
+ *     cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta, floor_rad, ceil_rad, alpha_rad, beta_rad
+ *     cdef np.float32_t theta_size = 90./nBins
  */
   __pyx_v_centerY = (__pyx_v_height - 1);
 
-  /* "QF_utilities.pyx":441
+  /* "musclex/biocat_modules/QF_utilities.pyx":499
  *     cdef int centerY = height - 1
- *     cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta
- *     cdef int theta_size = 90/nBins             # <<<<<<<<<<<<<<
- *     cdef int ifloor, iceil, ibin
+ *     cdef np.float32_t rad, deg, slope, deltax, deltay, bgsub, fbin, floor_bin, ceil_bin, alpha, beta, floor_rad, ceil_rad, alpha_rad, beta_rad
+ *     cdef np.float32_t theta_size = 90./nBins             # <<<<<<<<<<<<<<
+ *     cdef int ifloor, iceil, ibin, ifloor_rad, iceil_rad
  * 
  */
-  __pyx_v_theta_size = (90 / __pyx_v_nBins);
+  __pyx_v_theta_size = (90. / __pyx_v_nBins);
 
-  /* "QF_utilities.pyx":444
- *     cdef int ifloor, iceil, ibin
+  /* "musclex/biocat_modules/QF_utilities.pyx":502
+ *     cdef int ifloor, iceil, ibin, ifloor_rad, iceil_rad
  * 
  *     for x in range(0, width):             # <<<<<<<<<<<<<<
  *         for y in range(0, height):
@@ -6952,47 +7691,142 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":445
+    /* "musclex/biocat_modules/QF_utilities.pyx":503
  * 
  *     for x in range(0, width):
  *         for y in range(0, height):             # <<<<<<<<<<<<<<
  *             rad = distance(centerX, centerY, x, y)
- *             irad = int(round(rad))
+ *             floor_rad = floor(rad)
  */
     __pyx_t_9 = __pyx_v_height;
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":446
+      /* "musclex/biocat_modules/QF_utilities.pyx":504
  *     for x in range(0, width):
  *         for y in range(0, height):
  *             rad = distance(centerX, centerY, x, y)             # <<<<<<<<<<<<<<
- *             irad = int(round(rad))
- *             deltax = float(abs(x - centerX))
+ *             floor_rad = floor(rad)
+ *             ceil_rad = ceil(rad)
  */
-      __pyx_v_rad = __pyx_f_12QF_utilities_distance(__pyx_v_centerX, __pyx_v_centerY, __pyx_v_x, __pyx_v_y, 0);
+      __pyx_v_rad = __pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_centerX, __pyx_v_centerY, __pyx_v_x, __pyx_v_y, 0);
 
-      /* "QF_utilities.pyx":447
+      /* "musclex/biocat_modules/QF_utilities.pyx":505
  *         for y in range(0, height):
  *             rad = distance(centerX, centerY, x, y)
+ *             floor_rad = floor(rad)             # <<<<<<<<<<<<<<
+ *             ceil_rad = ceil(rad)
+ *             ifloor_rad = int(floor_rad)
+ */
+      __pyx_v_floor_rad = floor(__pyx_v_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":506
+ *             rad = distance(centerX, centerY, x, y)
+ *             floor_rad = floor(rad)
+ *             ceil_rad = ceil(rad)             # <<<<<<<<<<<<<<
+ *             ifloor_rad = int(floor_rad)
+ *             iceil_rad = int(ceil_rad)
+ */
+      __pyx_v_ceil_rad = ceil(__pyx_v_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":507
+ *             floor_rad = floor(rad)
+ *             ceil_rad = ceil(rad)
+ *             ifloor_rad = int(floor_rad)             # <<<<<<<<<<<<<<
+ *             iceil_rad = int(ceil_rad)
+ * 
+ */
+      __pyx_v_ifloor_rad = ((int)__pyx_v_floor_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":508
+ *             ceil_rad = ceil(rad)
+ *             ifloor_rad = int(floor_rad)
+ *             iceil_rad = int(ceil_rad)             # <<<<<<<<<<<<<<
+ * 
+ *             if ifloor_rad == iceil_rad:
+ */
+      __pyx_v_iceil_rad = ((int)__pyx_v_ceil_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":510
+ *             iceil_rad = int(ceil_rad)
+ * 
+ *             if ifloor_rad == iceil_rad:             # <<<<<<<<<<<<<<
+ *                 beta_rad = 0.5
+ *                 alpha_rad = 0.5
+ */
+      __pyx_t_11 = ((__pyx_v_ifloor_rad == __pyx_v_iceil_rad) != 0);
+      if (__pyx_t_11) {
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":511
+ * 
+ *             if ifloor_rad == iceil_rad:
+ *                 beta_rad = 0.5             # <<<<<<<<<<<<<<
+ *                 alpha_rad = 0.5
+ *             else:
+ */
+        __pyx_v_beta_rad = 0.5;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":512
+ *             if ifloor_rad == iceil_rad:
+ *                 beta_rad = 0.5
+ *                 alpha_rad = 0.5             # <<<<<<<<<<<<<<
+ *             else:
+ *                 alpha_rad = 1. - (rad - floor_rad)
+ */
+        __pyx_v_alpha_rad = 0.5;
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":510
+ *             iceil_rad = int(ceil_rad)
+ * 
+ *             if ifloor_rad == iceil_rad:             # <<<<<<<<<<<<<<
+ *                 beta_rad = 0.5
+ *                 alpha_rad = 0.5
+ */
+        goto __pyx_L7;
+      }
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":514
+ *                 alpha_rad = 0.5
+ *             else:
+ *                 alpha_rad = 1. - (rad - floor_rad)             # <<<<<<<<<<<<<<
+ *                 beta_rad = 1. - (ceil_rad - rad)
+ * 
+ */
+      /*else*/ {
+        __pyx_v_alpha_rad = (1. - (__pyx_v_rad - __pyx_v_floor_rad));
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":515
+ *             else:
+ *                 alpha_rad = 1. - (rad - floor_rad)
+ *                 beta_rad = 1. - (ceil_rad - rad)             # <<<<<<<<<<<<<<
+ * 
+ *             irad = int(round(rad))
+ */
+        __pyx_v_beta_rad = (1. - (__pyx_v_ceil_rad - __pyx_v_rad));
+      }
+      __pyx_L7:;
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":517
+ *                 beta_rad = 1. - (ceil_rad - rad)
+ * 
  *             irad = int(round(rad))             # <<<<<<<<<<<<<<
+ * 
  *             deltax = float(abs(x - centerX))
- *             bgsub = 0.0
  */
       __pyx_v_irad = ((int)round(__pyx_v_rad));
 
-      /* "QF_utilities.pyx":448
- *             rad = distance(centerX, centerY, x, y)
+      /* "musclex/biocat_modules/QF_utilities.pyx":519
  *             irad = int(round(rad))
+ * 
  *             deltax = float(abs(x - centerX))             # <<<<<<<<<<<<<<
  *             bgsub = 0.0
  *             if deltax == 0.0:
  */
-      __pyx_t_11 = __Pyx_abs_int((__pyx_v_x - __pyx_v_centerX)); 
-      __pyx_v_deltax = ((double)__pyx_t_11);
+      __pyx_t_12 = __Pyx_abs_int((__pyx_v_x - __pyx_v_centerX)); 
+      __pyx_v_deltax = ((double)__pyx_t_12);
 
-      /* "QF_utilities.pyx":449
- *             irad = int(round(rad))
+      /* "musclex/biocat_modules/QF_utilities.pyx":520
+ * 
  *             deltax = float(abs(x - centerX))
  *             bgsub = 0.0             # <<<<<<<<<<<<<<
  *             if deltax == 0.0:
@@ -7000,17 +7834,17 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
       __pyx_v_bgsub = 0.0;
 
-      /* "QF_utilities.pyx":450
+      /* "musclex/biocat_modules/QF_utilities.pyx":521
  *             deltax = float(abs(x - centerX))
  *             bgsub = 0.0
  *             if deltax == 0.0:             # <<<<<<<<<<<<<<
  *                 deg = 90.0
  *             else:
  */
-      __pyx_t_12 = ((__pyx_v_deltax == 0.0) != 0);
-      if (__pyx_t_12) {
+      __pyx_t_11 = ((__pyx_v_deltax == 0.0) != 0);
+      if (__pyx_t_11) {
 
-        /* "QF_utilities.pyx":451
+        /* "musclex/biocat_modules/QF_utilities.pyx":522
  *             bgsub = 0.0
  *             if deltax == 0.0:
  *                 deg = 90.0             # <<<<<<<<<<<<<<
@@ -7019,17 +7853,17 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
         __pyx_v_deg = 90.0;
 
-        /* "QF_utilities.pyx":450
+        /* "musclex/biocat_modules/QF_utilities.pyx":521
  *             deltax = float(abs(x - centerX))
  *             bgsub = 0.0
  *             if deltax == 0.0:             # <<<<<<<<<<<<<<
  *                 deg = 90.0
  *             else:
  */
-        goto __pyx_L7;
+        goto __pyx_L8;
       }
 
-      /* "QF_utilities.pyx":453
+      /* "musclex/biocat_modules/QF_utilities.pyx":524
  *                 deg = 90.0
  *             else:
  *                 deltay = float(abs(y - centerY))             # <<<<<<<<<<<<<<
@@ -7037,10 +7871,10 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  *                 deg = atan(slope)*180.0/M_PI
  */
       /*else*/ {
-        __pyx_t_11 = __Pyx_abs_int((__pyx_v_y - __pyx_v_centerY)); 
-        __pyx_v_deltay = ((double)__pyx_t_11);
+        __pyx_t_12 = __Pyx_abs_int((__pyx_v_y - __pyx_v_centerY)); 
+        __pyx_v_deltay = ((double)__pyx_t_12);
 
-        /* "QF_utilities.pyx":454
+        /* "musclex/biocat_modules/QF_utilities.pyx":525
  *             else:
  *                 deltay = float(abs(y - centerY))
  *                 slope = deltay / deltax             # <<<<<<<<<<<<<<
@@ -7049,103 +7883,107 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
         __pyx_v_slope = (__pyx_v_deltay / __pyx_v_deltax);
 
-        /* "QF_utilities.pyx":455
+        /* "musclex/biocat_modules/QF_utilities.pyx":526
  *                 deltay = float(abs(y - centerY))
  *                 slope = deltay / deltax
  *                 deg = atan(slope)*180.0/M_PI             # <<<<<<<<<<<<<<
  * 
- *             fbin = 1.*deg/float(theta_size)
+ *             fbin = 1.*deg/theta_size
  */
         __pyx_v_deg = ((atan(__pyx_v_slope) * 180.0) / M_PI);
       }
-      __pyx_L7:;
+      __pyx_L8:;
 
-      /* "QF_utilities.pyx":457
+      /* "musclex/biocat_modules/QF_utilities.pyx":528
  *                 deg = atan(slope)*180.0/M_PI
  * 
- *             fbin = 1.*deg/float(theta_size)             # <<<<<<<<<<<<<<
+ *             fbin = 1.*deg/theta_size             # <<<<<<<<<<<<<<
  *             ibin = int(round(fbin))
  * 
  */
-      __pyx_v_fbin = ((1. * __pyx_v_deg) / ((double)__pyx_v_theta_size));
+      __pyx_v_fbin = ((1. * __pyx_v_deg) / __pyx_v_theta_size);
 
-      /* "QF_utilities.pyx":458
+      /* "musclex/biocat_modules/QF_utilities.pyx":529
  * 
- *             fbin = 1.*deg/float(theta_size)
+ *             fbin = 1.*deg/theta_size
  *             ibin = int(round(fbin))             # <<<<<<<<<<<<<<
  * 
  *             if ibin == 0:
  */
       __pyx_v_ibin = ((int)round(__pyx_v_fbin));
 
-      /* "QF_utilities.pyx":460
+      /* "musclex/biocat_modules/QF_utilities.pyx":531
  *             ibin = int(round(fbin))
  * 
  *             if ibin == 0:             # <<<<<<<<<<<<<<
- *                 backgound[y, x] = subtr[ibin, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
  *             elif ibin == nBins:
  */
-      __pyx_t_12 = ((__pyx_v_ibin == 0) != 0);
-      if (__pyx_t_12) {
+      __pyx_t_11 = ((__pyx_v_ibin == 0) != 0);
+      if (__pyx_t_11) {
 
-        /* "QF_utilities.pyx":461
+        /* "musclex/biocat_modules/QF_utilities.pyx":532
  * 
  *             if ibin == 0:
- *                 backgound[y, x] = subtr[ibin, irad]             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]             # <<<<<<<<<<<<<<
  *             elif ibin == nBins:
- *                 backgound[y, x] = subtr[ibin-1, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]
  */
         __pyx_t_13 = __pyx_v_ibin;
-        __pyx_t_14 = __pyx_v_irad;
-        __pyx_t_15 = __pyx_v_y;
-        __pyx_t_16 = __pyx_v_x;
-        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_15, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_16, __pyx_pybuffernd_backgound.diminfo[1].strides) = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_13, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_14, __pyx_pybuffernd_subtr.diminfo[1].strides));
+        __pyx_t_14 = __pyx_v_ifloor_rad;
+        __pyx_t_15 = __pyx_v_ibin;
+        __pyx_t_16 = __pyx_v_iceil_rad;
+        __pyx_t_17 = __pyx_v_y;
+        __pyx_t_18 = __pyx_v_x;
+        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_17, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_18, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_13, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_14, __pyx_pybuffernd_subtr.diminfo[1].strides))) + (__pyx_v_beta_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_15, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_16, __pyx_pybuffernd_subtr.diminfo[1].strides))));
 
-        /* "QF_utilities.pyx":460
+        /* "musclex/biocat_modules/QF_utilities.pyx":531
  *             ibin = int(round(fbin))
  * 
  *             if ibin == 0:             # <<<<<<<<<<<<<<
- *                 backgound[y, x] = subtr[ibin, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
  *             elif ibin == nBins:
  */
-        goto __pyx_L8;
+        goto __pyx_L9;
       }
 
-      /* "QF_utilities.pyx":462
+      /* "musclex/biocat_modules/QF_utilities.pyx":533
  *             if ibin == 0:
- *                 backgound[y, x] = subtr[ibin, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
  *             elif ibin == nBins:             # <<<<<<<<<<<<<<
- *                 backgound[y, x] = subtr[ibin-1, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]
  *             else:
  */
-      __pyx_t_12 = ((__pyx_v_ibin == __pyx_v_nBins) != 0);
-      if (__pyx_t_12) {
+      __pyx_t_11 = ((__pyx_v_ibin == __pyx_v_nBins) != 0);
+      if (__pyx_t_11) {
 
-        /* "QF_utilities.pyx":463
- *                 backgound[y, x] = subtr[ibin, irad]
+        /* "musclex/biocat_modules/QF_utilities.pyx":534
+ *                 backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
  *             elif ibin == nBins:
- *                 backgound[y, x] = subtr[ibin-1, irad]             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]             # <<<<<<<<<<<<<<
  *             else:
  *                 floor_bin = floor(fbin)
  */
-        __pyx_t_17 = (__pyx_v_ibin - 1);
-        __pyx_t_18 = __pyx_v_irad;
-        __pyx_t_19 = __pyx_v_y;
-        __pyx_t_20 = __pyx_v_x;
-        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_19, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_20, __pyx_pybuffernd_backgound.diminfo[1].strides) = (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_17, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_18, __pyx_pybuffernd_subtr.diminfo[1].strides));
+        __pyx_t_19 = (__pyx_v_ibin - 1);
+        __pyx_t_20 = __pyx_v_ifloor_rad;
+        __pyx_t_21 = (__pyx_v_ibin - 1);
+        __pyx_t_22 = __pyx_v_iceil_rad;
+        __pyx_t_23 = __pyx_v_y;
+        __pyx_t_24 = __pyx_v_x;
+        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_23, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_24, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_19, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_20, __pyx_pybuffernd_subtr.diminfo[1].strides))) + (__pyx_v_beta_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_21, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_22, __pyx_pybuffernd_subtr.diminfo[1].strides))));
 
-        /* "QF_utilities.pyx":462
+        /* "musclex/biocat_modules/QF_utilities.pyx":533
  *             if ibin == 0:
- *                 backgound[y, x] = subtr[ibin, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin, ifloor_rad] + beta_rad*subtr[ibin, iceil_rad]
  *             elif ibin == nBins:             # <<<<<<<<<<<<<<
- *                 backgound[y, x] = subtr[ibin-1, irad]
+ *                 backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]
  *             else:
  */
-        goto __pyx_L8;
+        goto __pyx_L9;
       }
 
-      /* "QF_utilities.pyx":465
- *                 backgound[y, x] = subtr[ibin-1, irad]
+      /* "musclex/biocat_modules/QF_utilities.pyx":536
+ *                 backgound[y, x] = alpha_rad*subtr[ibin-1, ifloor_rad] + beta_rad*subtr[ibin-1, iceil_rad]
  *             else:
  *                 floor_bin = floor(fbin)             # <<<<<<<<<<<<<<
  *                 ceil_bin = ceil(fbin)
@@ -7154,7 +7992,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
       /*else*/ {
         __pyx_v_floor_bin = floor(__pyx_v_fbin);
 
-        /* "QF_utilities.pyx":466
+        /* "musclex/biocat_modules/QF_utilities.pyx":537
  *             else:
  *                 floor_bin = floor(fbin)
  *                 ceil_bin = ceil(fbin)             # <<<<<<<<<<<<<<
@@ -7163,7 +8001,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
         __pyx_v_ceil_bin = ceil(__pyx_v_fbin);
 
-        /* "QF_utilities.pyx":467
+        /* "musclex/biocat_modules/QF_utilities.pyx":538
  *                 floor_bin = floor(fbin)
  *                 ceil_bin = ceil(fbin)
  *                 alpha = 1. - (fbin - floor_bin)             # <<<<<<<<<<<<<<
@@ -7172,7 +8010,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
         __pyx_v_alpha = (1. - (__pyx_v_fbin - __pyx_v_floor_bin));
 
-        /* "QF_utilities.pyx":468
+        /* "musclex/biocat_modules/QF_utilities.pyx":539
  *                 ceil_bin = ceil(fbin)
  *                 alpha = 1. - (fbin - floor_bin)
  *                 beta = 1. - (ceil_bin - fbin)             # <<<<<<<<<<<<<<
@@ -7181,25 +8019,25 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
         __pyx_v_beta = (1. - (__pyx_v_ceil_bin - __pyx_v_fbin));
 
-        /* "QF_utilities.pyx":470
+        /* "musclex/biocat_modules/QF_utilities.pyx":541
  *                 beta = 1. - (ceil_bin - fbin)
  * 
  *                 if alpha == 1.0 and beta == 1.0:             # <<<<<<<<<<<<<<
  *                     alpha = 0.5
  *                     beta = 0.5
  */
-        __pyx_t_21 = ((__pyx_v_alpha == 1.0) != 0);
-        if (__pyx_t_21) {
+        __pyx_t_25 = ((__pyx_v_alpha == 1.0) != 0);
+        if (__pyx_t_25) {
         } else {
-          __pyx_t_12 = __pyx_t_21;
-          goto __pyx_L10_bool_binop_done;
+          __pyx_t_11 = __pyx_t_25;
+          goto __pyx_L11_bool_binop_done;
         }
-        __pyx_t_21 = ((__pyx_v_beta == 1.0) != 0);
-        __pyx_t_12 = __pyx_t_21;
-        __pyx_L10_bool_binop_done:;
-        if (__pyx_t_12) {
+        __pyx_t_25 = ((__pyx_v_beta == 1.0) != 0);
+        __pyx_t_11 = __pyx_t_25;
+        __pyx_L11_bool_binop_done:;
+        if (__pyx_t_11) {
 
-          /* "QF_utilities.pyx":471
+          /* "musclex/biocat_modules/QF_utilities.pyx":542
  * 
  *                 if alpha == 1.0 and beta == 1.0:
  *                     alpha = 0.5             # <<<<<<<<<<<<<<
@@ -7208,7 +8046,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_alpha = 0.5;
 
-          /* "QF_utilities.pyx":472
+          /* "musclex/biocat_modules/QF_utilities.pyx":543
  *                 if alpha == 1.0 and beta == 1.0:
  *                     alpha = 0.5
  *                     beta = 0.5             # <<<<<<<<<<<<<<
@@ -7217,7 +8055,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_beta = 0.5;
 
-          /* "QF_utilities.pyx":473
+          /* "musclex/biocat_modules/QF_utilities.pyx":544
  *                     alpha = 0.5
  *                     beta = 0.5
  *                     ifloor = int(floor_bin - 1.0)             # <<<<<<<<<<<<<<
@@ -7226,7 +8064,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_ifloor = ((int)(__pyx_v_floor_bin - 1.0));
 
-          /* "QF_utilities.pyx":474
+          /* "musclex/biocat_modules/QF_utilities.pyx":545
  *                     beta = 0.5
  *                     ifloor = int(floor_bin - 1.0)
  *                     iceil = int(ceil_bin)             # <<<<<<<<<<<<<<
@@ -7235,27 +8073,27 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_iceil = ((int)__pyx_v_ceil_bin);
 
-          /* "QF_utilities.pyx":470
+          /* "musclex/biocat_modules/QF_utilities.pyx":541
  *                 beta = 1. - (ceil_bin - fbin)
  * 
  *                 if alpha == 1.0 and beta == 1.0:             # <<<<<<<<<<<<<<
  *                     alpha = 0.5
  *                     beta = 0.5
  */
-          goto __pyx_L9;
+          goto __pyx_L10;
         }
 
-        /* "QF_utilities.pyx":475
+        /* "musclex/biocat_modules/QF_utilities.pyx":546
  *                     ifloor = int(floor_bin - 1.0)
  *                     iceil = int(ceil_bin)
  *                 elif alpha > beta :             # <<<<<<<<<<<<<<
  *                     floor_bin = floor_bin - 0.5
  *                     ceil_bin = ceil_bin - 0.5
  */
-        __pyx_t_12 = ((__pyx_v_alpha > __pyx_v_beta) != 0);
-        if (__pyx_t_12) {
+        __pyx_t_11 = ((__pyx_v_alpha > __pyx_v_beta) != 0);
+        if (__pyx_t_11) {
 
-          /* "QF_utilities.pyx":476
+          /* "musclex/biocat_modules/QF_utilities.pyx":547
  *                     iceil = int(ceil_bin)
  *                 elif alpha > beta :
  *                     floor_bin = floor_bin - 0.5             # <<<<<<<<<<<<<<
@@ -7264,7 +8102,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_floor_bin = (__pyx_v_floor_bin - 0.5);
 
-          /* "QF_utilities.pyx":477
+          /* "musclex/biocat_modules/QF_utilities.pyx":548
  *                 elif alpha > beta :
  *                     floor_bin = floor_bin - 0.5
  *                     ceil_bin = ceil_bin - 0.5             # <<<<<<<<<<<<<<
@@ -7273,7 +8111,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_ceil_bin = (__pyx_v_ceil_bin - 0.5);
 
-          /* "QF_utilities.pyx":478
+          /* "musclex/biocat_modules/QF_utilities.pyx":549
  *                     floor_bin = floor_bin - 0.5
  *                     ceil_bin = ceil_bin - 0.5
  *                     alpha = 1. - (fbin - floor_bin)             # <<<<<<<<<<<<<<
@@ -7282,7 +8120,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_alpha = (1. - (__pyx_v_fbin - __pyx_v_floor_bin));
 
-          /* "QF_utilities.pyx":479
+          /* "musclex/biocat_modules/QF_utilities.pyx":550
  *                     ceil_bin = ceil_bin - 0.5
  *                     alpha = 1. - (fbin - floor_bin)
  *                     beta = 1. - (ceil_bin - fbin)             # <<<<<<<<<<<<<<
@@ -7291,7 +8129,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_beta = (1. - (__pyx_v_ceil_bin - __pyx_v_fbin));
 
-          /* "QF_utilities.pyx":480
+          /* "musclex/biocat_modules/QF_utilities.pyx":551
  *                     alpha = 1. - (fbin - floor_bin)
  *                     beta = 1. - (ceil_bin - fbin)
  *                     ifloor = int(floor(floor_bin))             # <<<<<<<<<<<<<<
@@ -7300,7 +8138,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_ifloor = ((int)floor(__pyx_v_floor_bin));
 
-          /* "QF_utilities.pyx":481
+          /* "musclex/biocat_modules/QF_utilities.pyx":552
  *                     beta = 1. - (ceil_bin - fbin)
  *                     ifloor = int(floor(floor_bin))
  *                     iceil = int(floor(ceil_bin))             # <<<<<<<<<<<<<<
@@ -7309,17 +8147,17 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_iceil = ((int)floor(__pyx_v_ceil_bin));
 
-          /* "QF_utilities.pyx":475
+          /* "musclex/biocat_modules/QF_utilities.pyx":546
  *                     ifloor = int(floor_bin - 1.0)
  *                     iceil = int(ceil_bin)
  *                 elif alpha > beta :             # <<<<<<<<<<<<<<
  *                     floor_bin = floor_bin - 0.5
  *                     ceil_bin = ceil_bin - 0.5
  */
-          goto __pyx_L9;
+          goto __pyx_L10;
         }
 
-        /* "QF_utilities.pyx":483
+        /* "musclex/biocat_modules/QF_utilities.pyx":554
  *                     iceil = int(floor(ceil_bin))
  *                 else:
  *                     floor_bin = floor_bin + 0.5             # <<<<<<<<<<<<<<
@@ -7329,7 +8167,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
         /*else*/ {
           __pyx_v_floor_bin = (__pyx_v_floor_bin + 0.5);
 
-          /* "QF_utilities.pyx":484
+          /* "musclex/biocat_modules/QF_utilities.pyx":555
  *                 else:
  *                     floor_bin = floor_bin + 0.5
  *                     ceil_bin = ceil_bin + 0.5             # <<<<<<<<<<<<<<
@@ -7338,7 +8176,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_ceil_bin = (__pyx_v_ceil_bin + 0.5);
 
-          /* "QF_utilities.pyx":485
+          /* "musclex/biocat_modules/QF_utilities.pyx":556
  *                     floor_bin = floor_bin + 0.5
  *                     ceil_bin = ceil_bin + 0.5
  *                     alpha = 1. - (fbin - floor_bin)             # <<<<<<<<<<<<<<
@@ -7347,7 +8185,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_alpha = (1. - (__pyx_v_fbin - __pyx_v_floor_bin));
 
-          /* "QF_utilities.pyx":486
+          /* "musclex/biocat_modules/QF_utilities.pyx":557
  *                     ceil_bin = ceil_bin + 0.5
  *                     alpha = 1. - (fbin - floor_bin)
  *                     beta = 1. - (ceil_bin - fbin)             # <<<<<<<<<<<<<<
@@ -7356,7 +8194,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_beta = (1. - (__pyx_v_ceil_bin - __pyx_v_fbin));
 
-          /* "QF_utilities.pyx":487
+          /* "musclex/biocat_modules/QF_utilities.pyx":558
  *                     alpha = 1. - (fbin - floor_bin)
  *                     beta = 1. - (ceil_bin - fbin)
  *                     ifloor = int(floor(floor_bin))             # <<<<<<<<<<<<<<
@@ -7365,38 +8203,42 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
  */
           __pyx_v_ifloor = ((int)floor(__pyx_v_floor_bin));
 
-          /* "QF_utilities.pyx":488
+          /* "musclex/biocat_modules/QF_utilities.pyx":559
  *                     beta = 1. - (ceil_bin - fbin)
  *                     ifloor = int(floor(floor_bin))
  *                     iceil = int(floor(ceil_bin))             # <<<<<<<<<<<<<<
  * 
- *                 backgound[y, x] = alpha * subtr[ifloor, irad] + beta * subtr[iceil, irad]
+ *                 backgound[y, x] = alpha * (alpha_rad * subtr[ifloor, ifloor_rad] + beta_rad * subtr[ifloor, iceil_rad])+ beta * (alpha_rad * subtr[iceil, ifloor_rad] + beta_rad * subtr[iceil, iceil_rad])
  */
           __pyx_v_iceil = ((int)floor(__pyx_v_ceil_bin));
         }
-        __pyx_L9:;
+        __pyx_L10:;
 
-        /* "QF_utilities.pyx":490
+        /* "musclex/biocat_modules/QF_utilities.pyx":561
  *                     iceil = int(floor(ceil_bin))
  * 
- *                 backgound[y, x] = alpha * subtr[ifloor, irad] + beta * subtr[iceil, irad]             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = alpha * (alpha_rad * subtr[ifloor, ifloor_rad] + beta_rad * subtr[ifloor, iceil_rad])+ beta * (alpha_rad * subtr[iceil, ifloor_rad] + beta_rad * subtr[iceil, iceil_rad])             # <<<<<<<<<<<<<<
  * 
  *     return backgound
  */
-        __pyx_t_22 = __pyx_v_ifloor;
-        __pyx_t_23 = __pyx_v_irad;
-        __pyx_t_24 = __pyx_v_iceil;
-        __pyx_t_25 = __pyx_v_irad;
-        __pyx_t_26 = __pyx_v_y;
-        __pyx_t_27 = __pyx_v_x;
-        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_26, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_27, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_22, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_23, __pyx_pybuffernd_subtr.diminfo[1].strides))) + (__pyx_v_beta * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_24, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_25, __pyx_pybuffernd_subtr.diminfo[1].strides))));
+        __pyx_t_26 = __pyx_v_ifloor;
+        __pyx_t_27 = __pyx_v_ifloor_rad;
+        __pyx_t_28 = __pyx_v_ifloor;
+        __pyx_t_29 = __pyx_v_iceil_rad;
+        __pyx_t_30 = __pyx_v_iceil;
+        __pyx_t_31 = __pyx_v_ifloor_rad;
+        __pyx_t_32 = __pyx_v_iceil;
+        __pyx_t_33 = __pyx_v_iceil_rad;
+        __pyx_t_34 = __pyx_v_y;
+        __pyx_t_35 = __pyx_v_x;
+        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_34, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_35, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha * ((__pyx_v_alpha_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_26, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_27, __pyx_pybuffernd_subtr.diminfo[1].strides))) + (__pyx_v_beta_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_28, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_29, __pyx_pybuffernd_subtr.diminfo[1].strides))))) + (__pyx_v_beta * ((__pyx_v_alpha_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_30, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_31, __pyx_pybuffernd_subtr.diminfo[1].strides))) + (__pyx_v_beta_rad * (*__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_subtr.rcbuffer->pybuffer.buf, __pyx_t_32, __pyx_pybuffernd_subtr.diminfo[0].strides, __pyx_t_33, __pyx_pybuffernd_subtr.diminfo[1].strides))))));
       }
-      __pyx_L8:;
+      __pyx_L9:;
     }
   }
 
-  /* "QF_utilities.pyx":492
- *                 backgound[y, x] = alpha * subtr[ifloor, irad] + beta * subtr[iceil, irad]
+  /* "musclex/biocat_modules/QF_utilities.pyx":563
+ *                 backgound[y, x] = alpha * (alpha_rad * subtr[ifloor, ifloor_rad] + beta_rad * subtr[ifloor, iceil_rad])+ beta * (alpha_rad * subtr[iceil, ifloor_rad] + beta_rad * subtr[iceil, iceil_rad])
  * 
  *     return backgound             # <<<<<<<<<<<<<<
  * 
@@ -7407,10 +8249,10 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
   __pyx_r = ((PyObject *)__pyx_v_backgound);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":435
+  /* "musclex/biocat_modules/QF_utilities.pyx":493
  * 
  * @cython.cdivision(True)
- * def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
+ * def createAngularBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x,y, irad, ideg
  */
@@ -7429,7 +8271,7 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_subtr.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.createCirBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.createAngularBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -7442,18 +8284,18 @@ static PyObject *__pyx_pf_12QF_utilities_20createCirBG(CYTHON_UNUSED PyObject *_
   return __pyx_r;
 }
 
-/* "QF_utilities.pyx":495
+/* "musclex/biocat_modules/QF_utilities.pyx":566
  * 
  * @cython.cdivision(True)
  * def createCircularlySymBG(int width, int height, np.ndarray[np.float32_t, ndim=1] spline, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
- *     cdef int x, y, r
+ *     cdef int x, y, ifloor, iceil, irad
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_12QF_utilities_23createCircularlySymBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static PyMethodDef __pyx_mdef_12QF_utilities_23createCircularlySymBG = {"createCircularlySymBG", (PyCFunction)__pyx_pw_12QF_utilities_23createCircularlySymBG, METH_VARARGS|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_12QF_utilities_23createCircularlySymBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_25createCircularlySymBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_7musclex_14biocat_modules_12QF_utilities_25createCircularlySymBG = {"createCircularlySymBG", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_25createCircularlySymBG, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7musclex_14biocat_modules_12QF_utilities_25createCircularlySymBG(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   int __pyx_v_width;
   int __pyx_v_height;
   PyArrayObject *__pyx_v_spline = 0;
@@ -7491,29 +8333,29 @@ static PyObject *__pyx_pw_12QF_utilities_23createCircularlySymBG(PyObject *__pyx
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_height)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 1); __PYX_ERR(0, 495, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 1); __PYX_ERR(0, 566, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_spline)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 2); __PYX_ERR(0, 495, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 2); __PYX_ERR(0, 566, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (likely((values[3] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_rmin)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 3); __PYX_ERR(0, 495, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 3); __PYX_ERR(0, 566, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  4:
         if (likely((values[4] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_rmax)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 4); __PYX_ERR(0, 495, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, 4); __PYX_ERR(0, 566, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "createCircularlySymBG") < 0)) __PYX_ERR(0, 495, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "createCircularlySymBG") < 0)) __PYX_ERR(0, 566, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 5) {
       goto __pyx_L5_argtuple_error;
@@ -7524,22 +8366,22 @@ static PyObject *__pyx_pw_12QF_utilities_23createCircularlySymBG(PyObject *__pyx
       values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
       values[4] = PyTuple_GET_ITEM(__pyx_args, 4);
     }
-    __pyx_v_width = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
-    __pyx_v_height = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_height == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
+    __pyx_v_width = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L3_error)
+    __pyx_v_height = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_height == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L3_error)
     __pyx_v_spline = ((PyArrayObject *)values[2]);
-    __pyx_v_rmin = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_rmin == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
-    __pyx_v_rmax = __Pyx_PyInt_As_int(values[4]); if (unlikely((__pyx_v_rmax == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 495, __pyx_L3_error)
+    __pyx_v_rmin = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_rmin == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L3_error)
+    __pyx_v_rmax = __Pyx_PyInt_As_int(values[4]); if (unlikely((__pyx_v_rmax == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 495, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("createCircularlySymBG", 1, 5, 5, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 566, __pyx_L3_error)
   __pyx_L3_error:;
-  __Pyx_AddTraceback("QF_utilities.createCircularlySymBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.createCircularlySymBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_spline), __pyx_ptype_5numpy_ndarray, 1, "spline", 0))) __PYX_ERR(0, 495, __pyx_L1_error)
-  __pyx_r = __pyx_pf_12QF_utilities_22createCircularlySymBG(__pyx_self, __pyx_v_width, __pyx_v_height, __pyx_v_spline, __pyx_v_rmin, __pyx_v_rmax);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_spline), __pyx_ptype_5numpy_ndarray, 1, "spline", 0))) __PYX_ERR(0, 566, __pyx_L1_error)
+  __pyx_r = __pyx_pf_7musclex_14biocat_modules_12QF_utilities_24createCircularlySymBG(__pyx_self, __pyx_v_width, __pyx_v_height, __pyx_v_spline, __pyx_v_rmin, __pyx_v_rmax);
 
   /* function exit code */
   goto __pyx_L0;
@@ -7550,13 +8392,20 @@ static PyObject *__pyx_pw_12QF_utilities_23createCircularlySymBG(PyObject *__pyx
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_spline, int __pyx_v_rmin, int __pyx_v_rmax) {
+static PyObject *__pyx_pf_7musclex_14biocat_modules_12QF_utilities_24createCircularlySymBG(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_width, int __pyx_v_height, PyArrayObject *__pyx_v_spline, int __pyx_v_rmin, int __pyx_v_rmax) {
   PyArrayObject *__pyx_v_backgound = 0;
   int __pyx_v_x;
   int __pyx_v_y;
-  int __pyx_v_r;
+  int __pyx_v_ifloor;
+  int __pyx_v_iceil;
+  int __pyx_v_irad;
   int __pyx_v_centerX;
   int __pyx_v_centerY;
+  __pyx_t_5numpy_float32_t __pyx_v_rad;
+  __pyx_t_5numpy_float32_t __pyx_v_alpha;
+  __pyx_t_5numpy_float32_t __pyx_v_beta;
+  __pyx_t_5numpy_float32_t __pyx_v_ffloor;
+  __pyx_t_5numpy_float32_t __pyx_v_fceil;
   __Pyx_LocalBuf_ND __pyx_pybuffernd_backgound;
   __Pyx_Buffer __pyx_pybuffer_backgound;
   __Pyx_LocalBuf_ND __pyx_pybuffernd_spline;
@@ -7578,6 +8427,10 @@ static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED P
   Py_ssize_t __pyx_t_13;
   Py_ssize_t __pyx_t_14;
   Py_ssize_t __pyx_t_15;
+  Py_ssize_t __pyx_t_16;
+  Py_ssize_t __pyx_t_17;
+  Py_ssize_t __pyx_t_18;
+  Py_ssize_t __pyx_t_19;
   __Pyx_RefNannySetupContext("createCircularlySymBG", 0);
   __pyx_pybuffer_backgound.pybuffer.buf = NULL;
   __pyx_pybuffer_backgound.refcount = 0;
@@ -7589,27 +8442,27 @@ static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED P
   __pyx_pybuffernd_spline.rcbuffer = &__pyx_pybuffer_spline;
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_spline.rcbuffer->pybuffer, (PyObject*)__pyx_v_spline, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack) == -1)) __PYX_ERR(0, 495, __pyx_L1_error)
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_spline.rcbuffer->pybuffer, (PyObject*)__pyx_v_spline, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack) == -1)) __PYX_ERR(0, 566, __pyx_L1_error)
   }
   __pyx_pybuffernd_spline.diminfo[0].strides = __pyx_pybuffernd_spline.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_spline.diminfo[0].shape = __pyx_pybuffernd_spline.rcbuffer->pybuffer.shape[0];
 
-  /* "QF_utilities.pyx":496
+  /* "musclex/biocat_modules/QF_utilities.pyx":567
  * @cython.cdivision(True)
  * def createCircularlySymBG(int width, int height, np.ndarray[np.float32_t, ndim=1] spline, int rmin, int rmax):
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)             # <<<<<<<<<<<<<<
- *     cdef int x, y, r
+ *     cdef int x, y, ifloor, iceil, irad
  *     cdef int centerX = width - 1
  */
-  __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_zeros); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_zeros); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_height); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_height); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_width); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_width); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_1);
   PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_1);
@@ -7617,32 +8470,32 @@ static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED P
   PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3);
   __pyx_t_1 = 0;
   __pyx_t_3 = 0;
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_4);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_4);
   __pyx_t_4 = 0;
-  __pyx_t_4 = PyDict_New(); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_4 = PyDict_New(); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_float32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_float32); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 496, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 496, __pyx_L1_error)
+  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 567, __pyx_L1_error)
   __pyx_t_6 = ((PyArrayObject *)__pyx_t_5);
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
     if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer, (PyObject*)__pyx_t_6, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float32_t, PyBUF_FORMAT| PyBUF_STRIDES| PyBUF_WRITABLE, 2, 0, __pyx_stack) == -1)) {
       __pyx_v_backgound = ((PyArrayObject *)Py_None); __Pyx_INCREF(Py_None); __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf = NULL;
-      __PYX_ERR(0, 496, __pyx_L1_error)
+      __PYX_ERR(0, 567, __pyx_L1_error)
     } else {__pyx_pybuffernd_backgound.diminfo[0].strides = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_backgound.diminfo[0].shape = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_backgound.diminfo[1].strides = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_backgound.diminfo[1].shape = __pyx_pybuffernd_backgound.rcbuffer->pybuffer.shape[1];
     }
   }
@@ -7650,98 +8503,221 @@ static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED P
   __pyx_v_backgound = ((PyArrayObject *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "QF_utilities.pyx":498
+  /* "musclex/biocat_modules/QF_utilities.pyx":569
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
- *     cdef int x, y, r
+ *     cdef int x, y, ifloor, iceil, irad
  *     cdef int centerX = width - 1             # <<<<<<<<<<<<<<
  *     cdef int centerY = height - 1
- *     cdef np.float32_t bg_val
+ *     cdef np.float32_t rad, alpha, beta, ffloor, fceil
  */
   __pyx_v_centerX = (__pyx_v_width - 1);
 
-  /* "QF_utilities.pyx":499
- *     cdef int x, y, r
+  /* "musclex/biocat_modules/QF_utilities.pyx":570
+ *     cdef int x, y, ifloor, iceil, irad
  *     cdef int centerX = width - 1
  *     cdef int centerY = height - 1             # <<<<<<<<<<<<<<
- *     cdef np.float32_t bg_val
+ *     cdef np.float32_t rad, alpha, beta, ffloor, fceil
  * 
  */
   __pyx_v_centerY = (__pyx_v_height - 1);
 
-  /* "QF_utilities.pyx":502
- *     cdef np.float32_t bg_val
+  /* "musclex/biocat_modules/QF_utilities.pyx":573
+ *     cdef np.float32_t rad, alpha, beta, ffloor, fceil
  * 
  *     for x in range(width):             # <<<<<<<<<<<<<<
  *         for y in range(height):
- *             r = int(round(distance( x, y, centerX, centerY)))
+ *             rad = distance( x, y, centerX, centerY)
  */
   __pyx_t_7 = __pyx_v_width;
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_x = __pyx_t_8;
 
-    /* "QF_utilities.pyx":503
+    /* "musclex/biocat_modules/QF_utilities.pyx":574
  * 
  *     for x in range(width):
  *         for y in range(height):             # <<<<<<<<<<<<<<
- *             r = int(round(distance( x, y, centerX, centerY)))
- *             if r >= rmin and r < rmax:
+ *             rad = distance( x, y, centerX, centerY)
+ *             irad = int(round(rad))
  */
     __pyx_t_9 = __pyx_v_height;
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_v_y = __pyx_t_10;
 
-      /* "QF_utilities.pyx":504
+      /* "musclex/biocat_modules/QF_utilities.pyx":575
  *     for x in range(width):
  *         for y in range(height):
- *             r = int(round(distance( x, y, centerX, centerY)))             # <<<<<<<<<<<<<<
- *             if r >= rmin and r < rmax:
- *                 backgound[y, x] = spline[r-rmin]
+ *             rad = distance( x, y, centerX, centerY)             # <<<<<<<<<<<<<<
+ *             irad = int(round(rad))
+ *             ffloor = floor(rad)
  */
-      __pyx_v_r = ((int)round(__pyx_f_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_centerX, __pyx_v_centerY, 0)));
+      __pyx_v_rad = __pyx_f_7musclex_14biocat_modules_12QF_utilities_distance(__pyx_v_x, __pyx_v_y, __pyx_v_centerX, __pyx_v_centerY, 0);
 
-      /* "QF_utilities.pyx":505
+      /* "musclex/biocat_modules/QF_utilities.pyx":576
  *         for y in range(height):
- *             r = int(round(distance( x, y, centerX, centerY)))
- *             if r >= rmin and r < rmax:             # <<<<<<<<<<<<<<
- *                 backgound[y, x] = spline[r-rmin]
- * 
+ *             rad = distance( x, y, centerX, centerY)
+ *             irad = int(round(rad))             # <<<<<<<<<<<<<<
+ *             ffloor = floor(rad)
+ *             fceil = ceil(rad)
  */
-      __pyx_t_12 = ((__pyx_v_r >= __pyx_v_rmin) != 0);
+      __pyx_v_irad = ((int)round(__pyx_v_rad));
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":577
+ *             rad = distance( x, y, centerX, centerY)
+ *             irad = int(round(rad))
+ *             ffloor = floor(rad)             # <<<<<<<<<<<<<<
+ *             fceil = ceil(rad)
+ *             alpha = 1.-(rad-ffloor)
+ */
+      __pyx_v_ffloor = floor(__pyx_v_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":578
+ *             irad = int(round(rad))
+ *             ffloor = floor(rad)
+ *             fceil = ceil(rad)             # <<<<<<<<<<<<<<
+ *             alpha = 1.-(rad-ffloor)
+ *             beta = 1.-(fceil-rad)
+ */
+      __pyx_v_fceil = ceil(__pyx_v_rad);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":579
+ *             ffloor = floor(rad)
+ *             fceil = ceil(rad)
+ *             alpha = 1.-(rad-ffloor)             # <<<<<<<<<<<<<<
+ *             beta = 1.-(fceil-rad)
+ *             ifloor = int(ffloor)
+ */
+      __pyx_v_alpha = (1. - (__pyx_v_rad - __pyx_v_ffloor));
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":580
+ *             fceil = ceil(rad)
+ *             alpha = 1.-(rad-ffloor)
+ *             beta = 1.-(fceil-rad)             # <<<<<<<<<<<<<<
+ *             ifloor = int(ffloor)
+ *             iceil = int(fceil)
+ */
+      __pyx_v_beta = (1. - (__pyx_v_fceil - __pyx_v_rad));
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":581
+ *             alpha = 1.-(rad-ffloor)
+ *             beta = 1.-(fceil-rad)
+ *             ifloor = int(ffloor)             # <<<<<<<<<<<<<<
+ *             iceil = int(fceil)
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:
+ */
+      __pyx_v_ifloor = ((int)__pyx_v_ffloor);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":582
+ *             beta = 1.-(fceil-rad)
+ *             ifloor = int(ffloor)
+ *             iceil = int(fceil)             # <<<<<<<<<<<<<<
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:
+ *                 backgound[y, x] = spline[irad-rmin]
+ */
+      __pyx_v_iceil = ((int)__pyx_v_fceil);
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":583
+ *             ifloor = int(ffloor)
+ *             iceil = int(fceil)
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = spline[irad-rmin]
+ *             elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:
+ */
+      __pyx_t_12 = ((__pyx_v_ifloor == __pyx_v_iceil) != 0);
       if (__pyx_t_12) {
       } else {
         __pyx_t_11 = __pyx_t_12;
         goto __pyx_L8_bool_binop_done;
       }
-      __pyx_t_12 = ((__pyx_v_r < __pyx_v_rmax) != 0);
+      __pyx_t_12 = ((__pyx_v_irad >= __pyx_v_rmin) != 0);
+      if (__pyx_t_12) {
+      } else {
+        __pyx_t_11 = __pyx_t_12;
+        goto __pyx_L8_bool_binop_done;
+      }
+      __pyx_t_12 = ((__pyx_v_irad < __pyx_v_rmax) != 0);
       __pyx_t_11 = __pyx_t_12;
       __pyx_L8_bool_binop_done:;
       if (__pyx_t_11) {
 
-        /* "QF_utilities.pyx":506
- *             r = int(round(distance( x, y, centerX, centerY)))
- *             if r >= rmin and r < rmax:
- *                 backgound[y, x] = spline[r-rmin]             # <<<<<<<<<<<<<<
- * 
- *     return backgound
+        /* "musclex/biocat_modules/QF_utilities.pyx":584
+ *             iceil = int(fceil)
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:
+ *                 backgound[y, x] = spline[irad-rmin]             # <<<<<<<<<<<<<<
+ *             elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:
+ *                 backgound[y, x] = alpha*spline[ifloor-rmin] + beta*spline[iceil-rmin]
  */
-        __pyx_t_13 = (__pyx_v_r - __pyx_v_rmin);
+        __pyx_t_13 = (__pyx_v_irad - __pyx_v_rmin);
         __pyx_t_14 = __pyx_v_y;
         __pyx_t_15 = __pyx_v_x;
         *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_14, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_15, __pyx_pybuffernd_backgound.diminfo[1].strides) = (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_spline.rcbuffer->pybuffer.buf, __pyx_t_13, __pyx_pybuffernd_spline.diminfo[0].strides));
 
-        /* "QF_utilities.pyx":505
- *         for y in range(height):
- *             r = int(round(distance( x, y, centerX, centerY)))
- *             if r >= rmin and r < rmax:             # <<<<<<<<<<<<<<
- *                 backgound[y, x] = spline[r-rmin]
+        /* "musclex/biocat_modules/QF_utilities.pyx":583
+ *             ifloor = int(ffloor)
+ *             iceil = int(fceil)
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = spline[irad-rmin]
+ *             elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:
+ */
+        goto __pyx_L7;
+      }
+
+      /* "musclex/biocat_modules/QF_utilities.pyx":585
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:
+ *                 backgound[y, x] = spline[irad-rmin]
+ *             elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = alpha*spline[ifloor-rmin] + beta*spline[iceil-rmin]
+ * 
+ */
+      __pyx_t_12 = ((__pyx_v_ifloor >= __pyx_v_rmin) != 0);
+      if (__pyx_t_12) {
+      } else {
+        __pyx_t_11 = __pyx_t_12;
+        goto __pyx_L11_bool_binop_done;
+      }
+      __pyx_t_12 = ((__pyx_v_ifloor < __pyx_v_rmax) != 0);
+      if (__pyx_t_12) {
+      } else {
+        __pyx_t_11 = __pyx_t_12;
+        goto __pyx_L11_bool_binop_done;
+      }
+      __pyx_t_12 = ((__pyx_v_iceil >= __pyx_v_rmin) != 0);
+      if (__pyx_t_12) {
+      } else {
+        __pyx_t_11 = __pyx_t_12;
+        goto __pyx_L11_bool_binop_done;
+      }
+      __pyx_t_12 = ((__pyx_v_iceil < __pyx_v_rmax) != 0);
+      __pyx_t_11 = __pyx_t_12;
+      __pyx_L11_bool_binop_done:;
+      if (__pyx_t_11) {
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":586
+ *                 backgound[y, x] = spline[irad-rmin]
+ *             elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:
+ *                 backgound[y, x] = alpha*spline[ifloor-rmin] + beta*spline[iceil-rmin]             # <<<<<<<<<<<<<<
+ * 
+ *     return backgound
+ */
+        __pyx_t_16 = (__pyx_v_ifloor - __pyx_v_rmin);
+        __pyx_t_17 = (__pyx_v_iceil - __pyx_v_rmin);
+        __pyx_t_18 = __pyx_v_y;
+        __pyx_t_19 = __pyx_v_x;
+        *__Pyx_BufPtrStrided2d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_backgound.rcbuffer->pybuffer.buf, __pyx_t_18, __pyx_pybuffernd_backgound.diminfo[0].strides, __pyx_t_19, __pyx_pybuffernd_backgound.diminfo[1].strides) = ((__pyx_v_alpha * (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_spline.rcbuffer->pybuffer.buf, __pyx_t_16, __pyx_pybuffernd_spline.diminfo[0].strides))) + (__pyx_v_beta * (*__Pyx_BufPtrStrided1d(__pyx_t_5numpy_float32_t *, __pyx_pybuffernd_spline.rcbuffer->pybuffer.buf, __pyx_t_17, __pyx_pybuffernd_spline.diminfo[0].strides))));
+
+        /* "musclex/biocat_modules/QF_utilities.pyx":585
+ *             if ifloor == iceil and irad >= rmin and irad < rmax:
+ *                 backgound[y, x] = spline[irad-rmin]
+ *             elif ifloor >= rmin and ifloor < rmax and iceil >= rmin and iceil < rmax:             # <<<<<<<<<<<<<<
+ *                 backgound[y, x] = alpha*spline[ifloor-rmin] + beta*spline[iceil-rmin]
  * 
  */
       }
+      __pyx_L7:;
     }
   }
 
-  /* "QF_utilities.pyx":508
- *                 backgound[y, x] = spline[r-rmin]
+  /* "musclex/biocat_modules/QF_utilities.pyx":588
+ *                 backgound[y, x] = alpha*spline[ifloor-rmin] + beta*spline[iceil-rmin]
  * 
  *     return backgound             # <<<<<<<<<<<<<<
  */
@@ -7750,12 +8726,12 @@ static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED P
   __pyx_r = ((PyObject *)__pyx_v_backgound);
   goto __pyx_L0;
 
-  /* "QF_utilities.pyx":495
+  /* "musclex/biocat_modules/QF_utilities.pyx":566
  * 
  * @cython.cdivision(True)
  * def createCircularlySymBG(int width, int height, np.ndarray[np.float32_t, ndim=1] spline, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
- *     cdef int x, y, r
+ *     cdef int x, y, ifloor, iceil, irad
  */
 
   /* function exit code */
@@ -7772,7 +8748,7 @@ static PyObject *__pyx_pf_12QF_utilities_22createCircularlySymBG(CYTHON_UNUSED P
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_backgound.rcbuffer->pybuffer);
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_spline.rcbuffer->pybuffer);
   __Pyx_ErrRestore(__pyx_type, __pyx_value, __pyx_tb);}
-  __Pyx_AddTraceback("QF_utilities.createCircularlySymBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("musclex.biocat_modules.QF_utilities.createCircularlySymBG", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   goto __pyx_L2;
   __pyx_L0:;
@@ -10300,7 +11276,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 }
 
 static PyMethodDef __pyx_methods[] = {
-  {"distance", (PyCFunction)__pyx_pw_12QF_utilities_1distance, METH_VARARGS|METH_KEYWORDS, 0},
+  {"distance", (PyCFunction)__pyx_pw_7musclex_14biocat_modules_12QF_utilities_1distance, METH_VARARGS|METH_KEYWORDS, 0},
   {0, 0, 0, 0}
 };
 
@@ -10328,7 +11304,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_ImportError, __pyx_k_ImportError, sizeof(__pyx_k_ImportError), 0, 0, 1, 1},
   {&__pyx_kp_s_Jiranun_J, __pyx_k_Jiranun_J, sizeof(__pyx_k_Jiranun_J), 0, 0, 1, 0},
   {&__pyx_kp_u_Non_native_byte_order_not_suppor, __pyx_k_Non_native_byte_order_not_suppor, sizeof(__pyx_k_Non_native_byte_order_not_suppor), 0, 1, 0, 0},
-  {&__pyx_n_s_QF_utilities, __pyx_k_QF_utilities, sizeof(__pyx_k_QF_utilities), 0, 0, 1, 1},
   {&__pyx_kp_s_QF_utilities_pyx, __pyx_k_QF_utilities_pyx, sizeof(__pyx_k_QF_utilities_pyx), 0, 0, 1, 0},
   {&__pyx_n_s_RuntimeError, __pyx_k_RuntimeError, sizeof(__pyx_k_RuntimeError), 0, 0, 1, 1},
   {&__pyx_n_s_ValueError, __pyx_k_ValueError, sizeof(__pyx_k_ValueError), 0, 0, 1, 1},
@@ -10339,7 +11314,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_backgound, __pyx_k_backgound, sizeof(__pyx_k_backgound), 0, 0, 1, 1},
   {&__pyx_n_s_beta, __pyx_k_beta, sizeof(__pyx_k_beta), 0, 0, 1, 1},
   {&__pyx_n_s_beta_rad, __pyx_k_beta_rad, sizeof(__pyx_k_beta_rad), 0, 0, 1, 1},
-  {&__pyx_n_s_bg_val, __pyx_k_bg_val, sizeof(__pyx_k_bg_val), 0, 0, 1, 1},
   {&__pyx_n_s_bgsub, __pyx_k_bgsub, sizeof(__pyx_k_bgsub), 0, 0, 1, 1},
   {&__pyx_n_s_ceil_bin, __pyx_k_ceil_bin, sizeof(__pyx_k_ceil_bin), 0, 0, 1, 1},
   {&__pyx_n_s_ceil_deg, __pyx_k_ceil_deg, sizeof(__pyx_k_ceil_deg), 0, 0, 1, 1},
@@ -10350,13 +11324,15 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_center_y, __pyx_k_center_y, sizeof(__pyx_k_center_y), 0, 0, 1, 1},
   {&__pyx_n_s_cline_in_traceback, __pyx_k_cline_in_traceback, sizeof(__pyx_k_cline_in_traceback), 0, 0, 1, 1},
   {&__pyx_n_s_combine_bgsub_float32, __pyx_k_combine_bgsub_float32, sizeof(__pyx_k_combine_bgsub_float32), 0, 0, 1, 1},
-  {&__pyx_n_s_createCirBG, __pyx_k_createCirBG, sizeof(__pyx_k_createCirBG), 0, 0, 1, 1},
+  {&__pyx_n_s_createAngularBG, __pyx_k_createAngularBG, sizeof(__pyx_k_createAngularBG), 0, 0, 1, 1},
   {&__pyx_n_s_createCircularlySymBG, __pyx_k_createCircularlySymBG, sizeof(__pyx_k_createCircularlySymBG), 0, 0, 1, 1},
   {&__pyx_n_s_deg, __pyx_k_deg, sizeof(__pyx_k_deg), 0, 0, 1, 1},
   {&__pyx_n_s_deltax, __pyx_k_deltax, sizeof(__pyx_k_deltax), 0, 0, 1, 1},
   {&__pyx_n_s_deltay, __pyx_k_deltay, sizeof(__pyx_k_deltay), 0, 0, 1, 1},
   {&__pyx_n_s_dtype, __pyx_k_dtype, sizeof(__pyx_k_dtype), 0, 0, 1, 1},
   {&__pyx_n_s_fbin, __pyx_k_fbin, sizeof(__pyx_k_fbin), 0, 0, 1, 1},
+  {&__pyx_n_s_fceil, __pyx_k_fceil, sizeof(__pyx_k_fceil), 0, 0, 1, 1},
+  {&__pyx_n_s_ffloor, __pyx_k_ffloor, sizeof(__pyx_k_ffloor), 0, 0, 1, 1},
   {&__pyx_n_s_float32, __pyx_k_float32, sizeof(__pyx_k_float32), 0, 0, 1, 1},
   {&__pyx_n_s_floor_bin, __pyx_k_floor_bin, sizeof(__pyx_k_floor_bin), 0, 0, 1, 1},
   {&__pyx_n_s_floor_deg, __pyx_k_floor_deg, sizeof(__pyx_k_floor_deg), 0, 0, 1, 1},
@@ -10375,8 +11351,10 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_i, __pyx_k_i, sizeof(__pyx_k_i), 0, 0, 1, 1},
   {&__pyx_n_s_ibin, __pyx_k_ibin, sizeof(__pyx_k_ibin), 0, 0, 1, 1},
   {&__pyx_n_s_iceil, __pyx_k_iceil, sizeof(__pyx_k_iceil), 0, 0, 1, 1},
+  {&__pyx_n_s_iceil_rad, __pyx_k_iceil_rad, sizeof(__pyx_k_iceil_rad), 0, 0, 1, 1},
   {&__pyx_n_s_ideg, __pyx_k_ideg, sizeof(__pyx_k_ideg), 0, 0, 1, 1},
   {&__pyx_n_s_ifloor, __pyx_k_ifloor, sizeof(__pyx_k_ifloor), 0, 0, 1, 1},
+  {&__pyx_n_s_ifloor_rad, __pyx_k_ifloor_rad, sizeof(__pyx_k_ifloor_rad), 0, 0, 1, 1},
   {&__pyx_n_s_img, __pyx_k_img, sizeof(__pyx_k_img), 0, 0, 1, 1},
   {&__pyx_n_s_img1, __pyx_k_img1, sizeof(__pyx_k_img1), 0, 0, 1, 1},
   {&__pyx_n_s_img2, __pyx_k_img2, sizeof(__pyx_k_img2), 0, 0, 1, 1},
@@ -10388,9 +11366,11 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_irad_ceil, __pyx_k_irad_ceil, sizeof(__pyx_k_irad_ceil), 0, 0, 1, 1},
   {&__pyx_n_s_irad_floor, __pyx_k_irad_floor, sizeof(__pyx_k_irad_floor), 0, 0, 1, 1},
   {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
-  {&__pyx_n_s_makeBackgroundImage, __pyx_k_makeBackgroundImage, sizeof(__pyx_k_makeBackgroundImage), 0, 0, 1, 1},
+  {&__pyx_n_s_make2DConvexhullBG, __pyx_k_make2DConvexhullBG, sizeof(__pyx_k_make2DConvexhullBG), 0, 0, 1, 1},
+  {&__pyx_n_s_make2DConvexhullBG2, __pyx_k_make2DConvexhullBG2, sizeof(__pyx_k_make2DConvexhullBG2), 0, 0, 1, 1},
   {&__pyx_n_s_max, __pyx_k_max, sizeof(__pyx_k_max), 0, 0, 1, 1},
   {&__pyx_n_s_min, __pyx_k_min, sizeof(__pyx_k_min), 0, 0, 1, 1},
+  {&__pyx_n_s_musclex_biocat_modules_QF_utilit, __pyx_k_musclex_biocat_modules_QF_utilit, sizeof(__pyx_k_musclex_biocat_modules_QF_utilit), 0, 0, 1, 1},
   {&__pyx_n_s_nBins, __pyx_k_nBins, sizeof(__pyx_k_nBins), 0, 0, 1, 1},
   {&__pyx_n_s_nQuadrant, __pyx_k_nQuadrant, sizeof(__pyx_k_nQuadrant), 0, 0, 1, 1},
   {&__pyx_n_s_n_fold, __pyx_k_n_fold, sizeof(__pyx_k_n_fold), 0, 0, 1, 1},
@@ -10556,7 +11536,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__9);
   __Pyx_GIVEREF(__pyx_tuple__9);
 
-  /* "QF_utilities.pyx":20
+  /* "musclex/biocat_modules/QF_utilities.pyx":20
  * 
  * 
  * def get_avg_fold_int16(np.ndarray[np.uint16_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, double threshold):             # <<<<<<<<<<<<<<
@@ -10568,7 +11548,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__10);
   __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(5, 0, 12, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_get_avg_fold_int16, 20, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) __PYX_ERR(0, 20, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":43
+  /* "musclex/biocat_modules/QF_utilities.pyx":43
  *     return result
  * 
  * def get_avg_fold_int8(np.ndarray[np.uint8_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, int threshold):             # <<<<<<<<<<<<<<
@@ -10580,7 +11560,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__12);
   __pyx_codeobj__13 = (PyObject*)__Pyx_PyCode_New(5, 0, 12, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__12, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_get_avg_fold_int8, 43, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__13)) __PYX_ERR(0, 43, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":66
+  /* "musclex/biocat_modules/QF_utilities.pyx":66
  *     return result
  * 
  * def get_avg_fold_float32(np.ndarray[np.float32_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, np.float32_t threshold):             # <<<<<<<<<<<<<<
@@ -10592,7 +11572,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__14);
   __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(5, 0, 12, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_get_avg_fold_float32, 66, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 66, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":168
+  /* "musclex/biocat_modules/QF_utilities.pyx":168
  * 
  * 
  * def apply_radial_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=2] smooth_img, int center_x, int center_y, int radius, int threshold):             # <<<<<<<<<<<<<<
@@ -10604,7 +11584,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__16);
   __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(6, 0, 17, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_apply_radial_bgsub_float32, 168, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(0, 168, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":211
+  /* "musclex/biocat_modules/QF_utilities.pyx":211
  * 
  * 
  * def combine_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img1, np.ndarray[np.float32_t, ndim=2] img2, int center_x, int center_y, float sigmoid_k, int radius):             # <<<<<<<<<<<<<<
@@ -10616,7 +11596,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__18);
   __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(6, 0, 17, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__18, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_combine_bgsub_float32, 211, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 211, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":279
+  /* "musclex/biocat_modules/QF_utilities.pyx":279
  * 
  * 
  * def getCirSubtr_f32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -10628,7 +11608,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__20);
   __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(3, 0, 13, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__20, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_getCirSubtr_f32, 279, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 279, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":304
+  /* "musclex/biocat_modules/QF_utilities.pyx":304
  *     return result
  * 
  * def getCirSubtr_i16(np.ndarray[np.uint16_t, ndim=2] img, np.ndarray[np.uint16_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -10640,7 +11620,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__22);
   __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(3, 0, 13, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_getCirSubtr_i16, 304, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 304, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":329
+  /* "musclex/biocat_modules/QF_utilities.pyx":329
  *     return result
  * 
  * def getCirSubtr_i8(np.ndarray[np.uint8_t, ndim=2] img, np.ndarray[np.uint8_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
@@ -10652,41 +11632,53 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__24);
   __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(3, 0, 13, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_getCirSubtr_i8, 329, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 329, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":362
+  /* "musclex/biocat_modules/QF_utilities.pyx":362
  * 
  * @cython.cdivision(True)
- * def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x, y
  */
   __pyx_tuple__26 = PyTuple_Pack(36, __pyx_n_s_pchipLines, __pyx_n_s_width, __pyx_n_s_height, __pyx_n_s_centerX, __pyx_n_s_centerY, __pyx_n_s_rmin, __pyx_n_s_rmax, __pyx_n_s_backgound, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_irad, __pyx_n_s_irad_floor, __pyx_n_s_irad_ceil, __pyx_n_s_deg, __pyx_n_s_slope, __pyx_n_s_floor_deg, __pyx_n_s_alpha, __pyx_n_s_ceil_deg, __pyx_n_s_beta, __pyx_n_s_round_deg, __pyx_n_s_deltay, __pyx_n_s_deltax, __pyx_n_s_subv, __pyx_n_s_tmpdeg, __pyx_n_s_rad, __pyx_n_s_ceil_rad, __pyx_n_s_floor_rad, __pyx_n_s_alpha_rad, __pyx_n_s_beta_rad, __pyx_n_s_zero, __pyx_n_s_intzero, __pyx_n_s_pos1, __pyx_n_s_pos2, __pyx_n_s_ifloor, __pyx_n_s_iceil, __pyx_n_s_ideg); if (unlikely(!__pyx_tuple__26)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__26);
   __Pyx_GIVEREF(__pyx_tuple__26);
-  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(7, 0, 36, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_makeBackgroundImage, 362, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(7, 0, 36, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__26, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_make2DConvexhullBG, 362, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 362, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":435
+  /* "musclex/biocat_modules/QF_utilities.pyx":435
  * 
  * @cython.cdivision(True)
- * def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG2(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
+ *     cdef int x, y
+ */
+  __pyx_tuple__28 = PyTuple_Pack(36, __pyx_n_s_pchipLines, __pyx_n_s_width, __pyx_n_s_height, __pyx_n_s_centerX, __pyx_n_s_centerY, __pyx_n_s_rmin, __pyx_n_s_rmax, __pyx_n_s_backgound, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_irad, __pyx_n_s_irad_floor, __pyx_n_s_irad_ceil, __pyx_n_s_deg, __pyx_n_s_slope, __pyx_n_s_floor_deg, __pyx_n_s_alpha, __pyx_n_s_ceil_deg, __pyx_n_s_beta, __pyx_n_s_round_deg, __pyx_n_s_deltay, __pyx_n_s_deltax, __pyx_n_s_subv, __pyx_n_s_tmpdeg, __pyx_n_s_rad, __pyx_n_s_ceil_rad, __pyx_n_s_floor_rad, __pyx_n_s_alpha_rad, __pyx_n_s_beta_rad, __pyx_n_s_zero, __pyx_n_s_intzero, __pyx_n_s_pos1, __pyx_n_s_pos2, __pyx_n_s_ifloor, __pyx_n_s_iceil, __pyx_n_s_ideg); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__28);
+  __Pyx_GIVEREF(__pyx_tuple__28);
+  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(7, 0, 36, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__28, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_make2DConvexhullBG2, 435, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 435, __pyx_L1_error)
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":493
+ * 
+ * @cython.cdivision(True)
+ * def createAngularBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x,y, irad, ideg
  */
-  __pyx_tuple__28 = PyTuple_Pack(26, __pyx_n_s_width, __pyx_n_s_height, __pyx_n_s_subtr, __pyx_n_s_nBins, __pyx_n_s_backgound, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_irad, __pyx_n_s_ideg, __pyx_n_s_centerX, __pyx_n_s_centerY, __pyx_n_s_rad, __pyx_n_s_deg, __pyx_n_s_slope, __pyx_n_s_deltax, __pyx_n_s_deltay, __pyx_n_s_bgsub, __pyx_n_s_fbin, __pyx_n_s_floor_bin, __pyx_n_s_ceil_bin, __pyx_n_s_alpha, __pyx_n_s_beta, __pyx_n_s_theta_size, __pyx_n_s_ifloor, __pyx_n_s_iceil, __pyx_n_s_ibin); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 435, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__28);
-  __Pyx_GIVEREF(__pyx_tuple__28);
-  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(4, 0, 26, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__28, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_createCirBG, 435, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_tuple__30 = PyTuple_Pack(32, __pyx_n_s_width, __pyx_n_s_height, __pyx_n_s_subtr, __pyx_n_s_nBins, __pyx_n_s_backgound, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_irad, __pyx_n_s_ideg, __pyx_n_s_centerX, __pyx_n_s_centerY, __pyx_n_s_rad, __pyx_n_s_deg, __pyx_n_s_slope, __pyx_n_s_deltax, __pyx_n_s_deltay, __pyx_n_s_bgsub, __pyx_n_s_fbin, __pyx_n_s_floor_bin, __pyx_n_s_ceil_bin, __pyx_n_s_alpha, __pyx_n_s_beta, __pyx_n_s_floor_rad, __pyx_n_s_ceil_rad, __pyx_n_s_alpha_rad, __pyx_n_s_beta_rad, __pyx_n_s_theta_size, __pyx_n_s_ifloor, __pyx_n_s_iceil, __pyx_n_s_ibin, __pyx_n_s_ifloor_rad, __pyx_n_s_iceil_rad); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 493, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__30);
+  __Pyx_GIVEREF(__pyx_tuple__30);
+  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(4, 0, 32, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_createAngularBG, 493, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 493, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":495
+  /* "musclex/biocat_modules/QF_utilities.pyx":566
  * 
  * @cython.cdivision(True)
  * def createCircularlySymBG(int width, int height, np.ndarray[np.float32_t, ndim=1] spline, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
- *     cdef int x, y, r
+ *     cdef int x, y, ifloor, iceil, irad
  */
-  __pyx_tuple__30 = PyTuple_Pack(12, __pyx_n_s_width, __pyx_n_s_height, __pyx_n_s_spline, __pyx_n_s_rmin, __pyx_n_s_rmax, __pyx_n_s_backgound, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_r, __pyx_n_s_centerX, __pyx_n_s_centerY, __pyx_n_s_bg_val); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 495, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__30);
-  __Pyx_GIVEREF(__pyx_tuple__30);
-  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(5, 0, 12, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_createCircularlySymBG, 495, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_tuple__32 = PyTuple_Pack(18, __pyx_n_s_width, __pyx_n_s_height, __pyx_n_s_spline, __pyx_n_s_rmin, __pyx_n_s_rmax, __pyx_n_s_backgound, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_ifloor, __pyx_n_s_iceil, __pyx_n_s_irad, __pyx_n_s_centerX, __pyx_n_s_centerY, __pyx_n_s_rad, __pyx_n_s_alpha, __pyx_n_s_beta, __pyx_n_s_ffloor, __pyx_n_s_fceil); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 566, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__32);
+  __Pyx_GIVEREF(__pyx_tuple__32);
+  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(5, 0, 18, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__32, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_QF_utilities_pyx, __pyx_n_s_createCircularlySymBG, 566, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -10768,14 +11760,14 @@ PyMODINIT_FUNC PyInit_QF_utilities(void)
   #if PY_MAJOR_VERSION < 3 && (__PYX_DEFAULT_STRING_ENCODING_IS_ASCII || __PYX_DEFAULT_STRING_ENCODING_IS_DEFAULT)
   if (__Pyx_init_sys_getdefaultencoding_params() < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   #endif
-  if (__pyx_module_is_main_QF_utilities) {
+  if (__pyx_module_is_main_musclex__biocat_modules__QF_utilities) {
     if (PyObject_SetAttrString(__pyx_m, "__name__", __pyx_n_s_main) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   }
   #if PY_MAJOR_VERSION >= 3
   {
     PyObject *modules = PyImport_GetModuleDict(); if (unlikely(!modules)) __PYX_ERR(0, 1, __pyx_L1_error)
-    if (!PyDict_GetItemString(modules, "QF_utilities")) {
-      if (unlikely(PyDict_SetItemString(modules, "QF_utilities", __pyx_m) < 0)) __PYX_ERR(0, 1, __pyx_L1_error)
+    if (!PyDict_GetItemString(modules, "musclex.biocat_modules.QF_utilities")) {
+      if (unlikely(PyDict_SetItemString(modules, "musclex.biocat_modules.QF_utilities", __pyx_m) < 0)) __PYX_ERR(0, 1, __pyx_L1_error)
     }
   }
   #endif
@@ -10807,7 +11799,7 @@ PyMODINIT_FUNC PyInit_QF_utilities(void)
   if (__Pyx_patch_abc() < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   #endif
 
-  /* "QF_utilities.pyx":2
+  /* "musclex/biocat_modules/QF_utilities.pyx":2
  * #cython: boundscheck=False, wraparound=False, nonecheck=False
  * __author__ = 'Jiranun.J'             # <<<<<<<<<<<<<<
  * import numpy as np
@@ -10815,7 +11807,7 @@ PyMODINIT_FUNC PyInit_QF_utilities(void)
  */
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_author, __pyx_kp_s_Jiranun_J) < 0) __PYX_ERR(0, 2, __pyx_L1_error)
 
-  /* "QF_utilities.pyx":3
+  /* "musclex/biocat_modules/QF_utilities.pyx":3
  * #cython: boundscheck=False, wraparound=False, nonecheck=False
  * __author__ = 'Jiranun.J'
  * import numpy as np             # <<<<<<<<<<<<<<
@@ -10827,139 +11819,151 @@ PyMODINIT_FUNC PyInit_QF_utilities(void)
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_np, __pyx_t_1) < 0) __PYX_ERR(0, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":20
+  /* "musclex/biocat_modules/QF_utilities.pyx":20
  * 
  * 
  * def get_avg_fold_int16(np.ndarray[np.uint16_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, double threshold):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[double, ndim=2] result = np.zeros((fold_height, fold_width))
  *     cdef Py_ssize_t x, y, n_fold, i
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_3get_avg_fold_int16, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_3get_avg_fold_int16, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_get_avg_fold_int16, __pyx_t_1) < 0) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":43
+  /* "musclex/biocat_modules/QF_utilities.pyx":43
  *     return result
  * 
  * def get_avg_fold_int8(np.ndarray[np.uint8_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, int threshold):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[double, ndim=2] result = np.zeros((fold_height, fold_width))
  *     cdef Py_ssize_t x, y, n_fold, i
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_5get_avg_fold_int8, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_5get_avg_fold_int8, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_get_avg_fold_int8, __pyx_t_1) < 0) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":66
+  /* "musclex/biocat_modules/QF_utilities.pyx":66
  *     return result
  * 
  * def get_avg_fold_float32(np.ndarray[np.float32_t, ndim=3] quadrants, int nQuadrant, int fold_height, int fold_width, np.float32_t threshold):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[double, ndim=2] result = np.zeros((fold_height, fold_width))
  *     cdef Py_ssize_t x, y, n_fold, i
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_7get_avg_fold_float32, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_7get_avg_fold_float32, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_get_avg_fold_float32, __pyx_t_1) < 0) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":168
+  /* "musclex/biocat_modules/QF_utilities.pyx":168
  * 
  * 
  * def apply_radial_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=2] smooth_img, int center_x, int center_y, int radius, int threshold):             # <<<<<<<<<<<<<<
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_9apply_radial_bgsub_float32, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_9apply_radial_bgsub_float32, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_apply_radial_bgsub_float32, __pyx_t_1) < 0) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":211
+  /* "musclex/biocat_modules/QF_utilities.pyx":211
  * 
  * 
  * def combine_bgsub_float32(np.ndarray[np.float32_t, ndim=2] img1, np.ndarray[np.float32_t, ndim=2] img2, int center_x, int center_y, float sigmoid_k, int radius):             # <<<<<<<<<<<<<<
  *     cdef int img_height = img1.shape[0]
  *     cdef int img_width = img1.shape[1]
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_11combine_bgsub_float32, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_11combine_bgsub_float32, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_combine_bgsub_float32, __pyx_t_1) < 0) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":279
+  /* "musclex/biocat_modules/QF_utilities.pyx":279
  * 
  * 
  * def getCirSubtr_f32(np.ndarray[np.float32_t, ndim=2] img, np.ndarray[np.float32_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_13getCirSubtr_f32, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_13getCirSubtr_f32, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_getCirSubtr_f32, __pyx_t_1) < 0) __PYX_ERR(0, 279, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":304
+  /* "musclex/biocat_modules/QF_utilities.pyx":304
  *     return result
  * 
  * def getCirSubtr_i16(np.ndarray[np.uint16_t, ndim=2] img, np.ndarray[np.uint16_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_15getCirSubtr_i16, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_15getCirSubtr_i16, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_getCirSubtr_i16, __pyx_t_1) < 0) __PYX_ERR(0, 304, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":329
+  /* "musclex/biocat_modules/QF_utilities.pyx":329
  *     return result
  * 
  * def getCirSubtr_i8(np.ndarray[np.uint8_t, ndim=2] img, np.ndarray[np.uint8_t, ndim=1] subtr_hist, int radius):             # <<<<<<<<<<<<<<
  *     cdef int img_height = img.shape[0]
  *     cdef int img_width = img.shape[1]
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_17getCirSubtr_i8, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_17getCirSubtr_i8, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_getCirSubtr_i8, __pyx_t_1) < 0) __PYX_ERR(0, 329, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":362
+  /* "musclex/biocat_modules/QF_utilities.pyx":362
  * 
  * @cython.cdivision(True)
- * def makeBackgroundImage(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x, y
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_19makeBackgroundImage, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_19make2DConvexhullBG, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_makeBackgroundImage, __pyx_t_1) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_make2DConvexhullBG, __pyx_t_1) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":435
+  /* "musclex/biocat_modules/QF_utilities.pyx":435
  * 
  * @cython.cdivision(True)
- * def createCirBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
+ * def make2DConvexhullBG2(np.ndarray[np.float32_t, ndim=2] pchipLines, int width, int height, int centerX, int centerY, int rmin, int rmax):             # <<<<<<<<<<<<<<
+ *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
+ *     cdef int x, y
+ */
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_21make2DConvexhullBG2, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_make2DConvexhullBG2, __pyx_t_1) < 0) __PYX_ERR(0, 435, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "musclex/biocat_modules/QF_utilities.pyx":493
+ * 
+ * @cython.cdivision(True)
+ * def createAngularBG(int width, int height, np.ndarray[np.float32_t, ndim=2] subtr, int nBins):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
  *     cdef int x,y, irad, ideg
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_21createCirBG, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 435, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_23createAngularBG, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 493, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_createCirBG, __pyx_t_1) < 0) __PYX_ERR(0, 435, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_createAngularBG, __pyx_t_1) < 0) __PYX_ERR(0, 493, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":495
+  /* "musclex/biocat_modules/QF_utilities.pyx":566
  * 
  * @cython.cdivision(True)
  * def createCircularlySymBG(int width, int height, np.ndarray[np.float32_t, ndim=1] spline, int rmin, int rmax):             # <<<<<<<<<<<<<<
  *     cdef np.ndarray[np.float32_t, ndim=2] backgound = np.zeros((height, width), dtype = np.float32)
- *     cdef int x, y, r
+ *     cdef int x, y, ifloor, iceil, irad
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_12QF_utilities_23createCircularlySymBG, NULL, __pyx_n_s_QF_utilities); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 495, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7musclex_14biocat_modules_12QF_utilities_25createCircularlySymBG, NULL, __pyx_n_s_musclex_biocat_modules_QF_utilit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_createCircularlySymBG, __pyx_t_1) < 0) __PYX_ERR(0, 495, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_createCircularlySymBG, __pyx_t_1) < 0) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "QF_utilities.pyx":1
+  /* "musclex/biocat_modules/QF_utilities.pyx":1
  * #cython: boundscheck=False, wraparound=False, nonecheck=False             # <<<<<<<<<<<<<<
  * __author__ = 'Jiranun.J'
  * import numpy as np
@@ -10984,11 +11988,11 @@ PyMODINIT_FUNC PyInit_QF_utilities(void)
   __Pyx_XDECREF(__pyx_t_1);
   if (__pyx_m) {
     if (__pyx_d) {
-      __Pyx_AddTraceback("init QF_utilities", 0, __pyx_lineno, __pyx_filename);
+      __Pyx_AddTraceback("init musclex.biocat_modules.QF_utilities", 0, __pyx_lineno, __pyx_filename);
     }
     Py_DECREF(__pyx_m); __pyx_m = 0;
   } else if (!PyErr_Occurred()) {
-    PyErr_SetString(PyExc_ImportError, "init QF_utilities");
+    PyErr_SetString(PyExc_ImportError, "init musclex.biocat_modules.QF_utilities");
   }
   __pyx_L0:;
   __Pyx_RefNannyFinishContext();

@@ -38,9 +38,9 @@ from matplotlib.collections import PatchCollection
 import h5py
 import logging
 import argparse
-from musclex.bio_utils.file_manager import *
-from musclex.biocat_modules.CircularProjection import *
-from musclex.CalibrationSettings import CalibrationSettings
+from ..bio_utils.file_manager import *
+from ..biocat_modules.CircularProjection import *
+from ..CalibrationSettings import CalibrationSettings
 import musclex
 
 class CP_CSVManager():

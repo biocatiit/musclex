@@ -362,6 +362,72 @@ def getFirstVallay(hist):
             return i
     return limit
 
+def getCentroid(hist, p, intersections):
+    """
+    Get centroid
+    :param hist: input histogram (list)
+    :param p: peak location (int)
+    :param intersections: intersections of histogram and baseline at peak (tuple)
+    :return: centroid
+    """
+    xs = np.arange(intersections[0], intersections[1] + 1)
+    ys = hist[xs]
+    numerator = np.dot(xs, ys)
+    denominator = sum(ys)
+    if denominator != 0:
+        cent = numerator / denominator
+    else:
+        cent = p
+    return cent
+
+def getWidth(hist, max_loc, baseline):
+    """
+    Get peak width
+    :param hist: input histogram
+    :param max_loc: peak location
+    :param baseline: baseline of peak
+    :return: peak width
+    """
+    l = 1
+    r = 1
+
+    while max_loc - l > 0 and hist[max_loc - l] > baseline:
+        l += 1
+    while  max_loc + r < len(hist)-1 and hist[max_loc + r] > baseline:
+        r += 1
+
+    return l+r, (max_loc - l, max_loc + r)
+
+def getPeakInformations(hist, peaks, baselines):
+    """
+    Get all peak informations including centroid, width, intersection with baseline, area (intensity)
+    :param hist: input histogram (list)
+    :param peaks: peak locations (list)
+    :param baselines: baselines of peaks (list)
+    :return: result with infomations (dict)
+    """
+    # self.fitModel(hist, peaks, baselines)
+    centroids = []
+    widths = []
+    intersectionsList = []
+    areas = []
+
+    for i in range(len(peaks)):
+        p = peaks[i]
+        baseline = baselines[i]
+        width, intersections = getWidth(hist, p, baseline)
+        cent = getCentroid(hist, p, intersections)
+        areas.append(hist[p] * width / (2.35 * 0.3989))
+        centroids.append(cent)
+        widths.append(width)
+        intersectionsList.append(intersections)
+    results = {}
+    results["centroids"] = centroids
+    results["widths"] = widths
+    results["intersections"] = intersectionsList
+    results["areas"] = areas
+    return results
+
 def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
     """smooth the data using a window with requested size.
 

@@ -44,9 +44,9 @@ import pyFAI
 from os.path import  exists
 from sklearn.metrics import r2_score, mean_squared_error
 import collections
-from musclex.bio_utils.file_manager import fullPath, createFolder
-from musclex.bio_utils.histogram_processor import *
-from musclex.bio_utils.image_processor import *
+from ..bio_utils.file_manager import fullPath, createFolder
+from ..bio_utils.histogram_processor import *
+from ..bio_utils.image_processor import *
 import pickle
 import musclex
 

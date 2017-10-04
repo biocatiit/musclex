@@ -31,9 +31,9 @@ import fabio
 import pickle
 # import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
-from musclex.bio_utils.file_manager import fullPath, createFolder
-from musclex.bio_utils.histogram_processor import *
-from musclex.bio_utils.image_processor import *
+from ..bio_utils.file_manager import fullPath, createFolder
+from ..bio_utils.histogram_processor import *
+from ..bio_utils.image_processor import *
 from skimage.morphology import white_tophat, disk
 from tifffile import imsave
 from scipy.interpolate import UnivariateSpline
@@ -41,7 +41,7 @@ import musclex
 
 # Make sure the cython part is compiled
 # from subprocess import call
-# call(["python biocat_modules/setup2.py build_ext --inplace"], shell = True)
+# call(["python setup2.py build_ext --inplace"], shell = True)
 
 import musclex.biocat_modules.QF_utilities as qfu
 
@@ -154,6 +154,7 @@ class QuadrantFolder(object):
         self.applyBackgroundSubtraction()
         self.mergeImages()
         self.generateResultImage()
+
         if not flags.has_key("no_cache"):
             self.cacheInfo()
             self.saveBackground()
@@ -280,11 +281,14 @@ class QuadrantFolder(object):
             sub_tr.append(subr_hist)
 
 
-        # Create Circular background from subtraction lines (pchipline in each bin)
-        bg_img = qfu.createCirBG(copy_img.shape[1], copy_img.shape[0], np.array(sub_tr, dtype=np.float32), nBins)
+        # Create Angular background from subtraction lines (pchipline in each bin)
+        bg_img = qfu.createAngularBG(copy_img.shape[1], copy_img.shape[0], np.array(sub_tr, dtype=np.float32), nBins)
+
+        result = copy_img - bg_img
+        result -= result.min()
 
         # Subtract original average fold by background
-        self.info['bgimg1'] = copy_img - bg_img
+        self.info['bgimg1'] = result
 
     def applyCircularlySymBGSub(self):
         """
@@ -342,12 +346,15 @@ class QuadrantFolder(object):
         # Create background from spline line
         background = qfu.createCircularlySymBG(copy_img.shape[1],copy_img.shape[0], np.array(newy, dtype=np.float32), rmin, rmax)
 
-        # Subtract original average fold by background
-        self.info['bgimg1'] = copy_img - background
+        result = copy_img - background
+        result -= result.min()
 
-        result_path = fullPath(self.img_path, "qf_results")
-        createFolder(result_path)
-        background = background.astype("float32")
+        # Subtract original average fold by background
+        self.info['bgimg1'] = result
+        #
+        # result_path = fullPath(self.img_path, "qf_results")
+        # createFolder(result_path)
+        # background = background.astype("float32")
         # imsave(fullPath(result_path, "cir_bg.tif"), background)
 
     def getFirstPeak(self, hist):
@@ -394,55 +401,60 @@ class QuadrantFolder(object):
         hist_x = list(np.arange(rmin, rmax + 1))
         pchiplines = []
 
-        # if self.orig_img.shape[0] == 2048:
-        #     det = "agilent_titan"  # This detector has the same size (2048,2048)
-        # else:
-        #     det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
-        #
-        # npt_rad = int(distance(center, (0, 0)))
-        # ai = pyFAI.AzimuthalIntegrator(detector=det)
-        # ai.setFit2D(100, center[0], center[1])
-        # mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
-        # start = time.time()
-        # for deg in np.arange(180., 270.5, 0.5):
-        #     if deg == 180:
-        #         hist_y = []
-        #         for r in range(rmin, rmax+1):
-        #             x = int(round(1.* r * np.math.cos(np.deg2rad(0))))
-        #             y = int(round(1.* r * np.math.sin(np.deg2rad(0))))
-        #             if x > copy_img.shape[1] or y > copy_img.shape[0]:
-        #                 break
-        #             hist_y.append(copy_img[copy_img.shape[0]-y-1,copy_img.shape[1]-x-1])
-        #     else:
-        #         x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", azimuth_range=(deg, deg+.5))
-        #         hist_y = list(I[hist_x])
-        #     hull_x, hull_y = getHull(hist_x, hist_y)
-        #     y_pchip = pchip(hull_x, hull_y, hist_x)
-        #     pchiplines.append(y_pchip)
+        det = "agilent_titan"
+        npt_rad = int(distance(center, (0, 0)))
+        ai = pyFAI.AzimuthalIntegrator(detector=det)
+        ai.setFit2D(100, center[0], center[1])
 
+        for deg in np.arange(180, 271, 1):
+            if deg == 180 :
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(180, 180.5))
+            elif deg == 270:
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(269.5, 270))
+            else:
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(deg-0.5, deg+0.5))
 
-        for deg in np.arange(0, 90.5, 0.5):
-            # for each 0.5 degree from 0 to 90, get azimuth histogram
-            hist_y = []
+            hist_y = list(I[hist_x])
 
-            for r in range(rmin, rmax+1):
-                x = int(round(1.* r * np.math.cos(np.deg2rad(deg))))
-                y = int(round(1.* r * np.math.sin(np.deg2rad(deg))))
-                if x > copy_img.shape[1] or y > copy_img.shape[0]:
-                    break
-                hist_y.append(copy_img[copy_img.shape[0]-y-1,copy_img.shape[1]-x-1])
-
-            # get 1D convex hull pchip line for each azimuth histogram
             hull_x, hull_y = getHull(hist_x, hist_y)
             y_pchip = pchip(hull_x, hull_y, hist_x)
             pchiplines.append(y_pchip)
+
+        #
+        # for deg in np.arange(0, 91, 1):
+        #     # for each 1 degree from 0 to 90, get azimuth histogram
+        #     hist_y = []
+        #
+        #     for r in range(rmin, rmax+1):
+        #         x = int(round(1.* r * np.math.cos(np.deg2rad(deg))))
+        #         y = int(round(1.* r * np.math.sin(np.deg2rad(deg))))
+        #         if x > copy_img.shape[1] or y > copy_img.shape[0]:
+        #             break
+        #         hist_y.append(copy_img[copy_img.shape[0]-y-1,copy_img.shape[1]-x-1])
+        #
+        #     # get 1D convex hull pchip line for each azimuth histogram
+        #     hull_x, hull_y = getHull(hist_x, hist_y)
+        #     y_pchip = pchip(hull_x, hull_y, hist_x)
+        #     pchiplines.append(y_pchip)
 
         # Smooth each histogram by radius
         pchiplines = np.array(pchiplines, dtype="float32")
         pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
 
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # ax.cla()
+        # ax.imshow(pchiplines)
+        # fig.show()
+        #
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # ax.cla()
+        # ax.imshow(pchiplines2)
+        # fig.show()
+
         # Produce Background from each pchip line
-        background = qfu.makeBackgroundImage(pchiplines2, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax)
+        background = qfu.make2DConvexhullBG2(pchiplines2, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax)
 
         # Smooth background image by gaussian filter
         s = 10
@@ -455,6 +467,7 @@ class QuadrantFolder(object):
 
         # imsave(fullPath(self.img_path,self.img_name)+".bg.tif", background)
         # imsave(fullPath(self.img_path, self.img_name) + ".orig.tif", np.array(copy_img, dtype="float32"))
+        result -= result.min()
 
         self.info['bgimg1'] = result
         # print "Done."

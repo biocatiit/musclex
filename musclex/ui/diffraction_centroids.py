@@ -39,9 +39,9 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import pickle
 import csv
 import traceback
-from musclex.bio_utils.file_manager import *
-from musclex.bio_utils.image_processor import *
-from musclex.biocat_modules.DiffractionCentroids import DiffractionCentroids
+from ..bio_utils.file_manager import *
+from ..bio_utils.image_processor import *
+from ..biocat_modules.DiffractionCentroids import DiffractionCentroids
 import musclex
 class CSVManager():
     """
