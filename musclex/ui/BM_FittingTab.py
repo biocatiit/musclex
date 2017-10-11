@@ -29,8 +29,8 @@ import matplotlib.pyplot as plt
 from PyQt4 import QtCore, QtGui
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
-from ..biocat_modules.BioImage import getCardiacGraph
-from ..bio_utils.image_processor import *
+from ..modules.BioImage import getCardiacGraph
+from ..utils.image_processor import *
 
 class BM_FittingTab(QtGui.QWidget):
     """

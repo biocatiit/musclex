@@ -1,7 +1,7 @@
 __author__ = 'Jiranun.J'
 
 import unittest
-from biocat_modules.BioImage import BioImage
+from musclex.modules.BioImage import BioImage
 import os
 
 
@@ -9,7 +9,7 @@ class MyTestCase(unittest.TestCase):
 # class MyTestCase():
     def test_bio_image1(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "2013.tif", 0)
+        bio_image = BioImage(dir_path, "2013.tif")
         settings = {
             'nPeaks' : 5,
             'model' : 'Voigt',
@@ -25,7 +25,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image2(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "2014.tif", 0)
+        bio_image = BioImage(dir_path, "2014.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',
@@ -41,7 +41,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image3(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "15peaks.tif", 0)
+        bio_image = BioImage(dir_path, "15peaks.tif")
         settings = {
             'nPeaks' : 15,
             'model' : 'Voigt',
@@ -57,7 +57,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image4(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "2016_1.tif", 0)
+        bio_image = BioImage(dir_path, "2016_1.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',
@@ -73,7 +73,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image5(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "2016_2.tif", 0)
+        bio_image = BioImage(dir_path, "2016_2.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',
@@ -89,7 +89,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image6(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "2016_3.tif", 0)
+        bio_image = BioImage(dir_path, "2016_3.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',
@@ -105,7 +105,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image7(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "2016_4.tif", 0)
+        bio_image = BioImage(dir_path, "2016_4.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',
@@ -121,7 +121,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image8(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "venus8int.tif", 0)
+        bio_image = BioImage(dir_path, "venus8int.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',
@@ -137,7 +137,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_bio_image9(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
-        bio_image = BioImage(dir_path, "venus32int.tif", 0)
+        bio_image = BioImage(dir_path, "venus32int.tif")
         settings = {
             'nPeaks' : 2,
             'model' : 'Voigt',

@@ -37,8 +37,8 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 from os.path import isfile, exists
 from os import makedirs
-from ..bio_utils.file_manager import fullPath, getStyleSheet
-from ..bio_utils.image_processor import *
+from ..utils.file_manager import fullPath, getStyleSheet
+from ..utils.image_processor import *
 import musclex
 
 class CalibrationSettings(QtGui.QDialog):

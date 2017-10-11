@@ -27,7 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 from os.path import exists
 import pandas as pd
-from ..bio_utils.file_manager import fullPath, createFolder
+from ..utils.file_manager import fullPath, createFolder
 
 class LL_CVSManager:
     """
@@ -55,10 +55,17 @@ class LL_CVSManager:
         self.colnames = ["Filename"]
         for box_number in boxes.keys():
             if peaks.has_key(box_number):
-                self.colnames.append("L" + str(box_number) + " Meridian Sigma")
-                self.colnames.append("L" + str(box_number) + " Meridian Amplitude")
+                self.colnames.append("Layer Line " + str(box_number) + " Meridian Sigma")
+                self.colnames.append("Layer Line " + str(box_number) + " Meridian Area")
                 for i in range(len(peaks[box_number])):
-                    self.colnames.append("L" + str(box_number) + " Centroid " + str(i))
+                    self.colnames.append("Layer Line " + str(box_number) + " Centroid " + str(i) + " (Pixel)")
+                    self.colnames.append("Layer Line " + str(box_number) + " Centroid " + str(i) + " (nn)")
+                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Peak " + str(i) + " (Pixel)")
+                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Peak " + str(i) + " (nn)")
+                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Sigma " + str(i))
+                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Area " + str(i))
+                self.colnames.append("Layer Line " + str(box_number) + " error")
+                self.colnames.append("Layer Line " + str(box_number) + " comments")
 
     def loadSummary(self):
         """
@@ -88,12 +95,21 @@ class LL_CVSManager:
         for bn in box_numbers:
             if info.has_key('fit_results') and info['fit_results'].has_key(bn):
                 model = info['fit_results'][bn]
-                new_data['L' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
-                new_data['L' + str(bn) + ' Meridian Amplitude'] = model['center_amplitude2']
-            if info.has_key('centroids') and info['centroids'].has_key(bn):
-                centroids = info['centroids'][bn]
-                for i,c in enumerate(centroids):
-                    new_data['L'+str(bn)+" Centroid "+str(i)] = c
+                new_data['Layer Line ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
+                new_data['Layer Line ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
+                if info.has_key('centroids') and info['centroids'].has_key(bn):
+                    centroids = info['centroids'][bn]
+                    for i,c in enumerate(centroids):
+                        new_data['Layer Line ' + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
+                        new_data["Layer Line " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
+                        new_data["Layer Line " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
+                        new_data["Layer Line " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
+                        if info.has_key('lambda_sdd'):
+                            new_data['Layer Line ' + str(bn) + " Centroid " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/c
+                            new_data["Layer Line " + str(bn) + " Gaussian Peak " + str(i) + " (nn)"] = 1. * info['lambda_sdd'] / model['p_' + str(i)]
+                new_data["Layer Line " + str(bn) + " error"] = model['error']
+                if model['error'] > 0.15:
+                    new_data["Layer Line " + str(bn) + " comments"] = "High fitting error"
 
         self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True)
         self.dataframe.reset_index()

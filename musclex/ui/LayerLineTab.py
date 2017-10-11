@@ -30,7 +30,7 @@ from PyQt4 import QtCore, QtGui
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 import numpy as np
-from ..biocat_modules.LayerLineProcessor import layerlineModel, layerlineModelBackground
+from ..modules.LayerLineProcessor import layerlineModel, layerlineModelBackground
 
 class LayerLineTab(QtGui.QWidget):
     """
@@ -68,16 +68,16 @@ class LayerLineTab(QtGui.QWidget):
         self.displayOptionsGroup = QtGui.QGroupBox("Display Options")
         self.dispOptLayout = QtGui.QGridLayout(self.displayOptionsGroup)
 
-        self.histChkBx = QtGui.QCheckBox("Histogram")
+        self.histChkBx = QtGui.QCheckBox("Original Histogram")
         self.histChkBx.setChecked(True)
         self.fitmodelChkBx = QtGui.QCheckBox("Fitting Model")
-        self.fitmodelChkBx.setChecked(True)
+        self.fitmodelChkBx.setChecked(False)
         self.bgChkBx = QtGui.QCheckBox("Fitting Background")
         self.bgChkBx.setChecked(True)
         self.peaksChkBx = QtGui.QCheckBox("Model Peaks")
-        self.peaksChkBx.setChecked(True)
+        self.peaksChkBx.setChecked(False)
         self.centerChkBx = QtGui.QCheckBox("Center")
-        self.centerChkBx.setChecked(True)
+        self.centerChkBx.setChecked(False)
         self.subHistChkBx = QtGui.QCheckBox("Subtracted Histogram")
         self.subHistChkBx.setChecked(True)
         self.baselineChkBx = QtGui.QCheckBox("Baselines")
@@ -177,23 +177,29 @@ class LayerLineTab(QtGui.QWidget):
             return
 
         x = event.xdata
+        y = event.ydata
 
         func = self.function
 
         if func[0] == 'peaks':
             peaks = func[1]
             box = self.parent.layerlineboxes[self.num]
-            centerx = self.parent.layerProc.orig_img.shape[1] / 2 - box[0][0]
-            distance = int(round(abs(centerx - x)))
+            type = self.parent.boxtypes[self.num]
+            if type == 'h':
+                center = self.parent.layerProc.orig_img.shape[1] / 2 - box[0][0]
+            else:
+                center = self.parent.layerProc.orig_img.shape[0] / 2 - box[1][0]
+
+            distance = int(round(abs(center - x)))
             peaks.append(distance)
 
             ax = self.graphFigure1.add_subplot(111)
-            ax.axvline(centerx + distance, color='#ff630a', linewidth=5)
-            ax.axvline(centerx - distance, color='#ff630a', linewidth=5)
+            ax.axvline(center + distance, color='#ff630a', linewidth=2)
+            ax.axvline(center - distance, color='#ff630a', linewidth=2)
 
             ax = self.graphFigure2.add_subplot(111)
-            ax.axvline(centerx + distance, color='#ff630a', linewidth=5)
-            ax.axvline(centerx - distance, color='#ff630a', linewidth=5)
+            ax.axvline(center + distance, color='#ff630a', linewidth=2)
+            ax.axvline(center - distance, color='#ff630a', linewidth=2)
 
             self.graphCanvas1.draw_idle()
             self.graphCanvas2.draw_idle()
@@ -288,8 +294,8 @@ class LayerLineTab(QtGui.QWidget):
                 ax2.plot(subtracted_hists[num], color='k')
 
             if self.centerChkBx.isChecked():
-                ax.axvline(model['centerX'], color='y', alpha=0.7)
-                ax2.axvline(model['centerX'], color='y', alpha=0.7)
+                ax.axvline(model['centerX'], color='c', alpha=0.7)
+                ax2.axvline(model['centerX'], color='c', alpha=0.7)
 
             if self.peaksChkBx.isChecked():
                 i = 0

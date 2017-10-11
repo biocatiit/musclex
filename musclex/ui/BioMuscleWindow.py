@@ -36,9 +36,9 @@ from os.path import split
 import traceback
 import webbrowser
 from ..CalibrationSettings import CalibrationSettings
-from ..bio_utils.file_manager import fullPath, getImgFiles, getStyleSheet
-from ..biocat_modules.BioImage import BioImage, getCardiacGraph
-from ..bio_utils.image_processor import *
+from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet
+from ..modules.BioImage import BioImage, getCardiacGraph
+from ..utils.image_processor import *
 from ..csv_manager import BM_CVSManager
 from ..ui.BM_FittingTab import BM_FittingTab
 import musclex

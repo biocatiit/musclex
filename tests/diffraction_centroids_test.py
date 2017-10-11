@@ -1,12 +1,12 @@
 __author__ = 'Jiranun.J'
 
 import unittest
-from biocat_modules.DiffractionCentroids import DiffractionCentroids
+from musclex.modules.DiffractionCentroids import DiffractionCentroids
 import os
 
 
 class MyTestCase(unittest.TestCase):
-
+# class MyTestCase():
     def test_diff_cent1(self):
         dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
         fixed_ranges = [('p1', (25, 35)), ('p2', (50, 60)), ('p3', (80, 85))]

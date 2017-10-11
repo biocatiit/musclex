@@ -38,8 +38,8 @@ from matplotlib.collections import PatchCollection
 import h5py
 import logging
 import argparse
-from ..bio_utils.file_manager import *
-from ..biocat_modules.CircularProjection import *
+from ..utils.file_manager import *
+from ..modules.CircularProjection import *
 from ..CalibrationSettings import CalibrationSettings
 import musclex
 

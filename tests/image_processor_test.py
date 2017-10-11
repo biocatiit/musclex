@@ -1,7 +1,7 @@
 __author__ = 'Jiranun.J'
 
 import unittest
-from bio_utils.image_processor import *
+from musclex.utils.image_processor import *
 import os
 import fabio
 
