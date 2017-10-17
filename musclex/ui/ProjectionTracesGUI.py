@@ -31,12 +31,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as patches
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFolder
-from ..modules.LayerLineProcessor import LayerLineProcessor
-from ..ui.LayerLineTab import LayerLineTab
+from ..modules.ProjectionProcessor import ProjectionProcessor
+from ..ui.ProjectionBoxTab import ProjectionBoxTab
 from ..utils.image_processor import getBGR, get8bitImage, getNewZoom
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from ..CalibrationSettings import CalibrationSettings
-from ..csv_manager import LL_CVSManager
+from ..csv_manager import PT_CVSManager
 import sys
 import traceback
 import musclex
@@ -44,24 +44,24 @@ import copy
 from os.path import exists
 import pickle
 
-class LayerLineTracesGUI(QtGui.QMainWindow):
+class ProjectionTracesGUI(QtGui.QMainWindow):
     """
-    This class is for Layer Line Processor GUI Object
+    This class is for Projection Traces GUI Object
     """
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.setWindowTitle("Muscle X Projection v." + musclex.__version__)
+        self.setWindowTitle("Projection Traces v." + musclex.__version__)
         self.current_file = 0
         self.dir_path = ""
         self.calSettings = None
         self.update_plot = {'img':True}
         self.imgList = []
-        self.layerProc = None
+        self.projProc = None
         self.syncUI = False
         self.csvManager = None
         self.img_zoom = None
         self.function = None
-        self.layerlineboxes = {}
+        self.allboxes = {}
         self.boxtypes = {}
         self.peaks = {}
         self.setStyleSheet(getStyleSheet())
@@ -125,15 +125,15 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # self.propLayout.addWidget(self.lockAngleSpnBx, 4, 1, 1, 1)
 
         # Box selection
-        self.layerlineBoxGrp = QtGui.QGroupBox("3. Add boxes")
-        self.layerlineBoxGrp.setEnabled(False)
-        self.layerlineBoxLayout = QtGui.QVBoxLayout(self.layerlineBoxGrp)
+        self.boxGrp = QtGui.QGroupBox("3. Add boxes")
+        self.boxGrp.setEnabled(False)
+        self.boxesLayout = QtGui.QVBoxLayout(self.boxGrp)
         self.addBoxButton = QtGui.QPushButton("Add Boxes")
         self.addBoxButton.setCheckable(True)
         self.clearBoxButton = QtGui.QPushButton('Clear All Boxes')
         self.checkableButtons.append(self.addBoxButton)
-        self.layerlineBoxLayout.addWidget(self.addBoxButton)
-        self.layerlineBoxLayout.addWidget(self.clearBoxButton)
+        self.boxesLayout.addWidget(self.addBoxButton)
+        self.boxesLayout.addWidget(self.clearBoxButton)
 
         # Peaks Selection
         self.selectPeaksGrp = QtGui.QGroupBox("4. Peaks")
@@ -148,7 +148,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.leftFrameLayout.addSpacing(10)
         self.leftFrameLayout.addWidget(self.propGrp)
         self.leftFrameLayout.addSpacing(10)
-        self.leftFrameLayout.addWidget(self.layerlineBoxGrp)
+        self.leftFrameLayout.addWidget(self.boxGrp)
         self.leftFrameLayout.addSpacing(10)
         self.leftFrameLayout.addWidget(self.selectPeaksGrp)
         self.leftFrameLayout.addStretch()
@@ -161,7 +161,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.dispOptGrp = QtGui.QGroupBox("Display Options")
         self.dispOptLayout = QtGui.QGridLayout(self.dispOptGrp)
 
-        self.boxesChkBx = QtGui.QCheckBox("Layer Line Boxes")
+        self.boxesChkBx = QtGui.QCheckBox("Boxes")
         self.boxesChkBx.setChecked(True)
         self.peaksChkBx = QtGui.QCheckBox("Peaks")
         self.peaksChkBx.setChecked(True)
@@ -195,13 +195,18 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.processFolderButton = QtGui.QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
 
+        # Export 1-D Projections
+        self.exportChkBx = QtGui.QCheckBox("Export all 1-D Projections")
+        self.exportChkBx.setChecked(True)
+
         # next previos buttons
         self.nextButton = QtGui.QPushButton(">>>")
         self.prevButton = QtGui.QPushButton("<<<")
         self.bottomLayout = QtGui.QGridLayout()
-        self.bottomLayout.addWidget(self.processFolderButton, 0, 0, 1, 2)
-        self.bottomLayout.addWidget(self.prevButton, 1, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextButton, 1, 1, 1, 1)
+        self.bottomLayout.addWidget(self.exportChkBx, 0, 0, 1, 2)
+        self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
+        self.bottomLayout.addWidget(self.prevButton, 2, 0, 1, 1)
+        self.bottomLayout.addWidget(self.nextButton, 2, 1, 1, 1)
 
         self.rightFrameLayout.addWidget(self.dispOptGrp)
         self.rightFrameLayout.addStretch()
@@ -268,6 +273,10 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # select peaks
         self.selectPeaksButton.clicked.connect(self.addPeaks)
 
+        # Export 1-D Projections checkbox
+        self.exportChkBx.stateChanged.connect(self.exportHistograms)
+
+        # Process Folder button
         self.processFolderButton.clicked.connect(self.processFolder)
 
         self.prevButton.clicked.connect(self.prevClicked)
@@ -284,7 +293,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         Triggered when calibration settings button pressed
         """
         success = self.launchCalibrationSettings(force=True)
-        if self.layerProc is not None and success:
+        if self.projProc is not None and success:
             self.processImage()
 
 
@@ -346,10 +355,10 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
     def addPeaks(self):
         """
-        Triggered when Add a Layer Line Box pressed
+        Triggered when Add a Box pressed
         :return:
         """
-        if self.layerProc is None:
+        if self.projProc is None:
             self.selectPeaksButton.setChecked(False)
             return
 
@@ -360,7 +369,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
                 self.setLeftStatus(
                     "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)")
                 peaks = {}
-                for num in self.layerlineboxes.keys():
+                for num in self.allboxes.keys():
                     peaks[num] = []
                 self.function = ['peaks', peaks]
                 ax = self.displayImgFigure.add_subplot(111)
@@ -386,8 +395,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         settings = self.getSettings()
 
         text += "\nCurrent Settings"
-        for bn in self.layerlineboxes.keys():
-            text += "\n\n  - Box "+str(bn)+" : " + str(self.layerlineboxes[bn])
+        for bn in self.allboxes.keys():
+            text += "\n\n  - Box "+str(bn)+" : " + str(self.allboxes[bn])
             text += "\n     - Peaks : "
             if self.peaks.has_key(bn):
                 text += str(self.peaks[bn])
@@ -413,7 +422,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             self.progressBar.setVisible(False)
 
     def clearBoxes(self):
-        self.layerlineboxes = {}
+        self.allboxes = {}
         self.boxtypes = {}
         self.peaks = {}
         self.removeAllTabs()
@@ -421,10 +430,10 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
     def addABox(self):
         """
-        Triggered when Add a Layer Line Box pressed
+        Triggered when Add a Box pressed
         :return:
         """
-        if self.layerProc is None:
+        if self.projProc is None:
             self.addBoxButton.setChecked(False)
             return
 
@@ -434,9 +443,12 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
                 self.addBoxButton.setText("Done")
                 self.setLeftStatus("Add a box to the image by drawing a rectangles (ESC to cancel)")
                 self.function = ['box']
-                # self.clearImage()
+                ax = self.displayImgFigure.add_subplot(111)
+                ax.lines = []
+                self.displayImgCanvas.draw_idle()
             else:
                 self.addBoxButton.setChecked(False)
+                self.function = None
                 return
 
     def keyPressEvent(self, event):
@@ -487,7 +499,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             widget = self.tabWidget.widget(index)
             if widget is not None:
                 num = widget.num
-                del self.layerlineboxes[num]
+                del self.allboxes[num]
                 del self.boxtypes[num]
                 if self.peaks.has_key(num):
                     del self.peaks[num]
@@ -497,7 +509,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
     def removeAllTabs(self):
         """
-        Remove old layer line tabs
+        Remove old box tabs
         :return:
         """
         while self.tabWidget.count() > 1:
@@ -505,20 +517,20 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
     def addBoxTabs(self):
         """
-        Add old layer line tabs
+        Add old box tabs
         :return:
         """
         self.removeAllTabs()
 
-        for i in self.layerlineboxes.keys():
-            layerline_tab = LayerLineTab(self, i)
-            self.tabWidget.addTab(layerline_tab, "Box "+str(i))
+        for i in self.allboxes.keys():
+            proj_tab = ProjectionBoxTab(self, i)
+            self.tabWidget.addTab(proj_tab, "Box "+str(i))
 
     def imgClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
         """
-        if self.layerProc is None:
+        if self.projProc is None:
             return
 
         x = event.xdata
@@ -556,24 +568,25 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
                 y1 = int(round(min(points[0][1], points[1][1])))
                 x2 = int(round(max(points[0][0], points[1][0])))
                 y2 = int(round(max(points[0][1], points[1][1])))
-                if len(self.layerlineboxes) > 0:
-                    num = max(self.layerlineboxes.keys()) + 1
+                if len(self.allboxes) > 0:
+                    num = max(self.allboxes.keys()) + 1
                 else:
                     num = 1
-                self.layerlineboxes[num] = ((x1, x2), (y1, y2))
+                self.allboxes[num] = ((x1, x2), (y1, y2))
                 w = abs(x1-x2)
                 h = abs(y1-y2)
                 self.boxtypes[num] = 'h' if w >= h else 'v'
+                self.function = None
                 self.addBoxTabs()
                 self.processImage()
         elif func[0] == "peaks":
             peaks = func[1]
-            if len(self.layerlineboxes.keys()) > 0:
+            if len(self.allboxes.keys()) > 0:
                 ax = self.displayImgFigure.add_subplot(111)
-                centerx = self.layerProc.orig_img.shape[1] / 2.
-                centery = self.layerProc.orig_img.shape[0] / 2.
-                for num in self.layerlineboxes.keys():
-                    box = self.layerlineboxes[num]
+                centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
+                centery = self.projProc.orig_img.shape[0] / 2. - 0.5
+                for num in self.allboxes.keys():
+                    box = self.allboxes[num]
                     boxx = box[0]
                     boxy = box[1]
                     if boxx[0] <= x <= boxx[1] and boxy[0] <= y <= boxy[1]:
@@ -606,13 +619,13 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         Triggered when mouse hovers on image in image tab
         """
-        if self.layerProc is None:
+        if self.projProc is None:
             return
 
         x = event.xdata
         y = event.ydata
 
-        img = self.layerProc.orig_img
+        img = self.projProc.orig_img
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
@@ -662,20 +675,27 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "box":
-            # draw rectangle
-            if len(func) != 2:
-                return
-            ax = self.displayImgFigure.add_subplot(111)
-            if len(ax.patches) > 0:
-                ax.patches = ax.patches[:len(self.layerlineboxes.keys())]
-            start_pt = func[-1]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-            self.displayImgCanvas.draw_idle()
+            if len(func) == 1:
+                # cross lines
+                ax = self.displayImgFigure.add_subplot(111)
+                ax.lines = []
+                ax.axhline(y, color='y', linestyle='dotted')
+                ax.axvline(x, color='y', linestyle='dotted')
+                self.displayImgCanvas.draw_idle()
+            elif len(func) == 2:
+                # draw rectangle
+                ax = self.displayImgFigure.add_subplot(111)
+                if len(ax.patches) > 0:
+                    ax.patches = ax.patches[:len(self.allboxes.keys())]
+                ax.lines = []
+                start_pt = func[-1]
+                w = abs(start_pt[0] - x)
+                h = abs(start_pt[1] - y)
+                x = min(start_pt[0], x)
+                y = min(start_pt[1], y)
+                ax.add_patch(patches.Rectangle((x, y), w, h,
+                                               linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+                self.displayImgCanvas.draw_idle()
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
@@ -704,13 +724,13 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out
         """
-        if self.layerProc is None or event.xdata is None or event.ydata is None:
+        if self.projProc is None or event.xdata is None or event.ydata is None:
             return
 
         direction = event.button
         x = event.xdata
         y = event.ydata
-        img_size = self.layerProc.orig_img.shape
+        img_size = self.projProc.orig_img.shape
 
         if self.img_zoom is None:
             # init values if it's None
@@ -765,7 +785,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
     #     """
     #     Prepare for manual rotation angle and center setting
     #     """
-    #     if self.layerProc is None:
+    #     if self.projProc is None:
     #         return
     #
     #     if self.setRotAndCentB.isChecked():
@@ -784,7 +804,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
     #     """
     #     Prepare for manual rotation angle setting
     #     """
-    #     if self.layerProc is None:
+    #     if self.projProc is None:
     #         return
     #
     #     if self.setAngleB.isChecked():
@@ -807,16 +827,16 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
     def onImageSelect(self, fullfilename):
         self.dir_path, self.imgList, self.current_file = getImgFiles(fullfilename)
         self.propGrp.setEnabled(True)
-        self.layerlineBoxGrp.setEnabled(True)
+        self.boxGrp.setEnabled(True)
         cache = self.loadBoxesAndPeaks()
         if cache is not None:
-            self.layerlineboxes = cache['boxes']
+            self.allboxes = cache['boxes']
             self.peaks = cache['peaks']
             self.boxtypes = cache['boxtypes']
         else:
-            self.layerlineboxes = {}
+            self.allboxes = {}
             self.peaks = {}
-        self.csvManager = LL_CVSManager(self.dir_path, self.layerlineboxes, self.peaks)
+        self.csvManager = PT_CVSManager(self.dir_path, self.allboxes, self.peaks)
         self.addBoxTabs()
         self.selectPeaksGrp.setEnabled(False)
         self.onImageChanged()
@@ -827,22 +847,22 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         This will create a new BioImage object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        self.layerProc = LayerLineProcessor(self.dir_path, self.imgList[self.current_file])
-        # self.initSpinBoxes(self.layerProc.info)
-        self.initMinMaxIntensities(self.layerProc)
+        self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file])
+        # self.initSpinBoxes(self.projProc.info)
+        self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
         self.refreshStatusbar()
 
         # Process new image
         self.processImage()
 
-    def initMinMaxIntensities(self, layerProc):
+    def initMinMaxIntensities(self, projProc):
         """
         Set preference for image min & max intesity spinboxes, and initial their value
-        :param layerProc: current layer line Processor object
+        :param projProc: current Projection Processor object
         :return:
         """
-        img = layerProc.orig_img
+        img = projProc.orig_img
         self.syncUI = True
         self.minIntSpnBx.setMinimum(img.min())
         self.minIntSpnBx.setMaximum(img.max())
@@ -855,9 +875,9 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.maxIntSpnBx.setSingleStep(step)
 
         # use cached values if they're available
-        if "minInt" in self.layerProc.info and "maxInt" in self.layerProc.info:
-            self.minIntSpnBx.setValue(self.layerProc.info["minInt"])
-            self.maxIntSpnBx.setValue(self.layerProc.info["maxInt"])
+        if "minInt" in self.projProc.info and "maxInt" in self.projProc.info:
+            self.minIntSpnBx.setValue(self.projProc.info["minInt"])
+            self.maxIntSpnBx.setValue(self.projProc.info["maxInt"])
         else:
             if self.maxIntSpnBx.value() == 0:
                 self.minIntSpnBx.setValue(0)  # init min intensity as min value
@@ -869,13 +889,13 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         Process Image by getting all settings and call process() of BioImage object
         Then, write data and update UI
         """
-        if self.layerProc is None:
+        if self.projProc is None:
             return
-        QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         QtGui.QApplication.processEvents()
         settings = self.getSettings()
         try:
-            self.layerProc.process(settings)
+            self.projProc.process(settings)
         except Exception, e:
             QtGui.QApplication.restoreOverrideCursor()
             errMsg = QtGui.QMessageBox()
@@ -889,28 +909,53 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.csvManager.writeNewData(self.layerProc)
+        # self.csvManager.writeNewData(self.projProc)
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
-        self.csvManager.setColumnNames(self.layerlineboxes, self.peaks)
-        self.csvManager.writeNewData(self.layerProc)
+        self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        self.csvManager.writeNewData(self.projProc)
+        self.exportHistograms()
         QtGui.QApplication.restoreOverrideCursor()
+
+    def exportHistograms(self):
+        """
+        Export both original histograms and background subtracted histograms if Export All Projections is checked
+        :return:
+        """
+        if self.exportChkBx.isChecked() and self.projProc:
+            path = fullPath(self.dir_path,'/pt_results/1d_projections')
+            createFolder(path)
+            orig_hists = self.projProc.info['hists']
+            subtr_hists = self.projProc.info['subtracted_hists']
+
+            for k in orig_hists.keys():
+                hist = orig_hists[k]
+                xs = np.arange(len(hist))
+                f = open(fullPath(path, 'box_'+str(k)+'_original.txt'), 'w')
+                coords = zip(xs, hist)
+                f.write("\n".join(map(lambda c : str(c[0])+"\t"+str(c[1]), coords)))
+                if subtr_hists.has_key(k):
+                    sub_hist = subtr_hists[k]
+                    f = open(fullPath(path, 'box_' + str(k) + '_subtracted.txt'), 'w')
+                    coords = zip(xs, sub_hist)
+                    f.write("\n".join(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords)))
+
 
     def cacheBoxesAndPeaks(self):
         cache = {
-            'boxes' : self.layerlineboxes,
+            'boxes' : self.allboxes,
             'peaks' : self.peaks,
             'boxtypes' : self.boxtypes
         }
 
-        cache_dir = fullPath(self.dir_path, 'll_cache')
+        cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, 'boxes_peaks.info')
         pickle.dump(cache, open(cache_file, "wb"))
 
     def loadBoxesAndPeaks(self):
-        cache_file = fullPath(fullPath(self.dir_path, 'll_cache'), 'boxes_peaks.info')
+        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_peaks.info')
         if exists(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
             if cache is not None:
@@ -920,8 +965,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
     def getSettings(self):
         settings = {}
 
-        # add layer line boxes
-        settings['boxes'] = self.layerlineboxes
+        # add boxes
+        settings['boxes'] = self.allboxes
 
         # add box types
         settings['types'] = self.boxtypes
@@ -943,11 +988,11 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         Set Right status bar to by image shape and type
         Clear pixel detail
         """
-        if self.layerProc is None:
+        if self.projProc is None:
             return
         self.setLeftStatus( "(" + str(self.current_file + 1) + "/" + str(len(self.imgList)) + ") " + fullPath(self.dir_path,
-                                                                                            self.layerProc.filename))
-        img = self.layerProc.orig_img
+                                                                                            self.projProc.filename))
+        img = self.projProc.orig_img
         self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
         self.pixel_detail.setText("")
         QtGui.QApplication.processEvents()
@@ -971,7 +1016,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         # self.graph_zoom = None
         QtGui.QApplication.restoreOverrideCursor()
         self.selectPeaksButton.setText("Select Approximate Peak Locations")
-        self.addBoxButton.setText("Add a Layer Line Box")
+        self.addBoxButton.setText("Add A Box")
 
         for b in self.checkableButtons:
             b.setChecked(False)
@@ -984,7 +1029,7 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         self.updateUI()
 
     def updateUI(self):
-        if self.layerProc is not None and not self.syncUI:
+        if self.projProc is not None and not self.syncUI:
             ind = self.tabWidget.currentIndex()
             if ind == 0:
                 # if image tab is selected
@@ -997,20 +1042,20 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
         """
         Draw all UI in image tab
         """
-        if self.layerProc is None or self.syncUI or not self.update_plot['img']:
+        if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
 
-        img = self.layerProc.orig_img
+        img = self.projProc.orig_img
         img = getBGR(get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value()))
         ax = self.displayImgFigure.add_subplot(111)
         ax.cla()
         ax.imshow(img)
 
-        if len(self.layerlineboxes.keys()) > 0:
+        if len(self.allboxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
-                for num in self.layerlineboxes.keys():
-                    b = self.layerlineboxes[num]
+                for num in self.allboxes.keys():
+                    b = self.allboxes[num]
                     x = b[0][0]
                     y = b[1][0]
                     w = b[0][1] - b[0][0]
@@ -1018,8 +1063,8 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
                     if self.boxtypes[num] == 'h':
                         ax.add_patch(patches.Rectangle((x, y), w, h,
-                                                       linewidth=1, edgecolor='g', facecolor='none'))
-                        ax.text(x + w + 10, y + h / 2., str(num), color='g', fontsize=10, horizontalalignment='left', verticalalignment='center')
+                                                       linewidth=1, edgecolor='#95f70c', facecolor='none'))
+                        ax.text(x + w + 10, y + h / 2., str(num), color='#95f70c', fontsize=10, horizontalalignment='left', verticalalignment='center')
                     else:
                         ax.add_patch(patches.Rectangle((x, y), w, h,
                                                        linewidth=1, edgecolor='y', facecolor='none'))
@@ -1028,15 +1073,15 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 
             if self.peaksChkBx.isChecked():
                 for num in self.peaks.keys():
-                    centerx = self.layerProc.orig_img.shape[1]/2.
-                    centery = self.layerProc.orig_img.shape[0] / 2.
+                    centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
+                    centery = self.projProc.orig_img.shape[0] / 2. - 0.5
                     for p in self.peaks[num]:
                         if self.boxtypes[num] == 'h':
-                            ax.plot((centerx - p, centerx - p), self.layerlineboxes[num][1], color='m')
-                            ax.plot((centerx + p, centerx + p), self.layerlineboxes[num][1], color='m')
+                            ax.plot((centerx - p, centerx - p), self.allboxes[num][1], color='m')
+                            ax.plot((centerx + p, centerx + p), self.allboxes[num][1], color='m')
                         else:
-                            ax.plot(self.layerlineboxes[num][0], (centery - p, centery - p), color='r')
-                            ax.plot(self.layerlineboxes[num][0], (centery + p, centery + p), color='r')
+                            ax.plot(self.allboxes[num][0], (centery - p, centery - p), color='r')
+                            ax.plot(self.allboxes[num][0], (centery + p, centery + p), color='r')
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -1057,9 +1102,9 @@ class LayerLineTracesGUI(QtGui.QMainWindow):
 #
 #     def childWindowClosed(self, quadFold):
 #         fold = quadFold.info['avg_fold']
-#         self.layerProc.orig_img = quadFold.imgCache['resultImg']
-#         self.layerProc.info['center'] = (fold.shape[1], fold.shape[0])
-#         self.layerProc.info['rotationAngle'] = 0
+#         self.projProc.orig_img = quadFold.imgCache['resultImg']
+#         self.projProc.info['center'] = (fold.shape[1], fold.shape[0])
+#         self.projProc.info['rotationAngle'] = 0
 #         self.qf = None
 #         self.img_zoom = None
 #         self.resetUI()

@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 import copy
 import cv2
 import numpy as np
-import cv2.cv as cv
+# import cv2.cv as cv
 import pyFAI
 from skimage.morphology import white_tophat
 
@@ -153,6 +153,12 @@ def getBGR(img):
     copy_img = cv2.resize(copy_img, (int(copy_img.shape[1]), int(copy_img.shape[0])))
     return cv2.cvtColor(copy_img, cv2.COLOR_GRAY2BGR)
 
+def getContours(img, n1=1, n2=2):
+    ret = cv2.findContours(img, n1, n2)
+    if len(ret) == 3:
+        return ret[1]
+    if len(ret) == 2:
+        return ret[0]
 
 def getCenter(img):
     """
@@ -168,7 +174,7 @@ def getCenter(img):
     cimg = bkImg(copy.copy(img), 0.005, 50)
     # display_test(cimg, "threshold")
 
-    contours, _ = cv2.findContours(cimg, 1, 2)
+    contours = getContours(cimg)
     cnt = max(contours, key=lambda c: len(c))
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)
@@ -181,7 +187,7 @@ def getCenter(img):
     ## Find center by apply thresholding and fit ellipse to the contour of reflections and find the average center of reflections
     if init_center is not None:
         cimg = thresholdImg(copy.copy(img), 0.00015)
-        contours, _ = cv2.findContours(cimg, 1, 2)
+        contours = getContours(cimg)
 
         # Find 2 biggest contours (reflections)
         cnts = sorted(contours, key=lambda c: len(c), reverse=True)[:6]
@@ -244,8 +250,8 @@ def getCenter(img):
 
     # Find Center by fitting circle in the image
     cimg = bkImg(copy.copy(img), 0.0015, 50)
-    circles = cv2.HoughCircles(cimg, cv.CV_HOUGH_GRADIENT, 1, 100,
-                               param1=60, param2=20, minRadius=0, maxRadius=0)
+    circles = cv2.HoughCircles(cimg, 3 , 1, 100,
+                               param1=60, param2=20, minRadius=0, maxRadius=0) # 3 = cv2.HOUGH_GRADIENT
     if circles is not None:
         return (circles[0][0][0], circles[0][0][1])
 
@@ -265,7 +271,7 @@ def getRotationAngle(img, center):
     cimg = cv2.GaussianBlur(cimg, (5, 5), 0)
     cimg = bkImg(copy.copy(cimg), 0.005, 50)
     init_angle = None
-    contours, _ = cv2.findContours(cimg, 1, 2)
+    contours = getContours(cimg)
     cnt = max(contours, key=lambda c: len(c))
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)

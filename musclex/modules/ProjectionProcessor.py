@@ -38,7 +38,7 @@ import copy
 import numpy as np
 from sklearn.metrics import r2_score
 
-class LayerLineProcessor():
+class ProjectionProcessor():
     def __init__(self, dir_path, file_name):
         self.dir_path = dir_path
         self.filename = file_name
@@ -115,7 +115,7 @@ class LayerLineProcessor():
 
     def process(self, settings = {}):
         """
-        All processing steps - all settings are provided by Layer Line Traces app as a dictionary
+        All processing steps - all settings are provided by Projection Traces app as a dictionary
         """
         self.updateSettings(settings)
         self.getHistograms()
@@ -210,10 +210,10 @@ class LayerLineProcessor():
 
             # Init Center X
             if self.info['types'][num] == 'h':
-                init_center = self.orig_img.shape[1] / 2 - start_x
+                init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
             else:
-                init_center = self.orig_img.shape[0] / 2 - start_y
-            params.add('centerX', init_center, min=init_center - 5., max=init_center + 5.)
+                init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
+            params.add('centerX', init_center, min=init_center - 1., max=init_center + 1.)
 
             # Init background params
             params.add('bg_sigma', len(hist)/3., min=0, max=len(hist)*2+1.)
@@ -229,10 +229,10 @@ class LayerLineProcessor():
 
             # Init peaks params
             for j,p in enumerate(peaks):
-                params.add('p_' + str(j), p, min=p - 10, max=p + 10)
+                params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
                 params.add('sigma' + str(j), 10, min=1, max=50)
                 params.add('amplitude' + str(j), sum(hist)/20., min=0., max=sum(hist)/3. + 1)
-                params.add('gamma' + str(j), 0. , min=-3., max=3)
+                # params.add('gamma' + str(j), 0. , min=-3., max=3)
 
             # Fit model
             model = Model(layerlineModel, independent_vars=int_vars.keys())
@@ -251,7 +251,7 @@ class LayerLineProcessor():
                 model['error'] = 1. - r2_score(hist, layerlineModel(x, **result.values))
                 self.info['fit_results'][num] = model
 
-                print "Layer line :", num
+                print "Box :", num
                 print "Fitting Result :", result.values
                 print "Fitting Error :", model['error']
                 print "---"
@@ -428,58 +428,93 @@ def layerlineModel(x, centerX, bg_sigma, bg_amplitude, center_sigma1, center_amp
     :param centerX: center of x axis
     :param bg_sigma: background sigma
     :param bg_amplitude: background amplitude
-    :param center_sigma1: meridian background sigma 1
-    :param center_amplitude1: meridian background amplitude 1
-    :param center_sigma2: meridian background sigma 2
-    :param center_amplitude2: meridian background amplitude 2
-    :param kwargs:
+    :param center_sigma1: meridian background sigma
+    :param center_amplitude1: meridian background amplitude
+    :param center_sigma2: meridian sigma
+    :param center_amplitude2: meridian amplitude
+    :param kwargs: other peaks properties
     :return:
     """
 
     #### Background and Meridian
     result = layerlineModelBackground(x, centerX, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2)
-
     #### Other peaks
     # mod = SkewedGaussianModel()
-    # mod = GaussianModel()
-    mod = VoigtModel()
+
     i = 0
     while 'p_'+str(i) in kwargs:
         p = kwargs['p_'+str(i)]
         sigma = kwargs['sigma'+str(i)]
         amplitude = kwargs['amplitude' + str(i)]
-        # result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma)
-        # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
-        gamma = kwargs['gamma' + str(i)]
-        result += mod.eval(x=x, amplitude=amplitude, center=centerX+p, sigma=sigma, gamma=gamma)
-        result += mod.eval(x=x, amplitude=amplitude, center=centerX-p, sigma=sigma, gamma=-gamma)
+        if kwargs.has_key('gamma' + str(i)):
+            gamma = kwargs['gamma' + str(i)]
+
+            mod = VoigtModel()
+            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma, gamma=gamma)
+            result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma, gamma=-gamma)
+        else:
+            mod = GaussianModel()
+            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma)
+            result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
+
         i += 1
 
     return result
 
 def layerlineModelBackground(x, centerX, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2, **kwargs):
     """
-    Model for background of layer line pattern
+    Model for fitting layer line pattern
     :param x: x axis
     :param centerX: center of x axis
     :param bg_sigma: background sigma
     :param bg_amplitude: background amplitude
-    :param center_sigma1: meridian background sigma 1
-    :param center_amplitude1: meridian background amplitude 1
-    :param center_sigma2: meridian background sigma 2
-    :param center_amplitude2: meridian background amplitude 2
+    :param center_sigma1: meridian background sigma
+    :param center_amplitude1: meridian background amplitude
+    :param center_sigma2: meridian sigma
+    :param center_amplitude2: meridian amplitude
+    :param kwargs: nothing
+    :return:
+    """
+    return layerlineBackground(x, centerX, bg_sigma, bg_amplitude) + \
+           meridianBackground(x, centerX, center_sigma1, center_amplitude1) + \
+           meridianGauss(x, centerX, center_sigma2, center_amplitude2)
+
+
+def layerlineBackground(x, centerX, bg_sigma, bg_amplitude, **kwargs):
+    """
+    Model for largest background of layer line pattern
+    :param x: x axis
+    :param centerX: center of x axis
+    :param bg_sigma: background sigma
+    :param bg_amplitude: background amplitude
+    :param kwargs: nothing
+    :return:
+    """
+    mod = GaussianModel()
+    return  mod.eval(x=x, amplitude=bg_amplitude, center=centerX, sigma=bg_sigma)
+
+def meridianBackground(x, centerX, center_sigma1, center_amplitude1, **kwargs):
+    """
+    Model for background of meridian of layer line pattern
+    :param x: x axis
+    :param centerX: center of x axis
+    :param center_sigma1: meridian background sigma
+    :param center_amplitude1: meridian background amplitude
+    :param kwargs: nothing
+    :return:
+    """
+    mod = GaussianModel()
+    return mod.eval(x=x, amplitude=center_amplitude1, center=centerX, sigma=center_sigma1)
+
+def meridianGauss(x, centerX, center_sigma2, center_amplitude2, **kwargs):
+    """
+    Model for background of layer line pattern
+    :param x: x axis
+    :param centerX: center of x axis
+    :param center_sigma2: meridian sigma
+    :param center_amplitude2: meridian amplitude
     :param kwargs:
     :return:
     """
     mod = GaussianModel()
-
-    # Background Gaussion
-    result = mod.eval(x=x, amplitude=bg_amplitude, center=centerX, sigma=bg_sigma)
-
-    # Meridian Gaussian1
-    result += mod.eval(x=x, amplitude=center_amplitude1, center=centerX, sigma=center_sigma1)
-
-    # Meridian Gaussian2
-    result += mod.eval(x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2)
-
-    return result
+    return mod.eval(x=x, amplitude=center_amplitude2, center=centerX, sigma=center_sigma2)

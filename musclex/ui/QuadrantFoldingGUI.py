@@ -270,6 +270,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.bgChoice = QtGui.QComboBox()
         self.bgChoice.setCurrentIndex(0)
+        self.bgChoice.setFixedHeight(40)
         self.bgChoice.addItem("None")
         self.bgChoice.addItem("2D Convexhull")
         self.bgChoice.addItem("Circularly-symmetric")
@@ -1574,7 +1575,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         Then, write data and update UI
         """
         if self.ableToProcess():
-            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
             flags = self.getFlags()
 

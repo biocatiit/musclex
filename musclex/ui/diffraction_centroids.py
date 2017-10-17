@@ -2088,7 +2088,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         # Process current DiffractionCentroids object, refresh UI, and write data to csv file
         if self.difCent is None:
             return
-        QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         QtGui.QApplication.processEvents()
 
         try:

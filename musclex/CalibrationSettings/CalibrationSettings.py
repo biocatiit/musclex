@@ -377,11 +377,11 @@ class CalibrationSettings(QtGui.QDialog):
             thresh = cv2.medianBlur(thresh, 7)
 
             morph_size = int(max(imgcopy.shape[0], imgcopy.shape[1]) / 400)
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_size * 20, morph_size * 20))
-            img = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_size * 15, morph_size * 15))
-            img = cv2.morphologyEx(img, cv2.MORPH_ERODE, kernel)
-            contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            kernel = cv2.getStructuringElement(2, (morph_size * 20, morph_size * 20)) # 2 = cv2.MORPH_ELLIPSE
+            img = cv2.morphologyEx(thresh, 1, kernel) # 1 = cv2.MORPH_DILATE
+            kernel = cv2.getStructuringElement(2, (morph_size * 15, morph_size * 15)) # 2 = cv2.MORPH_ELLIPSE
+            img = cv2.morphologyEx(img, 0, kernel) # 0 = cv2.MORPH_ERODE
+            contours = getContours(img, 3, 2) # 3 = cv2.RETR_TREE, 2 = cv2.CHAIN_APPROX_SIMPLE
             cali_radius = 0.0
 
             if len(contours) > 1:

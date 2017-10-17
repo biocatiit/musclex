@@ -13,12 +13,12 @@ musclex.egg-info/top_level.txt
 musclex/CalibrationSettings/CalibrationSettings.py
 musclex/CalibrationSettings/__init__.py
 musclex/csv_manager/BM_CVSManager.py
-musclex/csv_manager/LL_CSVManager.py
+musclex/csv_manager/PT_CSVManager.py
 musclex/csv_manager/__init__.py
 musclex/modules/BioImage.py
 musclex/modules/CircularProjection.py
 musclex/modules/DiffractionCentroids.py
-musclex/modules/LayerLineProcessor.py
+musclex/modules/ProjectionProcessor.py
 musclex/modules/QF_utilities.pyx
 musclex/modules/QuadrantFolder.py
 musclex/modules/__init__.py
@@ -26,8 +26,8 @@ musclex/modules/setup2.py
 musclex/ui/BMStartWindow.py
 musclex/ui/BM_FittingTab.py
 musclex/ui/BioMuscleWindow.py
-musclex/ui/LayerLineTab.py
-musclex/ui/LayerLineTracesGUI.py
+musclex/ui/ProjectionBoxTab.py
+musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py
 musclex/ui/__init__.py
 musclex/ui/circular_projection_v2.py

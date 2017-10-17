@@ -10,5 +10,5 @@ fabio
 peakutils
 h5py
 scipy
-matplotlib
+matplotlib<=2.1.0
 musclexflibs

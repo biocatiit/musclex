@@ -285,6 +285,8 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
         peak_hist1[i] = hist[i + 1] - hist[i - 1]
 
     for i in range(width_thres, len(peak_hist1) - width_thres):
+
+
         if all(peak_hist1[i - width_thres:i] > 0) and all(peak_hist1[i + 1:i + width_thres] < 0):
             peak_list.append(i)
 

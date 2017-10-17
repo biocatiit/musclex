@@ -1552,7 +1552,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         if self.bioImg is None:
             return
-        QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         QtGui.QApplication.processEvents()
         settings = self.getSettings()
         try:

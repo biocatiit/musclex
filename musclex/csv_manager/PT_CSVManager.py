@@ -29,16 +29,16 @@ from os.path import exists
 import pandas as pd
 from ..utils.file_manager import fullPath, createFolder
 
-class LL_CVSManager:
+class PT_CVSManager:
     """
-    A class taking care of writing results including csv file of Layer Line Traces
+    A class taking care of writing results including csv file of Projection Traces
     """
     def __init__(self, dir_path, boxes, peaks):
         """
         init with directory path
         :param dir_path:
         """
-        result_path = fullPath(dir_path, "ll_results")
+        result_path = fullPath(dir_path, "pt_results")
         createFolder(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
         self.setColumnNames(boxes=boxes, peaks=peaks)
@@ -55,17 +55,17 @@ class LL_CVSManager:
         self.colnames = ["Filename"]
         for box_number in boxes.keys():
             if peaks.has_key(box_number):
-                self.colnames.append("Layer Line " + str(box_number) + " Meridian Sigma")
-                self.colnames.append("Layer Line " + str(box_number) + " Meridian Area")
+                self.colnames.append("Box " + str(box_number) + " Meridian Sigma")
+                self.colnames.append("Box " + str(box_number) + " Meridian Area")
                 for i in range(len(peaks[box_number])):
-                    self.colnames.append("Layer Line " + str(box_number) + " Centroid " + str(i) + " (Pixel)")
-                    self.colnames.append("Layer Line " + str(box_number) + " Centroid " + str(i) + " (nn)")
-                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Peak " + str(i) + " (Pixel)")
-                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Peak " + str(i) + " (nn)")
-                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Sigma " + str(i))
-                    self.colnames.append("Layer Line " + str(box_number) + " Gaussian Area " + str(i))
-                self.colnames.append("Layer Line " + str(box_number) + " error")
-                self.colnames.append("Layer Line " + str(box_number) + " comments")
+                    self.colnames.append("Box " + str(box_number) + " Centroid " + str(i) + " (Pixel)")
+                    self.colnames.append("Box " + str(box_number) + " Centroid " + str(i) + " (nn)")
+                    self.colnames.append("Box " + str(box_number) + " Gaussian Peak " + str(i) + " (Pixel)")
+                    self.colnames.append("Box " + str(box_number) + " Gaussian Peak " + str(i) + " (nn)")
+                    self.colnames.append("Box " + str(box_number) + " Gaussian Sigma " + str(i))
+                    self.colnames.append("Box " + str(box_number) + " Gaussian Area " + str(i))
+                self.colnames.append("Box " + str(box_number) + " error")
+                self.colnames.append("Box " + str(box_number) + " comments")
 
     def loadSummary(self):
         """
@@ -78,14 +78,14 @@ class LL_CVSManager:
             self.dataframe = pd.read_csv(self.filename)
         # print self.dataframe
 
-    def writeNewData(self, layerProc):
+    def writeNewData(self, projProc):
         """
         Add new data to dataframe, then re-write summary.csv
-        :param layerProc: Layer Line Processor object with results in its info dict
+        :param projProc: Projection Processor object with results in its info dict
         :return: -
         """
-        file_name = layerProc.filename
-        info = layerProc.info
+        file_name = projProc.filename
+        info = projProc.info
         self.removeData(file_name)
         new_data = {
             'Filename' : file_name
@@ -95,21 +95,21 @@ class LL_CVSManager:
         for bn in box_numbers:
             if info.has_key('fit_results') and info['fit_results'].has_key(bn):
                 model = info['fit_results'][bn]
-                new_data['Layer Line ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
-                new_data['Layer Line ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
+                new_data['Box ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
+                new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
                 if info.has_key('centroids') and info['centroids'].has_key(bn):
                     centroids = info['centroids'][bn]
                     for i,c in enumerate(centroids):
-                        new_data['Layer Line ' + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
-                        new_data["Layer Line " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
-                        new_data["Layer Line " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
-                        new_data["Layer Line " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
+                        new_data['Box ' + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
+                        new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
+                        new_data["Box " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
+                        new_data["Box " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
                         if info.has_key('lambda_sdd'):
-                            new_data['Layer Line ' + str(bn) + " Centroid " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/c
-                            new_data["Layer Line " + str(bn) + " Gaussian Peak " + str(i) + " (nn)"] = 1. * info['lambda_sdd'] / model['p_' + str(i)]
-                new_data["Layer Line " + str(bn) + " error"] = model['error']
+                            new_data['Box ' + str(bn) + " Centroid " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/c
+                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (nn)"] = 1. * info['lambda_sdd'] / model['p_' + str(i)]
+                new_data["Box " + str(bn) + " error"] = model['error']
                 if model['error'] > 0.15:
-                    new_data["Layer Line " + str(bn) + " comments"] = "High fitting error"
+                    new_data["Box " + str(bn) + " comments"] = "High fitting error"
 
         self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True)
         self.dataframe.reset_index()

@@ -834,7 +834,7 @@ class CPImageWindow(QtGui.QMainWindow):
 
     def processImage(self):
         if self.cirProj is not None:
-            QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+            QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             flags = self.getFlags()
             self.cirProj.process(flags)
             QtGui.QApplication.restoreOverrideCursor()
@@ -2085,7 +2085,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.close()
 
     def processBatchmodeResults(self):
-        QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         dir_path = self.filePath
         self.csvManager.load_all()
         hdf_filename = self.hdf_filename

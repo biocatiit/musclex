@@ -133,7 +133,7 @@ class DDFWindow(QtGui.QMainWindow):
         cols = None
         reading = "Please wait. Input file is being read ."
         self.generateButton.setEnabled(False)
-        QtGui.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.WaitCursor))
+        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         for i, row in enumerate(open(self.current_file)):
             if (i/100)%3 == 0:
                 self.statusText.setText(reading)

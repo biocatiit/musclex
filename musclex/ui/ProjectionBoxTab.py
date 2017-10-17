@@ -27,12 +27,12 @@ authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
 from PyQt4 import QtCore, QtGui
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 import numpy as np
-from ..modules.LayerLineProcessor import layerlineModel, layerlineModelBackground
+from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground, meridianGauss
 
-class LayerLineTab(QtGui.QWidget):
+class ProjectionBoxTab(QtGui.QWidget):
     """
     Fitting Tabs : left or right
     Display fitting graph and providing options
@@ -55,7 +55,7 @@ class LayerLineTab(QtGui.QWidget):
         """
         self.setContentsMargins(0, 0, 0, 0)
         self.tabLayout = QtGui.QHBoxLayout(self)
-        self.graphFigure1 = plt.figure(facecolor='#606060')
+        self.graphFigure1 = plt.figure()
         self.graphCanvas1 = FigureCanvas(self.graphFigure1)
 
         self.graphFigure2 = plt.figure(facecolor='#606060')
@@ -68,7 +68,7 @@ class LayerLineTab(QtGui.QWidget):
         self.displayOptionsGroup = QtGui.QGroupBox("Display Options")
         self.dispOptLayout = QtGui.QGridLayout(self.displayOptionsGroup)
 
-        self.histChkBx = QtGui.QCheckBox("Original Histogram")
+        self.histChkBx = QtGui.QCheckBox("Original Projection")
         self.histChkBx.setChecked(True)
         self.fitmodelChkBx = QtGui.QCheckBox("Fitting Model")
         self.fitmodelChkBx.setChecked(False)
@@ -78,7 +78,7 @@ class LayerLineTab(QtGui.QWidget):
         self.peaksChkBx.setChecked(False)
         self.centerChkBx = QtGui.QCheckBox("Center")
         self.centerChkBx.setChecked(False)
-        self.subHistChkBx = QtGui.QCheckBox("Subtracted Histogram")
+        self.subHistChkBx = QtGui.QCheckBox("Subtracted Projection")
         self.subHistChkBx.setChecked(True)
         self.baselineChkBx = QtGui.QCheckBox("Baselines")
         self.baselineChkBx.setChecked(True)
@@ -101,15 +101,24 @@ class LayerLineTab(QtGui.QWidget):
         self.settingLayout.addWidget(self.peaksButton)
 
         self.results_text = QtGui.QLabel()
-        
-        self.resultTable = QtGui.QTableWidget()
-        self.resultTable.setColumnCount(3)
-        self.resultTable.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width"])
-        self.resultTable.horizontalHeader().setStretchLastSection(True)
-        self.resultTable.setColumnWidth(0, 100)
-        self.resultTable.setColumnWidth(1, 100)
-        self.resultTable.setColumnWidth(2, 100)
-        self.resultTable.setFixedHeight(100)
+
+        self.resultTable1 = QtGui.QTableWidget()
+        self.resultTable1.setColumnCount(3)
+        self.resultTable1.setHorizontalHeaderLabels(["Distance", "Sigma", "Area"])
+        self.resultTable1.horizontalHeader().setStretchLastSection(True)
+        self.resultTable1.setColumnWidth(0, 100)
+        self.resultTable1.setColumnWidth(1, 100)
+        self.resultTable1.setColumnWidth(2, 100)
+        self.resultTable1.setFixedHeight(100)
+
+        self.resultTable2 = QtGui.QTableWidget()
+        self.resultTable2.setColumnCount(3)
+        self.resultTable2.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width"])
+        self.resultTable2.horizontalHeader().setStretchLastSection(True)
+        self.resultTable2.setColumnWidth(0, 100)
+        self.resultTable2.setColumnWidth(1, 100)
+        self.resultTable2.setColumnWidth(2, 100)
+        self.resultTable2.setFixedHeight(100)
         self.pnButtons = QtGui.QHBoxLayout()
         self.prevButton = QtGui.QPushButton("<<<")
         self.nextButton = QtGui.QPushButton(">>>")
@@ -120,8 +129,10 @@ class LayerLineTab(QtGui.QWidget):
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingGroup)
         self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.results_text)
-        self.optionsLayout.addWidget(self.resultTable)
+        self.optionsLayout.addWidget(QtGui.QLabel("<h3>Fitting Results</h3>"))
+        self.optionsLayout.addWidget(self.resultTable1)
+        self.optionsLayout.addWidget(QtGui.QLabel("<h3>Other Results</h3>"))
+        self.optionsLayout.addWidget(self.resultTable2)
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.pnButtons)
 
@@ -151,7 +162,7 @@ class LayerLineTab(QtGui.QWidget):
 
         self.peaksButton.clicked.connect(self.addPeaks)
 
-        self.resultTable.itemChanged.connect(self.handleItemChanged)
+        self.resultTable2.itemChanged.connect(self.handleItemChanged)
 
         self.prevButton.clicked.connect(self.parent.prevClicked)
         self.nextButton.clicked.connect(self.parent.nextClicked)
@@ -165,15 +176,15 @@ class LayerLineTab(QtGui.QWidget):
         :param item:
         :return:
         """
-        if self.parent.layerProc is not None and item.column() == 0 and not self.syncUI:
-            self.parent.layerProc.setBaseline(self.num, item.row(), item.text())
+        if self.parent.projProc is not None and item.column() == 0 and not self.syncUI:
+            self.parent.projProc.setBaseline(self.num, item.row(), item.text())
             self.parent.processImage()
 
     def graphClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
         """
-        if self.parent.layerProc is None or self.function is None or len(self.function) < 2:
+        if self.parent.projProc is None or self.function is None or len(self.function) < 2:
             return
 
         x = event.xdata
@@ -183,12 +194,12 @@ class LayerLineTab(QtGui.QWidget):
 
         if func[0] == 'peaks':
             peaks = func[1]
-            box = self.parent.layerlineboxes[self.num]
+            box = self.parent.allboxes[self.num]
             type = self.parent.boxtypes[self.num]
             if type == 'h':
-                center = self.parent.layerProc.orig_img.shape[1] / 2 - box[0][0]
+                center = self.parent.projProc.orig_img.shape[1] / 2 - 0.5 - box[0][0]
             else:
-                center = self.parent.layerProc.orig_img.shape[0] / 2 - box[1][0]
+                center = self.parent.projProc.orig_img.shape[0] / 2 - 0.5 - box[1][0]
 
             distance = int(round(abs(center - x)))
             peaks.append(distance)
@@ -255,13 +266,13 @@ class LayerLineTab(QtGui.QWidget):
         Draw plots and display results in text
         :return:
         """
-        if self.parent.layerProc is None or not self.need_update:
+        if self.parent.projProc is None or not self.need_update:
             return
 
         self.syncUI = True
 
         # Update graphs
-        info = self.parent.layerProc.info
+        info = self.parent.projProc.info
         num = self.num
         hist = info['hists'][num]
         fit_results = info['fit_results']
@@ -277,21 +288,28 @@ class LayerLineTab(QtGui.QWidget):
         ax2.cla()
 
         if self.histChkBx.isChecked():
-            ax.plot(hist, color='g')
+            ax.plot(hist, color='k')
 
         if fit_results.has_key(num):
             xs = np.arange(0, len(hist))
             model = info['fit_results'][num]
 
-            if self.fitmodelChkBx.isChecked():
-                ax.plot(layerlineModel(xs, **model), color = 'b')
-                ax2.plot(layerlineModel(xs, **model)-layerlineModelBackground(xs, **model), color='m')
-
-            if self.bgChkBx.isChecked():
-                ax.plot(layerlineModelBackground(xs, **model), color='m')
-
             if self.subHistChkBx.isChecked() and subtracted_hists.has_key(num):
                 ax2.plot(subtracted_hists[num], color='k')
+
+            if self.fitmodelChkBx.isChecked():
+                model_hist = layerlineModel(xs, **model)
+                subtracted_model = layerlineModel(xs, **model)-layerlineModelBackground(xs, **model)
+                ax.plot(model_hist, color='g')
+                ax2.plot(subtracted_model, color='g')
+
+            if self.bgChkBx.isChecked():
+                background = layerlineBackground(xs, **model)
+                meridian_bg = meridianBackground(xs, **model) + layerlineBackground(xs, **model)
+                meridian = layerlineModelBackground(xs, **model)
+                ax.fill_between(xs, meridian, meridian_bg, facecolor='r', alpha=0.3)
+                ax.fill_between(xs, meridian_bg, background, facecolor='y', alpha=0.3)
+                ax.fill_between(xs, 0, background, facecolor='b', alpha=0.3)
 
             if self.centerChkBx.isChecked():
                 ax.axvline(model['centerX'], color='c', alpha=0.7)
@@ -302,8 +320,8 @@ class LayerLineTab(QtGui.QWidget):
                 while 'p_' + str(i) in model:
                     p = model['p_' + str(i)]
                     i += 1
-                    ax.axvline(model['centerX'] - p, color='k', alpha=0.7)
-                    ax.axvline(model['centerX'] + p, color='k', alpha=0.7)
+                    ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
+                    ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
 
             if all_centroids.has_key(num) and all_baselines.has_key(num) and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
                 centroids = all_centroids[num]
@@ -348,22 +366,42 @@ class LayerLineTab(QtGui.QWidget):
             centroids = all_centroids[num]
             baselines = all_baselines[num]
             widths = all_widths[num]
-            self.resultTable.setRowCount(len(centroids))
-            for i in range(len(centroids)):
+            nPeaks = len(centroids)
+            fit_result = fit_results[num]
+            self.resultTable1.setRowCount(nPeaks)
+            self.resultTable2.setRowCount(nPeaks)
+
+            for i in range(nPeaks):
+                center = fit_result['p_'+str(i)]
+                sigma = fit_result['sigma'+str(i)]
+                area = fit_result['amplitude' + str(i)]
+
+                item = QtGui.QTableWidgetItem(str(center))
+                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                self.resultTable1.setItem(i, 0, item)
+
+                item = QtGui.QTableWidgetItem(str(sigma))
+                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                self.resultTable1.setItem(i, 1, item)
+
+                item = QtGui.QTableWidgetItem(str(area))
+                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                self.resultTable1.setItem(i, 2, item)
+
                 centroid = centroids[i]
                 baseline = baselines[i]
                 width = widths[i]
 
                 item = QtGui.QTableWidgetItem(str(baseline))
-                self.resultTable.setItem(i, 0, item)
+                self.resultTable2.setItem(i, 0, item)
 
                 item = QtGui.QTableWidgetItem(str(centroid))
                 item.setFlags(QtCore.Qt.ItemIsEnabled)
-                self.resultTable.setItem(i, 1, item)
+                self.resultTable2.setItem(i, 1, item)
 
                 item = QtGui.QTableWidgetItem(str(width))
                 item.setFlags(QtCore.Qt.ItemIsEnabled)
-                self.resultTable.setItem(i, 2, item)
+                self.resultTable2.setItem(i, 2, item)
 
         self.need_update = False
         self.syncUI = False

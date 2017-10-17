@@ -27,15 +27,16 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-
+import sys
 from musclex.ui.BMStartWindow import BMStartWindow
 from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
 from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
 from musclex.ui.circular_projection_v2 import CircularProjectionGUI
 from musclex.ui.ddf_processor import DDFWindow
-from musclex.ui.LayerLineTracesGUI import LayerLineTracesGUI
+from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
+from musclex import __version__
 
-import sys
+
 from PyQt4 import QtGui
 
 def main(arguments=None):
@@ -65,9 +66,9 @@ def main(arguments=None):
             app = QtGui.QApplication(sys.argv)
             myapp = DDFWindow()
             sys.exit(app.exec_())
-        elif prog == 'll':
+        elif prog == 'pt':
             app = QtGui.QApplication(sys.argv)
-            myapp = LayerLineTracesGUI()
+            myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
         else:
             run = False
@@ -75,16 +76,17 @@ def main(arguments=None):
         run = False
 
     if not run:
-        print "\n\nPlease specify the program shortcut that you want to run"
+        print "\nYou're using Muscle X version", __version__
+        print "\nPlease specify the program shortcut that you want to run"
         print ""
         print "  $ musclex [--program]"
         print ""
-        print "          bm - Bio Muscle "
+        print "          bm - Bio Muscle"
         print "          qf - Quadrant Folding"
+        print "          pt - Projection Traces"
         print "          cp - Circular Projection"
         print "          dc - Diffraction Centroids"
         print "          ddf - DDF Processor"
-        print "          ll - Layer Line Traces"
         print ""
         print "For example,"
         print "\t$ musclex bm"

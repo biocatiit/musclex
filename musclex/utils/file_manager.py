@@ -38,6 +38,8 @@ def getImgFiles(fullname):
     """
 
     dir_path, filename = split(str(fullname)) # split directory and file name from full file name
+    dir_path = str(dir_path)
+    filename = str(filename)
     _, ext = os.path.splitext(str(filename))
     current = 0
     failedcases = []

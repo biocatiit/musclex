@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import cv2
-import cv2.cv as cv
+# import cv2.cv as cv
 import numpy as np
 import peakutils
 import copy
