@@ -8,5 +8,5 @@ RUN apt-get install -y cython
 RUN apt-get install -y pyfai
 RUN apt-get install -y gfortran
 RUN pip install --upgrade pip
-RUN pip install --upgrade musclex
+RUN pip install --upgrade musclex==1.3a
 # RUN python -m unittest discover -s /tests -p '*_test.py'
