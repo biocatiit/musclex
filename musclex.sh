@@ -3,10 +3,10 @@ xhost local:root
 runapp=true
 
 if [ "$1" == "update" ]; then
-    echo "biocat is updating"
+    echo "Muscle X on Docker is updating..."
     runapp=false
     docker rmi $(docker images | grep 'biocat/musclex')
-    docker pull biocat/biocat
+    docker pull biocat/musclex
 fi
 
 if [ "$runapp" = true ]; then
