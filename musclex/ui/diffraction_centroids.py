@@ -1672,7 +1672,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             QtGui.QApplication.restoreOverrideCursor()
             errMsg = QtGui.QMessageBox()
             errMsg.setText('Unexpected error')
-            msg = 'Please report the problem with error message below\n\n'
+            msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
             msg += "Error : "+str(sys.exc_info()[0]) +'\n\n'+str(traceback.format_exc())
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QtGui.QMessageBox.Ok)

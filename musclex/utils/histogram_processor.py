@@ -52,12 +52,14 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     if len(hist_x) < 5:
         return np.array(hist)
 
+    hist_y2 = hist_y.copy()
     if ignore is not None:
-        hist2 = np.array(hist)
-        hist_y2 = smooth(hist2[hist_x], 5)
-        hist_y2[ignore] = int(max(hist2)*1.5)
-    else:
-        hist_y2 = smooth(hist_y, 5)
+        # hist2 = np.array(hist)
+        # hist_y2 = smooth(hist2[hist_x], 5)
+        ignore2 = ignore[hist_x]
+        hist_y2[ignore2] = int(max(hist_y2)*1.5)
+    # else:
+    #     hist_y2 = smooth(hist_y, 5)
 
     hull_x, hull_y = getHull(hist_x, hist_y2)
     hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
