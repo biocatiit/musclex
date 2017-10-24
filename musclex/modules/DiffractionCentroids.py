@@ -98,10 +98,13 @@ class DiffractionCentroids():
 
         return cachefile, info
 
-    def process(self):
+    def process(self, flags):
         """
         All processing steps
         """
+        imgList = self.info['filelist']
+        print imgList[0],'...',imgList[-1],'are being processed...'
+        self.info.update(flags)
         self.findCenter()
         self.findRotationAngle()
         self.calculateRmin()
@@ -144,6 +147,7 @@ class DiffractionCentroids():
         if self.info.has_key('center'):
             return
         self.info['center'] = getCenter(self.avgImg)
+        print "center =", self.info['center']
         self.removeInfo('rotationAngle')
 
     def findRotationAngle(self):
@@ -155,6 +159,7 @@ class DiffractionCentroids():
             return
         center = self.info['center']
         self.info['rotationAngle'] = getRotationAngle(self.avgImg, center)
+        print "rotation angle =", self.info['rotationAngle']
         self.removeInfo('rmin')
 
     def calculateRmin(self):
@@ -179,7 +184,7 @@ class DiffractionCentroids():
         tth, I = ai.integrate1d(img, npt_rad, unit="r_mm")
         # tth, I = ai.integrate1d(img, npt_rad, unit="r_mm")
         self.info['rmin'] = getFirstVallay(I)
-
+        print "R-min =", self.info['rmin']
         self.removeInfo('int_area')
 
     def getIntegrateArea(self):
@@ -218,7 +223,7 @@ class DiffractionCentroids():
                 self.info['int_area'] = (int(round(center-l*1.2)), int(round(center+r*1.2))+1)
         else:
             self.info['int_area'] = (int(round(center[0] - rmin * .5)), int(round(center[0] + rmin * .5)) + 1)
-
+        print "integrated area =",self.info['int_area']
         self.removeInfo('top_se')
         self.removeInfo('bottom_se')
 
@@ -335,6 +340,10 @@ class DiffractionCentroids():
                 self.info['top_names'] = [self.fixRanges[i][0] for i in range(len(self.fixRanges))]
             self.removeInfo('top_baselines')
 
+        print "Top peaks : "
+        for i in range(len(self.info['top_peaks'])):
+            print self.info['top_names'][i], ":", self.info['top_peaks'][i]
+
         if not self.info.has_key('bottom_peaks'):
             if len(self.fixRanges) == 0:
                 moved_peaks = self.movePeaks(self.info['bottom_hull'], self.info['pre_bottom_peaks'])
@@ -344,8 +353,10 @@ class DiffractionCentroids():
                 self.info['bottom_peaks'] = self.info['pre_bottom_peaks']
                 names = [self.fixRanges[i][0] for i in range(len(self.fixRanges))]
                 self.info['bottom_names'] = names
-
             self.removeInfo('bottom_baselines')
+        print "Bottom peaks : "
+        for i in range(len(self.info['bottom_peaks'])):
+            print self.info['bottom_names'][i], ":", self.info['bottom_peaks'][i]
 
     def movePeaks(self, hist, peaks, dist = 10):
         """
@@ -386,12 +397,13 @@ class DiffractionCentroids():
             peaks = self.info['top_peaks']
             self.info['top_baselines'] = [hist[p] / 2. for p in peaks]
             self.removeInfo('top_centroids')
-
+        print "Top baselines =", self.info['top_baselines']
         if not self.info.has_key('bottom_baselines'):
             hist = self.info['bottom_hull']
             peaks = self.info['bottom_peaks']
             self.info['bottom_baselines'] = [hist[p]/2. for p in peaks]
             self.removeInfo('bottom_centroids')
+        print "Bottom baselines =", self.info['bottom_baselines']
 
     def calculateCentroids(self):
         """
@@ -406,7 +418,7 @@ class DiffractionCentroids():
             self.info['top_centroids'] = results['centroids']
             self.info['top_widths'] = results['widths']
             self.info['top_areas'] = results['areas']
-
+        print "Top centroids =", self.info['top_centroids']
         if not self.info.has_key('bottom_centroids'):
             hist = self.info['bottom_hull']
             peaks = self.info['bottom_peaks']
@@ -415,6 +427,7 @@ class DiffractionCentroids():
             self.info['bottom_centroids'] = results['centroids']
             self.info['bottom_widths'] = results['widths']
             self.info['bottom_areas'] = results['areas']
+        print "Bottom centroids =", self.info['bottom_centroids']
 
     def fitModel(self, hist, peaks, baselines):
         # Fit Voigt model to histogram using peaks and baselines
@@ -537,8 +550,11 @@ class DiffractionCentroids():
 
     def getOffMerRminmax(self):
         if not self.info.has_key('off_mer_rmin_rmax'):
-            rmin, rmax = self.initOffMeridianPeakRange()
-            self.info['off_mer_rmin_rmax'] = (rmin, rmax)
+            if self.info.has_key('fixed_offmer_hull_range'):
+                self.info['off_mer_rmin_rmax'] = self.info['fixed_offmer_hull_range']
+            else:
+                rmin, rmax = self.initOffMeridianPeakRange()
+                self.info['off_mer_rmin_rmax'] = (rmin, rmax)
             self.removeInfo("off_mer_hists")
 
     def getOffMeridianHistograms(self):

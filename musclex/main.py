@@ -28,15 +28,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import sys
-from musclex.ui.BMStartWindow import BMStartWindow
-from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
-from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
-from musclex.ui.circular_projection_v2 import CircularProjectionGUI
-from musclex.ui.ddf_processor import DDFWindow
-from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
 from musclex import __version__
-
-
 from PyQt4 import QtGui
 
 def main(arguments=None):
@@ -48,25 +40,31 @@ def main(arguments=None):
         prog = arguments[1]
         if prog == 'bm':
             app = QtGui.QApplication(sys.argv)
+            from musclex.ui.BMStartWindow import BMStartWindow
             myapp = BMStartWindow()
             sys.exit(app.exec_())
         elif prog == 'qf':
             app = QtGui.QApplication(sys.argv)
+            from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()
             sys.exit(app.exec_())
         elif prog == 'cp':
             app = QtGui.QApplication(sys.argv)
+            from musclex.ui.circular_projection_v2 import CircularProjectionGUI
             myapp = CircularProjectionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':
+            from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
             app = QtGui.QApplication(sys.argv)
             myapp = DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
         elif prog == 'ddf':
+            from musclex.ui.ddf_processor import DDFWindow
             app = QtGui.QApplication(sys.argv)
             myapp = DDFWindow()
             sys.exit(app.exec_())
         elif prog == 'pt':
+            from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
             app = QtGui.QApplication(sys.argv)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())

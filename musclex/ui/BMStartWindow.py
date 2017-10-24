@@ -76,7 +76,7 @@ class BMStartWindow(QtGui.QMainWindow):
 
         # If window list is empty, exit the program
         if len(self.windowList) == 0:
-            sys.exit()
+            self.close()
 
     # def browseFolder(self):
     #     dir_path = QtGui.QFileDialog.getExistingDirectory(self, "Select a Folder")

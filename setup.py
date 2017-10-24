@@ -48,7 +48,7 @@ setup(
     author_email = 'jjiratra@hawk.iit.edu',
     url = 'https://github.com/biocatiit/musclex/wiki',
     keywords = ['musclex', 'biomuscle', 'diffraction', 'biocat'],
-    python_requires='>=2.7.10, <=2.7.12',
+    python_requires='>=2.7.10, <=2.7.14',
     classifiers = ['Development Status :: 3 - Alpha',
                    'Environment :: X11 Applications :: Qt',
                    'Intended Audience :: Science/Research',

@@ -27,3 +27,5 @@ authorization from Illinois Institute of Technology.
 """
 from BM_CVSManager import BM_CVSManager
 from PT_CSVManager import PT_CVSManager
+from CP_CSVManager import CP_CSVManager
+from DC_CSVManager import DC_CSVManager

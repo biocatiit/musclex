@@ -44,6 +44,60 @@ import copy
 from os.path import exists
 import pickle
 
+class BoxDetails(QtGui.QDialog):
+    """
+    This class is for Popup window when a box is added
+    """
+    def __init__(self, current_box_names):
+        super(BoxDetails, self).__init__(None)
+        self.setWindowTitle("Adding a Box")
+        self.box_names = current_box_names
+        self.initUI()
+
+    def initUI(self):
+        """
+        Initial UI for the dialog
+        """
+        self.boxLayout = QtGui.QGridLayout(self)
+        self.boxName = QtGui.QLineEdit()
+        self.bgChoice = QtGui.QComboBox()
+        self.bgChoice.addItem("Fitting Gaussians")
+        self.bgChoice.addItem("Convex Hull")
+
+        self.bottons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
+                                              QtCore.Qt.Horizontal, self)
+        self.bottons.accepted.connect(self.okClicked)
+        self.bottons.rejected.connect(self.reject)
+        self.bottons.setFixedWidth(200)
+
+        self.boxLayout.addWidget(QtGui.QLabel("Box name : "), 0, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxName, 0, 1, 1, 1)
+        self.boxLayout.addWidget(QtGui.QLabel("Background Subtraction Method : "), 1, 0, 1, 1)
+        self.boxLayout.addWidget(self.bgChoice, 1, 1, 1, 1)
+        self.boxLayout.addWidget(self.bottons, 2, 0, 1, 2, QtCore.Qt.AlignCenter)
+
+    def okClicked(self):
+        box_name = str(self.boxName.text())
+        if len(box_name) == 0:
+            errMsg = QtGui.QMessageBox()
+            errMsg.setText('Adding a box Error')
+            errMsg.setInformativeText('Please specify the box name')
+            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
+            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.exec_()
+        elif box_name in self.box_names:
+            errMsg = QtGui.QMessageBox()
+            errMsg.setText('Adding a box Error')
+            errMsg.setInformativeText(box_name+' has already been added. Please select another name')
+            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
+            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.exec_()
+        else:
+            self.accept()
+
+    def getDetails(self):
+        return str(self.boxName.text()), self.bgChoice.currentIndex()
+
 class ProjectionTracesGUI(QtGui.QMainWindow):
     """
     This class is for Projection Traces GUI Object
@@ -63,7 +117,9 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         self.function = None
         self.allboxes = {}
         self.boxtypes = {}
+        self.bgsubs = {}
         self.peaks = {}
+        self.hull_ranges = {}
         self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -349,8 +405,26 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         self.update_plot['img'] = True
         self.updateUI()
 
-    def addPeakstoBox(self, num, peaks):
-        self.peaks[num] = peaks
+    def updatePeaks(self, name, peaks):
+        """
+        update peaks in box name
+        :param name:
+        :param peaks:
+        :return:
+        """
+        self.peaks[name] = peaks
+
+        if name in self.hull_ranges:
+            del self.hull_ranges[name]
+
+    def addPeakstoBox(self, name, peaks):
+        """
+        add peaks to box and process image
+        :param name:
+        :param peaks:
+        :return:
+        """
+        self.updatePeaks(name, peaks)
         self.processImage()
 
     def addPeaks(self):
@@ -369,8 +443,6 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
                 self.setLeftStatus(
                     "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)")
                 peaks = {}
-                for num in self.allboxes.keys():
-                    peaks[num] = []
                 self.function = ['peaks', peaks]
                 ax = self.displayImgFigure.add_subplot(111)
                 del ax.lines
@@ -383,7 +455,10 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         else:
             if self.function is not None and len(self.function) == 2:
                 # When Done clicked
-                self.peaks = self.function[1]
+                peaks = self.function[1]
+                for name in peaks.keys():
+                    self.updatePeaks(name, peaks[name])
+
             self.processImage()
 
     def processFolder(self):
@@ -402,6 +477,17 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
                 text += str(self.peaks[bn])
             else:
                 text += "-"
+
+            if self.bgsubs.has_key(bn):
+                text += '\n     - Background Subtraction : '
+                if self.bgsubs[bn] == 0:
+                    text += 'Fitting Gaussians'
+                else:
+                    text += 'Convex Hull'
+
+            if self.hull_ranges.has_key(bn):
+                text += '\n     - Convex Hull Range : '+str(self.hull_ranges[bn])
+
         if 'lambda_sdd' in settings.keys():
             text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
 
@@ -424,7 +510,9 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
     def clearBoxes(self):
         self.allboxes = {}
         self.boxtypes = {}
+        self.bgsubs = {}
         self.peaks = {}
+        self.hull_ranges = {}
         self.removeAllTabs()
         self.processImage()
 
@@ -498,11 +586,12 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         if index != 0:
             widget = self.tabWidget.widget(index)
             if widget is not None:
-                num = widget.num
-                del self.allboxes[num]
-                del self.boxtypes[num]
-                if self.peaks.has_key(num):
-                    del self.peaks[num]
+                name = widget.name
+                del self.allboxes[name]
+                del self.boxtypes[name]
+                del self.bgsubs[name]
+                if self.peaks.has_key(name):
+                    del self.peaks[name]
                 widget.deleteLater()
             self.processImage()
             self.tabWidget.removeTab(index)
@@ -522,9 +611,9 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         """
         self.removeAllTabs()
 
-        for i in self.allboxes.keys():
-            proj_tab = ProjectionBoxTab(self, i)
-            self.tabWidget.addTab(proj_tab, "Box "+str(i))
+        for name in self.allboxes.keys():
+            proj_tab = ProjectionBoxTab(self, name)
+            self.tabWidget.addTab(proj_tab, "Box "+str(name))
 
     def imgClicked(self, event):
         """
@@ -568,14 +657,15 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
                 y1 = int(round(min(points[0][1], points[1][1])))
                 x2 = int(round(max(points[0][0], points[1][0])))
                 y2 = int(round(max(points[0][1], points[1][1])))
-                if len(self.allboxes) > 0:
-                    num = max(self.allboxes.keys()) + 1
-                else:
-                    num = 1
-                self.allboxes[num] = ((x1, x2), (y1, y2))
-                w = abs(x1-x2)
-                h = abs(y1-y2)
-                self.boxtypes[num] = 'h' if w >= h else 'v'
+                boxDialog = BoxDetails(self.allboxes.keys())
+                result = boxDialog.exec_()
+                if result == 1:
+                    name, bgsub = boxDialog.getDetails()
+                    self.allboxes[name] = ((x1, x2), (y1, y2))
+                    w = abs(x1-x2)
+                    h = abs(y1-y2)
+                    self.boxtypes[name] = 'h' if w >= h else 'v'
+                    self.bgsubs[name] = bgsub
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
@@ -585,20 +675,23 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
                 ax = self.displayImgFigure.add_subplot(111)
                 centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
                 centery = self.projProc.orig_img.shape[0] / 2. - 0.5
-                for num in self.allboxes.keys():
-                    box = self.allboxes[num]
+                for name in self.allboxes.keys():
+                    box = self.allboxes[name]
                     boxx = box[0]
                     boxy = box[1]
                     if boxx[0] <= x <= boxx[1] and boxy[0] <= y <= boxy[1]:
-                        type = self.boxtypes[num]
+                        type = self.boxtypes[name]
+                        if not peaks.has_key(name):
+                            peaks[name] = []
+
                         if type == 'h':
                             distance = int(round(abs(centerx-x)))
-                            peaks[num].append(distance)
+                            peaks[name].append(distance)
                             ax.plot((centerx-distance, centerx-distance), boxy, color='r')
                             ax.plot((centerx+distance, centerx+distance), boxy, color='r')
                         else:
                             distance = int(round(abs(centery - y)))
-                            peaks[num].append(distance)
+                            peaks[name].append(distance)
                             ax.plot(boxx, (centery - distance, centery - distance), color='r')
                             ax.plot(boxx, (centery + distance, centery + distance), color='r')
                         break
@@ -781,44 +874,6 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         ax.invert_yaxis()
         self.displayImgCanvas.draw_idle()
 
-    # def setAngleAndCenterClicked(self):
-    #     """
-    #     Prepare for manual rotation angle and center setting
-    #     """
-    #     if self.projProc is None:
-    #         return
-    #
-    #     if self.setRotAndCentB.isChecked():
-    #         self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-    #         ax = self.displayImgFigure.add_subplot(111)
-    #         del ax.lines
-    #         ax.lines = []
-    #         del ax.patches
-    #         ax.patches = []
-    #         self.displayImgCanvas.draw_idle()
-    #         self.function = ["angle_center"]  # set current active function
-    #     else:
-    #         self.resetUI()
-    #
-    # def setAngleClicked(self):
-    #     """
-    #     Prepare for manual rotation angle setting
-    #     """
-    #     if self.projProc is None:
-    #         return
-    #
-    #     if self.setAngleB.isChecked():
-    #         self.setLeftStatus("Click on image to select the angle of the equator (ESC to cancel)")
-    #         ax = self.displayImgFigure.add_subplot(111)
-    #         del ax.lines
-    #         ax.lines = []
-    #         del ax.patches
-    #         ax.patches = []
-    #         self.displayImgCanvas.draw_idle()
-    #         self.function = ["angle"]  # set current active function
-    #     else:
-    #         self.resetUI()
-
     def browseFile(self):
         file_name = str(QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'Images (*.tif)', None))
         if file_name != "":
@@ -833,6 +888,8 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
             self.allboxes = cache['boxes']
             self.peaks = cache['peaks']
             self.boxtypes = cache['boxtypes']
+            self.bgsubs = cache['bgsubs']
+            self.hull_ranges = cache['hull_ranges']
         else:
             self.allboxes = {}
             self.peaks = {}
@@ -946,7 +1003,9 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         cache = {
             'boxes' : self.allboxes,
             'peaks' : self.peaks,
-            'boxtypes' : self.boxtypes
+            'boxtypes' : self.boxtypes,
+            'bgsubs' : self.bgsubs,
+            'hull_ranges' : self.hull_ranges
         }
 
         cache_dir = fullPath(self.dir_path, 'pt_cache')
@@ -971,8 +1030,15 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         # add box types
         settings['types'] = self.boxtypes
 
+        # add bgsub methods
+        settings['bgsubs'] = self.bgsubs
+
         # add peaks location
         settings['peaks'] = self.peaks
+
+        # add hull ranges
+        settings['hull_ranges'] = self.hull_ranges
+
 
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
@@ -1054,34 +1120,34 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         if len(self.allboxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
-                for num in self.allboxes.keys():
-                    b = self.allboxes[num]
+                for name in self.allboxes.keys():
+                    b = self.allboxes[name]
                     x = b[0][0]
                     y = b[1][0]
                     w = b[0][1] - b[0][0]
                     h = b[1][1] - b[1][0]
 
-                    if self.boxtypes[num] == 'h':
+                    if self.boxtypes[name] == 'h':
                         ax.add_patch(patches.Rectangle((x, y), w, h,
                                                        linewidth=1, edgecolor='#95f70c', facecolor='none'))
-                        ax.text(x + w + 10, y + h / 2., str(num), color='#95f70c', fontsize=10, horizontalalignment='left', verticalalignment='center')
+                        ax.text(x + w + 10, y + h / 2., str(name), color='#95f70c', fontsize=10, horizontalalignment='left', verticalalignment='center')
                     else:
                         ax.add_patch(patches.Rectangle((x, y), w, h,
                                                        linewidth=1, edgecolor='y', facecolor='none'))
-                        ax.text(x + w /2. , y - 10, str(num), color='y', fontsize=10, horizontalalignment='center',
+                        ax.text(x + w /2. , y - 10, str(name), color='y', fontsize=10, horizontalalignment='center',
                                 verticalalignment='center')
 
             if self.peaksChkBx.isChecked():
-                for num in self.peaks.keys():
+                for name in self.peaks.keys():
                     centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
                     centery = self.projProc.orig_img.shape[0] / 2. - 0.5
-                    for p in self.peaks[num]:
-                        if self.boxtypes[num] == 'h':
-                            ax.plot((centerx - p, centerx - p), self.allboxes[num][1], color='m')
-                            ax.plot((centerx + p, centerx + p), self.allboxes[num][1], color='m')
+                    for p in self.peaks[name]:
+                        if self.boxtypes[name] == 'h':
+                            ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
+                            ax.plot((centerx + p, centerx + p), self.allboxes[name][1], color='m')
                         else:
-                            ax.plot(self.allboxes[num][0], (centery - p, centery - p), color='r')
-                            ax.plot(self.allboxes[num][0], (centery + p, centery + p), color='r')
+                            ax.plot(self.allboxes[name][0], (centery - p, centery - p), color='r')
+                            ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:

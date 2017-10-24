@@ -443,6 +443,7 @@ class BioImage:
             hull_hist = self.info['hulls']['all']
             x = np.arange(0, len(hull_hist))
             histNdarray = np.array(hull_hist)
+            total_area = sum(histNdarray)
             centerX = self.info['center'][0]
 
             margin = 10.
@@ -453,9 +454,9 @@ class BioImage:
             params.add("S10", S[0], min=S[0] - margin, max=S[0] + margin)
 
             for i in range(len(left_areas)):
-                params.add("left_area" + str(i + 1), left_areas[i], min=0, max=left_areas[i]*10.+1)
+                params.add("left_area" + str(i + 1), max(left_areas[i], 100), min=0)
             for i in range(len(right_areas)):
-                params.add("right_area" + str(i + 1), right_areas[i], min=0, max=right_areas[i]*10.+1)
+                params.add("right_area" + str(i + 1), max(right_areas[i],100), min=0)
 
             # Add independent variables to int_vars
             int_vars = {
@@ -523,7 +524,8 @@ class BioImage:
 
             # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
             for method in ['leastsq']:
-                result = model.fit(histNdarray, verbose = False, method=method, params=params, **int_vars)
+                fit_kws = {'nan_policy': 'propagate'}
+                result = model.fit(histNdarray, verbose = False, method=method, params=params, fit_kws=fit_kws, **int_vars)
                 if result is not None:
                     res = result.values
                     res.update(int_vars)

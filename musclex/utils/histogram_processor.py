@@ -54,13 +54,14 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
 
     if ignore is not None:
         hist2 = np.array(hist)
-        hist2[ignore] = int(max(hist2)*1.5)
-        hist_y2 = smooth(hist2[hist_x])
+        hist_y2 = smooth(hist2[hist_x], 5)
+        hist_y2[ignore] = int(max(hist2)*1.5)
     else:
-        hist_y2 = smooth(hist_y)
+        hist_y2 = smooth(hist_y, 5)
 
     hull_x, hull_y = getHull(hist_x, hist_y2)
     hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
+
     ret = list(np.zeros(start_p))
     ret.extend(hull)
     ret.extend(np.zeros(len(hist)-end_p))
@@ -92,12 +93,6 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
         sub = np.array(ret)
         sub[ignore] = 0
         ret = list(sub)
-
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
-    # ax.plot(hist_x, hist_y2)
-    # ax.plot(ret)
-    # fig.show()
 
     return ret
 
@@ -146,29 +141,23 @@ def getSubtractedHist(xdata, ydata, xhull, yhull):
     :param yhull: y values of hull (list)
     :return: Backgound subtracted histogram
     """
-    if len(xdata) == 0 or len(ydata) == 0 or len(xhull) == 0 or len(yhull) == 0:
+    if len(xdata) < 2 or len(ydata) < 2 or len(xhull) < 2 or len(yhull) < 2:
         return ydata
 
-    minimum_pchip = 10
-    if len(xdata) < minimum_pchip or len(ydata) < minimum_pchip or len(xhull) < minimum_pchip or len(yhull) < minimum_pchip:
+    if len(xhull) < 3 or len(yhull) < 3:
         segmentlx = xhull[0]
-        segmently = yhull[0]
-        suby = [0.]
-        for i in range(1, len(yhull)):
-            segmentrx = xhull[i]
-            segmentry = yhull[i]
-            leftindex = xdata.index(segmentlx)
-            rightindex = xdata.index(segmentrx)
-
-            slope = (float(segmently) - float(segmentry)) / (float(leftindex) - float(rightindex))
-            for i in range(leftindex, rightindex):
-                val = ydata[i] - (segmently + slope * (i - leftindex))
-                suby.append(max(0,val))
-            segmentlx = segmentrx
-            segmently = segmentry
-        return suby
-
-    y_pchip = pchip(xhull, yhull, xdata) # Create a pchip line (curve) from hull
+        segmentrx = xhull[1]
+        leftindex = xdata.index(segmentlx)
+        rightindex = xdata.index(segmentrx)
+        segmently = ydata[leftindex]
+        segmentry = ydata[rightindex]
+        slope = (float(segmently) - float(segmentry)) / (float(leftindex) - float(rightindex))
+        y_pchip = [segmently]
+        for i in range(1, len(xdata)):
+            val = segmently + slope * (i - leftindex)
+            y_pchip.append(val)
+    else:
+        y_pchip = pchip(xhull, yhull, xdata) # Create a pchip line (curve) from hull
 
     suby = []
     for i in range(len(xdata)):

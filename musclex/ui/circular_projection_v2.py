@@ -41,102 +41,8 @@ import argparse
 from ..utils.file_manager import *
 from ..modules.CircularProjection import *
 from ..CalibrationSettings import CalibrationSettings
+from ..csv_manager import CP_CSVManager
 import musclex
-
-class CP_CSVManager():
-    def __init__(self, dir_path):
-        self.df_sum = None
-        self.df_rings = None
-        result_path = fullPath(dir_path, 'cp_results')
-        createFolder(result_path)
-        self.sum_file = fullPath(result_path, "summary.csv")
-        self.rings_file = fullPath(result_path, "rings.csv")
-        self.sum_header = ['filename', 'total intensity', 'angle', 'angle sigma']
-        self.rings_header = ['filename', 'ring', 'S', 'd', 'peak sigma', 'peak intensity', 'angle', 'angle sigma', 'angle amplitude', 'angle fitting error']
-        self.load_all()
-
-    def load_all(self):
-        """
-        Load summary.csv and rings.csv file and keep data in self.df_sum and self.df_rings
-        :return:
-        """
-        if exists(self.sum_file):
-            self.df_sum = pd.read_csv(self.sum_file)
-        else:
-            self.df_sum = pd.DataFrame(columns=self.sum_header)
-        if exists(self.rings_file):
-            self.df_rings = pd.read_csv(self.rings_file)
-        else:
-            self.df_rings = pd.DataFrame(columns=self.rings_header)
-
-    def remove_data(self, filename):
-        """
-        Remove data from dataframe
-        :param file_name: (str)
-        :return:
-        """
-        self.df_sum = self.df_sum[self.df_sum["filename"] != filename]
-        self.df_rings = self.df_rings[self.df_rings["filename"] != filename]
-
-    def write_new_data(self, cir_proj):
-        """
-        Add new data to dataframe, then re-write summary.csv and rings.csv
-        :param cir_proj: CircularProjection object with results in its info dict
-        :return: -
-        """
-
-        file_name = cir_proj.filename
-        info = cir_proj.info
-        self.remove_data(file_name)
-
-        # Add data to summary.csv
-        new_sum_data = {
-            'filename' : file_name,
-            'total intensity' : info['area']
-        }
-
-        if info.has_key('average_ring_model'):
-            model = info['average_ring_model']
-            new_sum_data['angle'] = model['u']
-            new_sum_data['angle sigma'] = model['sigma']
-
-        self.df_sum = self.df_sum.append(new_sum_data, ignore_index = True)
-        self.df_sum.reset_index()
-        self.df_sum.to_csv(self.sum_file, index=False, columns=self.sum_header)  # Write to csv file
-
-        # Add data to rings.csv
-        if 'model_peaks' in info.keys() and len(info['model_peaks']) > 0 and len(info['merged_peaks']) > 0:
-            new_datas = []
-            nRings = len(info['model_peaks'])
-            models = info['ring_models']
-            errors = info['ring_errors']
-            fit_result = info['fitResult']
-            for i in range(nRings):
-                ring = models[i]
-                new_data = {'filename':file_name}
-                new_data['ring'] = i+1
-                new_data['S'] = fit_result['u' + str(i + 1)]
-                new_data['peak sigma'] = fit_result['sigmad' + str(i + 1)]
-                new_data['peak intensity'] = fit_result['alpha' + str(i + 1)]
-                new_data['angle'] = ring['u']
-                new_data['angle sigma'] = ring['sigma']
-                new_data['angle amplitude'] = ring['alpha']
-                new_data['angle fitting error'] = errors[i]
-                if 'peak_ds' in info:
-                    new_data['d'] = info['peak_ds'][i]
-                new_datas.append(new_data)
-            self.df_rings = self.df_rings.append(new_datas, ignore_index=True)
-        else:
-            for k in self.rings_header:
-                new_data = {}
-                if k == 'filename':
-                    new_data[k] = file_name
-                else:
-                    new_data[k] = '-'
-            self.df_rings = self.df_rings.append(new_data, ignore_index = True)
-
-        self.df_rings.reset_index()
-        self.df_rings.to_csv(self.rings_file, index=False, columns=self.rings_header)  # Write to csv file
 
 class CPImageWindow(QtGui.QMainWindow):
     def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
@@ -1018,28 +924,33 @@ class CPImageWindow(QtGui.QMainWindow):
                         patches.Circle(tuple(center), int(round(radius + h*sigmad)), linewidth=2, edgecolor=tuple(np.array(self.ring_colors[(i-1)%len(self.ring_colors)])/255.), facecolor='none'))
 
 
-        self.angleChkBx.setEnabled('average_ring_model' in self.cirProj.info.keys())
+        if self.cirProj.info.has_key('ring_models') and self.cirProj.info.has_key('ring_errors'):
+            models = self.cirProj.info['ring_models']
+            errors = self.cirProj.info['ring_errors']
+            best_ind = min(errors.items(), key=lambda err:err[1])[0]
+            model = models[best_ind]
+            if model['sigma'] < 1. and errors[best_ind] < 1.:
+                self.angleChkBx.setEnabled('average_ring_model' in self.cirProj.info.keys())
+                if self.angleChkBx.isChecked():
+                    # Draw angle lines
+                    angle = model['u']
+                    arange = (angle - model['sigma'], angle + model['sigma'])
+                    scale = img.shape[1] / 2
+                    angle_line = [
+                        (int(round(center[0] - (scale * np.cos(angle)))), int(round(center[0] + (scale * np.cos(angle))))),
+                         (int(round((center[1] - (scale * np.sin(angle))))), int(round((center[1] + (scale * np.sin(angle))))))]
 
-        if 'average_ring_model' in self.cirProj.info.keys() and self.angleChkBx.isChecked():
-            model = self.cirProj.info['average_ring_model']
-            angle = model['u']
-            arange = (angle - model['sigma'], angle + model['sigma'])
-            scale = img.shape[1] / 2
-            angle_line = [
-                (int(round(center[0] - (scale * np.cos(angle)))), int(round(center[0] + (scale * np.cos(angle))))),
-                 (int(round((center[1] - (scale * np.sin(angle))))), int(round((center[1] + (scale * np.sin(angle))))))]
+                    range1 = [
+                        (int(round(center[0] - (scale * np.cos(arange[0])))), int(round(center[0] + (scale * np.cos(arange[0]))))),
+                        (int(round((center[1] - (scale * np.sin(arange[0]))))), int(round((center[1] + (scale * np.sin(arange[0]))))))]
 
-            range1 = [
-                (int(round(center[0] - (scale * np.cos(arange[0])))), int(round(center[0] + (scale * np.cos(arange[0]))))),
-                (int(round((center[1] - (scale * np.sin(arange[0]))))), int(round((center[1] + (scale * np.sin(arange[0]))))))]
+                    range2 = [
+                        (int(round(center[0] - (scale * np.cos(arange[1])))), int(round(center[0] + (scale * np.cos(arange[1]))))),
+                        (int(round((center[1] - (scale * np.sin(arange[1]))))), int(round((center[1] + (scale * np.sin(arange[1]))))))]
 
-            range2 = [
-                (int(round(center[0] - (scale * np.cos(arange[1])))), int(round(center[0] + (scale * np.cos(arange[1]))))),
-                (int(round((center[1] - (scale * np.sin(arange[1]))))), int(round((center[1] + (scale * np.sin(arange[1]))))))]
-
-            ax.plot(angle_line[0], angle_line[1], color=(1,0,0))
-            ax.plot(range1[0], range1[1], color=(1,0.5,.5))
-            ax.plot(range2[0], range2[1], color=(1,0.5,.5))
+                    ax.plot(angle_line[0], angle_line[1], color=(1,0,0))
+                    ax.plot(range1[0], range1[1], color=(1,0.5,.5))
+                    ax.plot(range2[0], range2[1], color=(1,0.5,.5))
 
         if self.centerChkbx.isChecked():
             ax.add_patch(
@@ -1696,27 +1607,34 @@ class CPBatchWindow(QtGui.QMainWindow):
                 row = max(row - 1, 0)
 
             ind = row * x_max + col + self.init_number
-            img_detail = "Intensity value: " + str(self.intensity_dict[ind])
-            # img_detail += "\nD-spacing: " + str(self.distance_dict[ind])
-            img_detail += "\nOrientation angle: " + str(self.orientation_dict[ind])
-            img_detail += "\nAngular range: " + str(self.angrange_dict[ind])
-            filename = self.name_dict[ind]
-            full_filename = fullPath(self.filePath, filename)
-            self.batchmodeImgDetails = img_detail
-            self.batchmodeImgFilename = str(filename)
-            self.updateRightStatusBar(filename)
 
-            if exists(full_filename):
+            if self.name_dict.has_key(ind):
+                img_detail = "Intensity value: " + str(self.intensity_dict[ind])
+                # img_detail += "\nD-spacing: " + str(self.distance_dict[ind])
+                img_detail += "\nOrientation angle: " + str(self.orientation_dict[ind])
+                img_detail += "\nAngular range: " + str(self.angrange_dict[ind])
+                filename = self.name_dict[ind]
+                full_filename = fullPath(self.filePath, filename)
+                self.batchmodeImgDetails = img_detail
+                self.batchmodeImgFilename = str(filename)
+                self.updateRightStatusBar(filename)
 
-                img = fabio.open(full_filename).data
-                if img is not None:
-                    self.batchmodeImg = img
-                    self.setMinMaxIntensity(img, self.img_minInt, self.img_maxInt, self.img_minIntLabel, self.img_maxIntLabel)
-                    QtGui.QApplication.processEvents()
+                if exists(full_filename):
+
+                    img = fabio.open(full_filename).data
+                    if img is not None:
+                        self.batchmodeImg = img
+                        self.setMinMaxIntensity(img, self.img_minInt, self.img_maxInt, self.img_minIntLabel, self.img_maxIntLabel)
+                        QtGui.QApplication.processEvents()
+                else:
+                    self.batchmodeImg = None
+
+                self.updateImage()
             else:
+                self.batchmodeImgDetails = None
+                self.batchmodeImgFilename = None
                 self.batchmodeImg = None
 
-            self.updateImage()
 
     def stopProcessing(self):
         self.stopProcess = True
@@ -1777,7 +1695,6 @@ class CPBatchWindow(QtGui.QMainWindow):
                 cy = (ylim[0]+ylim[1])/2.
                 ax.text(cx, cy, "IMAGE NOT FOUND", fontsize=15, horizontalalignment='center')
 
-            self.imgFigure.tight_layout()
             self.imgCanvas.draw()
 
     def mousePressEvent(self, event):
@@ -2010,10 +1927,9 @@ class CPBatchWindow(QtGui.QMainWindow):
             y = self.xyIntensity[1]
 
             centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-            ranges = [toFloat(self.angrange_dict[i]) for i in
-                      range(self.init_number, len(self.hdf_data) + self.init_number)]
+            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in range(self.init_number, len(self.hdf_data) + self.init_number)]
             max_width = max(ranges)
-            widths = [toFloat(self.angrange_dict[i]) / max_width if 0 < toFloat(self.angrange_dict[i]) / max_width else max_width for i in range(self.init_number, len(self.hdf_data) + self.init_number)]
+            widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict.keys() and 0 < toFloat(self.angrange_dict[i]) / max_width else max_width/2. for i in range(self.init_number, len(self.hdf_data) + self.init_number)]
 
             int_display = np.array(self.intensity_dict.values())
             max_val = int_display.max()
@@ -2038,7 +1954,10 @@ class CPBatchWindow(QtGui.QMainWindow):
                                 angle=convertRadtoDegreesEllipse(np.pi - toFloat(self.orientation_dict[i + self.init_number])))
                 patches.append(e)
                 # colors.append(self.intensity_dict[i + self.init_number])
-                colors.append(int_display[i])
+                if i < len(int_display):
+                    colors.append(int_display[i])
+                else:
+                    colors.append(0)
 
             p = PatchCollection(patches, cmap=self.color_maps)
             p.set_array(np.array(colors))
@@ -2093,6 +2012,7 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.updateStatusBar(text = 'Dir : ' + dir_path +'\nHDF : '+hdf_filename+ '\nCSV : '+csv_filename)
         df_sum = self.csvManager.df_sum.copy()
         df_sum = df_sum.sort_values(['filename'], ascending = True)
+        df_rings = self.csvManager.df_rings
 
         # Read intensity from csv to organize the info given
         self.name_dict = {}
@@ -2104,11 +2024,20 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.fitcd_dict = {}
 
         for i, row in df_sum.iterrows():
-            index = int(row['filename'][-8:-4])
+            filename = str(row['filename'])
+            start_ind = filename.rfind('_')
+            end_ind = filename.rfind('.')
+            index = int(row['filename'][start_ind+1:end_ind])
             self.name_dict[index] = row['filename']
             self.intensity_dict[index] = row['total intensity']
-            self.orientation_dict[index] = row['angle'] if pd.notnull(row['angle']) else 0
-            self.angrange_dict[index] = row['angle sigma'] if pd.notnull(row['angle sigma']) else 0
+
+            # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
+            all_rings = df_rings.loc[df_rings['filename']==filename]
+            all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
+            best_ring = all_rings.iloc[0]
+            good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1.
+            self.orientation_dict[index] = best_ring['angle'] if pd.notnull(best_ring['angle']) and good_model else 0
+            self.angrange_dict[index] = best_ring['angle sigma'] if pd.notnull(best_ring['angle sigma']) and good_model else 0
             self.distance_dict[index] = 0
 
         self.init_number = min(self.name_dict.keys())
@@ -2118,48 +2047,34 @@ class CPBatchWindow(QtGui.QMainWindow):
         data = hf.get('data').get('BL')
         self.hdf_data = np.array(data)
         self.coord_dict = {}
-        x_max = 0
+
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
             self.coord_dict[i] = (self.hdf_data[i - self.init_number][0], self.hdf_data[i - self.init_number][1])
-            if self.hdf_data[i - self.init_number][0] > self.hdf_data[x_max][0]:
-                x_max = i
-        x_max += 1
-        shape = (len(self.hdf_data) / x_max, x_max)
-        # print shape
-        # Merge both dictionaries
-        # results_dict = {}
-        # for k in self.coord_dict.keys():
-        #     results_dict[k] = {'coordinates': self.coord_dict[k],
-        #                        'intensity': self.intensity_dict[k] if k in self.intensity_dict else 0,
-        #                        'distance': self.distance_dict[k] if k in self.distance_dict else 0,
-        #                        'ang_range': self.angrange_dict[k] if k in self.angrange_dict else 0,
-        #                        'orientation': self.orientation_dict[k] if k in self.orientation_dict else 0}
 
-        x_ini = np.array(sorted(set([v[0] for k, v in self.coord_dict.items()])))
-        y_ini = np.array(sorted(set([v[1] for k, v in self.coord_dict.items()])))
+        nCols = 0
+        for i in range(self.init_number+1, len(self.hdf_data) + self.init_number):
+            if abs(self.coord_dict[i][1]-self.coord_dict[i-1][1]):
+                nCols = i - self.init_number
+                break
+
+        nRows = len(self.hdf_data) / nCols
+        all_xs = np.reshape(np.array([v[0] for k, v in self.coord_dict.items()]), (nRows, nCols))
+        all_ys = np.reshape(np.array([v[1] for k, v in self.coord_dict.items()]), (nRows, nCols))
+
+        x = np.mean(all_xs, axis=0)
+        y = np.mean(all_ys, axis=1)
+
         # Check if any error on coordinates
-        x_grad = abs(x_ini[1] - x_ini[0])
-        y_grad = abs(y_ini[1] - y_ini[0])
-        x = []
-        x.append(x_ini[0])
-        y = []
-        y.append(y_ini[0])
-        for i in range(1, len(x_ini)):
-            if abs(abs(x_ini[i] - x_ini[i - 1]) - x_grad) < 0.001:
-                x.append(x_ini[i])
-        for i in range(1, len(y_ini)):
-            if abs(abs(y_ini[i] - y_ini[i - 1]) - y_grad) < 0.001:
-                y.append(y_ini[i])
-        x = np.array(x)
-        y = np.array(y)
-        x_max = len(x)
+        x_grad = abs(x[1] - x[0])
+        y_grad = abs(y[1] - y[0])
 
         # Plot heatmap for intensity
         z = [float(self.intensity_dict[i]) if i in self.intensity_dict else 0 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
-        z = np.array([z[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
+        # z = np.array([z[i:i + x_max] for i in range(0, , x_max)])
         # z = cv2.blur(z, (4,4))
-        intensity = np.array(z)
+        # intensity = np.array(z)
+        intensity = np.reshape(z, (len(y), len(x)))
 
         self.xyIntensity = [x, y, intensity]
         self.xylim = [x_grad, y_grad]
@@ -2194,11 +2109,12 @@ class CPBatchWindow(QtGui.QMainWindow):
 
         else:
             df_sum = self.csvManager.df_sum
-            all_imgs = set(df_sum['filename'])
-            tmp_imlist = imgList[:]
-            for im in tmp_imlist:
-                if im in all_imgs:
-                    imgList.remove(im)
+            df_rings = self.csvManager.df_rings
+            imgs1 = set(df_sum['filename'])
+            imgs2 = set(df_rings['filename'])
+            all_imgs = imgs1 & imgs2
+            tmp_imlist = set(imgList[:])
+            imgList = list(tmp_imlist-all_imgs)
             imgList.sort()
             if len(imgList) > 0:
                 cp = CPImageWindow(self,"", dir_path, process_folder=True, imgList=imgList)

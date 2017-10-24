@@ -48,24 +48,24 @@ class PT_CVSManager:
         """
         Set Colume name
         e.g. "Filename", "L1 Meridian Sigma", "L1 Meridian Amplitude", "L1 centroid 0", "L2 Meridian Sigma",...
-        :param boxes: boxes dictionary (box_number:box coords)
+        :param boxes: boxes dictionary (box_name:box coords)
         :param peaks: peaks dictionary (box_name:peak list)
         :return:
         """
         self.colnames = ["Filename"]
-        for box_number in boxes.keys():
-            if peaks.has_key(box_number):
-                self.colnames.append("Box " + str(box_number) + " Meridian Sigma")
-                self.colnames.append("Box " + str(box_number) + " Meridian Area")
-                for i in range(len(peaks[box_number])):
-                    self.colnames.append("Box " + str(box_number) + " Centroid " + str(i) + " (Pixel)")
-                    self.colnames.append("Box " + str(box_number) + " Centroid " + str(i) + " (nn)")
-                    self.colnames.append("Box " + str(box_number) + " Gaussian Peak " + str(i) + " (Pixel)")
-                    self.colnames.append("Box " + str(box_number) + " Gaussian Peak " + str(i) + " (nn)")
-                    self.colnames.append("Box " + str(box_number) + " Gaussian Sigma " + str(i))
-                    self.colnames.append("Box " + str(box_number) + " Gaussian Area " + str(i))
-                self.colnames.append("Box " + str(box_number) + " error")
-                self.colnames.append("Box " + str(box_number) + " comments")
+        for box_name in boxes.keys():
+            if peaks.has_key(box_name):
+                self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
+                self.colnames.append("Box " + str(box_name) + " Meridian Area")
+                for i in range(len(peaks[box_name])):
+                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (Pixel)")
+                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (nn)")
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (Pixel)")
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (nn)")
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Sigma " + str(i))
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Area " + str(i))
+                self.colnames.append("Box " + str(box_name) + " error")
+                self.colnames.append("Box " + str(box_name) + " comments")
 
     def loadSummary(self):
         """
@@ -91,8 +91,8 @@ class PT_CVSManager:
             'Filename' : file_name
         }
 
-        box_numbers = info['box_numbers']
-        for bn in box_numbers:
+        box_names = info['box_names']
+        for bn in box_names:
             if info.has_key('fit_results') and info['fit_results'].has_key(bn):
                 model = info['fit_results'][bn]
                 new_data['Box ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']

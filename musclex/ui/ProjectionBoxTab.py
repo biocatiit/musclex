@@ -27,27 +27,56 @@ authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
 from PyQt4 import QtCore, QtGui
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 import numpy as np
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground, meridianGauss
+from ..utils.image_processor import getNewZoom
 
 class ProjectionBoxTab(QtGui.QWidget):
     """
     Fitting Tabs : left or right
     Display fitting graph and providing options
     """
-    def __init__(self, parent, num):
+    def __init__(self, parent, name):
         QtGui.QWidget.__init__(self)
         self.parent = parent
-        self.num = num
+        self.name = name
         self.function = None
         self.syncUI = False
         self.need_update = True
         self.checkableButtons = []
+        self.graphMaxBound = None
+        self.zoom1 = None
+        self.zoom2 = None
+        self.zoomRect = None
+        self.centerX = None
         self.initUI()
         self.setAllToolTips()
         self.setConnections()
+
+    def getCenterX(self):
+        """
+        Get center X
+        :return: center X
+        """
+        if self.parent.projProc is None:
+            return 0
+
+        if self.centerX is None:
+            info = self.parent.projProc.info
+            name = self.name
+
+            box = info['boxes'][name]
+            start_x = box[0][0]
+            start_y = box[1][0]
+
+            if info['types'][name] == 'h':
+                self.centerX = self.parent.projProc.orig_img.shape[1] / 2. - 0.5 - start_x
+            else:
+                self.centerX = self.parent.projProc.orig_img.shape[0] / 2. - 0.5 - start_y
+
+        return self.centerX
 
     def initUI(self):
         """
@@ -55,7 +84,7 @@ class ProjectionBoxTab(QtGui.QWidget):
         """
         self.setContentsMargins(0, 0, 0, 0)
         self.tabLayout = QtGui.QHBoxLayout(self)
-        self.graphFigure1 = plt.figure()
+        self.graphFigure1 = plt.figure(facecolor='#606060')
         self.graphCanvas1 = FigureCanvas(self.graphFigure1)
 
         self.graphFigure2 = plt.figure(facecolor='#606060')
@@ -70,35 +99,53 @@ class ProjectionBoxTab(QtGui.QWidget):
 
         self.histChkBx = QtGui.QCheckBox("Original Projection")
         self.histChkBx.setChecked(True)
+        self.hullRangeChkBx = QtGui.QCheckBox('Hull Range')
+        self.hullRangeChkBx.setEnabled(self.parent.bgsubs[self.name] == 1)
+        self.hullRangeChkBx.setChecked(self.parent.bgsubs[self.name]==1)
         self.fitmodelChkBx = QtGui.QCheckBox("Fitting Model")
-        self.fitmodelChkBx.setChecked(False)
-        self.bgChkBx = QtGui.QCheckBox("Fitting Background")
+        self.fitmodelChkBx.setChecked(True)
+        self.bgChkBx = QtGui.QCheckBox("Background")
         self.bgChkBx.setChecked(True)
         self.peaksChkBx = QtGui.QCheckBox("Model Peaks")
-        self.peaksChkBx.setChecked(False)
+        self.peaksChkBx.setChecked(True)
         self.centerChkBx = QtGui.QCheckBox("Center")
         self.centerChkBx.setChecked(False)
         self.subHistChkBx = QtGui.QCheckBox("Subtracted Projection")
         self.subHistChkBx.setChecked(True)
         self.baselineChkBx = QtGui.QCheckBox("Baselines")
-        self.baselineChkBx.setChecked(True)
+        self.baselineChkBx.setChecked(False)
         self.centroidChkBx = QtGui.QCheckBox("Centroids")
-        self.centroidChkBx.setChecked(True)
+        self.centroidChkBx.setChecked(False)
+
+        self.zoomInButton = QtGui.QPushButton("Zoom in")
+        self.zoomInButton.setCheckable(True)
+        self.zoomOutButton = QtGui.QPushButton("Zoom out")
+        self.fullButton = QtGui.QPushButton("Full")
+        self.checkableButtons.append(self.zoomInButton)
         self.dispOptLayout.addWidget(self.histChkBx, 0, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.fitmodelChkBx, 1, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.bgChkBx, 2, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.fitmodelChkBx, 0, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.hullRangeChkBx, 2, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.bgChkBx, 2, 1, 1, 1)
         self.dispOptLayout.addWidget(self.peaksChkBx, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.centerChkBx, 4, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.centerChkBx, 3, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.centroidChkBx, 4, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.baselineChkBx, 4, 1, 1, 1)
         self.dispOptLayout.addWidget(self.subHistChkBx, 5, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.baselineChkBx, 6, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.centroidChkBx, 7, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.zoomInButton, 6, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.zoomOutButton, 6, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.fullButton, 7, 0, 1, 2)
 
         self.settingGroup = QtGui.QGroupBox("Setting")
         self.settingLayout = QtGui.QVBoxLayout(self.settingGroup)
         self.peaksButton = QtGui.QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
         self.checkableButtons.append(self.peaksButton)
+        self.hullRangeButton = QtGui.QPushButton("Set Manual Convex Hull Range")
+        self.hullRangeButton.setCheckable(True)
+        self.hullRangeButton.setEnabled(self.parent.bgsubs[self.name]==1)
+        self.checkableButtons.append(self.hullRangeButton)
         self.settingLayout.addWidget(self.peaksButton)
+        self.settingLayout.addWidget(self.hullRangeButton)
 
         self.results_text = QtGui.QLabel()
 
@@ -153,6 +200,7 @@ class ProjectionBoxTab(QtGui.QWidget):
         """
         self.histChkBx.stateChanged.connect(self.resetUI)
         self.fitmodelChkBx.stateChanged.connect(self.resetUI)
+        self.hullRangeChkBx.stateChanged.connect(self.resetUI)
         self.bgChkBx.stateChanged.connect(self.resetUI)
         self.peaksChkBx.stateChanged.connect(self.resetUI)
         self.centerChkBx.stateChanged.connect(self.resetUI)
@@ -160,7 +208,12 @@ class ProjectionBoxTab(QtGui.QWidget):
         self.baselineChkBx.stateChanged.connect(self.resetUI)
         self.centroidChkBx.stateChanged.connect(self.resetUI)
 
+        self.zoomInButton.clicked.connect(self.zoomInclicked)
+        self.zoomOutButton.clicked.connect(self.zoomOutclicked)
+        self.fullButton.clicked.connect(self.fullClicked)
+
         self.peaksButton.clicked.connect(self.addPeaks)
+        self.hullRangeButton.clicked.connect(self.setManualHullRange)
 
         self.resultTable2.itemChanged.connect(self.handleItemChanged)
 
@@ -168,7 +221,14 @@ class ProjectionBoxTab(QtGui.QWidget):
         self.nextButton.clicked.connect(self.parent.nextClicked)
 
         self.graphFigure1.canvas.mpl_connect('button_press_event', self.graphClicked)
-        self.graphFigure2.canvas.mpl_connect('button_press_event', self.graphClicked)
+        self.graphFigure2.canvas.mpl_connect('button_press_event', self.graphClicked2)
+        self.graphFigure1.canvas.mpl_connect('motion_notify_event', self.graphOnMotion1)
+        self.graphFigure2.canvas.mpl_connect('motion_notify_event', self.graphOnMotion2)
+        self.graphFigure1.canvas.mpl_connect('button_release_event', self.graphReleased)
+        self.graphFigure2.canvas.mpl_connect('button_release_event', self.graphReleased)
+        self.graphFigure1.canvas.mpl_connect('figure_leave_event', self.graphReleased)
+        self.graphFigure2.canvas.mpl_connect('figure_leave_event', self.graphReleased)
+
 
     def handleItemChanged(self, item):
         """
@@ -177,31 +237,134 @@ class ProjectionBoxTab(QtGui.QWidget):
         :return:
         """
         if self.parent.projProc is not None and item.column() == 0 and not self.syncUI:
-            self.parent.projProc.setBaseline(self.num, item.row(), item.text())
+            self.parent.projProc.setBaseline(self.name, item.row(), item.text())
             self.parent.processImage()
 
-    def graphClicked(self, event):
+    def zoomInclicked(self):
         """
-        Triggered when mouse presses on image in image tab
+        Trigger when zoom in button is pressed
         """
-        if self.parent.projProc is None or self.function is None or len(self.function) < 2:
-            return
+        if self.zoomInButton.isChecked():
+            self.function = ['zoom']
+        else:
+            self.function = None
+            self.resetUI()
 
+    def zoomOutclicked(self):
+        """
+        Trigger when zoom out clicked
+        :return:
+        """
+        if self.graphMaxBound is not None:
+            xlim = self.graphMaxBound[0]
+            ylim = self.graphMaxBound[1]
+
+            def increaseLimit(fig, canvas, xlim, ylim):
+                ax = fig.add_subplot(111)
+                old_xlim = ax.get_xlim()
+                old_ylim = ax.get_ylim()
+                xscale = abs(old_xlim[0]-old_xlim[1])*0.1
+                yscale = abs(old_ylim[0]-old_ylim[1])*0.1
+                new_x1 = max(old_xlim[0] - xscale, xlim[0])
+                new_x2 = min(old_xlim[1] + xscale, xlim[1])
+                new_y1 = max(old_ylim[0] - yscale, ylim[0])
+                new_y2 = min(old_ylim[1] + yscale, ylim[1])
+                zoom = [(new_x1, new_x2), (new_y1,new_y2)]
+                ax.set_xlim(zoom[0])
+                ax.set_ylim(zoom[1])
+                canvas.draw_idle()
+                return zoom
+
+            self.zoom1 = increaseLimit(self.graphFigure1, self.graphCanvas1, xlim, ylim)
+            self.zoom2 = increaseLimit(self.graphFigure2, self.graphCanvas2, xlim, ylim)
+
+    def fullClicked(self):
+        """
+        Triggered when Full button is pressed
+        """
+        self.zoom1 = None
+        self.zoom2 = None
+        self.resetUI()
+
+    def setZoomIn(self, point1, point2):
+        """
+        Set Zoom in for plot n. If n of point1 and point2 are not the same, just refresh UI.
+        :param point1: (n, (x1, y1))
+        :param point2: (n, (x2, y2))
+        :return:
+        """
+        if point1[0] == point2[0]:
+            # Set zoom area for a plot
+            pt1 = point1[1]
+            pt2 = point2[1]
+            x1 = min(pt1[0], pt2[0])
+            x2 = max(pt1[0], pt2[0])
+            y1 = min(pt1[1], pt2[1])
+            y2 = max(pt1[1], pt2[1])
+            zoom = [(x1, x2), (y1, y2)]
+            if point1[0] == 1:
+                self.zoom1 = zoom
+            else:
+                self.zoom2 = zoom
+        self.resetUI()
+
+    def graphReleased(self, event):
+        """
+        Triggered when mouse is released from plot
+        :return:
+        """
+        if self.function is not None and 'move' in self.function[0]:
+            self.function = None
+            self.parent.pixel_detail.setText("")
+
+    def graphClicked2(self, event):
+        """
+        Triggered when the second plot is clicked
+        """
         x = event.xdata
         y = event.ydata
 
+        if self.parent.projProc is None or x is None or y is None:
+            return
+
         func = self.function
+
+        if func is None:
+            self.function = ['move2', (x, y)]
+        elif func[0] == 'zoom':
+            # select zoom in area for the second plot
+            func.append((2, (x, y)))
+            if len(func) == 3:
+                self.setZoomIn(func[1], func[2])
+        else:
+            # call event handler for first plot
+            self.graphClicked(event)
+
+    def graphClicked(self, event):
+        """
+        Triggered when the first plot is clicked
+        """
+        x = event.xdata
+        y = event.ydata
+        if self.parent.projProc is None or x is None or y is None:
+            return
+
+        if self.function is None:
+            self.function = ['move1', (x,y)]
+            return
+
+        func = self.function
+        box = self.parent.allboxes[self.name]
+        type = self.parent.boxtypes[self.name]
+        if type == 'h':
+            center = self.parent.projProc.orig_img.shape[1] / 2 - 0.5 - box[0][0]
+        else:
+            center = self.parent.projProc.orig_img.shape[0] / 2 - 0.5 - box[1][0]
+
+        distance = int(round(abs(center - x)))
 
         if func[0] == 'peaks':
             peaks = func[1]
-            box = self.parent.allboxes[self.num]
-            type = self.parent.boxtypes[self.num]
-            if type == 'h':
-                center = self.parent.projProc.orig_img.shape[1] / 2 - 0.5 - box[0][0]
-            else:
-                center = self.parent.projProc.orig_img.shape[0] / 2 - 0.5 - box[1][0]
-
-            distance = int(round(abs(center - x)))
             peaks.append(distance)
 
             ax = self.graphFigure1.add_subplot(111)
@@ -215,6 +378,119 @@ class ProjectionBoxTab(QtGui.QWidget):
             self.graphCanvas1.draw_idle()
             self.graphCanvas2.draw_idle()
 
+        elif func[0] == 'hull':
+            hull_range = func[1]
+            hull_range.append(distance)
+
+            ax = self.graphFigure1.add_subplot(111)
+            ax.axvline(center + distance, color='k', linewidth=2)
+            ax.axvline(center - distance, color='k', linewidth=2)
+
+            ax = self.graphFigure2.add_subplot(111)
+            ax.axvline(center + distance, color='k', linewidth=2)
+            ax.axvline(center - distance, color='k', linewidth=2)
+
+            self.graphCanvas1.draw_idle()
+            self.graphCanvas2.draw_idle()
+
+            if len(hull_range) == 2:
+                hull_range = tuple(sorted(hull_range))
+                self.parent.hull_ranges[self.name] = hull_range
+                self.parent.projProc.removeInfo(self.name, 'hists2')
+                self.parent.processImage()
+        elif func[0] == 'zoom':
+            # select zoom in area for the second plot
+            func.append((1, (x, y)))
+            if len(func) == 3:
+                self.setZoomIn(func[1], func[2])
+
+    def drawRectangle(self, fig, canvas, point1, point2):
+        """
+        Draw a rectangle
+        :param fig:
+        :param canvas:
+        :param point1:
+        :param point2:
+        :return:
+        """
+        ax = fig.add_subplot(111)
+        if self.zoomRect is not None and self.zoomRect in ax.patches:
+            ax.patches.remove(self.zoomRect)
+
+        x1 = min(point1[0], point2[0])
+        x2 = max(point1[0], point2[0])
+        y1 = min(point1[1], point2[1])
+        y2 = max(point1[1], point2[1])
+        w = abs(x1-x2)
+        h = abs(y1-y2)
+
+        self.zoomRect = patches.Rectangle((x1, y1), w, h,
+                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted')
+        ax.add_patch(self.zoomRect)
+        canvas.draw_idle()
+
+    def graphOnMotion1(self, event):
+        """
+        Trigger when mouse hovers the first plot
+        """
+        x = event.xdata
+        y = event.ydata
+        if x is not None and y is not None:
+            centerX = self.getCenterX()
+            distance = x - centerX
+            self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3)))
+            if self.function is not None:
+                if self.function[0] == 'move1' and self.graphMaxBound is not None and self.zoom1 is not None:
+                    # change zoom-in location to move around plot
+                    func = self.function
+                    ax = self.graphFigure1.add_subplot(111)
+                    move = (func[1][0] - x, func[1][1] - y)
+                    self.zoom1 = getNewZoom(self.zoom1, move, self.graphMaxBound[0][1], self.graphMaxBound[1][1], self.graphMaxBound[1][0])
+                    ax.set_xlim(self.zoom1[0])
+                    ax.set_ylim(self.zoom1[1])
+                    self.graphCanvas1.draw_idle()
+                elif self.function[0] == 'zoom' and len(self.function) == 2 and self.function[1][0] == 1:
+                    # Draw rectangle
+                    start_pt = self.function[1][1]
+                    self.drawRectangle(self.graphFigure1, self.graphCanvas1, start_pt, (x, y))
+
+
+
+    def graphOnMotion2(self, event):
+        """
+        Trigger when mouse hovers the first plot
+        """
+        x = event.xdata
+        y = event.ydata
+        if x is not None and y is not None:
+            centerX = self.getCenterX()
+            distance = x - centerX
+            self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3)))
+            if self.function is not None:
+                if self.function[0] == 'move2' and self.graphMaxBound is not None and self.zoom2 is not None:
+                    # change zoom-in location to move around plot
+                    func = self.function
+                    ax = self.graphFigure2.add_subplot(111)
+                    move = (func[1][0] - x, func[1][1] - y)
+                    self.zoom2 = getNewZoom(self.zoom2, move, self.graphMaxBound[0][1], self.graphMaxBound[1][1], self.graphMaxBound[1][0])
+                    ax.set_xlim(self.zoom2[0])
+                    ax.set_ylim(self.zoom2[1])
+                    self.graphCanvas2.draw_idle()
+                elif self.function[0] == 'zoom' and len(self.function) == 2 and self.function[1][0] == 2:
+                    # Draw rectangle
+                    start_pt = self.function[1][1]
+                    self.drawRectangle(self.graphFigure2, self.graphCanvas2, start_pt, (x,y))
+
+    def setManualHullRange(self):
+        """
+        Trigger when "Set Manual Convex hull ranges" is pressed
+        :return:
+        """
+        if self.hullRangeButton.isChecked():
+            self.function = ['hull', []]
+        else:
+            self.resetUI()
+
     def addPeaks(self):
         """
         Trigger when "Select Peaks" is pressed
@@ -226,8 +502,8 @@ class ProjectionBoxTab(QtGui.QWidget):
         else:
             self.peaksButton.setText("Select Peaks")
             peaks = self.function[1]
-            self.parent.addPeakstoBox(self.num, peaks)
             self.function = None
+            self.parent.addPeakstoBox(self.name, peaks)
 
     def keyPressEvent(self, event):
         """
@@ -273,13 +549,18 @@ class ProjectionBoxTab(QtGui.QWidget):
 
         # Update graphs
         info = self.parent.projProc.info
-        num = self.num
-        hist = info['hists'][num]
+        name = self.name
+        if not name in info['box_names']:
+            return
+
+        hist = info['hists'][name]
         fit_results = info['fit_results']
         subtracted_hists = info['subtracted_hists']
         all_baselines = info['baselines']
         all_centroids = info['centroids']
         all_widths = info['widths']
+        bgsubs = info['bgsubs']
+        hull_ranges = info['hull_ranges']
 
         ax = self.graphFigure1.add_subplot(111)
         ax.cla()
@@ -290,32 +571,45 @@ class ProjectionBoxTab(QtGui.QWidget):
         if self.histChkBx.isChecked():
             ax.plot(hist, color='k')
 
-        if fit_results.has_key(num):
+        if fit_results.has_key(name):
             xs = np.arange(0, len(hist))
-            model = info['fit_results'][num]
+            model = info['fit_results'][name]
+            convex_hull = hist - info['hists2'][name]
 
-            if self.subHistChkBx.isChecked() and subtracted_hists.has_key(num):
-                ax2.plot(subtracted_hists[num], color='k')
+            if self.subHistChkBx.isChecked() and subtracted_hists.has_key(name):
+                ax2.plot(subtracted_hists[name], color='k')
 
             if self.fitmodelChkBx.isChecked():
                 model_hist = layerlineModel(xs, **model)
-                subtracted_model = layerlineModel(xs, **model)-layerlineModelBackground(xs, **model)
+                subtracted_model = model_hist-layerlineModelBackground(xs, **model)
+
+                if bgsubs[name] == 1:
+                    # Add convexhull background
+                    model_hist = model_hist + convex_hull
+
                 ax.plot(model_hist, color='g')
                 ax2.plot(subtracted_model, color='g')
 
             if self.bgChkBx.isChecked():
-                background = layerlineBackground(xs, **model)
-                meridian_bg = meridianBackground(xs, **model) + layerlineBackground(xs, **model)
-                meridian = layerlineModelBackground(xs, **model)
-                ax.fill_between(xs, meridian, meridian_bg, facecolor='r', alpha=0.3)
-                ax.fill_between(xs, meridian_bg, background, facecolor='y', alpha=0.3)
-                ax.fill_between(xs, 0, background, facecolor='b', alpha=0.3)
+                if bgsubs[name] == 1:
+                    # Add convex hull background
+                    ax.fill_between(xs, 0, convex_hull, facecolor='b', alpha=0.3)
+                else:
+                    # Add 3 Gaussians
+                    background = layerlineBackground(xs, **model)
+                    meridian_bg = meridianBackground(xs, **model) + layerlineBackground(xs, **model)
+                    meridian = layerlineModelBackground(xs, **model)
+                    ax.fill_between(xs, meridian, meridian_bg, facecolor='r', alpha=0.3)
+                    ax.fill_between(xs, meridian_bg, background, facecolor='y', alpha=0.3)
+                    ax.fill_between(xs, 0, background, facecolor='b', alpha=0.3)
 
             if self.centerChkBx.isChecked():
+                # Add center line
                 ax.axvline(model['centerX'], color='c', alpha=0.7)
                 ax2.axvline(model['centerX'], color='c', alpha=0.7)
 
             if self.peaksChkBx.isChecked():
+                # display model peaks
                 i = 0
                 while 'p_' + str(i) in model:
                     p = model['p_' + str(i)]
@@ -323,10 +617,11 @@ class ProjectionBoxTab(QtGui.QWidget):
                     ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
                     ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
 
-            if all_centroids.has_key(num) and all_baselines.has_key(num) and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
-                centroids = all_centroids[num]
-                baselines = all_baselines[num]
-                widths = all_widths[num]
+            if all_centroids.has_key(name) and all_baselines.has_key(name) and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
+                # Add baselines and centroids
+                centroids = all_centroids[name]
+                baselines = all_baselines[name]
+                widths = all_widths[name]
                 centerX = model['centerX']
                 i = 0
                 while 'p_' + str(i) in model:
@@ -342,19 +637,40 @@ class ProjectionBoxTab(QtGui.QWidget):
 
                     i += 1
 
+        if self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and hull_ranges.has_key(name):
+            # Color area OUTSIDE convex hull range
+            centerX = self.getCenterX()
+
+            ax.axvspan(centerX - hull_ranges[name][0], centerX + hull_ranges[name][0], alpha=0.5, color='k')
+            ax.axvspan(0, centerX - hull_ranges[name][1], alpha=0.5, color='k')
+            ax.axvspan(centerX + hull_ranges[name][1], len(hist), alpha=0.5, color='k')
 
             # # Update Results Text
             # text = "<h1>Results</h1>"
             # text += "<b>center X</b> :"+str(params['centerX'])
             # text += "<br/><br/><b>Distance (Pixels)</b> :" + str(params['p'])
-            # if info.has_key('distances') and info['distances'][self.num] is not None:
-            #     text += "<br/><br/><b>Distance (nm)</b> :" + str(info['distances'][self.num])
+            # if info.has_key('distances') and info['distances'][self.name] is not None:
+            #     text += "<br/><br/><b>Distance (nm)</b> :" + str(info['distances'][self.name])
             # text += "<br/><br/><b>Amplitude</b> :" + str(params['amplitude'])
             # text += "<br/><br/><b>Sigma</b> :" + str(params['sigma'])
             # self.results_text.setText(text)
 
-        ax.set_xlim((0, len(hist)))
-        ax2.set_xlim((0, len(hist)))
+
+        if self.zoom1 is not None:
+            ax.set_xlim(self.zoom1[0])
+            ax.set_ylim(self.zoom1[1])
+        else:
+            ax.set_xlim((0, len(hist)))
+
+        if self.zoom2 is not None:
+            ax2.set_xlim(self.zoom2[0])
+            ax2.set_ylim(self.zoom2[1])
+        else:
+            ax2.set_xlim((0, len(hist)))
+
+        if self.graphMaxBound is None:
+            self.graphMaxBound = [ax.get_xlim(), ax.get_ylim()]
+
         self.graphFigure1.tight_layout()
         self.graphCanvas1.draw()
         self.graphFigure2.tight_layout()
@@ -362,12 +678,12 @@ class ProjectionBoxTab(QtGui.QWidget):
 
 
         # Update Table
-        if all_centroids.has_key(num) and all_baselines.has_key(num):
-            centroids = all_centroids[num]
-            baselines = all_baselines[num]
-            widths = all_widths[num]
+        if all_centroids.has_key(name) and all_baselines.has_key(name):
+            centroids = all_centroids[name]
+            baselines = all_baselines[name]
+            widths = all_widths[name]
             nPeaks = len(centroids)
-            fit_result = fit_results[num]
+            fit_result = fit_results[name]
             self.resultTable1.setRowCount(nPeaks)
             self.resultTable2.setRowCount(nPeaks)
 

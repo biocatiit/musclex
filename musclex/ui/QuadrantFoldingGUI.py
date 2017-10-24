@@ -270,7 +270,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.bgChoice = QtGui.QComboBox()
         self.bgChoice.setCurrentIndex(0)
-        self.bgChoice.setFixedHeight(40)
+        # self.bgChoice.setFixedHeight(40)
         self.bgChoice.addItem("None")
         self.bgChoice.addItem("2D Convexhull")
         self.bgChoice.addItem("Circularly-symmetric")
