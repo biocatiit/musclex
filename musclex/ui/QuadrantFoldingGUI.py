@@ -840,6 +840,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             ax.lines = []
             ax.plot([x,x2],[y,y2], color = "g")
             self.imageCanvas.draw_idle()
+
     def imageReleased(self, event):
         """
         Triggered when mouse released from image
@@ -1435,6 +1436,9 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             self.ignoreFolds = self.quadFold.info['ignore_folds']
         self.processImage()
 
+    def closeEvent(self, ev):
+        self.close()
+
     def refreshAllTabs(self):
         """
         Set all tab update status to be not update, and Refresh (Redraw) all tab
@@ -1586,7 +1590,8 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
                 errMsg = QtGui.QMessageBox()
                 errMsg.setText('Unexpected error')
                 msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
-                msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
+                msg += "Image : "+str(self.quadFold.img_name)
+                msg += "\n\nError : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
                 errMsg.setInformativeText(msg)
                 errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
                 errMsg.setIcon(QtGui.QMessageBox.Warning)

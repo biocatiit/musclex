@@ -134,12 +134,15 @@ class QuadrantFolder(object):
         """
         All processing steps - all flags are provided by Quadrant Folding app as a dictionary
         settings must have ...
+        ignore_folds - ignored quadrant = quadrant that will not be averaged
         bgsub - background subtraction method (-1 = no bg sub, 0 = Circular, 1 = 2D convex hull, 2 = white-top-hat)
-        #### mask_thres - pixel value that won't be averaged (deplicated)
+        mask_thres - pixel value that won't be averaged (deplicated)
         sigmoid - merging gradient
         other backgound subtraction params - cirmin, cirmax, nbins, tophat1, tophat2
         """
+        print self.img_name+" is being processed..."
         self.info.update(flags)
+        self.initParams()
         self.findCenter()
         self.rotateImg()
         self.calculateAvgFold()
@@ -151,6 +154,20 @@ class QuadrantFolder(object):
         if not flags.has_key("no_cache"):
             self.cacheInfo()
             self.saveBackground()
+
+    def initParams(self):
+        """
+        Initial some parameters in case GUI doesn't specified
+        """
+        if not self.info.has_key('mask_thres'):
+            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
+        if not self.info.has_key('ignore_folds'):
+            self.info['ignore_folds'] = set()
+        if not self.info.has_key('bgsub'):
+            self.info['bgsub'] = 0
+        if not self.info.has_key('sigmoid'):
+            self.info['sigmoid'] = 0.05
+
 
     def findCenter(self):
         """

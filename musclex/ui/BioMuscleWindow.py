@@ -63,6 +63,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.function = None  # Current active function
         self.syncUI = False  # boolean status for UI sync. Prevent recursive infinite processing
         self.update_plot = {'img': True, 'graph' :True, 'results': True}  # update status of each tab
+        self.fixedIntArea = None
         self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
         if len(self.imgList) == 0:
             self.inputerror()
@@ -188,10 +189,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.fixedAngle.setKeyboardTracking(False)
         self.fixedAngle.setRange(-360, 360)
         self.fixedAngle.setEnabled(False)
-        self.fixedIntArea = QtGui.QSpinBox()
-        self.fixedIntArea.setKeyboardTracking(False)
-        self.fixedIntArea.setRange(15, 1000)
-        self.fixedIntArea.setEnabled(False)
         self.maskThresSpnBx =QtGui.QDoubleSpinBox()
         self.maskThresSpnBx.setRange(-10,10)
         self.maskThresSpnBx.setKeyboardTracking(False)
@@ -204,8 +201,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.imgProcLayout.addWidget(self.setIntAreaB, 2, 1, 1, 1)
         self.imgProcLayout.addWidget(self.fixedAngleChkBx, 3, 0, 1, 1)
         self.imgProcLayout.addWidget(self.fixedAngle, 3, 1, 1, 1)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 4, 0, 1, 1)
-        self.imgProcLayout.addWidget(self.fixedIntArea, 4, 1, 1, 1)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 4, 0, 1, 2)
         self.imgProcLayout.addWidget(QtGui.QLabel("Mask Threshold"), 5, 0, 1, 1)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 5, 1, 1, 1)
         self.imgProcLayout.addWidget(self.resetAllB, 6, 0, 1, 2)
@@ -498,7 +494,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
         self.fixedAngle.valueChanged.connect(self.fixedAngleChanged)
-        self.fixedIntArea.valueChanged.connect(self.fixedIntAreaChanged)
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
         self.resetAllB.clicked.connect(self.resetAll)
 
@@ -929,6 +924,12 @@ class BioMuscleWindow(QtGui.QMainWindow):
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         settings = self.getSettings()
         text += "\nCurrent Settings"
+
+        if settings.has_key('fixed_angle'):
+            text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
+        if settings.has_key('fixed_int_area'):
+            text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
+
         text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
         text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
         text += "\n  - Model : " + str(settings["model"])
@@ -1189,9 +1190,12 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         Triggered when fixed integrated area is checked or unchecked
         """
-        self.fixedIntArea.setEnabled(self.fixedIntAreaChkBx.isChecked())
-        if not self.fixedIntAreaChkBx.isChecked() and self.bioImg is not None:
-            self.bioImg.removeInfo("fixed_int_area")
+        if self.bioImg is not None:
+            if not self.fixedIntAreaChkBx.isChecked():
+                self.fixedIntArea = None
+                self.bioImg.removeInfo("fixed_int_area")
+            else:
+                self.fixedIntArea = self.bioImg.info['int_area']
 
     def fixedAngleChanged(self):
         """
@@ -1199,14 +1203,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         if self.bioImg is not None and not self.syncUI:
             self.bioImg.removeInfo("rotationAngle")
-            self.processImage()
-
-    def fixedIntAreaChanged(self):
-        """
-        Triggered when fixed integrated area spinbox value is changed
-        """
-        if self.bioImg is not None and not self.syncUI:
-            self.bioImg.removeInfo("int_area")
             self.processImage()
 
     def imgClicked(self, event):
@@ -1306,6 +1302,8 @@ class BioMuscleWindow(QtGui.QMainWindow):
                 # Set new integrated area, re-calculate from getting histogram process
                 self.bioImg.info['int_area'] = (t, b)
                 self.bioImg.removeInfo('hist')
+                if self.fixedIntAreaChkBx.isChecked():
+                    self.fixedIntArea = (t, b)
                 self.function = None
                 self.setIntAreaB.setChecked(False)
                 self.processImage()
@@ -1394,7 +1392,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
             x2 = center[0] - deltax
             y2 = center[1] - deltay
             ax = self.displayImgFigure.add_subplot(111)
-            del ax.lines
             ax.lines = []
             ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
@@ -1404,7 +1401,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
             ax = self.displayImgFigure.add_subplot(111)
             if len(ax.lines) > len(func) - 1:
                 line = ax.lines[:len(func) - 1]
-                del ax.lines
                 ax.lines = line
             ax.axhline(y, color='g')
             self.displayImgCanvas.draw_idle()
@@ -1413,7 +1409,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
             center = self.bioImg.info['center']
             dis = int(np.round(distance(center, (x, y))))
             ax = self.displayImgFigure.add_subplot(111)
-            del ax.patches
             ax.patches = []
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
@@ -1500,7 +1495,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         # delete window object from main window
         self.mainWindow.childWindowClosed(self)
 
-    def initSpinBoxes(self, info):
+    def initWidgets(self, info):
         """
         Update GUI to sync with BioImage info
         :param info: BioImage info
@@ -1522,6 +1517,14 @@ class BioMuscleWindow(QtGui.QMainWindow):
             self.nPeakSpnBx.setValue(len(fit_results['left_areas']))
             self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_results["model"]))
 
+        # self.fixedAngleChkBx.setChecked(info.has_key('fixed_angle'))
+        # if info.has_key('fixed_angle'):
+        #     self.fixedAngle.setValue(info['fixed_angle'])
+        #
+        # self.fixedIntAreaChkBx.setChecked(info.has_key('fixed_int_area'))
+        # if info.has_key('fixed_int_area'):
+        #     self.fixedIntArea = info['fixed_int_area']
+
         # Initital reject check box
         if "reject" in info.keys():
             self.rejectChkBx.setChecked(self.bioImg.info["reject"])
@@ -1537,7 +1540,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         Process the new image if there's no cache.
         """
         self.bioImg = BioImage(self.dir_path, self.imgList[self.currentImg])
-        self.initSpinBoxes(self.bioImg.info)
+        self.initWidgets(self.bioImg.info)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
@@ -1626,8 +1629,8 @@ class BioMuscleWindow(QtGui.QMainWindow):
         if self.fixedAngleChkBx.isChecked():
             settings["fixed_angle"] = self.fixedAngle.value()
 
-        if self.fixedIntAreaChkBx.isChecked():
-            settings["fixed_int_area"] = self.fixedIntArea.value()
+        if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
+            settings["fixed_int_area"] = self.fixedIntArea
 
         return settings
 
@@ -1713,7 +1716,6 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.left_fitting_tab.syncSpinBoxes(info)
         self.right_fitting_tab.syncSpinBoxes(info)
         self.fixedAngle.setValue(info["rotationAngle"])
-        self.fixedIntArea.setValue(abs(info["int_area"][0] - info["int_area"][1]))
         self.syncUI = False
 
     def updateUI(self):

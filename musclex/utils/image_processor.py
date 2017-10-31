@@ -307,7 +307,7 @@ def getRotationAngle(img, center):
         hist[d + 180 - sum_range:d + 181 + sum_range]))  # Find the best degree by its intensity
 
     # If the degree and initial angle from ellipse are different, return ellipse angle instead
-    if abs(max_degree-init_angle) > 20.:
+    if init_angle is not None and abs(max_degree-init_angle) > 20.:
         return int(round(init_angle))
 
     # otherwise, return max degree

@@ -972,6 +972,7 @@ class CPImageWindow(QtGui.QMainWindow):
             hist = self.cirProj.info['m1_partial_hists'][self.m1_selected_range]
             hull = self.cirProj.info['m1_partial_hulls'][self.m1_selected_range]
             ax = self.m1_partial_hist_figure.add_subplot(111)
+            self.m1_partial_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
             ax.cla()
 
             if self.m1OriginalHistChkbx.isChecked():
@@ -1003,10 +1004,10 @@ class CPImageWindow(QtGui.QMainWindow):
 
             ax.set_xlim(start_plot, end_plot)
             ax.set_ylim(0 , max_peak)
-
-            ax.set_xlabel('Radial distance\n'+str_info)
+            ax.set_title(str_info)
+            ax.set_xlabel('Radial distance')
             ax.set_ylabel('Intensity')
-            self.m1_partial_hist_figure.tight_layout()
+            # self.m1_partial_hist_figure.tight_layout()
             self.m1_partial_hist_canvas.draw()
 
             if self.noBGImgChkBx.isChecked():
@@ -1032,7 +1033,7 @@ class CPImageWindow(QtGui.QMainWindow):
             ax = self.m1_img_fig.add_subplot(111)
             ax.cla()
             ax.imshow(img)
-            self.m1_img_fig.tight_layout()
+            # self.m1_img_fig.tight_layout()
             self.m1_img_canvas.draw()
             self.update_plot['m1_partial_hist'] = False
 
@@ -1042,6 +1043,7 @@ class CPImageWindow(QtGui.QMainWindow):
             hull = self.cirProj.info['hull_hist']
             m1_rings = self.cirProj.info['m1_rings']
             ax = self.m1_hist_figure.add_subplot(111)
+            self.m1_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
             ax.cla()
             for p in m1_rings:
                 ax.plot([p, p], [0, max(hist)], color='r')
@@ -1067,10 +1069,10 @@ class CPImageWindow(QtGui.QMainWindow):
             max_peak = max(hist[start_plot:end_plot]) * 1.1
             ax.set_xlim(start_plot, end_plot)
             ax.set_ylim(0, max_peak)
-
-            ax.set_xlabel('Radial distance (Pixels)' + '\nPeaks : '+str(m1_rings))
+            ax.set_title('Peaks : '+str(m1_rings))
+            ax.set_xlabel('Radial distance (Pixels)')
             ax.set_ylabel('Intensity')
-            self.m1_hist_figure.tight_layout()
+            # self.m1_hist_figure.tight_layout()
             self.m1_hist_canvas.draw()
             self.update_plot['m1_hist'] = False
 
@@ -1082,6 +1084,7 @@ class CPImageWindow(QtGui.QMainWindow):
     def updateMethod2Tab(self):
         if self.update_plot['m2_diff']:
             ax = self.m2_cent_diff_fig.add_subplot(111)
+            self.m2_cent_diff_fig.subplots_adjust(bottom=0.20)
             ax.cla()
 
             if self.method2ComboBx.currentIndex()==0 and 'tophat_2dintegration' in self.cirProj.info.keys():
@@ -2033,12 +2036,17 @@ class CPBatchWindow(QtGui.QMainWindow):
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
             all_rings = df_rings.loc[df_rings['filename']==filename]
-            all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
-            best_ring = all_rings.iloc[0]
-            good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1.
-            self.orientation_dict[index] = best_ring['angle'] if pd.notnull(best_ring['angle']) and good_model else 0
-            self.angrange_dict[index] = best_ring['angle sigma'] if pd.notnull(best_ring['angle sigma']) and good_model else 0
-            self.distance_dict[index] = 0
+            if len(all_rings) > 0:
+                all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
+                best_ring = all_rings.iloc[0]
+                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1.
+                self.orientation_dict[index] = best_ring['angle'] if pd.notnull(best_ring['angle']) and good_model else 0
+                self.angrange_dict[index] = best_ring['angle sigma'] if pd.notnull(best_ring['angle sigma']) and good_model else 0
+                self.distance_dict[index] = 0
+            else:
+                self.orientation_dict[index] = 0
+                self.angrange_dict[index] = 0
+                self.distance_dict[index] = 0
 
         self.init_number = min(self.name_dict.keys())
 

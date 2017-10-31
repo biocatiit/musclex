@@ -193,8 +193,7 @@ class BioImage:
         if not self.info.has_key('int_area'):
             center = self.info['center']
             if self.info.has_key('fixed_int_area'): # integrated area is fixed by users
-                r = int(round(self.info['fixed_int_area'] / 2.))
-                self.info['int_area'] = (center[1] - r, center[1] + r)
+                self.info['int_area'] = self.info['fixed_int_area']
             else:
                 rmin = self.info['rmin']
                 img = getCenterRemovedImage(copy.copy(self.orig_img), tuple(center), rmin) # remove center location
