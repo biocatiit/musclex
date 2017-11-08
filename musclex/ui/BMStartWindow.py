@@ -30,31 +30,31 @@ __author__ = 'Jiranun.J'
 
 import sys
 import os
-from PyQt4 import QtGui
+from pyqt_utils import *
 from os.path import split
 from ..ui.BioMuscleWindow import BioMuscleWindow
 import musclex
 
-class BMStartWindow(QtGui.QMainWindow):
+class BMStartWindow(QMainWindow):
     """
     A class for start-up window or main window. Now, this is used for keep all BioMuscleWindow objects in a list
     """
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.dir_path = ""
         self.setWindowTitle("Bio-Muscle v."+musclex.__version__)
         self.windowList = [] # use this list to keep BioMuscleWindow objects to prevent python delete it
         self.browseFile() # start program by browse a file
 
     # def initUI(self):
-    #     QtGui.QApplication.processEvents()
-    #     self.centralWidget = QtGui.QWidget(self)
-    #     self.mainLayout = QtGui.QGridLayout(self.centralWidget)
+    #     QApplication.processEvents()
+    #     self.centralWidget = QWidget(self)
+    #     self.mainLayout = QGridLayout(self.centralWidget)
     #     self.setCentralWidget(self.centralWidget)
     #
-    #     self.selectFileButton = QtGui.QPushButton("Select a File")
+    #     self.selectFileButton = QPushButton("Select a File")
     #     self.selectFileButton.setFixedHeight(50)
-    #     self.selectFolderButton = QtGui.QPushButton("Select a Folder")
+    #     self.selectFolderButton = QPushButton("Select a Folder")
     #     self.selectFolderButton.setFixedHeight(50)
     #     self.mainLayout.addWidget(self.selectFileButton, 0, 0, 1, 1)
     #     # self.mainLayout.addWidget(self.selectFolderButton, 1, 0, 1, 1)
@@ -79,46 +79,45 @@ class BMStartWindow(QtGui.QMainWindow):
             self.close()
 
     # def browseFolder(self):
-    #     dir_path = QtGui.QFileDialog.getExistingDirectory(self, "Select a Folder")
+    #     dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
     #     if dir_path != "":
     #         imgList = getImgFiles(str(dir_path))
     #         nImg = len(imgList)
     #
     #         if nImg < 1:
-    #             errMsg = QtGui.QMessageBox()
+    #             errMsg = QMessageBox()
     #             errMsg.setText('Process Folder Error')
     #             errMsg.setInformativeText(
     #                 'This is an empty folder. Please select another file or folder.')
-    #             errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-    #             errMsg.setIcon(QtGui.QMessageBox.Warning)
+    #             errMsg.setStandardButtons(QMessageBox.Ok)
+    #             errMsg.setIcon(QMessageBox.Warning)
     #             errMsg.exec_()
     #             return
     #
-    #         errMsg = QtGui.QMessageBox()
+    #         errMsg = QMessageBox()
     #         errMsg.setText('Process folder')
     #         errMsg.setInformativeText('Are you sure you want to process ' + str(len(imgList)) + ' image(s)? This might take long.')
-    #         errMsg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel)
-    #         errMsg.setIcon(QtGui.QMessageBox.Warning)
+    #         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+    #         errMsg.setIcon(QMessageBox.Warning)
     #         ret = errMsg.exec_()
     #
-    #         if ret == QtGui.QMessageBox.Yes:
+    #         if ret == QMessageBox.Yes:
     #             print "YEAH!"
 
     def browseFile(self):
         """
         Popup an input file dialog. Users can select .tif for image or .txt for failed cases list
         """
-        file_name = QtGui.QFileDialog.getOpenFileName(self, "Please Select a File for Bio-Muscle v."+musclex.__version__,
-                                                      filter='Images (*.tif);;Failed cases (*.txt)')
+        file_name = getAFile('Images (*.tif);;Failed cases (*.txt)')
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
         if file_name != "":
             if ext == ".txt" and not name == "failedcases.txt":
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Invalid Input')
                 errMsg.setInformativeText("Please select only failedcases.txt or .tif image\n\n")
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 self.browseFile()
             else:

@@ -27,8 +27,19 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
-from os.path import split, exists
-import pkgutil
+from os.path import split, exists, join
+import fabio
+
+def getBlankImageAndMask(path):
+    mask_file = join(join(path, 'settings'),'mask.tif')
+    blank_file = join(join(path, 'settings'),'blank.tif')
+    mask = None
+    blank_img = None
+    if exists(mask_file):
+        mask = fabio.open(mask_file).data
+    if exists(blank_file):
+        blank_img = fabio.open(blank_file).data
+    return blank_img, mask
 
 def getImgFiles(fullname):
     """

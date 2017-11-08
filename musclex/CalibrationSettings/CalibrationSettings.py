@@ -26,22 +26,18 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import copy
-import cv2
-import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import fabio
-from PyQt4 import QtCore, QtGui
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from ..ui.pyqt_utils import *
 import matplotlib.patches as patches
 from os.path import isfile, exists
 from os import makedirs
-from ..utils.file_manager import fullPath, getStyleSheet
+from ..utils.file_manager import fullPath, getStyleSheet, createFolder
 from ..utils.image_processor import *
 import musclex
 
-class CalibrationSettings(QtGui.QDialog):
+class CalibrationSettings(QDialog):
     def __init__(self, dir_path):
         super(CalibrationSettings, self).__init__(None)
         self.setWindowTitle("Calibration Settings")
@@ -88,43 +84,42 @@ class CalibrationSettings(QtGui.QDialog):
 
             if self.calSettings.has_key("center"):
                 center = self.calSettings["center"]
-        self.mainLayout = QtGui.QVBoxLayout(self)
+        self.mainLayout = QVBoxLayout(self)
 
-        self.pathText = QtGui.QLineEdit()
+        self.pathText = QLineEdit()
         if exists(self.calFile):
             self.pathText.setText(self.calFile)
         self.pathText.setEnabled(False)
-        self.browseButton = QtGui.QPushButton("Browse")
+        self.browseButton = QPushButton("Browse")
         self.browseButton.clicked.connect(self.browseClicked)
-        self.unsetButton = QtGui.QPushButton("Unset")
+        self.unsetButton = QPushButton("Unset")
         self.unsetButton.clicked.connect(self.unsetCalImg)
         self.calImgFigure = plt.figure(facecolor='#606060')
         self.calImgCanvas = FigureCanvas(self.calImgFigure)
         self.calImgCanvas.setHidden(True)
-        self.manualCal = QtGui.QPushButton("Set calibration by points selections")
+        self.manualCal = QPushButton("Set calibration by points selections")
         self.manualCal.setCheckable(True)
         self.manualCal.setFixedHeight(30)
         self.manualCal.clicked.connect(self.manualCalClicked)
-        self.silverBehenate = QtGui.QDoubleSpinBox()
+        self.silverBehenate = QDoubleSpinBox()
         self.silverBehenate.setKeyboardTracking(False)
         self.silverBehenate.setDecimals(5)
         self.silverBehenate.setValue(silverb)
         self.silverBehenate.setMinimum(0)
         self.silverBehenate.setMaximum(100)
         self.silverBehenate.setSingleStep(5.83803)
-        self.bottons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
-                                              QtCore.Qt.Horizontal, self)
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
         self.bottons.setFixedWidth(100)
         grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
-        self.calImageGrp = QtGui.QGroupBox("Setting by Calibration Image")
+        self.calImageGrp = QGroupBox("Setting by Calibration Image")
         self.calImageGrp.setCheckable(True)
         self.calImageGrp.setStyleSheet(grpbox_ss)
         self.calImageGrp.setChecked(type == "img")
-        self.calImageLayout = QtGui.QGridLayout(self.calImageGrp)
-        l1 = QtGui.QLabel("Calibration File :")
-        l2 = QtGui.QLabel("Silver Behenate :")
+        self.calImageLayout = QGridLayout(self.calImageGrp)
+        l1 = QLabel("Calibration File :")
+        l2 = QLabel("Silver Behenate :")
         self.calImageLayout.addWidget(l1, 0, 0, 1, 1)
         self.calImageLayout.addWidget(self.pathText, 0, 1, 1, 1)
         self.calImageLayout.addWidget(self.browseButton, 0, 2, 1, 1)
@@ -133,36 +128,36 @@ class CalibrationSettings(QtGui.QDialog):
         self.calImageLayout.addWidget(self.manualCal, 2, 0, 1, 2)
         self.calImageLayout.addWidget(l2, 2, 2, 1, 1)
         self.calImageLayout.addWidget(self.silverBehenate, 2, 3, 1, 1)
-        self.calImageLayout.setAlignment(l2, QtCore.Qt.AlignRight)
+        self.calImageLayout.setAlignment(l2, Qt.AlignRight)
         # self.calImageLayout.setColumnStretch(1,2)
         self.calImageLayout.setRowStretch(1, 2)
 
-        self.paramGrp = QtGui.QGroupBox("Setting by Parameters")
+        self.paramGrp = QGroupBox("Setting by Parameters")
         self.paramGrp.setCheckable(True)
         self.paramGrp.setStyleSheet(grpbox_ss)
         self.paramGrp.setChecked(type == "cont")
-        self.paramLayout = QtGui.QGridLayout(self.paramGrp)
+        self.paramLayout = QGridLayout(self.paramGrp)
 
-        self.lambdaSpnBx = QtGui.QDoubleSpinBox()
+        self.lambdaSpnBx = QDoubleSpinBox()
         self.lambdaSpnBx.setDecimals(5)
         self.lambdaSpnBx.setRange(0.00001, 5.)
         self.lambdaSpnBx.setValue(init_lambda)
 
-        self.sddSpnBx = QtGui.QDoubleSpinBox()
+        self.sddSpnBx = QDoubleSpinBox()
         self.sddSpnBx.setDecimals(2)
         self.sddSpnBx.setRange(0., 5000.)
         self.sddSpnBx.setValue(init_sdd)
 
-        self.pixsSpnBx = QtGui.QDoubleSpinBox()
+        self.pixsSpnBx = QDoubleSpinBox()
         self.pixsSpnBx.setDecimals(5)
         self.pixsSpnBx.setRange(0.00001, 5.)
         self.pixsSpnBx.setValue(init_pix_size)
 
-        self.fixedCenter = QtGui.QCheckBox("Fixed Center")
-        self.centerX = QtGui.QSpinBox()
+        self.fixedCenter = QCheckBox("Fixed Center")
+        self.centerX = QSpinBox()
         self.centerX.setPrefix("X:")
         self.centerX.setRange(0, 2047)
-        self.centerY = QtGui.QSpinBox()
+        self.centerY = QSpinBox()
         self.centerY.setPrefix("Y:")
         self.centerY.setRange(0, 2047)
 
@@ -175,15 +170,15 @@ class CalibrationSettings(QtGui.QDialog):
             self.centerX.setValue(1000)
             self.centerY.setValue(1000)
 
-        self.paramLayout.addWidget(QtGui.QLabel("Lambda : "), 0, 0, 1, 1)
+        self.paramLayout.addWidget(QLabel("Lambda : "), 0, 0, 1, 1)
         self.paramLayout.addWidget(self.lambdaSpnBx, 0, 1, 1, 1)
-        self.paramLayout.addWidget(QtGui.QLabel("nm"), 0, 2, 1, 1)
-        self.paramLayout.addWidget(QtGui.QLabel("S<sub>dd</sub> : "), 1, 0, 1, 1)
+        self.paramLayout.addWidget(QLabel("nm"), 0, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("S<sub>dd</sub> : "), 1, 0, 1, 1)
         self.paramLayout.addWidget(self.sddSpnBx, 1, 1, 1, 1)
-        self.paramLayout.addWidget(QtGui.QLabel("mm"), 1, 2, 1, 1)
-        self.paramLayout.addWidget(QtGui.QLabel("Pixel Size : "), 2, 0, 1, 1)
+        self.paramLayout.addWidget(QLabel("mm"), 1, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("Pixel Size : "), 2, 0, 1, 1)
         self.paramLayout.addWidget(self.pixsSpnBx, 2, 1, 1, 1)
-        self.paramLayout.addWidget(QtGui.QLabel("mm"), 2, 2, 1, 1)
+        self.paramLayout.addWidget(QLabel("mm"), 2, 2, 1, 1)
         self.paramLayout.addWidget(self.fixedCenter, 3, 0, 1, 1)
         self.paramLayout.addWidget(self.centerX, 3, 1, 1, 1)
         self.paramLayout.addWidget(self.centerY, 3, 2, 1, 1)
@@ -191,8 +186,8 @@ class CalibrationSettings(QtGui.QDialog):
         self.mainLayout.addWidget(self.calImageGrp)
         self.mainLayout.addWidget(self.paramGrp)
         self.mainLayout.addWidget(self.bottons)
-        self.mainLayout.setAlignment(QtCore.Qt.AlignCenter)
-        self.mainLayout.setAlignment(self.bottons, QtCore.Qt.AlignCenter)
+        self.mainLayout.setAlignment(Qt.AlignCenter)
+        self.mainLayout.setAlignment(self.bottons, Qt.AlignCenter)
 
         self.calImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.calImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
@@ -213,7 +208,7 @@ class CalibrationSettings(QtGui.QDialog):
 
     def decalibrate(self):
         self.calSettings = None
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         if self.calImageGrp.isChecked() and exists(self.calFile):
             self.calibrate()
 
@@ -240,11 +235,11 @@ class CalibrationSettings(QtGui.QDialog):
             self.calImgCanvas.draw_idle()
         else:
             if len(self.manualCalPoints) < 5:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Manual Calibration Error')
                 errMsg.setInformativeText('Please select at least 5 points')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 self.manualCal.setChecked(True)
             else:
@@ -291,7 +286,7 @@ class CalibrationSettings(QtGui.QDialog):
         self.updateImage()
 
     def browseClicked(self):
-        file_name = QtGui.QFileDialog.getOpenFileName(self, "Select a File", filter='Images (*.tif)')
+        file_name = getAFile('Images (*.tif)')
         if file_name != "":
             self.cal_img = None
             self.calFile = str(file_name)
@@ -299,8 +294,8 @@ class CalibrationSettings(QtGui.QDialog):
             self.calibrate()
 
     def loadSettings(self):
-        cache_path = fullPath(self.dir_path, "bm_cache")
-        cache_file = fullPath(cache_path, "calibration_settings")
+        cache_path = fullPath(self.dir_path, "settings")
+        cache_file = fullPath(cache_path, "calibration.info")
         if exists(cache_path) and isfile(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
             if cache is not None and cache.has_key("version") and cache["version"] == self.version:
@@ -308,8 +303,9 @@ class CalibrationSettings(QtGui.QDialog):
         return None
 
     def saveSettings(self):
-        cache_path = fullPath(self.dir_path, "bm_cache")
-        cache_file = fullPath(cache_path, "calibration_settings")
+        cache_path = fullPath(self.dir_path, "settings")
+        createFolder(cache_path)
+        cache_file = fullPath(cache_path, "calibration.info")
 
         if self.paramGrp.isChecked():
             self.calSettings = {
@@ -324,9 +320,6 @@ class CalibrationSettings(QtGui.QDialog):
             if self.calSettings is not None:
                 self.calSettings["silverB"] = self.silverBehenate.value()
                 self.calSettings["type"] = "img"
-
-        if not exists(cache_path):
-            makedirs(cache_path)
 
         cache = {
             "path": self.pathText.text(),
@@ -408,12 +401,12 @@ class CalibrationSettings(QtGui.QDialog):
                     fixcenter = (int(np.round(center[0])), int(np.round(center[1])))
                     cali_radius = np.mean([int(np.round(radius[0])), int(np.round(radius[1]))])
                 else:
-                    errMsg = QtGui.QMessageBox()
+                    errMsg = QMessageBox()
                     errMsg.setText('Calibration Error')
                     errMsg.setInformativeText(
                         'Circle could not be found. Please select 4 points on the circle.')
-                    errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                    errMsg.setIcon(QtGui.QMessageBox.Warning)
+                    errMsg.setStandardButtons(QMessageBox.Ok)
+                    errMsg.setIcon(QMessageBox.Warning)
                     errMsg.exec_()
                     return
 

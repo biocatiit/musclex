@@ -356,6 +356,7 @@ class QuadrantFolder(object):
                       ilog=1,
                       )
 
+        print "BG CREATED"
         background = copy.copy(b)
         background[np.isnan(background)] = 0.
         background = np.array(background, 'float32')

@@ -28,9 +28,8 @@ authorization from Illinois Institute of Technology.
 
 import sys
 import os, shutil
+from pyqt_utils import *
 import matplotlib.pyplot as plt
-from PyQt4 import QtCore, QtGui
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 from os.path import split
 import traceback
@@ -43,7 +42,7 @@ from ..csv_manager import BM_CVSManager
 from ..ui.BM_FittingTab import BM_FittingTab
 import musclex
 
-class BioMuscleWindow(QtGui.QMainWindow):
+class BioMuscleWindow(QMainWindow):
     """
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
@@ -54,7 +53,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         :param mainWin: main window object
         :param filename: selected file name
         """
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.mainWindow = mainWin
         self.version = musclex.__version__
         self.bioImg = None  # Current BioImage object
@@ -78,23 +77,23 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.onImageChanged() # Toggle window to process current image
         self.show()
         self.resize(1000, 100)
-        focused_widget = QtGui.QApplication.focusWidget()
+        focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
 
     def inputerror(self):
         # Display input error to screen
-        errMsg = QtGui.QMessageBox()
+        errMsg = QMessageBox()
         errMsg.setText('Invalid Input')
         errMsg.setInformativeText("Please select only failedcases.txt or .tif image\n\n")
-        errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-        errMsg.setIcon(QtGui.QMessageBox.Warning)
+        errMsg.setStandardButtons(QMessageBox.Ok)
+        errMsg.setIcon(QMessageBox.Warning)
         errMsg.exec_()
         self.close()
 
     def mousePressEvent(self, event):
         # Clear focus when mouse pressed
-        focused_widget = QtGui.QApplication.focusWidget()
+        focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
 
@@ -102,12 +101,12 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         Initial all GUIs including : image tab, fitting tab, results tab, menu bar, and status bar
         """
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 200px; }")
@@ -116,42 +115,43 @@ class BioMuscleWindow(QtGui.QMainWindow):
         #
         ### Image Tab ###
         #
-        self.imageTab = QtGui.QWidget()
+        self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QtGui.QHBoxLayout(self.imageTab)
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
         self.displayImgFigure = plt.figure(facecolor='#606060')
-        self.imageVLayout = QtGui.QVBoxLayout()
+        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
+        self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
         self.imageVLayout.addWidget(self.displayImgCanvas)
 
-        self.imgDispOptionGrp = QtGui.QGroupBox('Display Options')
-        self.imgDispOptLayout = QtGui.QVBoxLayout()
-        self.centerChkBx = QtGui.QCheckBox('Center')
+        self.imgDispOptionGrp = QGroupBox('Display Options')
+        self.imgDispOptLayout = QVBoxLayout()
+        self.centerChkBx = QCheckBox('Center')
         self.centerChkBx.setChecked(True)
-        self.rminChkBx = QtGui.QCheckBox('R-min')
+        self.rminChkBx = QCheckBox('R-min')
         self.rminChkBx.setChecked(True)
-        self.histChkBx = QtGui.QCheckBox('Histogram')
+        self.histChkBx = QCheckBox('Histogram')
         self.histChkBx.setChecked(True)
-        self.intChkBx = QtGui.QCheckBox('Integrated Area')
+        self.intChkBx = QCheckBox('Integrated Area')
         self.intChkBx.setChecked(True)
-        self.imgPeakChkBx = QtGui.QCheckBox('Peaks')
+        self.imgPeakChkBx = QCheckBox('Peaks')
         self.imgPeakChkBx.setChecked(True)
-        self.minIntLabel = QtGui.QLabel()
-        self.maxIntLabel = QtGui.QLabel()
-        self.minmaxLabelLayout = QtGui.QHBoxLayout()
+        self.minIntLabel = QLabel()
+        self.maxIntLabel = QLabel()
+        self.minmaxLabelLayout = QHBoxLayout()
         self.minmaxLabelLayout.addWidget(self.minIntLabel)
         self.minmaxLabelLayout.addWidget(self.maxIntLabel)
-        self.minIntSpnBx = QtGui.QDoubleSpinBox()
+        self.minIntSpnBx = QDoubleSpinBox()
         self.minIntSpnBx.setKeyboardTracking(False)
-        self.maxIntSpnBx = QtGui.QDoubleSpinBox()
+        self.maxIntSpnBx = QDoubleSpinBox()
         self.maxIntSpnBx.setKeyboardTracking(False)
-        self.minmaxLayout = QtGui.QHBoxLayout()
+        self.minmaxLayout = QHBoxLayout()
         self.minmaxLayout.addWidget(self.minIntSpnBx)
         self.minmaxLayout.addWidget(self.maxIntSpnBx)
-        self.imgZoomInB = QtGui.QPushButton('Zoom In')
+        self.imgZoomInB = QPushButton('Zoom In')
         self.imgZoomInB.setCheckable(True)
         self.checkableButtons.append(self.imgZoomInB)
-        self.imgZoomOutB = QtGui.QPushButton('Full')
+        self.imgZoomOutB = QPushButton('Full')
         self.checkableButtons.append(self.imgZoomOutB)
         self.imgDispOptLayout.addWidget(self.centerChkBx)
         self.imgDispOptLayout.addWidget(self.intChkBx)
@@ -164,36 +164,36 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.imgDispOptLayout.addWidget(self.imgZoomOutB)
         self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
 
-        self.imgProcGrp = QtGui.QGroupBox("Image Processing")
-        self.imgProcLayout = QtGui.QGridLayout()
+        self.imgProcGrp = QGroupBox("Image Processing")
+        self.imgProcLayout = QGridLayout()
         self.imgProcGrp.setLayout(self.imgProcLayout)
-        self.calibrationB = QtGui.QPushButton("Calibration Settings")
-        self.setRotAndCentB = QtGui.QPushButton("Set Rotation Angle \nand Center")
+        self.calibrationB = QPushButton("Calibration Settings")
+        self.setRotAndCentB = QPushButton("Set Rotation Angle \nand Center")
         self.setRotAndCentB.setCheckable(True)
         self.setRotAndCentB.setFixedHeight(40)
-        self.setAngleB = QtGui.QPushButton("Set \nRotation Angle")
+        self.setAngleB = QPushButton("Set \nRotation Angle")
         self.setAngleB.setCheckable(True)
         self.setAngleB.setFixedHeight(40)
-        self.setRminB = QtGui.QPushButton("Set R-min")
+        self.setRminB = QPushButton("Set R-min")
         self.setRminB.setCheckable(True)
         self.setRminB.setFixedHeight(40)
-        self.setIntAreaB = QtGui.QPushButton("Set Box Width")
+        self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
         self.setIntAreaB.setFixedHeight(40)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
-        self.fixedAngleChkBx = QtGui.QCheckBox("Fixed Angle")
+        self.fixedAngleChkBx = QCheckBox("Fixed Angle")
         self.fixedAngleChkBx.setChecked(False)
-        self.fixedIntAreaChkBx = QtGui.QCheckBox("Fixed Box Width")
+        self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
-        self.fixedAngle = QtGui.QSpinBox()
+        self.fixedAngle = QSpinBox()
         self.fixedAngle.setKeyboardTracking(False)
         self.fixedAngle.setRange(-360, 360)
         self.fixedAngle.setEnabled(False)
-        self.maskThresSpnBx =QtGui.QDoubleSpinBox()
+        self.maskThresSpnBx =QDoubleSpinBox()
         self.maskThresSpnBx.setRange(-10,10)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
-        self.resetAllB = QtGui.QPushButton("Reset All")
+        self.resetAllB = QPushButton("Reset All")
         self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setRotAndCentB, 1, 0, 1, 1)
         self.imgProcLayout.addWidget(self.setAngleB, 1, 1, 1, 1)
@@ -202,30 +202,30 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.imgProcLayout.addWidget(self.fixedAngleChkBx, 3, 0, 1, 1)
         self.imgProcLayout.addWidget(self.fixedAngle, 3, 1, 1, 1)
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 4, 0, 1, 2)
-        self.imgProcLayout.addWidget(QtGui.QLabel("Mask Threshold"), 5, 0, 1, 1)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 5, 0, 1, 1)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 5, 1, 1, 1)
         self.imgProcLayout.addWidget(self.resetAllB, 6, 0, 1, 2)
 
-        self.rejectChkBx = QtGui.QCheckBox("Reject")
+        self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
-        self.bottomLayout = QtGui.QGridLayout()
-        self.prevButton = QtGui.QPushButton("<<<")
-        self.nextButton = QtGui.QPushButton(">>>")
+        self.bottomLayout = QGridLayout()
+        self.prevButton = QPushButton("<<<")
+        self.nextButton = QPushButton(">>>")
         self.bottomLayout.addWidget(self.rejectChkBx, 0, 0, 1, 2)
         self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
         self.bottomLayout.addWidget(self.prevButton, 2, 0, 1, 1)
         self.bottomLayout.addWidget(self.nextButton, 2, 1, 1, 1)
-        self.bottomLayout.setAlignment(self.rejectChkBx, QtCore.Qt.AlignLeft)
+        self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
-        self.imageOptionsFrame = QtGui.QFrame()
+        self.imageOptionsFrame = QFrame()
         self.imageOptionsFrame.setFixedWidth(300)
-        self.imageOptionsLayout = QtGui.QVBoxLayout()
+        self.imageOptionsLayout = QVBoxLayout()
 
-        self.imageOptionsLayout.setAlignment(QtCore.Qt.AlignTop)
+        self.imageOptionsLayout.setAlignment(Qt.AlignTop)
         self.imageOptionsLayout.addSpacing(10)
         self.imageOptionsLayout.addWidget(self.imgDispOptionGrp)
         self.imageOptionsLayout.addSpacing(10)
@@ -241,56 +241,57 @@ class BioMuscleWindow(QtGui.QMainWindow):
         #
         ### Fitting Tab ###
         #
-        self.fittingTab = QtGui.QWidget()
-        self.fittingTabLayout = QtGui.QHBoxLayout(self.fittingTab)
+        self.fittingTab = QWidget()
+        self.fittingTabLayout = QHBoxLayout(self.fittingTab)
 
         # Plot
         self.fittingFigure = plt.figure(facecolor='#606060')
-        self.fittingVLayout = QtGui.QVBoxLayout()
+        self.fittingAxes = self.fittingFigure.add_subplot(111)
+        self.fittingVLayout = QVBoxLayout()
         self.fittingCanvas = FigureCanvas(self.fittingFigure)
 
-        self.generalGrp = QtGui.QGroupBox("General Settings")
-        self.genLayout = QtGui.QGridLayout(self.generalGrp)
-        self.skeletalChkBx = QtGui.QCheckBox("Skeletal Muscle (Z line)")
+        self.generalGrp = QGroupBox("General Settings")
+        self.genLayout = QGridLayout(self.generalGrp)
+        self.skeletalChkBx = QCheckBox("Skeletal Muscle (Z line)")
         self.skeletalChkBx.setFixedWidth(200)
-        self.nPeakSpnBx = QtGui.QSpinBox()
+        self.nPeakSpnBx = QSpinBox()
         self.nPeakSpnBx.setKeyboardTracking(False)
         self.nPeakSpnBx.setMinimum(2)
         self.nPeakSpnBx.setMaximum(40)
         self.nPeakSpnBx.setSingleStep(1)
         self.nPeakSpnBx.setValue(2)
-        self.modelSelect = QtGui.QComboBox()
+        self.modelSelect = QComboBox()
         self.modelSelect.addItem("Voigt")
         self.modelSelect.addItem("Gaussian")
         self.modelSelect.setCurrentIndex(0)
-        self.setPeaksB = QtGui.QPushButton("Start Manual Peak Selection")
+        self.setPeaksB = QPushButton("Start Manual Peak Selection")
         self.setPeaksB.setCheckable(True)
         self.checkableButtons.append(self.setPeaksB)
 
         self.genLayout.addWidget(self.skeletalChkBx, 0, 0, 1, 2)
-        self.genLayout.addWidget(QtGui.QLabel("Number of peaks : <br/>on each side"), 1, 0, 1, 1)
+        self.genLayout.addWidget(QLabel("Number of peaks : <br/>on each side"), 1, 0, 1, 1)
         self.genLayout.addWidget(self.nPeakSpnBx, 1, 1, 1, 1)
-        self.genLayout.addWidget(QtGui.QLabel("Model : "), 2, 0, 1, 1)
+        self.genLayout.addWidget(QLabel("Model : "), 2, 0, 1, 1)
         self.genLayout.addWidget(self.modelSelect, 2, 1, 1, 1)
         self.genLayout.addWidget(self.setPeaksB, 3, 0, 1, 2)
 
-        self.fitDispOptionGrp = QtGui.QGroupBox('Display Options')
-        self.fitDispOptLayout = QtGui.QGridLayout()
-        self.origHistChkBx = QtGui.QCheckBox('Original Histogram')
-        self.hullChkBx = QtGui.QCheckBox('After Convexhull')
+        self.fitDispOptionGrp = QGroupBox('Display Options')
+        self.fitDispOptLayout = QGridLayout()
+        self.origHistChkBx = QCheckBox('Original Histogram')
+        self.hullChkBx = QCheckBox('After Convexhull')
         self.hullChkBx.setChecked(True)
-        self.fitChkBx = QtGui.QCheckBox('Fitting Graph')
+        self.fitChkBx = QCheckBox('Fitting Graph')
         self.fitChkBx.setChecked(True)
-        self.peakChkBx = QtGui.QCheckBox('Peaks')
+        self.peakChkBx = QCheckBox('Peaks')
         self.peakChkBx.setChecked(True)
-        self.dispZlineChkBx = QtGui.QCheckBox("Z line")
+        self.dispZlineChkBx = QCheckBox("Z line")
         self.dispZlineChkBx.setChecked(False)
-        self.centerXChkBx = QtGui.QCheckBox('Center X')
+        self.centerXChkBx = QCheckBox('Center X')
         self.centerXChkBx.setChecked(True)
-        self.graphZoomInB = QtGui.QPushButton('Zoom In')
+        self.graphZoomInB = QPushButton('Zoom In')
         self.graphZoomInB.setCheckable(True)
         self.checkableButtons.append(self.graphZoomInB)
-        self.graphZoomOutB = QtGui.QPushButton('Full')
+        self.graphZoomOutB = QPushButton('Full')
         self.checkableButtons.append(self.graphZoomOutB)
         self.fitDispOptLayout.addWidget(self.origHistChkBx, 0, 0, 1, 1)
         self.fitDispOptLayout.addWidget(self.hullChkBx, 0, 1, 1, 1)
@@ -302,8 +303,8 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.fitDispOptLayout.addWidget(self.graphZoomOutB, 3, 1, 1, 1)
         self.fitDispOptionGrp.setLayout(self.fitDispOptLayout)
 
-        self.fittingTabWidget = QtGui.QTabWidget()
-        self.fittingTabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.fittingTabWidget = QTabWidget()
+        self.fittingTabWidget.setTabPosition(QTabWidget.North)
         self.fittingTabWidget.setDocumentMode(False)
         self.fittingTabWidget.setTabsClosable(False)
         self.fittingTabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 50px; }")
@@ -314,19 +315,19 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.fittingTabWidget.addTab(self.right_fitting_tab, "Right")
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton2 = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton2 = QPushButton("Process Current Folder")
         self.processFolderButton2.setStyleSheet(pfss)
-        self.bottomLayout2 = QtGui.QGridLayout()
-        self.prevButton2 = QtGui.QPushButton("<<<")
-        self.nextButton2 = QtGui.QPushButton(">>>")
+        self.bottomLayout2 = QGridLayout()
+        self.prevButton2 = QPushButton("<<<")
+        self.nextButton2 = QPushButton(">>>")
         self.bottomLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
         self.bottomLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
 
-        self.fittingOptionsFrame = QtGui.QFrame()
+        self.fittingOptionsFrame = QFrame()
         self.fittingOptionsFrame.setFixedWidth(300)
-        self.fittingOptionsLayout = QtGui.QVBoxLayout()
-        self.fittingOptionsLayout.setAlignment(QtCore.Qt.AlignTop)
+        self.fittingOptionsLayout = QVBoxLayout()
+        self.fittingOptionsLayout.setAlignment(Qt.AlignTop)
         self.fittingOptionsLayout.addWidget(self.generalGrp)
         self.fittingOptionsLayout.addSpacing(10)
         self.fittingOptionsLayout.addWidget(self.fitDispOptionGrp)
@@ -342,34 +343,34 @@ class BioMuscleWindow(QtGui.QMainWindow):
         #
         ### Results Tab ###
         #
-        self.resultTab = QtGui.QWidget()
+        self.resultTab = QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
-        self.resultLayout = QtGui.QGridLayout(self.resultTab)
-        self.generalResults = QtGui.QLabel("General Results")
+        self.resultLayout = QGridLayout(self.resultTab)
+        self.generalResults = QLabel("General Results")
 
-        self.fiberResultTable = QtGui.QTableWidget()
+        self.fiberResultTable = QTableWidget()
         self.fiberResultTable.setColumnCount(3)
         self.fiberResultTable.setHorizontalHeaderLabels(["Info", "Left", "Right"])
         self.fiberResultTable.horizontalHeader().setStretchLastSection(True)
         self.fiberResultTable.setColumnWidth(0, 150)
         self.fiberResultTable.setColumnWidth(1, 350)
-        self.fiberResultTable.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.fiberResultTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.resultLayout.addWidget(self.generalResults)
         # self.resultLayout.addWidget(self.generalResultTable)
-        self.resultLayout.addWidget(QtGui.QLabel("<h2>Fitting Results</h2>"))
+        self.resultLayout.addWidget(QLabel("<h2>Fitting Results</h2>"))
         self.resultLayout.addWidget(self.fiberResultTable)
         self.tabWidget.addTab(self.resultTab, "Results")
 
         #
         ### Menu Bar ###
         #
-        selectImageAction = QtGui.QAction('Select a File...', self)
+        selectImageAction = QAction('Select a File...', self)
         selectImageAction.setShortcut('Ctrl+O')
         selectImageAction.triggered.connect(self.browseFile)
-        clearCacheAction = QtGui.QAction('Clear All Caches in Current Folder', self)
+        clearCacheAction = QAction('Clear All Caches in Current Folder', self)
         clearCacheAction.setShortcut('Ctrl+D')
         clearCacheAction.triggered.connect(self.clearAllCache)
-        processFolderAction = QtGui.QAction('Process Current Folder', self)
+        processFolderAction = QAction('Process Current Folder', self)
         processFolderAction.setShortcut('Ctrl+F')
         processFolderAction.triggered.connect(self.processFolder)
         menubar = self.menuBar()
@@ -378,13 +379,13 @@ class BioMuscleWindow(QtGui.QMainWindow):
         fileMenu.addAction(processFolderAction)
         fileMenu.addAction(clearCacheAction)
 
-        launchManualAct = QtGui.QAction('User Manual', self)
+        launchManualAct = QAction('User Manual', self)
         # launchManualAct.setShortcut('Ctrl+M')
         launchManualAct.triggered.connect(self.launchManual)
-        shortcutKeysAct = QtGui.QAction('Shortcut keys', self)
+        shortcutKeysAct = QAction('Shortcut keys', self)
         # shortcutKeysAct.setShortcut('Ctrl+K')
         shortcutKeysAct.triggered.connect(self.showKeysHelpDialog)
-        aboutAct = QtGui.QAction('About', self)
+        aboutAct = QAction('About', self)
         # aboutAct.setShortcut('Ctrl+A')
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
@@ -396,11 +397,11 @@ class BioMuscleWindow(QtGui.QMainWindow):
         #
         ### Status Bar ###
         #
-        self.statusBar = QtGui.QStatusBar()
-        self.left_status = QtGui.QLabel()
-        self.right_status = QtGui.QLabel()
-        self.pixel_detail = QtGui.QLabel()
-        self.progressBar = QtGui.QProgressBar()
+        self.statusBar = QStatusBar()
+        self.left_status = QLabel()
+        self.right_status = QLabel()
+        self.pixel_detail = QLabel()
+        self.progressBar = QProgressBar()
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
@@ -562,7 +563,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
             self.setPeaksB.setText("Done")
             self.function = ['peaks', []]
             # Remove all lines and draw only background subtracted histogram
-            ax = self.fittingFigure.add_subplot(111)
+            ax = self.fittingAxes
             del ax.lines
             ax.lines = []
             ax.plot(bioImg.info['hulls']['all'], color = 'b')
@@ -591,7 +592,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.fittingFigure.add_subplot(111)
+            ax = self.fittingAxes
             bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -628,7 +629,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
                 selected_peaks = func[1]
                 x = int(round(x))
                 selected_peaks.append(x)
-                ax = self.fittingFigure.add_subplot(111)
+                ax = self.fittingAxes
                 ax.axvline(x, linewidth=2, color='k')
                 if x < centerX:
                     ax.text(x+5, hist[x], "left", fontsize=10)
@@ -651,7 +652,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.fittingFigure.add_subplot(111)
+            ax = self.fittingAxes
             bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -676,7 +677,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
 
         if func[0] == "g_zoomin":
             # Draw rectangle
-            ax = self.fittingFigure.add_subplot(111)
+            ax = self.fittingAxes
             del ax.patches
             ax.patches = []
             start_pt = func[1]
@@ -691,7 +692,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
             # Change zoom location (x, y ranges) in order to go round plot by dragging
             if self.graph_zoom is not None:
                 hist = bioImg.info['hist']
-                ax = self.fittingFigure.add_subplot(111)
+                ax = self.fittingAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.graph_zoom = getNewZoom(self.graph_zoom, move, len(hist), max(hist)*1.1, self.plot_min)
                 ax.set_xlim(self.graph_zoom[0])
@@ -724,7 +725,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         y = event.ydata
 
         max_size = (max(bioImg.info['hist']) * 1.1, len(bioImg.info['hist']))
-        ax = self.fittingFigure.add_subplot(111)
+        ax = self.fittingAxes
 
         if self.graph_zoom is None:
             self.graph_zoom = [ax.get_xlim(), ax.get_ylim()]
@@ -774,7 +775,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         Display help dialog
         """
-        keysDialog = QtGui.QMessageBox()
+        keysDialog = QMessageBox()
         keysDialog.setText('Shortcut keys')
         keysDialog.setInformativeText('Arrow Right > : Go to the next image\n'
                                       'Arrow Left < : Go to the previous image\n'
@@ -786,16 +787,16 @@ class BioMuscleWindow(QtGui.QMainWindow):
                                       'F : Process current folder\n'
                                       'M : See User Manual\n'
                                       'Q : close window\n')
-        keysDialog.setStandardButtons(QtGui.QMessageBox.Ok)
+        keysDialog.setStandardButtons(QMessageBox.Ok)
         keysDialog.exec_()
 
     def showAbout(self):
         """
         Display About Dialog
         """
-        msgBox = QtGui.QMessageBox()
+        msgBox = QMessageBox()
         msgBox.setWindowTitle("About")
-        msgBox.setTextFormat(QtCore.Qt.RichText)
+        msgBox.setTextFormat(Qt.RichText)
         msgBox.setText("<br><br><br>" +
                        "This Bio-Muscle is running under" +
                        "<h2>Muscle X v" +
@@ -807,7 +808,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
                        "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/wiki") +
                        "Send Feedback or Issues : <br>" +
                        "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
-        msgBox.setStandardButtons(QtGui.QMessageBox.Ok)
+        msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec_()
 
     def launchManual(self):
@@ -872,7 +873,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.img_zoom = [(x1, x2), (y1, y2)]
 
         # To zoom-in or zoom-out is setting x and y limit of figure
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
         ax.invert_yaxis()
@@ -882,17 +883,16 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         Popup an input file dialog. Users can select .tif for image or .txt for failed cases list
         """
-        file_name = QtGui.QFileDialog.getOpenFileName(self, "Select a File",
-                                                      filter='Images (*.tif);;Failed cases (*.txt)')
+        file_name = getAFile('Images (*.tif);;Failed cases (*.txt)')
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
         if file_name != "":
             if ext == ".txt" and not name == "failedcases.txt":
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Invalid Input')
                 errMsg.setInformativeText("Please select only failedcases.txt or .tif image\n\n")
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
             else:
                 self.mainWindow.runBioMuscle(str(file_name))
@@ -919,7 +919,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         ## Popup confirm dialog with settings
         nImg = len(self.imgList)
-        errMsg = QtGui.QMessageBox()
+        errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         settings = self.getSettings()
@@ -966,12 +966,12 @@ class BioMuscleWindow(QtGui.QMainWindow):
         text += '\n\nAre you sure you want to process ' + str(
             nImg) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel)
-        errMsg.setIcon(QtGui.QMessageBox.Warning)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
         ret = errMsg.exec_()
 
         # If "yes" is pressed
-        if ret == QtGui.QMessageBox.Yes:
+        if ret == QMessageBox.Yes:
 
             # Display progress bar
             self.progressBar.setMaximum(nImg)
@@ -981,7 +981,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
             ## Process all images and update progress bar
             for i in range(nImg):
                 self.progressBar.setValue(i)
-                QtGui.QApplication.processEvents()
+                QApplication.processEvents()
                 self.nextClicked()
 
         self.progressBar.setVisible(False)
@@ -1072,29 +1072,29 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         key = event.key()
 
-        if key == QtCore.Qt.Key_Right:
+        if key == Qt.Key_Right:
             self.nextClicked()
-        elif key == QtCore.Qt.Key_Left:
+        elif key == Qt.Key_Left:
             self.prevClicked()
-        elif key == QtCore.Qt.Key_Escape:
+        elif key == Qt.Key_Escape:
             self.resetUI()
-        elif key == QtCore.Qt.Key_D:
+        elif key == Qt.Key_D:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())
-        elif key == QtCore.Qt.Key_A:
+        elif key == Qt.Key_A:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() - 1) % self.tabWidget.count())
-        elif key == QtCore.Qt.Key_S:
+        elif key == Qt.Key_S:
             self.maxIntSpnBx.stepDown()
-        elif key == QtCore.Qt.Key_W:
+        elif key == Qt.Key_W:
             self.maxIntSpnBx.stepUp()
-        elif key == QtCore.Qt.Key_Q:
+        elif key == Qt.Key_Q:
             self.close()
-        elif key == QtCore.Qt.Key_N:
+        elif key == Qt.Key_N:
             self.browseFile()
-        elif key == QtCore.Qt.Key_F:
+        elif key == Qt.Key_F:
             self.processFolder()
-        elif key == QtCore.Qt.Key_O:
+        elif key == Qt.Key_O:
             self.browseFile()
-        elif key == QtCore.Qt.Key_M:
+        elif key == Qt.Key_M:
             self.launchManual()
 
     def calibrationClicked(self):
@@ -1115,7 +1115,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
 
         if self.setRotAndCentB.isChecked():
             self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
             del ax.lines
@@ -1136,7 +1136,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
 
         if self.setAngleB.isChecked():
             self.setLeftStatus("Click on image to select the angle of the equator (ESC to cancel)")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -1152,7 +1152,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         if self.setRminB.isChecked():
             self.setLeftStatus("Please select R-min size (ESC to cancel)")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -1168,7 +1168,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         if self.setIntAreaB.isChecked():
             self.setLeftStatus("Please select Integrated area by select start line and end line (ESC to cancel)")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -1218,7 +1218,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1240,14 +1240,14 @@ class BioMuscleWindow(QtGui.QMainWindow):
             self.function = ["im_move", (x, y)]
         elif func[0] == "angle_center":
             # draw X at points and a line between points
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             axis_size = 5
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
             func.append((x, y))
             if len(func) == 3:
-                QtGui.QApplication.restoreOverrideCursor()
+                QApplication.restoreOverrideCursor()
 
                 if func[1][0] < func[2][0]:
                     x1, y1 = func[1]
@@ -1292,7 +1292,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         elif func[0] == "int_area":
             # draw 2 horizontal lines
             func.append(y)
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             ax.axhline(y=y, color='y')
             self.displayImgCanvas.draw_idle()
             if len(func) == 3:
@@ -1348,7 +1348,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1373,7 +1373,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
             # draw rectangle
             if len(func) < 2:
                 return
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             ax.patches.pop()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
@@ -1391,14 +1391,14 @@ class BioMuscleWindow(QtGui.QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             ax.lines = []
             ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "int_area":
             # draw horizontal lines
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             if len(ax.lines) > len(func) - 1:
                 line = ax.lines[:len(func) - 1]
                 ax.lines = line
@@ -1408,14 +1408,14 @@ class BioMuscleWindow(QtGui.QMainWindow):
             # draw R-min circle
             center = self.bioImg.info['center']
             dis = int(np.round(distance(center, (x, y))))
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             ax.patches = []
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
         elif func[0] == "angle_center":
             # draw X on points and a line between points
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
 
@@ -1449,7 +1449,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
@@ -1555,20 +1555,20 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         if self.bioImg is None:
             return
-        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-        QtGui.QApplication.processEvents()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
         settings = self.getSettings()
         try:
             self.bioImg.process(settings)
         except Exception, e:
-            QtGui.QApplication.restoreOverrideCursor()
-            errMsg = QtGui.QMessageBox()
+            QApplication.restoreOverrideCursor()
+            errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
             msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             errMsg.setInformativeText(msg)
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.setFixedWidth(300)
             errMsg.exec_()
             raise
@@ -1576,7 +1576,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.csvManager.writeNewData(self.bioImg)
         self.resetUI()
         self.refreshStatusbar()
-        QtGui.QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
 
     def setLeftStatus(self, s):
         """
@@ -1584,7 +1584,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         :param s: input text (str)
         """
         self.left_status.setText(s)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def refreshStatusbar(self):
         """
@@ -1600,7 +1600,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         img = self.bioImg.orig_img
         self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
         self.pixel_detail.setText("")
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def getSettings(self):
         """
@@ -1678,7 +1678,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         """
         self.function = None
         self.graph_zoom = None
-        QtGui.QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
         for b in self.checkableButtons:
             b.setChecked(False)
         for k in self.update_plot.keys():
@@ -1737,11 +1737,11 @@ class BioMuscleWindow(QtGui.QMainWindow):
         self.syncSpinBoxes()
         self.refreshStatusbar()
 
-        focused_widget = QtGui.QApplication.focusWidget()
+        focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
 
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def updateImageTab(self):
         """
@@ -1754,7 +1754,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         center = info['center']
         rmin = info['rmin']
         int_area = info['int_area']
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
         ax.cla()
         ax.imshow(disp_img)  # Display selected image
 
@@ -1815,7 +1815,7 @@ class BioMuscleWindow(QtGui.QMainWindow):
         hull = info['hulls']['all']
         hull = np.array(hull)
 
-        ax = self.fittingFigure.add_subplot(111)
+        ax = self.fittingAxes
         ax.cla()
 
         if self.origHistChkBx.isChecked():
@@ -1908,14 +1908,14 @@ class BioMuscleWindow(QtGui.QMainWindow):
 
         # Display all peaks found in table
         if 'tmp_peaks' in info:
-            self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("All Peaks Found"))
-            self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(info['tmp_peaks']['left'])))
-            self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(info['tmp_peaks']['right'])))
+            self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("All Peaks Found"))
+            self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(info['tmp_peaks']['left'])))
+            self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(info['tmp_peaks']['right'])))
             ind += 1
         if 'peaks' in info:
-            self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Initial Peaks"))
-            self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(info['peaks']['left'])))
-            self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(info['peaks']['right'])))
+            self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Initial Peaks"))
+            self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(info['peaks']['left'])))
+            self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(info['peaks']['right'])))
             ind += 1
 
         if 'fit_results' in info:
@@ -1923,77 +1923,77 @@ class BioMuscleWindow(QtGui.QMainWindow):
 
             # Display all areas in table
             for i in range(len(fit_results['left_areas'])):
-                self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Areas " + str(i + 1)))
-                self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_areas'][i])))
-                self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_areas'][i])))
+                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Areas " + str(i + 1)))
+                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_areas'][i])))
+                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_areas'][i])))
                 ind += 1
 
             # Display ratio I11/I10 in table
-            self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("I11/I10"))
-            self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_ratio'])))
-            self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_ratio'])))
+            self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("I11/I10"))
+            self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_ratio'])))
+            self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_ratio'])))
             ind += 1
 
             # Display Sigma C in table
-            self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Sigma C"))
-            self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_sigmac'])))
-            self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_sigmac'])))
+            self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Sigma C"))
+            self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_sigmac'])))
+            self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_sigmac'])))
             ind += 1
 
             # Display Sigma D in table
-            self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Sigma D"))
-            self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_sigmad'])))
-            self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_sigmad'])))
+            self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Sigma D"))
+            self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_sigmad'])))
+            self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_sigmad'])))
             ind += 1
 
             # Display Sigma S in table
-            self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Sigma S"))
-            self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_sigmas'])))
-            self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_sigmas'])))
+            self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Sigma S"))
+            self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_sigmas'])))
+            self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_sigmas'])))
             ind += 1
 
             if fit_results['model'] == 'Voigt':
                 # Display gamma in table if model is Voigt
-                self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Gamma"))
-                self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_gamma'])))
-                self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_gamma'])))
+                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Gamma"))
+                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gamma'])))
+                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gamma'])))
                 ind += 1
 
             # Display all skeletal parameters in table
             if fit_results['isSkeletal']:
 
                 # Display Z line center in table
-                self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Z line"))
-                self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_zline'])))
-                self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_zline'])))
+                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Z line"))
+                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_zline'])))
+                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_zline'])))
                 ind += 1
 
                 # Display Z line sigma in table
-                self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Sigma Z"))
-                self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_sigmaz'])))
-                self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_sigmaz'])))
+                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Sigma Z"))
+                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_sigmaz'])))
+                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_sigmaz'])))
                 ind += 1
 
                 # Display Z line intensity in table
-                self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Iz"))
-                self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_intz'])))
-                self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_intz'])))
+                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Iz"))
+                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_intz'])))
+                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_intz'])))
                 ind += 1
 
 
                 # Display gamma in table if model is Voigt
-                self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("gamma"))
-                self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_gamma'])))
-                self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_gamma'])))
+                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("gamma"))
+                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gamma'])))
+                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gamma'])))
                 ind += 1
 
                 if fit_results['model'] == 'Voigt':
 
                     # Display gamma in table if model is Voigt
-                    self.fiberResultTable.setItem(ind, 0, QtGui.QTableWidgetItem("Gamma Z"))
-                    self.fiberResultTable.setItem(ind, 1, QtGui.QTableWidgetItem(str(fit_results['left_gammaz'])))
-                    self.fiberResultTable.setItem(ind, 2, QtGui.QTableWidgetItem(str(fit_results['right_gammaz'])))
+                    self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Gamma Z"))
+                    self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gammaz'])))
+                    self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gammaz'])))
                     ind += 1
 
         self.fiberResultTable.setRowCount(ind)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()

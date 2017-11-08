@@ -248,11 +248,17 @@ class DiffractionCentroids():
         This calculation will affect histograms, so all histograms will be removed from self.info
         """
         if not self.info.has_key('top_se'):
-            self.info['top_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0] / 2, self.avgImg.shape[1] / 2) * 0.7)))
+            if self.info.has_key('top_fixed_se'):
+                self.info['top_se'] = self.info['top_fixed_se']
+            else:
+                self.info['top_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0] / 2, self.avgImg.shape[1] / 2) * 0.7)))
             self.removeInfo('top_hist')
             self.removeInfo('top_hull')
         if not self.info.has_key('bottom_se'):
-            self.info['bottom_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0]/2, self.avgImg.shape[1]/2) * 0.7)))
+            if self.info.has_key('bottom_fixed_se'):
+                self.info['bottom_se'] = self.info['bottom_fixed_se']
+            else:
+                self.info['bottom_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0]/2, self.avgImg.shape[1]/2) * 0.7)))
             self.removeInfo('bottom_hist')
             self.removeInfo('bottom_hull')
 
@@ -275,13 +281,13 @@ class DiffractionCentroids():
 
         top_hist, top_ignore, bottom_hist, bottom_ignore = self.splitHist(center_y, hist, ignore)
 
-        if not (self.info.has_key('top_hist') and self.info.has_key('top_hull')):
+        if not (self.info.has_key('top_hist') or self.info.has_key('top_hull')):
             top_hull = convexHull(top_hist, start_p=self.info['top_se'][0], end_p=self.info['top_se'][1], ignore=top_ignore)
             self.info['top_hist'] = np.array(top_hist)
             self.info['top_hull'] = np.array(top_hull)
             self.removeInfo('pre_top_peaks')
 
-        if not (self.info.has_key('bottom_hist') and self.info.has_key('bottom_hull')):
+        if not (self.info.has_key('bottom_hist') or self.info.has_key('bottom_hull')):
             bottom_hull = convexHull(bottom_hist, start_p=self.info['bottom_se'][0], end_p=self.info['bottom_se'][1], ignore=bottom_ignore)
             self.info['bottom_hist'] = np.array(bottom_hist)
             self.info['bottom_hull'] = np.array(bottom_hull)
@@ -430,6 +436,7 @@ class DiffractionCentroids():
         print "Bottom centroids =", self.info['bottom_centroids']
 
     def fitModel(self, hist, peaks, baselines):
+        # JUST FOR TEST
         # Fit Voigt model to histogram using peaks and baselines
         # Currently, this function is not used by any process
         new_hist = np.zeros(len(hist))

@@ -152,6 +152,8 @@ class BM_CVSManager:
 
                     if 'd10' in fit_results.keys():
                         first_row['d10'] = fit_results['d10']
+                    else:
+                        first_row['d10'] = '-'
                 else:
                     data = {}
                     for k in self.dataframe.columns:

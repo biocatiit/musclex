@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 from ..modules.CircularProjection import *
+import pandas as pd
 
 class CP_CSVManager():
     def __init__(self, dir_path):
@@ -112,6 +113,8 @@ class CP_CSVManager():
                 new_data['angle fitting error'] = errors[i]
                 if 'peak_ds' in info:
                     new_data['d'] = info['peak_ds'][i]
+                else:
+                    new_data['d'] = '-'
                 new_datas.append(new_data)
             self.df_rings = self.df_rings.append(new_datas, ignore_index=True)
         else:

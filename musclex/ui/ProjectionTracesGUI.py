@@ -26,7 +26,6 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from PyQt4 import QtCore, QtGui
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as patches
@@ -34,7 +33,6 @@ from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFol
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
 from ..utils.image_processor import getBGR, get8bitImage, getNewZoom
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CVSManager
 import sys
@@ -43,8 +41,9 @@ import musclex
 import copy
 from os.path import exists
 import pickle
+from pyqt_utils import *
 
-class BoxDetails(QtGui.QDialog):
+class BoxDetails(QDialog):
     """
     This class is for Popup window when a box is added
     """
@@ -58,39 +57,39 @@ class BoxDetails(QtGui.QDialog):
         """
         Initial UI for the dialog
         """
-        self.boxLayout = QtGui.QGridLayout(self)
-        self.boxName = QtGui.QLineEdit()
-        self.bgChoice = QtGui.QComboBox()
+        self.boxLayout = QGridLayout(self)
+        self.boxName = QLineEdit()
+        self.bgChoice = QComboBox()
         self.bgChoice.addItem("Fitting Gaussians")
         self.bgChoice.addItem("Convex Hull")
 
-        self.bottons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
-                                              QtCore.Qt.Horizontal, self)
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+                                              Qt.Horizontal, self)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
         self.bottons.setFixedWidth(200)
 
-        self.boxLayout.addWidget(QtGui.QLabel("Box name : "), 0, 0, 1, 1)
+        self.boxLayout.addWidget(QLabel("Box name : "), 0, 0, 1, 1)
         self.boxLayout.addWidget(self.boxName, 0, 1, 1, 1)
-        self.boxLayout.addWidget(QtGui.QLabel("Background Subtraction Method : "), 1, 0, 1, 1)
+        self.boxLayout.addWidget(QLabel("Background Subtraction Method : "), 1, 0, 1, 1)
         self.boxLayout.addWidget(self.bgChoice, 1, 1, 1, 1)
-        self.boxLayout.addWidget(self.bottons, 2, 0, 1, 2, QtCore.Qt.AlignCenter)
+        self.boxLayout.addWidget(self.bottons, 2, 0, 1, 2, Qt.AlignCenter)
 
     def okClicked(self):
         box_name = str(self.boxName.text())
         if len(box_name) == 0:
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText('Adding a box Error')
             errMsg.setInformativeText('Please specify the box name')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif box_name in self.box_names:
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText('Adding a box Error')
             errMsg.setInformativeText(box_name+' has already been added. Please select another name')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         else:
             self.accept()
@@ -98,12 +97,12 @@ class BoxDetails(QtGui.QDialog):
     def getDetails(self):
         return str(self.boxName.text()), self.bgChoice.currentIndex()
 
-class ProjectionTracesGUI(QtGui.QMainWindow):
+class ProjectionTracesGUI(QMainWindow):
     """
     This class is for Projection Traces GUI Object
     """
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.setWindowTitle("Projection Traces v." + musclex.__version__)
         self.current_file = 0
         self.dir_path = ""
@@ -130,47 +129,48 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         Initial all GUI
         """
         #### Image Tab ####
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(True)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 200px; }")
 
-        self.imageTab = QtGui.QWidget()
-        self.imageTabLayer = QtGui.QHBoxLayout(self.imageTab)
+        self.imageTab = QWidget()
+        self.imageTabLayer = QHBoxLayout(self.imageTab)
         self.displayImgFigure = plt.figure(facecolor='#606060')
-        self.imageVLayout = QtGui.QVBoxLayout()
+        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
+        self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
         self.imageVLayout.addWidget(self.displayImgCanvas)
 
-        self.imageLeftFrame = QtGui.QFrame()
+        self.imageLeftFrame = QFrame()
         self.imageLeftFrame.setFixedWidth(250)
-        self.leftFrameLayout = QtGui.QVBoxLayout(self.imageLeftFrame)
+        self.leftFrameLayout = QVBoxLayout(self.imageLeftFrame)
 
         # Image selection
-        self.selectImageGrp = QtGui.QGroupBox("1. Select an image")
-        self.selectImageLayout = QtGui.QVBoxLayout(self.selectImageGrp)
-        self.browseImageButton = QtGui.QPushButton("Browse")
+        self.selectImageGrp = QGroupBox("1. Select an image")
+        self.selectImageLayout = QVBoxLayout(self.selectImageGrp)
+        self.browseImageButton = QPushButton("Browse")
         self.selectImageLayout.addWidget(self.browseImageButton)
 
         # Pattern Properties
-        self.propGrp = QtGui.QGroupBox("2. Pattern Settings (Optional)")
+        self.propGrp = QGroupBox("2. Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
-        self.propLayout = QtGui.QGridLayout(self.propGrp)
-        self.calibrateButton = QtGui.QPushButton("Calibration Settings")
-        # self.quadFoldButton = QtGui.QPushButton("Quadrant Folding")
-        # self.setCenterButton = QtGui.QPushButton("Set Rotation and Center")
+        self.propLayout = QGridLayout(self.propGrp)
+        self.calibrateButton = QPushButton("Calibration Settings")
+        # self.quadFoldButton = QPushButton("Quadrant Folding")
+        # self.setCenterButton = QPushButton("Set Rotation and Center")
         # self.setCenterButton.setCheckable(True)
         # self.checkableButtons.append(self.setCenterButton)
-        # self.setRotationButton = QtGui.QPushButton("Set Rotation Angle")
+        # self.setRotationButton = QPushButton("Set Rotation Angle")
         # self.setRotationButton.setCheckable(True)
         # self.checkableButtons.append(self.setRotationButton)
-        # self.lockAngleChkBx = QtGui.QCheckBox("Lock Angle")
-        # self.lockAngleSpnBx = QtGui.QSpinBox()
+        # self.lockAngleChkBx = QCheckBox("Lock Angle")
+        # self.lockAngleSpnBx = QSpinBox()
         # self.lockAngleSpnBx.setEnabled(False)
         # self.lockAngleSpnBx.setRange(-180, 180)
         self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 1)
@@ -181,21 +181,21 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         # self.propLayout.addWidget(self.lockAngleSpnBx, 4, 1, 1, 1)
 
         # Box selection
-        self.boxGrp = QtGui.QGroupBox("3. Add boxes")
+        self.boxGrp = QGroupBox("3. Add boxes")
         self.boxGrp.setEnabled(False)
-        self.boxesLayout = QtGui.QVBoxLayout(self.boxGrp)
-        self.addBoxButton = QtGui.QPushButton("Add Boxes")
+        self.boxesLayout = QVBoxLayout(self.boxGrp)
+        self.addBoxButton = QPushButton("Add Boxes")
         self.addBoxButton.setCheckable(True)
-        self.clearBoxButton = QtGui.QPushButton('Clear All Boxes')
+        self.clearBoxButton = QPushButton('Clear All Boxes')
         self.checkableButtons.append(self.addBoxButton)
         self.boxesLayout.addWidget(self.addBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
 
         # Peaks Selection
-        self.selectPeaksGrp = QtGui.QGroupBox("4. Peaks")
+        self.selectPeaksGrp = QGroupBox("4. Peaks")
         self.selectPeaksGrp.setEnabled(False)
-        self.selectPeaksLayout = QtGui.QVBoxLayout(self.selectPeaksGrp)
-        self.selectPeaksButton = QtGui.QPushButton("Select Approximate Peak Locations")
+        self.selectPeaksLayout = QVBoxLayout(self.selectPeaksGrp)
+        self.selectPeaksButton = QPushButton("Select Approximate Peak Locations")
         self.selectPeaksButton.setCheckable(True)
         self.checkableButtons.append(self.selectPeaksButton)
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
@@ -209,30 +209,30 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         self.leftFrameLayout.addWidget(self.selectPeaksGrp)
         self.leftFrameLayout.addStretch()
 
-        self.imageRightFrame = QtGui.QFrame()
+        self.imageRightFrame = QFrame()
         self.imageRightFrame.setFixedWidth(250)
-        self.rightFrameLayout = QtGui.QVBoxLayout(self.imageRightFrame)
+        self.rightFrameLayout = QVBoxLayout(self.imageRightFrame)
 
         # Display Options
-        self.dispOptGrp = QtGui.QGroupBox("Display Options")
-        self.dispOptLayout = QtGui.QGridLayout(self.dispOptGrp)
+        self.dispOptGrp = QGroupBox("Display Options")
+        self.dispOptLayout = QGridLayout(self.dispOptGrp)
 
-        self.boxesChkBx = QtGui.QCheckBox("Boxes")
+        self.boxesChkBx = QCheckBox("Boxes")
         self.boxesChkBx.setChecked(True)
-        self.peaksChkBx = QtGui.QCheckBox("Peaks")
+        self.peaksChkBx = QCheckBox("Peaks")
         self.peaksChkBx.setChecked(True)
-        self.imgZoomInB = QtGui.QPushButton("Zoom In")
+        self.imgZoomInB = QPushButton("Zoom In")
         self.imgZoomInB.setCheckable(True)
-        self.imgZoomOutB = QtGui.QPushButton("Full")
+        self.imgZoomOutB = QPushButton("Full")
         self.checkableButtons.append(self.imgZoomInB)
 
-        self.minIntLabel = QtGui.QLabel("Min Intensity")
-        self.minIntSpnBx = QtGui.QDoubleSpinBox()
+        self.minIntLabel = QLabel("Min Intensity")
+        self.minIntSpnBx = QDoubleSpinBox()
         self.minIntSpnBx.setKeyboardTracking(False)
         self.minIntSpnBx.setDecimals(2)
 
-        self.maxIntLabel = QtGui.QLabel("Max Intensity")
-        self.maxIntSpnBx = QtGui.QDoubleSpinBox()
+        self.maxIntLabel = QLabel("Max Intensity")
+        self.maxIntSpnBx = QDoubleSpinBox()
         self.maxIntSpnBx.setValue(0)
         self.maxIntSpnBx.setDecimals(2)
         self.maxIntSpnBx.setKeyboardTracking(False)
@@ -248,17 +248,17 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
 
         # Process Folder Button
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
 
         # Export 1-D Projections
-        self.exportChkBx = QtGui.QCheckBox("Export all 1-D Projections")
+        self.exportChkBx = QCheckBox("Export all 1-D Projections")
         self.exportChkBx.setChecked(True)
 
         # next previos buttons
-        self.nextButton = QtGui.QPushButton(">>>")
-        self.prevButton = QtGui.QPushButton("<<<")
-        self.bottomLayout = QtGui.QGridLayout()
+        self.nextButton = QPushButton(">>>")
+        self.prevButton = QPushButton("<<<")
+        self.bottomLayout = QGridLayout()
         self.bottomLayout.addWidget(self.exportChkBx, 0, 0, 1, 2)
         self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
         self.bottomLayout.addWidget(self.prevButton, 2, 0, 1, 1)
@@ -273,17 +273,17 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         self.imageTabLayer.addWidget(self.imageRightFrame)
 
         self.tabWidget.addTab(self.imageTab, "Image")
-        self.tabWidget.tabBar().setTabButton(0, QtGui.QTabBar.LeftSide, None)
-        self.tabWidget.tabBar().setTabButton(0, QtGui.QTabBar.RightSide, None)
+        self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
+        self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
 
         #
         ### Status Bar ###
         #
-        self.statusBar = QtGui.QStatusBar()
-        self.left_status = QtGui.QLabel()
-        self.right_status = QtGui.QLabel()
-        self.pixel_detail = QtGui.QLabel()
-        self.progressBar = QtGui.QProgressBar()
+        self.statusBar = QStatusBar()
+        self.left_status = QLabel()
+        self.right_status = QLabel()
+        self.pixel_detail = QLabel()
+        self.progressBar = QProgressBar()
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
@@ -370,7 +370,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         return False
 
     def clearImage(self):
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
         del ax.lines
         ax.lines = []
         del ax.patches
@@ -444,7 +444,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
                     "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)")
                 peaks = {}
                 self.function = ['peaks', peaks]
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 del ax.lines
                 ax.lines = []
                 self.displayImgCanvas.draw_idle()
@@ -464,7 +464,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
     def processFolder(self):
         self.numberOfFiles = len(self.imgList)
 
-        errMsg = QtGui.QMessageBox()
+        errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         settings = self.getSettings()
@@ -494,16 +494,16 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         text += '\n\nAre you sure you want to process ' + str(
             self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel)
-        errMsg.setIcon(QtGui.QMessageBox.Warning)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
         ret = errMsg.exec_()
 
         # If "yes" is pressed
-        if ret == QtGui.QMessageBox.Yes:
+        if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
             for i in range(self.numberOfFiles):
                 self.progressBar.setValue(100. / self.numberOfFiles * i)
-                QtGui.QApplication.processEvents()
+                QApplication.processEvents()
                 self.nextClicked()
             self.progressBar.setVisible(False)
 
@@ -531,7 +531,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
                 self.addBoxButton.setText("Done")
                 self.setLeftStatus("Add a box to the image by drawing a rectangles (ESC to cancel)")
                 self.function = ['box']
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 ax.lines = []
                 self.displayImgCanvas.draw_idle()
             else:
@@ -545,26 +545,26 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         """
         key = event.key()
 
-        if key == QtCore.Qt.Key_Right:
+        if key == Qt.Key_Right:
             self.nextClicked()
-        elif key == QtCore.Qt.Key_Left:
+        elif key == Qt.Key_Left:
             self.prevClicked()
-        elif key == QtCore.Qt.Key_Escape:
+        elif key == Qt.Key_Escape:
             self.resetUI()
-        elif key == QtCore.Qt.Key_D:
+        elif key == Qt.Key_D:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())
-        elif key == QtCore.Qt.Key_A:
+        elif key == Qt.Key_A:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() - 1) % self.tabWidget.count())
-        elif key == QtCore.Qt.Key_S:
+        elif key == Qt.Key_S:
             self.maxIntSpnBx.stepDown()
-        elif key == QtCore.Qt.Key_W:
+        elif key == Qt.Key_W:
             self.maxIntSpnBx.stepUp()
-        elif key == QtCore.Qt.Key_Q:
+        elif key == Qt.Key_Q:
             self.close()
 
     def mousePressEvent(self, event):
         # Clear focus when mouse pressed
-        focused_widget = QtGui.QApplication.focusWidget()
+        focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
 
@@ -628,7 +628,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -672,7 +672,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         elif func[0] == "peaks":
             peaks = func[1]
             if len(self.allboxes.keys()) > 0:
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
                 centery = self.projProc.orig_img.shape[0] / 2. - 0.5
                 for name in self.allboxes.keys():
@@ -730,7 +730,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -755,7 +755,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
             # draw rectangle
             if len(func) < 2:
                 return
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             if len(ax.patches) > 0:
                 ax.patches.pop()
             start_pt = func[1]
@@ -770,14 +770,14 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         elif func[0] == "box":
             if len(func) == 1:
                 # cross lines
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 ax.lines = []
                 ax.axhline(y, color='y', linestyle='dotted')
                 ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 2:
                 # draw rectangle
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 if len(ax.patches) > 0:
                     ax.patches = ax.patches[:len(self.allboxes.keys())]
                 ax.lines = []
@@ -792,7 +792,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
@@ -868,14 +868,14 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         self.img_zoom = [(x1, x2), (y1, y2)]
 
         # To zoom-in or zoom-out is setting x and y limit of figure
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
         ax.invert_yaxis()
         self.displayImgCanvas.draw_idle()
 
     def browseFile(self):
-        file_name = str(QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'Images (*.tif)', None))
+        file_name = getAFile()
         if file_name != "":
             self.onImageSelect(file_name)
 
@@ -948,20 +948,20 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         """
         if self.projProc is None:
             return
-        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-        QtGui.QApplication.processEvents()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
         settings = self.getSettings()
         try:
             self.projProc.process(settings)
         except Exception, e:
-            QtGui.QApplication.restoreOverrideCursor()
-            errMsg = QtGui.QMessageBox()
+            QApplication.restoreOverrideCursor()
+            errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
             msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             errMsg.setInformativeText(msg)
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.setFixedWidth(300)
             errMsg.exec_()
             raise
@@ -973,7 +973,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
-        QtGui.QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
 
     def exportHistograms(self):
         """
@@ -1061,7 +1061,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         img = self.projProc.orig_img
         self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
         self.pixel_detail.setText("")
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def setLeftStatus(self, s):
         """
@@ -1069,7 +1069,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         :param s: input text (str)
         """
         self.left_status.setText(s)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
     #
     # def lockAngle(self):
     #     self.lockAngleSpnBx.setEnabled(self.lockAngleChkBx.isChecked())
@@ -1080,7 +1080,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
         """
         self.function = None
         # self.graph_zoom = None
-        QtGui.QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
         self.selectPeaksButton.setText("Select Approximate Peak Locations")
         self.addBoxButton.setText("Add A Box")
 
@@ -1113,7 +1113,7 @@ class ProjectionTracesGUI(QtGui.QMainWindow):
 
         img = self.projProc.orig_img
         img = getBGR(get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value()))
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
         ax.cla()
         ax.imshow(img)
 

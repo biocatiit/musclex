@@ -25,3 +25,33 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
+try:
+    from PyQt4.QtCore import *
+    from PyQt4.QtGui import *
+    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+except ImportError:
+    try:
+        from PyQt5.QtCore import *
+        from PyQt5.QtWidgets import *
+        from PyQt5.QtGui import *
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    except ImportError:
+        print "Please install PyQt4 or PyQt5"
+
+
+def getAFile(filter='Images (*.tif)', path = ''):
+    file_name = QFileDialog.getOpenFileName(None, 'Select a file', path, filter, None)
+    if isinstance(file_name, tuple):
+        file_name = file_name[0]
+    return str(file_name)
+
+def getFiles(path='', filter='Images (*.tif)'):
+    fileList = QFileDialog.getOpenFileNames(None, "Select frame(s) to average", path, filter)
+    if isinstance(fileList, tuple):
+        fileList = fileList[0]
+    return map(str, fileList)
+
+def getAFolder():
+    dir_path = QFileDialog.getExistingDirectory(None, "Select a Folder")
+    return str(dir_path)

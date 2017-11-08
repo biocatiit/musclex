@@ -28,18 +28,17 @@ authorization from Illinois Institute of Technology.
 __author__ = 'Jiranun.J'
 
 import sys
-from PyQt4 import QtCore, QtGui
-import matplotlib.pyplot as plt
 from tifffile import imsave
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.patches as patches
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
+from pyqt_utils import *
+import matplotlib.pyplot as plt
 import musclex
 import traceback
 
-class QuadrantFoldingGUI(QtGui.QMainWindow):
+class QuadrantFoldingGUI(QMainWindow):
     """
     A class forwindow displaying all information of a selected image.
     This window contains 2 tabs : image, and result
@@ -49,7 +48,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         """
         Initial window
         """
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.imgList = [] # all images name in current directory
         self.filePath = "" # current directory
         self.quadFold = None # QuadrantFolder object
@@ -68,13 +67,13 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.setStyleSheet(getStyleSheet())
         self.setWindowTitle("Quadrant Folding v." + musclex.__version__)
 
-        self.centralWidget = QtGui.QWidget(self)
+        self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
-        self.mainHLayout = QtGui.QHBoxLayout(self.centralWidget)
+        self.mainHLayout = QHBoxLayout(self.centralWidget)
 
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget = QTabWidget()
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
@@ -82,60 +81,61 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
 
         ##### Image Tab #####
-        self.imageTab = QtGui.QWidget()
+        self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QtGui.QHBoxLayout(self.imageTab)
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
         self.tabWidget.addTab(self.imageTab, "Original Image")
 
-        self.verImgLayout = QtGui.QVBoxLayout()
+        self.verImgLayout = QVBoxLayout()
         self.verImgLayout.setContentsMargins(0, 0, 0, 0)
-        self.verImgLayout.setAlignment(QtCore.Qt.AlignCenter)
-        self.selectImageButton = QtGui.QPushButton('Click Here to Select an Image...')
+        self.verImgLayout.setAlignment(Qt.AlignCenter)
+        self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
         self.selectImageButton.setFixedWidth(300)
 
-        self.selectFolder = QtGui.QPushButton('Click Here to Select a Folder...')
+        self.selectFolder = QPushButton('Click Here to Select a Folder...')
         self.selectFolder.setFixedHeight(100)
         self.selectFolder.setFixedWidth(300)
 
-        self.bgWd = QtGui.QWidget()
+        self.bgWd = QWidget()
         self.verImgLayout.addWidget(self.selectImageButton)
         self.verImgLayout.addWidget(self.selectFolder)
         self.imageFigure = plt.figure(facecolor='#606060')
+        self.imageAxes = self.imageFigure.add_subplot(111)
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
         self.imageCanvas.setHidden(True)
         self.imageTabLayout.addLayout(self.verImgLayout)
         self.imageTabLayout.addWidget(self.imageCanvas)
 
-        self.displayOptGrpBx = QtGui.QGroupBox()
+        self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
-        self.displayOptGrpBx.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         # self.displayOptGrpBx.setFixedHeight(125)
-        self.dispOptLayout = QtGui.QGridLayout()
+        self.dispOptLayout = QGridLayout()
 
-        self.spminInt = QtGui.QDoubleSpinBox()
+        self.spminInt = QDoubleSpinBox()
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spminInt.setKeyboardTracking(False)
         self.spminInt.setSingleStep(5)
         self.spminInt.setDecimals(0)
-        self.spmaxInt = QtGui.QDoubleSpinBox()
+        self.spmaxInt = QDoubleSpinBox()
         self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
         self.spmaxInt.setKeyboardTracking(False)
         self.spmaxInt.setSingleStep(5)
         self.spmaxInt.setDecimals(0)
 
-        self.showSeparator = QtGui.QCheckBox()
+        self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
         self.showSeparator.setChecked(True)
 
-        self.imgZoomInB = QtGui.QPushButton("Zoom in")
+        self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
-        self.imgZoomOutB = QtGui.QPushButton("Full")
+        self.imgZoomOutB = QPushButton("Full")
         self.checkableButtons.append(self.imgZoomInB)
 
-        self.minIntLabel = QtGui.QLabel('Min Intensity')
-        self.maxIntLabel = QtGui.QLabel('Max Intensity')
+        self.minIntLabel = QLabel('Min Intensity')
+        self.maxIntLabel = QLabel('Max Intensity')
         self.dispOptLayout.addWidget(self.showSeparator, 0, 0, 1, 2)
         self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 1)
         self.dispOptLayout.addWidget(self.spminInt, 1, 1, 1, 1)
@@ -146,20 +146,20 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
-        self.optionsLayout = QtGui.QVBoxLayout()
-        self.optionsLayout.setAlignment(QtCore.Qt.AlignCenter)
-        self.settingsGroup = QtGui.QGroupBox("Image Processing")
-        self.settingsLayout = QtGui.QGridLayout()
+        self.optionsLayout = QVBoxLayout()
+        self.optionsLayout.setAlignment(Qt.AlignCenter)
+        self.settingsGroup = QGroupBox("Image Processing")
+        self.settingsLayout = QGridLayout()
         self.settingsGroup.setLayout(self.settingsLayout)
 
-        self.setCenterRotationButton = QtGui.QPushButton("Set Manual Center and Rotation")
+        self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
         self.setCenterRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setCenterRotationButton)
-        self.setRotationButton = QtGui.QPushButton("Set Manual Rotation")
+        self.setRotationButton = QPushButton("Set Manual Rotation")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
 
-        self.maskThresSpnBx = QtGui.QDoubleSpinBox()
+        self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setMinimum(-999)
         self.maskThresSpnBx.setMaximum(999)
@@ -167,34 +167,34 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.settingsLayout.addWidget(self.setCenterRotationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(QtGui.QLabel("Mask Threshold : "), 2, 0, 1, 1)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 2, 0, 1, 1)
         self.settingsLayout.addWidget(self.maskThresSpnBx, 2, 1, 1, 1)
 
-        self.fixCenterGrpBx = QtGui.QGroupBox()
+        self.fixCenterGrpBx = QGroupBox()
         self.fixCenterGrpBx.setCheckable(True)
         self.fixCenterGrpBx.setTitle("Fix Center")
         self.fixCenterGrpBx.setChecked(False)
-        self.fixCX = QtGui.QLineEdit()
-        self.fixCX.setValidator(QtGui.QIntValidator())
-        self.fixCY = QtGui.QLineEdit()
+        self.fixCX = QLineEdit()
+        self.fixCX.setValidator(QIntValidator())
+        self.fixCY = QLineEdit()
+        self.fixCY.setValidator(QIntValidator())
 
-        self.fixCY.setValidator(QtGui.QIntValidator())
-        self.fixCenterLayout = QtGui.QGridLayout()
-        self.fixCenterLayout.addWidget(QtGui.QLabel('X'), 0, 0, QtCore.Qt.AlignCenter)
-        self.fixCenterLayout.addWidget(QtGui.QLabel('Y'), 0, 2, QtCore.Qt.AlignCenter)
+        self.fixCenterLayout = QGridLayout()
+        self.fixCenterLayout.addWidget(QLabel('X'), 0, 0, Qt.AlignCenter)
+        self.fixCenterLayout.addWidget(QLabel('Y'), 0, 2, Qt.AlignCenter)
         self.fixCenterLayout.addWidget(self.fixCX, 0, 1)
         self.fixCenterLayout.addWidget(self.fixCY, 0, 3)
         self.fixCenterGrpBx.setLayout(self.fixCenterLayout)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
 
-        self.nextButton = QtGui.QPushButton()
+        self.nextButton = QPushButton()
         self.nextButton.setText(">>>")
-        self.prevButton = QtGui.QPushButton()
+        self.prevButton = QPushButton()
         self.prevButton.setText("<<<")
-        self.buttonsLayout = QtGui.QGridLayout()
+        self.buttonsLayout = QGridLayout()
         self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
         self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
         self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
@@ -207,55 +207,56 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.buttonsLayout)
-        self.frameOfKeys = QtGui.QFrame()
+        self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(370)
         self.frameOfKeys.setLayout(self.optionsLayout)
         self.imageTabLayout.addWidget(self.frameOfKeys)
 
 
         ##### Result Tab #####
-        self.resultTab = QtGui.QWidget()
+        self.resultTab = QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
-        self.resultTabLayout = QtGui.QHBoxLayout(self.resultTab)
+        self.resultTabLayout = QHBoxLayout(self.resultTab)
         self.tabWidget.addTab(self.resultTab, "Results")
 
         self.resultFigure = plt.figure(facecolor='#606060')
-        self.resultVLayout = QtGui.QVBoxLayout()
+        self.resultAxes = self.resultFigure.add_subplot(111)
+        self.resultVLayout = QVBoxLayout()
         self.resultCanvas = FigureCanvas(self.resultFigure)
         self.resultTabLayout.addWidget(self.resultCanvas)
 
-        self.resultOptLayout = QtGui.QVBoxLayout()
+        self.resultOptLayout = QVBoxLayout()
 
-        self.resultOptFrame = QtGui.QFrame()
+        self.resultOptFrame = QFrame()
         self.resultOptFrame.setFixedWidth(370)
         self.resultOptFrame.setLayout(self.resultOptLayout)
         self.resultTabLayout.addWidget(self.resultOptFrame)
 
         # background Subtraction
-        self.resultDispOptGrp = QtGui.QGroupBox("Display Options")
-        self.resultDispOptLayout = QtGui.QGridLayout(self.resultDispOptGrp)
+        self.resultDispOptGrp = QGroupBox("Display Options")
+        self.resultDispOptLayout = QGridLayout(self.resultDispOptGrp)
 
-        self.spResultmaxInt = QtGui.QDoubleSpinBox()
+        self.spResultmaxInt = QDoubleSpinBox()
         self.spResultmaxInt.setToolTip(
             "Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spResultmaxInt.setKeyboardTracking(False)
         self.spResultmaxInt.setSingleStep(5)
         self.spResultmaxInt.setDecimals(0)
 
-        self.spResultminInt = QtGui.QDoubleSpinBox()
+        self.spResultminInt = QDoubleSpinBox()
         self.spResultminInt.setToolTip(
             "Increase in the minimal intensity shown to allow for more details in the image.")
         self.spResultminInt.setKeyboardTracking(False)
         self.spResultminInt.setSingleStep(5)
         self.spResultminInt.setDecimals(0)
 
-        self.resultZoomInB = QtGui.QPushButton("Zoom In")
+        self.resultZoomInB = QPushButton("Zoom In")
         self.resultZoomInB.setCheckable(True)
-        self.resultZoomOutB = QtGui.QPushButton("Full")
+        self.resultZoomOutB = QPushButton("Full")
         self.checkableButtons.append(self.resultZoomInB)
 
-        self.resultminIntLabel = QtGui.QLabel("Min intensity : ")
-        self.resultmaxIntLabel = QtGui.QLabel("Max intensity : ")
+        self.resultminIntLabel = QLabel("Min intensity : ")
+        self.resultmaxIntLabel = QLabel("Max intensity : ")
 
         self.resultDispOptLayout.addWidget(self.resultminIntLabel, 0, 0, 1, 1)
         self.resultDispOptLayout.addWidget(self.spResultminInt, 0, 1, 1, 1)
@@ -264,11 +265,11 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.resultDispOptLayout.addWidget(self.resultZoomInB, 2, 0, 1, 1)
         self.resultDispOptLayout.addWidget(self.resultZoomOutB, 2, 1, 1, 1)
 
-        self.bgSubGrpBx = QtGui.QGroupBox()
+        self.bgSubGrpBx = QGroupBox()
         self.bgSubGrpBx.setTitle("Background Subtraction")
-        self.bgSubGrpBx.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.bgSubGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
-        self.bgChoice = QtGui.QComboBox()
+        self.bgChoice = QComboBox()
         self.bgChoice.setCurrentIndex(0)
         # self.bgChoice.setFixedHeight(40)
         self.bgChoice.addItem("None")
@@ -277,28 +278,28 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         # self.bgChoice.addItem("Angular")
         self.bgChoice.addItem("White-top-hats")
 
-        self.setRminmaxButton = QtGui.QPushButton("Set Manual R-min and R-max")
+        self.setRminmaxButton = QPushButton("Set Manual R-min and R-max")
         self.setRminmaxButton.setCheckable(True)
         self.checkableButtons.append(self.setRminmaxButton)
 
-        self.rminSpnBx = QtGui.QSpinBox()
+        self.rminSpnBx = QSpinBox()
         self.rminSpnBx.setSingleStep(2)
         self.rminSpnBx.setValue(-1)
         self.rminSpnBx.setRange(-1, 3000)
         self.rminSpnBx.setKeyboardTracking(False)
-        self.rminLabel = QtGui.QLabel("R-min")
+        self.rminLabel = QLabel("R-min")
 
-        self.rmaxSpnBx = QtGui.QSpinBox()
+        self.rmaxSpnBx = QSpinBox()
         self.rmaxSpnBx.setSingleStep(10)
         self.rmaxSpnBx.setValue(-1)
         self.rmaxSpnBx.setRange(-1, 3000)
         self.rmaxSpnBx.setKeyboardTracking(False)
-        self.rmaxLabel = QtGui.QLabel("R-max")
-        self.radiusLabel = QtGui.QLabel("Radius Range : ")
+        self.rmaxLabel = QLabel("R-max")
+        self.radiusLabel = QLabel("Radius Range : ")
 
         self.rminmaxWidgets = [self.setRminmaxButton, self.rminSpnBx, self.rminLabel, self.rmaxSpnBx, self.rmaxLabel, self.radiusLabel]
 
-        self.minPixRange = QtGui.QDoubleSpinBox()
+        self.minPixRange = QDoubleSpinBox()
         self.minPixRange.setSuffix("%")
         self.minPixRange.setDecimals(2)
         self.minPixRange.setSingleStep(2)
@@ -306,51 +307,51 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.minPixRange.setRange(0, 100)
         self.minPixRange.setKeyboardTracking(False)
 
-        self.maxPixRange = QtGui.QDoubleSpinBox()
+        self.maxPixRange = QDoubleSpinBox()
         self.maxPixRange.setSuffix("%")
         self.maxPixRange.setDecimals(2)
         self.maxPixRange.setSingleStep(2)
         self.maxPixRange.setValue(25)
         self.maxPixRange.setRange(0, 100)
         self.maxPixRange.setKeyboardTracking(False)
-        self.pixRangeLabel = QtGui.QLabel("Pixel Range : ")
+        self.pixRangeLabel = QLabel("Pixel Range : ")
 
 
-        self.thetaBinLabel = QtGui.QLabel("Bin Theta (deg) : ")
-        self.thetabinCB = QtGui.QComboBox()
+        self.thetaBinLabel = QLabel("Bin Theta (deg) : ")
+        self.thetabinCB = QComboBox()
         self.thetabinCB.addItems(["3", "5", "10", "15", "30", "45", "90"])
         self.thetabinCB.setCurrentIndex(4)
 
-        self.radialBinSpnBx = QtGui.QSpinBox()
+        self.radialBinSpnBx = QSpinBox()
         self.radialBinSpnBx.setRange(1, 100)
         self.radialBinSpnBx.setValue(10)
         self.radialBinSpnBx.setKeyboardTracking(False)
         self.radialBinSpnBx.setSuffix(" Pixel(s)")
-        self.radialBinLabel = QtGui.QLabel("Radial Bin : ")
+        self.radialBinLabel = QLabel("Radial Bin : ")
 
-        self.smoothSpnBx = QtGui.QDoubleSpinBox()
+        self.smoothSpnBx = QDoubleSpinBox()
         self.smoothSpnBx.setRange(0, 10000)
         self.smoothSpnBx.setValue(0)
         self.smoothSpnBx.setKeyboardTracking(False)
-        self.smoothLabel = QtGui.QLabel("Smoothing factor : ")
+        self.smoothLabel = QLabel("Smoothing factor : ")
 
-        self.tensionSpnBx = QtGui.QDoubleSpinBox()
+        self.tensionSpnBx = QDoubleSpinBox()
         self.tensionSpnBx.setRange(0, 100)
         self.tensionSpnBx.setValue(0)
         self.tensionSpnBx.setKeyboardTracking(False)
-        self.tensionLabel = QtGui.QLabel("Tension factor : ")
+        self.tensionLabel = QLabel("Tension factor : ")
 
-        self.tophat1SpnBx = QtGui.QSpinBox()
+        self.tophat1SpnBx = QSpinBox()
         self.tophat1SpnBx.setRange(1, 100)
         self.tophat1SpnBx.setValue(5)
         self.tophat1SpnBx.setKeyboardTracking(False)
-        self.tophat1Label = QtGui.QLabel("Top-hat inside : ")
+        self.tophat1Label = QLabel("Top-hat inside : ")
 
-        self.tophat2SpnBx = QtGui.QSpinBox()
+        self.tophat2SpnBx = QSpinBox()
         self.tophat2SpnBx.setRange(1, 100)
         self.tophat2SpnBx.setValue(20)
         self.tophat2SpnBx.setKeyboardTracking(False)
-        self.tophat2Label = QtGui.QLabel("Top-hat outside : ")
+        self.tophat2Label = QLabel("Top-hat outside : ")
 
         self.tophat1SpnBx.setHidden(True)
         self.tophat1Label.setHidden(True)
@@ -358,15 +359,15 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.minPixRange.setHidden(False)
         self.pixRangeLabel.setHidden(False)
 
-        separator = QtGui.QFrame()
-        separator.setFrameShape(QtGui.QFrame.HLine)
-        separator.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         separator.setLineWidth(1)
-        # self.mergeRadiusButton = QtGui.QPushButton("Set Manual Merge Radius")
+        # self.mergeRadiusButton = QPushButton("Set Manual Merge Radius")
         # self.mergeRadiusButton.setCheckable(True)
         # self.checkableButtons.append(self.mergeRadiusButton)
-        self.mergeGradientLabel = QtGui.QLabel("Merge Gradient :")
-        self.sigmoidSpnBx = QtGui.QDoubleSpinBox()
+        self.mergeGradientLabel = QLabel("Merge Gradient :")
+        self.sigmoidSpnBx = QDoubleSpinBox()
         self.sigmoidSpnBx.setDecimals(5)
         self.sigmoidSpnBx.setSingleStep(2)
         self.sigmoidSpnBx.setValue(0.1)
@@ -375,8 +376,8 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         self.tophat2Widgets = [self.tophat2SpnBx, self.tophat2Label, self.mergeGradientLabel, self.sigmoidSpnBx, separator]
 
-        self.bgLayout = QtGui.QGridLayout()
-        self.bgLayout.addWidget(QtGui.QLabel("Method : "), 0, 0, 1, 1)
+        self.bgLayout = QGridLayout()
+        self.bgLayout.addWidget(QLabel("Method : "), 0, 0, 1, 1)
         self.bgLayout.addWidget(self.bgChoice, 0, 1, 1, 2)
         self.bgLayout.addWidget(self.setRminmaxButton, 2, 0, 1, 3)
         self.bgLayout.addWidget(self.radiusLabel, 3, 0, 2, 1)
@@ -412,13 +413,13 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.resultOptLayout.addWidget(self.bgSubGrpBx)
         self.resultOptLayout.addStretch()
 
-        self.processFolderButton2 = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton2 = QPushButton("Process Current Folder")
         self.processFolderButton2.setStyleSheet(pfss)
-        self.nextButton2 = QtGui.QPushButton()
+        self.nextButton2 = QPushButton()
         self.nextButton2.setText(">>>")
-        self.prevButton2 = QtGui.QPushButton()
+        self.prevButton2 = QPushButton()
         self.prevButton2.setText("<<<")
-        self.buttonsLayout2 = QtGui.QGridLayout()
+        self.buttonsLayout2 = QGridLayout()
         self.buttonsLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
         self.buttonsLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
         self.buttonsLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
@@ -426,31 +427,31 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
 
         #### Status bar #####
-        self.statusBar = QtGui.QStatusBar()
-        self.progressBar = QtGui.QProgressBar()
+        self.statusBar = QStatusBar()
+        self.progressBar = QProgressBar()
         self.progressBar.setMaximum(100)
         self.progressBar.setMinimum(0)
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
-        self.imgDetailOnStatusBar = QtGui.QLabel()
-        self.imgCoordOnStatusBar = QtGui.QLabel()
-        self.imgPathOnStatusBar = QtGui.QLabel()
+        self.imgDetailOnStatusBar = QLabel()
+        self.imgCoordOnStatusBar = QLabel()
+        self.imgPathOnStatusBar = QLabel()
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
         self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
         self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
         self.statusBar.addPermanentWidget(self.progressBar)
-        self.statusBar.addWidget(QtGui.QLabel("    "))
+        self.statusBar.addWidget(QLabel("    "))
         self.statusBar.addWidget(self.imgPathOnStatusBar)
         self.setStatusBar(self.statusBar)
 
 
         #### Menu Bar #####
-        selectImageAction = QtGui.QAction('Select an Image...', self)
+        selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
         selectImageAction.triggered.connect(self.browseFile)
 
-        selectFolderAction = QtGui.QAction('Select a Folder...', self)
+        selectFolderAction = QAction('Select a Folder...', self)
         selectFolderAction.setShortcut('Ctrl+F')
         selectFolderAction.triggered.connect(self.browseFolder)
 
@@ -527,11 +528,11 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         """
         key = event.key()
 
-        if key == QtCore.Qt.Key_Right:
+        if key == Qt.Key_Right:
             self.nextClicked()
-        elif key == QtCore.Qt.Key_Left:
+        elif key == Qt.Key_Left:
             self.prevClicked()
-        elif key == QtCore.Qt.Key_Escape:
+        elif key == Qt.Key_Escape:
             self.refreshAllTabs()
     
     def setRotation(self):
@@ -542,7 +543,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             # clear plot
             self.imgPathOnStatusBar.setText(
                 "Rotate the line to the pattern equator (ESC to cancel)")
-            ax = self.imageFigure.add_subplot(111)
+            ax = self.imageAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -560,7 +561,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         if self.setCenterRotationButton.isChecked():
             # clear plot
             self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            ax = self.imageFigure.add_subplot(111)
+            ax = self.imageAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -578,7 +579,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         if self.resultZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -604,7 +605,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         if self.imgZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.imageFigure.add_subplot(111)
+            ax = self.imageAxes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -636,7 +637,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.imgCoordOnStatusBar.setText("")
-            ax = self.imageFigure.add_subplot(111)
+            ax = self.imageAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -660,18 +661,18 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         if self.function is None:
             if event.button == 3:
                 # If the click is left-click, popup a ignore quadrant
-                menu = QtGui.QMenu(self)
+                menu = QMenu(self)
                 fold_number = self.quadFold.getFoldNumber(x, y)
                 self.function = ["ignorefold", (x, y)]
                 if fold_number not in self.quadFold.info["ignore_folds"]:
-                    ignoreThis = QtGui.QAction('Ignore This Quadrant', self)
+                    ignoreThis = QAction('Ignore This Quadrant', self)
                     ignoreThis.triggered.connect(self.addIgnoreQuadrant)
                     menu.addAction(ignoreThis)
                 else:
-                    unignoreThis = QtGui.QAction('Unignore This Quadrant', self)
+                    unignoreThis = QAction('Unignore This Quadrant', self)
                     unignoreThis.triggered.connect(self.removeIgnoreQuadrant)
                     menu.addAction(unignoreThis)
-                menu.popup(QtGui.QCursor.pos())
+                menu.popup(QCursor.pos())
             else:
                 self.function = ["im_move", (x, y)]
         else:
@@ -688,7 +689,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
                     self.refreshImageTab()
             elif func[0] == "im_center_rotate":
                 # set center and rotation angle
-                ax = self.imageFigure.add_subplot(111)
+                ax = self.imageAxes
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -762,7 +763,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             if x < img.shape[1] and y < img.shape[0]:
                 self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
 
-        ax = self.imageFigure.add_subplot(111)
+        ax = self.imageAxes
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -902,7 +903,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.img_zoom = [(x1, x2), (y1, y2)]
 
         # To zoom-in or zoom-out is setting x and y limit of figure
-        ax = self.imageFigure.add_subplot(111)
+        ax = self.imageAxes
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
         ax.invert_yaxis()
@@ -947,7 +948,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.imgCoordOnStatusBar.setText("")
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -985,7 +986,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
                 center = (img.shape[1], img.shape[0])
                 radius = distance((x, y), center)
                 func.append(radius)
-                ax = self.resultFigure.add_subplot(111)
+                ax = self.resultAxes
                 ax.add_patch(
                     patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='solid'))
                 if len(func) == 3:
@@ -1026,7 +1027,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.imgCoordOnStatusBar.setText("")
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1050,7 +1051,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         if func[0] == "r_zoomin" and len(self.function) == 2:
             # draw rectangle
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             if len(ax.patches) > 0:
                 ax.patches.pop(0)
             start_pt = func[1]
@@ -1066,7 +1067,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             img = self.quadFold.info['avg_fold']
             center = (img.shape[1] - 1, img.shape[0] - 1)
             radius = distance((x, y), center)
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             if len(ax.patches) > len(self.function) - 1:
                 ax.patches.pop()
             ax.add_patch(
@@ -1077,7 +1078,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             img = self.quadFold.info['avg_fold']
             center = (img.shape[1] - 1, img.shape[0] - 1)
             radius = distance((x, y), center)
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             if len(ax.patches) > 0:
                 ax.patches.pop()
             ax.add_patch(
@@ -1086,7 +1087,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         elif func[0] == "r_move":
             # move zoom in location when image dragged
             if self.result_zoom is not None:
-                ax = self.resultFigure.add_subplot(111)
+                ax = self.resultAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.result_zoom = getNewZoom(self.result_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.result_zoom[0])
@@ -1153,7 +1154,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             y1 = img_size[0] - zoom_height
 
         self.result_zoom = [(x1, x2), (y1, y2)]
-        ax = self.resultFigure.add_subplot(111)
+        ax = self.resultAxes
         ax.set_xlim(self.result_zoom[0])
         ax.set_ylim(self.result_zoom[1])
         ax.invert_yaxis()
@@ -1167,7 +1168,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Select R-min and R-max on the image (ESC to cancel)")
             self.function = ['rminmax'] # set active function
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             del ax.lines
             ax.lines = []
             self.resultCanvas.draw_idle()
@@ -1185,7 +1186,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
     #         self.imgPathOnStatusBar.setText(
     #             "Select merge radius on the image (ESC to cancel)")
     #         self.function = ['mrad']
-    #         ax = self.resultFigure.add_subplot(111)
+    #         ax = self.resultAxes
     #         del ax.lines
     #         ax.lines = []
     #         self.resultCanvas.draw_idle()
@@ -1261,7 +1262,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         """
         Reprocess about background subtraction when some parameters are changed
         """
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         if self.ableToProcess():
             self.deleteInfo(['bgimg1']) # delete bgimg1 to make QuadrantFolder reproduce background subrtacted image
             self.deleteInfo(['bgimg2']) # delete bgimg2 to make QuadrantFolder reproduce background subrtacted image
@@ -1288,7 +1289,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         """
         Trigger when min intensity is changed
         """
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         if self.ableToProcess():
             if self.spmaxInt.value() <= self.spminInt.value():
                 self.uiUpdating = True
@@ -1300,7 +1301,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         """
         Trigger when min intensity is changed
         """
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         if self.ableToProcess():
             if self.spmaxInt.value() <= self.spminInt.value():
                 self.uiUpdating = True
@@ -1487,7 +1488,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             self.fixCX.setText(str(center[0]))
             self.fixCY.setText(str(center[1]))
 
-            ax = self.imageFigure.add_subplot(111)
+            ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
             img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
@@ -1549,7 +1550,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
             # convert image for displaying
             img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
 
-            ax = self.resultFigure.add_subplot(111)
+            ax = self.resultAxes
             ax.cla()
             ax.imshow(img)
 
@@ -1579,22 +1580,22 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         Then, write data and update UI
         """
         if self.ableToProcess():
-            QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            QApplication.setOverrideCursor(Qt.WaitCursor)
 
             flags = self.getFlags()
 
             try:
                 self.quadFold.process(flags)
             except Exception, e:
-                QtGui.QApplication.restoreOverrideCursor()
-                errMsg = QtGui.QMessageBox()
+                QApplication.restoreOverrideCursor()
+                errMsg = QMessageBox()
                 errMsg.setText('Unexpected error')
                 msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
                 msg += "Image : "+str(self.quadFold.img_name)
                 msg += "\n\nError : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
                 errMsg.setInformativeText(msg)
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.setFixedWidth(300)
                 errMsg.exec_()
                 raise
@@ -1619,8 +1620,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
                 imsave(result_file, img)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
-            QtGui.QApplication.restoreOverrideCursor()
-            self.resetStatusbar()
+            QApplication.restoreOverrideCursor()
 
     def resetStatusbar(self):
         fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
@@ -1685,7 +1685,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         Basically, it just process the first image, and push next button automatically until it comes back to the first image
         """
         # popup folder selection dialog
-        dir_path = QtGui.QFileDialog.getExistingDirectory(self, "Select a Folder")
+        dir_path = getAFolder()
         if dir_path != "":
             self.filePath = str(dir_path)
             self.selectImageButton.setHidden(True)
@@ -1706,7 +1706,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         self.imgList.sort()
         self.numberOfFiles = len(self.imgList)
 
-        errMsg = QtGui.QMessageBox()
+        errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
 
@@ -1740,16 +1740,16 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
         text += '\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel)
-        errMsg.setIcon(QtGui.QMessageBox.Warning)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
         ret = errMsg.exec_()
 
         # If "yes" is pressed
-        if ret == QtGui.QMessageBox.Yes:
+        if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
             for i in range(self.numberOfFiles):
                 self.progressBar.setValue(100. / self.numberOfFiles * i)
-                QtGui.QApplication.processEvents()
+                QApplication.processEvents()
                 self.nextClicked()
             self.progressBar.setVisible(False)
 
@@ -1757,7 +1757,7 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
         """
         Popup input dialog and set file selection
         """
-        file_name = QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'Images (*.tif)', None)
+        file_name = getAFile()
         if file_name != "":
             self.onNewFileSelected(str(file_name))
             self.centralWidget.setMinimumSize(700, 500)
@@ -1780,6 +1780,6 @@ class QuadrantFoldingGUI(QtGui.QMainWindow):
 
 
 if __name__ == "__main__":
-    app = QtGui.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     myapp = QuadrantFoldingGUI()
     sys.exit(app.exec_())

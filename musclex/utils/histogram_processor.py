@@ -351,8 +351,10 @@ def getFirstVallay(hist):
     :return: firstvalley
     """
     hist = smooth(hist)
-    start = int(round(np.argmax(hist[:int(len(hist)/4)]))) # Start searching from maximum peak
-    limit = min(int(start * 1.5), len(hist) - 1) # Set limit of the first valley as 170% of maximum peak location
+    start = max(int(round(np.argmax(hist[:int(len(hist)/4)]))), 10) # Start searching from maximum peak
+    start = min(start, 50) # start point should be smaller than 50 pixel
+    start = max(20, start) # start point should be bigger than 20
+    limit = min(int(start * 1.5), 100) # Set limit of the first valley as 150% of maximum peak location
     for i in range(start, limit):
         if hist[i] <= hist[i + 1]:
             return i

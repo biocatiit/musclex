@@ -323,7 +323,7 @@ class ProjectionProcessor():
 
             # Init peaks params
             for j,p in enumerate(peaks):
-                params.add('p_' + str(j), p, min=p - 5., max=p + 5.)
+                params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
                 params.add('sigma' + str(j), 10, min=1, max=50.)
                 params.add('amplitude' + str(j), sum(hist)/10., min=-1)
                 # params.add('gamma' + str(j), 0. , min=0., max=30)

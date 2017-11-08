@@ -28,12 +28,11 @@ authorization from Illinois Institute of Technology.
 
 __author__ = 'Jiranun.J'
 
-from PyQt4 import QtCore, QtGui
+from pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import sys
 import shutil
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 import pickle
 import traceback
 from ..utils.file_manager import *
@@ -42,7 +41,7 @@ from ..modules.DiffractionCentroids import DiffractionCentroids
 from ..csv_manager import DC_CSVManager
 import musclex
 
-class OffMeridianTab(QtGui.QWidget):
+class OffMeridianTab(QWidget):
     """
     A class for off-meridian tab containnig 4 plots and result table
     """
@@ -52,7 +51,7 @@ class OffMeridianTab(QtGui.QWidget):
         :param mainwin: main window
         :param off_mer: off-meridian settings (dict)
         """
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.mainwin = mainwin
         self.off_mer = off_mer
         self.fixed_hull_range = None
@@ -71,23 +70,23 @@ class OffMeridianTab(QtGui.QWidget):
         Initial all GUIs including : 4 plots and result table
         """
         self.setContentsMargins(0, 0, 0, 0)
-        self.mainLayout = QtGui.QGridLayout(self)
+        self.mainLayout = QGridLayout(self)
 
         self.allFiguresCanvas = {}
         for q in self.quadrants:
             fig = plt.figure()
+            ax = fig.add_subplot(111)
             canvas = FigureCanvas(fig)
-            self.allFiguresCanvas[q] = (fig, canvas)
+            self.allFiguresCanvas[q] = (fig, canvas, ax)
 
-        self.settingGrpBx = QtGui.QGroupBox("Settings")
-        self.settingLayout = QtGui.QGridLayout(self.settingGrpBx)
-        self.setSEButton = QtGui.QPushButton("Set Convex hull range")
+        self.settingGrpBx = QGroupBox("Settings")
+        self.settingLayout = QGridLayout(self.settingGrpBx)
+        self.setSEButton = QPushButton("Set Convex hull range")
         self.setSEButton.setCheckable(True)
         self.checkableButtons.append(self.setSEButton)
-        self.settingLayout.addWidget(self.setSEButton, 0, 0, 1, 1, QtCore.Qt.AlignTop)
+        self.settingLayout.addWidget(self.setSEButton, 0, 0, 1, 1, Qt.AlignTop)
 
-
-        self.resultTable = QtGui.QTableWidget()
+        self.resultTable = QTableWidget()
         self.resultTable.setColumnCount(len(self.tableHeader))
         self.resultTable.setHorizontalHeaderLabels(self.tableHeader)
         self.resultTable.horizontalHeader().setStretchLastSection(True)
@@ -131,11 +130,10 @@ class OffMeridianTab(QtGui.QWidget):
             self.function = ["se"]
 
             for q in self.quadrants:
-                fig = self.allFiguresCanvas[q][0]
                 hist = difCent.info['off_mer_hists']['hists'][q]
                 left = int(round(0.5 * difCent.init_off_mer["s59"]))
                 right = min(len(hist), int(round(1.5 * difCent.init_off_mer["e51"])))
-                ax = fig.add_subplot(111)
+                ax = self.allFiguresCanvas[q][2]
                 ax.cla()
                 title = q.replace("_", " ")
                 ax.set_title(title)
@@ -191,8 +189,7 @@ class OffMeridianTab(QtGui.QWidget):
 
         if self.function[0] == 'se':
             for q in self.quadrants:
-                fig = self.allFiguresCanvas[q][0]
-                ax = fig.add_subplot(111)
+                ax = self.allFiguresCanvas[q][2]
                 hist = ax.lines[0:len(self.function)]
                 del ax.lines
                 ax.lines = hist
@@ -247,7 +244,7 @@ class OffMeridianTab(QtGui.QWidget):
             intensity = peak_info["areas"]
             widths = peak_info["widths"]
 
-            ax = fig.add_subplot(111)
+            ax = self.allFiguresCanvas[q][2]
             ax.cla()
             title = q.replace("_", " ")
             ax.set_title(title)
@@ -270,23 +267,23 @@ class OffMeridianTab(QtGui.QWidget):
                 ax.text(p + 2, hull[p], n, fontsize=13) ## peak name
 
                 ### Update table ###
-                item = QtGui.QTableWidgetItem(name)
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(name)
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable.setItem(row, self.tableHeader.index('name'), item)
 
-                item = QtGui.QTableWidgetItem(str(cent))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(cent))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable.setItem(row, self.tableHeader.index('centroid'), item)
 
-                item = QtGui.QTableWidgetItem(str(b))
+                item = QTableWidgetItem(str(b))
                 self.resultTable.setItem(row, self.tableHeader.index('baseline'), item)
 
-                item = QtGui.QTableWidgetItem(str(area))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(area))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable.setItem(row, self.tableHeader.index('intensity'), item)
 
-                item = QtGui.QTableWidgetItem(str(p))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(p))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable.setItem(row, self.tableHeader.index('center'), item)
                 row += 1
 
@@ -310,7 +307,7 @@ class OffMeridianTab(QtGui.QWidget):
             b.setChecked(False)
         self.setSEButton.setText('Set Convex hull range')
 
-class DiffractionTab(QtGui.QWidget):
+class DiffractionTab(QWidget):
     """
     A class for diffraction tab containnig a plot, display options, settings and result table
     """
@@ -322,10 +319,11 @@ class DiffractionTab(QtGui.QWidget):
         :param dif_side : "top" or "bottom"
         :param fix_ranges: fixed peak ranges
         """
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.mainwin = mainwin
         self.fixRanges = fix_ranges
         self.dif_side = dif_side
+        self.fixed_se = None
         self.updated = False # update status of tab
         self.function = None # current active function
         self.updateUIonly = False # param for UI sync
@@ -340,15 +338,16 @@ class DiffractionTab(QtGui.QWidget):
         self.setContentsMargins(0, 0, 0, 0)
 
         #### Plot ####
-        self.difTabLayout = QtGui.QGridLayout(self)
+        self.difTabLayout = QGridLayout(self)
         self.difFigure = plt.figure()
+        self.difAxes = self.difFigure.add_subplot(111)
         self.difCanvas = FigureCanvas(self.difFigure)
 
         #### Result Table ####
-        self.resultTable = QtGui.QTableWidget()
+        self.resultTable = QTableWidget()
         self.resultTable.setColumnCount(len(DiffractionTab.tableHeader))
         self.resultTable.setHorizontalHeaderLabels(DiffractionTab.tableHeader)
-        self.resultTable.setEditTriggers(QtGui.QAbstractItemView.AllEditTriggers)
+        self.resultTable.setEditTriggers(QAbstractItemView.AllEditTriggers)
         self.resultTable.setFixedWidth(400)
         self.resultTable.horizontalHeader().setStretchLastSection(True)
 
@@ -359,24 +358,24 @@ class DiffractionTab(QtGui.QWidget):
         self.resultTable.setColumnWidth(4, 80)
 
         #### Display Options ####
-        self.orignalChkBx = QtGui.QCheckBox("Display Original Histogram")
+        self.orignalChkBx = QCheckBox("Display Original Histogram")
         self.orignalChkBx.setChecked(False)
-        self.seChkBx = QtGui.QCheckBox("Start-End Convexhull Points")
+        self.seChkBx = QCheckBox("Start-End Convexhull Points")
         self.seChkBx.setChecked(False)
-        self.frHistChkBx = QtGui.QCheckBox("Display histogram in fixed ranges only")
+        self.frHistChkBx = QCheckBox("Display histogram in fixed ranges only")
         self.frHistChkBx.setChecked(True)
-        self.peakChkBx = QtGui.QCheckBox("Display Peaks")
+        self.peakChkBx = QCheckBox("Display Peaks")
         self.peakChkBx.setChecked(True)
-        self.centroidChkBx = QtGui.QCheckBox("Display Centroids")
+        self.centroidChkBx = QCheckBox("Display Centroids")
         self.centroidChkBx.setChecked(True)
-        self.baselineChkBx = QtGui.QCheckBox("Display Baselines")
+        self.baselineChkBx = QCheckBox("Display Baselines")
         self.baselineChkBx.setChecked(True)
-        self.displayOptGrp = QtGui.QGroupBox("Display Options")
-        self.displayOptLayout = QtGui.QGridLayout()
-        self.zoomInB = QtGui.QPushButton("Zoom in")
+        self.displayOptGrp = QGroupBox("Display Options")
+        self.displayOptLayout = QGridLayout()
+        self.zoomInB = QPushButton("Zoom in")
         self.zoomInB.setCheckable(True)
         self.zoomInB.setFixedSize(100, 40)
-        self.zoomOutB = QtGui.QPushButton("Full")
+        self.zoomOutB = QPushButton("Full")
         self.zoomOutB.setFixedSize(100, 40)
         self.displayOptGrp.setLayout(self.displayOptLayout)
         self.displayOptLayout.addWidget(self.zoomInB, 0, 0, 2, 1)
@@ -387,21 +386,21 @@ class DiffractionTab(QtGui.QWidget):
         self.displayOptLayout.addWidget(self.peakChkBx, 0, 2, 1, 1)
         self.displayOptLayout.addWidget(self.centroidChkBx, 1, 2, 1, 1)
         self.displayOptLayout.addWidget(self.baselineChkBx, 2, 2, 1, 1)
-        self.displayOptLayout.setAlignment(self.zoomInB, QtCore.Qt.AlignCenter)
-        self.displayOptLayout.setAlignment(self.zoomOutB, QtCore.Qt.AlignCenter)
+        self.displayOptLayout.setAlignment(self.zoomInB, Qt.AlignCenter)
+        self.displayOptLayout.setAlignment(self.zoomOutB, Qt.AlignCenter)
 
         ### Settings ####
-        self.manualPeakSelect = QtGui.QPushButton("Start Manual Peak Selection")
+        self.manualPeakSelect = QPushButton("Start Manual Peak Selection")
         self.manualPeakSelect.setFixedSize(250, 40)
         self.manualPeakSelect.setCheckable(True)
         self.manualPeakSelect.setEnabled(len(self.fixRanges) == 0)
-        self.manualSESelect = QtGui.QPushButton("Select Start-End Convexhull Points")
+        self.manualSESelect = QPushButton("Select Start-End Convexhull Points")
         self.manualSESelect.setFixedSize(250, 40)
         self.manualSESelect.setCheckable(True)
         self.checkableButtons = [self.zoomInB, self.zoomOutB, self.manualPeakSelect, self.manualSESelect]
 
-        self.calSettingsGrp = QtGui.QGroupBox("Settings")
-        self.calSettingsLayout = QtGui.QGridLayout()
+        self.calSettingsGrp = QGroupBox("Settings")
+        self.calSettingsLayout = QGridLayout()
         self.calSettingsLayout.addWidget(self.manualPeakSelect, 0, 0, 1, 1)
         self.calSettingsLayout.addWidget(self.manualSESelect, 1, 0, 1, 1)
         self.calSettingsGrp.setLayout(self.calSettingsLayout)
@@ -461,11 +460,11 @@ class DiffractionTab(QtGui.QWidget):
             # print peak, item.checkState()==2
             difCent = self.mainwin.getCurrentDifCent()
             reject_status = difCent.info["reject"][self.dif_side]
-            if item.checkState()==QtCore.Qt.Checked and peak_name not in reject_status:
+            if item.checkState()==Qt.Checked and peak_name not in reject_status:
                 reject_status.append(peak_name)
                 difCent.cacheInfo()
                 self.mainwin.writeData()
-            elif item.checkState()==QtCore.Qt.Unchecked and peak_name in reject_status:
+            elif item.checkState()==Qt.Unchecked and peak_name in reject_status:
                 reject_status.remove(peak_name)
                 difCent.cacheInfo()
                 self.mainwin.writeData()
@@ -481,7 +480,7 @@ class DiffractionTab(QtGui.QWidget):
         if self.manualSESelect.isChecked():
             self.manualSESelect.setText("Select Start Point")
             self.function = ["se", []]
-            ax = self.difFigure.add_subplot(111)
+            ax = self.difAxes
             ax.cla()
             difCent = self.mainwin.getCurrentDifCent()
             hist = difCent.info[self.dif_side+"_hist"]
@@ -501,7 +500,7 @@ class DiffractionTab(QtGui.QWidget):
         if self.manualPeakSelect.isChecked():
             self.manualPeakSelect.setText("Stop Manual Peak Selection")
             self.function = ["peaks", []]
-            ax = self.difFigure.add_subplot(111)
+            ax = self.difAxes
             ax.cla()
             difCent = self.mainwin.getCurrentDifCent()
             hist = difCent.info[self.dif_side + "_hull"]
@@ -526,7 +525,6 @@ class DiffractionTab(QtGui.QWidget):
         self.mainwin.redrawPlots()
         self.updated = False
         self.function = None
-        self.zoom = None
         for b in self.checkableButtons:
             b.setChecked(False)
 
@@ -563,7 +561,7 @@ class DiffractionTab(QtGui.QWidget):
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            ax = self.difFigure.add_subplot(111)
+            ax = self.difAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -601,7 +599,7 @@ class DiffractionTab(QtGui.QWidget):
                 selected_peaks = func[1]
                 x = int(round(x))
                 selected_peaks.append(x)
-                ax = self.difFigure.add_subplot(111)
+                ax = self.difAxes
                 ax.axvline(x, color = "r")
                 ax.text(x, hist[x]+15, "peak#"+str(len(selected_peaks)), fontsize=15)
                 self.difCanvas.draw_idle()
@@ -611,14 +609,15 @@ class DiffractionTab(QtGui.QWidget):
                 x = int(round(x))
                 selected_peaks.append(x)
                 if len(selected_peaks) == 1:
-                    ax = self.difFigure.add_subplot(111)
+                    ax = self.difAxes
                     ax.plot((x, x), (0, ax.get_ylim()[1]), color="r")
                     ax.text(x, 0, "start", fontsize=15, horizontalalignment = "right")
                     self.difCanvas.draw_idle()
                     self.manualSESelect.setText("Select End Point")
                 else:
                     difCent = self.mainwin.getCurrentDifCent()
-                    difCent.info[self.dif_side + "_se"] = (selected_peaks[0], selected_peaks[1])
+                    self.fixed_se = (selected_peaks[0], selected_peaks[1])
+                    difCent.removeInfo(self.dif_side + "_se")
                     difCent.removeInfo(self.dif_side + "_hist")
                     difCent.removeInfo(self.dif_side + "_hull")
                     self.manualSESelect.setText("Select Start-End Convexhull Points")
@@ -639,7 +638,7 @@ class DiffractionTab(QtGui.QWidget):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.mainwin.pixel_detail.setText("")
-            ax = self.difFigure.add_subplot(111)
+            ax = self.difAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -664,7 +663,7 @@ class DiffractionTab(QtGui.QWidget):
 
         if func[0] == "zoomin":
             # draw rectangle
-            ax = self.difFigure.add_subplot(111)
+            ax = self.difAxes
             if len(ax.patches) > 0:
                 ax.patches.pop(0)
             start_pt = func[1]
@@ -678,7 +677,7 @@ class DiffractionTab(QtGui.QWidget):
         elif func[0] == "move":
             # change zoom location (plot limit)
             if self.zoom is not None:
-                ax = self.difFigure.add_subplot(111)
+                ax = self.difAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.zoom = getNewZoom(self.zoom, move, len(hist), max(hist)*1.1)
                 ax.set_xlim(self.zoom[0])
@@ -748,7 +747,7 @@ class DiffractionTab(QtGui.QWidget):
 
         # Set new x,y ranges for graph
         self.zoom = [(x1, x2), (y1, y2)]
-        ax = self.difFigure.add_subplot(111)
+        ax = self.difAxes
         ax.set_xlim(self.zoom[0])
         ax.set_ylim(self.zoom[1])
         self.difCanvas.draw_idle()
@@ -763,7 +762,7 @@ class DiffractionTab(QtGui.QWidget):
         self.mainwin.redrawPlots()
         self.updateUI()
 
-    def drawPlot(self, figure, canvas, info):
+    def drawPlot(self, figure, canvas, ax, info):
         """
         Draw graph to input figure and canvas from current display settings
         :param figure: matplotlib figure
@@ -779,7 +778,6 @@ class DiffractionTab(QtGui.QWidget):
         widths = info[self.dif_side + '_widths']
         names = info[self.dif_side + '_names']
         x_range = None
-        ax = figure.add_subplot(111)
         ax.cla()
 
         if self.frHistChkBx.isChecked():
@@ -864,38 +862,38 @@ class DiffractionTab(QtGui.QWidget):
         names = info[self.dif_side + '_names']
 
         # Draw plot
-        self.drawPlot(self.difFigure, self.difCanvas, info)
+        self.drawPlot(self.difFigure, self.difCanvas, self.difAxes, info)
 
         # Update table
         self.resultTable.setRowCount(len(centroids))
         for i in range(len(centroids)):
-            item = QtGui.QTableWidgetItem(str(names[i]))
-            item.setFlags(QtCore.Qt.ItemIsEnabled)
+            item = QTableWidgetItem(str(names[i]))
+            item.setFlags(Qt.ItemIsEnabled)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('name'), item)
 
-            item = QtGui.QTableWidgetItem(str(centroids[i]))
-            item.setFlags(QtCore.Qt.ItemIsEnabled)
+            item = QTableWidgetItem(str(centroids[i]))
+            item.setFlags(Qt.ItemIsEnabled)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('centroid'), item)
 
-            # item.setFlags(QtCore.Qt.ItemIsSelectable |  QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsEditable)
-            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('baseline'), QtGui.QTableWidgetItem(str(baselines[i])))
+            # item.setFlags(Qt.ItemIsSelectable |  Qt.ItemIsEnabled | Qt.ItemIsEditable)
+            self.resultTable.setItem(i, DiffractionTab.tableHeader.index('baseline'), QTableWidgetItem(str(baselines[i])))
 
-            item = QtGui.QTableWidgetItem(str(areas[i]))
-            item.setFlags(QtCore.Qt.ItemIsEnabled)
+            item = QTableWidgetItem(str(areas[i]))
+            item.setFlags(Qt.ItemIsEnabled)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('intensity'), item)
 
-            chkBoxItem = QtGui.QTableWidgetItem()
-            chkBoxItem.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
+            chkBoxItem = QTableWidgetItem()
+            chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             if names[i] in reject:
-                chkBoxItem.setCheckState(QtCore.Qt.Checked)
+                chkBoxItem.setCheckState(Qt.Checked)
             else:
-                chkBoxItem.setCheckState(QtCore.Qt.Unchecked)
+                chkBoxItem.setCheckState(Qt.Unchecked)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('reject'), chkBoxItem)
 
         self.updateUIonly = False
         self.updated = True
 
-class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
+class DiffractionCentroidProcessWindow(QMainWindow):
     """
     A class for Diffraction Centroids process window
     """
@@ -907,7 +905,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         :param groupList: list of list of images
         :param settings: settings from main window
         """
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.mainWindow = mainwin # ptr to main window
         self.dir_path = dir_path # current directory path
         self.groupList = groupList # list of list of images
@@ -934,7 +932,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
 
         self.csvManager = DC_CSVManager(dir_path, settings['group'], self.fixRanges) # create CSV manager
         self.initUI(settings['group'] > 0)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         self.setConnections()
         self.onImageChanged()
 
@@ -949,13 +947,13 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         :return:
         """
         self.setWindowTitle("Diffraction Centroids v."+musclex.__version__)
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
         ### Tab ###
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 300px; }")
@@ -978,10 +976,10 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             self.tabWidget.addTab(self.offMerTab, "Off-Meridian")
 
         # Status bar
-        self.statusBar = QtGui.QStatusBar()
-        self.left_status = QtGui.QLabel("Path : "+self.dir_path)
-        self.right_status = QtGui.QLabel()
-        self.pixel_detail = QtGui.QLabel()
+        self.statusBar = QStatusBar()
+        self.left_status = QLabel("Path : "+self.dir_path)
+        self.right_status = QLabel()
+        self.pixel_detail = QLabel()
         self.statusBar.addWidget(self.left_status)
         self.statusBar.addPermanentWidget(self.pixel_detail)
         self.statusBar.addPermanentWidget(self.right_status)
@@ -997,67 +995,70 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         :return: -
         """
 
-        self.imageTab = QtGui.QWidget()
+        self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QtGui.QGridLayout(self.imageTab)
+        self.imageTabLayout = QGridLayout(self.imageTab)
         self.displayImgFigure = plt.figure()
+        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
 
-        self.plotsLayout = QtGui.QVBoxLayout()
+        self.plotsLayout = QVBoxLayout()
         self.topDifFigure = plt.figure()
+        self.topDifAxes = self.topDifFigure.add_subplot(111)
         self.topDifCanvas = FigureCanvas(self.topDifFigure)
         self.bottomDifFigure = plt.figure()
+        self.bottomDifAxes = self.bottomDifFigure.add_subplot(111)
         self.bottomDifCanvas = FigureCanvas(self.bottomDifFigure)
         self.plotsLayout.addWidget(self.topDifCanvas)
         self.plotsLayout.addWidget(self.bottomDifCanvas)
 
         ### image names group ###
-        self.imageOptionsFrame = QtGui.QFrame()
+        self.imageOptionsFrame = QFrame()
         self.imageOptionsFrame.setFixedWidth(300)
-        self.imageNameGrp = QtGui.QGroupBox('Images')
-        self.imageNames = QtGui.QLabel()
-        self.imnLayout = QtGui.QVBoxLayout()
+        self.imageNameGrp = QGroupBox('Images')
+        self.imageNames = QLabel()
+        self.imnLayout = QVBoxLayout()
         self.imnLayout.addWidget(self.imageNames)
         self.imageNameGrp.setLayout(self.imnLayout)
 
         ### Display options ###
-        self.areaChkBx = QtGui.QCheckBox("Meridian Area")
+        self.areaChkBx = QCheckBox("Meridian Area")
         self.areaChkBx.setChecked(True)
-        self.offMerChkBx = QtGui.QCheckBox("Off-meridian Areas")
+        self.offMerChkBx = QCheckBox("Off-meridian Areas")
         self.offMerChkBx.setChecked(self.off_mer is not None)
         self.offMerChkBx.setEnabled(self.off_mer is not None)
-        self.graphChkBx = QtGui.QCheckBox("Graphs")
+        self.graphChkBx = QCheckBox("Graphs")
         self.graphChkBx.setChecked(True)
-        self.intensityGrp = QtGui.QGroupBox()
+        self.intensityGrp = QGroupBox()
         self.intensityGrp.setTitle("Image Intensity")
-        self.intensityGrp.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum)
-        self.intensityLayout = QtGui.QGridLayout()
+        self.intensityGrp.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.intensityLayout = QGridLayout()
         self.intensityGrp.setLayout(self.intensityLayout)
-        self.maxInt = QtGui.QDoubleSpinBox()
+        self.maxInt = QDoubleSpinBox()
         self.maxInt.setValue(1.)
         self.maxInt.setKeyboardTracking(False)
-        self.maxIntLabel = QtGui.QLabel("Max intensity")
-        self.minInt = QtGui.QDoubleSpinBox()
+        self.maxIntLabel = QLabel("Max intensity")
+        self.minInt = QDoubleSpinBox()
         self.minInt.setValue(0.)
         self.minInt.setKeyboardTracking(False)
-        self.minIntLabel = QtGui.QLabel("Min intensity")
+        self.minIntLabel = QLabel("Min intensity")
         self.intensityLayout.addWidget(self.minIntLabel, 0, 0)
         self.intensityLayout.addWidget(self.minInt, 0, 1)
         self.intensityLayout.addWidget(self.maxIntLabel, 1, 0)
         self.intensityLayout.addWidget(self.maxInt, 1, 1)
 
-        self.zoomLayout = QtGui.QHBoxLayout()
-        self.zoomInB = QtGui.QPushButton("Zoom in\nImage")
+        self.zoomLayout = QHBoxLayout()
+        self.zoomInB = QPushButton("Zoom in\nImage")
         self.zoomInB.setCheckable(True)
         self.zoomInB.setFixedSize(120, 50)
-        self.zoomOutB = QtGui.QPushButton("Full Image")
+        self.zoomOutB = QPushButton("Full Image")
         self.zoomOutB.setFixedSize(120, 50)
         self.zoomLayout.addWidget(self.zoomInB)
         self.zoomLayout.addWidget(self.zoomOutB)
 
-        self.displayOptionGrp = QtGui.QGroupBox()
+        self.displayOptionGrp = QGroupBox()
         self.displayOptionGrp.setTitle('Display Options')
-        self.displayOptionsLayout = QtGui.QVBoxLayout()
+        self.displayOptionsLayout = QVBoxLayout()
         self.displayOptionsLayout.addWidget(self.areaChkBx)
         self.displayOptionsLayout.addWidget(self.offMerChkBx)
         self.displayOptionsLayout.addWidget(self.graphChkBx)
@@ -1068,19 +1069,19 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
 
 
         ### Image processing ###
-        self.calSettingsGrp = QtGui.QGroupBox()
+        self.calSettingsGrp = QGroupBox()
         self.calSettingsGrp.setTitle('Calculation Settings')
-        self.calSetttingsLayout = QtGui.QGridLayout()
-        self.setCenterAngleB = QtGui.QPushButton('Set Center and Rotation Angle')
+        self.calSetttingsLayout = QGridLayout()
+        self.setCenterAngleB = QPushButton('Set Center and Rotation Angle')
         self.setCenterAngleB.setCheckable(True)
-        self.setAngleB = QtGui.QPushButton('Set Rotation Angle')
+        self.setAngleB = QPushButton('Set Rotation Angle')
         self.setAngleB.setCheckable(True)
-        self.selectIntArea = QtGui.QPushButton('Set Meridian Area')
+        self.selectIntArea = QPushButton('Set Meridian Area')
         self.selectIntArea.setCheckable(True)
-        self.setX1X2 = QtGui.QPushButton('Set Left\nOff-Meridian Area')
+        self.setX1X2 = QPushButton('Set Left\nOff-Meridian Area')
         self.setX1X2.setCheckable(True)
         self.setX1X2.setEnabled(self.off_mer is not None)
-        self.setX3X4 = QtGui.QPushButton('Set Right\nOff-Meridian Area')
+        self.setX3X4 = QPushButton('Set Right\nOff-Meridian Area')
         self.setX3X4.setCheckable(True)
         self.setX3X4.setEnabled(self.off_mer is not None)
         self.calSettingsGrp.setLayout(self.calSetttingsLayout)
@@ -1093,18 +1094,18 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         self.checkableButtons = [self.zoomInB, self.zoomOutB, self.setCenterAngleB, self.setAngleB, self.selectIntArea, self.setX3X4, self.setX1X2]
 
         ### Previous & Next buttons
-        self.pnButtons = QtGui.QHBoxLayout()
-        self.prevButton = QtGui.QPushButton('<')
+        self.pnButtons = QHBoxLayout()
+        self.prevButton = QPushButton('<')
         self.prevButton.clearFocus()
         self.prevButton.setEnabled(pnEnable)
-        self.nextButton = QtGui.QPushButton('>')
+        self.nextButton = QPushButton('>')
         self.nextButton.setEnabled(pnEnable)
         self.pnButtons.addWidget(self.prevButton)
         self.pnButtons.addWidget(self.nextButton)
 
         ### Display image ###
-        self.imageOptionsLayout = QtGui.QVBoxLayout()
-        self.imageOptionsLayout.setAlignment(QtCore.Qt.AlignTop)
+        self.imageOptionsLayout = QVBoxLayout()
+        self.imageOptionsLayout.setAlignment(Qt.AlignTop)
         self.imageOptionsLayout.addWidget(self.imageNameGrp)
         self.imageOptionsLayout.addWidget(self.displayOptionGrp)
         self.imageOptionsLayout.addWidget(self.calSettingsGrp)
@@ -1165,11 +1166,11 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         """
         key = event.key()
 
-        if key == QtCore.Qt.Key_Right:
+        if key == Qt.Key_Right:
             self.nextClicked()
-        elif key == QtCore.Qt.Key_Left:
+        elif key == Qt.Key_Left:
             self.prevClicked()
-        elif key == QtCore.Qt.Key_Escape:
+        elif key == Qt.Key_Escape:
             self.refreshUI()
 
     def clearFunction(self):
@@ -1215,7 +1216,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         if self.difCent is None:
             return
         if self.setCenterAngleB.isChecked():
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             while len(ax.lines) > 0:
                 ax.lines.pop(len(ax.lines) - 1)
             self.displayImgCanvas.draw_idle()
@@ -1234,7 +1235,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             return
 
         if self.setAngleB.isChecked():
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             while len(ax.lines) > 0:
                 ax.lines.pop(len(ax.lines) - 1)
             self.displayImgCanvas.draw_idle()
@@ -1252,7 +1253,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         if self.difCent is None:
             return
         if self.setX1X2.isChecked():
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             while len(ax.lines) > 0:
                 ax.lines.pop(len(ax.lines) - 1)
             self.displayImgCanvas.draw_idle()
@@ -1270,7 +1271,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         if self.difCent is None:
             return
         if self.setX3X4.isChecked():
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             while len(ax.lines) > 0:
                 ax.lines.pop(len(ax.lines) - 1)
             self.displayImgCanvas.draw_idle()
@@ -1289,7 +1290,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             return
 
         if self.selectIntArea.isChecked():
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             while len(ax.lines) > 0:
                 ax.lines.pop(len(ax.lines) - 1)
             self.displayImgCanvas.draw_idle()
@@ -1315,7 +1316,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             if func[0] == "int_area":
                 # Set inegrated area (meridian)
                 func.append(x)
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 ax.axvline(x, color='r')
                 self.displayImgCanvas.draw_idle()
                 if len(func) == 3:
@@ -1330,7 +1331,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             elif func[0] == "x1x2":
                 # Set x1 or x2 (off-meridian left ranges)
                 func.append(x)
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 ax.axvline(x, color='g')
                 self.displayImgCanvas.draw_idle()
                 if len(func) == 3:
@@ -1343,7 +1344,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             elif func[0] == "x3x4":
                 # Set x3 or x4 (off-meridian right ranges)
                 func.append(x)
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 ax.axvline(x, color='r')
                 self.displayImgCanvas.draw_idle()
                 if len(func) == 3:
@@ -1381,14 +1382,14 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
                 self.processImage()
             elif func[0] == "center_angle":
                 # set new center and rotation angle
-                ax = self.displayImgFigure.add_subplot(111)
+                ax = self.displayImgAxes
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.displayImgCanvas.draw_idle()
                 func.append((x,y))
                 if len(func) == 3:
-                    self.setCursor(QtCore.Qt.ArrowCursor)
+                    self.setCursor(Qt.ArrowCursor)
 
                     if func[1][0] < func[2][0]:
                         x1, y1 = func[1]
@@ -1445,7 +1446,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             if x < self.rotatedImg.shape[1] and y < self.rotatedImg.shape[0]:
                 self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(self.rotatedImg[y][x]))
 
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -1616,7 +1617,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             y1 = img_size[0] - zoom_height
 
         self.img_zoom = [(x1, x2), (y1, y2)]
-        ax = self.displayImgFigure.add_subplot(111)
+        ax = self.displayImgAxes
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
         self.displayImgCanvas.draw_idle()
@@ -1655,6 +1656,10 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         :return:
         """
         flags = {}
+        if self.bottomDifTab.fixed_se is not None:
+            flags['bottom_fixed_se'] = self.bottomDifTab.fixed_se
+        if self.topDifTab.fixed_se is not None:
+            flags['top_fixed_se'] = self.topDifTab.fixed_se
         if self.off_mer is not None and self.offMerTab.fixed_hull_range is not None:
             flags['fixed_offmer_hull_range'] = self.offMerTab.fixed_hull_range
         return flags
@@ -1663,28 +1668,28 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         # Process current DiffractionCentroids object, refresh UI, and write data to csv file
         if self.difCent is None:
             return
-        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-        QtGui.QApplication.processEvents()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
         flags = self.getFlags()
         try:
             self.difCent.process(flags)
         except Exception,e:
-            QtGui.QApplication.restoreOverrideCursor()
-            errMsg = QtGui.QMessageBox()
+            QApplication.restoreOverrideCursor()
+            errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
             msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
             msg += "Error : "+str(sys.exc_info()[0]) +'\n\n'+str(traceback.format_exc())
             errMsg.setInformativeText(msg)
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.setFixedWidth(300)
             errMsg.exec_()
             raise
 
         self.writeData()
         self.refreshUI()
-        QtGui.QApplication.restoreOverrideCursor()
-        QtGui.QApplication.processEvents()
+        QApplication.restoreOverrideCursor()
+        QApplication.processEvents()
 
     def writeData(self):
         # Write new data to csv file
@@ -1694,7 +1699,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         # Refresh all tabs
         self.updated = False
         self.function = None
-        self.setCursor(QtCore.Qt.ArrowCursor)
+        self.setCursor(Qt.ArrowCursor)
         self.topDifTab.clearSettings()
         self.bottomDifTab.clearSettings()
         if self.off_mer is not None:
@@ -1745,7 +1750,7 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             img = copy.copy(self.difCent.getRotatedImage())
             self.rotatedImg = copy.copy(self.difCent.getRotatedImage())
             img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             ax.cla()
             # cv2.circle(img, tuple(self.difCent.info['center']), 2, (255,255,0), thickness = 2)
             ax.imshow(img)
@@ -1787,8 +1792,8 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
             self.updated = True
 
         if not self.plots_updated:
-            self.topDifTab.drawPlot(self.topDifFigure, self.topDifCanvas, self.difCent.info)
-            self.bottomDifTab.drawPlot(self.bottomDifFigure, self.bottomDifCanvas, self.difCent.info)
+            self.topDifTab.drawPlot(self.topDifFigure, self.topDifCanvas, self.topDifAxes, self.difCent.info)
+            self.bottomDifTab.drawPlot(self.bottomDifFigure, self.bottomDifCanvas, self.bottomDifAxes, self.difCent.info)
             self.plots_updated = True
 
     def redrawPlots(self):
@@ -1799,12 +1804,12 @@ class DiffractionCentroidProcessWindow(QtGui.QMainWindow):
         # Trigger when window is closed.
         self.mainWindow.childWindowClosed(self)
 
-class DiffractionCentroidStartWindow(QtGui.QMainWindow):
+class DiffractionCentroidStartWindow(QMainWindow):
     """
     A Class for startup window
     """
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.windowList = []
         self.groupList = []
         self.imgList = []
@@ -1820,93 +1825,93 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         """
         Initial all UI in window
         """
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QGridLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QGridLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
         ### Folder selection tab (Auto-grouping)
-        self.folderTab = QtGui.QWidget()
+        self.folderTab = QWidget()
         self.folderTab.setContentsMargins(0, 0, 0, 0)
-        self.folderTabLayout = QtGui.QGridLayout(self.folderTab)
-        self.selectedFolderTextField = QtGui.QLineEdit("") # Jiranun :: test only
+        self.folderTabLayout = QGridLayout(self.folderTab)
+        self.selectedFolderTextField = QLineEdit("") # Jiranun :: test only
         self.selectedFolderTextField.setEnabled(False)
         # self.selectedFolderTextField.setDragEnabled(True)
-        self.browseFolderButton = QtGui.QPushButton("Browse")
-        self.folderDetails = QtGui.QLabel("")
-        self.groupSpnBx = QtGui.QSpinBox()
+        self.browseFolderButton = QPushButton("Browse")
+        self.folderDetails = QLabel("")
+        self.groupSpnBx = QSpinBox()
         self.groupSpnBx.setMinimum(1)
         self.groupSpnBx.setMaximum(500)
         self.groupSpnBx.setValue(1)
-        self.startGroup = QtGui.QComboBox()
+        self.startGroup = QComboBox()
         self.startGroup.setFixedWidth(500)
 
-        # self.maxPeaksChkBx = QtGui.QCheckBox("Maximum number of peaks (Auto-detection) : ")
-        # self.maxPeaksSpnBx = QtGui.QSpinBox()
+        # self.maxPeaksChkBx = QCheckBox("Maximum number of peaks (Auto-detection) : ")
+        # self.maxPeaksSpnBx = QSpinBox()
         # self.maxPeaksSpnBx.setMinimum(1)
         # self.maxPeaksSpnBx.setValue(2)
         # self.maxPeaksSpnBx.setEnabled(False)
         # self.maxPeaksSpnBx.setSuffix(" peak(s)")
-        self.startButton = QtGui.QPushButton("START")
+        self.startButton = QPushButton("START")
         self.startButton.setFixedSize(100, 40)
 
         self.folderTabLayout.addWidget(self.selectedFolderTextField, 0, 0, 1, 3)
         self.folderTabLayout.addWidget(self.browseFolderButton, 0, 3, 1, 1)
         self.folderTabLayout.addWidget(self.folderDetails, 1, 0, 1, 4)
-        self.folderTabLayout.addWidget(QtGui.QLabel("Number of frames to average : "), 2, 0, 1, 2)
+        self.folderTabLayout.addWidget(QLabel("Number of frames to average : "), 2, 0, 1, 2)
         self.folderTabLayout.addWidget(self.groupSpnBx, 2, 2, 1, 1)
-        self.folderTabLayout.addWidget(QtGui.QLabel("image(s)"), 2, 3, 1, 1)
-        self.folderTabLayout.addWidget(QtGui.QLabel("Start Group : "), 3, 0, 1, 2)
+        self.folderTabLayout.addWidget(QLabel("image(s)"), 2, 3, 1, 1)
+        self.folderTabLayout.addWidget(QLabel("Start Group : "), 3, 0, 1, 2)
         self.folderTabLayout.addWidget(self.startGroup, 3, 2, 1, 2)
-        self.folderTabLayout.setAlignment(self.startButton, QtCore.Qt.AlignCenter)
+        self.folderTabLayout.setAlignment(self.startButton, Qt.AlignCenter)
 
 
         #### File selection tab ####
-        self.filesTab = QtGui.QWidget()
+        self.filesTab = QWidget()
         self.filesTab.setContentsMargins(0, 0, 0, 0)
-        self.filesTabLayout = QtGui.QVBoxLayout(self.filesTab)
-        self.selectFilesButton = QtGui.QPushButton("Browse File(s)")
+        self.filesTabLayout = QVBoxLayout(self.filesTab)
+        self.selectFilesButton = QPushButton("Browse File(s)")
         self.selectFilesButton.setFixedSize(300, 50)
-        self.numberOfImages = QtGui.QLabel("")
-        self.imageNames = QtGui.QTextEdit()
+        self.numberOfImages = QLabel("")
+        self.imageNames = QTextEdit()
         self.imageNames.setReadOnly(True)
         self.filesTabLayout.addWidget(self.selectFilesButton)
         self.filesTabLayout.addWidget(self.numberOfImages)
-        self.filesTabLayout.addWidget(QtGui.QLabel("Selected file(s) : "))
+        self.filesTabLayout.addWidget(QLabel("Selected file(s) : "))
         self.filesTabLayout.addWidget(self.imageNames)
-        self.filesTabLayout.setAlignment(self.selectFilesButton, QtCore.Qt.AlignCenter)
+        self.filesTabLayout.setAlignment(self.selectFilesButton, Qt.AlignCenter)
 
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 300px; }")
 
         ### Fixed peak ranges option ###
-        self.fixRangesGroup = QtGui.QGroupBox("Meridian Peak Ranges")
-        self.fixRangesGroup.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum)
+        self.fixRangesGroup = QGroupBox("Meridian Peak Ranges")
+        self.fixRangesGroup.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         # self.fixRangesGroup.setCheckable(True)
         # self.fixRangesGroup.setChecked(False)
-        self.fixRangesLayout = QtGui.QGridLayout()
+        self.fixRangesLayout = QGridLayout()
         self.fixRangesGroup.setLayout(self.fixRangesLayout)
-        self.addRangeButton = QtGui.QPushButton("Add")
-        self.removeRangeButton = QtGui.QPushButton("Remove")
-        self.peakName = QtGui.QLineEdit("")
+        self.addRangeButton = QPushButton("Add")
+        self.removeRangeButton = QPushButton("Remove")
+        self.peakName = QLineEdit("")
         self.peakName.setFixedWidth(100)
-        self.startRange = QtGui.QSpinBox()
+        self.startRange = QSpinBox()
         self.startRange.setMinimum(0)
         self.startRange.setMaximum(2000)
         self.startRange.setKeyboardTracking(False)
-        self.endRange = QtGui.QSpinBox()
+        self.endRange = QSpinBox()
         self.endRange.setMinimum(0)
         self.endRange.setMaximum(2000)
         self.endRange.setKeyboardTracking(True)
-        self.fixRangesTable = QtGui.QTableWidget()
+        self.fixRangesTable = QTableWidget()
         self.fixRangesTable.setColumnCount(3)
         self.fixRangesTable.setHorizontalHeaderLabels(['Name','Start', 'End'])
-        self.fixRangesTable.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
-        self.fixRangesLayout.addWidget(QtGui.QLabel("Name : "), 0, 0, 1, 1)
-        self.fixRangesLayout.addWidget(QtGui.QLabel("Start : "), 0, 1, 1, 1)
-        self.fixRangesLayout.addWidget(QtGui.QLabel("End : "), 0, 2, 1, 1)
+        self.fixRangesTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.fixRangesLayout.addWidget(QLabel("Name : "), 0, 0, 1, 1)
+        self.fixRangesLayout.addWidget(QLabel("Start : "), 0, 1, 1, 1)
+        self.fixRangesLayout.addWidget(QLabel("End : "), 0, 2, 1, 1)
         self.fixRangesLayout.addWidget(self.peakName, 1, 0, 1, 1)
         self.fixRangesLayout.addWidget(self.startRange, 1, 1, 1, 1)
         self.fixRangesLayout.addWidget(self.endRange, 1, 2, 1, 1)
@@ -1914,53 +1919,53 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         self.fixRangesLayout.addWidget(self.removeRangeButton, 3, 0, 1, 3)
         self.fixRangesLayout.addWidget(self.fixRangesTable, 0, 3, 4, 3)
 
-        self.startButton = QtGui.QPushButton("START")
+        self.startButton = QPushButton("START")
         self.startButton.setFixedSize(100, 40)
 
         ### Off-Meridian option ###
-        self.offMeridianGrp = QtGui.QGroupBox("Off Meridian")
-        self.offMeridianGrp.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum)
+        self.offMeridianGrp = QGroupBox("Off Meridian")
+        self.offMeridianGrp.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.offMeridianGrp.setCheckable(True)
         self.offMeridianGrp.setChecked(False)
-        self.offMerLayout = QtGui.QGridLayout(self.offMeridianGrp)
-        self.x1SpnBx = QtGui.QSpinBox()
+        self.offMerLayout = QGridLayout(self.offMeridianGrp)
+        self.x1SpnBx = QSpinBox()
         self.x1SpnBx.setRange(0, 2000)
-        self.x2SpnBx = QtGui.QSpinBox()
+        self.x2SpnBx = QSpinBox()
         self.x2SpnBx.setRange(0, 2000)
-        self.x3SpnBx = QtGui.QSpinBox()
+        self.x3SpnBx = QSpinBox()
         self.x3SpnBx.setRange(0, 2000)
-        self.x4SpnBx = QtGui.QSpinBox()
+        self.x4SpnBx = QSpinBox()
         self.x4SpnBx.setRange(0, 2000)
-        self.start51SpnBx = QtGui.QSpinBox()
+        self.start51SpnBx = QSpinBox()
         self.start51SpnBx.setRange(0, 2000)
-        self.end51SpnBx = QtGui.QSpinBox()
+        self.end51SpnBx = QSpinBox()
         self.end51SpnBx.setRange(0, 2000)
-        self.start59SpnBx = QtGui.QSpinBox()
+        self.start59SpnBx = QSpinBox()
         self.start59SpnBx.setRange(0, 2000)
-        self.end59SpnBx = QtGui.QSpinBox()
+        self.end59SpnBx = QSpinBox()
         self.end59SpnBx.setRange(0, 2000)
-        separator = QtGui.QFrame()
-        separator.setFrameShape(QtGui.QFrame.HLine)
-        separator.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
         separator.setLineWidth(1)
 
-        self.offMerLayout.addWidget(QtGui.QLabel("Left"), 0, 0, 1, 2, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("Right"), 0, 2, 1, 2, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("x1"), 1, 0, 1, 1, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("x2"), 1, 1, 1, 1, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("x3"), 1, 2, 1, 1, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("x4"), 1, 3, 1, 1, QtCore.Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("Left"), 0, 0, 1, 2, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("Right"), 0, 2, 1, 2, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("x1"), 1, 0, 1, 1, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("x2"), 1, 1, 1, 1, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("x3"), 1, 2, 1, 1, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("x4"), 1, 3, 1, 1, Qt.AlignCenter)
         self.offMerLayout.addWidget(self.x1SpnBx, 2, 0, 1, 1)
         self.offMerLayout.addWidget(self.x2SpnBx, 2, 1, 1, 1)
         self.offMerLayout.addWidget(self.x3SpnBx, 2, 2, 1, 1)
         self.offMerLayout.addWidget(self.x4SpnBx, 2, 3, 1, 1)
         self.offMerLayout.addWidget(separator, 3, 0, 1, 4)
-        self.offMerLayout.addWidget(QtGui.QLabel("59 Range"), 4, 0, 1, 2, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("51 Range"), 4, 2, 1, 2, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("start"), 5, 0, 1, 1, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("end"), 5, 1, 1, 1, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("start"), 5, 2, 1, 1, QtCore.Qt.AlignCenter)
-        self.offMerLayout.addWidget(QtGui.QLabel("end"), 5, 3, 1, 1, QtCore.Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("59 Range"), 4, 0, 1, 2, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("51 Range"), 4, 2, 1, 2, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("start"), 5, 0, 1, 1, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("end"), 5, 1, 1, 1, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("start"), 5, 2, 1, 1, Qt.AlignCenter)
+        self.offMerLayout.addWidget(QLabel("end"), 5, 3, 1, 1, Qt.AlignCenter)
         self.offMerLayout.addWidget(self.start59SpnBx, 6, 0, 1, 1)
         self.offMerLayout.addWidget(self.end59SpnBx, 6, 1, 1, 1)
         self.offMerLayout.addWidget(self.start51SpnBx, 6, 2, 1, 1)
@@ -1973,7 +1978,7 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         self.mainLayout.setColumnStretch(0, 2)
         self.mainLayout.setColumnStretch(1, 1)
 
-        self.mainLayout.setAlignment(self.startButton, QtCore.Qt.AlignCenter)
+        self.mainLayout.setAlignment(self.startButton, Qt.AlignCenter)
         self.tabWidget.addTab(self.filesTab, "Select File(s)")
         self.tabWidget.addTab(self.folderTab, "Select a Folder (auto-grouping)")
 
@@ -2035,32 +2040,32 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         :return:
         """
         if name == "":
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText('Range name is missing')
             errMsg.setInformativeText('Please specify range name')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif start >= end:
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText('Invalid Range')
             errMsg.setInformativeText('Start position must be less than End position.')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif (start, end) in self.fixRanges:
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText('('+str(start)+', '+str(end)+') has been added already')
             errMsg.setInformativeText('Please select another range')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         elif name in self.fixRangeNames:
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText( str(name)+' has been added already')
             errMsg.setInformativeText('Please select another name')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
         else:
             self.fixRanges.append((start, end))
@@ -2068,9 +2073,9 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
 
             # Add range to table
             self.fixRangesTable.setRowCount(len(self.fixRanges))
-            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 0, QtGui.QTableWidgetItem(name))
-            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 1, QtGui.QTableWidgetItem(str(start)))
-            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 2, QtGui.QTableWidgetItem(str(end)))
+            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 0, QTableWidgetItem(name))
+            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 1, QTableWidgetItem(str(start)))
+            self.fixRangesTable.setItem(len(self.fixRanges) - 1, 2, QTableWidgetItem(str(end)))
 
         self.setNameFocus()
         col_width = self.fixRangesTable.width()/3
@@ -2087,7 +2092,7 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         """
         Popup multiple files selection dialog
         """
-        fileList = QtGui.QFileDialog.getOpenFileNames(self, "Select frame(s) to average")
+        fileList = getFiles()
         if len(fileList) < 1:
             return
         self.numberOfImages.setText("Number of file(s) : "+str(len(fileList)))
@@ -2110,7 +2115,7 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         """
         Popup folder selection dialog
         """
-        dir_path = QtGui.QFileDialog.getExistingDirectory(self, "Select a Folder") #jiranun test
+        dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder") #jiranun test
         if dir_path != "":
             dir_path = str(dir_path)
             self.selectedFolderTextField.setText(dir_path)
@@ -2194,7 +2199,7 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         """
         if self.tabWidget.currentIndex() == 1:
             if len(self.imgList) == 0:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 if self.selectedFolderTextField.text() == "":
                     errMsg.setText('No folder selected')
                     errMsg.setInformativeText('Please select a folder to process')
@@ -2202,8 +2207,8 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
                     errMsg.setText('There are no image in this folder')
                     errMsg.setInformativeText('Please select another folder to process')
 
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 self.browseFolder()
                 return
@@ -2215,11 +2220,11 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
                 grpList = copy.copy(self.groupList)
         else:
             if len(self.selectedImages) == 0:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('No image selected')
                 errMsg.setInformativeText('Please select files to process')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
             else:
@@ -2232,11 +2237,11 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         fix_ranges = sorted([(str(self.fixRangeNames[i]),self.fixRanges[i]) for i in range(len(self.fixRanges))], key = lambda (n,r) : r[0])
 
         if len(fix_ranges) == 0:
-            errMsg = QtGui.QMessageBox()
+            errMsg = QMessageBox()
             errMsg.setText('Meridian peak ranges is empty')
             errMsg.setInformativeText('Please specify at least 1 fixed range.')
-            errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-            errMsg.setIcon(QtGui.QMessageBox.Warning)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
             return
         settings['fix_ranges'] = fix_ranges
@@ -2251,27 +2256,27 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
             s59 = self.start59SpnBx.value()
             e59 = self.end59SpnBx.value()
             if x1 == 0 or x2==0 or x3==0 or x4==0 or x1>=x2 or x3>=x4:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Off Meridian information is incorrect')
                 errMsg.setInformativeText('Please specify all x1,x2,x3, and x4 with x1 < x2 and x3 < x4')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
             if s51 == 0 or e51==0 or s59==0 or e59==0:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Off Meridian information is missing')
                 errMsg.setInformativeText('Please specify both 51 and 59 ranges')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
             if s51 > e51 or s59 > e59 or s59 > s51:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Off Meridian information is incorrect')
                 errMsg.setInformativeText('Please specify correct 51 and 59 ranges. Start point should be smaller than end point.')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
 
@@ -2309,6 +2314,6 @@ class DiffractionCentroidStartWindow(QtGui.QMainWindow):
         self.windowList.remove(childwin)
 
 if __name__ == "__main__":
-    app = QtGui.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     myapp = DiffractionCentroidStartWindow()
     sys.exit(app.exec_())

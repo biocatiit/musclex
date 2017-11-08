@@ -29,7 +29,8 @@ authorization from Illinois Institute of Technology.
 """
 import sys
 from musclex import __version__
-from PyQt4 import QtGui
+from musclex.ui.pyqt_utils import *
+
 
 def main(arguments=None):
     if arguments is None:
@@ -39,33 +40,33 @@ def main(arguments=None):
     if len(arguments) == 2:
         prog = arguments[1]
         if prog == 'bm':
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             from musclex.ui.BMStartWindow import BMStartWindow
             myapp = BMStartWindow()
             sys.exit(app.exec_())
         elif prog == 'qf':
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()
             sys.exit(app.exec_())
         elif prog == 'cp':
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             from musclex.ui.circular_projection_v2 import CircularProjectionGUI
             myapp = CircularProjectionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':
             from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             myapp = DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
         elif prog == 'ddf':
             from musclex.ui.ddf_processor import DDFWindow
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             myapp = DDFWindow()
             sys.exit(app.exec_())
         elif prog == 'pt':
             from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
         else:

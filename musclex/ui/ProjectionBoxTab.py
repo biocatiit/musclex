@@ -26,20 +26,19 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
-from PyQt4 import QtCore, QtGui
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from pyqt_utils import *
 import matplotlib.patches as patches
 import numpy as np
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground, meridianGauss
 from ..utils.image_processor import getNewZoom
 
-class ProjectionBoxTab(QtGui.QWidget):
+class ProjectionBoxTab(QWidget):
     """
     Fitting Tabs : left or right
     Display fitting graph and providing options
     """
     def __init__(self, parent, name):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.parent = parent
         self.name = name
         self.function = None
@@ -83,44 +82,46 @@ class ProjectionBoxTab(QtGui.QWidget):
         Initial all GUIs including : 4 plots and result table
         """
         self.setContentsMargins(0, 0, 0, 0)
-        self.tabLayout = QtGui.QHBoxLayout(self)
+        self.tabLayout = QHBoxLayout(self)
         self.graphFigure1 = plt.figure(facecolor='#606060')
+        self.graphAxes1 = self.graphFigure1.add_subplot(111)
         self.graphCanvas1 = FigureCanvas(self.graphFigure1)
 
         self.graphFigure2 = plt.figure(facecolor='#606060')
+        self.graphAxes2 = self.graphFigure2.add_subplot(111)
         self.graphCanvas2 = FigureCanvas(self.graphFigure2)
 
-        self.optionsFrame = QtGui.QFrame()
+        self.optionsFrame = QFrame()
         self.optionsFrame.setFixedWidth(350)
-        self.optionsLayout = QtGui.QVBoxLayout(self.optionsFrame)
+        self.optionsLayout = QVBoxLayout(self.optionsFrame)
 
-        self.displayOptionsGroup = QtGui.QGroupBox("Display Options")
-        self.dispOptLayout = QtGui.QGridLayout(self.displayOptionsGroup)
+        self.displayOptionsGroup = QGroupBox("Display Options")
+        self.dispOptLayout = QGridLayout(self.displayOptionsGroup)
 
-        self.histChkBx = QtGui.QCheckBox("Original Projection")
+        self.histChkBx = QCheckBox("Original Projection")
         self.histChkBx.setChecked(True)
-        self.hullRangeChkBx = QtGui.QCheckBox('Hull Range')
+        self.hullRangeChkBx = QCheckBox('Hull Range')
         self.hullRangeChkBx.setEnabled(self.parent.bgsubs[self.name] == 1)
         self.hullRangeChkBx.setChecked(self.parent.bgsubs[self.name]==1)
-        self.fitmodelChkBx = QtGui.QCheckBox("Fitting Model")
+        self.fitmodelChkBx = QCheckBox("Fitting Model")
         self.fitmodelChkBx.setChecked(True)
-        self.bgChkBx = QtGui.QCheckBox("Background")
+        self.bgChkBx = QCheckBox("Background")
         self.bgChkBx.setChecked(True)
-        self.peaksChkBx = QtGui.QCheckBox("Model Peaks")
+        self.peaksChkBx = QCheckBox("Model Peaks")
         self.peaksChkBx.setChecked(True)
-        self.centerChkBx = QtGui.QCheckBox("Center")
+        self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
-        self.subHistChkBx = QtGui.QCheckBox("Subtracted Projection")
+        self.subHistChkBx = QCheckBox("Subtracted Projection")
         self.subHistChkBx.setChecked(True)
-        self.baselineChkBx = QtGui.QCheckBox("Baselines")
+        self.baselineChkBx = QCheckBox("Baselines")
         self.baselineChkBx.setChecked(False)
-        self.centroidChkBx = QtGui.QCheckBox("Centroids")
+        self.centroidChkBx = QCheckBox("Centroids")
         self.centroidChkBx.setChecked(False)
 
-        self.zoomInButton = QtGui.QPushButton("Zoom in")
+        self.zoomInButton = QPushButton("Zoom in")
         self.zoomInButton.setCheckable(True)
-        self.zoomOutButton = QtGui.QPushButton("Zoom out")
-        self.fullButton = QtGui.QPushButton("Full")
+        self.zoomOutButton = QPushButton("Zoom out")
+        self.fullButton = QPushButton("Full")
         self.checkableButtons.append(self.zoomInButton)
         self.dispOptLayout.addWidget(self.histChkBx, 0, 0, 1, 1)
         self.dispOptLayout.addWidget(self.fitmodelChkBx, 0, 1, 1, 1)
@@ -135,21 +136,21 @@ class ProjectionBoxTab(QtGui.QWidget):
         self.dispOptLayout.addWidget(self.zoomOutButton, 6, 1, 1, 1)
         self.dispOptLayout.addWidget(self.fullButton, 7, 0, 1, 2)
 
-        self.settingGroup = QtGui.QGroupBox("Setting")
-        self.settingLayout = QtGui.QVBoxLayout(self.settingGroup)
-        self.peaksButton = QtGui.QPushButton("Select Peaks")
+        self.settingGroup = QGroupBox("Setting")
+        self.settingLayout = QVBoxLayout(self.settingGroup)
+        self.peaksButton = QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
         self.checkableButtons.append(self.peaksButton)
-        self.hullRangeButton = QtGui.QPushButton("Set Manual Convex Hull Range")
+        self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
         self.hullRangeButton.setEnabled(self.parent.bgsubs[self.name]==1)
         self.checkableButtons.append(self.hullRangeButton)
         self.settingLayout.addWidget(self.peaksButton)
         self.settingLayout.addWidget(self.hullRangeButton)
 
-        self.results_text = QtGui.QLabel()
+        self.results_text = QLabel()
 
-        self.resultTable1 = QtGui.QTableWidget()
+        self.resultTable1 = QTableWidget()
         self.resultTable1.setColumnCount(3)
         self.resultTable1.setHorizontalHeaderLabels(["Distance", "Sigma", "Area"])
         self.resultTable1.horizontalHeader().setStretchLastSection(True)
@@ -158,7 +159,7 @@ class ProjectionBoxTab(QtGui.QWidget):
         self.resultTable1.setColumnWidth(2, 100)
         self.resultTable1.setFixedHeight(100)
 
-        self.resultTable2 = QtGui.QTableWidget()
+        self.resultTable2 = QTableWidget()
         self.resultTable2.setColumnCount(3)
         self.resultTable2.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width"])
         self.resultTable2.horizontalHeader().setStretchLastSection(True)
@@ -166,9 +167,9 @@ class ProjectionBoxTab(QtGui.QWidget):
         self.resultTable2.setColumnWidth(1, 100)
         self.resultTable2.setColumnWidth(2, 100)
         self.resultTable2.setFixedHeight(100)
-        self.pnButtons = QtGui.QHBoxLayout()
-        self.prevButton = QtGui.QPushButton("<<<")
-        self.nextButton = QtGui.QPushButton(">>>")
+        self.pnButtons = QHBoxLayout()
+        self.prevButton = QPushButton("<<<")
+        self.nextButton = QPushButton(">>>")
         self.pnButtons.addWidget(self.prevButton)
         self.pnButtons.addWidget(self.nextButton)
 
@@ -176,14 +177,14 @@ class ProjectionBoxTab(QtGui.QWidget):
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingGroup)
         self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(QtGui.QLabel("<h3>Fitting Results</h3>"))
+        self.optionsLayout.addWidget(QLabel("<h3>Fitting Results</h3>"))
         self.optionsLayout.addWidget(self.resultTable1)
-        self.optionsLayout.addWidget(QtGui.QLabel("<h3>Other Results</h3>"))
+        self.optionsLayout.addWidget(QLabel("<h3>Other Results</h3>"))
         self.optionsLayout.addWidget(self.resultTable2)
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.pnButtons)
 
-        self.graphLayout = QtGui.QVBoxLayout()
+        self.graphLayout = QVBoxLayout()
         self.graphLayout.addWidget(self.graphCanvas1)
         self.graphLayout.addWidget(self.graphCanvas2)
         self.tabLayout.addLayout(self.graphLayout)
@@ -259,8 +260,7 @@ class ProjectionBoxTab(QtGui.QWidget):
             xlim = self.graphMaxBound[0]
             ylim = self.graphMaxBound[1]
 
-            def increaseLimit(fig, canvas, xlim, ylim):
-                ax = fig.add_subplot(111)
+            def increaseLimit(fig, canvas, ax, xlim, ylim):
                 old_xlim = ax.get_xlim()
                 old_ylim = ax.get_ylim()
                 xscale = abs(old_xlim[0]-old_xlim[1])*0.1
@@ -275,8 +275,8 @@ class ProjectionBoxTab(QtGui.QWidget):
                 canvas.draw_idle()
                 return zoom
 
-            self.zoom1 = increaseLimit(self.graphFigure1, self.graphCanvas1, xlim, ylim)
-            self.zoom2 = increaseLimit(self.graphFigure2, self.graphCanvas2, xlim, ylim)
+            self.zoom1 = increaseLimit(self.graphFigure1, self.graphCanvas1, self.graphAxes1, xlim, ylim)
+            self.zoom2 = increaseLimit(self.graphFigure2, self.graphCanvas2, self.graphAxes2, xlim, ylim)
 
     def fullClicked(self):
         """
@@ -367,11 +367,11 @@ class ProjectionBoxTab(QtGui.QWidget):
             peaks = func[1]
             peaks.append(distance)
 
-            ax = self.graphFigure1.add_subplot(111)
+            ax = self.graphAxes1
             ax.axvline(center + distance, color='#ff630a', linewidth=2)
             ax.axvline(center - distance, color='#ff630a', linewidth=2)
 
-            ax = self.graphFigure2.add_subplot(111)
+            ax = self.graphAxes2
             ax.axvline(center + distance, color='#ff630a', linewidth=2)
             ax.axvline(center - distance, color='#ff630a', linewidth=2)
 
@@ -382,11 +382,11 @@ class ProjectionBoxTab(QtGui.QWidget):
             hull_range = func[1]
             hull_range.append(distance)
 
-            ax = self.graphFigure1.add_subplot(111)
+            ax = self.graphAxes1
             ax.axvline(center + distance, color='k', linewidth=2)
             ax.axvline(center - distance, color='k', linewidth=2)
 
-            ax = self.graphFigure2.add_subplot(111)
+            ax = self.graphAxes2
             ax.axvline(center + distance, color='k', linewidth=2)
             ax.axvline(center - distance, color='k', linewidth=2)
 
@@ -404,7 +404,7 @@ class ProjectionBoxTab(QtGui.QWidget):
             if len(func) == 3:
                 self.setZoomIn(func[1], func[2])
 
-    def drawRectangle(self, fig, canvas, point1, point2):
+    def drawRectangle(self, fig, canvas, ax, point1, point2):
         """
         Draw a rectangle
         :param fig:
@@ -413,7 +413,6 @@ class ProjectionBoxTab(QtGui.QWidget):
         :param point2:
         :return:
         """
-        ax = fig.add_subplot(111)
         if self.zoomRect is not None and self.zoomRect in ax.patches:
             ax.patches.remove(self.zoomRect)
 
@@ -443,7 +442,7 @@ class ProjectionBoxTab(QtGui.QWidget):
                 if self.function[0] == 'move1' and self.graphMaxBound is not None and self.zoom1 is not None:
                     # change zoom-in location to move around plot
                     func = self.function
-                    ax = self.graphFigure1.add_subplot(111)
+                    ax = self.graphAxes1
                     move = (func[1][0] - x, func[1][1] - y)
                     self.zoom1 = getNewZoom(self.zoom1, move, self.graphMaxBound[0][1], self.graphMaxBound[1][1], self.graphMaxBound[1][0])
                     ax.set_xlim(self.zoom1[0])
@@ -452,7 +451,7 @@ class ProjectionBoxTab(QtGui.QWidget):
                 elif self.function[0] == 'zoom' and len(self.function) == 2 and self.function[1][0] == 1:
                     # Draw rectangle
                     start_pt = self.function[1][1]
-                    self.drawRectangle(self.graphFigure1, self.graphCanvas1, start_pt, (x, y))
+                    self.drawRectangle(self.graphFigure1, self.graphCanvas1, self.graphAxes1, start_pt, (x, y))
 
 
 
@@ -470,7 +469,7 @@ class ProjectionBoxTab(QtGui.QWidget):
                 if self.function[0] == 'move2' and self.graphMaxBound is not None and self.zoom2 is not None:
                     # change zoom-in location to move around plot
                     func = self.function
-                    ax = self.graphFigure2.add_subplot(111)
+                    ax = self.graphAxes2
                     move = (func[1][0] - x, func[1][1] - y)
                     self.zoom2 = getNewZoom(self.zoom2, move, self.graphMaxBound[0][1], self.graphMaxBound[1][1], self.graphMaxBound[1][0])
                     ax.set_xlim(self.zoom2[0])
@@ -479,7 +478,7 @@ class ProjectionBoxTab(QtGui.QWidget):
                 elif self.function[0] == 'zoom' and len(self.function) == 2 and self.function[1][0] == 2:
                     # Draw rectangle
                     start_pt = self.function[1][1]
-                    self.drawRectangle(self.graphFigure2, self.graphCanvas2, start_pt, (x,y))
+                    self.drawRectangle(self.graphFigure2, self.graphCanvas2, self.graphAxes2, start_pt, (x,y))
 
     def setManualHullRange(self):
         """
@@ -511,7 +510,7 @@ class ProjectionBoxTab(QtGui.QWidget):
         """
         key = event.key()
 
-        if key == QtCore.Qt.Key_Escape:
+        if key == Qt.Key_Escape:
             self.resetUI()
 
         self.parent.keyPressEvent(event)
@@ -562,10 +561,10 @@ class ProjectionBoxTab(QtGui.QWidget):
         bgsubs = info['bgsubs']
         hull_ranges = info['hull_ranges']
 
-        ax = self.graphFigure1.add_subplot(111)
+        ax = self.graphAxes1
         ax.cla()
 
-        ax2 = self.graphFigure2.add_subplot(111)
+        ax2 = self.graphAxes2
         ax2.cla()
 
         if self.histChkBx.isChecked():
@@ -593,7 +592,7 @@ class ProjectionBoxTab(QtGui.QWidget):
             if self.bgChkBx.isChecked():
                 if bgsubs[name] == 1:
                     # Add convex hull background
-                    ax.fill_between(xs, 0, convex_hull, facecolor='b', alpha=0.3)
+                    ax.fill_between(xs, min(convex_hull), convex_hull, facecolor='b', alpha=0.3)
                 else:
                     # Add 3 Gaussians
                     background = layerlineBackground(xs, **model)
@@ -692,31 +691,31 @@ class ProjectionBoxTab(QtGui.QWidget):
                 sigma = fit_result['sigma'+str(i)]
                 area = fit_result['amplitude' + str(i)]
 
-                item = QtGui.QTableWidgetItem(str(center))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(center))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 0, item)
 
-                item = QtGui.QTableWidgetItem(str(sigma))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(sigma))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 1, item)
 
-                item = QtGui.QTableWidgetItem(str(area))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(area))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 2, item)
 
                 centroid = centroids[i]
                 baseline = baselines[i]
                 width = widths[i]
 
-                item = QtGui.QTableWidgetItem(str(baseline))
+                item = QTableWidgetItem(str(baseline))
                 self.resultTable2.setItem(i, 0, item)
 
-                item = QtGui.QTableWidgetItem(str(centroid))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(centroid))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 1, item)
 
-                item = QtGui.QTableWidgetItem(str(width))
-                item.setFlags(QtCore.Qt.ItemIsEnabled)
+                item = QTableWidgetItem(str(width))
+                item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 2, item)
 
         self.need_update = False

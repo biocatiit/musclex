@@ -12,3 +12,4 @@ h5py
 scipy
 matplotlib<=2.1.0
 musclexflibs
+PyMca5

@@ -26,19 +26,18 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
-from PyQt4 import QtCore, QtGui
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from pyqt_utils import *
 import matplotlib.patches as patches
 from ..modules.BioImage import getCardiacGraph
 from ..utils.image_processor import *
 
-class BM_FittingTab(QtGui.QWidget):
+class BM_FittingTab(QWidget):
     """
     Fitting Tabs : left or right
     Display fitting graph and providing options
     """
     def __init__(self, parent, side):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.parent = parent
         self.side = side
         self.syncUI = False
@@ -51,44 +50,44 @@ class BM_FittingTab(QtGui.QWidget):
         Initial all GUIs including : 4 plots and result table
         """
         self.setContentsMargins(0, 0, 0, 0)
-        self.fittingTabLayout = QtGui.QVBoxLayout(self)
+        self.fittingTabLayout = QVBoxLayout(self)
 
-        self.fitSettingsGrp = QtGui.QGroupBox("Settings")
-        self.fitSettingLayout = QtGui.QGridLayout(self.fitSettingsGrp)
-        self.sigmaCSpinBx = QtGui.QDoubleSpinBox()
+        self.fitSettingsGrp = QGroupBox("Settings")
+        self.fitSettingLayout = QGridLayout(self.fitSettingsGrp)
+        self.sigmaCSpinBx = QDoubleSpinBox()
         self.sigmaCSpinBx.setMinimum(-100)
         self.sigmaCSpinBx.setDecimals(6)
         self.sigmaCSpinBx.setMaximum(100)
         self.sigmaCSpinBx.setKeyboardTracking(False)
         self.sigmaCSpinBx.setValue(1.)
 
-        self.fixSigmaD = QtGui.QCheckBox("Fixed Sigma D :")
-        self.sigmaDSpinBx = QtGui.QDoubleSpinBox()
+        self.fixSigmaD = QCheckBox("Fixed Sigma D :")
+        self.sigmaDSpinBx = QDoubleSpinBox()
         self.sigmaDSpinBx.setEnabled(False)
         self.sigmaDSpinBx.setMinimum(-100)
         self.sigmaDSpinBx.setMaximum(100)
         self.sigmaDSpinBx.setDecimals(6)
         self.sigmaDSpinBx.setKeyboardTracking(False)
         self.sigmaDSpinBx.setValue(1.)
-        self.fixSigmaS = QtGui.QCheckBox("Fixed Sigma S :")
-        self.sigmaSSpinBx = QtGui.QDoubleSpinBox()
+        self.fixSigmaS = QCheckBox("Fixed Sigma S :")
+        self.sigmaSSpinBx = QDoubleSpinBox()
         self.sigmaSSpinBx.setEnabled(False)
         self.sigmaSSpinBx.setMinimum(-100)
         self.sigmaSSpinBx.setMaximum(100)
         self.sigmaSSpinBx.setDecimals(6)
         self.sigmaSSpinBx.setKeyboardTracking(False)
         self.sigmaSSpinBx.setValue(0.0001)
-        self.fixGamma = QtGui.QCheckBox("Fixed gamma :")
-        self.gammaSpinBx = QtGui.QDoubleSpinBox()
+        self.fixGamma = QCheckBox("Fixed gamma :")
+        self.gammaSpinBx = QDoubleSpinBox()
         self.gammaSpinBx.setEnabled(False)
         self.gammaSpinBx.setMinimum(-100)
         self.gammaSpinBx.setMaximum(100)
         self.gammaSpinBx.setDecimals(6)
         self.gammaSpinBx.setKeyboardTracking(False)
         self.gammaSpinBx.setValue(1)
-        self.refittingB = QtGui.QPushButton("Re-fitting")
+        self.refittingB = QPushButton("Re-fitting")
 
-        self.fitSettingLayout.addWidget(QtGui.QLabel("Sigma C :"), 0, 0, 1, 1)
+        self.fitSettingLayout.addWidget(QLabel("Sigma C :"), 0, 0, 1, 1)
         self.fitSettingLayout.addWidget(self.sigmaCSpinBx, 0, 1, 1, 1)
         self.fitSettingLayout.addWidget(self.fixSigmaD, 1, 0, 1, 1)
         self.fitSettingLayout.addWidget(self.sigmaDSpinBx, 1, 1, 1, 1)
@@ -98,26 +97,26 @@ class BM_FittingTab(QtGui.QWidget):
         self.fitSettingLayout.addWidget(self.gammaSpinBx, 3, 1, 1, 1)
         self.fitSettingLayout.setRowMinimumHeight(0, 10)
 
-        self.skeletalGrp = QtGui.QGroupBox("Skeletal Muscle (Z line)")
+        self.skeletalGrp = QGroupBox("Skeletal Muscle (Z line)")
         self.skeletalGrp.setEnabled(False)
-        self.skeletalLayout = QtGui.QGridLayout(self.skeletalGrp)
-        self.fixedZline = QtGui.QCheckBox("Fixed Center : ")
-        self.zlineSpnBx = QtGui.QDoubleSpinBox()
+        self.skeletalLayout = QGridLayout(self.skeletalGrp)
+        self.fixedZline = QCheckBox("Fixed Center : ")
+        self.zlineSpnBx = QDoubleSpinBox()
         self.zlineSpnBx.setDecimals(0)
         self.zlineSpnBx.setRange(0, 500)
         self.zlineSpnBx.setKeyboardTracking(False)
-        self.fixedIntZ = QtGui.QCheckBox("Fixed Intensity : ")
-        self.intZSpnBx = QtGui.QDoubleSpinBox()
+        self.fixedIntZ = QCheckBox("Fixed Intensity : ")
+        self.intZSpnBx = QDoubleSpinBox()
         self.intZSpnBx.setDecimals(3)
         self.intZSpnBx.setRange(0, 10000000)
         self.intZSpnBx.setKeyboardTracking(False)
-        self.fixedSigZ = QtGui.QCheckBox("Fixed Sigma : ")
-        self.sigZSpnBx = QtGui.QDoubleSpinBox()
+        self.fixedSigZ = QCheckBox("Fixed Sigma : ")
+        self.sigZSpnBx = QDoubleSpinBox()
         self.sigZSpnBx.setDecimals(6)
         self.sigZSpnBx.setRange(-100, 100)
         self.sigZSpnBx.setKeyboardTracking(False)
-        self.fixedGammaZ = QtGui.QCheckBox("Fixed Gamma : ")
-        self.gammaZSpnBx = QtGui.QDoubleSpinBox()
+        self.fixedGammaZ = QCheckBox("Fixed Gamma : ")
+        self.gammaZSpnBx = QDoubleSpinBox()
         self.gammaZSpnBx.setDecimals(6)
         self.gammaZSpnBx.setRange(-100, 100)
         self.gammaZSpnBx.setKeyboardTracking(False)

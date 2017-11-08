@@ -29,6 +29,7 @@ import copy
 import cv2
 import numpy as np
 # import cv2.cv as cv
+import fabio
 import pyFAI
 from skimage.morphology import white_tophat
 
@@ -54,6 +55,7 @@ def get16bitImage(img):
     else:
         dev = max_val - min_val
         return (np.round(img*65535./dev)).astype('uint16')
+
 
 def get8bitImage(img, min = None, max = None):
     """
@@ -432,3 +434,16 @@ def display_test(img, name = "test", max_int = 100):
     img = get8bitImage(img, min=0.0, max=max_int)
     img = cv2.resize(img, size)
     cv2.imshow(name, img)
+
+def averageImages(file_list):
+    """
+    open images and average them all
+    :param file_list: list of image path (str)
+    :return:
+    """
+    all_imgs = []
+    for f in file_list:
+        img = fabio.open(f).data
+        all_imgs.append(img)
+
+    return np.mean(all_imgs, axis=0)

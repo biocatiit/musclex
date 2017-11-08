@@ -28,10 +28,9 @@ authorization from Illinois Institute of Technology.
 
 __author__ = 'Miguel Menendez, Jiranun.J'
 
-from PyQt4 import QtCore, QtGui
+from pyqt_utils import *
 import sys
 from os.path import isfile, abspath
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.patches import Ellipse
 import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
@@ -43,11 +42,13 @@ from ..modules.CircularProjection import *
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
 import musclex
+import pandas as pd
+import BlankImageSettings as BI
 
-class CPImageWindow(QtGui.QMainWindow):
+class CPImageWindow(QMainWindow):
     def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
-        # QtGui.QDialog.__init__(self, parent)
-        QtGui.QWidget.__init__(self)
+        # QDialog.__init__(self, parent)
+        QWidget.__init__(self)
         self.setWindowTitle(image_name)
         self.fileName = image_name
         self.filePath = dir_path
@@ -59,8 +60,10 @@ class CPImageWindow(QtGui.QMainWindow):
         self.currentImgSize = (0, 0)
         self.cirProj = None
         self.calSettings = None
+        self.mask = None
         self.function = None
         self.checkable_buttons = []
+        self.fixed_hull_range = None
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -96,67 +99,71 @@ class CPImageWindow(QtGui.QMainWindow):
     def initUI(self):
         self.setWindowTitle("Circular Projection v." + musclex.__version__)
         self.setStyleSheet(getStyleSheet())
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
         ### Image mode tabs
         ## IMAGE MODE 1 : Image tab
-        self.imageTab = QtGui.QWidget()
+        self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QtGui.QHBoxLayout(self.imageTab)
-        self.displayedImgLayout = QtGui.QHBoxLayout()
-        self.displayedImgLayout.setAlignment(QtCore.Qt.AlignCenter)
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
+        self.displayedImgLayout = QHBoxLayout()
+        self.displayedImgLayout.setAlignment(Qt.AlignCenter)
         self.displayImgFigure = plt.figure(facecolor='#606060')
+        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
-        self.imageOptionsFrame = QtGui.QFrame()
+        self.imageOptionsFrame = QFrame()
         self.imageOptionsFrame.setFixedWidth(300)
-        self.imageOptionsLayout = QtGui.QVBoxLayout()
-        self.imageOptionsLayout.setAlignment(QtCore.Qt.AlignTop)
-        self.centerChkbx = QtGui.QCheckBox("Display Center")
-        self.displayRingsChkbx = QtGui.QCheckBox("Display Rings")
+        self.imageOptionsLayout = QVBoxLayout()
+        self.imageOptionsLayout.setAlignment(Qt.AlignTop)
+        self.centerChkbx = QCheckBox("Display Center")
+        self.displayRingsChkbx = QCheckBox("Display Rings")
         self.displayRingsChkbx.setChecked(True)
-        self.intensityGrp = QtGui.QGroupBox()
+        self.intensityGrp = QGroupBox()
         self.intensityGrp.setTitle("Image Intensity")
-        self.intensityGrp.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum)
-        self.intensityLayout = QtGui.QGridLayout()
+        self.intensityGrp.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.intensityLayout = QGridLayout()
         self.intensityGrp.setLayout(self.intensityLayout)
-        self.maxInt = QtGui.QDoubleSpinBox()
+        self.maxInt = QDoubleSpinBox()
         self.maxInt.setValue(1)
         self.maxInt.setKeyboardTracking(False)
-        self.minInt = QtGui.QDoubleSpinBox()
+        self.minInt = QDoubleSpinBox()
         self.minInt.setValue(0)
         self.minInt.setKeyboardTracking(False)
-        self.minIntLabel = QtGui.QLabel("Min intensity")
-        self.maxIntLabel = QtGui.QLabel("Max intensity")
+        self.minIntLabel = QLabel("Min intensity")
+        self.maxIntLabel = QLabel("Max intensity")
         self.intensityLayout.addWidget(self.minIntLabel, 0, 0)
         self.intensityLayout.addWidget(self.minInt, 0, 1)
         self.intensityLayout.addWidget(self.maxIntLabel, 1, 0)
         self.intensityLayout.addWidget(self.maxInt, 1, 1)
-        self.noBGImgChkBx = QtGui.QCheckBox("Backgound Subtracted Image")
-        self.noBGImgSpinbx = QtGui.QSpinBox()
+        self.noBGImgChkBx = QCheckBox("Backgound Subtracted Image")
+        self.blankChkBx = QCheckBox("Subtract with Blank Image")
+        self.blankChkBx.setChecked(True)
+        self.noBGImgSpinbx = QSpinBox()
         self.noBGImgSpinbx.setMinimum(3)
         self.noBGImgSpinbx.setMaximum(100)
         self.noBGImgSpinbx.setValue(3)
         self.noBGImgSpinbx.setEnabled(False)
-        self.angleChkBx = QtGui.QCheckBox()
-        self.angleChkBx.setText("Display Angle lines")
+        self.angleChkBx = QCheckBox("Display Angle lines")
         self.angleChkBx.setChecked(True)
+        self.rminmaxChkBx = QCheckBox("Display R-min and R-max")
+        self.rminmaxChkBx.setChecked(False)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QtGui.QPushButton("Process Current Folder")
+        self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
-        self.pnButtons = QtGui.QGridLayout()
-        self.prevButton = QtGui.QPushButton('<')
+        self.pnButtons = QGridLayout()
+        self.prevButton = QPushButton('<')
         self.prevButton.clearFocus()
-        self.nextButton = QtGui.QPushButton('>')
+        self.nextButton = QPushButton('>')
         self.pnButtons.addWidget(self.processFolderButton, 0, 0, 1, 2)
         self.pnButtons.addWidget(self.prevButton, 1, 0, 1, 1)
         self.pnButtons.addWidget(self.nextButton, 1, 1, 1, 1)
 
-        self.displayOptionGrp = QtGui.QGroupBox()
+        self.displayOptionGrp = QGroupBox()
         self.displayOptionGrp.setTitle('Display Options')
-        self.displayOptionsLayout = QtGui.QVBoxLayout()
+        self.displayOptionsLayout = QVBoxLayout()
         self.displayOptionsLayout.addSpacing(15)
         self.displayOptionsLayout.addWidget(self.intensityGrp)
         self.displayOptionsLayout.addSpacing(10)
@@ -164,19 +171,29 @@ class CPImageWindow(QtGui.QMainWindow):
         self.displayOptionsLayout.addSpacing(10)
         self.displayOptionsLayout.addWidget(self.displayRingsChkbx)
         self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.noBGImgChkBx)
+        # self.displayOptionsLayout.addWidget(self.noBGImgChkBx)
+        # self.displayOptionsLayout.addSpacing(10)
+        self.displayOptionsLayout.addWidget(self.blankChkBx)
         self.displayOptionsLayout.addSpacing(10)
         self.displayOptionsLayout.addWidget(self.angleChkBx)
+        self.displayOptionsLayout.addSpacing(10)
+        self.displayOptionsLayout.addWidget(self.rminmaxChkBx)
         self.displayOptionGrp.setLayout(self.displayOptionsLayout)
 
-        self.setCaliButton = QtGui.QPushButton("Calibration Settings")
-        self.selectRings = QtGui.QPushButton("Select Rings Manually")
+        self.setCaliButton = QPushButton("Calibration Settings")
+        self.setBlankImageButton = QPushButton("Blank Image and Mask")
+        self.setHullRange = QPushButton("Set Fixed R-min and R-max")
+        self.setHullRange.setCheckable(True)
+        self.checkable_buttons.append(self.setHullRange)
+        self.selectRings = QPushButton("Select Rings Manually")
         self.selectRings.setCheckable(True)
         self.checkable_buttons.append(self.selectRings)
 
-        self.settingGrp = QtGui.QGroupBox("Settings")
-        self.settingLayout = QtGui.QVBoxLayout(self.settingGrp)
+        self.settingGrp = QGroupBox("Settings")
+        self.settingLayout = QVBoxLayout(self.settingGrp)
         self.settingLayout.addWidget(self.setCaliButton)
+        self.settingLayout.addWidget(self.setBlankImageButton)
+        self.settingLayout.addWidget(self.setHullRange)
         self.settingLayout.addWidget(self.selectRings)
 
         self.imageOptionsLayout.addWidget(self.settingGrp)
@@ -191,49 +208,53 @@ class CPImageWindow(QtGui.QMainWindow):
         self.imageTabLayout.addWidget(self.imageOptionsFrame)
 
         ## IMAGE MODE 2 : Method 1 Tab Multiple conical integrations
-        self.method1Tab = QtGui.QWidget()
+        self.method1Tab = QWidget()
         self.method1Tab.setContentsMargins(0, 0, 0, 0)
-        self.method1TabLayout = QtGui.QGridLayout(self.method1Tab)
-        self.m1_key_group = QtGui.QGroupBox()
+        self.method1TabLayout = QGridLayout(self.method1Tab)
+        self.m1_key_group = QGroupBox()
         # self.m1_key_group.setTitle()
-        self.m1_keys_layout = QtGui.QGridLayout(self.m1_key_group)
-        self.skipFirstPeakChkBx = QtGui.QCheckBox()
+        self.m1_keys_layout = QGridLayout(self.m1_key_group)
+        self.skipFirstPeakChkBx = QCheckBox()
         self.skipFirstPeakChkBx.setText("Zoom")
         self.skipFirstPeakChkBx.setChecked(False)
 
-        self.m1OriginalHistChkbx = QtGui.QCheckBox()
+        self.m1OriginalHistChkbx = QCheckBox()
         self.m1OriginalHistChkbx.setText("Original Histogram")
         self.m1OriginalHistChkbx.setChecked(False)
 
-        self.partialRange = QtGui.QSpinBox()
+        self.partialRange = QSpinBox()
         self.partialRange.setMinimum(30)
         self.partialRange.setMaximum(180)
         self.partialRange.setSingleStep(30)
         self.partialRange.setValue(90)
         self.partialRange.setKeyboardTracking(False)
-        self.next_range = QtGui.QPushButton('>>')
-        self.prev_range = QtGui.QPushButton('<<')
+        self.next_range = QPushButton('>>')
+        self.prev_range = QPushButton('<<')
 
         self.m1_keys_layout.addWidget(self.skipFirstPeakChkBx, 0, 0, 1, 1)
         self.m1_keys_layout.addWidget(self.m1OriginalHistChkbx, 0, 1, 1, 1)
-        self.m1_keys_layout.addWidget(QtGui.QLabel('Range Angle (degree) : '), 1, 0, 1, 1)
+        self.m1_keys_layout.addWidget(QLabel('Range Angle (degree) : '), 1, 0, 1, 1)
         self.m1_keys_layout.addWidget(self.partialRange, 1, 1, 1, 1)
-        change_label = QtGui.QLabel("Change Range")
+        change_label = QLabel("Change Range")
         self.m1_keys_layout.addWidget(change_label, 0, 2, 1, 2)
-        self.m1_keys_layout.setAlignment(change_label, QtCore.Qt.AlignCenter)
+        self.m1_keys_layout.setAlignment(change_label, Qt.AlignCenter)
         self.m1_keys_layout.addWidget(self.prev_range, 1, 2, 1, 1)
         self.m1_keys_layout.addWidget(self.next_range, 1, 3, 1, 1)
-        self.m1_keys_layout.setAlignment(QtCore.Qt.AlignTop)
-        self.m1_key_group.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum)
-        self.m1_key_group.setAlignment(QtCore.Qt.AlignTop)
+        self.m1_keys_layout.setAlignment(Qt.AlignTop)
+        self.m1_key_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.m1_key_group.setAlignment(Qt.AlignTop)
 
         self.m1_partial_hist_figure = plt.figure(facecolor='#606060')
+        self.m1_partial_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
+        self.m1_partial_hist_axes = self.m1_partial_hist_figure.add_subplot(111)
         self.m1_partial_hist_canvas = FigureCanvas(self.m1_partial_hist_figure)
         # self.toolbar = NavigationToolbar(self.m1_partial_hist_canvas, self)
         # self.method1TabLayout.addWidget(self.toolbar)
         self.m1_hist_figure = plt.figure(facecolor='#606060')
+        self.m1_hist_axes = self.m1_hist_figure.add_subplot(111)
         self.m1_hist_canvas = FigureCanvas(self.m1_hist_figure)
         self.m1_img_fig = plt.figure(facecolor='#606060')
+        self.m1_img_axes = self.m1_img_fig.add_subplot(111)
         self.m1_img_canvas = FigureCanvas(self.m1_img_fig)
         self.method1TabLayout.addWidget(self.m1_img_canvas, 0, 0, 3, 1)
         self.method1TabLayout.addWidget(self.m1_partial_hist_canvas, 0, 1)
@@ -241,59 +262,60 @@ class CPImageWindow(QtGui.QMainWindow):
         self.method1TabLayout.addWidget(self.m1_hist_canvas, 2, 1)
 
         ## IMAGE MODE 3 : Method 2 Tab
-        self.method2Tab = QtGui.QWidget()
+        self.method2Tab = QWidget()
         self.method2Tab.setContentsMargins(0, 0, 0, 0)
-        self.method2Tablayout = QtGui.QGridLayout(self.method2Tab)
-        self.method2ComboBx = QtGui.QComboBox()
+        self.method2Tablayout = QGridLayout(self.method2Tab)
+        self.method2ComboBx = QComboBox()
         self.method2ComboBx.addItem("2D Integration")
         self.method2ComboBx.addItem("Central Differences")
         self.method2ComboBx.addItem("Log Central Differences")
         self.method2ComboBx.setCurrentIndex(2)
-        self.runsChkBx = QtGui.QCheckBox("Display Runs")
-        self.ringsChkBx = QtGui.QCheckBox("Display Rings")
+        self.runsChkBx = QCheckBox("Display Runs")
+        self.ringsChkBx = QCheckBox("Display Rings")
 
         self.m2_cent_diff_fig = plt.figure(facecolor='#606060')
+        self.m2_cent_diff_axes = self.m2_cent_diff_fig.add_subplot(111)
         self.m2_cent_diff_canvas = FigureCanvas(self.m2_cent_diff_fig)
         self.method2Tablayout.addWidget(self.method2ComboBx, 0, 0, 1, 1)
         self.method2Tablayout.addWidget(self.runsChkBx, 0, 1, 1, 1)
-        # self.method2Tablayout.setAlignment(self.runsChkBx, QtCore.Qt.AlignCenter)
+        # self.method2Tablayout.setAlignment(self.runsChkBx, Qt.AlignCenter)
         self.method2Tablayout.addWidget(self.ringsChkBx, 0, 2, 1, 1)
-        # self.method2Tablayout.setAlignment(self.ringsChkBx, QtCore.Qt.AlignCenter)
+        # self.method2Tablayout.setAlignment(self.ringsChkBx, Qt.AlignCenter)
         self.method2Tablayout.addWidget(self.m2_cent_diff_canvas, 1, 0, 1, 3)
 
         ## IMAGE MODE 4 : Result Tab
-        self.resultTab = QtGui.QWidget()
+        self.resultTab = QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
-        self.resultTabLayout = QtGui.QGridLayout(self.resultTab)
-        self.graph_cmbbx = QtGui.QComboBox()
+        self.resultTabLayout = QGridLayout(self.resultTab)
+        self.graph_cmbbx = QComboBox()
         self.graph_cmbbx.addItem("2D Integration and Fitting Information")
         self.graph_cmbbx.addItem("Angle distribution")
         self.graph_cmbbx.setCurrentIndex(0)
 
-        self.skip_first_peak_chkbx = QtGui.QCheckBox("Zoom")
+        self.skip_first_peak_chkbx = QCheckBox("Zoom")
         self.skip_first_peak_chkbx.setChecked(False)
-        self.original_hist_chkbx = QtGui.QCheckBox("Original Histogram")
+        self.original_hist_chkbx = QCheckBox("Original Histogram")
         self.original_hist_chkbx.setChecked(False)
-        self.hull_hist_chkbx = QtGui.QCheckBox("No Background Histogram")
+        self.hull_hist_chkbx = QCheckBox("No Background Histogram")
         self.hull_hist_chkbx.setChecked(True)
-        self.fit_hist_chkbx = QtGui.QCheckBox("Fit Model")
+        self.fit_hist_chkbx = QCheckBox("Fit Model")
         self.fit_hist_chkbx.setChecked(True)
-        self.selectPeaks = QtGui.QPushButton("Select Peaks Manually")
+        self.selectPeaks = QPushButton("Select Peaks Manually")
         self.selectPeaks.setCheckable(True)
         self.checkable_buttons.append(self.selectPeaks)
-        self.rings_chkbx = QtGui.QCheckBox("Model Peaks")
+        self.rings_chkbx = QCheckBox("Model Peaks")
         self.rings_chkbx.setChecked(True)
-        self.ring_hists_chkbx = QtGui.QCheckBox("All Rings")
+        self.ring_hists_chkbx = QCheckBox("All Rings")
         self.ring_hists_chkbx.setChecked(True)
         self.ring_hists_chkbx.setHidden(True)
-        self.average_ring_chkbx = QtGui.QCheckBox("Average Model")
+        self.average_ring_chkbx = QCheckBox("Average Model")
         self.average_ring_chkbx.setChecked(False)
         self.average_ring_chkbx.setHidden(True)
-        self.g_model_chkbx = QtGui.QCheckBox("Gaussian Models")
+        self.g_model_chkbx = QCheckBox("Gaussian Models")
         self.g_model_chkbx.setChecked(True)
         self.g_model_chkbx.setHidden(True)
-        self.graph_options_frame = QtGui.QFrame()
-        self.graph_options_layout = QtGui.QVBoxLayout()
+        self.graph_options_frame = QFrame()
+        self.graph_options_layout = QVBoxLayout()
         self.graph_options_layout.addWidget(self.selectPeaks)
         self.graph_options_layout.addWidget(self.skip_first_peak_chkbx)
         self.graph_options_layout.addWidget(self.original_hist_chkbx)
@@ -307,11 +329,12 @@ class CPImageWindow(QtGui.QMainWindow):
 
         # self.graph_options_frame.setFixedWidth(200)
         self.result_graph_figure = plt.figure(facecolor='#606060')
+        self.result_graph_axes = self.result_graph_figure.add_subplot(111)
         self.result_graph_canvas = FigureCanvas(self.result_graph_figure)
-        self.processing_results = QtGui.QTextEdit()
+        self.processing_results = QTextEdit()
         self.processing_results.setReadOnly(True)
         self.processing_results.setText("Angular results : N/A")
-        self.rings_results = QtGui.QTextEdit()
+        self.rings_results = QTextEdit()
         self.rings_results.setReadOnly(True)
         # self.rings_results.setLineWidth(2)
         self.rings_results.setText("Rings Information : N/A")
@@ -328,9 +351,9 @@ class CPImageWindow(QtGui.QMainWindow):
         self.resultTabLayout.setColumnStretch(3, 1)
 
         ## tabs
-        self.tabWidget = QtGui.QTabWidget()
+        self.tabWidget = QTabWidget()
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 300px; }")
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
 
@@ -342,14 +365,14 @@ class CPImageWindow(QtGui.QMainWindow):
         self.mainLayout.addWidget(self.tabWidget)
 
         # status bar
-        self.statusBar = QtGui.QStatusBar()
-        self.imagePathLabel = QtGui.QLabel('')
-        self.statusLabel = QtGui.QLabel('')
-        self.progressBar = QtGui.QProgressBar()
+        self.statusBar = QStatusBar()
+        self.imagePathLabel = QLabel('')
+        self.statusLabel = QLabel('')
+        self.progressBar = QProgressBar()
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
-        self.statusBar.addWidget(QtGui.QLabel('   '))
+        self.statusBar.addWidget(QLabel('   '))
         self.statusBar.addWidget(self.imagePathLabel)
         self.statusBar.addPermanentWidget(self.statusLabel)
         self.statusBar.addPermanentWidget(self.progressBar)
@@ -367,8 +390,12 @@ class CPImageWindow(QtGui.QMainWindow):
         self.maxInt.valueChanged.connect(self.maxIntChanged)
         self.minInt.valueChanged.connect(self.minIntChanged)
         self.noBGImgChkBx.stateChanged.connect(self.updateUI)
+        self.blankChkBx.stateChanged.connect(self.updateUI)
         self.angleChkBx.stateChanged.connect(self.updateUI)
+        self.rminmaxChkBx.stateChanged.connect(self.updateUI)
         self.setCaliButton.clicked.connect(self.calibrationClicked)
+        self.setBlankImageButton.clicked.connect(self.setBlankAndMask)
+        self.setHullRange.clicked.connect(self.setHullRangeClicked)
         self.selectRings.clicked.connect(self.selectRingsClicked)
         self.processFolderButton.clicked.connect(self.processFolder)
         self.prevButton.clicked.connect(self.prevImage)
@@ -406,6 +433,14 @@ class CPImageWindow(QtGui.QMainWindow):
             self.cirProj.removeInfo()
             self.processImage()
 
+    def setBlankAndMask(self):
+        dialog = BI.BlankImageSettings(self.filePath)
+        self.mask = None
+        result = dialog.exec_()
+        if result == 1 and self.cirProj is not None:
+            self.cirProj.removeInfo('2dintegration')
+            self.processImage()
+
     def selectPeaksClicked(self):
         """
         Triggered when select peaks manually button pressed (Result tab)
@@ -416,7 +451,7 @@ class CPImageWindow(QtGui.QMainWindow):
         if self.selectPeaks.isChecked():
             self.function = ["peaks"]
             self.selectPeaks.setText("Done")
-            ax = self.result_graph_figure.add_subplot(111)
+            ax = self.result_graph_axes
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -431,6 +466,22 @@ class CPImageWindow(QtGui.QMainWindow):
             self.function = None
             self.processImage()
 
+    def setHullRangeClicked(self):
+        """
+        Triggered when select R-min and R-max button pressed (Image tab)
+        """
+        if self.cirProj is None:
+            return
+
+        if self.setHullRange.isChecked():
+            self.function = ['hull']
+            ax = self.displayImgAxes
+            ax.lines = []
+            ax.patches = []
+            self.displayImgCanvas.draw_idle()
+        else:
+            self.function = None
+            self.updateImageTab()
 
     def selectRingsClicked(self):
         """
@@ -442,10 +493,8 @@ class CPImageWindow(QtGui.QMainWindow):
         if self.selectRings.isChecked():
             self.function = ["rings"]
             self.selectRings.setText("Done")
-            ax = self.displayImgFigure.add_subplot(111)
-            del ax.lines
+            ax = self.displayImgAxes
             ax.lines = []
-            del ax.patches
             ax.patches = []
             self.displayImgCanvas.draw_idle()
         else:
@@ -467,7 +516,7 @@ class CPImageWindow(QtGui.QMainWindow):
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -490,7 +539,7 @@ class CPImageWindow(QtGui.QMainWindow):
         # Provide different behavior depending on current active function
         if func[0] == "peaks":
             # Add rings to list and draw circles
-            ax = self.result_graph_figure.add_subplot(111)
+            ax = self.result_graph_axes
             ax.axvline(x, color='b')
             ax.text(x,0,'Peak#'+str(len(self.function)),fontsize=10, horizontalalignment='center')
             self.function.append(int(round(x)))
@@ -508,7 +557,7 @@ class CPImageWindow(QtGui.QMainWindow):
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -533,11 +582,27 @@ class CPImageWindow(QtGui.QMainWindow):
             # Add rings to list and draw circles
             center = self.cirProj.info['center']
             dis = distance(center, (x,y))
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
             self.function.append(int(round(dis)))
             self.displayImgCanvas.draw_idle()
+        elif func[0] == "hull":
+            center = self.cirProj.info['center']
+            dis = distance(center, (x, y))
+            self.function.append(int(round(dis)))
+            if len(self.function) == 3:
+                rs = self.function[1:]
+                rmin = min(rs)
+                rmax = max(rs)
+                self.fixed_hull_range = (rmin, rmax)
+                self.cirProj.removeInfo('2dintegration')
+                self.processImage()
+            else:
+                ax = self.displayImgAxes
+                ax.add_patch(
+                    patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
+                self.displayImgCanvas.draw_idle()
 
     def imgOnMotion(self, event):
         """
@@ -549,9 +614,16 @@ class CPImageWindow(QtGui.QMainWindow):
         x = event.xdata
         y = event.ydata
 
+        if x is not None and y is not None:
+            orig_img = self.cirProj.original_image
+            ix = int(round(x))
+            iy = int(round(y))
+            self.statusLabel.setText('x='+str(round(x,2))+', y='+str(round(y,2))+', val='+str(round(orig_img[iy,ix],2)))
+
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            ax = self.displayImgFigure.add_subplot(111)
+            self.statusLabel.setText('')
+            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -575,13 +647,24 @@ class CPImageWindow(QtGui.QMainWindow):
 
         if func[0] == "rings":
             # draw circle
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
             patch_list = ax.patches[0:len(self.function)-1]
             del ax.patches
             ax.patches = patch_list
             center = self.cirProj.info['center']
             dis = distance(center, (x, y))
-            ax = self.displayImgFigure.add_subplot(111)
+            ax = self.displayImgAxes
+            ax.add_patch(
+                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
+            self.displayImgCanvas.draw_idle()
+        if func[0] == 'hull':
+            # draw circle
+            ax = self.displayImgAxes
+            patch_list = ax.patches[0:len(self.function) - 1]
+            ax.patches = patch_list
+            center = self.cirProj.info['center']
+            dis = distance(center, (x, y))
+            ax = self.displayImgAxes
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
             self.displayImgCanvas.draw_idle()
@@ -608,7 +691,7 @@ class CPImageWindow(QtGui.QMainWindow):
         """
         ## Popup confirm dialog with settings
         nImg = len(self.imgList)
-        errMsg = QtGui.QMessageBox()
+        errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         flags = self.getFlags()
@@ -626,12 +709,12 @@ class CPImageWindow(QtGui.QMainWindow):
                 text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
         text += '\n\nAre you sure you want to process ' + str(nImg) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.Cancel)
-        errMsg.setIcon(QtGui.QMessageBox.Warning)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
         ret = errMsg.exec_()
 
         # If "yes" is pressed
-        if ret == QtGui.QMessageBox.Yes:
+        if ret == QMessageBox.Yes:
             # Display progress bar
             self.progressBar.setMaximum(nImg)
             self.progressBar.setMinimum(0)
@@ -665,7 +748,7 @@ class CPImageWindow(QtGui.QMainWindow):
             for i in range(nImg):
                 self.nextImage()
                 self.progressBar.setValue(i)
-                QtGui.QApplication.processEvents()
+                QApplication.processEvents()
             self.folder_processed = True
         else:
             self.folder_processed = False
@@ -675,10 +758,12 @@ class CPImageWindow(QtGui.QMainWindow):
     def keyPressEvent(self, event):
         key = event.key()
 
-        if key == QtCore.Qt.Key_Right:
+        if key == Qt.Key_Right:
             self.nextImage()
-        elif key == QtCore.Qt.Key_Left:
+        elif key == Qt.Key_Left:
             self.prevImage()
+        elif key == Qt.Key_Escape:
+            self.refreshAllTabs()
 
     def closeEvent(self, ev):
         if self.mainWin is not None:
@@ -696,6 +781,9 @@ class CPImageWindow(QtGui.QMainWindow):
                 flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
                 if self.calSettings.has_key("center"):
                     flags["center"] = self.calSettings["center"]
+
+        if self.fixed_hull_range is not None:
+            flags['fixed_hull'] = self.fixed_hull_range
 
         return flags
 
@@ -719,7 +807,7 @@ class CPImageWindow(QtGui.QMainWindow):
         if imgList is not None:
             self.imgList = imgList
         else:
-            self.imgList, _ = getFiles(self.filePath)
+            self.imgList, _ = getFilesAndHdf(self.filePath)
 
         self.imgList.sort()
         self.numberOfFiles = len(self.imgList)
@@ -740,10 +828,10 @@ class CPImageWindow(QtGui.QMainWindow):
 
     def processImage(self):
         if self.cirProj is not None:
-            QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags()
             self.cirProj.process(flags)
-            QtGui.QApplication.restoreOverrideCursor()
+            QApplication.restoreOverrideCursor()
             self.csvManager.write_new_data(self.cirProj)
             self.refreshAllTabs()
             self.updateUI()
@@ -777,9 +865,9 @@ class CPImageWindow(QtGui.QMainWindow):
             self.updatingUI = False
 
     def updateStatusBar(self, text):
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         self.imagePathLabel.setText(text)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def updateUI(self):
         if self.cirProj is None:
@@ -855,6 +943,9 @@ class CPImageWindow(QtGui.QMainWindow):
         self.updateUI()
 
     def refreshAllTabs(self):
+        self.function = None
+        for b in self.checkable_buttons:
+            b.setChecked(False)
         for k in self.update_plot.keys():
             self.update_plot[k] = True
 
@@ -893,12 +984,15 @@ class CPImageWindow(QtGui.QMainWindow):
         cv2.line(img, range2[0], range2[1], (0, 255, 255), 5)
 
     def updateImageTab(self):
-        if self.noBGImgChkBx.isChecked():
-            img = getBGR(get8bitImage(self.cirProj.noBGImg, min=self.minInt.value(), max=self.maxInt.value()))
-        else:
-            img = getBGR(get8bitImage(self.cirProj.original_image, min=self.minInt.value(), max=self.maxInt.value()))
+        img = copy.copy(self.cirProj.original_image)
+        if self.blankChkBx.isChecked():
+            blank, mask = getBlankImageAndMask(self.filePath)
+            if blank is not None:
+                img = img - blank
 
-        ax = self.displayImgFigure.add_subplot(111)
+        img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
+
+        ax = self.displayImgAxes
         ax.cla()
         ax.imshow(img)
 
@@ -956,6 +1050,12 @@ class CPImageWindow(QtGui.QMainWindow):
             ax.add_patch(
                 patches.Circle(tuple(center), 3, linewidth=2, edgecolor='w', facecolor='r'))
 
+        if self.rminmaxChkBx.isChecked():
+            ax.add_patch(patches.Circle(tuple(center), self.cirProj.info['start_point'], linewidth=2, edgecolor='y',
+                                        facecolor='none'))
+            ax.add_patch(patches.Circle(tuple(center), self.cirProj.info['rmax'], linewidth=2, edgecolor='y',
+                                        facecolor='none'))
+
         ax.set_ylim((0, img.shape[0]))
         ax.set_xlim((0, img.shape[1]))
         ax.invert_yaxis()
@@ -971,8 +1071,7 @@ class CPImageWindow(QtGui.QMainWindow):
             str_info = "Range : " + str(selected_range)
             hist = self.cirProj.info['m1_partial_hists'][self.m1_selected_range]
             hull = self.cirProj.info['m1_partial_hulls'][self.m1_selected_range]
-            ax = self.m1_partial_hist_figure.add_subplot(111)
-            self.m1_partial_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
+            ax = self.m1_partial_hist_axes
             ax.cla()
 
             if self.m1OriginalHistChkbx.isChecked():
@@ -1010,10 +1109,14 @@ class CPImageWindow(QtGui.QMainWindow):
             # self.m1_partial_hist_figure.tight_layout()
             self.m1_partial_hist_canvas.draw()
 
-            if self.noBGImgChkBx.isChecked():
-                img = get8bitImage(self.cirProj.noBGImg, min=self.minInt.value(), max=self.maxInt.value())
-            else:
-                img = get8bitImage(self.cirProj.original_image, min=self.minInt.value(), max=self.maxInt.value())
+            img = copy.copy(self.cirProj.original_image)
+
+            if self.blankChkBx.isChecked():
+                blank, mask = getBlankImageAndMask(self.filePath)
+                if blank is not None:
+                    img = img - blank
+
+            img = get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value())
 
             center = (int(np.round(self.cirProj.info['center'][0])), int(np.round(self.cirProj.info['center'][1])))
             radius = int(distance((0,0),(img.shape[1],img.shape[0])))
@@ -1025,12 +1128,11 @@ class CPImageWindow(QtGui.QMainWindow):
             img = getBGR(img)
             r, g, b = cv2.split(img)
             red_panel = r.astype(np.int)
-            red_panel[mask > 0] += 25
+            red_panel[mask > 0] += 50
             red_panel[red_panel>255] = 255
             r = red_panel.astype(r.dtype)
-
             img = cv2.merge((r, g, b))
-            ax = self.m1_img_fig.add_subplot(111)
+            ax = self.m1_img_axes
             ax.cla()
             ax.imshow(img)
             # self.m1_img_fig.tight_layout()
@@ -1042,7 +1144,7 @@ class CPImageWindow(QtGui.QMainWindow):
             hist = self.cirProj.info['orig_hists']
             hull = self.cirProj.info['hull_hist']
             m1_rings = self.cirProj.info['m1_rings']
-            ax = self.m1_hist_figure.add_subplot(111)
+            ax = self.m1_hist_axes
             self.m1_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
             ax.cla()
             for p in m1_rings:
@@ -1083,7 +1185,7 @@ class CPImageWindow(QtGui.QMainWindow):
 
     def updateMethod2Tab(self):
         if self.update_plot['m2_diff']:
-            ax = self.m2_cent_diff_fig.add_subplot(111)
+            ax = self.m2_cent_diff_axes
             self.m2_cent_diff_fig.subplots_adjust(bottom=0.20)
             ax.cla()
 
@@ -1143,7 +1245,7 @@ class CPImageWindow(QtGui.QMainWindow):
                 model_peaks = []
             original_hist = self.cirProj.info['orig_hists']
             start_point = self.cirProj.info['start_point']
-            ax = self.result_graph_figure.add_subplot(111)
+            ax = self.result_graph_axes
             ax.cla()
 
             # lines = []
@@ -1208,7 +1310,7 @@ class CPImageWindow(QtGui.QMainWindow):
             self.ring_hists_chkbx.setEnabled('ring_hists' in self.cirProj.info.keys())
             self.average_ring_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
 
-            ax = self.result_graph_figure.add_subplot(111)
+            ax = self.result_graph_axes
             ax.cla()
 
             if 'ring_hists' in self.cirProj.info.keys():
@@ -1295,14 +1397,14 @@ class CPImageWindow(QtGui.QMainWindow):
             # self.update_plot['results_text'] = False
 
     def mousePressEvent(self, event):
-        focused_widget = QtGui.QApplication.focusWidget()
+        focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
 
-class CPBatchWindow(QtGui.QMainWindow):
+class CPBatchWindow(QMainWindow):
     def __init__(self, mainWin = None, dir_path=""):
-        # QtGui.QDialog.__init__(self, parent)
-        QtGui.QWidget.__init__(self)
+        # QDialog.__init__(self, parent)
+        QWidget.__init__(self)
         self.filePath = dir_path
         self.widgetList = []
         self.update_plot = {'intensity_maps': True,
@@ -1346,22 +1448,23 @@ class CPBatchWindow(QtGui.QMainWindow):
     def initUI(self):
         self.setWindowTitle("Circular Projection v." + musclex.__version__)
         self.setStyleSheet(getStyleSheet())
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QGridLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QGridLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
         #### IMAGE ####
         self.imgFigure = plt.figure(facecolor='#606060')
+        self.imgAxes = self.imgFigure.add_subplot(111)
         self.imgCanvas = FigureCanvas(self.imgFigure)
-        self.img_maxInt = QtGui.QDoubleSpinBox()
+        self.img_maxInt = QDoubleSpinBox()
         self.img_maxInt.setValue(1)
         self.img_maxInt.setKeyboardTracking(False)
-        self.img_minInt = QtGui.QDoubleSpinBox()
+        self.img_minInt = QDoubleSpinBox()
         self.img_minInt.setValue(0)
         self.img_minInt.setKeyboardTracking(False)
-        self.img_minIntLabel = QtGui.QLabel("Min intensity")
-        self.img_maxIntLabel = QtGui.QLabel("Max intensity")
-        self.imgLayout = QtGui.QGridLayout()
+        self.img_minIntLabel = QLabel("Min intensity")
+        self.img_maxIntLabel = QLabel("Max intensity")
+        self.imgLayout = QGridLayout()
         self.imgLayout.addWidget(self.imgCanvas, 0, 0, 1, 4)
         self.imgLayout.addWidget(self.img_minIntLabel, 1, 0, 1, 1)
         self.imgLayout.addWidget(self.img_minInt, 1, 1, 1, 1)
@@ -1370,13 +1473,14 @@ class CPBatchWindow(QtGui.QMainWindow):
 
         #### BATCHMODE - tabs
         ## BATCHMODE 1 : Total Intensity Map Tab
-        self.intensityTab = QtGui.QWidget()
+        self.intensityTab = QWidget()
         self.intensityTab.setContentsMargins(0, 0, 0, 0)
-        self.intensityTabLayout = QtGui.QGridLayout(self.intensityTab)
+        self.intensityTabLayout = QGridLayout(self.intensityTab)
         self.intensityMapFigure = plt.figure(facecolor='#606060')
+        self.intensityMapAxes = self.intensityMapFigure.add_subplot(111)
         self.intensityMapCanvas = FigureCanvas(self.intensityMapFigure)
         self.intensityMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
-        self.int_maxIntMap = QtGui.QDoubleSpinBox()
+        self.int_maxIntMap = QDoubleSpinBox()
         self.int_maxIntMap.setMinimum(1)
         self.int_maxIntMap.setMaximum(100)
         self.int_maxIntMap.setValue(100.)
@@ -1384,7 +1488,7 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.int_maxIntMap.setSuffix("%")
         self.int_maxIntMap.setKeyboardTracking(False)
 
-        self.int_minIntMap = QtGui.QDoubleSpinBox()
+        self.int_minIntMap = QDoubleSpinBox()
         self.int_minIntMap.setMinimum(0)
         self.int_minIntMap.setMaximum(99)
         self.int_minIntMap.setValue(0)
@@ -1392,108 +1496,112 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.int_minIntMap.setSuffix("%")
         self.int_minIntMap.setKeyboardTracking(False)
 
-        self.int_MapIntSettings = QtGui.QHBoxLayout()
-        self.int_MapIntSettings.addWidget(QtGui.QLabel("Max : "))
+        self.int_MapIntSettings = QHBoxLayout()
+        self.int_MapIntSettings.addWidget(QLabel("Max : "))
         self.int_MapIntSettings.addWidget(self.int_maxIntMap)
-        self.int_MapIntSettings.addWidget(QtGui.QLabel("Min : "))
+        self.int_MapIntSettings.addWidget(QLabel("Min : "))
         self.int_MapIntSettings.addWidget(self.int_minIntMap)
         self.intensityTabLayout.addWidget(self.intensityMapCanvas, 0, 0, 1, 1)
         self.intensityTabLayout.addLayout(self.int_MapIntSettings, 1, 0, 1, 1)
 
         ## BATCHMODE 2 : Distance btw rings map
-        self.distanceMapTab = QtGui.QWidget()
+        self.distanceMapTab = QWidget()
         self.distanceMapTab.setContentsMargins(0, 0, 0, 0)
-        self.distanceMapTabLayout = QtGui.QGridLayout(self.distanceMapTab)
+        self.distanceMapTabLayout = QGridLayout(self.distanceMapTab)
         self.distanceMapFigure = plt.figure(facecolor='#606060')
+        self.distanceMapAxes = self.distanceMapFigure.add_subplot(111)
         self.distanceMapCanvas = FigureCanvas(self.distanceMapFigure)
         self.distanceMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.ds_ImgFigure = plt.figure(facecolor='#606060')
         self.ds_ImgCanvas = FigureCanvas(self.ds_ImgFigure)
         
-        self.ds_maxIntMap = QtGui.QDoubleSpinBox()
+        self.ds_maxIntMap = QDoubleSpinBox()
         self.ds_maxIntMap.setMinimum(1)
         self.ds_maxIntMap.setMaximum(100)
         self.ds_maxIntMap.setValue(100.)
         self.ds_maxIntMap.setSingleStep(5.0)
         self.ds_maxIntMap.setSuffix("%")
         self.ds_maxIntMap.setKeyboardTracking(False)
-        self.ds_minIntMap = QtGui.QDoubleSpinBox()
+        self.ds_minIntMap = QDoubleSpinBox()
         self.ds_minIntMap.setMinimum(0)
         self.ds_minIntMap.setMaximum(99)
         self.ds_minIntMap.setValue(0)
         self.ds_minIntMap.setSingleStep(5.0)
         self.ds_minIntMap.setSuffix("%")
         self.ds_minIntMap.setKeyboardTracking(False)
-        self.ds_MapIntSettings = QtGui.QHBoxLayout()
-        self.ds_MapIntSettings.addWidget(QtGui.QLabel("Max : "))
+        self.ds_MapIntSettings = QHBoxLayout()
+        self.ds_MapIntSettings.addWidget(QLabel("Max : "))
         self.ds_MapIntSettings.addWidget(self.ds_maxIntMap)
-        self.ds_MapIntSettings.addWidget(QtGui.QLabel("Min : "))
+        self.ds_MapIntSettings.addWidget(QLabel("Min : "))
         self.ds_MapIntSettings.addWidget(self.ds_minIntMap)
         self.distanceMapTabLayout.addWidget(self.distanceMapCanvas, 0, 0, 1, 1)
         self.distanceMapTabLayout.addLayout(self.ds_MapIntSettings, 1, 0, 1, 1)
 
         ## BATCHMODE 3 : Angular range map (degrees)
-        self.angularMapTab = QtGui.QWidget()
+        self.angularMapTab = QWidget()
         self.angularMapTab.setContentsMargins(0, 0, 0, 0)
-        self.angularMapTabLayout = QtGui.QGridLayout(self.angularMapTab)
-        self.angularMapTab = QtGui.QWidget()
+        self.angularMapTabLayout = QGridLayout(self.angularMapTab)
+        self.angularMapTab = QWidget()
         self.angularMapTab.setContentsMargins(0, 0, 0, 0)
-        self.angularMapTabLayout = QtGui.QGridLayout(self.angularMapTab)
+        self.angularMapTabLayout = QGridLayout(self.angularMapTab)
         self.angularMapFigure = plt.figure(facecolor='#606060')
+        self.angularMapAxes = self.angularMapFigure.add_subplot(111)
         self.angularMapCanvas = FigureCanvas(self.angularMapFigure)
         self.angularMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
 
-        self.ar_maxIntMap = QtGui.QDoubleSpinBox()
+        self.ar_maxIntMap = QDoubleSpinBox()
         self.ar_maxIntMap.setMinimum(1)
         self.ar_maxIntMap.setMaximum(100)
         self.ar_maxIntMap.setValue(100.)
         self.ar_maxIntMap.setSingleStep(5.0)
         self.ar_maxIntMap.setSuffix("%")
         self.ar_maxIntMap.setKeyboardTracking(False)
-        self.ar_minIntMap = QtGui.QDoubleSpinBox()
+        self.ar_minIntMap = QDoubleSpinBox()
         self.ar_minIntMap.setMinimum(0)
         self.ar_minIntMap.setMaximum(99)
         self.ar_minIntMap.setValue(0)
         self.ar_minIntMap.setSingleStep(5.0)
         self.ar_minIntMap.setSuffix("%")
         self.ar_minIntMap.setKeyboardTracking(False)
-        self.ar_MapIntSettings = QtGui.QHBoxLayout()
-        self.ar_MapIntSettings.addWidget(QtGui.QLabel("Max : "))
+        self.ar_MapIntSettings = QHBoxLayout()
+        self.ar_MapIntSettings.addWidget(QLabel("Max : "))
         self.ar_MapIntSettings.addWidget(self.ar_maxIntMap)
-        self.ar_MapIntSettings.addWidget(QtGui.QLabel("Min : "))
+        self.ar_MapIntSettings.addWidget(QLabel("Min : "))
         self.ar_MapIntSettings.addWidget(self.ar_minIntMap)
         self.angularMapTabLayout.addWidget(self.angularMapCanvas, 0, 0, 1, 1)
         self.angularMapTabLayout.addLayout(self.ar_MapIntSettings, 1, 0, 1, 1)
 
         ## BATCHMODE 4 : Vector Fields
-        self.vectorFieldTab = QtGui.QWidget()
+        self.vectorFieldTab = QWidget()
         self.vectorFieldTab.setContentsMargins(0, 0, 0, 0)
-        self.vectorFieldTabLayout = QtGui.QGridLayout(self.vectorFieldTab)
+        self.vectorFieldTabLayout = QGridLayout(self.vectorFieldTab)
         self.vectorFieldMapFigure = plt.figure(facecolor='#606060')
+        self.vectorFieldMapAxes = self.vectorFieldMapFigure.add_subplot(111)
         self.vectorFieldMapCanvas = FigureCanvas(self.vectorFieldMapFigure)
         self.vectorFieldMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
-        self.arrowLengthSlider = QtGui.QSlider()
+        self.arrowLengthSlider = QSlider()
         self.arrowLengthSlider.setMinimum(5)
         self.arrowLengthSlider.setMaximum(25)
         self.arrowLengthSlider.setValue(5)
-        self.arrowLengthSlider.setOrientation(QtCore.Qt.Horizontal)
+        self.arrowLengthSlider.setOrientation(Qt.Horizontal)
 
         self.vectorFieldTabLayout.addWidget(self.vectorFieldMapCanvas, 0, 0, 1, 2)
-        self.vectorFieldTabLayout.addWidget(QtGui.QLabel("Arrow Length"), 1, 0, 1, 1)
+        self.vectorFieldTabLayout.addWidget(QLabel("Arrow Length"), 1, 0, 1, 1)
         self.vectorFieldTabLayout.addWidget(self.arrowLengthSlider, 1, 1, 1, 1)
 
         ## BATCHMODE 5 : Elliptical Presentation
-        self.ellipticalTab = QtGui.QWidget()
+        self.ellipticalTab = QWidget()
         self.ellipticalTab.setContentsMargins(0, 0, 0, 0)
-        self.ellipticalTabLayout = QtGui.QGridLayout(self.ellipticalTab)
+        self.ellipticalTabLayout = QGridLayout(self.ellipticalTab)
         self.ellipticalMapFigure = plt.figure(facecolor='#606060')
+        self.ellipticalMapAxes = self.ellipticalMapFigure.add_subplot(111)
         self.ellipticalMapCanvas = FigureCanvas(self.ellipticalMapFigure)
         self.ellipticalMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.ellipticalTabLayout.addWidget(self.ellipticalMapCanvas, 0, 0, 1, 1)
 
         ## tabs
-        self.tabWidget = QtGui.QTabWidget()
-        self.tabWidget.setTabPosition(QtGui.QTabWidget.North)
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 35px; width: 200px; }")
@@ -1504,30 +1612,30 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.tabWidget.addTab(self.ellipticalTab, "Elliptical Representation")
 
         # status bar
-        self.statusBar = QtGui.QStatusBar()
-        self.imagePathLabel = QtGui.QLabel('')
-        self.statusLabel = QtGui.QLabel('')
-        self.statusBar.addWidget(QtGui.QLabel('   '))
+        self.statusBar = QStatusBar()
+        self.imagePathLabel = QLabel('')
+        self.statusLabel = QLabel('')
+        self.statusBar.addWidget(QLabel('   '))
         self.statusBar.addWidget(self.imagePathLabel)
-        self.progressBar = QtGui.QProgressBar()
+        self.progressBar = QProgressBar()
         self.progressBar.setMaximum(100)
         self.progressBar.setMinimum(0)
         self.progressBar.setHidden(True)
-        # self.stopButton = QtGui.QPushButton('STOP')
+        # self.stopButton = QPushButton('STOP')
         # self.stopButton.clicked.connect(self.stopProcessing)
         # self.stopButton.setHidden(True)
-        self.moreDetailsButton = QtGui.QPushButton('More Details')
+        self.moreDetailsButton = QPushButton('More Details')
         self.moreDetailsButton.setHidden(True)
-        self.rightBarLayout = QtGui.QVBoxLayout()
+        self.rightBarLayout = QVBoxLayout()
         self.rightBarLayout.addWidget(self.statusLabel)
         self.rightBarLayout.addWidget(self.moreDetailsButton)
-        self.rightBarLayout.setAlignment(QtCore.Qt.AlignRight)
-        self.rightBarFrame = QtGui.QFrame()
+        self.rightBarLayout.setAlignment(Qt.AlignRight)
+        self.rightBarFrame = QFrame()
         self.rightBarFrame.setLayout(self.rightBarLayout)
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addPermanentWidget(self.rightBarFrame)
 
-        self.refreshButton = QtGui.QPushButton("Refresh Maps")
+        self.refreshButton = QPushButton("Refresh Maps")
         self.refreshButton.setFixedHeight(40)
 
         self.mainLayout.addLayout(self.imgLayout, 0, 0, 1, 1)
@@ -1573,7 +1681,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             del self.widgetList[idx]
         
     def sliderReleased(self):
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         if self.tabWidget.currentIndex() == 0:
             self.refreshAllTabs()
         elif self.tabWidget.currentIndex() == 1:
@@ -1628,7 +1736,7 @@ class CPBatchWindow(QtGui.QMainWindow):
                     if img is not None:
                         self.batchmodeImg = img
                         self.setMinMaxIntensity(img, self.img_minInt, self.img_maxInt, self.img_minIntLabel, self.img_maxIntLabel)
-                        QtGui.QApplication.processEvents()
+                        QApplication.processEvents()
                 else:
                     self.batchmodeImg = None
 
@@ -1648,18 +1756,18 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.widgetList.append(new_image_window)
         else:
             if self.batchmodeImgFilename is None:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Image has not been selected')
                 errMsg.setInformativeText('Please select an image from maps')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
             else:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('Image not found')
                 errMsg.setInformativeText(str(self.batchmodeImgFilename)+' not found.\nPlease select another image')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
 
     def maxIntChanged(self):
@@ -1683,7 +1791,7 @@ class CPBatchWindow(QtGui.QMainWindow):
 
     def updateImage(self):
         if self.batchmodeImgDetails is not None:
-            ax = self.imgFigure.add_subplot(111)
+            ax = self.imgAxes
             ax.cla()
             ax.set_title(self.batchmodeImgFilename)
             ax.set_xlabel(self.batchmodeImgDetails)
@@ -1701,7 +1809,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.imgCanvas.draw()
 
     def mousePressEvent(self, event):
-        focused_widget = QtGui.QApplication.focusWidget()
+        focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
 
@@ -1715,7 +1823,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.updateVectorFieldTab()
         elif selected_tab == 3:
             self.updateEllipticalTab()
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def updateTotalIntenTab(self):
 
@@ -1735,9 +1843,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             if self.int_minIntMap.value() > 0:
                 intensity[intensity < self.int_minIntMap.value() * max_val/100.] = self.int_minIntMap.value() * max_val/100.
 
-            self.intensityMapFigure.clear()
-            ax = self.intensityMapFigure.add_subplot(111)
-            # self.intensityMapFigure.subplots_adjust(left=0.15, bottom=0.25)
+            ax = self.intensityMapAxes
             ax.cla()
             ax.set_title("Total Intensity Map\n")
             im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.color_maps)
@@ -1778,8 +1884,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             if self.ds_minIntMap.value() > 0:
                 distances[distances < self.ds_minIntMap.value() * max_val/100.] = min_val
 
-            self.distanceMapFigure.clear()
-            ax = self.distanceMapFigure.add_subplot(111)
+            ax = self.distanceMapAxes
             ax.cla()
             ax.set_title("D-spacing Map\n")
             im = ax.pcolormesh(x_coor, y_coor, distances, cmap=self.color_maps)
@@ -1822,8 +1927,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             if self.ar_minIntMap.value() > 0:
                 ang_range[ang_range < self.ar_minIntMap.value() * max_val/100.] = min_val
 
-            self.angularMapFigure.clear()
-            ax = self.angularMapFigure.add_subplot(111)
+            ax = self.angularMapAxes
             ax.cla()
             ax.set_title("Angular Range Map (Degrees)\n")
             im = ax.pcolormesh(x_coor, y_coor, ang_range, cmap=self.color_maps)
@@ -1870,9 +1974,8 @@ class CPBatchWindow(QtGui.QMainWindow):
             UN = U * speed
             VN = V * speed
             self.vec_UV = [U, V]
-            self.vectorFieldMapFigure.clear()
-            # self.vectorFieldMapFigure.subplots_adjust(left=0.15, bottom=0.25)
-            ax = self.vectorFieldMapFigure.add_subplot(111)
+
+            ax = self.vectorFieldMapAxes
             ax.cla()
             ax.set_facecolor('black')
             ax.set_title("Orientation (direction) and Intensity (height and color) Vector Field")
@@ -1943,7 +2046,7 @@ class CPBatchWindow(QtGui.QMainWindow):
                 int_display[
                     int_display < self.int_minIntMap.value() * max_val / 100.] = self.int_minIntMap.value() * max_val / 100.
 
-            ax = self.ellipticalMapFigure.add_subplot(111)
+            ax = self.ellipticalMapAxes
             ax.cla()
             ax.set_title("Elliptical Representation of Orientation (direction) and Angle Range (width)")
             patches = []
@@ -1986,18 +2089,18 @@ class CPBatchWindow(QtGui.QMainWindow):
             if len(hdfList) == 1:
                 hdf_filename = fullPath(dir_path, hdfList[0])
             else:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 if len(hdfList) == 0:
                     errMsg.setText('No HDF file detected')
                 else:
                     errMsg.setText('There are more than one HDF file detected')
                 errMsg.setInformativeText('Please select an HDF file to process')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
 
-                hdf_filename = QtGui.QFileDialog.getOpenFileName(self, 'Select an HDF file', dir_path , 'HDF (*.hdf)', None)
-                QtGui.QApplication.processEvents()
+                hdf_filename = getAFile('HDF (*.hdf)')
+                QApplication.processEvents()
 
         if hdf_filename != "":
             pickle.dump(hdf_filename, open(hdf_cache, "wb"))
@@ -2007,7 +2110,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.close()
 
     def processBatchmodeResults(self):
-        QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         dir_path = self.filePath
         self.csvManager.load_all()
         hdf_filename = self.hdf_filename
@@ -2035,7 +2138,7 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.intensity_dict[index] = row['total intensity']
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
-            all_rings = df_rings.loc[df_rings['filename']==filename]
+            all_rings = df_rings[df_rings['filename']==filename]
             if len(all_rings) > 0:
                 all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
                 best_ring = all_rings.iloc[0]
@@ -2089,7 +2192,7 @@ class CPBatchWindow(QtGui.QMainWindow):
         self.refreshAllTabs()
         self.updateImage()
         self.updateUI()
-        QtGui.QApplication.restoreOverrideCursor()
+        QApplication.restoreOverrideCursor()
 
     def refreshAllTabs(self):
         # Set all update flags to True
@@ -2101,18 +2204,18 @@ class CPBatchWindow(QtGui.QMainWindow):
                             }
 
     def processFolder(self, dir_path):
-        imgList, hdfList = getFiles(dir_path)
+        imgList, hdfList = getFilesAndHdf(dir_path)
         createFolder(fullPath(dir_path,'cp_results'))
 
         if len(imgList) == 0:
             if exists(fullPath(dir_path, 'cp_results/summary.csv')):
                 self.browseHDF(dir_path, hdfList)
             else:
-                errMsg = QtGui.QMessageBox()
+                errMsg = QMessageBox()
                 errMsg.setText('No image and summary.csv detected')
                 errMsg.setInformativeText('Please select an image or another folder to process.')
-                errMsg.setStandardButtons(QtGui.QMessageBox.Ok)
-                errMsg.setIcon(QtGui.QMessageBox.Warning)
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
 
         else:
@@ -2157,48 +2260,48 @@ class CPBatchWindow(QtGui.QMainWindow):
             self.updatingUI = False
 
     def updateRightStatusBar(self, text):
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         self.statusLabel.setHidden(False)
         self.statusLabel.setText(text)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
     def updateStatusBar(self, text, bar = None):
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
         self.imagePathLabel.setText(text)
         if bar is not None:
             self.progressBar.setValue(bar)
-        QtGui.QApplication.processEvents()
+        QApplication.processEvents()
 
-class CircularProjectionGUI(QtGui.QMainWindow):
-    resizeCompleted = QtCore.pyqtSignal()
+class CircularProjectionGUI(QMainWindow):
+    resizeCompleted = pyqtSignal()
 
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
         self.widgetList = []
         self.initUI()
 
     def initUI(self):
         self.setStyleSheet(getStyleSheet())
         self.setWindowTitle("Circular Projection v." + musclex.__version__)
-        self.centralWidget = QtGui.QWidget(self)
-        self.mainLayout = QtGui.QVBoxLayout(self.centralWidget)
+        self.centralWidget = QWidget(self)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
         ## display browse file and folder buttons when program started
-        self.browseFileButton = QtGui.QPushButton("Select an Image...")
+        self.browseFileButton = QPushButton("Select an Image...")
         self.browseFileButton.clicked.connect(self.browseFile)
         self.browseFileButton.setFixedHeight(60)
-        self.browseFolderButton = QtGui.QPushButton("Select a Folder...")
+        self.browseFolderButton = QPushButton("Select a Folder...")
         self.browseFolderButton.clicked.connect(self.browseFolder)
         self.browseFolderButton.setFixedHeight(60)
         self.mainLayout.addWidget(self.browseFileButton)
         self.mainLayout.addWidget(self.browseFolderButton)
 
         # Menubar
-        selectImageAction = QtGui.QAction('Select an Image...', self)
+        selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
         selectImageAction.triggered.connect(self.browseFile)
-        selectFolderAction = QtGui.QAction('Select a Folder...', self)
+        selectFolderAction = QAction('Select a Folder...', self)
         selectFolderAction.setShortcut('Ctrl+F')
         selectFolderAction.triggered.connect(self.browseFolder)
         menubar = self.menuBar()
@@ -2220,18 +2323,18 @@ class CircularProjectionGUI(QtGui.QMainWindow):
         self.widgetList.append(new_image_window)
 
     def browseFile(self):
-        file_name = QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', 'Images (*.tif)', None)
-        QtGui.QApplication.processEvents()
+        file_name = getAFile('Images (*.tif)')
+        QApplication.processEvents()
         if file_name != "":
             self.onNewFileSelected(str(file_name))
 
     def browseFolder(self):
-        dir_path = QtGui.QFileDialog.getExistingDirectory(self, "Select a Folder")
+        dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
         if dir_path != "":
             new_batch_window = CPBatchWindow(self, str(dir_path))
             self.widgetList.append(new_batch_window)
 
-def getFiles(dir_path):
+def getFilesAndHdf(dir_path):
     fileList = os.listdir(dir_path)
     imgList = []
     hdfList = []
@@ -2261,7 +2364,7 @@ if __name__ == "__main__":
         full_path = abspath(args.i)
         if isfile(full_path):
             filepath, filename = os.path.split(full_path)
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             myapp = CPImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
             sys.exit(app.exec_())
         else:
@@ -2269,12 +2372,12 @@ if __name__ == "__main__":
     elif args.f:
         full_path = abspath(args.f)
         if exists(full_path) and not isfile(full_path):
-            app = QtGui.QApplication(sys.argv)
+            app = QApplication(sys.argv)
             myapp = CPImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
             sys.exit(app.exec_())
         else:
             print "ERROR:", full_path, "is not a folder."
     else:
-        app = QtGui.QApplication(sys.argv)
+        app = QApplication(sys.argv)
         myapp = CircularProjectionGUI()
         sys.exit(app.exec_())

@@ -30,7 +30,6 @@ import cv2
 import numpy as np
 import peakutils
 import copy
-import pandas as pd
 import fabio
 import math
 from skimage.morphology import white_tophat
@@ -44,7 +43,7 @@ import pyFAI
 from os.path import  exists
 from sklearn.metrics import r2_score, mean_squared_error
 import collections
-from ..utils.file_manager import fullPath, createFolder
+from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 import pickle
@@ -141,31 +140,21 @@ class CircularProjection:
             self.info['center'] = getCenter(img)
             self.log("Center has been calculated. center is "+str(self.info['center']))
 
-    def calculateRminRmax(self):
-        """
-        Calculate Rmin, Rmax, and min_endpoint
-        :return:
-        """
-        if 'rmin' not in self.info.keys():
-            img = copy.copy(self.original_image)
-            center = self.info['center']
-            I2D = self.info['2dintegration'][0]
-            if img.shape[0] == 2048:
-                rmax = min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1])
-                min_endpoint = rmax
-            else:
-                rmax = max(img.shape[0] / 2, img.shape[1] / 2)
-                min_endpoint = min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1])
-
     def get2DIntegrations(self):
         """
         Get 2D integrations and azimuthal histrogram
         :return:
         """
         if '2dintegration' not in self.info.keys():
+            blank, mask = getBlankImageAndMask(self.filepath)
             img = copy.copy(self.original_image)
-            center = self.info['center']
             noBGImg = copy.copy(self.noBGImg)
+            if blank is not None:
+                img = img - blank
+                noBGImg = getImgAfterWhiteTopHat(img)
+
+
+            center = self.info['center']
 
             if img.shape == (1043, 981):
                 det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
@@ -183,19 +172,29 @@ class CircularProjection:
             ai = pyFAI.AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
 
-            I2D, tth, chi = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method="csr_ocl")
-            I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr_ocl")
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm")
+            I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method="csr_ocl", mask=mask)
+            I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr_ocl", mask=mask)
+
+            tth_1, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", mask=mask)
+            tth_2, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", mask=mask)
 
             self.info['2dintegration'] = [I2D, tth, chi]
             self.info['tophat_2dintegration'] = [I2D2, tth2, chi2]
 
             hists = list(I)
+
+            if self.info.has_key('fixed_hull'):
+                rmin = self.info['fixed_hull'][0]
+                rmax = self.info['fixed_hull'][1]
+            else:
+                rmin = getFirstVallay(hists)
+
+            hists = list(I2)
             self.info['rmax'] = rmax
             self.info['min_endpoint'] = min_endpoint
-            hull = self.getConvexhull(np.array(hists), rmax)
+            hull = self.getConvexhull(np.array(hists))
             self.info['orig_hists'] = hists
-            self.info['start_point'] = getFirstVallay(list(hists))
+            self.info['start_point'] = rmin
             self.info['hull_hist'] = hull
             self.info['area'] = simps(hull)
             self.removeInfo('m1_rings')
@@ -224,7 +223,7 @@ class CircularProjection:
             partial_peaks = []
 
             for h in histograms:
-                hull = self.getConvexhull(smooth(h), self.info['rmax'])
+                hull = self.getConvexhull(np.array(h))
                 peaks = self.findPeaksFromHist(hull)
                 all_peaks.extend(peaks)
                 partial_peaks.append(peaks)
@@ -393,7 +392,11 @@ class CircularProjection:
         ranges = [(x, x + ref_angle) for x in range(0, 360, ref_angle)]
         ranges.extend([(x, x + ref_angle) for x in range(ref_angle / 2, 360 + ref_angle / 2, ref_angle)])
         ranges = sorted(ranges, key=lambda(s,e) : s)
+
+        blank, mask = getBlankImageAndMask(self.filepath)
         img = copy.copy(self.original_image)
+        if blank is not None:
+            img = img - blank
 
         if img.shape == (1043, 981):
             det = "pilatus1m"  # This detector has the size (1043, 981)
@@ -402,7 +405,7 @@ class CircularProjection:
 
         center = self.info['center']
         corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
-        npt_rad = int(max([distance(center, c) for c in corners]))
+        npt_rad = int(round(max([distance(center, c) for c in corners])))
         ai = pyFAI.AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
 
@@ -414,7 +417,7 @@ class CircularProjection:
             # else:
             #     h = np.sum(I2D[a_range[0]:360], axis=0) + np.sum(I2D[0:a_range[1]], axis=0)
 
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", azimuth_range=a_range)
+            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", azimuth_range=a_range, mask=mask)
             histograms.append(I)
 
         return ranges, histograms
@@ -427,24 +430,30 @@ class CircularProjection:
         result_r = np.add(central, right_shift)
         return np.add(result_r, left_shift)
 
-    def getConvexhull(self, hist, rmax = 999999):
+    def getConvexhull(self, hist):
         """
         Get backgrouns subtracted histogram by applying convex hull
         :param hist:
         :param rmax:
         :return:
         """
-        shist = smooth(hist, 30)
-        start = getFirstVallay(list(hist))
-        end = len(hist)
-        for i in range(len(shist)-2, 0, -1):
-            if shist[i+1]-shist[i] > 0:
-                end = int(round(i*0.8))
-                break
-        if end-start < 100:
-            end = self.info['min_endpoint']
 
-        return convexHull(hist, start_p=start, end_p=min(end, rmax))
+        if self.info.has_key('fixed_hull'):
+            start = self.info['fixed_hull'][0]
+            end = self.info['fixed_hull'][1]
+            return convexHull(hist, start_p=start, end_p=end)
+        else:
+            shist = smooth(hist, 30)
+            rmax = self.info['rmax']
+            start = getFirstVallay(list(hist))
+            end = len(hist)
+            for i in range(len(shist)-2, 0, -1):
+                if shist[i+1]-shist[i] > 0:
+                    end = int(round(i*0.8))
+                    break
+            if end-start < 100:
+                end = self.info['min_endpoint']
+            return convexHull(hist, start_p=start, end_p=min(end, rmax))
 
     def get_runs_from_image(self, central_difference):
         """
@@ -695,39 +704,39 @@ class CircularProjection:
         orig_hist = copy.copy(orig_hist)
         deep_smooth_hist = smooth(deep_hist,5) + 0.0000000001 # Prevent divide by zero
         i = 1
-        end_ind = 0
+
         while i < len(orig_hist)-1:
             # Find start point of a valley by its slope
             if deep_hist[i] < 0:
 
                 # Find start point
                 start_ind = i
-                for j in range(i, end_ind, -1):
-                    if j == end_ind or \
-                            ((deep_smooth_hist[j] - deep_smooth_hist[j + 1]) / deep_smooth_hist[j] < 0.0005
-                             and deep_hist[j]>0):
-                        start_ind = max(0, j-1)
-                        break
+                # for j in range(i, end_ind, -1):
+                #     if j == end_ind or \
+                #             ((deep_smooth_hist[j] - deep_smooth_hist[j + 1]) / deep_smooth_hist[j] < 0.0005
+                #              and deep_hist[j]>0):
+                #         start_ind = max(0, j-1)
+                #         break
 
                 # Move left for 2 to start before valley
-                # start_ind = max(0, start_ind-2)
+                start_ind = max(0, start_ind-2)
 
                 # Pass valley
-                while i < len(deep_smooth_hist) and deep_hist[i] < 0:
+                while i < len(deep_hist)-1 and deep_hist[i] < 0:
                     i = i + 1
 
                 # Approximate distance from valley to end point
-                remain = 10
+                # remain = 10
 
                 # Find End point
-                for j in range(i, i+remain):
-                    end_ind = j
-                    if j >= len(orig_hist)-1 or ((deep_smooth_hist[j] - deep_smooth_hist[j-1])/deep_smooth_hist[j] < 0.0005 and deep_hist[j] > 0):
-                        end_ind = j
-                        break
+                # for j in range(i, i+remain):
+                #     end_ind = j
+                #     if j >= len(orig_hist)-1 or ((deep_smooth_hist[j] - deep_smooth_hist[j-1])/deep_smooth_hist[j] < 0.0005 and deep_hist[j] > 0):
+                #         end_ind = j
+                #         break
 
                 # Move right for 1 to end after valley
-                end_ind = min(end_ind+1, len(orig_hist)-1)
+                end_ind = min(i+2, len(orig_hist)-1)
                 i = end_ind
 
                 if start_ind == 0 or end_ind - start_ind < 2:
@@ -994,9 +1003,10 @@ class CircularProjection:
         I2D2 = copy.copy(I2D)
         if self.original_image.shape == (1043, 981):
             # if the image is from pilatus, replace gaps with large minus value to make deep valley
-            I2D2[I2D2 <= 3] = -99999
+            I2D2[I2D2 <= 0] = -99999
 
-
+        # from os.path import join
+        # fabio.tifimage.tifimage(data=I2D).write(join(os.getcwd(),"I2D.tif"))
         # fig = plt.figure()
         # ax = fig.add_subplot(111)
         # ax.imshow(I2D)

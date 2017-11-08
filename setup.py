@@ -69,7 +69,8 @@ setup(
                       'h5py',
                       'scipy',
                       'matplotlib<=2.1.0',
-                      'musclexflibs'],
+                      'musclexflibs',
+                      'PyMca5'],
     entry_points={
         'console_scripts': [
             'musclex=musclex.main:main',
