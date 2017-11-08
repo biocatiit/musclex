@@ -134,7 +134,7 @@ class MyTestCase(unittest.TestCase):
         bio_image.process(settings)
         actual_result = bio_image.info["fit_results"]
         # print actual_result['avg_ratio']
-        self.assertAlmostEqual(2.0784631577443942, actual_result['avg_ratio'], 2)
+        self.assertAlmostEqual(2.0949916400069277, actual_result['avg_ratio'], 2)
 
     def test_bio_image9(self):
 
@@ -150,7 +150,7 @@ class MyTestCase(unittest.TestCase):
         bio_image.process(settings)
         actual_result = bio_image.info["fit_results"]
         # print actual_result['avg_ratio']
-        self.assertAlmostEqual(2.6254843091209827, actual_result['avg_ratio'], 2)
+        self.assertAlmostEqual(2.7104112681194112, actual_result['avg_ratio'], 2)
 
     def test_bio_image10(self):
 
@@ -166,4 +166,4 @@ class MyTestCase(unittest.TestCase):
         bio_image.process(settings)
         actual_result = bio_image.info["fit_results"]
         # print actual_result['avg_ratio']
-        self.assertAlmostEqual(0.51448509463, actual_result['avg_ratio'], 2)
+        self.assertAlmostEqual(0.43745103400460489, actual_result['avg_ratio'], 2)
