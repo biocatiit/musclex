@@ -27,7 +27,7 @@ RUN pip install --upgrade matplotlib
 RUN pip install --upgrade musclexflibs
 RUN pip install --upgrade PyMca5
 ADD musclex /musclex/musclex
-#ADD tests /
+
 ADD LICENSE.txt /musclex/LICENSE.txt
 ADD MANIFEST /musclex/MANIFEST
 ADD README.md /musclex/README.md
@@ -37,5 +37,5 @@ ENV PYTHONPATH /musclex/:$PYTHONPATH
 WORKDIR /musclex/
 RUN python /musclex/setup.py install
 
-ADD tests /musclex/tests
-RUN python -m unittest discover -s /musclex/tests -p '*_test.py'
+ADD tests /musclex_test/tests
+RUN python -m unittest discover -s /musclex_test/tests -p '*_test.py'
