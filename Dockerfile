@@ -33,9 +33,11 @@ ADD MANIFEST /musclex/MANIFEST
 ADD README.md /musclex/README.md
 ADD setup.cfg /musclex/setup.cfg
 ADD setup.py /musclex/setup.py
-ENV PYTHONPATH /musclex/:$PYTHONPATH
+ENV TMP_PATH $PYTHONPATH
+ENV PYTHONPATH /musclex/:$TMP_PATH
 WORKDIR /musclex/
 RUN python /musclex/setup.py install
 
+ENV PYTHONPATH $TMP_PATH
 ADD tests /musclex_test/tests
 RUN python -m unittest discover -s /musclex_test/tests -p '*_test.py'
