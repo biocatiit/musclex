@@ -8,6 +8,7 @@ dir_path = os.path.split(os.path.realpath(__file__))[0] + "/test_images"
 
 class MyTestCase(unittest.TestCase):
 # class MyTestCase():
+
     def test_bio_image1(self):
 
         bio_image = BioImage(dir_path, "2013.tif")

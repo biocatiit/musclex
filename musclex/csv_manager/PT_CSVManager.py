@@ -110,8 +110,10 @@ class PT_CVSManager:
                 new_data["Box " + str(bn) + " error"] = model['error']
                 if model['error'] > 0.15:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
-                else:
-                    new_data["Box " + str(bn) + " comments"] = "-"
+
+        for col in self.colnames:
+            if not new_data.has_key(col):
+                new_data[col] = '-'
 
         self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True)
         self.dataframe.reset_index()

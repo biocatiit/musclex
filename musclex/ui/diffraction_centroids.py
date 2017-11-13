@@ -1093,15 +1093,18 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
         self.checkableButtons = [self.zoomInB, self.zoomOutB, self.setCenterAngleB, self.setAngleB, self.selectIntArea, self.setX3X4, self.setX1X2]
 
+        ### Process Folder Button
+        self.processFolder = QPushButton("Process Current Folder")
         ### Previous & Next buttons
-        self.pnButtons = QHBoxLayout()
+        self.pnButtons = QGridLayout()
         self.prevButton = QPushButton('<')
         self.prevButton.clearFocus()
         self.prevButton.setEnabled(pnEnable)
         self.nextButton = QPushButton('>')
         self.nextButton.setEnabled(pnEnable)
-        self.pnButtons.addWidget(self.prevButton)
-        self.pnButtons.addWidget(self.nextButton)
+        self.pnButtons.addWidget(self.processFolder, 0, 0, 1, 2)
+        self.pnButtons.addWidget(self.prevButton, 1, 0, 1, 1)
+        self.pnButtons.addWidget(self.nextButton, 1, 1, 1, 1)
 
         ### Display image ###
         self.imageOptionsLayout = QVBoxLayout()
@@ -1137,6 +1140,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.minInt.valueChanged.connect(self.imageSettingChanged)
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
+        self.processFolder.clicked.connect(self.processCurrentFolder)
         self.selectIntArea.clicked.connect(self.selectIntAreaClicked)
         self.setCenterAngleB.clicked.connect(self.setCenterAngleClicked)
         self.setAngleB.clicked.connect(self.setAngleClicked)
@@ -1633,6 +1637,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         if self.nextButton.isEnabled():
             self.currentGroup = (self.currentGroup + 1) % len(self.groupList)
             self.onImageChanged()
+
+    def processCurrentFolder(self):
+        # Process current folder
+        for _ in range(len(self.groupList)):
+            self.nextClicked()
 
     def imageSettingChanged(self):
         # update image

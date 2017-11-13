@@ -137,16 +137,32 @@ class ProjectionBoxTab(QWidget):
         self.dispOptLayout.addWidget(self.fullButton, 7, 0, 1, 2)
 
         self.settingGroup = QGroupBox("Setting")
-        self.settingLayout = QVBoxLayout(self.settingGroup)
+        self.settingLayout = QGridLayout(self.settingGroup)
         self.peaksButton = QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
         self.checkableButtons.append(self.peaksButton)
         self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
-        self.hullRangeButton.setEnabled(self.parent.bgsubs[self.name]==1)
+        self.hullRangeButton.setHidden(self.parent.bgsubs[self.name]!=1)
+        box = self.parent.allboxes[self.name]
+        width = int(np.ceil(abs(box[0][0]-box[0][1])/2.))
+
+        self.startHull = QSpinBox()
+        self.startHull.setRange(0, width)
+        self.startHull.setKeyboardTracking(False)
+        self.startHull.setHidden(self.parent.bgsubs[self.name] != 1)
+        self.endHull = QSpinBox()
+        self.endHull.setRange(0, width)
+        self.endHull.setKeyboardTracking(False)
+        self.endHull.setHidden(self.parent.bgsubs[self.name] != 1)
         self.checkableButtons.append(self.hullRangeButton)
-        self.settingLayout.addWidget(self.peaksButton)
-        self.settingLayout.addWidget(self.hullRangeButton)
+        self.settingLayout.addWidget(self.peaksButton, 0, 0, 1, 2)
+        self.settingLayout.addWidget(self.hullRangeButton, 1, 0, 1, 2)
+        if self.parent.bgsubs[self.name]== 1:
+            self.settingLayout.addWidget(QLabel("Start"), 2, 0, 1, 1, Qt.AlignCenter)
+            self.settingLayout.addWidget(QLabel("End"), 2, 1, 1, 1, Qt.AlignCenter)
+        self.settingLayout.addWidget(self.startHull, 3, 0, 1, 1)
+        self.settingLayout.addWidget(self.endHull, 3, 1, 1, 1)
 
         self.results_text = QLabel()
 
@@ -194,6 +210,7 @@ class ProjectionBoxTab(QWidget):
         """
         Set Tooltips for widgets
         """
+        pass
 
     def setConnections(self):
         """
@@ -215,6 +232,8 @@ class ProjectionBoxTab(QWidget):
 
         self.peaksButton.clicked.connect(self.addPeaks)
         self.hullRangeButton.clicked.connect(self.setManualHullRange)
+        self.startHull.valueChanged.connect(self.hullRangeChanged)
+        self.endHull.valueChanged.connect(self.hullRangeChanged)
 
         self.resultTable2.itemChanged.connect(self.handleItemChanged)
 
@@ -230,6 +249,15 @@ class ProjectionBoxTab(QWidget):
         self.graphFigure1.canvas.mpl_connect('figure_leave_event', self.graphReleased)
         self.graphFigure2.canvas.mpl_connect('figure_leave_event', self.graphReleased)
 
+
+    def hullRangeChanged(self):
+        """
+        Trigger when convex hull range is changed
+        """
+        if self.parent.projProc is not None and not self.syncUI:
+            self.parent.hull_ranges[self.name] = (self.startHull.value(), self.endHull.value())
+            self.parent.projProc.removeInfo(self.name, 'hists2')
+            self.parent.processImage()
 
     def handleItemChanged(self, item):
         """
@@ -643,6 +671,11 @@ class ProjectionBoxTab(QWidget):
             ax.axvspan(centerX - hull_ranges[name][0], centerX + hull_ranges[name][0], alpha=0.5, color='k')
             ax.axvspan(0, centerX - hull_ranges[name][1], alpha=0.5, color='k')
             ax.axvspan(centerX + hull_ranges[name][1], len(hist), alpha=0.5, color='k')
+
+
+            # Update spin box
+            self.startHull.setValue(hull_ranges[name][0])
+            self.endHull.setValue(hull_ranges[name][1])
 
             # # Update Results Text
             # text = "<h1>Results</h1>"

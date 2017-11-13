@@ -129,7 +129,8 @@ class ProjectionProcessor():
         # self.getOtherResults()
         self.getBackgroundSubtractedHistograms()
         self.getPeakInfos()
-        self.cacheInfo()
+        if not settings.has_key('no_cache'):
+            self.cacheInfo()
 
     def updateSettings(self, settings):
         if settings.has_key('boxes'):
@@ -459,11 +460,11 @@ class ProjectionProcessor():
         :param k: key of dictionary
         :return: -
         """
-        ignore_list = ['lambda_sdd', 'program_version']
+        # ignore_list = ['lambda_sdd', 'program_version', 'no_cache']
 
-        if k is not None and self.info.has_key(k) and k not in ignore_list:
+        if k is not None and self.info.has_key(k):
             d = self.info[k]
-            if d.has_key(name):
+            if isinstance(d, dict) and d.has_key(name):
                 del d[name]
 
         if k is None:

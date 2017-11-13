@@ -414,8 +414,8 @@ class ProjectionTracesGUI(QMainWindow):
         """
         self.peaks[name] = peaks
 
-        if name in self.hull_ranges:
-            del self.hull_ranges[name]
+        # if name in self.hull_ranges:
+        #     del self.hull_ranges[name]
 
     def addPeakstoBox(self, name, peaks):
         """
@@ -592,6 +592,8 @@ class ProjectionTracesGUI(QMainWindow):
                 del self.bgsubs[name]
                 if self.peaks.has_key(name):
                     del self.peaks[name]
+                if self.hull_ranges.has_key(name):
+                    del self.hull_ranges[name]
                 widget.deleteLater()
             self.processImage()
             self.tabWidget.removeTab(index)
@@ -887,7 +889,7 @@ class ProjectionTracesGUI(QMainWindow):
         if cache is not None:
             self.allboxes = cache['boxes']
             self.peaks = cache['peaks']
-            self.boxtypes = cache['boxtypes']
+            self.boxtypes = cache['types']
             self.bgsubs = cache['bgsubs']
             self.hull_ranges = cache['hull_ranges']
         else:
@@ -1003,7 +1005,7 @@ class ProjectionTracesGUI(QMainWindow):
         cache = {
             'boxes' : self.allboxes,
             'peaks' : self.peaks,
-            'boxtypes' : self.boxtypes,
+            'types' : self.boxtypes,
             'bgsubs' : self.bgsubs,
             'hull_ranges' : self.hull_ranges
         }
