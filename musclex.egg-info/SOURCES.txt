@@ -29,11 +29,13 @@ musclex/ui/BMStartWindow.py
 musclex/ui/BM_FittingTab.py
 musclex/ui/BioMuscleWindow.py
 musclex/ui/BlankImageSettings.py
+musclex/ui/CPBatchWindow.py
+musclex/ui/CPImageWindow.py
+musclex/ui/CircularProjectionGUI.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py
 musclex/ui/__init__.py
-musclex/ui/circular_projection_v2.py
 musclex/ui/ddf_processor.py
 musclex/ui/diffraction_centroids.py
 musclex/ui/pyqt_utils.py

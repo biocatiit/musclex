@@ -104,6 +104,7 @@ class BlankImageSettings(QDialog):
         self.drawMask = QPushButton("Draw Additional Mask")
         self.drawMask.setEnabled(self.selected is not None)
         self.maskThres = QSpinBox()
+        self.maskThres.setRange(-10, 10)
         self.maskThres.setKeyboardTracking(False)
 
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)

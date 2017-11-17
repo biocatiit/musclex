@@ -30,6 +30,24 @@ import os
 from os.path import split, exists, join
 import fabio
 
+def getFilesAndHdf(dir_path):
+    fileList = os.listdir(dir_path)
+    imgList = []
+    hdfList = []
+
+    for f in fileList:
+        full_file_name = fullPath(dir_path, f)
+        if isImg(full_file_name):
+            imgList.append(f)
+            # if calculate_med_img:
+            #     tmp_images.append(fabio.open(full_file_name).data)
+        else:
+            toks = f.split('.')
+            if toks[-1] == 'hdf':
+                hdfList.append(f)
+
+    return imgList, hdfList
+
 def getBlankImageAndMask(path):
     mask_file = join(join(path, 'settings'),'mask.tif')
     blank_file = join(join(path, 'settings'),'blank.tif')

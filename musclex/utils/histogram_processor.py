@@ -355,8 +355,11 @@ def getFirstVallay(hist):
     start = min(start, 50) # start point should be smaller than 50 pixel
     start = max(20, start) # start point should be bigger than 20
     limit = min(int(start * 1.5), 100) # Set limit of the first valley as 150% of maximum peak location
+    max_val = 0
     for i in range(start, limit):
-        if hist[i] <= hist[i + 1]:
+        if hist[i] > max_val:
+            max_val = hist[i]
+        if hist[i] <= max_val*0.5:
             return i
     return limit
 

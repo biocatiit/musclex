@@ -51,7 +51,7 @@ def main(arguments=None):
             sys.exit(app.exec_())
         elif prog == 'cp':
             app = QApplication(sys.argv)
-            from musclex.ui.circular_projection_v2 import CircularProjectionGUI
+            from musclex.ui.CircularProjectionGUI import CircularProjectionGUI
             myapp = CircularProjectionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':

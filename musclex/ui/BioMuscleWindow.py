@@ -35,12 +35,13 @@ from os.path import split
 import traceback
 import webbrowser
 from ..CalibrationSettings import CalibrationSettings
-from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet
+from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, getBlankImageAndMask
 from ..modules.BioImage import BioImage, getCardiacGraph
 from ..utils.image_processor import *
 from ..csv_manager import BM_CVSManager
 from ..ui.BM_FittingTab import BM_FittingTab
 import musclex
+from BlankImageSettings import BlankImageSettings
 
 class BioMuscleWindow(QMainWindow):
     """
@@ -77,9 +78,9 @@ class BioMuscleWindow(QMainWindow):
         self.onImageChanged() # Toggle window to process current image
         self.show()
         self.resize(1000, 100)
-        focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
-            focused_widget.clearFocus()
+        # focused_widget = QApplication.focusWidget()
+        # if focused_widget != None:
+        #     focused_widget.clearFocus()
 
     def inputerror(self):
         # Display input error to screen
@@ -189,22 +190,29 @@ class BioMuscleWindow(QMainWindow):
         self.fixedAngle.setKeyboardTracking(False)
         self.fixedAngle.setRange(-360, 360)
         self.fixedAngle.setEnabled(False)
+        self.applyBlank = QCheckBox("Apply Blank Image and Mask")
+        self.applyBlank.setChecked(False)
+        self.blankSettings = QPushButton("Set")
+        self.blankSettings.setEnabled(False)
         self.maskThresSpnBx =QDoubleSpinBox()
         self.maskThresSpnBx.setRange(-10,10)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
         self.resetAllB = QPushButton("Reset All")
-        self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setRotAndCentB, 1, 0, 1, 1)
-        self.imgProcLayout.addWidget(self.setAngleB, 1, 1, 1, 1)
-        self.imgProcLayout.addWidget(self.setRminB, 2, 0, 1, 1)
-        self.imgProcLayout.addWidget(self.setIntAreaB, 2, 1, 1, 1)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 3, 0, 1, 1)
-        self.imgProcLayout.addWidget(self.fixedAngle, 3, 1, 1, 1)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 4, 0, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 5, 0, 1, 1)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 5, 1, 1, 1)
-        self.imgProcLayout.addWidget(self.resetAllB, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.setRotAndCentB, 1, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.setAngleB, 1, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setRminB, 2, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.setIntAreaB, 2, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.applyBlank, 3, 0, 1, 3)
+        self.imgProcLayout.addWidget(self.blankSettings, 3, 3, 1, 1)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 4, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 5, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 6, 0, 1, 4)
+
+        self.imgProcLayout.addWidget(self.resetAllB, 7, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
@@ -496,6 +504,8 @@ class BioMuscleWindow(QMainWindow):
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
         self.fixedAngle.valueChanged.connect(self.fixedAngleChanged)
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
+        self.applyBlank.stateChanged.connect(self.applyBlankChecked)
+        self.blankSettings.clicked.connect(self.blankSettingClicked)
         self.resetAllB.clicked.connect(self.resetAll)
 
         self.prevButton.clicked.connect(self.prevClicked)
@@ -530,6 +540,28 @@ class BioMuscleWindow(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('button_release_event', self.plotReleased)
         self.fittingFigure.canvas.mpl_connect('figure_leave_event', self.leavePlot)
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
+
+    def applyBlankChecked(self):
+        """
+        Trigger when Apply Blank Image and Mask is checked or unchecked
+        :return:
+        """
+        self.blankSettings.setEnabled(self.applyBlank.isChecked())
+        if self.bioImg is not None and not self.syncUI:
+            if self.applyBlank.isChecked():
+                self.blankSettingClicked()
+            else:
+                self.resetAll()
+
+    def blankSettingClicked(self):
+        """
+        Trigger when Set Blank Image and Mask clicked
+        """
+        dlg = BlankImageSettings(self.dir_path)
+        result = dlg.exec_()
+        if result == 1 and self.bioImg is not None:
+            self.resetAll()
+
 
     def graphZoomIn(self):
         """
@@ -1531,6 +1563,9 @@ class BioMuscleWindow(QMainWindow):
         else:
             self.rejectChkBx.setChecked(False)
 
+        if self.bioImg.info.has_key('blank_mask'):
+            self.applyBlank.setChecked(self.bioImg.info['blank_mask'])
+
         self.syncUI = False
 
     def onImageChanged(self):
@@ -1631,6 +1666,11 @@ class BioMuscleWindow(QMainWindow):
 
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
+
+        if self.applyBlank.isChecked():
+            settings['blank_mask'] = True
+        else:
+            settings['blank_mask'] = False
 
         return settings
 
@@ -1737,9 +1777,9 @@ class BioMuscleWindow(QMainWindow):
         self.syncSpinBoxes()
         self.refreshStatusbar()
 
-        focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
-            focused_widget.clearFocus()
+        # focused_widget = QApplication.focusWidget()
+        # if focused_widget != None:
+        #     focused_widget.clearFocus()
 
         QApplication.processEvents()
 
@@ -1788,7 +1828,6 @@ class BioMuscleWindow(QMainWindow):
             if 'fit_results' in info.keys():
                 cardiac = (np.array(getCardiacGraph(xs, info['fit_results'])) * norm - disp_img.shape[0]) * -1
                 ax.plot(cardiac, color='r')
-
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:

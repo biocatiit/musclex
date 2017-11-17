@@ -68,8 +68,8 @@ setup(
                       'peakutils',
                       'h5py',
                       'scipy',
-                      'matplotlib<=2.1.0',
-                      'musclexflibs',
+                      'matplotlib',
+                      'musclex_ccp13',
                       'PyMca5'],
     entry_points={
         'console_scripts': [

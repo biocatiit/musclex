@@ -36,7 +36,7 @@ import fabio
 # import pyFAI
 from os.path import isfile, exists
 from os import makedirs
-from ..utils.file_manager import fullPath
+from ..utils.file_manager import fullPath, getBlankImageAndMask
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 import musclex
@@ -76,6 +76,7 @@ class BioImage:
         isSkeletal - is it skeletal muscle (boolean)
         """
         self.info.update(settings)
+        self.applyBlankAndMask()
         self.findCenter()
         self.getRotationAngle()
         self.calculateRmin()
@@ -101,6 +102,20 @@ class BioImage:
             if self.info.has_key(k): # remove from dictionary if the key exists
                 del self.info[k]
 
+    def applyBlankAndMask(self):
+        """
+        Subtract the original image with blank image and set pixels in mask below the mask threshold
+        """
+        img = np.array(self.orig_img, dtype='float32')
+        if self.info['blank_mask']:
+            blank, mask = getBlankImageAndMask(self.dir_path)
+            if blank is not None:
+                img = img - blank
+            if mask is not None:
+                img[mask>0] = self.info['mask_thres']-1
+
+        self.image = img
+
     def findCenter(self):
         """
        Find center of the diffraction. The center will be kept in self.info["center"].
@@ -123,7 +138,7 @@ class BioImage:
                 self.info['rotationAngle'] = self.info["fixed_angle"]
             else:
                 center = self.info['center']
-                img = copy.copy(self.orig_img)
+                img = copy.copy(self.image)
                 self.info['rotationAngle'] = getRotationAngle(img, center)
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
@@ -172,7 +187,7 @@ class BioImage:
         """
 
         if img is None:
-            img = copy.copy(self.orig_img)
+            img = copy.copy(self.image)
         if angle is None:
             angle = self.info['rotationAngle']
 
@@ -196,7 +211,7 @@ class BioImage:
                 self.info['int_area'] = self.info['fixed_int_area']
             else:
                 rmin = self.info['rmin']
-                img = getCenterRemovedImage(copy.copy(self.orig_img), tuple(center), rmin) # remove center location
+                img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin) # remove center location
                 rotate_img = self.getRotatedImage(img) # rotate image
                 init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
                 top = max(0, center[1] - init_range)
@@ -254,14 +269,14 @@ class BioImage:
         print "Applying Convexhull..."
         if not self.info.has_key('hulls'):
             center = self.info['center']
-            shapes = self.orig_img.shape
-            rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.7)
+            shapes = self.image.shape
+            rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.8)
             rmin = self.info['rmin']
             hist = copy.copy(self.info['hist'])
             int_area = self.info['int_area']
             img_area = self.getRotatedImage()[int_area[0]:int_area[1], :]
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
-            if self.orig_img.shape == (1043, 981) and any(ignore):
+            if any(ignore):
                 left_ignore = ignore[:center[0]]
                 left_ignore = left_ignore[::-1]
                 right_ignore = ignore[center[0]:]

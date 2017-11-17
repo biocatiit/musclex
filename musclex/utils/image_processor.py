@@ -308,9 +308,9 @@ def getRotationAngle(img, center):
     max_degree = max(np.arange(180), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]) + np.sum(
         hist[d + 180 - sum_range:d + 181 + sum_range]))  # Find the best degree by its intensity
 
-    # If the degree and initial angle from ellipse are different, return ellipse angle instead
-    if init_angle is not None and abs(max_degree-init_angle) > 20.:
-        return int(round(init_angle))
+    # # If the degree and initial angle from ellipse are different, return ellipse angle instead
+    # if init_angle is not None and abs(max_degree-init_angle) > 20.:
+    #     return int(round(init_angle))
 
     # otherwise, return max degree
     return max_degree
