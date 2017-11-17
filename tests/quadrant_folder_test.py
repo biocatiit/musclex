@@ -5,8 +5,8 @@ from musclex.modules.QuadrantFolder import QuadrantFolder
 import os
 
 
-class MyTestCase(unittest.TestCase):
-# class MyTestCase():
+# class MyTestCase(unittest.TestCase):
+class MyTestCase():
 
     def test_qf_image_no_bgsub(self):
         # Test folding without background subtraction
