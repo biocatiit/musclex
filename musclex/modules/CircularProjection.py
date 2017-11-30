@@ -296,7 +296,7 @@ class CircularProjection:
             all_peaks_list = m1_rings
             all_peaks_list.extend(m2_rings.keys())
             all_peaks_list = self.select_peaks(all_peaks_list, distance_threshold = 15)
-            merged_peaks = sorted([p for p in all_peaks_list.keys() if self.info['start_point'] < p])
+            merged_peaks = sorted([p for p in all_peaks_list.keys() if self.info['start_point'] < p and p <= self.info['rmax']])
             self.log("Merged rings = "+str(merged_peaks))
             self.info['merged_peaks'] = merged_peaks
             self.removeInfo('fitResult')
@@ -370,7 +370,7 @@ class CircularProjection:
             self.info.update(more_info)
 
         if 'lambda_sdd' in self.info.keys() and 'model_peaks' in self.info.keys() and len(self.info['model_peaks']) > 0:
-            self.info['peak_ds'] = [1.0 * p / self.info['lambda_sdd'] for p in self.info['model_peaks']]
+            self.info['peak_ds'] = [(1.0 / p) * self.info['lambda_sdd'] for p in self.info['model_peaks']]
 
     def processRings(self):
         """
@@ -959,8 +959,6 @@ class CircularProjection:
         # print "Rotation point", v_point
 
         hist_shifted = np.roll(hist[1], -v_point)
-
-
 
         # Fit model again with shifted histogram
         # initial guess

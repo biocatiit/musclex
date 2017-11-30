@@ -985,18 +985,20 @@ class ProjectionTracesGUI(QMainWindow):
         if self.exportChkBx.isChecked() and self.projProc:
             path = fullPath(self.dir_path,'/pt_results/1d_projections')
             createFolder(path)
+            filename = str(self.projProc.filename)
+            filename = filename[:filename.find('.tif')]
             orig_hists = self.projProc.info['hists']
             subtr_hists = self.projProc.info['subtracted_hists']
 
             for k in orig_hists.keys():
                 hist = orig_hists[k]
                 xs = np.arange(len(hist))
-                f = open(fullPath(path, 'box_'+str(k)+'_original.txt'), 'w')
+                f = open(fullPath(path, filename+'_box_'+str(k)+'_original.txt'), 'w')
                 coords = zip(xs, hist)
                 f.write("\n".join(map(lambda c : str(c[0])+"\t"+str(c[1]), coords)))
                 if subtr_hists.has_key(k):
                     sub_hist = subtr_hists[k]
-                    f = open(fullPath(path, 'box_' + str(k) + '_subtracted.txt'), 'w')
+                    f = open(fullPath(path, filename+'_box_' + str(k) + '_subtracted.txt'), 'w')
                     coords = zip(xs, sub_hist)
                     f.write("\n".join(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords)))
 

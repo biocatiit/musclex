@@ -215,7 +215,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.frameOfKeys.setLayout(self.optionsLayout)
         self.imageTabLayout.addWidget(self.frameOfKeys)
 
-
         ##### Result Tab #####
         self.resultTab = QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
@@ -1787,7 +1786,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 result_path = fullPath(self.filePath, 'qf_results')
                 createFolder(result_path)
 
-                result_file = fullPath(result_path, self.imgList[self.currentFileNumber]) + ".result.tif"
+                result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
+                result_file = result_file[:result_file.find('.tif')]
+                result_file += '_folded.tif'
                 img = self.quadFold.imgCache['resultImg']
 
                 # if self.quadFold.info['imgType'] == 'float32':

@@ -55,3 +55,7 @@ def getFiles(path='', filter='Images (*.tif)'):
 def getAFolder():
     dir_path = QFileDialog.getExistingDirectory(None, "Select a Folder")
     return str(dir_path)
+
+def getSaveFile(path='', filter='Images (*.png)'):
+    file_name = QFileDialog.getSaveFileName(None, "Save a file", path, filter)
+    return str(file_name)

@@ -48,16 +48,22 @@ class HDFBrowser(QDialog):
 
         self.x_start = QDoubleSpinBox()
         self.x_start.setRange(-100000, 100000)
+        self.x_start.setDecimals(5)
         self.y_start = QDoubleSpinBox()
         self.y_start.setRange(-100000, 100000)
+        self.y_start.setDecimals(5)
         self.x_end = QDoubleSpinBox()
         self.x_end.setRange(-100000, 100000)
+        self.x_end.setDecimals(5)
         self.y_end = QDoubleSpinBox()
         self.y_end.setRange(-100000, 100000)
+        self.y_end.setDecimals(5)
         self.x_step = QDoubleSpinBox()
         self.x_step.setRange(-100000, 100000)
+        self.x_step.setDecimals(5)
         self.y_step = QDoubleSpinBox()
         self.y_step.setRange(-100000, 100000)
+        self.y_step.setDecimals(5)
 
         self.createLayout.addWidget(QLabel("Start"), 0, 1, 1, 1)
         self.createLayout.addWidget(QLabel("End"), 0, 2, 1, 1)
@@ -155,18 +161,11 @@ class CPBatchWindow(QMainWindow):
         QWidget.__init__(self)
         self.filePath = dir_path
         self.widgetList = []
-        self.update_plot = {'intensity_maps': True,
-                            'ds_maps': True,
-                            'arange_maps': True,
-                            'vector_maps': True,
-                            'ellipse_maps': True
-                            }
         self.intesityRange = [0, 1, 1, 2]
         self.mainWin = mainWin
         self.color_maps = 'jet'
 
         ##Batch Mode Params
-        self.stopProcess = False
         self.name_dict = {}
         self.intensity_dict = {}
         self.distance_dict = {}
@@ -195,13 +194,13 @@ class CPBatchWindow(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle("Circular Projection v." + musclex.__version__)
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QGridLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
         #### IMAGE ####
-        self.imgFigure = plt.figure(facecolor='#606060')
+        self.imgFigure = plt.figure()
         self.imgAxes = self.imgFigure.add_subplot(111)
         self.imgCanvas = FigureCanvas(self.imgFigure)
         self.img_maxInt = QDoubleSpinBox()
@@ -220,147 +219,88 @@ class CPBatchWindow(QMainWindow):
         self.imgLayout.addWidget(self.img_minInt, 1, 1, 1, 1)
         self.imgLayout.addWidget(self.img_maxIntLabel, 1, 2, 1, 1)
         self.imgLayout.addWidget(self.img_maxInt, 1, 3, 1, 1)
-        self.imgFrame.setHidden(True)
 
-        #### BATCHMODE - tabs
-        ## BATCHMODE 1 : Total Intensity Map Tab
-        self.intensityTab = QWidget()
-        self.intensityTab.setContentsMargins(0, 0, 0, 0)
-        self.intensityTabLayout = QGridLayout(self.intensityTab)
-        self.intensityMapFigure = plt.figure(facecolor='#606060')
-        self.intensityMapAxes = self.intensityMapFigure.add_subplot(111)
-        self.intensityMapCanvas = FigureCanvas(self.intensityMapFigure)
-        self.intensityMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
-        self.int_maxIntMap = QDoubleSpinBox()
-        self.int_maxIntMap.setMinimum(1)
-        self.int_maxIntMap.setMaximum(100)
-        self.int_maxIntMap.setValue(100.)
-        self.int_maxIntMap.setSingleStep(5.0)
-        self.int_maxIntMap.setSuffix("%")
-        self.int_maxIntMap.setKeyboardTracking(False)
+        #### Map ####
+        self.ringSettingsGrp = QGroupBox("Selected Rings")
+        self.ringSettingsLayout = QGridLayout(self.ringSettingsGrp)
+        self.bestRadio = QRadioButton("Best Rings")
+        self.bestRadio.setChecked(True)
+        self.distanceRadio = QRadioButton("Distance")
+        self.distanceSpnBx = QDoubleSpinBox()
+        self.distanceSpnBx.setRange(0, 1000)
+        self.distanceSpnBx.setValue(8)
+        self.distanceSpnBx.setDecimals(8)
+        # self.distanceSpnBx.setKeyboardTracking(False)
+        self.unitChoice = QComboBox()
+        self.unitChoice.addItem("nm")
+        self.unitChoice.addItem("pixel")
+        self.distanceSpnBx.setEnabled(False)
+        self.unitChoice.setEnabled(False)
+        self.refreshButton = QPushButton("Reload")
+        self.refreshButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ringSettingsLayout.addWidget(self.bestRadio, 0, 0, 1, 3)
+        self.ringSettingsLayout.addWidget(self.distanceRadio, 1, 0, 1, 1)
+        self.ringSettingsLayout.addWidget(self.distanceSpnBx, 1, 1, 1, 1)
+        self.ringSettingsLayout.addWidget(self.unitChoice, 1, 2, 1, 1)
+        self.ringSettingsLayout.addWidget(self.refreshButton, 0, 3, 2, 1)
 
-        self.int_minIntMap = QDoubleSpinBox()
-        self.int_minIntMap.setMinimum(0)
-        self.int_minIntMap.setMaximum(99)
-        self.int_minIntMap.setValue(0)
-        self.int_minIntMap.setSingleStep(5.0)
-        self.int_minIntMap.setSuffix("%")
-        self.int_minIntMap.setKeyboardTracking(False)
+        self.flipX = QPushButton("Flip X")
+        self.flipX.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.flipY = QPushButton("Flip Y")
+        self.flipY.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
-        self.int_MapIntSettings = QHBoxLayout()
-        self.int_MapIntSettings.addWidget(QLabel("Max : "))
-        self.int_MapIntSettings.addWidget(self.int_maxIntMap)
-        self.int_MapIntSettings.addWidget(QLabel("Min : "))
-        self.int_MapIntSettings.addWidget(self.int_minIntMap)
-        self.intensityTabLayout.addWidget(self.intensityMapCanvas, 0, 0, 1, 1)
-        self.intensityTabLayout.addLayout(self.int_MapIntSettings, 1, 0, 1, 1)
+        self.repChoice = QComboBox()
+        self.repChoice.addItem("Total Intensity Map")
+        self.repChoice.addItem("Vector Field")
+        self.repChoice.addItem("Elliptical Map")
+        self.repChoice.addItem("Intensity and Rotation Map")
 
-        ## BATCHMODE 2 : Distance btw rings map
-        self.distanceMapTab = QWidget()
-        self.distanceMapTab.setContentsMargins(0, 0, 0, 0)
-        self.distanceMapTabLayout = QGridLayout(self.distanceMapTab)
-        self.distanceMapFigure = plt.figure(facecolor='#606060')
-        self.distanceMapAxes = self.distanceMapFigure.add_subplot(111)
-        self.distanceMapCanvas = FigureCanvas(self.distanceMapFigure)
-        self.distanceMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
-        self.ds_ImgFigure = plt.figure(facecolor='#606060')
-        self.ds_ImgCanvas = FigureCanvas(self.ds_ImgFigure)
+        self.colorChoice = QComboBox()
+        colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean', 'rainbow', 'seismic', 'summer', 'spring', 'terrain']
+        for c in colormaps:
+            self.colorChoice.addItem(c)
 
-        self.ds_maxIntMap = QDoubleSpinBox()
-        self.ds_maxIntMap.setMinimum(1)
-        self.ds_maxIntMap.setMaximum(100)
-        self.ds_maxIntMap.setValue(100.)
-        self.ds_maxIntMap.setSingleStep(5.0)
-        self.ds_maxIntMap.setSuffix("%")
-        self.ds_maxIntMap.setKeyboardTracking(False)
-        self.ds_minIntMap = QDoubleSpinBox()
-        self.ds_minIntMap.setMinimum(0)
-        self.ds_minIntMap.setMaximum(99)
-        self.ds_minIntMap.setValue(0)
-        self.ds_minIntMap.setSingleStep(5.0)
-        self.ds_minIntMap.setSuffix("%")
-        self.ds_minIntMap.setKeyboardTracking(False)
-        self.ds_MapIntSettings = QHBoxLayout()
-        self.ds_MapIntSettings.addWidget(QLabel("Max : "))
-        self.ds_MapIntSettings.addWidget(self.ds_maxIntMap)
-        self.ds_MapIntSettings.addWidget(QLabel("Min : "))
-        self.ds_MapIntSettings.addWidget(self.ds_minIntMap)
-        self.distanceMapTabLayout.addWidget(self.distanceMapCanvas, 0, 0, 1, 1)
-        self.distanceMapTabLayout.addLayout(self.ds_MapIntSettings, 1, 0, 1, 1)
+        self.minMap = QDoubleSpinBox()
+        self.minMap.setRange(0, 100)
+        self.minMap.setKeyboardTracking(False)
+        self.minMap.setSuffix('%')
+        self.minMap.setValue(0)
+        self.maxMap = QDoubleSpinBox()
+        self.maxMap.setRange(0, 100)
+        self.maxMap.setKeyboardTracking(False)
+        self.maxMap.setValue(100)
+        self.maxMap.setSuffix('%')
+        self.intensityLayout = QGridLayout()
+        self.intensityLayout.addWidget(QLabel("Min : "), 0, 0, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(self.minMap, 0, 1, 1, 1)
+        self.intensityLayout.addWidget(QLabel("Max : "), 0, 2, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(self.maxMap, 0, 3, 1, 1)
 
-        ## BATCHMODE 3 : Angular range map (degrees)
-        self.angularMapTab = QWidget()
-        self.angularMapTab.setContentsMargins(0, 0, 0, 0)
-        self.angularMapTabLayout = QGridLayout(self.angularMapTab)
-        self.angularMapTab = QWidget()
-        self.angularMapTab.setContentsMargins(0, 0, 0, 0)
-        self.angularMapTabLayout = QGridLayout(self.angularMapTab)
-        self.angularMapFigure = plt.figure(facecolor='#606060')
-        self.angularMapAxes = self.angularMapFigure.add_subplot(111)
-        self.angularMapCanvas = FigureCanvas(self.angularMapFigure)
-        self.angularMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
+        self.mapFigure = plt.figure()
+        self.mapAxes = self.mapFigure.add_subplot(111)
+        self.mapCanvas = FigureCanvas(self.mapFigure)
 
-        self.ar_maxIntMap = QDoubleSpinBox()
-        self.ar_maxIntMap.setMinimum(1)
-        self.ar_maxIntMap.setMaximum(100)
-        self.ar_maxIntMap.setValue(100.)
-        self.ar_maxIntMap.setSingleStep(5.0)
-        self.ar_maxIntMap.setSuffix("%")
-        self.ar_maxIntMap.setKeyboardTracking(False)
-        self.ar_minIntMap = QDoubleSpinBox()
-        self.ar_minIntMap.setMinimum(0)
-        self.ar_minIntMap.setMaximum(99)
-        self.ar_minIntMap.setValue(0)
-        self.ar_minIntMap.setSingleStep(5.0)
-        self.ar_minIntMap.setSuffix("%")
-        self.ar_minIntMap.setKeyboardTracking(False)
-        self.ar_MapIntSettings = QHBoxLayout()
-        self.ar_MapIntSettings.addWidget(QLabel("Max : "))
-        self.ar_MapIntSettings.addWidget(self.ar_maxIntMap)
-        self.ar_MapIntSettings.addWidget(QLabel("Min : "))
-        self.ar_MapIntSettings.addWidget(self.ar_minIntMap)
-        self.angularMapTabLayout.addWidget(self.angularMapCanvas, 0, 0, 1, 1)
-        self.angularMapTabLayout.addLayout(self.ar_MapIntSettings, 1, 0, 1, 1)
+        self.saveButton = QPushButton("Save")
 
-        ## BATCHMODE 4 : Vector Fields
-        self.vectorFieldTab = QWidget()
-        self.vectorFieldTab.setContentsMargins(0, 0, 0, 0)
-        self.vectorFieldTabLayout = QGridLayout(self.vectorFieldTab)
-        self.vectorFieldMapFigure = plt.figure(facecolor='#606060')
-        self.vectorFieldMapAxes = self.vectorFieldMapFigure.add_subplot(111)
-        self.vectorFieldMapCanvas = FigureCanvas(self.vectorFieldMapFigure)
-        self.vectorFieldMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
-        self.arrowLengthSlider = QSlider()
-        self.arrowLengthSlider.setMinimum(5)
-        self.arrowLengthSlider.setMaximum(25)
-        self.arrowLengthSlider.setValue(5)
-        self.arrowLengthSlider.setOrientation(Qt.Horizontal)
-
-        self.vectorFieldTabLayout.addWidget(self.vectorFieldMapCanvas, 0, 0, 1, 2)
-        self.vectorFieldTabLayout.addWidget(QLabel("Arrow Length"), 1, 0, 1, 1)
-        self.vectorFieldTabLayout.addWidget(self.arrowLengthSlider, 1, 1, 1, 1)
-
-        ## BATCHMODE 5 : Elliptical Presentation
-        self.ellipticalTab = QWidget()
-        self.ellipticalTab.setContentsMargins(0, 0, 0, 0)
-        self.ellipticalTabLayout = QGridLayout(self.ellipticalTab)
-        self.ellipticalMapFigure = plt.figure(facecolor='#606060')
-        self.ellipticalMapAxes = self.ellipticalMapFigure.add_subplot(111)
-        self.ellipticalMapCanvas = FigureCanvas(self.ellipticalMapFigure)
-        self.ellipticalMapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
-        self.ellipticalTabLayout.addWidget(self.ellipticalMapCanvas, 0, 0, 1, 1)
-
-        ## tabs
-        self.tabWidget = QTabWidget()
-        self.tabWidget.setTabPosition(QTabWidget.North)
-        self.tabWidget.setDocumentMode(False)
-        self.tabWidget.setTabsClosable(False)
-        self.tabWidget.setStyleSheet("QTabBar::tab { height: 35px; width: 200px; }")
-        self.tabWidget.addTab(self.intensityTab, "Total Intensity Map")
-        # self.tabWidget.addTab(self.distanceMapTab, "D-spacing Map")
-        self.tabWidget.addTab(self.angularMapTab, "Angular Range Map\n(degrees)")
-        self.tabWidget.addTab(self.vectorFieldTab, "Orientation and Intensity\nVector Field")
-        self.tabWidget.addTab(self.ellipticalTab, "Elliptical Representation")
+        self.mapFrame = QFrame()
+        self.mapLayout = QGridLayout(self.mapFrame)
+        self.mapLayout.addWidget(self.ringSettingsGrp, 0, 0, 2, 3)
+        self.mapLayout.addWidget(self.flipX, 0, 3, 1, 1)
+        self.mapLayout.addWidget(self.flipY, 1, 3, 1, 1)
+        self.mapLayout.addWidget(QLabel("Representation : "), 2, 0, 1, 2)
+        self.mapLayout.addWidget(self.repChoice, 2, 1, 1, 3)
+        self.mapLayout.addWidget(QLabel("Color map : "), 3, 0, 1, 2)
+        self.mapLayout.addWidget(self.colorChoice, 3, 1, 1, 3)
+        self.mapLayout.addWidget(self.mapCanvas, 4, 0, 1, 4)
+        self.mapLayout.addLayout(self.intensityLayout, 5, 0, 1, 4)
+        self.mapLayout.addWidget(self.saveButton, 6, 0, 1, 4)
+        self.mapLayout.setRowStretch(0, 1)
+        self.mapLayout.setRowStretch(1, 1)
+        self.mapLayout.setRowStretch(2, 1)
+        self.mapLayout.setRowStretch(3, 1)
+        self.mapLayout.setRowStretch(4, 20)
+        self.mapLayout.setRowStretch(5, 1)
+        self.mapLayout.setRowStretch(6, 1)
 
         # status bar
         self.statusBar = QStatusBar()
@@ -368,13 +308,6 @@ class CPBatchWindow(QMainWindow):
         self.statusLabel = QLabel('')
         self.statusBar.addWidget(QLabel('   '))
         self.statusBar.addWidget(self.imagePathLabel)
-        self.progressBar = QProgressBar()
-        self.progressBar.setMaximum(100)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setHidden(True)
-        # self.stopButton = QPushButton('STOP')
-        # self.stopButton.clicked.connect(self.stopProcessing)
-        # self.stopButton.setHidden(True)
         self.moreDetailsButton = QPushButton('More Details')
         self.moreDetailsButton.setHidden(True)
         self.rightBarLayout = QVBoxLayout()
@@ -383,44 +316,44 @@ class CPBatchWindow(QMainWindow):
         self.rightBarLayout.setAlignment(Qt.AlignRight)
         self.rightBarFrame = QFrame()
         self.rightBarFrame.setLayout(self.rightBarLayout)
-        self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addPermanentWidget(self.rightBarFrame)
 
-        self.refreshButton = QPushButton("Refresh")
-        self.refreshButton.setFixedHeight(40)
-
         self.mainLayout.addWidget(self.imgFrame, 0, 0, 1, 1)
-        self.mainLayout.addWidget(self.refreshButton, 1, 0, 1, 1)
-        self.mainLayout.addWidget(self.tabWidget, 0, 1, 2, 1)
-        self.mainLayout.addWidget(self.statusBar, 2, 0, 1, 2)
-        self.mainLayout.setRowStretch(0, 10)
+        self.mainLayout.addWidget(self.mapFrame, 0, 1, 1, 1)
+        self.mainLayout.addWidget(self.statusBar, 1, 0, 1, 2)
+
+        self.mainLayout.setColumnStretch(0, 1)
+        self.mainLayout.setColumnStretch(1, 2)
+        self.mainLayout.setRowStretch(0, 20)
         self.mainLayout.setRowStretch(1, 1)
-        self.mainLayout.setRowStretch(2, 1)
-        # self.mainLayout.setColumnStretch(0, 1)
-        # self.mainLayout.setColumnStretch(1, 1)
 
         self.show()
-        self.resize(1000, 1000)
+        self.resize(1200, 800)
 
     def setConnections(self):
         self.refreshButton.clicked.connect(self.processBatchmodeResults)
-
+        self.bestRadio.toggled.connect(self.ringChoiceChanged)
+        self.flipX.clicked.connect(self.flipMapX)
+        self.flipY.clicked.connect(self.flipMapY)
         self.img_maxInt.valueChanged.connect(self.maxIntChanged)
         self.img_minInt.valueChanged.connect(self.minIntChanged)
 
-        self.int_maxIntMap.valueChanged.connect(self.sliderReleased)
-        self.int_minIntMap.valueChanged.connect(self.sliderReleased)
+        self.maxMap.valueChanged.connect(self.updateUI)
+        self.minMap.valueChanged.connect(self.updateUI)
 
-        self.ds_maxIntMap.valueChanged.connect(self.sliderReleased)
-        self.ds_minIntMap.valueChanged.connect(self.sliderReleased)
-
-        self.ar_maxIntMap.valueChanged.connect(self.sliderReleased)
-        self.ar_minIntMap.valueChanged.connect(self.sliderReleased)
-
-        self.arrowLengthSlider.sliderReleased.connect(self.sliderReleased)
-
-        self.tabWidget.currentChanged.connect(self.updateUI)
+        self.colorChoice.currentIndexChanged.connect(self.updateUI)
+        self.repChoice.currentIndexChanged.connect(self.updateUI)
+        self.mapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
+        self.saveButton.clicked.connect(self.saveClicked)
         self.moreDetailsButton.clicked.connect(self.popupImageDetails)
+
+    def ringChoiceChanged(self):
+        if self.distanceRadio.isChecked():
+            self.distanceSpnBx.setEnabled(True)
+            self.unitChoice.setEnabled(True)
+        else:
+            self.distanceSpnBx.setEnabled(False)
+            self.unitChoice.setEnabled(False)
 
     def closeEvent(self, ev):
         if self.mainWin is not None:
@@ -431,43 +364,39 @@ class CPBatchWindow(QMainWindow):
             idx = self.widgetList.index(win)
             del self.widgetList[idx]
 
-    def sliderReleased(self):
-        QApplication.processEvents()
-        if self.tabWidget.currentIndex() == 0:
-            self.refreshAllTabs()
-        elif self.tabWidget.currentIndex() == 1:
-            self.update_plot['arange_maps'] = True
-        elif self.tabWidget.currentIndex() == 2:
-            self.updateVectorFieldArrow()
+    def flipMapX(self):
+        self.mapAxes.invert_xaxis()
+        self.mapCanvas.draw()
 
-        self.updateUI()
+    def flipMapY(self):
+        self.mapAxes.invert_yaxis()
+        self.mapCanvas.draw()
+
+    def saveClicked(self):
+        filename = getSaveFile(join(self.filePath, 'cp_results'))
+        print filename,"has been saved."
+        self.mapFigure.savefig(filename)
 
     def plotClicked(self, event):
-        self.imgFrame.setHidden(False)
         self.moreDetailsButton.setHidden(False)
 
-        if len(self.xyIntensity) < 3:
+        if len(self.xyIntensity) < 3 or event.xdata is None or event.ydata is None:
             return
 
         x = self.xyIntensity[0]
         y = self.xyIntensity[1]
         x_max = len(x)
 
-        if x[0] <= event.xdata <= x[len(x) - 1] and y[0] <= event.ydata <= y[len(y) - 1]:
-            # col = 0
-            # row = 0
+        if x.min() <= event.xdata <= x.max()+self.xylim[0] and y.min() <= event.ydata <= y.max()+self.xylim[1]:
             indexs = list(range(0, len(x)))
             col = min(indexs, key=lambda i: abs(x[i] - event.xdata))
 
-            if (self.tabWidget.currentIndex() == 0 or self.tabWidget.currentIndex() == 1) and event.xdata < x[col]:
-                col = max(col - 1, 0)
-
-            if self.tabWidget.currentIndex() == 3:
-                col = min(col + 1, len(x) - 1)
+            if (self.repChoice.currentText() == "Total Intensity Map" or self.repChoice.currentText() == "Intensity and Rotation Map") and event.xdata < x[col]:
+                col -= 1
 
             indexs = list(range(0, len(y)))
             row = min(indexs, key=lambda i: abs(y[i] - event.ydata))
-            if (self.tabWidget.currentIndex() == 0 or self.tabWidget.currentIndex() == 1) and event.ydata < y[row]:
+            if (self.repChoice.currentText() == "Total Intensity Map" or self.repChoice.currentText() == "Intensity and Rotation Map") and event.ydata < y[row]:
                 row = max(row - 1, 0)
 
             ind = row * x_max + col + self.init_number
@@ -500,8 +429,6 @@ class CPBatchWindow(QMainWindow):
                 self.batchmodeImgFilename = None
                 self.batchmodeImg = None
 
-    def stopProcessing(self):
-        self.stopProcess = True
 
     def popupImageDetails(self):
         if self.batchmodeImg is not None:
@@ -542,9 +469,9 @@ class CPBatchWindow(QMainWindow):
             self.updateImage()
 
     def updateImage(self):
+        ax = self.imgAxes
+        ax.cla()
         if self.batchmodeImgDetails is not None:
-            ax = self.imgAxes
-            ax.cla()
             ax.set_title(self.batchmodeImgFilename)
             ax.set_xlabel(self.batchmodeImgDetails)
 
@@ -557,8 +484,15 @@ class CPBatchWindow(QMainWindow):
                 cx = (xlim[0] + xlim[1]) / 2.
                 cy = (ylim[0] + ylim[1]) / 2.
                 ax.text(cx, cy, "IMAGE NOT FOUND", fontsize=15, horizontalalignment='center')
+        else:
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            cx = (xlim[0] + xlim[1]) / 2.
+            cy = (ylim[0] + ylim[1]) / 2.
+            ax.text(cx, cy, "Please click on map\nto see the image\n and details", fontsize=15, horizontalalignment='center')
 
-            self.imgCanvas.draw()
+        self.imgFigure.subplots_adjust(left=0.15, bottom=0.25, right=0.85, top=0.90, wspace=0, hspace=0)
+        self.imgCanvas.draw()
 
     def mousePressEvent(self, event):
         focused_widget = QApplication.focusWidget()
@@ -566,90 +500,70 @@ class CPBatchWindow(QMainWindow):
             focused_widget.clearFocus()
 
     def updateUI(self):
-        selected_tab = self.tabWidget.currentIndex()
-        if selected_tab == 0:
-            self.updateTotalIntenTab()
-        elif selected_tab == 1:
-            self.updateAngularRangeTab()
-        elif selected_tab == 2:
+        representation = self.repChoice.currentText()
+        if representation == 'Total Intensity Map':
+            self.updateTotalIntenTab(angle = False)
+        elif representation == 'Vector Field':
             self.updateVectorFieldTab()
-        elif selected_tab == 3:
+        elif representation == 'Elliptical Map':
             self.updateEllipticalTab()
+        elif representation == 'Intensity and Rotation Map':
+            self.updateTotalIntenTab(angle = True)
+        # elif selected_tab == 1:
+        #     self.updateAngularRangeTab()
         QApplication.processEvents()
 
-    def updateTotalIntenTab(self):
+    def updateTotalIntenTab(self, angle = False):
 
-        if self.update_plot['intensity_maps']:
-            if len(self.xyIntensity) < 3:
-                return
+        if len(self.xyIntensity) < 3:
+            return
 
-            x = self.xyIntensity[0]
-            y = self.xyIntensity[1]
-            intensity = copy.copy(self.xyIntensity[2])
+        x = copy.copy(self.xyIntensity[0])
+        y = copy.copy(self.xyIntensity[1])
+        x2 = np.append(x, max(x) + self.xylim[0])
+        y2 = np.append(y, max(y) + self.xylim[1])
+        intensity = copy.copy(self.xyIntensity[2])
 
-            x_coor, y_coor = np.meshgrid(x, y)
+        x_coor, y_coor = np.meshgrid(x2, y2)
 
-            max_val = intensity.max()
-            if self.int_maxIntMap.value() < 100:
-                intensity[
-                    intensity > self.int_maxIntMap.value() * max_val / 100.] = self.int_maxIntMap.value() * max_val / 100.
-            if self.int_minIntMap.value() > 0:
-                intensity[
-                    intensity < self.int_minIntMap.value() * max_val / 100.] = self.int_minIntMap.value() * max_val / 100.
+        max_val = intensity.max()
+        if self.maxMap.value() < 100:
+            intensity[
+                intensity > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+        if self.minMap.value() > 0:
+            intensity[
+                intensity < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
+        max_val = intensity.max()
 
-            ax = self.intensityMapAxes
-            ax.cla()
-            ax.set_title("Total Intensity Map\n")
-            im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.color_maps)
-            ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-            ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
-            # self.intensityMapFigure.colorbar(im)
-            self.intensityMapFigure.tight_layout()
-            self.intensityMapFigure.savefig(fullPath(self.filePath, 'cp_results/intensity_map.png'))
-            self.intensityMapCanvas.draw()
-            self.update_plot['intensity_maps'] = False
+        ax = self.mapAxes
+        ax.cla()
+        im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=str(self.colorChoice.currentText()))
+        # self.intensityMapFigure.colorbar(im)
+        if angle:
+            centers = [(x[i] + self.xylim[0]/2, y[j]+self.xylim[1]/2.) for j in range(len(y)) for i in range(len(x))]
+            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
+                      range(self.init_number, len(self.hdf_data) + self.init_number)]
+            patches = []
+            colors = []
+            for i in range(len(self.hdf_data)):
+                if ranges[i] == 0:
+                    e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /15., height=(self.xylim[0]+self.xylim[1]) / 2./15.)
+                else:
+                    e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /12., height=(self.xylim[0]+self.xylim[1]) / 2., angle=convertRadtoDegreesEllipse(np.pi - toFloat(self.orientation_dict[i + self.init_number])))
+                patches.append(e)
+                colors.append(max_val - self.intensity_dict[i + self.init_number])
+                # colors.append(0)
 
-    def updateDspacingTab(self):
+            p = PatchCollection(patches, cmap=str(self.colorChoice.currentText()))
+            # p = PatchCollection(patches, cmap='gray')
+            p.set_array(np.array(colors))
+            ax.add_collection(p)
 
-        if self.update_plot['ds_maps']:
-            if len(self.xyIntensity) < 3:
-                return
+        ax.set_xlim(x.min(), x.max() + self.xylim[0])
+        ax.set_ylim(y.min(), y.max() + self.xylim[1])
 
-            x = self.xyIntensity[0]
-            y = self.xyIntensity[1]
-            x_max = len(x)
-
-            if 'ds_' not in self.plots.keys():
-                distances = [
-                    float(self.distance_dict[i]) if i in self.distance_dict and self.distance_dict[i] != '' else 0
-                    for i in
-                    range(self.init_number, len(self.hdf_data) + self.init_number)]
-                distances = np.array([distances[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
-                self.plots['ds_'] = copy.copy(distances)
-            else:
-                distances = copy.copy(self.plots['ds_'])
-
-            # z = cv2.blur(z, (4,4))
-            x_coor, y_coor = np.meshgrid(x, y)
-
-            max_val = distances.max()
-            min_val = distances.min()
-            if self.ds_maxIntMap.value() < 100:
-                distances[distances > self.ds_maxIntMap.value() * max_val / 100.] = max_val
-            if self.ds_minIntMap.value() > 0:
-                distances[distances < self.ds_minIntMap.value() * max_val / 100.] = min_val
-
-            ax = self.distanceMapAxes
-            ax.cla()
-            ax.set_title("D-spacing Map\n")
-            im = ax.pcolormesh(x_coor, y_coor, distances, cmap=self.color_maps)
-            ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-            ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
-            # self.distanceMapFigure.colorbar(im)
-            self.distanceMapFigure.tight_layout()
-            self.distanceMapFigure.savefig(fullPath(self.filePath, 'cp_results/d_spacing_map.png'))
-            self.distanceMapCanvas.draw()
-            self.update_plot['ds_maps'] = False
+        self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1,wspace=0, hspace=0)
+        self.mapCanvas.draw()
 
     def updateAngularRangeTab(self):
 
@@ -696,63 +610,58 @@ class CPBatchWindow(QMainWindow):
             self.update_plot['arange_maps'] = False
 
     def updateVectorFieldTab(self):
+        if len(self.xyIntensity) < 3:
+            return
 
-        if self.update_plot['vector_maps']:
-            if len(self.xyIntensity) < 3:
-                return
+        x = self.xyIntensity[0]
+        y = self.xyIntensity[1]
+        x_max = len(x)
+        intensity = self.xyIntensity[2]
 
-            x = self.xyIntensity[0]
-            y = self.xyIntensity[1]
-            x_max = len(x)
-            intensity = self.xyIntensity[2]
+        orientation = np.array(
+            [float(self.orientation_dict[i]) if i in self.orientation_dict and self.orientation_dict[i] != '' else 0
+             for i in
+             range(self.init_number, len(self.hdf_data) + self.init_number)])
+        orientation = [np.pi - ang for ang in orientation]
+        # orientation = [np.pi - ang if ang < np.pi else ang - np.pi for ang in orientation]
+        orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
 
-            orientation = np.array(
-                [float(self.orientation_dict[i]) if i in self.orientation_dict and self.orientation_dict[i] != '' else 0
-                 for i in
-                 range(self.init_number, len(self.hdf_data) + self.init_number)])
-            orientation = [np.pi - ang for ang in orientation]
-            # orientation = [np.pi - ang if ang < np.pi else ang - np.pi for ang in orientation]
-            orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
+        U = np.cos(orientation)
+        V = np.sin(orientation)
+        int_display = copy.copy(intensity)
 
-            U = np.cos(orientation)
-            V = np.sin(orientation)
-            int_display = copy.copy(intensity)
+        max_val = int_display.max()
+        if self.maxMap.value() < 100:
+            int_display[
+                int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+        if self.minMap.value() > 0:
+            intensity[
+                int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
 
-            max_val = int_display.max()
-            if self.int_maxIntMap.value() < 100:
-                int_display[
-                    int_display > self.int_maxIntMap.value() * max_val / 100.] = self.int_maxIntMap.value() * max_val / 100.
-            if self.int_minIntMap.value() > 0:
-                intensity[
-                    int_display < self.int_minIntMap.value() * max_val / 100.] = self.int_minIntMap.value() * max_val / 100.
+        speed = int_display / intensity.max() * self.xylim[0]
+        UN = U * speed
+        VN = V * speed
+        self.vec_UV = [U, V]
 
-            speed = int_display / intensity.max()
-            UN = U * speed
-            VN = V * speed
-            self.vec_UV = [U, V]
+        ax = self.mapAxes
+        ax.cla()
+        self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
+                                    int_display,  # colour the arrows based on this array
+                                    cmap=str(self.colorChoice.currentText()),  # colour map
+                                    headlength=7, headwidth=4)
 
-            ax = self.vectorFieldMapAxes
-            ax.cla()
-            ax.set_facecolor('black')
-            ax.set_title("Orientation (direction) and Intensity (height and color) Vector Field")
-            self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
-                                        int_display,  # colour the arrows based on this array
-                                        cmap=self.color_maps,  # colour map
-                                        headlength=7, headwidth=4)
+        ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
+        ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
+        # ax.set_aspect('auto')
+        ax.set_facecolor('black')
 
-            ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-            ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
-            ax.set_aspect('auto')
+        # self.vectorFieldMapFigure.colorbar(self.vec_quiver)
+        self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        self.mapCanvas.draw()
 
-            # self.vectorFieldMapFigure.colorbar(self.vec_quiver)
-            self.vectorFieldMapFigure.tight_layout()
-            self.vectorFieldMapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
-            self.vectorFieldMapCanvas.draw()
+        # if self.arrowLengthSlider.value() > 5:
+        #     self.updateVectorFieldArrow()
 
-            if self.arrowLengthSlider.value() > 5:
-                self.updateVectorFieldArrow()
-
-            self.update_plot['vector_maps'] = False
 
     def updateVectorFieldArrow(self):
         if len(self.xyIntensity) < 3 or len(self.vec_UV) < 2 or self.vec_quiver is None:
@@ -764,12 +673,12 @@ class CPBatchWindow(QMainWindow):
         int_display = copy.copy(intensity)
 
         max_val = int_display.max()
-        if self.int_maxIntMap.value() < 100:
+        if self.maxMap.value() < 100:
             int_display[
-                int_display > self.int_maxIntMap.value() * max_val / 100.] = self.int_maxIntMap.value() * max_val / 100.
-        if self.int_minIntMap.value() > 0:
+                int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+        if self.minMap.value() > 0:
             int_display[
-                int_display < self.int_minIntMap.value() * max_val / 100.] = self.int_minIntMap.value() * max_val / 100.
+                int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
 
         speed = int_display / intensity.max() * (self.arrowLengthSlider.value() / 5.)
         UN = U * speed
@@ -780,64 +689,59 @@ class CPBatchWindow(QMainWindow):
 
     def updateEllipticalTab(self):
 
-        if self.update_plot['ellipse_maps']:
+        if len(self.xyIntensity) < 3:
+            return
 
-            if len(self.xyIntensity) < 3:
-                return
+        x = self.xyIntensity[0]
+        y = self.xyIntensity[1]
 
-            x = self.xyIntensity[0]
-            y = self.xyIntensity[1]
+        centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
+        ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
+                  range(self.init_number, len(self.hdf_data) + self.init_number)]
+        max_width = max(ranges)
+        widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict.keys() and 0 < toFloat(
+            self.angrange_dict[i]) / max_width else max_width / 2. for i in
+                  range(self.init_number, len(self.hdf_data) + self.init_number)]
 
-            centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
-                      range(self.init_number, len(self.hdf_data) + self.init_number)]
-            max_width = max(ranges)
-            widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict.keys() and 0 < toFloat(
-                self.angrange_dict[i]) / max_width else max_width / 2. for i in
-                      range(self.init_number, len(self.hdf_data) + self.init_number)]
+        int_display = np.array(self.intensity_dict.values())
+        max_val = int_display.max()
+        if self.maxMap.value() < 100:
+            int_display[
+                int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
+        if self.minMap.value() > 0:
+            int_display[
+                int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
 
-            int_display = np.array(self.intensity_dict.values())
-            max_val = int_display.max()
-            if self.int_maxIntMap.value() < 100:
-                int_display[
-                    int_display > self.int_maxIntMap.value() * max_val / 100.] = self.int_maxIntMap.value() * max_val / 100.
-            if self.int_minIntMap.value() > 0:
-                int_display[
-                    int_display < self.int_minIntMap.value() * max_val / 100.] = self.int_minIntMap.value() * max_val / 100.
+        ax = self.mapAxes
+        ax.cla()
+        patches = []
+        colors = []
+        for i in range(len(self.hdf_data)):
 
-            ax = self.ellipticalMapAxes
-            ax.cla()
-            ax.set_title("Elliptical Representation of Orientation (direction) and Angle Range (width)")
-            patches = []
-            colors = []
-            for i in range(len(self.hdf_data)):
+            if ranges[i] == 0:
+                e = Ellipse(xy=centers[i], width=self.xylim[0]/5., height=self.xylim[0]/5.)
+            else:
+                e = Ellipse(xy=centers[i], width= self.xylim[0] * widths[i], height=self.xylim[0],
+                            angle=convertRadtoDegreesEllipse(
+                                np.pi - toFloat(self.orientation_dict[i + self.init_number])))
+            patches.append(e)
+            # colors.append(self.intensity_dict[i + self.init_number])
+            if i < len(int_display):
+                colors.append(int_display[i])
+            else:
+                colors.append(0)
 
-                if ranges[i] == 0:
-                    e = Ellipse(xy=centers[i - self.init_number], width=self.xylim[0]/5., height=self.xylim[0]/5.)
-                else:
-                    e = Ellipse(xy=centers[i - self.init_number], width= self.xylim[0] * widths[i], height=self.xylim[0],
-                                angle=convertRadtoDegreesEllipse(
-                                    np.pi - toFloat(self.orientation_dict[i + self.init_number])))
-                patches.append(e)
-                # colors.append(self.intensity_dict[i + self.init_number])
-                if i < len(int_display):
-                    colors.append(int_display[i])
-                else:
-                    colors.append(0)
+        p = PatchCollection(patches, cmap=str(self.colorChoice.currentText()))
+        p.set_array(np.array(colors))
+        ax.add_collection(p)
+        ax.set_facecolor('black')
+        ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
+        ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
+        ax.set_aspect('auto')
 
-            p = PatchCollection(patches, cmap=self.color_maps)
-            p.set_array(np.array(colors))
-            ax.add_collection(p)
-            ax.set_facecolor('black')
-            ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-            ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
-            ax.set_aspect('auto')
-
-            # self.ellipticalMapFigure.colorbar(p)
-            self.ellipticalMapFigure.tight_layout()
-            self.ellipticalMapFigure.savefig(fullPath(self.filePath, 'cp_results/direction_width.png'))
-            self.ellipticalMapCanvas.draw()
-            self.update_plot['ellipse_maps'] = False
+        self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
+        self.mapCanvas.draw()
 
     def browseHDF(self, dir_path, hdfList=[]):
         hdf_filename = ""
@@ -901,9 +805,23 @@ class CPBatchWindow(QMainWindow):
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
             all_rings = df_rings[df_rings['filename'] == filename]
             if len(all_rings) > 0:
-                all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
-                best_ring = all_rings.iloc[0]
-                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1.
+                distance_ok = True
+                if self.bestRadio.isChecked():
+                    all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
+                    best_ring = all_rings.iloc[0]
+                else:
+                    dist = self.distanceSpnBx.value()
+                    unit = str(self.unitChoice.currentText())
+                    if unit == 'pixel':
+                        col = 'S'
+                    else:
+                        col = 'd'
+                    min_ind = min(np.arange(len(all_rings)), key=lambda ind: abs(all_rings.iloc[ind][col]-dist)) # Find closest ring to distance
+                    max_dif = {'S':5., 'd':1.}
+                    if abs(all_rings.iloc[min_ind][col]-dist) > max_dif[col]:
+                        distance_ok = False
+                    best_ring = all_rings.iloc[min_ind]
+                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1. and distance_ok
                 self.orientation_dict[index] = best_ring['angle'] if pd.notnull(
                     best_ring['angle']) and good_model else 0
                 self.angrange_dict[index] = best_ring['angle sigma'] if pd.notnull(

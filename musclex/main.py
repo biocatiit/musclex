@@ -69,6 +69,11 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
+        elif prog == 'im':
+            from musclex.ui.ImageMerger import ImageMergerGUI
+            app = QApplication(sys.argv)
+            myapp = ImageMergerGUI()
+            sys.exit(app.exec_())
         else:
             run = False
     else:
@@ -84,6 +89,7 @@ def main(arguments=None):
         print "          qf - Quadrant Folding"
         print "          pt - Projection Traces"
         print "          cp - Circular Projection"
+        print "          im - Image Merger"
         print "          dc - Diffraction Centroids"
         print "          ddf - DDF Processor"
         print ""

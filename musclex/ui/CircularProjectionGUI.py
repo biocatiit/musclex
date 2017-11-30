@@ -36,7 +36,7 @@ from ..utils.file_manager import *
 from ..modules.CircularProjection import *
 import musclex
 from .CPImageWindow import CPImageWindow
-from .CPBatchWindow import CPBatchWindow
+from .CPBatchWindow2 import CPBatchWindow
 
 class CircularProjectionGUI(QMainWindow):
     resizeCompleted = pyqtSignal()

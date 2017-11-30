@@ -1313,9 +1313,11 @@ class CPImageWindow(QMainWindow):
                 n = len(fit_result.keys())/3
                 for i in range(1, n+1):
                     processing_results_text += "\nPeak "+str(i)+': '
-                    processing_results_text += "\tcenter : "+str(fit_result['u'+str(i)])+':\n'
-                    processing_results_text += "\talpha  : " + str(fit_result['alpha' + str(i)]) + ':\n'
-                    processing_results_text += "\tsigmad : " + str(fit_result['sigmad' + str(i)]) + ':\n'
+                    processing_results_text += "\tcenter(pixel) : "+str(fit_result['u'+str(i)])+'\n'
+                    if self.cirProj.info.has_key('peak_ds'):
+                        processing_results_text += "\tcenter(nn) : " + str(self.cirProj.info['peak_ds'][i-1]) + '\n'
+                    processing_results_text += "\tarea  : " + str(fit_result['alpha' + str(i)]) + '\n'
+                    processing_results_text += "\tsigmad : " + str(fit_result['sigmad' + str(i)]) + '\n'
 
         self.processing_results.setText(processing_results_text)
 

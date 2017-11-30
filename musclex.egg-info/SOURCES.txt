@@ -30,8 +30,10 @@ musclex/ui/BM_FittingTab.py
 musclex/ui/BioMuscleWindow.py
 musclex/ui/BlankImageSettings.py
 musclex/ui/CPBatchWindow.py
+musclex/ui/CPBatchWindow2.py
 musclex/ui/CPImageWindow.py
 musclex/ui/CircularProjectionGUI.py
+musclex/ui/ImageMerger.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py

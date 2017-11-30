@@ -46,6 +46,7 @@ class CalibrationSettings(QDialog):
         self.cal_img = None
         self.disp_img = None
         self.version = musclex.__version__
+        self.uiUpdating = False
         cache = self.loadSettings()
 
         if cache is not None:
@@ -91,12 +92,26 @@ class CalibrationSettings(QDialog):
             self.pathText.setText(self.calFile)
         self.pathText.setEnabled(False)
         self.browseButton = QPushButton("Browse")
-        self.browseButton.clicked.connect(self.browseClicked)
         self.unsetButton = QPushButton("Unset")
-        self.unsetButton.clicked.connect(self.unsetCalImg)
         self.calImgFigure = plt.figure(facecolor='#606060')
         self.calImgCanvas = FigureCanvas(self.calImgFigure)
         self.calImgCanvas.setHidden(True)
+
+        self.minIntLabel = QLabel("Min intensity : ")
+        self.minInt = QDoubleSpinBox()
+        self.minInt.setKeyboardTracking(False)
+        self.minInt.setValue(0)
+        self.minInt.setDecimals(2)
+        self.maxIntLabel = QLabel("Max intensity : ")
+        self.maxInt = QDoubleSpinBox()
+        self.maxInt.setKeyboardTracking(False)
+        self.maxInt.setValue(0)
+        self.maxInt.setDecimals(2)
+        self.minIntLabel.setHidden(True)
+        self.minInt.setHidden(True)
+        self.maxIntLabel.setHidden(True)
+        self.maxInt.setHidden(True)
+
         self.manualCal = QPushButton("Set calibration by points selections")
         self.manualCal.setCheckable(True)
         self.manualCal.setFixedHeight(30)
@@ -118,17 +133,18 @@ class CalibrationSettings(QDialog):
         self.calImageGrp.setStyleSheet(grpbox_ss)
         self.calImageGrp.setChecked(type == "img")
         self.calImageLayout = QGridLayout(self.calImageGrp)
-        l1 = QLabel("Calibration File :")
-        l2 = QLabel("Silver Behenate :")
-        self.calImageLayout.addWidget(l1, 0, 0, 1, 1)
+        self.calImageLayout.addWidget(QLabel("Calibration File :") , 0, 0, 1, 1)
         self.calImageLayout.addWidget(self.pathText, 0, 1, 1, 1)
         self.calImageLayout.addWidget(self.browseButton, 0, 2, 1, 1)
         self.calImageLayout.addWidget(self.unsetButton, 0, 3, 1, 1)
         self.calImageLayout.addWidget(self.calImgCanvas, 1, 0, 1, 4)
-        self.calImageLayout.addWidget(self.manualCal, 2, 0, 1, 2)
-        self.calImageLayout.addWidget(l2, 2, 2, 1, 1)
-        self.calImageLayout.addWidget(self.silverBehenate, 2, 3, 1, 1)
-        self.calImageLayout.setAlignment(l2, Qt.AlignRight)
+        self.calImageLayout.addWidget(self.minIntLabel, 2, 0, 1, 1)
+        self.calImageLayout.addWidget(self.minInt, 2, 1, 1, 1)
+        self.calImageLayout.addWidget(self.maxIntLabel, 2, 2, 1, 1)
+        self.calImageLayout.addWidget(self.maxInt, 2, 3, 1, 1)
+        self.calImageLayout.addWidget(self.manualCal, 3, 0, 1, 2)
+        self.calImageLayout.addWidget(QLabel("Silver Behenate :"), 3, 2, 1, 1, Qt.AlignRight)
+        self.calImageLayout.addWidget(self.silverBehenate, 3, 3, 1, 1)
         # self.calImageLayout.setColumnStretch(1,2)
         self.calImageLayout.setRowStretch(1, 2)
 
@@ -139,17 +155,17 @@ class CalibrationSettings(QDialog):
         self.paramLayout = QGridLayout(self.paramGrp)
 
         self.lambdaSpnBx = QDoubleSpinBox()
-        self.lambdaSpnBx.setDecimals(5)
+        self.lambdaSpnBx.setDecimals(8)
         self.lambdaSpnBx.setRange(0.00001, 5.)
         self.lambdaSpnBx.setValue(init_lambda)
 
         self.sddSpnBx = QDoubleSpinBox()
-        self.sddSpnBx.setDecimals(2)
+        self.sddSpnBx.setDecimals(8)
         self.sddSpnBx.setRange(0., 5000.)
         self.sddSpnBx.setValue(init_sdd)
 
         self.pixsSpnBx = QDoubleSpinBox()
-        self.pixsSpnBx.setDecimals(5)
+        self.pixsSpnBx.setDecimals(8)
         self.pixsSpnBx.setRange(0.00001, 5.)
         self.pixsSpnBx.setValue(init_pix_size)
 
@@ -195,8 +211,12 @@ class CalibrationSettings(QDialog):
         self.resize(5, 1)
 
     def setConnection(self):
+        self.browseButton.clicked.connect(self.browseClicked)
+        self.unsetButton.clicked.connect(self.unsetCalImg)
         self.paramGrp.clicked.connect(self.paramChecked)
         self.calImageGrp.clicked.connect(self.calImageChecked)
+        self.minInt.valueChanged.connect(self.updateImage)
+        self.maxInt.valueChanged.connect(self.updateImage)
 
     def paramChecked(self):
         self.calImageGrp.setChecked(not self.paramGrp.isChecked())
@@ -273,7 +293,7 @@ class CalibrationSettings(QDialog):
         axis_size = 2
         ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
         ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-        zoom_size = 30
+        zoom_size = 40
         ax.set_xlim((x - zoom_size, x + zoom_size))
         ax.set_ylim((y - zoom_size, y + zoom_size))
         ax.invert_yaxis()
@@ -301,6 +321,15 @@ class CalibrationSettings(QDialog):
             if cache is not None and cache.has_key("version") and cache["version"] == self.version:
                 return cache
         return None
+
+    def keyPressEvent(self, event):
+        """
+        Manage key press event on keyboard
+        """
+        key = event.key()
+
+        if key == Qt.Key_Enter:
+            return
 
     def saveSettings(self):
         cache_path = fullPath(self.dir_path, "settings")
@@ -332,8 +361,20 @@ class CalibrationSettings(QDialog):
     def getImage(self):
         if self.cal_img is None:
             self.cal_img = fabio.open(str(self.calFile)).data
-            th = getThreshold(self.cal_img, 0.05)
-            self.disp_img = getBGR(get8bitImage(self.cal_img, max=th))
+
+        if self.minInt.value() == 0 and self.maxInt.value() == 0:
+            self.uiUpdating = True
+            min_val = self.cal_img.min()
+            max_val = self.cal_img.max()
+            self.minIntLabel.setText("Min intensity (" + str(np.round(min_val, 2)) + ") : ")
+            self.maxIntLabel.setText("Max intensity (" + str(np.round(max_val, 2)) + ") : ")
+            self.minInt.setRange(min_val, max_val)
+            self.maxInt.setRange(min_val, max_val)
+            self.minInt.setValue(min_val)
+            self.maxInt.setValue(max_val*0.2)
+            self.uiUpdating = False
+        self.disp_img = getBGR(get8bitImage(self.cal_img, max=self.maxInt.value(), min=self.minInt.value()))
+
         return copy.copy(self.cal_img), copy.copy(self.disp_img)
 
     # def findEllipseCenter(l):
@@ -419,6 +460,9 @@ class CalibrationSettings(QDialog):
         self.updateImage()
 
     def updateImage(self):
+        if self.uiUpdating:
+            return
+
         self.calImgFigure.clf()
         if self.calSettings is not None:
             if self.calSettings.has_key("center"):
@@ -429,6 +473,10 @@ class CalibrationSettings(QDialog):
             if self.calImageGrp.isChecked():
                 self.resize(500, 800)
                 self.calImgCanvas.setHidden(False)
+                self.minIntLabel.setHidden(False)
+                self.minInt.setHidden(False)
+                self.maxIntLabel.setHidden(False)
+                self.maxInt.setHidden(False)
                 center = self.calSettings["center"]
                 radius = self.calSettings["radius"]
                 _, disp_img = self.getImage()
@@ -448,6 +496,7 @@ class CalibrationSettings(QDialog):
             self.calImgCanvas.setHidden(True)
 
         self.calImgCanvas.draw()
+
 
     def okClicked(self):
         self.saveSettings()
