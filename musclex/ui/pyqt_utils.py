@@ -37,7 +37,7 @@ except ImportError:
         from PyQt5.QtGui import *
         from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
     except ImportError:
-        print "Please install PyQt4 or PyQt5"
+        print("Please install PyQt4 or PyQt5")
 
 
 def getAFile(filter='Images (*.tif)', path = ''):
@@ -50,7 +50,7 @@ def getFiles(path='', filter='Images (*.tif)'):
     fileList = QFileDialog.getOpenFileNames(None, "Select frame(s) to average", path, filter)
     if isinstance(fileList, tuple):
         fileList = fileList[0]
-    return map(str, fileList)
+    return list(map(str, fileList))
 
 def getAFolder():
     dir_path = QFileDialog.getExistingDirectory(None, "Select a Folder")
@@ -58,4 +58,6 @@ def getAFolder():
 
 def getSaveFile(path='', filter='Images (*.png)'):
     file_name = QFileDialog.getSaveFileName(None, "Save a file", path, filter)
+    if isinstance(file_name, tuple):
+        file_name = file_name[0]
     return str(file_name)

@@ -26,12 +26,12 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
-from pyqt_utils import *
+from .pyqt_utils import *
 import matplotlib.patches as patches
-from ..modules.BioImage import getCardiacGraph
+from ..modules.EquatorImage import getCardiacGraph
 from ..utils.image_processor import *
 
-class BM_FittingTab(QWidget):
+class EQ_FittingTab(QWidget):
     """
     Fitting Tabs : left or right
     Display fitting graph and providing options
@@ -171,12 +171,12 @@ class BM_FittingTab(QWidget):
     def syncSpinBoxes(self, info):
         self.syncUI = True
         side = self.side
-        self.fixSigmaD.setChecked(info.has_key(side+'_fix_sigmad'))
-        self.fixSigmaS.setChecked(info.has_key(side+'_fix_sigmas'))
-        self.sigmaDSpinBx.setEnabled(info.has_key(side+'_fix_sigmad'))
-        self.sigmaSSpinBx.setEnabled(info.has_key(side+'_fix_sigmas'))
+        self.fixSigmaD.setChecked(side+'_fix_sigmad' in info)
+        self.fixSigmaS.setChecked(side+'_fix_sigmas' in info)
+        self.sigmaDSpinBx.setEnabled(side+'_fix_sigmad' in info)
+        self.sigmaSSpinBx.setEnabled(side+'_fix_sigmas' in info)
 
-        if info.has_key('fit_results'):
+        if 'fit_results' in info:
             fit_result = info['fit_results']
             self.sigmaDSpinBx.setValue(fit_result[side+'_sigmad'])
             self.sigmaSSpinBx.setValue(fit_result[side+'_sigmas'])
@@ -195,7 +195,7 @@ class BM_FittingTab(QWidget):
     def initSpinBoxes(self, info):
         self.syncUI = True
         side = self.side
-        if info.has_key('fit_results'):
+        if 'fit_results' in info:
             fit_result = info['fit_results']
             self.sigmaDSpinBx.setValue(fit_result[side+'_sigmad'])
             self.sigmaSSpinBx.setValue(fit_result[side+'_sigmas'])
@@ -214,23 +214,23 @@ class BM_FittingTab(QWidget):
             self.fixedGammaZ.setHidden(fit_result['model'] != 'Voigt')
             self.gammaZSpnBx.setHidden(fit_result['model'] != 'Voigt')
 
-        self.fixSigmaD.setChecked(info.has_key(side+'_fix_sigmad'))
-        self.fixSigmaS.setChecked(info.has_key(side+'_fix_sigmas'))
-        self.sigmaDSpinBx.setEnabled(info.has_key(side+'_fix_sigmad'))
-        self.sigmaSSpinBx.setEnabled(info.has_key(side+'_fix_sigmas'))
+        self.fixSigmaD.setChecked(side+'_fix_sigmad' in info)
+        self.fixSigmaS.setChecked(side+'_fix_sigmas' in info)
+        self.sigmaDSpinBx.setEnabled(side+'_fix_sigmad' in info)
+        self.sigmaSSpinBx.setEnabled(side+'_fix_sigmas' in info)
 
-        self.fixGamma.setChecked(info.has_key(side+'_fix_gamma'))
-        self.gammaSpinBx.setEnabled(info.has_key(side+'_fix_gamma'))
+        self.fixGamma.setChecked(side+'_fix_gamma' in info)
+        self.gammaSpinBx.setEnabled(side+'_fix_gamma' in info)
 
-        self.fixedZline.setChecked(info.has_key(side+'_fix_zline'))
-        self.fixedZline.setChecked(info.has_key(side+'_fix_zline'))
-        self.fixedSigZ.setChecked(info.has_key(side+'_fix_sigz'))
-        self.fixedIntZ.setChecked(info.has_key(side+'_fix_intz'))
-        self.fixedGammaZ.setChecked(info.has_key(side+'_fix_gammaz'))
-        self.zlineSpnBx.setEnabled(info.has_key(side+'_fix_zline'))
-        self.sigZSpnBx.setEnabled(info.has_key(side+'_fix_sigz'))
-        self.intZSpnBx.setEnabled(info.has_key(side+'_fix_intz'))
-        self.gammaZSpnBx.setEnabled(info.has_key(side+'_fix_gammaz'))
+        self.fixedZline.setChecked(side+'_fix_zline' in info)
+        self.fixedZline.setChecked(side+'_fix_zline' in info)
+        self.fixedSigZ.setChecked(side+'_fix_sigz' in info)
+        self.fixedIntZ.setChecked(side+'_fix_intz' in info)
+        self.fixedGammaZ.setChecked(side+'_fix_gammaz' in info)
+        self.zlineSpnBx.setEnabled(side+'_fix_zline' in info)
+        self.sigZSpnBx.setEnabled(side+'_fix_sigz' in info)
+        self.intZSpnBx.setEnabled(side+'_fix_intz' in info)
+        self.gammaZSpnBx.setEnabled(side+'_fix_gammaz' in info)
         self.syncUI = False
 
     def fixedParamChecked(self):
@@ -284,7 +284,7 @@ class BM_FittingTab(QWidget):
 
     def getFittingSettings(self):
         """
-        Get All settings that are necessary for bioImage to process
+        Get All settings that are necessary for EquatorImage to process
         :return:
         """
         settings = {}

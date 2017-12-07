@@ -33,12 +33,12 @@ import matplotlib.patches as patches
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
-from pyqt_utils import *
+from .pyqt_utils import *
 from os.path import split
 import matplotlib.pyplot as plt
 import musclex
 import traceback
-from BlankImageSettings import BlankImageSettings
+from .BlankImageSettings import BlankImageSettings
 
 class QuadrantFoldingGUI(QMainWindow):
     """
@@ -68,7 +68,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def initUI(self):
         self.setStyleSheet(getStyleSheet())
-        self.setWindowTitle("Quadrant Folding v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Quadrant Folding v." + musclex.__version__)
 
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
@@ -1420,7 +1420,7 @@ class QuadrantFoldingGUI(QMainWindow):
         text = 'Imported Background :\n'
         if len(self.BGImages) > 0:
             imgs = [split(p)[1] for p in self.BGImages]
-            text += "\n".join(map(str, imgs))
+            text += "\n".join(list(map(str, imgs)))
         self.importedBG.setText(text)
 
             
@@ -1556,7 +1556,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.spResultminInt.setDecimals(2)
 
         info = self.quadFold.info
-        if info.has_key("bgsub"):
+        if "bgsub" in info:
             if info['bgsub'] != 'None':
                 self.bgChoice.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
                 self.tophat1SpnBx.setValue(info['tophat1'])
@@ -1578,7 +1578,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.boxcarY.setValue(info['boxcar_y'])
                 self.cycle.setValue(info['cycles'])
 
-        if info.has_key('blank_mask'):
+        if 'blank_mask' in info:
             self.blankImageGrp.setChecked(info['blank_mask'])
 
         if 'mask_thres' in info.keys():
@@ -1612,7 +1612,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imgDetailOnStatusBar.setText(
             str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
         self.initialWidgets(original_image)
-        if self.quadFold.info.has_key('ignore_folds'):
+        if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
         self.processImage()
 
@@ -1765,7 +1765,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
             try:
                 self.quadFold.process(flags)
-            except Exception, e:
+            except Exception as e:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
                 errMsg.setText('Unexpected error')

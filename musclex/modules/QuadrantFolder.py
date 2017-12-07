@@ -140,7 +140,7 @@ class QuadrantFolder(object):
         sigmoid - merging gradient
         other backgound subtraction params - cirmin, cirmax, nbins, tophat1, tophat2
         """
-        print self.img_name+" is being processed..."
+        print(str(self.img_name) + " is being processed...")
         self.info.update(flags)
         self.initParams()
         self.findCenter()
@@ -151,7 +151,7 @@ class QuadrantFolder(object):
         self.mergeImages()
         self.generateResultImage()
 
-        if not flags.has_key("no_cache"):
+        if "no_cache" not in flags:
             self.cacheInfo()
             self.saveBackground()
 
@@ -159,13 +159,13 @@ class QuadrantFolder(object):
         """
         Initial some parameters in case GUI doesn't specified
         """
-        if not self.info.has_key('mask_thres'):
+        if 'mask_thres' not in self.info:
             self.info['mask_thres'] = getMaskThreshold(self.orig_img)
-        if not self.info.has_key('ignore_folds'):
+        if 'ignore_folds' not  in self.info:
             self.info['ignore_folds'] = set()
-        if not self.info.has_key('bgsub'):
+        if 'bgsub' not in self.info:
             self.info['bgsub'] = 0
-        if not self.info.has_key('sigmoid'):
+        if 'sigmoid' not in self.info:
             self.info['sigmoid'] = 0.05
 
 
@@ -176,10 +176,10 @@ class QuadrantFolder(object):
        """
         if 'center' in self.info.keys():
             return
-        print "Center is being calculated ... "
+        print("Center is being calculated ... ")
         self.info['center'] = getCenter(self.orig_img)
         self.deleteFromDict(self.info, 'rotationAngle')
-        print "Done. Center =", self.info['center']
+        print("Done. Center = "+str(self.info['center']))
 
 
     def rotateImg(self):
@@ -188,12 +188,12 @@ class QuadrantFolder(object):
         Once the rotation angle is calculated, the average fold will be re-calculated, so self.info["avg_fold"] is deleted
         """
         if not self.empty and 'rotationAngle' not in self.info.keys():
-            print "Rotation Angle is being calculated ... "
+            print("Rotation Angle is being calculated ... ")
             center = self.info['center']
             img = copy.copy(self.orig_img)
             self.info['rotationAngle'] = getRotationAngle(img, center)
             self.deleteFromDict(self.info, 'avg_fold')
-            print "Done. Rotation Angle is", self.info['rotationAngle'],"degree"
+            print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
 
     def getRotatedImage(self):
         """
@@ -597,7 +597,7 @@ class QuadrantFolder(object):
 
     def getFirstPeak(self, hist):
         # Start from index 5 and go to the right until slope is less than -10
-        for i in range(5, len(hist)/2):
+        for i in range(5, int(len(hist)/2)):
             if hist[i] - hist[i-1] < -10:
                 return i
         return 20
@@ -606,12 +606,12 @@ class QuadrantFolder(object):
         """
         get R-min and R-max for backgroun subtraction process. If these value is changed, background subtracted images need to be reproduced.
         """
-        if self.info.has_key('rmin') and self.info.has_key('rmax'):
+        if 'rmin' in self.info and 'rmax' in self.info:
             return
 
-        print "R-min and R-max is being calculated."
+        print("R-min and R-max is being calculated.")
 
-        if self.info.has_key('fixed_rmin') and self.info.has_key('fixed_rmax'):
+        if 'fixed_rmin' in self.info and 'fixed_rmax' in self.info:
             self.info['rmin'] = self.info['fixed_rmin']
             self.info['rmax'] = self.info['fixed_rmax']
         else:
@@ -629,7 +629,7 @@ class QuadrantFolder(object):
 
         self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
         self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg1" from info to make it reprocess
-        print "Done. R-min is",self.info['rmin']," and R-max is", self.info['rmax']
+        print("Done. R-min is "+str(self.info['rmin']) + " and R-max is " + str(self.info['rmax']))
 
     def apply2DConvexhull(self):
         """
@@ -713,7 +713,7 @@ class QuadrantFolder(object):
         # result -= result.min()
 
         self.info['bgimg1'] = result
-        # print "Done."
+
 
     def calculateAvgFold(self):
         """
@@ -726,7 +726,7 @@ class QuadrantFolder(object):
             center = self.info['center']
             center_x = center[0]
             center_y = center[1]
-            if self.info.has_key('blank_mask') and self.info['blank_mask']:
+            if 'blank_mask' in self.info and self.info['blank_mask']:
                 img = np.array(self.orig_img, 'float32')
                 blank, mask = getBlankImageAndMask(self.img_path)
                 # blank = None
@@ -738,7 +738,7 @@ class QuadrantFolder(object):
             else:
                 rotate_img = copy.copy(self.getRotatedImage())
 
-            print "Quadrant folding is being processed..."
+            print("Quadrant folding is being processed...")
             img_width = rotate_img.shape[1]
             img_height = rotate_img.shape[0]
             fold_width = min(center[0], img_width-center[0])
@@ -771,7 +771,7 @@ class QuadrantFolder(object):
             if 'resultImg' in self.imgCache.keys():
                 del self.imgCache['resultImg']
 
-            print "Done."
+            print("Done.")
 
     def get_avg_fold(self, quadrants, fold_height, fold_width):
         """
@@ -799,11 +799,11 @@ class QuadrantFolder(object):
         - bgimg1 : image after applying background subtraction INSIDE merge radius
         - bgimg2 : image after applying background subtraction OUTSIDE merge radius
         """
-        print "Background Subtraction is being processed..."
+        print("Background Subtraction is being processed...")
         method = self.info["bgsub"]
 
         # Produce bgimg1
-        if not self.info.has_key("bgimg1"):
+        if "bgimg1" not in self.info:
             avg_fold = np.array(self.info['avg_fold'], dtype="float32")
             if method == 'None':
                 self.info["bgimg1"] = avg_fold # if method is None, original average fold will be used
@@ -825,7 +825,7 @@ class QuadrantFolder(object):
             self.deleteFromDict(self.imgCache, "BgSubFold")
 
         # Produce bgimg2
-        if not self.info.has_key("bgimg2"):
+        if "bgimg2" not in self.info:
             avg_fold = np.array(self.info['avg_fold'], dtype="float32")
             if method == 'None':
                 self.info["bgimg2"] = avg_fold # if method is 'None', original average fold will be used
@@ -833,7 +833,7 @@ class QuadrantFolder(object):
                 self.info["bgimg2"] = white_tophat(avg_fold, disk(self.info["tophat2"]))
             self.deleteFromDict(self.imgCache, "BgSubFold")
 
-        print "Done"
+        print("Done")
 
     def mergeImages(self):
         """
@@ -841,9 +841,9 @@ class QuadrantFolder(object):
         The result of merging will be kept in self.info["BgSubFold"]
         :return:
         """
-        print "Merging images..."
+        print("Merging images...")
 
-        if not self.imgCache.has_key("BgSubFold"):
+        if "BgSubFold" not in self.imgCache:
             img1 = np.array(self.info["bgimg1"], dtype="float32")
             img2 = np.array(self.info["bgimg2"], dtype="float32")
             sigmoid = self.info["sigmoid"]
@@ -858,7 +858,7 @@ class QuadrantFolder(object):
             # display_test(img2, "out",500)
             # display_test(self.imgCache['BgSubFold'], "result",500)
 
-        print "Done."
+        print("Done.")
 
     def generateResultImage(self):
         """
@@ -866,9 +866,9 @@ class QuadrantFolder(object):
         :return:
         """
         if 'resultImg' not in self.imgCache.keys():
-            print "Generating result image from avarage fold..."
+            print("Generating result image from avarage fold...")
             self.imgCache['resultImg'] = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
-            print "Done."
+            print("Done.")
 
     def makeFullImage(self, fold):
         """

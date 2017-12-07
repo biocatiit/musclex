@@ -86,7 +86,7 @@ class CircularProjection:
         :param msg: logged msg
         :return:
         """
-        print msg
+        print(str(msg))
         if self.logger is not None:
             self.logger.debug(msg)
 
@@ -124,10 +124,11 @@ class CircularProjection:
         :return: -
         """
         if k is None:
-            for k in self.info.keys():
+            keys = list(self.info.keys())
+            for k in keys:
                 del self.info[k]
         else:
-            if self.info.has_key(k): # remove from dictionary if the key exists
+            if k in self.info.keys(): # remove from dictionary if the key exists
                 del self.info[k]
 
     def findCenter(self):
@@ -152,7 +153,6 @@ class CircularProjection:
             if blank is not None:
                 img = img - blank
                 noBGImg = getImgAfterWhiteTopHat(img)
-
 
             center = self.info['center']
 
@@ -183,7 +183,7 @@ class CircularProjection:
 
             hists = list(I)
 
-            if self.info.has_key('fixed_hull'):
+            if 'fixed_hull' in self.info:
                 rmin = self.info['fixed_hull'][0]
                 rmax = self.info['fixed_hull'][1]
             else:
@@ -245,10 +245,7 @@ class CircularProjection:
                 normHeight = [histnp[p]/ np.max(histnp) for p in all_peaks_list]
                 areas = [normHeight[i] * normSigma[i] for i in range(len(normHeight))]
                 normAreas = areas/np.max(areas)
-                # print all_peaks_list
-                # print "sigma = ", normSigma
-                # print "height = ",normHeight
-                # print "area = ", normAreas
+
                 peakList2 = sorted([peakList2[i] for i in range(len(peakList2)) if normAreas[all_peaks_list.index(peakList2[i])] > 0.2])
                 peakList1.extend(peakList2)
 
@@ -364,7 +361,6 @@ class CircularProjection:
 
             # Check if peaks are guessed right
             model_peaks = [result['u' + str(i)] for i in range(1, len(merged_peaks) + 1)]
-            # print "time consumed:" , time.time()-start_time
             more_info = {'model_peaks': model_peaks, 'fitResult': result, 'minimize_method': methods[best_ind]}
 
             self.info.update(more_info)
@@ -390,8 +386,8 @@ class CircularProjection:
         histograms = []
         # Generate the angle ranges in tuples
         ranges = [(x, x + ref_angle) for x in range(0, 360, ref_angle)]
-        ranges.extend([(x, x + ref_angle) for x in range(ref_angle / 2, 360 + ref_angle / 2, ref_angle)])
-        ranges = sorted(ranges, key=lambda(s,e) : s)
+        ranges.extend([(x, x + ref_angle) for x in range(int(ref_angle / 2), 360 + int(ref_angle / 2), ref_angle)])
+        ranges = sorted(ranges, key=lambda se: se[0])
 
         blank, mask = getBlankImageAndMask(self.filepath)
         img = copy.copy(self.original_image)
@@ -411,12 +407,6 @@ class CircularProjection:
 
         # Compute histograms for each range
         for a_range in ranges:
-            # print "Computing range:", a_range
-            # if a_range[0] < 360 and a_range[1] <= 360:
-            #     h = np.sum(I2D[a_range[0]:a_range[1]], axis=0)
-            # else:
-            #     h = np.sum(I2D[a_range[0]:360], axis=0) + np.sum(I2D[0:a_range[1]], axis=0)
-
             tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", azimuth_range=a_range, mask=mask)
             histograms.append(I)
 
@@ -438,7 +428,7 @@ class CircularProjection:
         :return:
         """
 
-        if self.info.has_key('fixed_hull'):
+        if 'fixed_hull' in self.info:
             start = self.info['fixed_hull'][0]
             end = self.info['fixed_hull'][1]
             return convexHull(hist, start_p=start, end_p=end)
@@ -564,7 +554,6 @@ class CircularProjection:
                 results[l_peaks[i]] = aux_freq
                 prev = l_peaks[i]
 
-        # print "Selected peaks :", sorted(results.keys())
         if round_val:
             return {int(round(k)): v for k, v in results.items() if v >= times_threshold}
         else:
@@ -592,7 +581,7 @@ class CircularProjection:
             for p in peaks:
                 mult = 1. * p / d
                 error += abs((p-d*round(mult)))/d
-            print "distance:", d, " error:", error
+            print("distance: " + str(d) + " error: " +str(error))
             errors.append(error)
             # if error < .20:
             #     return d
@@ -1201,7 +1190,7 @@ def GM(x, u1, sigmad1, alpha1):
     return alpha1 * np.exp(-1. * (x - u1) ** 2 / (2 * sigmad1 ** 2)) * (1. / (np.sqrt(2 * np.pi) * sigmad1))
 
 def GMM_any(x, params):
-    n = len(params.keys())/3
+    n = int(len(params.keys())/3)
     result = GM(x, params['u1'], params['sigmad1'], params['alpha1'])
     for i in range(2, n+1):
         result += GM(x, params['u'+str(i)], params['sigmad'+str(i)], params['alpha'+str(i)])
@@ -1327,9 +1316,9 @@ def whiteTopHat(img, sigma=5, first=True):
         tophat = white_tophat(dst, kernelxy)
         low_values_indices = tophat < 0
         if True in low_values_indices:
-            print "There are negative indexes after tophat"
+            print("There are negative indexes after tophat")
         else:
-            print "There are NOT negative values after tophat"
+            print("There are NOT negative values after tophat")
         return tophat
     else:
         dst = copy.copy(img)

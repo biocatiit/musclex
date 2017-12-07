@@ -25,7 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-from pyqt_utils import *
+from .pyqt_utils import *
 import os, sys
 import pandas as pd
 import musclex
@@ -33,7 +33,7 @@ import musclex
 class DDFWindow(QMainWindow):
     def __init__(self):
         QWidget.__init__(self)
-        self.setWindowTitle("DDF-Processor v." + musclex.__version__)
+        self.setWindowTitle("Muscle X DDF-Processor v." + musclex.__version__)
         self.current_file = ""
         self.data = None
         self.colChkBxs = []
@@ -205,7 +205,8 @@ class DDFWindow(QMainWindow):
         genData = self.data.groupby(self.data.index / self.freqSpnBx.value()).mean()
         genData = genData[selected_cols]
         dir_path, _ = os.path.split(str(self.inputField.text()))
-        output = str(QFileDialog.getSaveFileName(self, "Save an output file", dir_path, "CSV (*.csv);; Excel (*.xlsx);; HTML (*.html)"))
+        output = getSaveFile(dir_path, "CSV (*.csv);; Excel (*.xlsx);; HTML (*.html)")
+
         if output != "":
             _, ext = os.path.splitext(output)
             if ext == ".xlsx":

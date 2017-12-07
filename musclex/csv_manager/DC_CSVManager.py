@@ -153,7 +153,7 @@ class DC_CSVManager():
         # else:
         # Files are selected by auto-grouping
         if exists(self.filename):
-            with open(self.filename, "rb") as csvfile:
+            with open(self.filename, "r") as csvfile:
                 reader = csv.reader(csvfile)
                 peak_data = []
                 images = []
@@ -240,10 +240,10 @@ class DC_CSVManager():
             self.grp_to_key[info["grp_num"]] = k
         self.keyToImages[k] = fileList
 
-        if self.allpeaks_data.has_key(k):
+        if k in self.allpeaks_data:
             del self.allpeaks_data[k]
 
-        if self.offmer_data.has_key(k):
+        if k in self.offmer_data:
             del self.offmer_data[k]
 
         data = []
@@ -272,7 +272,7 @@ class DC_CSVManager():
                 data.append(peak_dict)
 
         off_mer_data = {}
-        if info.has_key("off_mer_baselines"):
+        if "off_mer_baselines" in info:
             for q in ["top_left", "top_right", "bottom_left", "bottom_right"]:
                 dat = {
                     "baseline" : info["off_mer_baselines"][q],
@@ -393,7 +393,7 @@ class DC_CSVManager():
         # Files are selected by auto-grouping
         with open(self.filename, "w") as csvfile:
             writer = csv.writer(csvfile, delimiter=",")
-            grpKey = sorted(self.grp_to_key.items(), key=lambda (g, k): int(g))
+            grpKey = sorted(self.grp_to_key.items(), key=lambda gk: int(gk[0]))
             g1, k1 = grpKey[0]
             peak_data = self.allpeaks_data[k1]
 

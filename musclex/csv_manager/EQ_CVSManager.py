@@ -31,7 +31,7 @@ from os import makedirs
 import pandas as pd
 from ..utils.file_manager import fullPath
 
-class BM_CVSManager:
+class EQ_CVSManager:
     """
     A class taking care of writing results including csv file and failedcases file
     """
@@ -40,7 +40,7 @@ class BM_CVSManager:
         init with directory path
         :param dir_path:
         """
-        result_path = fullPath(dir_path, "bm_results")
+        result_path = fullPath(dir_path, "eq_results")
         if not exists(result_path):
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
@@ -75,7 +75,7 @@ class BM_CVSManager:
     def writeNewData(self, bioImg):
         """
         Add new data to dataframe, then re-write summary.csv and failed cases file
-        :param bioImg: BioImage object with results in its info dict
+        :param bioImg: EquatorImage object with results in its info dict
         :return: -
         """
         file_name = bioImg.filename

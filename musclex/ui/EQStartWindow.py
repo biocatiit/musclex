@@ -30,20 +30,20 @@ __author__ = 'Jiranun.J'
 
 import sys
 import os
-from pyqt_utils import *
+from .pyqt_utils import *
 from os.path import split
-from ..ui.BioMuscleWindow import BioMuscleWindow
+from ..ui.EquatorWindow import EquatorWindow
 import musclex
 
-class BMStartWindow(QMainWindow):
+class EQStartWindow(QMainWindow):
     """
-    A class for start-up window or main window. Now, this is used for keep all BioMuscleWindow objects in a list
+    A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
     """
     def __init__(self):
         QWidget.__init__(self)
         self.dir_path = ""
         self.setWindowTitle("Bio-Muscle v."+musclex.__version__)
-        self.windowList = [] # use this list to keep BioMuscleWindow objects to prevent python delete it
+        self.windowList = [] # use this list to keep EquatorWindow objects to prevent python delete it
         self.browseFile() # start program by browse a file
 
     # def initUI(self):
@@ -69,7 +69,7 @@ class BMStartWindow(QMainWindow):
     def childWindowClosed(self, childwin):
         """
         Remove child window from list
-        :param childwin: BioMuscleWindow object
+        :param childwin: EquatorWindow object
         """
         if childwin in self.windowList:
             self.windowList.remove(childwin)
@@ -128,10 +128,10 @@ class BMStartWindow(QMainWindow):
 
     def runBioMuscle(self, filename):
         """
-        Create a BioMuscleWindow object and launch the window
+        Create a EquatorWindow object and launch the window
         :param filename: input filename (str)
         :return:
         """
-        newWindow = BioMuscleWindow(self, filename)
+        newWindow = EquatorWindow(self, filename)
         self.windowList.append(newWindow)
         self.hide()

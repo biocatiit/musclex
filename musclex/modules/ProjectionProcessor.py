@@ -97,7 +97,7 @@ class ProjectionProcessor():
         box_names = self.info['box_names']
         if name in box_names:
             all_peaks = self.info['peaks']
-            if all_peaks.has_key(name) and all_peaks[name] == peaks:
+            if name in all_peaks and all_peaks[name] == peaks:
                 return
             all_peaks[name] = peaks
             skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs']
@@ -105,7 +105,7 @@ class ProjectionProcessor():
                 if k not in skip_list:
                     self.removeInfo(name, k)
         else:
-            print "Warning : box name is invalid."
+            print("Warning : box name is invalid.")
 
     def removePeaks(self, name):
         """
@@ -129,17 +129,17 @@ class ProjectionProcessor():
         # self.getOtherResults()
         self.getBackgroundSubtractedHistograms()
         self.getPeakInfos()
-        if not settings.has_key('no_cache'):
+        if 'no_cache' not in settings:
             self.cacheInfo()
 
     def updateSettings(self, settings):
-        if settings.has_key('boxes'):
+        if 'boxes' in settings:
             new_boxes = settings['boxes']
             types = settings['types']
             bgsubs = settings['bgsubs']
             old_boxes = self.info['boxes']
-            all_name = new_boxes.keys()
-            all_name.extend(old_boxes.keys())
+            all_name = list(new_boxes.keys())
+            all_name.extend(list(old_boxes.keys()))
             all_name = set(all_name)
             for name in all_name:
                 if name in new_boxes.keys():
@@ -150,11 +150,11 @@ class ProjectionProcessor():
             del settings['types']
             del settings['bgsubs']
 
-        if settings.has_key('peaks'):
+        if 'peaks' in settings:
             new_peaks = settings['peaks']
             old_peaks = self.info['peaks']
-            all_name = new_peaks.keys()
-            all_name.extend(old_peaks.keys())
+            all_name = list(new_peaks.keys())
+            all_name.extend(list(old_peaks.keys()))
             all_name = set(all_name)
             for name in all_name:
                 if name in new_peaks.keys():
@@ -163,7 +163,7 @@ class ProjectionProcessor():
                     self.removePeaks(name)
             del settings['peaks']
 
-        if settings.has_key('hull_ranges'):
+        if 'hull_ranges' in settings:
             new = settings['hull_ranges']
             current = self.info['hull_ranges']
             current.update(new)
@@ -182,7 +182,7 @@ class ProjectionProcessor():
             hists = self.info['hists']
             img = copy.copy(self.orig_img)
             for name in box_names:
-                if not hists.has_key(name):
+                if name not in hists:
                     t = types[name]
                     b = boxes[name]
                     x1 = b[0][0]
@@ -211,10 +211,10 @@ class ProjectionProcessor():
             types = self.info['types']
             hull_ranges = self.info['hull_ranges']
             for name in box_names:
-                if hists2.has_key(name):
+                if name in hists2:
                     continue
 
-                if bgsubs[name] == 1 and all_peaks.has_key(name) and len(all_peaks[name]) > 0:
+                if bgsubs[name] == 1 and name in all_peaks and len(all_peaks[name]) > 0:
                     # apply convex hull to the left and right if peaks are specified
                     box = boxes[name]
                     hist = hists[name]
@@ -227,11 +227,12 @@ class ProjectionProcessor():
                     else:
                         centerX = self.orig_img.shape[0] / 2 - start_y
 
+                    centerX = int(round(centerX))
                     right_hist = hist[centerX:]
                     left_hist = hist[:centerX][::-1]
                     min_len = min(len(right_hist), len(left_hist))
 
-                    if not hull_ranges.has_key(name):
+                    if name not in hull_ranges:
                         start = max(min(peaks) - 15, 10)
                         end = min(max(peaks) + 15, min_len)
                         hull_ranges[name] = (start, end)
@@ -271,7 +272,7 @@ class ProjectionProcessor():
         for name in box_names:
             hist = np.array(all_hists[name])
 
-            if not all_peaks.has_key(name) or len(all_peaks[name]) == 0 or fit_results.has_key(name):
+            if name not in all_peaks or len(all_peaks[name]) == 0 or name in fit_results:
                 continue
 
             peaks = all_peaks[name]
@@ -293,7 +294,8 @@ class ProjectionProcessor():
                 init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
             else:
                 init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
-
+                
+            init_center = int(round(init_center))
             params.add('centerX', init_center, min=init_center - 1., max=init_center + 1.)
 
             if bgsubs[name] == 1:
@@ -348,10 +350,10 @@ class ProjectionProcessor():
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
                 self.info['fit_results'][name] = result_dict
                 self.removeInfo(name, 'subtracted_hists')
-                print "Box :", name
-                print "Fitting Result :", result_dict
-                print "Fitting Error :", result_dict['error']
-                print "---"
+                print("Box : "+ str(name))
+                print("Fitting Result : " + str(result_dict))
+                print("Fitting Error : " + str(result_dict['error']))
+                print("---")
 
 
     def getBackgroundSubtractedHistograms(self):
@@ -364,7 +366,7 @@ class ProjectionProcessor():
         fit_results = self.info['fit_results']
         subt_hists = self.info['subtracted_hists']
         for name in box_names:
-            if subt_hists.has_key(name) or not fit_results.has_key(name):
+            if name in subt_hists or name not in fit_results:
                 continue
 
             # Get subtracted histogram if fit result exists
@@ -391,14 +393,14 @@ class ProjectionProcessor():
 
         for name in box_names:
 
-            if not all_hists.has_key(name):
+            if name not in all_hists:
                 continue
 
             ### Find real peak locations in the box (not distance from center)
             model = fit_results[name]
             hist = all_hists[name]
 
-            if not moved_peaks.has_key(name):
+            if name not in moved_peaks:
                 peaks = []
                 i = 0
                 while 'p_'+str(i) in model.keys():
@@ -411,7 +413,7 @@ class ProjectionProcessor():
             peaks = moved_peaks[name]
 
             ### Calculate Baselines
-            if not all_baselines.has_key(name):
+            if name not in all_baselines:
                 baselines = []
                 for p in peaks:
                     baselines.append(hist[p]*0.5)
@@ -420,7 +422,7 @@ class ProjectionProcessor():
 
             baselines = all_baselines[name]
 
-            if not all_centroids.has_key(name):
+            if name not in all_centroids:
                 results = getPeakInformations(hist, peaks, baselines)
                 all_centroids[name] = results['centroids'] - model['centerX']
                 all_widths[name] = results['widths']
@@ -462,13 +464,14 @@ class ProjectionProcessor():
         """
         # ignore_list = ['lambda_sdd', 'program_version', 'no_cache']
 
-        if k is not None and self.info.has_key(k):
+        if k is not None and k in self.info:
             d = self.info[k]
-            if isinstance(d, dict) and d.has_key(name):
+            if isinstance(d, dict) and name in d:
                 del d[name]
 
         if k is None:
-            for k in self.info.keys():
+            keys = list(self.info.keys())
+            for k in keys:
                 d = self.info[k]
                 if k == 'box_names':
                     d.remove(name)
@@ -477,7 +480,7 @@ class ProjectionProcessor():
 
     def loadCache(self):
         """
-        Load info dict from cache. Cache file will be filename.info in folder "bm_cache"
+        Load info dict from cache. Cache file will be filename.info in folder "eq_cache"
         :return: cached info (dict)
         """
         cache_path = fullPath(self.dir_path, "pt_cache")
@@ -528,7 +531,7 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
         p = kwargs['p_'+str(i)]
         sigma = kwargs['sigma'+str(i)]
         amplitude = kwargs['amplitude' + str(i)]
-        if kwargs.has_key('gamma' + str(i)):
+        if 'gamma' + str(i) in kwargs:
             gamma = kwargs['gamma' + str(i)]
 
             mod = VoigtModel()

@@ -7,7 +7,7 @@ from tifffile import imsave
 
 img_path = "/Users/preawwy/RA/Data/edf_files/B02_frelon_00040_raw.edf"
 file = fabio.open(img_path)
-print file.header
+print(file.header)
 data = file.data
 
 fig = plt.figure()

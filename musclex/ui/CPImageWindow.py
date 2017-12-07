@@ -1,4 +1,4 @@
-from pyqt_utils import *
+from .pyqt_utils import *
 import matplotlib.patches as patches
 import logging
 from ..utils.file_manager import *
@@ -6,7 +6,7 @@ from ..modules.CircularProjection import *
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
 import musclex
-import BlankImageSettings as BI
+from .BlankImageSettings import BlankImageSettings
 
 class CPImageWindow(QMainWindow):
     def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
@@ -60,7 +60,7 @@ class CPImageWindow(QMainWindow):
                     self.ring_colors.append([b,g,r])
 
     def initUI(self):
-        self.setWindowTitle("Circular Projection v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
         self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
@@ -397,7 +397,7 @@ class CPImageWindow(QMainWindow):
             self.processImage()
 
     def setBlankAndMask(self):
-        dialog = BI.BlankImageSettings(self.filePath)
+        dialog = BlankImageSettings(self.filePath)
         self.mask = None
         result = dialog.exec_()
         if result == 1 and self.cirProj is not None:
@@ -661,7 +661,7 @@ class CPImageWindow(QMainWindow):
         text += "\nCurrent Settings"
         text += "\n - Partial integration angle range : "+ str(flags['partial_angle'])
         if self.calSettings is not None:
-            if self.calSettings.has_key("center"):
+            if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
             if self.calSettings["type"] == "img":
                 text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) +" nm"
@@ -742,7 +742,7 @@ class CPImageWindow(QMainWindow):
                 flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
             else:
                 flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-                if self.calSettings.has_key("center"):
+                if "center" in self.calSettings:
                     flags["center"] = self.calSettings["center"]
 
         if self.fixed_hull_range is not None:
@@ -981,7 +981,7 @@ class CPImageWindow(QMainWindow):
                         patches.Circle(tuple(center), int(round(radius + h*sigmad)), linewidth=2, edgecolor=tuple(np.array(self.ring_colors[(i-1)%len(self.ring_colors)])/255.), facecolor='none'))
 
 
-        if self.cirProj.info.has_key('ring_models') and self.cirProj.info.has_key('ring_errors'):
+        if 'ring_models' in self.cirProj.info and 'ring_errors' in self.cirProj.info:
             models = self.cirProj.info['ring_models']
             errors = self.cirProj.info['ring_errors']
             best_ind = min(errors.items(), key=lambda err:err[1])[0]
@@ -1310,11 +1310,11 @@ class CPImageWindow(QMainWindow):
         processing_results_text += "\n\nFitting Results :"
         if 'fitResult' in self.cirProj.info.keys():
                 fit_result = self.cirProj.info['fitResult']
-                n = len(fit_result.keys())/3
+                n = int(len(fit_result.keys())/3)
                 for i in range(1, n+1):
                     processing_results_text += "\nPeak "+str(i)+': '
                     processing_results_text += "\tcenter(pixel) : "+str(fit_result['u'+str(i)])+'\n'
-                    if self.cirProj.info.has_key('peak_ds'):
+                    if 'peak_ds' in self.cirProj.info:
                         processing_results_text += "\tcenter(nn) : " + str(self.cirProj.info['peak_ds'][i-1]) + '\n'
                     processing_results_text += "\tarea  : " + str(fit_result['alpha' + str(i)]) + '\n'
                     processing_results_text += "\tsigmad : " + str(fit_result['sigmad' + str(i)]) + '\n'

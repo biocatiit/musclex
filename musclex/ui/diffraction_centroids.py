@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 __author__ = 'Jiranun.J'
 
-from pyqt_utils import *
+from .pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import sys
@@ -179,6 +179,7 @@ class OffMeridianTab(QWidget):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.mainwin.pixel_detail.setText("")
+            return
         else:
             self.mainwin.pixel_detail.setText("x=" + str(np.round(x,2)) + ', y=' + str(np.round(y,2)))
 
@@ -921,13 +922,13 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.rotatedImg = None # rotated avarage image of DiffractionCentroids
         self.off_mer = None # off-meridian settings
 
-        if settings.has_key('fix_ranges'):
+        if 'fix_ranges' in settings:
             self.fixRanges = settings['fix_ranges']
 
-        if settings.has_key('start_group'):
+        if 'start_group' in settings:
             self.currentGroup = settings['start_group']
 
-        if settings.has_key('off_meridian'):
+        if 'off_meridian' in settings:
             self.off_mer = settings['off_meridian']
 
         self.csvManager = DC_CSVManager(dir_path, settings['group'], self.fixRanges) # create CSV manager
@@ -946,7 +947,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :param pnEnable:
         :return:
         """
-        self.setWindowTitle("Diffraction Centroids v."+musclex.__version__)
+        self.setWindowTitle("Muscle X Diffraction Centroids v."+musclex.__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -1436,7 +1437,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         Trigger when mouse hovers on image
         """
-        if self.difCent is None or event.xdata is None or event.ydata is None:
+        if self.difCent is None or event.xdata is None or event.ydata is None or self.rotatedImg is None:
             self.pixel_detail.setText("")
             return
 
@@ -1682,7 +1683,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         flags = self.getFlags()
         try:
             self.difCent.process(flags)
-        except Exception,e:
+        except:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
@@ -1764,7 +1765,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             # cv2.circle(img, tuple(self.difCent.info['center']), 2, (255,255,0), thickness = 2)
             ax.imshow(img)
 
-            if self.areaChkBx.isChecked() and self.difCent.info.has_key('int_area'):
+            if self.areaChkBx.isChecked() and 'int_area' in self.difCent.info:
                 # Draw meridian lines
                 int_area = self.difCent.info['int_area']
                 ax.plot((int_area[0], int_area[0]), (0, img.shape[0]), color='b')
@@ -1824,7 +1825,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.imgList = []
         self.selectedImages = []
         self.dir_path = ""
-        self.setWindowTitle("Diffraction Centroids v."+musclex.__version__)
+        self.setWindowTitle("Muscle X Diffraction Centroids v."+musclex.__version__)
         self.fixRanges = []
         self.fixRangeNames = []
         self.initUI()
@@ -2147,13 +2148,12 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.offMeridianGrp.setChecked(False)
         settings = self.loadSettings(dir_path)
         if settings is not None:
-            # self.fixRangesGroup.setChecked(settings.has_key("fix_ranges"))
-            self.offMeridianGrp.setChecked(settings.has_key("off_meridian"))
-            if settings.has_key("fix_ranges"):
+            self.offMeridianGrp.setChecked("off_meridian" in settings)
+            if "fix_ranges" in settings:
                 fix_ranges = settings["fix_ranges"]
                 for (name, pos) in fix_ranges:
                     self.addFixedRange(name, pos[0], pos[1])
-            if settings.has_key("off_meridian"):
+            if "off_meridian" in settings:
                 off_mer = settings["off_meridian"]
                 self.x1SpnBx.setValue(off_mer["x1"])
                 self.x2SpnBx.setValue(off_mer["x2"])
@@ -2243,7 +2243,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
                 grpList = [self.selectedImages]
 
         # if self.fixRangesGroup.isChecked():
-        fix_ranges = sorted([(str(self.fixRangeNames[i]),self.fixRanges[i]) for i in range(len(self.fixRanges))], key = lambda (n,r) : r[0])
+        fix_ranges = sorted([(str(self.fixRangeNames[i]),self.fixRanges[i]) for i in range(len(self.fixRanges))], key = lambda nr : nr[1][0])
 
         if len(fix_ranges) == 0:
             errMsg = QMessageBox()

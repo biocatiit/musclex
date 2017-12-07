@@ -41,13 +41,13 @@ from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 import musclex
 
-class BioImage:
+class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
     def __init__(self, dir_path, filename):
         """
-        Initial value for bioImage object
+        Initial value for EquatorImage object
         :param dir_path: directory path of input image
         :param filename: image file name
         """
@@ -86,7 +86,7 @@ class BioImage:
         self.getPeaks()
         self.managePeaks()
         self.fitModel()
-        if not settings.has_key("no_cache"):
+        if "no_cache" not in settings:
             self.saveCache()
 
     def removeInfo(self, k=None):
@@ -95,11 +95,13 @@ class BioImage:
         :param k: key of dictionary
         :return: -
         """
+
         if k is None:
-            for k in self.info.keys():
+            keys = list(self.info.keys())
+            for k in keys:
                 del self.info[k]
         else:
-            if self.info.has_key(k): # remove from dictionary if the key exists
+            if k in self.info.keys(): # remove from dictionary if the key exists
                 del self.info[k]
 
     def applyBlankAndMask(self):
@@ -121,20 +123,20 @@ class BioImage:
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
-        print "Center is being calculated..."
-        if not self.info.has_key('center'):
+        print("Center is being calculated...")
+        if 'center' not in self.info:
             self.info['center'] = getCenter(self.orig_img)
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
-        print "Done. Center is", self.info['center']
+        print("Done. Center is" + str(self.info['center']))
 
     def getRotationAngle(self):
         """
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
         Once the rotation angle is calculated, the rmin will be re-calculated, so self.info["rmin"] is deleted
         """
-        print "Rotation Angle is being calculated..."
-        if not self.info.has_key('rotationAngle'):
-            if self.info.has_key("fixed_angle"):
+        print("Rotation Angle is being calculated...")
+        if 'rotationAngle' not in self.info:
+            if "fixed_angle" in self.info:
                 self.info['rotationAngle'] = self.info["fixed_angle"]
             else:
                 center = self.info['center']
@@ -142,15 +144,15 @@ class BioImage:
                 self.info['rotationAngle'] = getRotationAngle(img, center)
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
-        print "Done. Rotation Angle is", self.info['rotationAngle']
+        print("Done. Rotation Angle is" + str(self.info['rotationAngle']))
 
     def calculateRmin(self):
         """
         Calculate R-min of the diffraction. The R-min will be kept in self.info["rmin"]
         Once the R-min is calculated, the integrated area (Box Width) will be re-calculated, so self.info["int_area"] is deleted
         """
-        print "R-min is being calculated..."
-        if not self.info.has_key('rmin'):
+        print("R-min is being calculated...")
+        if 'rmin' not in self.info:
             img = copy.copy(self.orig_img)
             center = self.info['center']
 
@@ -176,7 +178,7 @@ class BioImage:
             # ax.set_xlim((0, len(I[:int(len(I)/4)])))
             # fig.show()
 
-        print "Done. R-min is", self.info['rmin']
+        print("Done. R-min is " + str(self.info['rmin']))
 
     def getRotatedImage(self, img=None, angle=None):
         """
@@ -204,10 +206,10 @@ class BioImage:
         The Integrated Area will be kept in self.info["int_area"]
         Once the Integrated Area is calculated, the histograms will be re-calculated, so self.info["hist"] is deleted
         """
-        print "Integrated Area is being calculated..."
-        if not self.info.has_key('int_area'):
+        print("Integrated Area is being calculated...")
+        if 'int_area' not in self.info:
             center = self.info['center']
-            if self.info.has_key('fixed_int_area'): # integrated area is fixed by users
+            if 'fixed_int_area' in self.info: # integrated area is fixed by users
                 self.info['int_area'] = self.info['fixed_int_area']
             else:
                 rmin = self.info['rmin']
@@ -244,21 +246,21 @@ class BioImage:
 
             self.removeInfo('hist') # Remove histograms from info dict to make it be re-calculated
 
-        print "Done. Integrated Area is", self.info['int_area']
+        print("Done. Integrated Area is " + str(self.info['int_area']))
 
     def getHistogram(self):
         """
         Getting original histogram of the diffraction in the integrated area. Histogram will be kept in self.info["hist"]
         Once getting histogram is done, the background subtracted histogram will be re-calculated, so self.info["hulls"] is deleted
         """
-        print "Getting Histogram..."
-        if not self.info.has_key('hist'):
+        print("Getting Histogram...")
+        if 'hist' not in self.info:
             int_area = self.info['int_area']
             img = self.getRotatedImage()
             self.info['hist'] = np.sum(img[int_area[0]:int_area[1], :], axis=0)
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
 
-        print "Done."
+        print("Done.")
 
     def applyConvexhull(self):
         """
@@ -266,8 +268,8 @@ class BioImage:
        This will provide left, right, and both separated by centerX
        Once getting background subtracted histogram is done, the temp peaks will be re-calculated, so self.info["tmp_peaks"] is deleted
        """
-        print "Applying Convexhull..."
-        if not self.info.has_key('hulls'):
+        print("Applying Convexhull...")
+        if 'hulls' not in self.info:
             center = self.info['center']
             shapes = self.image.shape
             rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.8)
@@ -302,7 +304,7 @@ class BioImage:
 
             self.removeInfo('tmp_peaks') # Remove temp peaks from info dict to make it be re-calculated
 
-        print "Done"
+        print("Done")
 
     def getPeaks(self):
         """
@@ -311,14 +313,14 @@ class BioImage:
         Temp peaks will be kept in self.info["tmp_peaks"].
         Once getting Temp peaks is done, the real peaks will be re-calculated, so self.info["peaks"] is deleted
         """
-        print "Finding Peaks..."
-        if not self.info.has_key('tmp_peaks'):
+        print("Finding Peaks...")
+        if 'tmp_peaks' not in self.info:
             left_peaks = getPeaksFromHist(self.info['hulls']['left'])
             right_peaks = getPeaksFromHist(self.info['hulls']['right'])
             self.info['tmp_peaks'] = {'left': left_peaks, 'right': right_peaks}
             self.removeInfo('peaks')  # Remove real peaks from info dict to make it be re-calculated
 
-        print "Done. Peaks are found :", self.info['tmp_peaks']
+        print("Done. Peaks are found : " + str(self.info['tmp_peaks']))
 
 
     def managePeaks(self):
@@ -327,8 +329,8 @@ class BioImage:
         Real peaks will be kept in self.info["peaks"].
         Once getting real peaks is done, the fitting results will be re-calculated, so self.info["fit_results"] is deleted
         """
-        print "Model Peaks are being selected..."
-        if not self.info.has_key('peaks'):
+        print("Model Peaks are being selected...")
+        if 'peaks' not in self.info:
             left_peaks = movePeaks(self.info['hulls']['left'], sorted(self.info['tmp_peaks']['left']), 5)
             right_peaks = movePeaks(self.info['hulls']['right'], sorted(self.info['tmp_peaks']['right']), 5)
             first_left, first_right = self.findFirstSymmetricPeaks(left_peaks, right_peaks)
@@ -337,11 +339,11 @@ class BioImage:
             self.removeInfo('fit_results')  # Remove fit results from info dict to make it be re-calculated
 
             if first_left is None:
-                print 'WARNING:', self.filename, '- no effective peaks detected. Model will not be fit.'
+                print('WARNING: '+str(self.filename) + '- no effective peaks detected. Model will not be fit.')
                 return
 
             self.hexagonalPattern(first_left, first_right, left_peaks, right_peaks)
-        print "Done. Selected Peaks are", self.info['peaks']
+        print("Done. Selected Peaks are" + str(self.info['peaks']))
 
     def findFirstSymmetricPeaks(self, left_peaks, right_peaks):
         """
@@ -412,9 +414,9 @@ class BioImage:
                     allpeaks['right'].append(SRight)
             maximum_nPeaks += 2
 
-        allpeaks['left'] = allpeaks['left'][0:maximum_nPeaks / 2]
-        allpeaks['right'] = allpeaks['right'][0:maximum_nPeaks / 2]
-        self.info['S'] = self.info['S'][0:maximum_nPeaks / 2]
+        allpeaks['left'] = allpeaks['left'][0:int(maximum_nPeaks / 2)]
+        allpeaks['right'] = allpeaks['right'][0:int(maximum_nPeaks / 2)]
+        self.info['S'] = self.info['S'][0:int(maximum_nPeaks / 2)]
         # self.info['S20'] = center[0]+int(S20)
 
         self.info['peaks'] = allpeaks
@@ -426,11 +428,11 @@ class BioImage:
         Fit model to background subtracted histogram by using S10, peak location as initial guess
         Fit results will be kept in self.info["fit_results"].
         """
-        if not self.info.has_key('peaks'):
+        if 'peaks' not in self.info:
             # model cannot be fitted if peaks are not found
             return
-        print "Fitting Model ..."
-        if not self.info.has_key('fit_results'):
+        print("Fitting Model ...")
+        if 'fit_results' not in self.info:
             left_hull = self.info['hulls']['left']
             right_hull = self.info['hulls']['right']
             left_peaks = self.info['peaks']['left']
@@ -503,24 +505,24 @@ class BioImage:
                     params.add(side+'_gamma', init_gamma, min=0, max=init_gamma * 5.0 + 1.)
 
                 if self.info['isSkeletal']:
-                    if self.info.has_key(side+'_fix_zline'):
+                    if side+'_fix_zline' in self.info:
                         int_vars[side+'_zline'] = self.info[side+'_fix_zline']
                     else:
                         init_z = 1.5
                         params.add(side+'_zline', S[0] * init_z, min=S[0] * init_z - 10, max=S[0] * init_z + 10)
 
-                    if self.info.has_key(side+'_fix_sigz'):
+                    if side+'_fix_sigz' in self.info:
                         int_vars[side+'_sigmaz'] = self.info[side+'_fix_sigz']
                     else:
                         params.add(side+'_sigmaz', 8., min=0., max=20.)
 
-                    if self.info.has_key(side+'_fix_intz'):
+                    if side+'_fix_intz' in self.info:
                         int_vars[side+'_intz'] = self.info[side+'_fix_intz']
                     else:
                         init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
                         params.add(side+'_intz', init_intz, min=0, max=init_intz*4.+1.)
 
-                    if self.info.has_key(side+'_fix_gammaz'):
+                    if side+'_fix_gammaz' in self.info:
                         int_vars[side+'_gammaz'] = self.info[side+'_fix_gammaz']
                     else:
                         params.add(side+'_gammaz', 8., min=-5., max=30.)
@@ -582,10 +584,10 @@ class BioImage:
                 # original_hist = self.info['rhist']
                 # plt.plot(x, original_hist, label = 'histogram_BG')
 
-        if self.info.has_key('fit_results'):
-            print "Done. Fitting Results :", self.info['fit_results']
+        if 'fit_results' in self.info:
+            print("Done. Fitting Results : " + str(self.info['fit_results']))
             if self.info['fit_results']['fiterror'] > 0.2:
-                print "WARNING : High Fitting Error"
+                print("WARNING : High Fitting Error")
 
     def getPeakWidths(self, side):
         """
@@ -626,10 +628,10 @@ class BioImage:
 
     def loadCache(self):
         """
-        Load info dict from cache. Cache file will be filename.info in folder "bm_cache"
+        Load info dict from cache. Cache file will be filename.info in folder "eq_cache"
         :return: cached info (dict)
         """
-        cache_path = fullPath(self.dir_path, "bm_cache")
+        cache_path = fullPath(self.dir_path, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
 
         if exists(cache_path) and isfile(cache_file):
@@ -641,10 +643,10 @@ class BioImage:
 
     def saveCache(self):
         """
-        Save info dict to cache. Cache file will be save as filename.info in folder "bm_cache"
+        Save info dict to cache. Cache file will be save as filename.info in folder "eq_cache"
         :return: -
         """
-        cache_path = fullPath(self.dir_path, "bm_cache")
+        cache_path = fullPath(self.dir_path, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
 
         # Create cache path if it does not exist
@@ -659,7 +661,7 @@ class BioImage:
         Delete cache
         :return: -
         """
-        cache_path = fullPath(self.dir_path, "bm_cache")
+        cache_path = fullPath(self.dir_path, "eq_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
         if exists(cache_path) and isfile(cache_file):
             os.remove(cache_file)
@@ -716,15 +718,17 @@ def cardiacFit(x, centerX, S10, model, isSkeletal
         else:
             left_areas_dict = {}
             right_areas_dict = {}
-            for key, value in kwargs.iteritems():
+            for kv in kwargs.items():
+                key = kv[0]
+                value = kv[1]
                 if 'left_area' in key:
                     left_areas_dict[int(key[9:])] = value
                 if 'right_area' in key:
                     right_areas_dict[int(key[10:])] = value
 
-            left_areas = sorted(left_areas_dict.items(), key=lambda (k, v): k)
+            left_areas = sorted(left_areas_dict.items(), key=lambda kv: kv[0])
             left_areas = [v for (k, v) in left_areas]
-            right_areas = sorted(right_areas_dict.items(), key=lambda (k, v): k)
+            right_areas = sorted(right_areas_dict.items(), key=lambda kv: kv[0])
             right_areas = [v for (k, v) in right_areas]
 
         result = cardiacSide(model, 'left', x, centerX, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas)
@@ -805,14 +809,14 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
             areas = kwargs['areas']
         else:
             areas_dict = {}
-            for key, value in kwargs.iteritems():
-                if 'area' in key:
-                    areas_dict[int(key[4:])] = value
+            for kv in kwargs.items():
+                if 'area' in kv[0]:
+                    areas_dict[int(kv[0][4:])] = kv[1]
 
-            areas = sorted(areas_dict.items(), key=lambda (k, v): k)
+            areas = sorted(areas_dict.items(), key=lambda kv: kv[0])
             areas = [v for (k, v) in areas]
 
-        nPeaks = len(areas)/2
+        nPeaks = int(len(areas)/2)
 
         for i, area in enumerate(areas):
             if i < nPeaks:

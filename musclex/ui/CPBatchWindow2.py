@@ -1,4 +1,4 @@
-from pyqt_utils import *
+from .pyqt_utils import *
 from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
 import h5py
@@ -8,7 +8,6 @@ from ..csv_manager import CP_CSVManager
 import musclex
 import pandas as pd
 from .CPImageWindow import CPImageWindow
-
 
 class HDFBrowser(QDialog):
     """
@@ -193,7 +192,7 @@ class CPBatchWindow(QMainWindow):
         self.processFolder(self.filePath)
 
     def initUI(self):
-        self.setWindowTitle("Circular Projection v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
         # self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QGridLayout(self.centralWidget)
@@ -374,7 +373,7 @@ class CPBatchWindow(QMainWindow):
 
     def saveClicked(self):
         filename = getSaveFile(join(self.filePath, 'cp_results'))
-        print filename,"has been saved."
+        print(str(filename)+" has been saved.")
         self.mapFigure.savefig(filename)
 
     def plotClicked(self, event):
@@ -401,7 +400,7 @@ class CPBatchWindow(QMainWindow):
 
             ind = row * x_max + col + self.init_number
 
-            if self.name_dict.has_key(ind):
+            if ind in self.name_dict:
                 img_detail = "Intensity value: " + str(self.intensity_dict[ind])
                 # img_detail += "\nD-spacing: " + str(self.distance_dict[ind])
                 img_detail += "\nOrientation angle: " + str(self.orientation_dict[ind])
@@ -513,6 +512,7 @@ class CPBatchWindow(QMainWindow):
         #     self.updateAngularRangeTab()
         QApplication.processEvents()
 
+
     def updateTotalIntenTab(self, angle = False):
 
         if len(self.xyIntensity) < 3:
@@ -551,7 +551,8 @@ class CPBatchWindow(QMainWindow):
                 else:
                     e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /12., height=(self.xylim[0]+self.xylim[1]) / 2., angle=convertRadtoDegreesEllipse(np.pi - toFloat(self.orientation_dict[i + self.init_number])))
                 patches.append(e)
-                colors.append(max_val - self.intensity_dict[i + self.init_number])
+                c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else 0
+                colors.append(c)
                 # colors.append(0)
 
             p = PatchCollection(patches, cmap=str(self.colorChoice.currentText()))
@@ -703,7 +704,7 @@ class CPBatchWindow(QMainWindow):
             self.angrange_dict[i]) / max_width else max_width / 2. for i in
                   range(self.init_number, len(self.hdf_data) + self.init_number)]
 
-        int_display = np.array(self.intensity_dict.values())
+        int_display = np.array(list(self.intensity_dict.values()))
         max_val = int_display.max()
         if self.maxMap.value() < 100:
             int_display[
@@ -726,6 +727,7 @@ class CPBatchWindow(QMainWindow):
                                 np.pi - toFloat(self.orientation_dict[i + self.init_number])))
             patches.append(e)
             # colors.append(self.intensity_dict[i + self.init_number])
+
             if i < len(int_display):
                 colors.append(int_display[i])
             else:
@@ -849,7 +851,7 @@ class CPBatchWindow(QMainWindow):
                 nCols = i - self.init_number
                 break
 
-        nRows = len(self.hdf_data) / nCols
+        nRows = int(len(self.hdf_data) / nCols)
         all_xs = np.reshape(np.array([v[0] for k, v in self.coord_dict.items()]), (nRows, nCols))
         all_ys = np.reshape(np.array([v[1] for k, v in self.coord_dict.items()]), (nRows, nCols))
 

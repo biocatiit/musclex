@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 __author__ = 'Jiranun.J'
 
-from pyqt_utils import *
+from .pyqt_utils import *
 from os.path import exists, join
 from threading import Thread
 from musclex.utils.file_manager import getFilesAndHdf, createFolder
@@ -55,7 +55,7 @@ class ImageMergerGUI(QMainWindow):
         """
         initial all widgets
         """
-        self.setWindowTitle("Image Merger v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Image Merger v." + musclex.__version__)
         self.centralWid = QWidget(self)
         self.setCentralWidget(self.centralWid)
         self.mainLayout = QGridLayout(self.centralWid)
@@ -222,7 +222,7 @@ class ImageMergerGUI(QMainWindow):
                 self.detail.insertPlainText(details)
                 self.detail.moveCursor(QTextCursor.End)
                 QApplication.processEvents()
-                full_imgs = map(lambda f: join(input, f), imgs)
+                full_imgs = list(map(lambda f: join(input, f), imgs))
                 avg = averageImages(full_imgs)
                 fabio.tifimage.tifimage(data=avg).write(join(output, filename))
             else:

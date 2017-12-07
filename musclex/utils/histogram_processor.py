@@ -38,6 +38,9 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     :param ignore: specify ignore indexes in case the histogram has valleys from pilatus lines (list of boolean)
     :return: a histogram after convex hull is applied (list)
     """
+    start_p = int(round(start_p))
+    end_p = int(round(end_p))
+
     if end_p - start_p < 5 and (start_p !=0 or end_p != 99999999):
         return np.array(hist)
 
@@ -46,7 +49,7 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     if end_p > len(hist) :
         end_p = len(hist)
 
-    hist_x = list(np.arange(start_p, end_p))
+    hist_x = list(range(start_p, end_p))
     hist_y = np.array(hist[hist_x], dtype=np.float)
 
     if len(hist_x) < 5:
@@ -322,14 +325,15 @@ def movePeaks(hist, peaks, dist=20):
     """
     peakList = []
     smooth_hist = smooth(hist)
-    for p in peaks:
+    for pk in peaks:
+        p = int(round(pk))
         while True:
-            start = max(0, p - dist)
-            end = min(len(hist), p + dist)
+            start = int(round(max(0, p - dist)))
+            end = int(round(min(len(hist), p + dist)))
             if end < start:
                 new_peak = p
                 break
-            new_peak = start + np.argmax(hist[start:end])
+            new_peak = start + np.argmax(hist[int(start):int(end)])
 
             # if the local maximum is not far from initital peak, break
             if abs(p - new_peak) < 4: #
@@ -337,6 +341,7 @@ def movePeaks(hist, peaks, dist=20):
             else:
                 left = min(p, new_peak)
                 right = max(p, new_peak)
+
                 # Check if between initial peak and local maximum has valley
                 if all(smooth_hist[left + 1:right] > p):
                     break
@@ -462,7 +467,7 @@ def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.rea
     """
     x = np.array(x)
     if x.ndim != 1:
-        raise ValueError, "smooth only accepts 1 dimension arrays."
+        raise ValueError("smooth only accepts 1 dimension arrays.")
 
     if x.size < window_len:
         window_len = int(x.size/3)
@@ -472,7 +477,7 @@ def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.rea
         return x
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     s=np.r_[2*x[0]-x[window_len:1:-1], x, 2*x[-1]-x[-1:-window_len:-1]]
     #print(len(s))

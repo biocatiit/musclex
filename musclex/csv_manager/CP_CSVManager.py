@@ -81,13 +81,8 @@ class CP_CSVManager():
             'total intensity' : info['area']
         }
 
-        if info.has_key('model_peaks'):
+        if 'model_peaks' in info:
             new_sum_data['number of rings'] = len(info['model_peaks'])
-
-        # if info.has_key('average_ring_model'):
-        #     model = info['average_ring_model']
-        #     new_sum_data['angle'] = model['u']
-        #     new_sum_data['angle sigma'] = model['sigma']
 
         self.df_sum = self.df_sum.append(new_sum_data, ignore_index = True)
         self.df_sum.reset_index()

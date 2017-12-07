@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import matplotlib.pyplot as plt
 import fabio
-from ..ui.pyqt_utils import *
+from .pyqt_utils import *
 import numpy as np
 from os.path import join, exists
 from ..utils.file_manager import getStyleSheet, createFolder

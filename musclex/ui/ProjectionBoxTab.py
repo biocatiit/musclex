@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
-from pyqt_utils import *
+from .pyqt_utils import *
 import matplotlib.patches as patches
 import numpy as np
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground, meridianGauss
@@ -598,12 +598,12 @@ class ProjectionBoxTab(QWidget):
         if self.histChkBx.isChecked():
             ax.plot(hist, color='k')
 
-        if fit_results.has_key(name):
+        if name in fit_results:
             xs = np.arange(0, len(hist))
             model = info['fit_results'][name]
             convex_hull = hist - info['hists2'][name]
 
-            if self.subHistChkBx.isChecked() and subtracted_hists.has_key(name):
+            if self.subHistChkBx.isChecked() and name in subtracted_hists:
                 ax2.plot(subtracted_hists[name], color='k')
 
             if self.fitmodelChkBx.isChecked():
@@ -644,7 +644,7 @@ class ProjectionBoxTab(QWidget):
                     ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
                     ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
 
-            if all_centroids.has_key(name) and all_baselines.has_key(name) and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
+            if name in all_centroids and name in all_baselines and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
                 # Add baselines and centroids
                 centroids = all_centroids[name]
                 baselines = all_baselines[name]
@@ -664,7 +664,7 @@ class ProjectionBoxTab(QWidget):
 
                     i += 1
 
-        if self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and hull_ranges.has_key(name):
+        if self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and name in hull_ranges:
             # Color area OUTSIDE convex hull range
             centerX = self.getCenterX()
 
@@ -676,16 +676,6 @@ class ProjectionBoxTab(QWidget):
             # Update spin box
             self.startHull.setValue(hull_ranges[name][0])
             self.endHull.setValue(hull_ranges[name][1])
-
-            # # Update Results Text
-            # text = "<h1>Results</h1>"
-            # text += "<b>center X</b> :"+str(params['centerX'])
-            # text += "<br/><br/><b>Distance (Pixels)</b> :" + str(params['p'])
-            # if info.has_key('distances') and info['distances'][self.name] is not None:
-            #     text += "<br/><br/><b>Distance (nm)</b> :" + str(info['distances'][self.name])
-            # text += "<br/><br/><b>Amplitude</b> :" + str(params['amplitude'])
-            # text += "<br/><br/><b>Sigma</b> :" + str(params['sigma'])
-            # self.results_text.setText(text)
 
 
         if self.zoom1 is not None:
@@ -710,7 +700,7 @@ class ProjectionBoxTab(QWidget):
 
 
         # Update Table
-        if all_centroids.has_key(name) and all_baselines.has_key(name):
+        if name in all_centroids and name in all_baselines:
             centroids = all_centroids[name]
             baselines = all_baselines[name]
             widths = all_widths[name]

@@ -25,7 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-from BM_CVSManager import BM_CVSManager
-from PT_CSVManager import PT_CVSManager
-from CP_CSVManager import CP_CSVManager
-from DC_CSVManager import DC_CSVManager
+from .EQ_CVSManager import EQ_CVSManager
+from .PT_CSVManager import PT_CVSManager
+from .CP_CSVManager import CP_CSVManager
+from .DC_CSVManager import DC_CSVManager

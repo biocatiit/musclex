@@ -41,7 +41,7 @@ import musclex
 import copy
 from os.path import exists
 import pickle
-from pyqt_utils import *
+from .pyqt_utils import *
 
 class BoxDetails(QDialog):
     """
@@ -103,7 +103,7 @@ class ProjectionTracesGUI(QMainWindow):
     """
     def __init__(self):
         QWidget.__init__(self)
-        self.setWindowTitle("Projection Traces v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Projection Traces v." + musclex.__version__)
         self.current_file = 0
         self.dir_path = ""
         self.calSettings = None
@@ -473,19 +473,19 @@ class ProjectionTracesGUI(QMainWindow):
         for bn in self.allboxes.keys():
             text += "\n\n  - Box "+str(bn)+" : " + str(self.allboxes[bn])
             text += "\n     - Peaks : "
-            if self.peaks.has_key(bn):
+            if bn in self.peaks:
                 text += str(self.peaks[bn])
             else:
                 text += "-"
 
-            if self.bgsubs.has_key(bn):
+            if bn in self.bgsubs:
                 text += '\n     - Background Subtraction : '
                 if self.bgsubs[bn] == 0:
                     text += 'Fitting Gaussians'
                 else:
                     text += 'Convex Hull'
 
-            if self.hull_ranges.has_key(bn):
+            if bn in self.hull_ranges:
                 text += '\n     - Convex Hull Range : '+str(self.hull_ranges[bn])
 
         if 'lambda_sdd' in settings.keys():
@@ -590,9 +590,9 @@ class ProjectionTracesGUI(QMainWindow):
                 del self.allboxes[name]
                 del self.boxtypes[name]
                 del self.bgsubs[name]
-                if self.peaks.has_key(name):
+                if name in self.peaks:
                     del self.peaks[name]
-                if self.hull_ranges.has_key(name):
+                if name in self.hull_ranges:
                     del self.hull_ranges[name]
                 widget.deleteLater()
             self.processImage()
@@ -683,7 +683,7 @@ class ProjectionTracesGUI(QMainWindow):
                     boxy = box[1]
                     if boxx[0] <= x <= boxx[1] and boxy[0] <= y <= boxy[1]:
                         type = self.boxtypes[name]
-                        if not peaks.has_key(name):
+                        if name not in peaks:
                             peaks[name] = []
 
                         if type == 'h':
@@ -903,7 +903,7 @@ class ProjectionTracesGUI(QMainWindow):
     def onImageChanged(self):
         """
         Need to be called when image is change i.e. to the next image.
-        This will create a new BioImage object for the new image and syncUI if cache is available
+        This will create a new EquatorImage object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
         self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file])
@@ -945,7 +945,7 @@ class ProjectionTracesGUI(QMainWindow):
 
     def processImage(self):
         """
-        Process Image by getting all settings and call process() of BioImage object
+        Process Image by getting all settings and call process() of EquatorImage object
         Then, write data and update UI
         """
         if self.projProc is None:
@@ -955,7 +955,7 @@ class ProjectionTracesGUI(QMainWindow):
         settings = self.getSettings()
         try:
             self.projProc.process(settings)
-        except Exception, e:
+        except Exception as e:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
@@ -995,12 +995,12 @@ class ProjectionTracesGUI(QMainWindow):
                 xs = np.arange(len(hist))
                 f = open(fullPath(path, filename+'_box_'+str(k)+'_original.txt'), 'w')
                 coords = zip(xs, hist)
-                f.write("\n".join(map(lambda c : str(c[0])+"\t"+str(c[1]), coords)))
-                if subtr_hists.has_key(k):
+                f.write("\n".join(list(map(lambda c : str(c[0])+"\t"+str(c[1]), coords))))
+                if k in subtr_hists:
                     sub_hist = subtr_hists[k]
                     f = open(fullPath(path, filename+'_box_' + str(k) + '_subtracted.txt'), 'w')
                     coords = zip(xs, sub_hist)
-                    f.write("\n".join(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords)))
+                    f.write("\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))))
 
 
     def cacheBoxesAndPeaks(self):

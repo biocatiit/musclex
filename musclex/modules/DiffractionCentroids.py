@@ -52,6 +52,7 @@ class DiffractionCentroids():
         :param off_mer: configuration of off-meridian peaks configured my users
         """
         self.avgImg = self.mergeImages(dir_path, imgList) # avarage all image in a group
+        self.mask_thres = getMaskThreshold(self.avgImg)
         self.dir_path = dir_path
         self.version = musclex.__version__
         self.info = {
@@ -103,7 +104,7 @@ class DiffractionCentroids():
         All processing steps
         """
         imgList = self.info['filelist']
-        print imgList[0],'...',imgList[-1],'are being processed...'
+        print(str(imgList[0])+' ... '+str(imgList[-1])+' are being processed...')
         self.info.update(flags)
         self.findCenter()
         self.findRotationAngle()
@@ -124,7 +125,7 @@ class DiffractionCentroids():
             self.getOffMeridianBaselines()
             self.getOffMeridianInfos()
 
-        if not self.info.has_key("no_cache"):
+        if "no_cache" not in self.info:
             self.cacheInfo()
 
     def removeInfo(self, k):
@@ -136,7 +137,7 @@ class DiffractionCentroids():
         if k == 'hists':
             for ky in ['top_hist', 'top_hull', 'bottom_hist', 'bottom_hull']:
                 self.removeInfo(ky)
-        if self.info.has_key(k):
+        if k in self.info:
             del self.info[k]
 
     def findCenter(self):
@@ -144,10 +145,10 @@ class DiffractionCentroids():
         Find center of diffraction, and keep it in self.info["center"]
         This calculation will affect rotation angle, so self.info["rotationAngle"] will be removed
         """
-        if self.info.has_key('center'):
+        if 'center' in self.info:
             return
         self.info['center'] = getCenter(self.avgImg)
-        print "center =", self.info['center']
+        print("center = "+str(self.info['center']))
         self.removeInfo('rotationAngle')
 
     def findRotationAngle(self):
@@ -155,11 +156,11 @@ class DiffractionCentroids():
         Find rotation angle of diffraction, and keep it in self.info["rotationAngle"]
         This calculation will affect R-min, so self.info["rmin"] will be removed
         """
-        if self.info.has_key('rotationAngle'):
+        if 'rotationAngle' in self.info:
             return
         center = self.info['center']
         self.info['rotationAngle'] = getRotationAngle(self.avgImg, center)
-        print "rotation angle =", self.info['rotationAngle']
+        print("rotation angle = " + str(self.info['rotationAngle']))
         self.removeInfo('rmin')
 
     def calculateRmin(self):
@@ -167,7 +168,7 @@ class DiffractionCentroids():
         Find R-min of diffraction, and keep it in self.info["rmin"]
         This calculation will affect integrated area (meridian), so self.info["int_area"] will be removed
         """
-        if self.info.has_key('rmin'):
+        if 'rmin' in self.info:
             return
         img = copy.copy(self.avgImg)
         center = self.info['center']
@@ -184,7 +185,7 @@ class DiffractionCentroids():
         tth, I = ai.integrate1d(img, npt_rad, unit="r_mm")
         # tth, I = ai.integrate1d(img, npt_rad, unit="r_mm")
         self.info['rmin'] = getFirstVallay(I)
-        print "R-min =", self.info['rmin']
+        print("R-min = "+str(self.info['rmin']))
         self.removeInfo('int_area')
 
     def getIntegrateArea(self):
@@ -192,7 +193,7 @@ class DiffractionCentroids():
         Find intergrated area or meridian lines of diffraction, and keep it in self.info["int_area"]
         This calculation will affect start and end points of convexh hull applying points, so self.info["top_se"] and self.info["bottom_se"] will be removed
         """
-        if self.info.has_key('int_area'):
+        if 'int_area' in self.info:
             return
         center = self.info['center']
         rmin = self.info['rmin']
@@ -223,7 +224,7 @@ class DiffractionCentroids():
                 self.info['int_area'] = (int(round(center-l*1.2)), int(round(center+r*1.2))+1)
         else:
             self.info['int_area'] = (int(round(center[0] - rmin * .5)), int(round(center[0] + rmin * .5)) + 1)
-        print "integrated area =",self.info['int_area']
+        print("integrated area = "+str(self.info['int_area']))
         self.removeInfo('top_se')
         self.removeInfo('bottom_se')
 
@@ -239,7 +240,7 @@ class DiffractionCentroids():
         if angle is None:
             angle = self.info['rotationAngle']
 
-        return rotateImage(img, self.info["center"], angle)
+        return rotateImage(img, self.info["center"], angle, self.mask_thres)
 
     def setConvexhullPoints(self):
         """
@@ -247,15 +248,15 @@ class DiffractionCentroids():
         This values will be kept in self.info["top_se"] and self.info["bottom_se"]
         This calculation will affect histograms, so all histograms will be removed from self.info
         """
-        if not self.info.has_key('top_se'):
-            if self.info.has_key('top_fixed_se'):
+        if 'top_se' not in self.info:
+            if 'top_fixed_se' in self.info:
                 self.info['top_se'] = self.info['top_fixed_se']
             else:
                 self.info['top_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0] / 2, self.avgImg.shape[1] / 2) * 0.7)))
             self.removeInfo('top_hist')
             self.removeInfo('top_hull')
-        if not self.info.has_key('bottom_se'):
-            if self.info.has_key('bottom_fixed_se'):
+        if 'bottom_se' not in self.info:
+            if 'bottom_fixed_se' in self.info:
                 self.info['bottom_se'] = self.info['bottom_fixed_se']
             else:
                 self.info['bottom_se'] = (self.info['rmin'], int(round(min(self.avgImg.shape[0]/2, self.avgImg.shape[1]/2) * 0.7)))
@@ -269,25 +270,25 @@ class DiffractionCentroids():
         The background subtracted histogram will be kept in self.info["top_hull"] and self.info["bottom_hull"]
         These changing will affect peak locations, so peaks will be removed from self.info
         """
-        if self.info.has_key('top_hist') and self.info.has_key('top_hull') and self.info.has_key('bottom_hist') and self.info.has_key('bottom_hull'):
+        if 'top_hist' in self.info and 'top_hull' in self.info and 'bottom_hist' in self.info and 'bottom_hull' in self.info:
             return
 
         center_y = self.info['center'][1]
         int_area = self.info['int_area']
         img = self.getRotatedImage(copy.copy(self.avgImg), self.info['rotationAngle'])
         img_area = img[:,int_area[0]: int_area[1]]
-        ignore = np.array([any(line < 0) for line in img_area])
+        ignore = np.array([any(line <= self.mask_thres) for line in img_area])
         hist = np.sum(img_area, axis=1)
 
         top_hist, top_ignore, bottom_hist, bottom_ignore = self.splitHist(center_y, hist, ignore)
 
-        if not (self.info.has_key('top_hist') or self.info.has_key('top_hull')):
+        if not ('top_hist' in self.info or 'top_hull' in self.info):
             top_hull = convexHull(top_hist, start_p=self.info['top_se'][0], end_p=self.info['top_se'][1], ignore=top_ignore)
             self.info['top_hist'] = np.array(top_hist)
             self.info['top_hull'] = np.array(top_hull)
             self.removeInfo('pre_top_peaks')
 
-        if not (self.info.has_key('bottom_hist') or self.info.has_key('bottom_hull')):
+        if not ('bottom_hist' in self.info or 'bottom_hull' in self.info):
             bottom_hull = convexHull(bottom_hist, start_p=self.info['bottom_se'][0], end_p=self.info['bottom_se'][1], ignore=bottom_ignore)
             self.info['bottom_hist'] = np.array(bottom_hist)
             self.info['bottom_hull'] = np.array(bottom_hull)
@@ -299,14 +300,14 @@ class DiffractionCentroids():
         These pre peaks will be kept in self.info["pre_[side]_peaks"]
         This calculation will affect reak peaks, so peaks will be removed from self.info
         """
-        if not self.info.has_key('pre_top_peaks'):
+        if 'pre_top_peaks' not in self.info:
             if len(self.fixRanges) > 0:
                 self.info['pre_top_peaks'] = self.getPeaksFromRanges(self.info['top_hull'], self.fixRanges)
             else:
                 self.info['pre_top_peaks'] = getPeaksFromHist(self.info['top_hull'])
             self.removeInfo('top_peaks')
 
-        if not self.info.has_key('pre_bottom_peaks'):
+        if 'pre_bottom_peaks' not in self.info:
             if len(self.fixRanges) > 0:
                 self.info['pre_bottom_peaks'] = self.getPeaksFromRanges(self.info['bottom_hull'], self.fixRanges)
             else:
@@ -336,7 +337,7 @@ class DiffractionCentroids():
         Peaks location will affect baselines, so baselines will be removed from self.info
         :return:
         """
-        if not self.info.has_key('top_peaks'):
+        if 'top_peaks' not in self.info:
             if len(self.fixRanges) == 0:
                 moved_peaks = self.movePeaks(self.info['top_hull'], self.info['pre_top_peaks'])
                 self.info['top_peaks'] = moved_peaks
@@ -346,11 +347,11 @@ class DiffractionCentroids():
                 self.info['top_names'] = [self.fixRanges[i][0] for i in range(len(self.fixRanges))]
             self.removeInfo('top_baselines')
 
-        print "Top peaks : "
+        print("Top peaks : ")
         for i in range(len(self.info['top_peaks'])):
-            print self.info['top_names'][i], ":", self.info['top_peaks'][i]
+            print(str(self.info['top_names'][i])+" : "+str(self.info['top_peaks'][i]))
 
-        if not self.info.has_key('bottom_peaks'):
+        if 'bottom_peaks' not in self.info:
             if len(self.fixRanges) == 0:
                 moved_peaks = self.movePeaks(self.info['bottom_hull'], self.info['pre_bottom_peaks'])
                 self.info['bottom_peaks'] = moved_peaks
@@ -360,9 +361,9 @@ class DiffractionCentroids():
                 names = [self.fixRanges[i][0] for i in range(len(self.fixRanges))]
                 self.info['bottom_names'] = names
             self.removeInfo('bottom_baselines')
-        print "Bottom peaks : "
+        print("Bottom peaks : ")
         for i in range(len(self.info['bottom_peaks'])):
-            print self.info['bottom_names'][i], ":", self.info['bottom_peaks'][i]
+            print(str(self.info['bottom_names'][i]) + " : " + str(self.info['bottom_peaks'][i]))
 
     def movePeaks(self, hist, peaks, dist = 10):
         """
@@ -398,25 +399,25 @@ class DiffractionCentroids():
         Baselines will be kept in self..info["[side]_baselines"].
         This calulation might affact other infos : centroids width and intensity
         """
-        if not self.info.has_key('top_baselines'):
+        if 'top_baselines' not in self.info:
             hist = self.info['top_hull']
             peaks = self.info['top_peaks']
             self.info['top_baselines'] = [hist[p] / 2. for p in peaks]
             self.removeInfo('top_centroids')
-        print "Top baselines =", self.info['top_baselines']
-        if not self.info.has_key('bottom_baselines'):
+        print("Top baselines = "+str(self.info['top_baselines']))
+        if 'bottom_baselines' not in self.info:
             hist = self.info['bottom_hull']
             peaks = self.info['bottom_peaks']
             self.info['bottom_baselines'] = [hist[p]/2. for p in peaks]
             self.removeInfo('bottom_centroids')
-        print "Bottom baselines =", self.info['bottom_baselines']
+        print("Bottom baselines = "+str(self.info['bottom_baselines']))
 
     def calculateCentroids(self):
         """
         Calculate all other peaks infomation including centroid, width, and intensity(area)
         This results will be kept in self.info
         """
-        if not self.info.has_key('top_centroids'):
+        if 'top_centroids' not in self.info:
             hist = self.info['top_hull']
             peaks = self.info['top_peaks']
             baselines = self.info["top_baselines"]
@@ -424,8 +425,8 @@ class DiffractionCentroids():
             self.info['top_centroids'] = results['centroids']
             self.info['top_widths'] = results['widths']
             self.info['top_areas'] = results['areas']
-        print "Top centroids =", self.info['top_centroids']
-        if not self.info.has_key('bottom_centroids'):
+        print("Top centroids = "+ str(self.info['top_centroids']))
+        if 'bottom_centroids' not in self.info:
             hist = self.info['bottom_hull']
             peaks = self.info['bottom_peaks']
             baselines = self.info["bottom_baselines"]
@@ -433,7 +434,7 @@ class DiffractionCentroids():
             self.info['bottom_centroids'] = results['centroids']
             self.info['bottom_widths'] = results['widths']
             self.info['bottom_areas'] = results['areas']
-        print "Bottom centroids =", self.info['bottom_centroids']
+        print("Bottom centroids = " + str(self.info['bottom_centroids']))
 
     def fitModel(self, hist, peaks, baselines):
         # JUST FOR TEST
@@ -470,7 +471,7 @@ class DiffractionCentroids():
         ax.plot(new_hist)
         ax.plot(model.eval(x=xs, **result))
         fig.show()
-        print result
+        print(str(result))
 
     def setBaseline(self, side, peak_num, new_baseline):
         """
@@ -531,7 +532,7 @@ class DiffractionCentroids():
         """
         Get off-meridian ranges as position in the image from x1,x2,x3,x4 which are specified by users
         """
-        if not self.info.has_key("x1"):
+        if "x1" not in self.info:
             centerX = self.info["center"][0]
             self.info["x1"] = centerX - self.init_off_mer["x1"]
             self.info["x2"] = centerX - self.init_off_mer["x2"]
@@ -556,8 +557,8 @@ class DiffractionCentroids():
         return top_hist, top_ignore, bottom_hist, bottom_ignore
 
     def getOffMerRminmax(self):
-        if not self.info.has_key('off_mer_rmin_rmax'):
-            if self.info.has_key('fixed_offmer_hull_range'):
+        if 'off_mer_rmin_rmax' not in self.info:
+            if 'fixed_offmer_hull_range' in self.info:
                 self.info['off_mer_rmin_rmax'] = self.info['fixed_offmer_hull_range']
             else:
                 rmin, rmax = self.initOffMeridianPeakRange()
@@ -570,7 +571,7 @@ class DiffractionCentroids():
         All histograms will be kept in self.info["off_mer_hists"]["hists"]
         All backgound subtracted histograms will be kept in self.info["off_mer_hists"]["hull"]
         """
-        if not self.info.has_key("off_mer_hists"):
+        if "off_mer_hists" not in self.info:
             center_y = self.info["center"][1]
             x1 = self.info["x1"]
             x2 = self.info["x2"]
@@ -618,7 +619,7 @@ class DiffractionCentroids():
         These peaks will be kept in self.info["off_mer_peaks"]
         This might affect baselines, so off_mer_baselines is removed from self.info
         """
-        if not self.info.has_key("off_mer_peaks"):
+        if "off_mer_peaks" not in self.info:
             peaks = {}
             hulls = self.info["off_mer_hists"]["hulls"]
             peak_ranges = [("59",(self.init_off_mer["s59"], self.init_off_mer["e59"])),
@@ -634,7 +635,7 @@ class DiffractionCentroids():
         These baselines will be kept in self.info["off_mer_baselines"]
         This might affect peak infos, so off_mer_peak_info is removed from self.info
         """
-        if not self.info.has_key("off_mer_baselines"):
+        if "off_mer_baselines" not in self.info:
             baselines = {}
             peaks = self.info["off_mer_peaks"]
             hulls = self.info["off_mer_hists"]["hulls"]
@@ -648,7 +649,7 @@ class DiffractionCentroids():
         Get information of peak 51 and 59 from 4 quadrants including centroid, width, intersection with baseline, area (intensity)
         These info will be kept in self.info["off_mer_peak_info"]
         """
-        if not self.info.has_key("off_mer_peak_info"):
+        if "off_mer_peak_info" not in self.info:
             all_info = {}
             peaks = self.info["off_mer_peaks"]
             hulls = self.info["off_mer_hists"]["hulls"]

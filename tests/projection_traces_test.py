@@ -21,18 +21,18 @@ class MyTestCase(unittest.TestCase):
 
         info = projProc.info
 
-        self.assertTrue(info.has_key('fit_results'))
-        self.assertTrue(info.has_key('baselines'))
-        self.assertTrue(info.has_key('centroids'))
-        self.assertTrue(info.has_key('widths'))
+        self.assertTrue('fit_results' in info)
+        self.assertTrue('baselines' in info)
+        self.assertTrue('centroids' in info)
+        self.assertTrue('widths' in info)
 
         boxes = info['boxes']
 
         for bn in boxes.keys():
-            self.assertTrue(info['fit_results'].has_key(bn))
-            self.assertTrue(info['baselines'].has_key(bn))
-            self.assertTrue(info['centroids'].has_key(bn))
-            self.assertTrue(info['widths'].has_key(bn))
+            self.assertTrue(bn in info['fit_results'])
+            self.assertTrue( bn in info['baselines'])
+            self.assertTrue(bn in info['centroids'])
+            self.assertTrue(bn in info['widths'])
 
     def test_pt_2(self):
         # Test multiple boxes, peaks, box type, and bg sub type
@@ -43,16 +43,16 @@ class MyTestCase(unittest.TestCase):
 
         info = projProc.info
 
-        self.assertTrue(info.has_key('fit_results'))
-        self.assertTrue(info.has_key('baselines'))
-        self.assertTrue(info.has_key('centroids'))
-        self.assertTrue(info.has_key('widths'))
+        self.assertTrue('fit_results' in info)
+        self.assertTrue('baselines' in info)
+        self.assertTrue('centroids' in info)
+        self.assertTrue('widths' in info)
 
         boxes = info['boxes']
 
         for bn in boxes.keys():
-            self.assertTrue(info['fit_results'].has_key(bn))
-            self.assertTrue(info['baselines'].has_key(bn))
-            self.assertTrue(info['centroids'].has_key(bn))
-            self.assertTrue(info['widths'].has_key(bn))
+            self.assertTrue(bn in info['fit_results'])
+            self.assertTrue(bn in info['baselines'])
+            self.assertTrue(bn in info['centroids'])
+            self.assertTrue(bn in info['widths'])
 

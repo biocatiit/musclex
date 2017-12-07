@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 __author__ = 'Miguel Menendez, Jiranun.J'
 
-from pyqt_utils import *
+from .pyqt_utils import *
 import sys
 from os.path import isfile, abspath
 import argparse
@@ -48,7 +48,7 @@ class CircularProjectionGUI(QMainWindow):
 
     def initUI(self):
         self.setStyleSheet(getStyleSheet())
-        self.setWindowTitle("Circular Projection v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
             myapp = CPImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
             sys.exit(app.exec_())
         else:
-            print "ERROR:",full_path, "does not exist. Please select another image."
+            print("ERROR: " + str(full_path) + " does not exist. Please select another image.")
     elif args.f:
         full_path = abspath(args.f)
         if exists(full_path) and not isfile(full_path):
@@ -124,7 +124,7 @@ if __name__ == "__main__":
             myapp = CPImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
             sys.exit(app.exec_())
         else:
-            print "ERROR:", full_path, "is not a folder."
+            print("ERROR: " + str(full_path)+ " is not a folder.")
     else:
         app = QApplication(sys.argv)
         myapp = CircularProjectionGUI()

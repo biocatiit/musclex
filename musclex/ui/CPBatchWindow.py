@@ -1,4 +1,4 @@
-from pyqt_utils import *
+from .pyqt_utils import *
 from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
 import h5py
@@ -472,7 +472,7 @@ class CPBatchWindow(QMainWindow):
 
             ind = row * x_max + col + self.init_number
 
-            if self.name_dict.has_key(ind):
+            if ind in self.name_dict:
                 img_detail = "Intensity value: " + str(self.intensity_dict[ind])
                 # img_detail += "\nD-spacing: " + str(self.distance_dict[ind])
                 img_detail += "\nOrientation angle: " + str(self.orientation_dict[ind])
@@ -796,7 +796,7 @@ class CPBatchWindow(QMainWindow):
                 self.angrange_dict[i]) / max_width else max_width / 2. for i in
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
 
-            int_display = np.array(self.intensity_dict.values())
+            int_display = np.array(list(self.intensity_dict.values()))
             max_val = int_display.max()
             if self.int_maxIntMap.value() < 100:
                 int_display[

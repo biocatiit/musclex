@@ -109,7 +109,7 @@ def getThreshold(img, percent):
     thrhold = 0
     dev = min(1000, img.max())
     for t in np.arange(0, img.max()-1, img.max()/dev):
-        valueHist = np.sum(hist[t:img.max()])
+        valueHist = np.sum(hist[int(t):int(img.max())])
         if (valueHist/(1.0*img.shape[0]*img.shape[1]))<percent:
             if valueHist < 100 and t > 1:
                 thrhold = t-1

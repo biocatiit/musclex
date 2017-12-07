@@ -83,7 +83,7 @@ class CalibrationSettings(QDialog):
             else:
                 silverb = self.calSettings["silverB"]
 
-            if self.calSettings.has_key("center"):
+            if 'center' in self.calSettings:
                 center = self.calSettings["center"]
         self.mainLayout = QVBoxLayout(self)
 
@@ -318,7 +318,7 @@ class CalibrationSettings(QDialog):
         cache_file = fullPath(cache_path, "calibration.info")
         if exists(cache_path) and isfile(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
-            if cache is not None and cache.has_key("version") and cache["version"] == self.version:
+            if cache is not None and "version" in cache and cache["version"] == self.version:
                 return cache
         return None
 
@@ -465,7 +465,7 @@ class CalibrationSettings(QDialog):
 
         self.calImgFigure.clf()
         if self.calSettings is not None:
-            if self.calSettings.has_key("center"):
+            if "center" in self.calSettings:
                 center = self.calSettings["center"]
                 self.fixedCenter.setChecked(True)
                 self.centerX.setValue(center[0])

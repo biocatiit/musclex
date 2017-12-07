@@ -31,7 +31,6 @@ import sys
 from musclex import __version__
 from musclex.ui.pyqt_utils import *
 
-
 def main(arguments=None):
     if arguments is None:
         arguments = sys.argv
@@ -39,10 +38,10 @@ def main(arguments=None):
     run = True
     if len(arguments) == 2:
         prog = arguments[1]
-        if prog == 'bm':
+        if prog == 'eq':
             app = QApplication(sys.argv)
-            from musclex.ui.BMStartWindow import BMStartWindow
-            myapp = BMStartWindow()
+            from musclex.ui.EQStartWindow import EQStartWindow
+            myapp = EQStartWindow()
             sys.exit(app.exec_())
         elif prog == 'qf':
             app = QApplication(sys.argv)
@@ -80,24 +79,24 @@ def main(arguments=None):
         run = False
 
     if not run:
-        print "\nYou're using Muscle X version", __version__
-        print "\nPlease specify the program shortcut that you want to run"
-        print ""
-        print "  $ musclex [--program]"
-        print ""
-        print "          bm - Bio Muscle"
-        print "          qf - Quadrant Folding"
-        print "          pt - Projection Traces"
-        print "          cp - Circular Projection"
-        print "          im - Image Merger"
-        print "          dc - Diffraction Centroids"
-        print "          ddf - DDF Processor"
-        print ""
-        print "For example,"
-        print "\t$ musclex bm"
-        print
-        print "More details : https://www.github.com/biocatiit/musclex/wiki"
-        print "Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n"
+        print("\nYou're using Muscle X version "+str(__version__))
+        print("\nPlease specify the program shortcut that you want to run")
+        print("")
+        print("  $ musclex [--program]")
+        print("")
+        print("          eq - Equator")
+        print("          qf - Quadrant Folding")
+        print("          pt - Projection Traces")
+        print("          cp - Circular Projection")
+        print("          im - Image Merger")
+        print("          dc - Diffraction Centroids")
+        print("          ddf - DDF Processor")
+        print("")
+        print("For example,")
+        print("\t$ musclex eq")
+        print("")
+        print("More details : https://www.github.com/biocatiit/musclex/wiki")
+        print("Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n")
 
 if __name__ == "__main__":
     main(sys.argv)

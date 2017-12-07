@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import sys
 import os, shutil
-from pyqt_utils import *
+from .pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from os.path import split
@@ -36,14 +36,14 @@ import traceback
 import webbrowser
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, getBlankImageAndMask
-from ..modules.BioImage import BioImage, getCardiacGraph
+from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..utils.image_processor import *
-from ..csv_manager import BM_CVSManager
-from ..ui.BM_FittingTab import BM_FittingTab
+from ..csv_manager import EQ_CVSManager
+from ..ui.EQ_FittingTab import EQ_FittingTab
 import musclex
-from BlankImageSettings import BlankImageSettings
+from .BlankImageSettings import BlankImageSettings
 
-class BioMuscleWindow(QMainWindow):
+class EquatorWindow(QMainWindow):
     """
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
@@ -57,7 +57,7 @@ class BioMuscleWindow(QMainWindow):
         QWidget.__init__(self)
         self.mainWindow = mainWin
         self.version = musclex.__version__
-        self.bioImg = None  # Current BioImage object
+        self.bioImg = None  # Current EquatorImage object
         self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
         self.function = None  # Current active function
@@ -68,8 +68,8 @@ class BioMuscleWindow(QMainWindow):
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.csvManager = BM_CVSManager(self.dir_path)  # Create a CSV Manager object
-        self.setWindowTitle("Bio-Muscle v." + self.version)
+        self.csvManager = EQ_CVSManager(self.dir_path)  # Create a CSV Manager object
+        self.setWindowTitle("Muscle X Equator v." + self.version)
         self.setStyleSheet(getStyleSheet())
         self.initUI()  # Initial all UI
         self.setAllToolTips()  # Set tooltips for widgets
@@ -317,8 +317,8 @@ class BioMuscleWindow(QMainWindow):
         self.fittingTabWidget.setTabsClosable(False)
         self.fittingTabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 50px; }")
 
-        self.left_fitting_tab = BM_FittingTab(self, "left")
-        self.right_fitting_tab = BM_FittingTab(self, "right")
+        self.left_fitting_tab = EQ_FittingTab(self, "left")
+        self.right_fitting_tab = EQ_FittingTab(self, "right")
         self.fittingTabWidget.addTab(self.left_fitting_tab, "Left")
         self.fittingTabWidget.addTab(self.right_fitting_tab, "Right")
 
@@ -933,7 +933,7 @@ class BioMuscleWindow(QMainWindow):
         """
         Delete all caches in a directory
         """
-        cache_path = fullPath(self.dir_path, "bm_cache")
+        cache_path = fullPath(self.dir_path, "eq_cache")
         shutil.rmtree(cache_path)
     
     def nPeakChanged(self):
@@ -957,9 +957,9 @@ class BioMuscleWindow(QMainWindow):
         settings = self.getSettings()
         text += "\nCurrent Settings"
 
-        if settings.has_key('fixed_angle'):
+        if 'fixed_angle' in settings:
             text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
-        if settings.has_key('fixed_int_area'):
+        if 'fixed_int_area' in settings:
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
         text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
@@ -985,7 +985,7 @@ class BioMuscleWindow(QMainWindow):
 
 
         if self.calSettings is not None:
-            if self.calSettings.has_key("center"):
+            if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
             if self.calSettings["type"] == "img":
                 text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
@@ -1036,7 +1036,7 @@ class BioMuscleWindow(QMainWindow):
 
     def rejectClicked(self):
         """
-        Mark BioImage object as rejected. Save to cache and write data tto summary file
+        Mark EquatorImage object as rejected. Save to cache and write data tto summary file
         """
         if self.bioImg is None or self.syncUI:
             return
@@ -1054,7 +1054,7 @@ class BioMuscleWindow(QMainWindow):
 
     def resetAll(self):
         """
-        Remove all processing info from BioImage object and re-process with current settings
+        Remove all processing info from EquatorImage object and re-process with current settings
         """
         if self.bioImg is not None:
             self.bioImg.removeInfo()
@@ -1529,8 +1529,8 @@ class BioMuscleWindow(QMainWindow):
 
     def initWidgets(self, info):
         """
-        Update GUI to sync with BioImage info
-        :param info: BioImage info
+        Update GUI to sync with EquatorImage info
+        :param info: EquatorImage info
         """
         self.syncUI = True
 
@@ -1539,23 +1539,15 @@ class BioMuscleWindow(QMainWindow):
         self.right_fitting_tab.initSpinBoxes(info)
 
         # Initial UI for general settings
-        if info.has_key('isSkeletal'):
+        if 'isSkeletal' in info:
             self.skeletalChkBx.setChecked(info['isSkeletal'])
 
         self.maskThresSpnBx.setValue(info['mask_thres'])
 
-        if info.has_key('fit_results'):
+        if 'fit_results' in info:
             fit_results = info['fit_results']
             self.nPeakSpnBx.setValue(len(fit_results['left_areas']))
             self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_results["model"]))
-
-        # self.fixedAngleChkBx.setChecked(info.has_key('fixed_angle'))
-        # if info.has_key('fixed_angle'):
-        #     self.fixedAngle.setValue(info['fixed_angle'])
-        #
-        # self.fixedIntAreaChkBx.setChecked(info.has_key('fixed_int_area'))
-        # if info.has_key('fixed_int_area'):
-        #     self.fixedIntArea = info['fixed_int_area']
 
         # Initital reject check box
         if "reject" in info.keys():
@@ -1563,7 +1555,7 @@ class BioMuscleWindow(QMainWindow):
         else:
             self.rejectChkBx.setChecked(False)
 
-        if self.bioImg.info.has_key('blank_mask'):
+        if 'blank_mask' in self.bioImg.info:
             self.applyBlank.setChecked(self.bioImg.info['blank_mask'])
 
         self.syncUI = False
@@ -1571,10 +1563,10 @@ class BioMuscleWindow(QMainWindow):
     def onImageChanged(self):
         """
         Need to be called when image is change i.e. to the next image.
-        This will create a new BioImage object for the new image and syncUI if cache is available
+        This will create a new EquatorImage object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        self.bioImg = BioImage(self.dir_path, self.imgList[self.currentImg])
+        self.bioImg = EquatorImage(self.dir_path, self.imgList[self.currentImg])
         self.initWidgets(self.bioImg.info)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
@@ -1585,7 +1577,7 @@ class BioMuscleWindow(QMainWindow):
 
     def processImage(self):
         """
-        Process Image by getting all settings and call process() of BioImage object
+        Process Image by getting all settings and call process() of EquatorImage object
         Then, write data and update UI
         """
         if self.bioImg is None:
@@ -1595,7 +1587,7 @@ class BioMuscleWindow(QMainWindow):
         settings = self.getSettings()
         try:
             self.bioImg.process(settings)
-        except Exception, e:
+        except Exception as e:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
@@ -1639,7 +1631,7 @@ class BioMuscleWindow(QMainWindow):
 
     def getSettings(self):
         """
-        Get all settings for BioImage process() from widgets
+        Get all settings for EquatorImage process() from widgets
         :return: settings (dict)
         """
         settings = {}
@@ -1658,7 +1650,7 @@ class BioMuscleWindow(QMainWindow):
             else:
                 settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
                     "pixel_size"]
-                if self.calSettings.has_key("center"):
+                if "center" in self.calSettings:
                     settings["center"] = self.calSettings["center"]
 
         if self.fixedAngleChkBx.isChecked():
@@ -1677,7 +1669,7 @@ class BioMuscleWindow(QMainWindow):
     def initMinMaxIntensities(self, bioImg):
         """
         Set preference for image min & max intesity spinboxes, and initial their value
-        :param bioImg: current BioImage object
+        :param bioImg: current EquatorImage object
         :return:
         """
         img = bioImg.orig_img
@@ -1749,7 +1741,7 @@ class BioMuscleWindow(QMainWindow):
 
     def syncSpinBoxes(self):
         """
-        Update Spinboxes values by using current BioImage info (after processing)
+        Update Spinboxes values by using current EquatorImage info (after processing)
         """
         self.syncUI = True
         info = self.bioImg.info
@@ -1880,7 +1872,7 @@ class BioMuscleWindow(QMainWindow):
                 x = np.linspace(0, len(hull), len(hull))
                 ax.plot(getCardiacGraph(x, fit_result), color = 'b')
 
-            if fit_result.has_key('model_peaks') and self.peakChkBx.isChecked():
+            if 'model_peaks' in fit_result and self.peakChkBx.isChecked():
                 # Draw peak lines
                 peaks = fit_result['model_peaks']
                 for p in peaks:
@@ -1928,7 +1920,7 @@ class BioMuscleWindow(QMainWindow):
 
         if self.calSettings is not None:
             genResults += "<h2>Calibration Settings</h2>"
-            if self.calSettings.has_key("center"):
+            if "center" in self.calSettings:
                 genResults += "<b>Calibration Center : </b>" + str(self.calSettings["center"]) + '<br/><br/>'
 
             if self.calSettings["type"] == "img":

@@ -2,7 +2,7 @@
 The Muscle X program suite is a collection of programs intended to assist with analyzing diffraction X-ray images. 
 
 # The collection includes:
-* Bio-muscle (bm)
+* Equator (eq)
 * Quadrant Folding (qf)
 * Projection Traces (pt)
 * Circular Projection (cp)

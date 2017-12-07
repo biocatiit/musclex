@@ -54,7 +54,7 @@ class PT_CVSManager:
         """
         self.colnames = ["Filename"]
         for box_name in boxes.keys():
-            if peaks.has_key(box_name):
+            if box_name in peaks:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
                 for i in range(len(peaks[box_name])):
@@ -93,18 +93,18 @@ class PT_CVSManager:
 
         box_names = info['box_names']
         for bn in box_names:
-            if info.has_key('fit_results') and info['fit_results'].has_key(bn):
+            if 'fit_results' in info and bn in info['fit_results']:
                 model = info['fit_results'][bn]
                 new_data['Box ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
                 new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
-                if info.has_key('centroids') and info['centroids'].has_key(bn):
+                if 'centroids' in info and bn in info['centroids']:
                     centroids = info['centroids'][bn]
                     for i,c in enumerate(centroids):
                         new_data['Box ' + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
                         new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
-                        if info.has_key('lambda_sdd'):
+                        if 'lambda_sdd' in info:
                             new_data['Box ' + str(bn) + " Centroid " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/c
                             new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (nn)"] = 1. * info['lambda_sdd'] / model['p_' + str(i)]
                 new_data["Box " + str(bn) + " error"] = model['error']
@@ -112,7 +112,7 @@ class PT_CVSManager:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
 
         for col in self.colnames:
-            if not new_data.has_key(col):
+            if col not in new_data:
                 new_data[col] = '-'
 
         self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True)

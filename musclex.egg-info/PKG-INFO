@@ -1,6 +1,6 @@
-Metadata-Version: 1.2
+Metadata-Version: 1.1
 Name: musclex
-Version: 1.7.1
+Version: 1.8
 Summary: Muscle X
 Home-page: https://github.com/biocatiit/musclex/wiki
 Author: Jiranun J.
@@ -15,6 +15,6 @@ Classifier: Environment :: X11 Applications :: Qt
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
 Classifier: Operating System :: Other OS
-Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Cython
-Requires-Python: >=2.7.10, <=2.7.14
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
