@@ -39,14 +39,26 @@ except ImportError:
     except ImportError:
         print("Please install PyQt4 or PyQt5")
 
+from ..utils.file_manager import input_types
 
-def getAFile(filter='Images (*.tif)', path = ''):
+img_filter = 'Pattern ('
+for t in input_types:
+    img_filter += ' *.' + str(t)
+img_filter += ')'
+
+def getAFile(filter=None, path = '', add_txt = False):
+    if filter is None:
+        filter = img_filter
+    if add_txt and filter != '':
+        filter += ';;Failed cases (*.txt)'
     file_name = QFileDialog.getOpenFileName(None, 'Select a file', path, filter, None)
     if isinstance(file_name, tuple):
         file_name = file_name[0]
     return str(file_name)
 
-def getFiles(path='', filter='Images (*.tif)'):
+def getFiles(path='', filter=None):
+    if filter is None:
+        filter = img_filter
     fileList = QFileDialog.getOpenFileNames(None, "Select frame(s) to average", path, filter)
     if isinstance(fileList, tuple):
         fileList = fileList[0]

@@ -200,9 +200,9 @@ class ImageMergerGUI(QMainWindow):
                 first = imgs[0]
                 last = imgs[-1]
                 f_ind1 = first.rfind('_')
-                f_ind2 = first.rfind('.tif')
+                f_ind2 = first.rfind('.')
                 l_ind1 = last.rfind('_')
-                l_ind2 = last.rfind('.tif')
+                l_ind2 = last.rfind('.')
 
                 if f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1 or first[:f_ind1] != last[:l_ind1]:
                     filename = "Group"+str(i+1)+'.tif'

@@ -149,14 +149,14 @@ class EQ_FittingTab(QWidget):
         """
         Set connection for interactive widgets
         """
-        self.sigmaCSpinBx.valueChanged.connect(self.fixedFittingParams)
-        self.sigmaDSpinBx.valueChanged.connect(self.fixedFittingParams)
-        self.sigmaSSpinBx.valueChanged.connect(self.fixedFittingParams)
+        # self.sigmaCSpinBx.valueChanged.connect(self.fixedFittingParams)
+        # self.sigmaDSpinBx.valueChanged.connect(self.fixedFittingParams)
+        # self.sigmaSSpinBx.valueChanged.connect(self.fixedFittingParams)
         self.fixSigmaD.stateChanged.connect(self.fixedParamChecked)
         self.fixSigmaS.stateChanged.connect(self.fixedParamChecked)
         self.fixGamma.stateChanged.connect(self.fixedParamChecked)
-        self.gammaSpinBx.valueChanged.connect(self.fixedFittingParams)
-        self.refittingB.clicked.connect(self.fixedFittingParams)
+        # self.gammaSpinBx.valueChanged.connect(self.fixedFittingParams)
+        self.refittingB.clicked.connect(self.resetAll)
 
         self.fixedIntZ.stateChanged.connect(self.skeletalChecked)
         self.fixedZline.stateChanged.connect(self.skeletalChecked)
@@ -244,6 +244,14 @@ class EQ_FittingTab(QWidget):
         self.sigmaDSpinBx.setEnabled(self.fixSigmaD.isChecked())
         self.sigmaSSpinBx.setEnabled(self.fixSigmaS.isChecked())
         self.gammaSpinBx.setEnabled(self.fixGamma.isChecked())
+
+    def resetAll(self):
+        """
+        Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated and Recalculate
+        :return:
+        """
+        self.fixedFittingParams()
+        self.parent.processImage()
 
     def fixedFittingParams(self):
         """

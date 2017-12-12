@@ -34,7 +34,7 @@ from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
 from .pyqt_utils import *
-from os.path import split
+from os.path import split, splitext
 import matplotlib.pyplot as plt
 import musclex
 import traceback
@@ -243,6 +243,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultDispOptGrp = QGroupBox("Display Options")
         self.resultDispOptLayout = QGridLayout(self.resultDispOptGrp)
 
+        self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
+
         self.spResultmaxInt = QDoubleSpinBox()
         self.spResultmaxInt.setToolTip(
             "Reduction in the maximal intensity shown to allow for more details in the image.")
@@ -265,12 +267,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
 
-        self.resultDispOptLayout.addWidget(self.resultminIntLabel, 0, 0, 1, 1)
-        self.resultDispOptLayout.addWidget(self.spResultminInt, 0, 1, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 1, 0, 1, 1)
-        self.resultDispOptLayout.addWidget(self.spResultmaxInt, 1, 1, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resultZoomInB, 2, 0, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resultZoomOutB, 2, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 1)
+        self.resultDispOptLayout.addWidget(self.spResultminInt, 1, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 2, 0, 1, 1)
+        self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resultZoomInB, 3, 0, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resultZoomOutB, 3, 1, 1, 1)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -602,6 +605,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
 
         ##### Result Tab #####
+        self.rotate90Chkbx.stateChanged.connect(self.processImage)
         self.resultZoomInB.clicked.connect(self.resultZoomIn)
         self.resultZoomOutB.clicked.connect(self.resultZoomOut)
         self.resultFigure.canvas.mpl_connect('button_press_event', self.resultClicked)
@@ -1597,6 +1601,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spResultminInt.setValue(min_val)
         self.spResultminInt.setSingleStep(max_val * .05)
 
+        if 'rotate' in info:
+            self.rotate90Chkbx.setChecked(info['rotate'])
+
         self.uiUpdating = False
 
     def onImageChanged(self):
@@ -1626,6 +1633,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.updated['img'] = False
         self.updated['result'] = False
         self.function = None
+        self.result_zoom = None
         self.updateUI()
         self.resetStatusbar()
 
@@ -1769,7 +1777,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
                 errMsg.setText('Unexpected error')
-                msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
+                msg = 'Please report the problem with error message below and the input image\n\n'
                 msg += "Image : "+str(self.quadFold.img_name)
                 msg += "\n\nError : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
                 errMsg.setInformativeText(msg)
@@ -1787,7 +1795,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 createFolder(result_path)
 
                 result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
-                result_file = result_file[:result_file.find('.tif')]
+                result_file, _ = splitext(result_file)
                 result_file += '_folded.tif'
                 img = self.quadFold.imgCache['resultImg']
 
@@ -1844,6 +1852,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.rmaxSpnBx.value() > self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()
             flags['fixed_rmax'] = self.rmaxSpnBx.value()
+
+        flags['rotate'] = self.rotate90Chkbx.isChecked()
 
         return flags
 

@@ -77,19 +77,10 @@ class QuadrantFolder(object):
         result = self.imgCache["BgSubFold"]
         avg_fold = self.info["avg_fold"]
         background = avg_fold-result
-        fold_height = avg_fold.shape[0]
-        fold_width = avg_fold.shape[1]
+        resultImg = self.makeFullImage(background)
 
-        top_left = background
-        top_right = cv2.flip(background, 1)
-        buttom_left = cv2.flip(background, 0)
-        buttom_right = cv2.flip(buttom_left, 1)
-
-        resultImg = np.zeros((fold_height * 2, fold_width * 2))
-        resultImg[0:fold_height, 0:fold_width] = top_left
-        resultImg[0:fold_height, fold_width:fold_width * 2] = top_right
-        resultImg[fold_height:fold_height * 2, 0:fold_width] = buttom_left
-        resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = buttom_right
+        if 'rotate' in self.info and self.info['rotate']:
+            resultImg = np.rot90(resultImg)
 
         result_path = fullPath(fullPath(self.img_path, "qf_results/bg"), self.img_name + ".bg.tif")
         createFolder(fullPath(self.img_path, "qf_results/bg"))
@@ -865,10 +856,12 @@ class QuadrantFolder(object):
         Put 4 self.info["BgSubFold"] together as a result image
         :return:
         """
-        if 'resultImg' not in self.imgCache.keys():
-            print("Generating result image from avarage fold...")
-            self.imgCache['resultImg'] = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
-            print("Done.")
+        print("Generating result image from avarage fold...")
+        result = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
+        if 'rotate' in self.info and self.info['rotate']:
+            result = np.rot90(result)
+        self.imgCache['resultImg'] = result
+        print("Done.")
 
     def makeFullImage(self, fold):
         """

@@ -106,22 +106,22 @@ class EQStartWindow(QMainWindow):
 
     def browseFile(self):
         """
-        Popup an input file dialog. Users can select .tif for image or .txt for failed cases list
+        Popup an input file dialog. Users can select an image or .txt for failed cases list
         """
-        file_name = getAFile('Images (*.tif);;Failed cases (*.txt)')
+        file_name = getAFile(add_txt=True)
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
         if file_name != "":
             if ext == ".txt" and not name == "failedcases.txt":
                 errMsg = QMessageBox()
                 errMsg.setText('Invalid Input')
-                errMsg.setInformativeText("Please select only failedcases.txt or .tif image\n\n")
+                errMsg.setInformativeText("Please select only failedcases.txt or image files\n\n")
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 self.browseFile()
             else:
-                # Run BioMuscle if the file is an image .tif or failed cases list
+                # Run BioMuscle if the file is an image or failed cases list
                 self.runBioMuscle(str(file_name))
         else:
             sys.exit()

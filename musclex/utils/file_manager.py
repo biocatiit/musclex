@@ -30,6 +30,8 @@ import os
 from os.path import split, exists, join
 import fabio
 
+input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'pilatus', 'tif', 'hdf5']
+
 def getFilesAndHdf(dir_path):
     fileList = os.listdir(dir_path)
     imgList = []
@@ -115,9 +117,8 @@ def isImg(fileName):
     :return: True or False
     """
     # imgList = ['bmp','jpg','tif','tiff','png','jpeg']
-    imgList = ['tif', 'tiff']
     nameList = fileName.split('.')
-    if nameList[-1] in imgList:
+    if nameList[-1] in input_types:
         return True
     else:
         return False

@@ -92,6 +92,7 @@ class EQ_CVSManager:
             data['comment'] = "REJECTED"
             new_datas = [data]
         else:
+            failed = False
             # Get all needed infos
             if 'peaks' not in info:
                 data = {}
@@ -100,8 +101,8 @@ class EQ_CVSManager:
                 data['Filename'] = file_name
                 data['comment'] = "No effective peaks detected"
                 new_datas = [data]
+                failed = True
             else:
-                failed = False
                 if 'fit_results' in info:
                     fit_results = info['fit_results']
                     all_S = fit_results['all_S']
@@ -163,10 +164,10 @@ class EQ_CVSManager:
                     new_datas = [data]
                     failed = True
 
-                if failed:
-                    self.failedcases.add(file_name)
-                elif file_name in self.failedcases:
-                    self.failedcases.remove(file_name)
+            if failed:
+                self.failedcases.add(file_name)
+            elif file_name in self.failedcases:
+                self.failedcases.remove(file_name)
 
         self.dataframe = self.dataframe.append(new_datas, ignore_index=True)
         self.dataframe.reset_index()

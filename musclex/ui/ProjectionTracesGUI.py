@@ -39,7 +39,7 @@ import sys
 import traceback
 import musclex
 import copy
-from os.path import exists
+from os.path import exists, splitext
 import pickle
 from .pyqt_utils import *
 
@@ -959,7 +959,7 @@ class ProjectionTracesGUI(QMainWindow):
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
-            msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
+            msg = 'Please report the problem with error message below and the input image\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QMessageBox.Ok)
@@ -985,8 +985,8 @@ class ProjectionTracesGUI(QMainWindow):
         if self.exportChkBx.isChecked() and self.projProc:
             path = fullPath(self.dir_path,'/pt_results/1d_projections')
             createFolder(path)
-            filename = str(self.projProc.filename)
-            filename = filename[:filename.find('.tif')]
+            fullname = str(self.projProc.filename)
+            filename, ext = splitext(fullname)
             orig_hists = self.projProc.info['hists']
             subtr_hists = self.projProc.info['subtracted_hists']
 

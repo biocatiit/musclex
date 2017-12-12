@@ -86,7 +86,7 @@ class EquatorWindow(QMainWindow):
         # Display input error to screen
         errMsg = QMessageBox()
         errMsg.setText('Invalid Input')
-        errMsg.setInformativeText("Please select only failedcases.txt or .tif image\n\n")
+        errMsg.setInformativeText("Please select non empty failedcases.txt or an image\n\n")
         errMsg.setStandardButtons(QMessageBox.Ok)
         errMsg.setIcon(QMessageBox.Warning)
         errMsg.exec_()
@@ -480,7 +480,7 @@ class EquatorWindow(QMainWindow):
         ### Tab Widget ###
         #
         self.tabWidget.currentChanged.connect(self.updateUI)
-        self.fittingTabWidget.currentChanged.connect(self.updateUI)
+        # self.fittingTabWidget.currentChanged.connect(self.updateUI)
 
         #
         ### Image Tab ###
@@ -519,9 +519,9 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx.stateChanged.connect(self.rejectClicked)
 
         #### Fitting Tab
-        self.skeletalChkBx.stateChanged.connect(self.refreshAllFittingParams)
+        # self.skeletalChkBx.stateChanged.connect(self.refreshAllFittingParams)
         self.nPeakSpnBx.valueChanged.connect(self.nPeakChanged)
-        self.modelSelect.currentIndexChanged.connect(self.refreshAllFittingParams)
+        # self.modelSelect.currentIndexChanged.connect(self.refreshAllFittingParams)
         self.setPeaksB.clicked.connect(self.setManualPeaks)
         self.origHistChkBx.stateChanged.connect(self.refreshGraph)
         self.hullChkBx.stateChanged.connect(self.refreshGraph)
@@ -913,16 +913,16 @@ class EquatorWindow(QMainWindow):
 
     def browseFile(self):
         """
-        Popup an input file dialog. Users can select .tif for image or .txt for failed cases list
+        Popup an input file dialog. Users can select an image or .txt for failed cases list
         """
-        file_name = getAFile('Images (*.tif);;Failed cases (*.txt)')
+        file_name = getAFile(add_txt=True)
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
         if file_name != "":
             if ext == ".txt" and not name == "failedcases.txt":
                 errMsg = QMessageBox()
                 errMsg.setText('Invalid Input')
-                errMsg.setInformativeText("Please select only failedcases.txt or .tif image\n\n")
+                errMsg.setInformativeText("Please select only failedcases.txt or an image\n\n")
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
@@ -943,7 +943,6 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is not None and not self.syncUI:
             self.bioImg.removeInfo("peaks")  # Remove peaks info before re-processing
-            self.processImage()
 
     def processFolder(self):
         """
@@ -1062,6 +1061,10 @@ class EquatorWindow(QMainWindow):
             self.processImage()
 
     def refreshAllFittingParams(self):
+        """
+        Clear fit results
+        :return:
+        """
         if self.bioImg is None or self.syncUI:
             return
 
@@ -1072,7 +1075,6 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo('fit_results')
             self.refreshFittingParams('left')
             self.refreshFittingParams('right')
-        self.processImage()
 
     def refreshFittingParams(self, side):
         if self.bioImg is not None:
@@ -1591,7 +1593,7 @@ class EquatorWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
-            msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
+            msg = 'Please report the problem with error message below and the input image\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QMessageBox.Ok)

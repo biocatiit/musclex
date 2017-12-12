@@ -306,7 +306,7 @@ class CalibrationSettings(QDialog):
         self.updateImage()
 
     def browseClicked(self):
-        file_name = getAFile('Images (*.tif)')
+        file_name = getAFile()
         if file_name != "":
             self.cal_img = None
             self.calFile = str(file_name)

@@ -89,7 +89,7 @@ class CircularProjectionGUI(QMainWindow):
         self.widgetList.append(new_image_window)
 
     def browseFile(self):
-        file_name = getAFile('Images (*.tif)')
+        file_name = getAFile()
         QApplication.processEvents()
         if file_name != "":
             self.onNewFileSelected(str(file_name))

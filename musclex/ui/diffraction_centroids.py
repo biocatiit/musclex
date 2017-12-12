@@ -402,8 +402,8 @@ class DiffractionTab(QWidget):
 
         self.calSettingsGrp = QGroupBox("Settings")
         self.calSettingsLayout = QGridLayout()
-        self.calSettingsLayout.addWidget(self.manualPeakSelect, 0, 0, 1, 1)
-        self.calSettingsLayout.addWidget(self.manualSESelect, 1, 0, 1, 1)
+        # self.calSettingsLayout.addWidget(self.manualPeakSelect, 0, 0, 1, 1)
+        self.calSettingsLayout.addWidget(self.manualSESelect, 0, 0, 1, 1)
         self.calSettingsGrp.setLayout(self.calSettingsLayout)
 
         self.difTabLayout.addWidget(self.difCanvas, 0, 0, 1, 5)
@@ -1687,7 +1687,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
-            msg = 'Please report the problem with error message below and the input image (.tif)\n\n'
+            msg = 'Please report the problem with error message below and the input image\n\n'
             msg += "Error : "+str(sys.exc_info()[0]) +'\n\n'+str(traceback.format_exc())
             errMsg.setInformativeText(msg)
             errMsg.setStandardButtons(QMessageBox.Ok)

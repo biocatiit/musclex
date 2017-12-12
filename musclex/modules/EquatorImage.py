@@ -558,6 +558,8 @@ class EquatorImage:
                 left_areas = [fit_result['left_area' + str(i + 1)] for i in range(len(left_peaks))]
                 right_areas = [fit_result['right_area' + str(i + 1)] for i in range(len(right_peaks))]
 
+                if len(left_areas) < 2 or len(right_areas) < 2:
+                    return
                 #### Get Ratio between I10 and I11 ####
                 fit_result['left_ratio'] = 1.*(left_areas[1] / left_areas[0])
                 fit_result['right_ratio'] = 1.*(right_areas[1] / right_areas[0])
@@ -588,6 +590,8 @@ class EquatorImage:
             print("Done. Fitting Results : " + str(self.info['fit_results']))
             if self.info['fit_results']['fiterror'] > 0.2:
                 print("WARNING : High Fitting Error")
+        else:
+            print("Model cannot be fitted.")
 
     def getPeakWidths(self, side):
         """
