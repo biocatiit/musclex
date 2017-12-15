@@ -58,6 +58,8 @@ class PT_CVSManager:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
                 for i in range(len(peaks[box_name])):
+                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i) + " (Pixel)")
+                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i) + " (nn)")
                     self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (Pixel)")
                     self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (nn)")
                     self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (Pixel)")
@@ -99,12 +101,15 @@ class PT_CVSManager:
                 new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
                 if 'centroids' in info and bn in info['centroids']:
                     centroids = info['centroids'][bn]
+                    moved_peaks = info['moved_peaks'][bn] - model['centerX']
                     for i,c in enumerate(centroids):
+                        new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (Pixel)"] = moved_peaks[i]
                         new_data['Box ' + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
                         new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
                         if 'lambda_sdd' in info:
+                            new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/moved_peaks[i]
                             new_data['Box ' + str(bn) + " Centroid " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/c
                             new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (nn)"] = 1. * info['lambda_sdd'] / model['p_' + str(i)]
                 new_data["Box " + str(bn) + " error"] = model['error']

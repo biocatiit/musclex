@@ -398,16 +398,18 @@ class ProjectionProcessor():
 
             ### Find real peak locations in the box (not distance from center)
             model = fit_results[name]
+
             hist = all_hists[name]
 
             if name not in moved_peaks:
-                peaks = []
+                peaks = self.info['peaks'][name]
+                moved = []
                 i = 0
-                while 'p_'+str(i) in model.keys():
-                    peaks.append(int(round(model['centerX']+model['p_'+str(i)])))
+                for p in peaks:
+                    moved.append(int(round(model['centerX']+p)))
                     i+=1
-                peaks = movePeaks(hist, peaks, 20)
-                moved_peaks[name] = peaks
+                moved = movePeaks(hist, moved, 10)
+                moved_peaks[name] = moved
                 self.removeInfo(name, 'baselines')
 
             peaks = moved_peaks[name]

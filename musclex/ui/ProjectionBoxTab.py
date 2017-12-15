@@ -107,6 +107,8 @@ class ProjectionBoxTab(QWidget):
         self.fitmodelChkBx.setChecked(True)
         self.bgChkBx = QCheckBox("Background")
         self.bgChkBx.setChecked(True)
+        self.maxPeaksChkBx = QCheckBox("Max Peaks")
+        self.maxPeaksChkBx.setChecked(False)
         self.peaksChkBx = QCheckBox("Model Peaks")
         self.peaksChkBx.setChecked(True)
         self.centerChkBx = QCheckBox("Center")
@@ -127,11 +129,12 @@ class ProjectionBoxTab(QWidget):
         self.dispOptLayout.addWidget(self.fitmodelChkBx, 0, 1, 1, 1)
         self.dispOptLayout.addWidget(self.hullRangeChkBx, 2, 0, 1, 1)
         self.dispOptLayout.addWidget(self.bgChkBx, 2, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.peaksChkBx, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.centerChkBx, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.centroidChkBx, 4, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.baselineChkBx, 4, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.subHistChkBx, 5, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.maxPeaksChkBx, 3, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.peaksChkBx, 3, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.centerChkBx, 4, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.centroidChkBx, 4, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.baselineChkBx, 5, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.subHistChkBx, 5, 1, 1, 1)
         self.dispOptLayout.addWidget(self.zoomInButton, 6, 0, 1, 1)
         self.dispOptLayout.addWidget(self.zoomOutButton, 6, 1, 1, 1)
         self.dispOptLayout.addWidget(self.fullButton, 7, 0, 1, 2)
@@ -167,12 +170,13 @@ class ProjectionBoxTab(QWidget):
         self.results_text = QLabel()
 
         self.resultTable1 = QTableWidget()
-        self.resultTable1.setColumnCount(3)
-        self.resultTable1.setHorizontalHeaderLabels(["Distance", "Sigma", "Area"])
+        self.resultTable1.setColumnCount(4)
+        self.resultTable1.setHorizontalHeaderLabels(["Max Peak", "Gauss Center", "Gauss Sigma", "Gauss Area"])
         self.resultTable1.horizontalHeader().setStretchLastSection(True)
-        self.resultTable1.setColumnWidth(0, 100)
-        self.resultTable1.setColumnWidth(1, 100)
-        self.resultTable1.setColumnWidth(2, 100)
+        self.resultTable1.setColumnWidth(0, 75)
+        self.resultTable1.setColumnWidth(1, 75)
+        self.resultTable1.setColumnWidth(2, 75)
+        self.resultTable1.setColumnWidth(3, 75)
         self.resultTable1.setFixedHeight(100)
 
         self.resultTable2 = QTableWidget()
@@ -220,6 +224,7 @@ class ProjectionBoxTab(QWidget):
         self.fitmodelChkBx.stateChanged.connect(self.resetUI)
         self.hullRangeChkBx.stateChanged.connect(self.resetUI)
         self.bgChkBx.stateChanged.connect(self.resetUI)
+        self.maxPeaksChkBx.stateChanged.connect(self.resetUI)
         self.peaksChkBx.stateChanged.connect(self.resetUI)
         self.centerChkBx.stateChanged.connect(self.resetUI)
         self.subHistChkBx.stateChanged.connect(self.resetUI)
@@ -465,7 +470,8 @@ class ProjectionBoxTab(QWidget):
         if x is not None and y is not None:
             centerX = self.getCenterX()
             distance = x - centerX
-            self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3)))
+            hist = self.parent.projProc.info['hists'][self.name]
+            self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3))+", Intensity = "+str(hist[int(round(x))]))
             if self.function is not None:
                 if self.function[0] == 'move1' and self.graphMaxBound is not None and self.zoom1 is not None:
                     # change zoom-in location to move around plot
@@ -492,7 +498,13 @@ class ProjectionBoxTab(QWidget):
         if x is not None and y is not None:
             centerX = self.getCenterX()
             distance = x - centerX
-            self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3)))
+            all_hists =  self.parent.projProc.info['subtracted_hists']
+            if self.name in all_hists:
+                hist = all_hists[self.name]
+                self.parent.pixel_detail.setText(
+                    "Distance = " + str(round(distance, 3)) + ", Intensity = " + str(hist[int(round(x))]))
+            else:
+                self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3)))
             if self.function is not None:
                 if self.function[0] == 'move2' and self.graphMaxBound is not None and self.zoom2 is not None:
                     # change zoom-in location to move around plot
@@ -586,6 +598,7 @@ class ProjectionBoxTab(QWidget):
         all_baselines = info['baselines']
         all_centroids = info['centroids']
         all_widths = info['widths']
+        all_peaks = info['moved_peaks']
         bgsubs = info['bgsubs']
         hull_ranges = info['hull_ranges']
 
@@ -643,6 +656,18 @@ class ProjectionBoxTab(QWidget):
                     i += 1
                     ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
                     ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
+
+            if self.maxPeaksChkBx.isChecked():
+                peaks = all_peaks[name]
+                for p in peaks:
+                    d = p - model['centerX']
+                    ax2.axvline(model['centerX'] - d, color='b', alpha=0.7)
+                    ax2.axvline(model['centerX'] + d, color='b', alpha=0.7)
+            # max intensity locations
+            # if name in all_peaks:
+            #     peaks = all_peaks[name]
+            #     for p in peaks:
+            #         ax2.axvline(p, color='r', alpha=0.7)
 
             if name in all_centroids and name in all_baselines and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
                 # Add baselines and centroids
@@ -706,6 +731,7 @@ class ProjectionBoxTab(QWidget):
             widths = all_widths[name]
             nPeaks = len(centroids)
             fit_result = fit_results[name]
+            peaks = all_peaks[name] - fit_result['centerX']
             self.resultTable1.setRowCount(nPeaks)
             self.resultTable2.setRowCount(nPeaks)
 
@@ -714,17 +740,21 @@ class ProjectionBoxTab(QWidget):
                 sigma = fit_result['sigma'+str(i)]
                 area = fit_result['amplitude' + str(i)]
 
-                item = QTableWidgetItem(str(center))
+                item = QTableWidgetItem(str(peaks[i]))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 0, item)
 
-                item = QTableWidgetItem(str(sigma))
+                item = QTableWidgetItem(str(center))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 1, item)
 
-                item = QTableWidgetItem(str(area))
+                item = QTableWidgetItem(str(sigma))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 2, item)
+
+                item = QTableWidgetItem(str(area))
+                item.setFlags(Qt.ItemIsEnabled)
+                self.resultTable1.setItem(i, 3, item)
 
                 centroid = centroids[i]
                 baseline = baselines[i]

@@ -163,6 +163,8 @@ class CPBatchWindow(QMainWindow):
         self.intesityRange = [0, 1, 1, 2]
         self.mainWin = mainWin
         self.color_maps = 'jet'
+        self.isFlipX = False
+        self.isFlipY = False
 
         ##Batch Mode Params
         self.name_dict = {}
@@ -255,7 +257,9 @@ class CPBatchWindow(QMainWindow):
         self.repChoice.addItem("Intensity and Rotation Map")
 
         self.colorChoice = QComboBox()
-        colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean', 'rainbow', 'seismic', 'summer', 'spring', 'terrain']
+        colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
+                     'rainbow', 'seismic', 'summer', 'spring', 'terrain', 'winter', 'autumn',
+                     'Blues', 'Greens', 'Oranges', 'Reds', 'pink']
         for c in colormaps:
             self.colorChoice.addItem(c)
 
@@ -364,12 +368,24 @@ class CPBatchWindow(QMainWindow):
             del self.widgetList[idx]
 
     def flipMapX(self):
-        self.mapAxes.invert_xaxis()
-        self.mapCanvas.draw()
+        """
+        Flip map in X direction
+        :return:
+        """
+        self.isFlipX = not self.isFlipX
+        if self.repChoice.currentText() == "Elliptical Map" or self.repChoice.currentText() == "Intensity and Rotation Map":
+            self.updateUI()
+        else:
+            self.mapAxes.invert_xaxis()
+            self.mapCanvas.draw()
 
     def flipMapY(self):
-        self.mapAxes.invert_yaxis()
-        self.mapCanvas.draw()
+        self.isFlipY = not self.isFlipY
+        if self.repChoice.currentText() == "Elliptical Map" or self.repChoice.currentText() == "Intensity and Rotation Map":
+            self.updateUI()
+        else:
+            self.mapAxes.invert_yaxis()
+            self.mapCanvas.draw()
 
     def saveClicked(self):
         filename = getSaveFile(join(self.filePath, 'cp_results'))
@@ -545,11 +561,20 @@ class CPBatchWindow(QMainWindow):
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
             patches = []
             colors = []
+
+            # angle factor is taking care of flipping map (keep angle stay the same)
+            angle_factor = -1
+            if self.isFlipX:
+                angle_factor *= -1
+            if self.isFlipY:
+                angle_factor *= -1
+
             for i in range(len(self.hdf_data)):
                 if ranges[i] == 0:
                     e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /15., height=(self.xylim[0]+self.xylim[1]) / 2./15.)
                 else:
-                    e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /12., height=(self.xylim[0]+self.xylim[1]) / 2., angle=convertRadtoDegreesEllipse(np.pi - toFloat(self.orientation_dict[i + self.init_number])))
+                    e_angle = convertRadtoDegreesEllipse(np.pi/2. + angle_factor * self.orientation_dict[i + self.init_number])
+                    e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /10., height=(self.xylim[0]+self.xylim[1]) / 2., angle=e_angle)
                 patches.append(e)
                 c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else 0
                 colors.append(c)
@@ -563,52 +588,57 @@ class CPBatchWindow(QMainWindow):
         ax.set_xlim(x.min(), x.max() + self.xylim[0])
         ax.set_ylim(y.min(), y.max() + self.xylim[1])
 
+        if self.isFlipX:
+            ax.invert_xaxis()
+        if self.isFlipY:
+            ax.invert_yaxis()
+
         self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1,wspace=0, hspace=0)
         self.mapCanvas.draw()
 
-    def updateAngularRangeTab(self):
-
-        if self.update_plot['arange_maps']:
-            if len(self.xyIntensity) < 3:
-                return
-
-            x = self.xyIntensity[0]
-            y = self.xyIntensity[1]
-            x_max = len(x)
-
-            if 'ar_' not in self.plots.keys():
-                ang_range = [
-                    convertRadtoDegrees(float(self.angrange_dict[i])) if i in self.angrange_dict and self.angrange_dict[
-                                                                                                         i] != '' else 0
-                    for
-                    i in range(self.init_number, len(self.hdf_data) + self.init_number)]
-                ang_range = [r if 0 < r <= 180 else 0 for r in ang_range]
-                ang_range = np.array([ang_range[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
-                self.plots['ar_'] = copy.copy(ang_range)
-            else:
-                ang_range = copy.copy(self.plots['ar_'])
-
-            # z = cv2.blur(z, (4,4))
-            x_coor, y_coor = np.meshgrid(x, y)
-
-            max_val = ang_range.max()
-            min_val = ang_range.min()
-            if self.ar_maxIntMap.value() < 100:
-                ang_range[ang_range > self.ar_maxIntMap.value() * max_val / 100.] = max_val
-            if self.ar_minIntMap.value() > 0:
-                ang_range[ang_range < self.ar_minIntMap.value() * max_val / 100.] = min_val
-
-            ax = self.angularMapAxes
-            ax.cla()
-            ax.set_title("Angular Range Map (Degrees)\n")
-            im = ax.pcolormesh(x_coor, y_coor, ang_range, cmap=self.color_maps)
-            ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-            ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
-            # self.angularMapFigure.colorbar(im)
-            self.angularMapFigure.tight_layout()
-            self.angularMapFigure.savefig(fullPath(self.filePath, 'cp_results/angular_range_map.png'))
-            self.angularMapCanvas.draw()
-            self.update_plot['arange_maps'] = False
+    # def updateAngularRangeTab(self):
+    #
+    #     if self.update_plot['arange_maps']:
+    #         if len(self.xyIntensity) < 3:
+    #             return
+    #
+    #         x = self.xyIntensity[0]
+    #         y = self.xyIntensity[1]
+    #         x_max = len(x)
+    #
+    #         if 'ar_' not in self.plots.keys():
+    #             ang_range = [
+    #                 convertRadtoDegrees(float(self.angrange_dict[i])) if i in self.angrange_dict and self.angrange_dict[
+    #                                                                                                      i] != '' else 0
+    #                 for
+    #                 i in range(self.init_number, len(self.hdf_data) + self.init_number)]
+    #             ang_range = [r if 0 < r <= 180 else 0 for r in ang_range]
+    #             ang_range = np.array([ang_range[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
+    #             self.plots['ar_'] = copy.copy(ang_range)
+    #         else:
+    #             ang_range = copy.copy(self.plots['ar_'])
+    #
+    #         # z = cv2.blur(z, (4,4))
+    #         x_coor, y_coor = np.meshgrid(x, y)
+    #
+    #         max_val = ang_range.max()
+    #         min_val = ang_range.min()
+    #         if self.ar_maxIntMap.value() < 100:
+    #             ang_range[ang_range > self.ar_maxIntMap.value() * max_val / 100.] = max_val
+    #         if self.ar_minIntMap.value() > 0:
+    #             ang_range[ang_range < self.ar_minIntMap.value() * max_val / 100.] = min_val
+    #
+    #         ax = self.angularMapAxes
+    #         ax.cla()
+    #         ax.set_title("Angular Range Map (Degrees)\n")
+    #         im = ax.pcolormesh(x_coor, y_coor, ang_range, cmap=self.color_maps)
+    #         ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
+    #         ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
+    #         # self.angularMapFigure.colorbar(im)
+    #         self.angularMapFigure.tight_layout()
+    #         self.angularMapFigure.savefig(fullPath(self.filePath, 'cp_results/angular_range_map.png'))
+    #         self.angularMapCanvas.draw()
+    #         self.update_plot['arange_maps'] = False
 
     def updateVectorFieldTab(self):
         if len(self.xyIntensity) < 3:
@@ -632,14 +662,15 @@ class CPBatchWindow(QMainWindow):
         int_display = copy.copy(intensity)
 
         max_val = int_display.max()
+
         if self.maxMap.value() < 100:
             int_display[
                 int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
         if self.minMap.value() > 0:
-            intensity[
+            int_display[
                 int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
 
-        speed = int_display / intensity.max() * self.xylim[0]
+        speed = (int_display / int_display.max())
         UN = U * speed
         VN = V * speed
         self.vec_UV = [U, V]
@@ -649,12 +680,17 @@ class CPBatchWindow(QMainWindow):
         self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
                                     int_display,  # colour the arrows based on this array
                                     cmap=str(self.colorChoice.currentText()),  # colour map
-                                    headlength=7, headwidth=4)
+                                    headlength=7, headwidth=4, scale_units='xy', scale=0.7, pivot='middle')
 
         ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
         ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
         # ax.set_aspect('auto')
         ax.set_facecolor('black')
+
+        if self.isFlipX:
+            ax.invert_xaxis()
+        if self.isFlipY:
+            ax.invert_yaxis()
 
         # self.vectorFieldMapFigure.colorbar(self.vec_quiver)
         self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
@@ -662,7 +698,6 @@ class CPBatchWindow(QMainWindow):
 
         # if self.arrowLengthSlider.value() > 5:
         #     self.updateVectorFieldArrow()
-
 
     def updateVectorFieldArrow(self):
         if len(self.xyIntensity) < 3 or len(self.vec_UV) < 2 or self.vec_quiver is None:
@@ -713,6 +748,13 @@ class CPBatchWindow(QMainWindow):
             int_display[
                 int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
 
+        # angle factor is taking care of flipping map (keep angle stay the same)
+        angle_factor = -1
+        if self.isFlipX:
+            angle_factor *= -1
+        if self.isFlipY:
+            angle_factor *= -1
+
         ax = self.mapAxes
         ax.cla()
         patches = []
@@ -722,9 +764,9 @@ class CPBatchWindow(QMainWindow):
             if ranges[i] == 0:
                 e = Ellipse(xy=centers[i], width=self.xylim[0]/5., height=self.xylim[0]/5.)
             else:
+                angle = convertRadtoDegreesEllipse(np.pi/2. + angle_factor * self.orientation_dict[i + self.init_number])
                 e = Ellipse(xy=centers[i], width= self.xylim[0] * widths[i], height=self.xylim[0],
-                            angle=convertRadtoDegreesEllipse(
-                                np.pi - toFloat(self.orientation_dict[i + self.init_number])))
+                            angle=angle)
             patches.append(e)
             # colors.append(self.intensity_dict[i + self.init_number])
 
@@ -740,6 +782,11 @@ class CPBatchWindow(QMainWindow):
         ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
         ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
         ax.set_aspect('auto')
+
+        if self.isFlipX:
+            ax.invert_xaxis()
+        if self.isFlipY:
+            ax.invert_yaxis()
 
         self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
@@ -954,3 +1001,6 @@ class CPBatchWindow(QMainWindow):
         if bar is not None:
             self.progressBar.setValue(bar)
         QApplication.processEvents()
+
+def convertRadtoDegreesEllipse(rad):
+    return rad * 180. / np.pi

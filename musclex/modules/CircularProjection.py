@@ -1166,9 +1166,6 @@ def convertRadtoDegrees(rad):
     rad = toFloat(rad)
     return int(rad * 180 / np.pi)
 
-def convertRadtoDegreesEllipse(rad):
-    return int(rad * 180 / np.pi) - 90
-
 # def update_int(val):
 #     global intensity, int_displayi, fig, quad, ax1
 #     if sbluri.val > 2:

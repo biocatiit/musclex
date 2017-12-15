@@ -325,6 +325,7 @@ def movePeaks(hist, peaks, dist=20):
     """
     peakList = []
     smooth_hist = smooth(hist)
+    # smooth_hist = hist[:]
     for pk in peaks:
         p = int(round(pk))
         while True:
@@ -336,14 +337,14 @@ def movePeaks(hist, peaks, dist=20):
             new_peak = start + np.argmax(hist[int(start):int(end)])
 
             # if the local maximum is not far from initital peak, break
-            if abs(p - new_peak) < 4: #
+            if abs(p - new_peak) <= 5: #
                 break
             else:
                 left = min(p, new_peak)
                 right = max(p, new_peak)
 
                 # Check if between initial peak and local maximum has valley
-                if all(smooth_hist[left + 1:right] > p):
+                if all(smooth_hist[left + 1:right] > smooth_hist[p]):
                     break
             dist = dist / 2
         peakList.append(new_peak)
