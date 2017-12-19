@@ -226,24 +226,33 @@ class CPBatchWindow(QMainWindow):
         self.ringSettingsLayout = QGridLayout(self.ringSettingsGrp)
         self.bestRadio = QRadioButton("Best Rings")
         self.bestRadio.setChecked(True)
-        self.distanceRadio = QRadioButton("Distance")
+        self.distanceRadio = QRadioButton("D-spacing")
+        self.distanceLabel = QLabel("Distance : ")
         self.distanceSpnBx = QDoubleSpinBox()
-        self.distanceSpnBx.setRange(0, 1000)
+        self.distanceSpnBx.setRange(0, 2000)
         self.distanceSpnBx.setValue(8)
         self.distanceSpnBx.setDecimals(8)
-        # self.distanceSpnBx.setKeyboardTracking(False)
+        self.bandwidthLabel = QLabel("Bandwidth : ")
+        self.bandwidthSpnBx = QDoubleSpinBox()
+        self.bandwidthSpnBx.setRange(0, 1000)
+        self.bandwidthSpnBx.setValue(1)
+        self.bandwidthSpnBx.setDecimals(8)
         self.unitChoice = QComboBox()
+        self.unitChoice.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.unitChoice.addItem("nm")
         self.unitChoice.addItem("pixel")
         self.distanceSpnBx.setEnabled(False)
         self.unitChoice.setEnabled(False)
         self.refreshButton = QPushButton("Reload")
-        self.refreshButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        self.ringSettingsLayout.addWidget(self.bestRadio, 0, 0, 1, 3)
+        self.refreshButton.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.ringSettingsLayout.addWidget(self.bestRadio, 0, 0, 1, 4)
         self.ringSettingsLayout.addWidget(self.distanceRadio, 1, 0, 1, 1)
-        self.ringSettingsLayout.addWidget(self.distanceSpnBx, 1, 1, 1, 1)
-        self.ringSettingsLayout.addWidget(self.unitChoice, 1, 2, 1, 1)
-        self.ringSettingsLayout.addWidget(self.refreshButton, 0, 3, 2, 1)
+        self.ringSettingsLayout.addWidget(self.distanceLabel, 1, 1, 1, 1)
+        self.ringSettingsLayout.addWidget(self.distanceSpnBx, 1, 2, 1, 1)
+        self.ringSettingsLayout.addWidget(self.bandwidthLabel, 2, 1, 1, 1)
+        self.ringSettingsLayout.addWidget(self.bandwidthSpnBx, 2, 2, 1, 1)
+        self.ringSettingsLayout.addWidget(self.unitChoice, 1, 3, 2, 1)
+        self.ringSettingsLayout.addWidget(self.refreshButton, 0, 4, 3, 1)
 
         self.flipX = QPushButton("Flip X")
         self.flipX.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
@@ -252,6 +261,7 @@ class CPBatchWindow(QMainWindow):
 
         self.repChoice = QComboBox()
         self.repChoice.addItem("Total Intensity Map")
+        self.repChoice.addItem("Ring Intensity Map")
         self.repChoice.addItem("Vector Field")
         self.repChoice.addItem("Elliptical Map")
         self.repChoice.addItem("Intensity and Rotation Map")
@@ -351,12 +361,11 @@ class CPBatchWindow(QMainWindow):
         self.moreDetailsButton.clicked.connect(self.popupImageDetails)
 
     def ringChoiceChanged(self):
-        if self.distanceRadio.isChecked():
-            self.distanceSpnBx.setEnabled(True)
-            self.unitChoice.setEnabled(True)
-        else:
-            self.distanceSpnBx.setEnabled(False)
-            self.unitChoice.setEnabled(False)
+        self.distanceSpnBx.setEnabled(self.distanceRadio.isChecked())
+        self.unitChoice.setEnabled(self.distanceRadio.isChecked())
+        self.distanceLabel.setEnabled(self.distanceRadio.isChecked())
+        self.bandwidthLabel.setEnabled(self.distanceRadio.isChecked())
+        self.bandwidthSpnBx.setEnabled(self.distanceRadio.isChecked())
 
     def closeEvent(self, ev):
         if self.mainWin is not None:
@@ -406,19 +415,20 @@ class CPBatchWindow(QMainWindow):
             indexs = list(range(0, len(x)))
             col = min(indexs, key=lambda i: abs(x[i] - event.xdata))
 
-            if (self.repChoice.currentText() == "Total Intensity Map" or self.repChoice.currentText() == "Intensity and Rotation Map") and event.xdata < x[col]:
+            if (self.repChoice.currentText() in ["Total Intensity Map","Intensity and Rotation Map","Ring Intensity Map"]) and event.xdata < x[col]:
                 col -= 1
 
             indexs = list(range(0, len(y)))
             row = min(indexs, key=lambda i: abs(y[i] - event.ydata))
-            if (self.repChoice.currentText() == "Total Intensity Map" or self.repChoice.currentText() == "Intensity and Rotation Map") and event.ydata < y[row]:
+            if (self.repChoice.currentText() in ["Total Intensity Map","Intensity and Rotation Map","Ring Intensity Map"]) and event.ydata < y[row]:
                 row = max(row - 1, 0)
 
             ind = row * x_max + col + self.init_number
 
             if ind in self.name_dict:
-                img_detail = "Intensity value: " + str(self.intensity_dict[ind])
-                # img_detail += "\nD-spacing: " + str(self.distance_dict[ind])
+                img_detail = "Total Intensity: " + str(self.intensity_dict[ind])
+                img_detail += "\nRing Intensity: " + str(self.peak_intensity_dict[ind])
+                img_detail += "\nD-spacing: " + str(self.distance_dict[ind])
                 img_detail += "\nOrientation angle: " + str(self.orientation_dict[ind])
                 img_detail += "\nAngular range: " + str(self.angrange_dict[ind])
                 filename = self.name_dict[ind]
@@ -517,19 +527,21 @@ class CPBatchWindow(QMainWindow):
     def updateUI(self):
         representation = self.repChoice.currentText()
         if representation == 'Total Intensity Map':
-            self.updateTotalIntenTab(angle = False)
+            self.updateIntensityMap()
+        elif representation == 'Ring Intensity Map':
+            self.updateIntensityMap(total=False)
         elif representation == 'Vector Field':
-            self.updateVectorFieldTab()
+            self.updateVectorFieldMap()
         elif representation == 'Elliptical Map':
-            self.updateEllipticalTab()
+            self.updateEllipticalMap()
         elif representation == 'Intensity and Rotation Map':
-            self.updateTotalIntenTab(angle = True)
+            self.updateIntensityMap(angle = True)
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
         QApplication.processEvents()
 
 
-    def updateTotalIntenTab(self, angle = False):
+    def updateIntensityMap(self, total = True, angle = False):
 
         if len(self.xyIntensity) < 3:
             return
@@ -538,7 +550,10 @@ class CPBatchWindow(QMainWindow):
         y = copy.copy(self.xyIntensity[1])
         x2 = np.append(x, max(x) + self.xylim[0])
         y2 = np.append(y, max(y) + self.xylim[1])
-        intensity = copy.copy(self.xyIntensity[2])
+        if total:
+            intensity = copy.copy(self.xyIntensity[2])
+        else:
+            intensity = copy.copy(self.xyIntensity[3])
 
         x_coor, y_coor = np.meshgrid(x2, y2)
 
@@ -640,7 +655,7 @@ class CPBatchWindow(QMainWindow):
     #         self.angularMapCanvas.draw()
     #         self.update_plot['arange_maps'] = False
 
-    def updateVectorFieldTab(self):
+    def updateVectorFieldMap(self):
         if len(self.xyIntensity) < 3:
             return
 
@@ -723,7 +738,7 @@ class CPBatchWindow(QMainWindow):
         self.vectorFieldMapCanvas.draw_idle()
         self.vectorFieldMapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
 
-    def updateEllipticalTab(self):
+    def updateEllipticalMap(self):
 
         if len(self.xyIntensity) < 3:
             return
@@ -837,6 +852,7 @@ class CPBatchWindow(QMainWindow):
         # Read intensity from csv to organize the info given
         self.name_dict = {}
         self.intensity_dict = {}
+        self.peak_intensity_dict = {}
         self.distance_dict = {}
         self.angrange_dict = {}
         self.orientation_dict = {}
@@ -865,18 +881,39 @@ class CPBatchWindow(QMainWindow):
                         col = 'S'
                     else:
                         col = 'd'
-                    min_ind = min(np.arange(len(all_rings)), key=lambda ind: abs(all_rings.iloc[ind][col]-dist)) # Find closest ring to distance
-                    max_dif = {'S':5., 'd':1.}
-                    if abs(all_rings.iloc[min_ind][col]-dist) > max_dif[col]:
+                    try:
+                        min_ind = min(np.arange(len(all_rings)), key=lambda ind: abs(float(all_rings.iloc[ind][col])-dist)) # Find closest ring to distance
+                        max_dif = self.bandwidthSpnBx.value()
+                        if abs(float(all_rings.iloc[min_ind][col])-dist) > max_dif:
+                            distance_ok = False
+                    except:
+                        print("WARNING : Unable to find the closest ring to the specified d-spacing for image %s" % (row['filename']))
+                        min_ind = 0
                         distance_ok = False
                     best_ring = all_rings.iloc[min_ind]
+
                 good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1. and distance_ok
-                self.orientation_dict[index] = best_ring['angle'] if pd.notnull(
-                    best_ring['angle']) and good_model else 0
-                self.angrange_dict[index] = best_ring['angle sigma'] if pd.notnull(
-                    best_ring['angle sigma']) and good_model else 0
-                self.distance_dict[index] = 0
+                peak_inten = 0
+                d_spacing = 0
+                angle = 0
+                angle_sigma = 0
+
+                if good_model:
+                    peak_inten = float(best_ring['peak intensity']) if pd.notnull(best_ring['peak intensity']) else 0
+                    angle = best_ring['angle'] if pd.notnull(best_ring['angle']) else 0
+                    angle_sigma = float(best_ring['angle sigma']) if pd.notnull(best_ring['angle sigma']) else 0
+                    if pd.notnull(best_ring['d']) and best_ring['d'] != '-':
+                        d_spacing = float(best_ring['d'])
+                    elif pd.notnull(best_ring['S']):
+                        d_spacing = float(best_ring['S'])
+
+
+                self.peak_intensity_dict[index] = peak_inten
+                self.orientation_dict[index] = angle
+                self.angrange_dict[index] = angle_sigma
+                self.distance_dict[index] = d_spacing
             else:
+                self.peak_intensity_dict[index] = 0
                 self.orientation_dict[index] = 0
                 self.angrange_dict[index] = 0
                 self.distance_dict[index] = 0
@@ -915,9 +952,12 @@ class CPBatchWindow(QMainWindow):
         # z = np.array([z[i:i + x_max] for i in range(0, , x_max)])
         # z = cv2.blur(z, (4,4))
         # intensity = np.array(z)
+        ring_z = [float(self.peak_intensity_dict[i]) if i in self.peak_intensity_dict else 0 for i in
+             range(self.init_number, len(self.hdf_data) + self.init_number)]
         intensity = np.reshape(z, (len(y), len(x)))
+        ring_intensity = np.reshape(ring_z, (len(y), len(x)))
 
-        self.xyIntensity = [x, y, intensity]
+        self.xyIntensity = [x, y, intensity, ring_intensity]
         self.xylim = [x_grad, y_grad]
         self.refreshAllTabs()
         self.updateImage()
