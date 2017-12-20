@@ -335,7 +335,6 @@ class EquatorImage:
             right_peaks = movePeaks(self.info['hulls']['right'], sorted(self.info['tmp_peaks']['right']), 5)
             first_left, first_right = self.findFirstSymmetricPeaks(left_peaks, right_peaks)
 
-            self.removeInfo('fit_results') # Remove fit results from info dict to make it be re-calculated
             self.removeInfo('fit_results')  # Remove fit results from info dict to make it be re-calculated
 
             if first_left is None:
@@ -356,8 +355,7 @@ class EquatorImage:
         for lp in left_peaks:
             for rp in right_peaks:
                 if abs(lp - rp) < dist_thres:
-                    if lp < 250. and rp < 250.:
-                        return lp, rp
+                    return lp, rp
         return None, None
 
     def hexagonalPattern(self, first_left, first_right, left_peaks, right_peaks):
