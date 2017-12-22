@@ -3,11 +3,17 @@
   <component name="ChangeListManager">
     <list default="true" id="9d7c19e9-41bd-4f14-b219-b354dbeed836" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/dist/musclex-1.9.1.tar.gz" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/musclex.egg-info/PKG-INFO" afterPath="$PROJECT_DIR$/musclex.egg-info/PKG-INFO" />
+      <change beforePath="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" afterPath="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" />
       <change beforePath="$PROJECT_DIR$/musclex/__init__.py" afterPath="$PROJECT_DIR$/musclex/__init__.py" />
-      <change beforePath="$PROJECT_DIR$/musclex/modules/EquatorImage.py" afterPath="$PROJECT_DIR$/musclex/modules/EquatorImage.py" />
-      <change beforePath="$PROJECT_DIR$/musclex/utils/histogram_processor.py" afterPath="$PROJECT_DIR$/musclex/utils/histogram_processor.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/BlankImageSettings.py" afterPath="$PROJECT_DIR$/musclex/ui/BlankImageSettings.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/CPBatchWindow.py" afterPath="$PROJECT_DIR$/musclex/ui/CPBatchWindow.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/CPImageWindow.py" afterPath="$PROJECT_DIR$/musclex/ui/CPImageWindow.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/CircularProjectionGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/CircularProjectionGUI.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/EquatorWindow.py" afterPath="$PROJECT_DIR$/musclex/ui/EquatorWindow.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/ProjectionBoxTab.py" afterPath="$PROJECT_DIR$/musclex/ui/ProjectionBoxTab.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/ProjectionTracesGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/ProjectionTracesGUI.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" afterPath="$PROJECT_DIR$/musclex/ui/QuadrantFoldingGUI.py" />
+      <change beforePath="$PROJECT_DIR$/musclex/utils/file_manager.py" afterPath="$PROJECT_DIR$/musclex/utils/file_manager.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -21,33 +27,61 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="CPBatchWindow2.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/musclex/ui/CPBatchWindow2.py">
+      <file leaf-file-name="image_processor.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/utils/image_processor.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="13170">
-              <caret line="887" column="3" lean-forward="false" selection-start-line="887" selection-start-column="3" selection-end-line="887" selection-end-column="3" />
-              <folding>
-                <element signature="e#0#25#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="__init__.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/musclex/utils/__init__.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="0">
-              <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+            <state relative-caret-position="253">
+              <caret line="89" column="7" lean-forward="false" selection-start-line="89" selection-start-column="7" selection-end-line="89" selection-end-column="7" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="image_processor.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/musclex/utils/image_processor.py">
+      <file leaf-file-name="CalibrationSettings.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1035">
-              <caret line="75" column="0" lean-forward="false" selection-start-line="70" selection-start-column="4" selection-end-line="75" selection-end-column="0" />
+            <state relative-caret-position="352">
+              <caret line="107" column="31" lean-forward="false" selection-start-line="107" selection-start-column="31" selection-end-line="107" selection-end-column="31" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/main.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="508">
+              <caret line="49" column="33" lean-forward="false" selection-start-line="49" selection-start-column="32" selection-end-line="49" selection-end-column="33" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="EquatorWindow.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/ui/EquatorWindow.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="383">
+              <caret line="121" column="43" lean-forward="false" selection-start-line="121" selection-start-column="43" selection-end-line="121" selection-end-column="43" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="BlankImageSettings.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/ui/BlankImageSettings.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="162">
+              <caret line="129" column="12" lean-forward="false" selection-start-line="129" selection-start-column="12" selection-end-line="129" selection-end-column="12" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="file_manager.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/musclex/utils/file_manager.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="93">
+              <caret line="140" column="13" lean-forward="false" selection-start-line="140" selection-start-column="13" selection-end-line="140" selection-end-column="13" />
               <folding />
             </state>
           </provider>
@@ -69,18 +103,6 @@
             <state relative-caret-position="420">
               <caret line="28" column="20" lean-forward="false" selection-start-line="28" selection-start-column="20" selection-end-line="28" selection-end-column="20" />
               <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="cm.py" pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/virenv/python2/lib/python2.7/site-packages/matplotlib/cm.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1005">
-              <caret line="80" column="0" lean-forward="false" selection-start-line="80" selection-start-column="0" selection-end-line="80" selection-end-column="0" />
-              <folding>
-                <marker date="1513290251000" expanded="true" signature="9569:9578" ph="..." />
-              </folding>
             </state>
           </provider>
         </entry>
@@ -114,18 +136,8 @@
       <file leaf-file-name="EquatorImage.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/musclex/modules/EquatorImage.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="213">
+            <state relative-caret-position="5160">
               <caret line="356" column="20" lean-forward="false" selection-start-line="356" selection-start-column="20" selection-end-line="356" selection-end-column="20" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="ProjectionBoxTab.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/musclex/ui/ProjectionBoxTab.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="7935">
-              <caret line="534" column="46" lean-forward="false" selection-start-line="534" selection-start-column="46" selection-end-line="534" selection-end-column="46" />
               <folding />
             </state>
           </provider>
@@ -142,14 +154,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>fittingTabWidget</find>
-      <find>arguments = sys.argv</find>
-      <find>mesh</find>
-      <find>'jet</find>
-      <find>hist</find>
-      <find>moved_peaks</find>
-      <find>all_centroids</find>
-      <find>ds_maps</find>
       <find>convertRadtoDegreesEllipse</find>
       <find>angle_factor</find>
       <find>colormaps</find>
@@ -172,9 +176,16 @@
       <find>xyIntensity</find>
       <find>distance_dict</find>
       <find>Done. Peaks are foun</find>
+      <find>gets</find>
+      <find>setStyle</find>
+      <find>Set Rotation</find>
+      <find>setRotAndCentB</find>
+      <find>imgProcLayout</find>
+      <find>igure(facecolor</find>
+      <find>imgProcGrp</find>
+      <find>plt.figure(facecolor='#606060')</find>
     </findStrings>
     <replaceStrings>
-      <replace>self.imageAxes</replace>
       <replace>self.resultAxes</replace>
       <replace>self.graphAxes2</replace>
       <replace>self.m2_cent_diff_axes</replace>
@@ -204,6 +215,7 @@
       <replace>int(maximum_nPeaks / 2)</replace>
       <replace>EquatorImage</replace>
       <replace>eq_cache</replace>
+      <replace>plt.figure()</replace>
     </replaceStrings>
     <dirStrings>
       <dir>/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/matplotlib</dir>
@@ -226,7 +238,6 @@
         <option value="$PROJECT_DIR$/musclex/csv_manager/CP_CSVManager.py" />
         <option value="$PROJECT_DIR$/tests/projection_traces_test.py" />
         <option value="$PROJECT_DIR$/tests/test_edf.py" />
-        <option value="$PROJECT_DIR$/musclex/ui/BlankImageSettings.py" />
         <option value="$PROJECT_DIR$/musclex/ui/BMStartWindow.py" />
         <option value="$PROJECT_DIR$/musclex/CalibrationSettings/__init__.py" />
         <option value="$PROJECT_DIR$/musclex/csv_manager/__init__.py" />
@@ -246,8 +257,6 @@
         <option value="$PROJECT_DIR$/setup.py" />
         <option value="$PROJECT_DIR$/tests/quadrant_folder_test.py" />
         <option value="$PROJECT_DIR$/musclex/modules/QuadrantFolder.py" />
-        <option value="$PROJECT_DIR$/musclex/utils/file_manager.py" />
-        <option value="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" />
         <option value="$PROJECT_DIR$/musclex/ui/EQStartWindow.py" />
         <option value="$PROJECT_DIR$/musclex/ui/CircularProjectionGUI.py" />
         <option value="$PROJECT_DIR$/musclex/ui/ProjectionTracesGUI.py" />
@@ -256,7 +265,6 @@
         <option value="$PROJECT_DIR$/musclex/ui/ImageMerger.py" />
         <option value="$PROJECT_DIR$/musclex/csv_manager/EQ_CVSManager.py" />
         <option value="$PROJECT_DIR$/musclex/ui/EQ_FittingTab.py" />
-        <option value="$PROJECT_DIR$/musclex/ui/EquatorWindow.py" />
         <option value="$PROJECT_DIR$/tests/results/compare_results.py" />
         <option value="$PROJECT_DIR$/musclex/main.py" />
         <option value="$PROJECT_DIR$/musclex/ui/pyqt_utils.py" />
@@ -267,6 +275,10 @@
         <option value="$PROJECT_DIR$/musclex/ui/CPBatchWindow2.py" />
         <option value="$PROJECT_DIR$/musclex/utils/histogram_processor.py" />
         <option value="$PROJECT_DIR$/musclex/modules/EquatorImage.py" />
+        <option value="$PROJECT_DIR$/musclex/utils/file_manager.py" />
+        <option value="$PROJECT_DIR$/musclex/ui/BlankImageSettings.py" />
+        <option value="$PROJECT_DIR$/musclex/ui/EquatorWindow.py" />
+        <option value="$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py" />
         <option value="$PROJECT_DIR$/musclex/__init__.py" />
       </list>
     </option>
@@ -313,6 +325,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -325,17 +338,10 @@
               <item name="musclex" type="462c0819:PsiDirectoryNode" />
               <item name="musclex" type="462c0819:PsiDirectoryNode" />
             </path>
-            <path>
-              <item name="musclex" type="b2602c69:ProjectViewProjectNode" />
-              <item name="musclex" type="462c0819:PsiDirectoryNode" />
-              <item name="musclex" type="462c0819:PsiDirectoryNode" />
-              <item name="modules" type="462c0819:PsiDirectoryNode" />
-            </path>
           </expand>
           <select />
         </subPane>
       </pane>
-      <pane id="Scratches" />
       <pane id="Scope" />
     </panes>
   </component>
@@ -830,12 +836,14 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="23" width="1920" height="1053" extended-state="0" />
+    <frame x="0" y="23" width="1920" height="1053" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.18167457" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32879817" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3935282" sideWeight="0.5085197" order="7" side_tool="true" content_ui="tabs" />
-      <window_info id="Run" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.4091858" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32912722" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.4091858" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.27109703" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32776618" sideWeight="0.4978701" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -847,7 +855,6 @@
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32912722" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3290735" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
     </layout>
@@ -1080,13 +1087,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/ui/BlankImageSettings.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="205">
-          <caret line="169" column="13" lean-forward="true" selection-start-line="169" selection-start-column="13" selection-end-line="169" selection-end-column="13" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/virenv/python2/lib/python2.7/site-packages/fabio/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-801">
@@ -1105,13 +1105,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="255">
           <caret line="113" column="26" lean-forward="true" selection-start-line="113" selection-start-column="26" selection-end-line="113" selection-end-column="26" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="255">
-          <caret line="308" column="29" lean-forward="false" selection-start-line="308" selection-start-column="29" selection-end-line="308" selection-end-column="29" />
         </state>
       </provider>
     </entry>
@@ -1140,13 +1133,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1500">
           <caret line="103" column="22" lean-forward="false" selection-start-line="103" selection-start-column="16" selection-end-line="103" selection-end-column="22" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/utils/file_manager.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1230">
-          <caret line="84" column="16" lean-forward="false" selection-start-line="84" selection-start-column="16" selection-end-line="84" selection-end-column="16" />
         </state>
       </provider>
     </entry>
@@ -1193,20 +1179,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/main.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="705">
-          <caret line="49" column="33" lean-forward="false" selection-start-line="49" selection-start-column="32" selection-end-line="49" selection-end-column="33" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/setup.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="600">
           <caret line="45" column="15" lean-forward="false" selection-start-line="45" selection-start-column="15" selection-end-line="45" selection-end-column="15" />
-          <folding>
-            <element signature="e#1465#1497#0" expanded="false" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1260,28 +1236,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/utils/image_processor.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1035">
-          <caret line="75" column="0" lean-forward="false" selection-start-line="70" selection-start-column="4" selection-end-line="75" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/musclex/ui/CPBatchWindow2.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="13170">
           <caret line="887" column="3" lean-forward="false" selection-start-line="887" selection-start-column="3" selection-end-line="887" selection-end-column="3" />
-          <folding>
-            <element signature="e#0#25#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/virenv/python2/lib/python2.7/site-packages/matplotlib/axes/_axes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="83235">
-          <caret line="5591" column="25" lean-forward="false" selection-start-line="5591" selection-start-column="25" selection-end-line="5591" selection-end-column="25" />
           <folding />
         </state>
       </provider>
@@ -1300,14 +1258,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/musclex/ui/EquatorWindow.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="526">
-          <caret line="483" column="0" lean-forward="false" selection-start-line="483" selection-start-column="0" selection-end-line="483" selection-end-column="0" />
           <folding />
         </state>
       </provider>
@@ -1338,8 +1288,64 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/musclex/modules/EquatorImage.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="213">
+        <state relative-caret-position="5160">
           <caret line="356" column="20" lean-forward="false" selection-start-line="356" selection-start-column="20" selection-end-line="356" selection-end-column="20" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/virenv/python2/lib/python2.7/site-packages/matplotlib/axes/_axes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="83235">
+          <caret line="5591" column="25" lean-forward="false" selection-start-line="5591" selection-start-column="25" selection-end-line="5591" selection-end-column="25" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/utils/image_processor.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="253">
+          <caret line="89" column="7" lean-forward="false" selection-start-line="89" selection-start-column="7" selection-end-line="89" selection-end-column="7" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/utils/file_manager.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="93">
+          <caret line="140" column="13" lean-forward="false" selection-start-line="140" selection-start-column="13" selection-end-line="140" selection-end-column="13" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/ui/BlankImageSettings.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="162">
+          <caret line="129" column="12" lean-forward="false" selection-start-line="129" selection-start-column="12" selection-end-line="129" selection-end-column="12" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/ui/EquatorWindow.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="383">
+          <caret line="121" column="43" lean-forward="false" selection-start-line="121" selection-start-column="43" selection-end-line="121" selection-end-column="43" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/CalibrationSettings/CalibrationSettings.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="352">
+          <caret line="107" column="31" lean-forward="false" selection-start-line="107" selection-start-column="31" selection-end-line="107" selection-end-column="31" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/musclex/main.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="508">
+          <caret line="49" column="33" lean-forward="false" selection-start-line="49" selection-start-column="32" selection-end-line="49" selection-end-column="33" />
           <folding />
         </state>
       </provider>

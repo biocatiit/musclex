@@ -47,7 +47,7 @@ class CircularProjectionGUI(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)

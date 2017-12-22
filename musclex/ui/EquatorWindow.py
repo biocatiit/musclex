@@ -70,7 +70,7 @@ class EquatorWindow(QMainWindow):
             return
         self.csvManager = EQ_CVSManager(self.dir_path)  # Create a CSV Manager object
         self.setWindowTitle("Muscle X Equator v." + self.version)
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.initUI()  # Initial all UI
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
@@ -119,7 +119,7 @@ class EquatorWindow(QMainWindow):
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
-        self.displayImgFigure = plt.figure(facecolor='#606060')
+        self.displayImgFigure = plt.figure()
         self.displayImgAxes = self.displayImgFigure.add_subplot(111)
         self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
@@ -171,16 +171,16 @@ class EquatorWindow(QMainWindow):
         self.calibrationB = QPushButton("Calibration Settings")
         self.setRotAndCentB = QPushButton("Set Rotation Angle \nand Center")
         self.setRotAndCentB.setCheckable(True)
-        self.setRotAndCentB.setFixedHeight(40)
+        self.setRotAndCentB.setFixedHeight(45)
         self.setAngleB = QPushButton("Set \nRotation Angle")
         self.setAngleB.setCheckable(True)
-        self.setAngleB.setFixedHeight(40)
+        self.setAngleB.setFixedHeight(45)
         self.setRminB = QPushButton("Set R-min")
         self.setRminB.setCheckable(True)
-        self.setRminB.setFixedHeight(40)
+        self.setRminB.setFixedHeight(45)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
-        self.setIntAreaB.setFixedHeight(40)
+        self.setIntAreaB.setFixedHeight(45)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle")
         self.fixedAngleChkBx.setChecked(False)
@@ -230,7 +230,7 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
         self.imageOptionsFrame = QFrame()
-        self.imageOptionsFrame.setFixedWidth(300)
+        self.imageOptionsFrame.setFixedWidth(350)
         self.imageOptionsLayout = QVBoxLayout()
 
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
@@ -253,7 +253,7 @@ class EquatorWindow(QMainWindow):
         self.fittingTabLayout = QHBoxLayout(self.fittingTab)
 
         # Plot
-        self.fittingFigure = plt.figure(facecolor='#606060')
+        self.fittingFigure = plt.figure()
         self.fittingAxes = self.fittingFigure.add_subplot(111)
         self.fittingVLayout = QVBoxLayout()
         self.fittingCanvas = FigureCanvas(self.fittingFigure)

@@ -56,7 +56,7 @@ class CalibrationSettings(QDialog):
             self.calFile = fullPath(dir_path, "calibration.tif")
             self.calSettings = None
 
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.initUI()
         self.setConnection()
         self.setAllToolTips()
@@ -93,7 +93,7 @@ class CalibrationSettings(QDialog):
         self.pathText.setEnabled(False)
         self.browseButton = QPushButton("Browse")
         self.unsetButton = QPushButton("Unset")
-        self.calImgFigure = plt.figure(facecolor='#606060')
+        self.calImgFigure = plt.figure()
         self.calImgCanvas = FigureCanvas(self.calImgFigure)
         self.calImgCanvas.setHidden(True)
 
@@ -130,7 +130,7 @@ class CalibrationSettings(QDialog):
         grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
         self.calImageGrp = QGroupBox("Setting by Calibration Image")
         self.calImageGrp.setCheckable(True)
-        self.calImageGrp.setStyleSheet(grpbox_ss)
+        # self.calImageGrp.setStyleSheet(grpbox_ss)
         self.calImageGrp.setChecked(type == "img")
         self.calImageLayout = QGridLayout(self.calImageGrp)
         self.calImageLayout.addWidget(QLabel("Calibration File :") , 0, 0, 1, 1)
@@ -150,7 +150,7 @@ class CalibrationSettings(QDialog):
 
         self.paramGrp = QGroupBox("Setting by Parameters")
         self.paramGrp.setCheckable(True)
-        self.paramGrp.setStyleSheet(grpbox_ss)
+        # self.paramGrp.setStyleSheet(grpbox_ss)
         self.paramGrp.setChecked(type == "cont")
         self.paramLayout = QGridLayout(self.paramGrp)
 

@@ -119,7 +119,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.bgsubs = {}
         self.peaks = {}
         self.hull_ranges = {}
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
         self.setConnections()
@@ -141,7 +141,7 @@ class ProjectionTracesGUI(QMainWindow):
 
         self.imageTab = QWidget()
         self.imageTabLayer = QHBoxLayout(self.imageTab)
-        self.displayImgFigure = plt.figure(facecolor='#606060')
+        self.displayImgFigure = plt.figure()
         self.displayImgAxes = self.displayImgFigure.add_subplot(111)
         self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)

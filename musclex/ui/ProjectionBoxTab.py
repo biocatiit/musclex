@@ -83,11 +83,11 @@ class ProjectionBoxTab(QWidget):
         """
         self.setContentsMargins(0, 0, 0, 0)
         self.tabLayout = QHBoxLayout(self)
-        self.graphFigure1 = plt.figure(facecolor='#606060')
+        self.graphFigure1 = plt.figure()
         self.graphAxes1 = self.graphFigure1.add_subplot(111)
         self.graphCanvas1 = FigureCanvas(self.graphFigure1)
 
-        self.graphFigure2 = plt.figure(facecolor='#606060')
+        self.graphFigure2 = plt.figure()
         self.graphAxes2 = self.graphFigure2.add_subplot(111)
         self.graphCanvas2 = FigureCanvas(self.graphFigure2)
 

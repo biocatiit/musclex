@@ -67,7 +67,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setMinimumHeight(800)
 
     def initUI(self):
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.setWindowTitle("Muscle X Quadrant Folding v." + musclex.__version__)
 
         self.centralWidget = QWidget(self)
@@ -103,7 +103,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgWd = QWidget()
         self.verImgLayout.addWidget(self.selectImageButton)
         self.verImgLayout.addWidget(self.selectFolder)
-        self.imageFigure = plt.figure(facecolor='#606060')
+        self.imageFigure = plt.figure()
         self.imageAxes = self.imageFigure.add_subplot(111)
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
@@ -227,7 +227,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.leftFrame.setLayout(self.leftLayout)
         self.resultTabLayout.addWidget(self.leftFrame)
         
-        self.resultFigure = plt.figure(facecolor='#606060')
+        self.resultFigure = plt.figure()
         self.resultAxes = self.resultFigure.add_subplot(111)
         self.resultVLayout = QVBoxLayout()
         self.resultCanvas = FigureCanvas(self.resultFigure)

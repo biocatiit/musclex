@@ -94,9 +94,9 @@ class BlankImageSettings(QDialog):
                 self.mask = fabio.open(mask).data
 
     def initUI(self):
-        self.setStyleSheet(getStyleSheet())
+        # self.setStyleSheet(getStyleSheet())
         self.mainLayout = QGridLayout(self)
-        self.imageFigure = plt.figure(facecolor='#606060')
+        self.imageFigure = plt.figure()
         self.imageCanvas = FigureCanvas(self.imageFigure)
         self.imageAxes = self.imageFigure.add_subplot(111)
 

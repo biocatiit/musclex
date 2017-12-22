@@ -138,6 +138,7 @@ def getStyleSheet():
     Get style sheet from stylesheet.txt
     :return: styesheet (str) or empty string if it's not available
     """
+    return ""
     return "QToolTip{     border: 1px solid black;     background-color: #ffa02f;     padding: 1px;     border-radius: 3px;     opacity: 100;} " \
            "QWidget {    color: #cecece;    background-color: #323232; }" \
            "QWidget:item:selected{    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #ffa02f, stop: 1 #d7801a);}" \
@@ -153,7 +154,7 @@ def getStyleSheet():
            "QPushButton{    color: #cecece;    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #565656, stop: 0.1 #525252, stop: 0.5 #4e4e4e, stop: 0.9 #4a4a4a, stop: 1 #464646);    border-width: 1px;    border-color: #1e1e1e;    border-style: solid;    border-radius: 6;    padding: 3px;    font-size: 12px;    padding-left: 5px;    padding-right: 5px; height: 15px;}" \
            "QPushButton:pressed{    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #2d2d2d, stop: 0.1 #2b2b2b, stop: 0.5 #292929, stop: 0.9 #282828, stop: 1 #252525);}" \
            "QPushButton:checked{    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #2d2d2d, stop: 0.1 #2b2b2b, stop: 0.5 #292929, stop: 0.9 #282828, stop: 1 #252525);}" \
-           "QComboBox{    selection-background-color: #ffaa00;    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #565656, stop: 0.1 #525252, stop: 0.5 #4e4e4e, stop: 0.9 #4a4a4a, stop: 1 #464646);    border-style: solid;    border: 1px solid #1e1e1e;    border-radius: 5;}" \
+           "QComboBox{    color: #ffffff; selection-background-color: #ffaa00;    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #565656, stop: 0.1 #525252, stop: 0.5 #4e4e4e, stop: 0.9 #4a4a4a, stop: 1 #464646);    border-style: solid;    border: 1px solid #1e1e1e;    border-radius: 5;}" \
            "QComboBox:hover,QPushButton:hover{    border: 2px solid QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #ffa02f, stop: 1 #51300a);}" \
            "QComboBox:on{    padding-top: 3px;    padding-left: 4px;    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #2d2d2d, stop: 0.1 #2b2b2b, stop: 0.5 #292929, stop: 0.9 #282828, stop: 1 #252525);    selection-background-color: #ffaa00;}" \
            "QComboBox QAbstractItemView{    border: 2px solid darkgray;    selection-background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #ffa02f, stop: 1 #d7801a);}" \
