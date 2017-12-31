@@ -321,6 +321,18 @@ class EquatorWindow(QMainWindow):
         self.right_fitting_tab = EQ_FittingTab(self, "right")
         self.fittingTabWidget.addTab(self.left_fitting_tab, "Left")
         self.fittingTabWidget.addTab(self.right_fitting_tab, "Right")
+        self.fittingTabWidget.setStyleSheet("QTabBar::tab { width: 100px; }")
+
+        self.k_chkbx = QCheckBox("Background K : ")
+        self.k_spnbx = QDoubleSpinBox()
+        self.k_spnbx.setDecimals(4)
+        self.k_spnbx.setRange(0, 99999999)
+        self.k_spnbx.setEnabled(False)
+        self.k_layout = QHBoxLayout()
+        self.k_layout.addWidget(self.k_chkbx)
+        self.k_layout.addWidget(self.k_spnbx)
+
+        self.refittingB = QPushButton("Re-fitting")
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton2 = QPushButton("Process Current Folder")
@@ -332,21 +344,28 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
         self.bottomLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
 
-        self.fittingOptionsFrame = QFrame()
-        self.fittingOptionsFrame.setFixedWidth(300)
-        self.fittingOptionsLayout = QVBoxLayout()
+        self.fittingOptionsFrame1 = QFrame()
+        self.fittingOptionsFrame1.setFixedWidth(300)
+        self.fittingOptionsLayout = QVBoxLayout(self.fittingOptionsFrame1)
         self.fittingOptionsLayout.setAlignment(Qt.AlignTop)
         self.fittingOptionsLayout.addWidget(self.generalGrp)
         self.fittingOptionsLayout.addSpacing(10)
         self.fittingOptionsLayout.addWidget(self.fitDispOptionGrp)
-        self.fittingOptionsLayout.addSpacing(10)
-        self.fittingOptionsLayout.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout.addStretch()
-        self.fittingOptionsLayout.addLayout(self.bottomLayout2)
-        self.fittingOptionsFrame.setLayout(self.fittingOptionsLayout)
 
+
+        self.fittingOptionsFrame2 = QFrame()
+        self.fittingOptionsFrame2.setFixedWidth(300)
+        self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
+        self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
+        self.fittingOptionsLayout2.addLayout(self.k_layout)
+        self.fittingOptionsLayout2.addWidget(self.refittingB)
+        self.fittingOptionsLayout2.addStretch()
+        self.fittingOptionsLayout2.addLayout(self.bottomLayout2)
+
+        self.fittingTabLayout.addWidget(self.fittingOptionsFrame1)
         self.fittingTabLayout.addWidget(self.fittingCanvas)
-        self.fittingTabLayout.addWidget(self.fittingOptionsFrame)
+        self.fittingTabLayout.addWidget(self.fittingOptionsFrame2)
         self.tabWidget.addTab(self.fittingTab, "Fitting")
         #
         ### Results Tab ###
@@ -471,6 +490,7 @@ class EquatorWindow(QMainWindow):
         self.nextButton2.setToolTip("Go to the next image in this folder")
         self.prevButton2.setToolTip("Go to the previous image in this folder")
         self.processFolderButton2.setToolTip("Process all images in the same directory as the current file")
+        self.refittingB.setToolTip("Refit the model again with current settings")
 
     def setConnections(self):
         """
@@ -540,6 +560,23 @@ class EquatorWindow(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('button_release_event', self.plotReleased)
         self.fittingFigure.canvas.mpl_connect('figure_leave_event', self.leavePlot)
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
+
+        self.k_chkbx.stateChanged.connect(self.k_checked)
+        self.refittingB.clicked.connect(self.refitting)
+
+    def k_checked(self):
+        """
+        Handle when bias k is checked or unchecked
+        """
+        self.k_spnbx.setEnabled(self.k_chkbx.isChecked())
+
+    def refitting(self):
+        """
+        Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated and Recalculate
+        :return:
+        """
+        self.refreshAllFittingParams()
+        self.processImage()
 
     def applyBlankChecked(self):
         """
@@ -1085,6 +1122,7 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo(side + '_fix_intz')
             self.bioImg.removeInfo(side + '_fix_zline')
             self.bioImg.removeInfo(side + '_fix_gammaz')
+            self.bioImg.removeInfo('fix_k')
 
     def prevClicked(self):
         """
@@ -1546,10 +1584,16 @@ class EquatorWindow(QMainWindow):
 
         self.maskThresSpnBx.setValue(info['mask_thres'])
 
+        # init bias k
+        if 'fix_k'in info:
+            self.k_chkbx.setChecked(True)
+            self.k_spnbx.setValue(info['fix_k'])
+
         if 'fit_results' in info:
             fit_results = info['fit_results']
             self.nPeakSpnBx.setValue(len(fit_results['left_areas']))
             self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_results["model"]))
+            self.k_spnbx.setValue(fit_results['k'])
 
         # Initital reject check box
         if "reject" in info.keys():
@@ -1665,6 +1709,9 @@ class EquatorWindow(QMainWindow):
             settings['blank_mask'] = True
         else:
             settings['blank_mask'] = False
+
+        if self.k_chkbx.isChecked():
+            settings['fix_k'] = self.k_spnbx.value()
 
         return settings
 

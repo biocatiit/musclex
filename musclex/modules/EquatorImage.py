@@ -144,7 +144,7 @@ class EquatorImage:
                 self.info['rotationAngle'] = getRotationAngle(img, center)
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
-        print("Done. Rotation Angle is" + str(self.info['rotationAngle']))
+        print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
 
     def calculateRmin(self):
         """
@@ -531,6 +531,12 @@ class EquatorImage:
                     int_vars[side+'_intz'] = 0
                     int_vars[side+'_gammaz'] = 0
 
+            # Bias K
+            if 'fix_k' in self.info:
+                int_vars['k'] = self.info['fix_k']
+            else:
+                params.add('k', 0., min=0., max=max(histNdarray.max(),1.))
+
             # Fit model
             model = Model(cardiacFit, independent_vars=int_vars.keys())
             min_err = 999999999
@@ -669,7 +675,7 @@ class EquatorImage:
             os.remove(cache_file)
 
 
-def cardiacFit(x, centerX, S10, model, isSkeletal
+def cardiacFit(x, centerX, S10, model, isSkeletal, k
                , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz
                , right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz, **kwargs):
 
@@ -684,6 +690,7 @@ def cardiacFit(x, centerX, S10, model, isSkeletal
     :param model: "Voigt" or "Gaussian"
     :param gamma: use for Voigt model (float) for each side
     :param isSkeletal: (boolean)
+    :param k: linear background
     :param intz: intensity of z line (float) for each side
     :param sigmaz: sigma of z line (float) for each side
     :param zline: center of z line (float) for each side
@@ -750,7 +757,7 @@ def cardiacFit(x, centerX, S10, model, isSkeletal
                 result += mod.eval(x=x, amplitude=right_intz, center=centerX - right_zline,
                                    sigma=right_sigmaz, gamma=right_gammaz)
 
-        return result
+        return result + k
 
     return 0
 
@@ -892,7 +899,8 @@ def getCardiacGraph(x, fit_results):
         'right_zline': fit_results['right_zline'],
         'right_sigmaz': fit_results['right_sigmaz'],
         'right_intz': fit_results['right_intz'],
-        'right_gammaz': fit_results['right_gammaz']
+        'right_gammaz': fit_results['right_gammaz'],
+        'k': fit_results['k']
     }
     return cardiacFit(x=x, **plot_params)
 

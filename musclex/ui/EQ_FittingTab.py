@@ -85,7 +85,6 @@ class EQ_FittingTab(QWidget):
         self.gammaSpinBx.setDecimals(6)
         self.gammaSpinBx.setKeyboardTracking(False)
         self.gammaSpinBx.setValue(1)
-        self.refittingB = QPushButton("Re-fitting")
 
         self.fitSettingLayout.addWidget(QLabel("Sigma C :"), 0, 0, 1, 1)
         self.fitSettingLayout.addWidget(self.sigmaCSpinBx, 0, 1, 1, 1)
@@ -134,7 +133,6 @@ class EQ_FittingTab(QWidget):
         self.fittingTabLayout.addWidget(self.fitSettingsGrp)
         self.fittingTabLayout.addSpacing(10)
         self.fittingTabLayout.addWidget(self.skeletalGrp)
-        self.fittingTabLayout.addWidget(self.refittingB)
 
 
     def setAllToolTips(self):
@@ -143,7 +141,6 @@ class EQ_FittingTab(QWidget):
         """
         self.skeletalGrp.setToolTip("Fit model with the skeletal peaks")
         self.sigmaCSpinBx.setToolTip("Select the constant sigma C for fitting model")
-        self.refittingB.setToolTip("Refit the model again with current settings")
 
     def setConnections(self):
         """
@@ -156,7 +153,6 @@ class EQ_FittingTab(QWidget):
         self.fixSigmaS.stateChanged.connect(self.fixedParamChecked)
         self.fixGamma.stateChanged.connect(self.fixedParamChecked)
         # self.gammaSpinBx.valueChanged.connect(self.fixedFittingParams)
-        self.refittingB.clicked.connect(self.resetAll)
 
         self.fixedIntZ.stateChanged.connect(self.skeletalChecked)
         self.fixedZline.stateChanged.connect(self.skeletalChecked)
@@ -244,14 +240,6 @@ class EQ_FittingTab(QWidget):
         self.sigmaDSpinBx.setEnabled(self.fixSigmaD.isChecked())
         self.sigmaSSpinBx.setEnabled(self.fixSigmaS.isChecked())
         self.gammaSpinBx.setEnabled(self.fixGamma.isChecked())
-
-    def resetAll(self):
-        """
-        Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated and Recalculate
-        :return:
-        """
-        self.fixedFittingParams()
-        self.parent.processImage()
 
     def fixedFittingParams(self):
         """
