@@ -736,9 +736,9 @@ def cardiacFit(x, centerX, S10, model, isSkeletal, k
                     right_areas_dict[int(key[10:])] = value
 
             left_areas = sorted(left_areas_dict.items(), key=lambda kv: kv[0])
-            left_areas = [v for (k, v) in left_areas]
+            left_areas = [v for (_, v) in left_areas]
             right_areas = sorted(right_areas_dict.items(), key=lambda kv: kv[0])
-            right_areas = [v for (k, v) in right_areas]
+            right_areas = [v for (_, v) in right_areas]
 
         result = cardiacSide(model, 'left', x, centerX, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas)
         result += cardiacSide(model, 'right', x, centerX, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,

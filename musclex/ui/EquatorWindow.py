@@ -1797,6 +1797,10 @@ class EquatorWindow(QMainWindow):
         self.left_fitting_tab.syncSpinBoxes(info)
         self.right_fitting_tab.syncSpinBoxes(info)
         self.fixedAngle.setValue(info["rotationAngle"])
+
+        if 'fit_results' in info:
+            self.k_spnbx.setValue(info['fit_results']['k'])
+
         self.syncUI = False
 
     def updateUI(self):
