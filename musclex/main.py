@@ -48,10 +48,10 @@ def main(arguments=None):
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()
             sys.exit(app.exec_())
-        elif prog == 'cp':
+        elif prog == 'di':
             app = QApplication(sys.argv)
-            from musclex.ui.CircularProjectionGUI import CircularProjectionGUI
-            myapp = CircularProjectionGUI()
+            from musclex.ui.ScanningDiffractionGUI import ScanningDiffractionGUI
+            myapp = ScanningDiffractionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':
             from musclex.ui.diffraction_centroids import DiffractionCentroidStartWindow
@@ -87,7 +87,7 @@ def main(arguments=None):
         print("          eq - Equator")
         print("          qf - Quadrant Folding")
         print("          pt - Projection Traces")
-        print("          cp - Circular Projection")
+        print("          di - Scanning Diffraction")
         print("          im - Image Merger")
         print("          dc - Diffraction Centroids")
         print("          ddf - DDF Processor")

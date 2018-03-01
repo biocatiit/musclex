@@ -73,19 +73,6 @@ class QuadrantFolder(object):
                 'imgType' : str(self.orig_img.dtype)
             }
 
-    def saveBackground(self):
-        result = self.imgCache["BgSubFold"]
-        avg_fold = self.info["avg_fold"]
-        background = avg_fold-result
-        resultImg = self.makeFullImage(background)
-
-        if 'rotate' in self.info and self.info['rotate']:
-            resultImg = np.rot90(resultImg)
-
-        result_path = fullPath(fullPath(self.img_path, "qf_results/bg"), self.img_name + ".bg.tif")
-        createFolder(fullPath(self.img_path, "qf_results/bg"))
-        resultImg = resultImg.astype("float32")
-        imsave(result_path, resultImg)
 
     def cacheInfo(self):
         """
@@ -144,7 +131,6 @@ class QuadrantFolder(object):
 
         if "no_cache" not in flags:
             self.cacheInfo()
-            self.saveBackground()
 
     def initParams(self):
         """

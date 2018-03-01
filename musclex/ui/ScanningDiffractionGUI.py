@@ -33,12 +33,12 @@ import sys
 from os.path import isfile, abspath
 import argparse
 from ..utils.file_manager import *
-from ..modules.CircularProjection import *
+from ..modules.ScanningDiffraction import *
 import musclex
 from .CPImageWindow import CPImageWindow
 from .CPBatchWindow2 import CPBatchWindow
 
-class CircularProjectionGUI(QMainWindow):
+class ScanningDiffractionGUI(QMainWindow):
     resizeCompleted = pyqtSignal()
 
     def __init__(self):
@@ -48,7 +48,7 @@ class CircularProjectionGUI(QMainWindow):
 
     def initUI(self):
         # self.setStyleSheet(getStyleSheet())
-        self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -127,5 +127,5 @@ if __name__ == "__main__":
             print("ERROR: " + str(full_path)+ " is not a folder.")
     else:
         app = QApplication(sys.argv)
-        myapp = CircularProjectionGUI()
+        myapp = ScanningDiffractionGUI()
         sys.exit(app.exec_())

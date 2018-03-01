@@ -2,7 +2,7 @@ from .pyqt_utils import *
 import matplotlib.patches as patches
 import logging
 from ..utils.file_manager import *
-from ..modules.CircularProjection import *
+from ..modules.ScanningDiffraction import *
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
 import musclex
@@ -60,7 +60,7 @@ class CPImageWindow(QMainWindow):
                     self.ring_colors.append([b,g,r])
 
     def initUI(self):
-        self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
         # self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
@@ -783,7 +783,7 @@ class CPImageWindow(QMainWindow):
         fileName = self.imgList[self.currentFileNumber]
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
-        self.cirProj = CircularProjection(self.filePath, fileName, logger=self.logger)
+        self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         self.processImage()
         self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(

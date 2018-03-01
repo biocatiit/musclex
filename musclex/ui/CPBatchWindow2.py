@@ -3,7 +3,7 @@ from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
 import h5py
 from ..utils.file_manager import *
-from ..modules.CircularProjection import *
+from ..modules.ScanningDiffraction import *
 from ..csv_manager import CP_CSVManager
 import musclex
 import pandas as pd
@@ -194,7 +194,7 @@ class CPBatchWindow(QMainWindow):
         self.processFolder(self.filePath)
 
     def initUI(self):
-        self.setWindowTitle("Muscle X Circular Projection v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
         # self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QGridLayout(self.centralWidget)

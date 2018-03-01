@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from ..modules.CircularProjection import *
+from ..modules.ScanningDiffraction import *
 import pandas as pd
 
 class CP_CSVManager():
@@ -67,7 +67,7 @@ class CP_CSVManager():
     def write_new_data(self, cir_proj):
         """
         Add new data to dataframe, then re-write summary.csv and rings.csv
-        :param cir_proj: CircularProjection object with results in its info dict
+        :param cir_proj: ScanningDiffraction object with results in its info dict
         :return: -
         """
 

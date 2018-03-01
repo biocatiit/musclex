@@ -49,9 +49,9 @@ from ..utils.image_processor import *
 import pickle
 import musclex
 
-class CircularProjection:
+class ScanningDiffraction:
     """
-    A class for Circular Projection processing - go to process() to see all processing steps
+    A class for Scanning Diffraction processing - go to process() to see all processing steps
     """
     def __init__(self, filepath, filename, logger = None):
         original_image = fabio.open(fullPath(filepath, filename)).data
@@ -1277,7 +1277,7 @@ def mean_square_error(y_predict, y):
     return rmse/(max(y)-min(y))
 
 
-###### White top hat image for circular projection #########
+###### White top hat image for Scanning Diffraction #########
 def getImgAfterWhiteTopHat(img, sigma=5):
     tmpKernel = 1. / sigma ** 2 * np.ones((sigma, sigma))
     dst = copy.copy(img)

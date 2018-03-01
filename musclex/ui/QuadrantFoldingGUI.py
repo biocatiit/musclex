@@ -39,6 +39,8 @@ import matplotlib.pyplot as plt
 import musclex
 import traceback
 from .BlankImageSettings import BlankImageSettings
+import pandas as pd
+from ..CalibrationSettings import CalibrationSettings
 
 class QuadrantFoldingGUI(QMainWindow):
     """
@@ -61,7 +63,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.checkableButtons = [] # list of checkable buttons
         self.updated = {'img': False, 'result': False} # update state of 2 tabs
         self.BGImages = []
+        self.calSettings = None
         self.ignoreFolds = set()
+        self.csv_bg = None
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
         self.setMinimumHeight(800)
@@ -155,6 +159,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout = QGridLayout()
         self.settingsGroup.setLayout(self.settingsLayout)
 
+        self.calibrationButton = QPushButton("Calibration Settings")
         self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
         self.setCenterRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setCenterRotationButton)
@@ -168,26 +173,11 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
-        self.settingsLayout.addWidget(self.setCenterRotationButton, 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setRotationButton, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 2, 0, 1, 1)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 2, 1, 1, 1)
-
-        self.fixCenterGrpBx = QGroupBox()
-        self.fixCenterGrpBx.setCheckable(True)
-        self.fixCenterGrpBx.setTitle("Fix Center")
-        self.fixCenterGrpBx.setChecked(False)
-        self.fixCX = QLineEdit()
-        self.fixCX.setValidator(QIntValidator())
-        self.fixCY = QLineEdit()
-        self.fixCY.setValidator(QIntValidator())
-
-        self.fixCenterLayout = QGridLayout()
-        self.fixCenterLayout.addWidget(QLabel('X'), 0, 0, Qt.AlignCenter)
-        self.fixCenterLayout.addWidget(QLabel('Y'), 0, 2, Qt.AlignCenter)
-        self.fixCenterLayout.addWidget(self.fixCX, 0, 1)
-        self.fixCenterLayout.addWidget(self.fixCY, 0, 3)
-        self.fixCenterGrpBx.setLayout(self.fixCenterLayout)
+        self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 3, 0, 1, 1)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 1, 1, 1)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -205,8 +195,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingsGroup)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.fixCenterGrpBx)
 
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.buttonsLayout)
@@ -582,8 +570,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spminInt.valueChanged.connect(self.refreshImageTab)
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
-        self.fixCX.returnPressed.connect(self.fixcxEntered)
-        self.fixCY.returnPressed.connect(self.fixcyEntered)
         self.processFolderButton.clicked.connect(self.processFolder)
         self.processFolderButton2.clicked.connect(self.processFolder)
         self.nextButton.clicked.connect(self.nextClicked)
@@ -596,6 +582,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.selectImageButton.clicked.connect(self.browseFile)
         self.imgZoomInB.clicked.connect(self.imageZoomIn)
         self.imgZoomOutB.clicked.connect(self.imageZoomOut)
+        self.calibrationButton.clicked.connect(self.calibrationClicked)
         self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
         self.setRotationButton.clicked.connect(self.setRotation)
         self.maskThresSpnBx.valueChanged.connect(self.ignoreThresChanged)
@@ -690,7 +677,33 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             self.function = None
             self.resetStatusbar()
-            
+
+    def calibrationClicked(self):
+        """
+        Handle when Calibration Settings button is clicked
+        :return:
+        """
+        self.setCalibrationImage(True)
+        self.deleteInfo(['rotationAngle'])
+        self.deleteImgCache(['BgSubFold'])
+        self.processImage()
+
+    def setCalibrationImage(self, force=False):
+        """
+        Popup Calibration Settings window, if there's calibration settings in cache or force to open
+        :param force: force to popup the window
+        :return: True if calibration set, False otherwise
+        """
+        settingDialog = CalibrationSettings(self.filePath)
+        self.calSettings = None
+        cal_setting = settingDialog.calSettings
+        if cal_setting is not None or force:
+            result = settingDialog.exec_()
+            if result == 1:
+                self.calSettings = settingDialog.getValues()
+                return True
+        return False
+
     def setCenterRotation(self):
         """
         Trigger when set center and rotation angle button is pressed
@@ -858,11 +871,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.quadFold.info['rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                     self.deleteInfo(['avg_fold'])
                     self.setCenterRotationButton.setChecked(False)
-                    self.uiUpdating=True
-                    self.fixCX.setText(str(cx))
-                    self.fixCY.setText(str(cy))
-                    self.fixCenterGrpBx.setChecked(True)
-                    self.uiUpdating=False
                     self.processImage()
             elif func[0] == "im_rotate":
                 # set rotation angle
@@ -1439,22 +1447,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
 
-    def fixcxEntered(self):
-        """
-        Trigger when fixed center X is changed
-        """
-        self.fixCY.setFocus() # set focus to Y
-        if self.ableToProcess():
-            self.resetAllManual()
-
-    def fixcyEntered(self):
-        """
-        Trigger when fixed center Y is changed
-        """
-        self.fixCY.clearFocus()
-        if self.ableToProcess():
-            self.resetAllManual()
-
     def minIntChanged(self):
         """
         Trigger when min intensity is changed
@@ -1672,9 +1664,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.uiUpdating = True
             center = self.quadFold.info['center']
 
-            self.fixCX.setText(str(center[0]))
-            self.fixCY.setText(str(center[1]))
-
             ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
@@ -1809,7 +1798,43 @@ class QuadrantFoldingGUI(QMainWindow):
                 imsave(result_file, img)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
+                self.saveBackground()
             QApplication.restoreOverrideCursor()
+
+    def saveBackground(self):
+        info = self.quadFold.info
+        result = self.quadFold.imgCache["BgSubFold"]
+        avg_fold = info["avg_fold"]
+        background = avg_fold-result
+        resultImg = self.quadFold.makeFullImage(background)
+
+        if 'rotate' in info and info['rotate']:
+            resultImg = np.rot90(resultImg)
+
+        filename = self.imgList[self.currentFileNumber]
+        bg_path = fullPath(self.filePath, "qf_results/bg")
+        result_path = fullPath(bg_path, filename + ".bg.tif")
+
+        # create bg folder
+        createFolder(bg_path)
+        resultImg = resultImg.astype("float32")
+        imsave(result_path, resultImg)
+
+        total_inten = np.sum(resultImg)
+        csv_path = join(bg_path, 'background_sum.csv')
+        if self.csv_bg is None:
+            # create csv file to save total intensity for background
+            if exists(csv_path):
+                self.csv_bg = pd.read_csv(csv_path)
+            else:
+                self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
+            self.csv_bg = self.csv_bg.set_index('Name')
+
+        if filename in self.csv_bg.index:
+            self.csv_bg = self.csv_bg.drop(index=filename)
+
+        self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
+        self.csv_bg.to_csv(csv_path)
 
     def resetStatusbar(self):
         fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
@@ -1823,11 +1848,10 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         flags = {}
 
-        if self.fixCenterGrpBx.isChecked():
-            flags['center'] = [int(self.fixCX.text()), int(self.fixCY.text())]
+        if self.calSettings is not None and 'center' in self.calSettings:
+            flags['center'] = self.calSettings['center']
 
         flags["ignore_folds"] = self.ignoreFolds
-
         flags['bgsub'] = self.bgChoice.currentText()
         flags["cirmin"] = self.minPixRange.value()
         flags["cirmax"] = self.maxPixRange.value()
@@ -1870,13 +1894,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.selectFolder.setHidden(True)
         self.imageCanvas.setHidden(False)
         self.resetWidgets()
+        self.setCalibrationImage()
         self.onImageChanged()
 
     def resetWidgets(self):
         self.uiUpdating = True
         self.rminSpnBx.setValue(-1)
         self.rmaxSpnBx.setValue(-1)
-        self.fixCenterGrpBx.setChecked(False)
         self.uiUpdating = False
 
     def browseFolder(self):

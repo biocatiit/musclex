@@ -396,7 +396,7 @@ def getMaskThreshold(img):
         mask_thres = hist[1][max_ind]
     return mask_thres
 
-###### White top hat image for circular projection #########
+###### White top hat image for Scanning Diffraction #########
 def gaussian(x, a, mean, sigma):
     return a*np.exp((-1.*(x-mean)**2)/(2*(sigma**2)))
 
