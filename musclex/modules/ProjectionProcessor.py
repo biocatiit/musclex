@@ -332,8 +332,8 @@ class ProjectionProcessor():
                 # params.add('gamma' + str(j), 0. , min=0., max=30)
 
             # Fit model
-            model = Model(layerlineModel, independent_vars=int_vars.keys())
-            result = model.fit(hist, verbose=False, params=params, fit_kws={'nan_policy':'propagate'}, **int_vars)
+            model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
+            result = model.fit(hist, verbose=False, params=params, **int_vars)
             if result is not None:
                 #
                 # import matplotlib.pyplot as plt

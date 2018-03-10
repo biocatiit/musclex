@@ -535,17 +535,16 @@ class EquatorImage:
             if 'fix_k' in self.info:
                 int_vars['k'] = self.info['fix_k']
             else:
-                params.add('k', 0., min=0., max=max(histNdarray.max(),1.))
+                params.add('k', 0., min=-1, max=max(histNdarray.max(),1.))
 
             # Fit model
-            model = Model(cardiacFit, independent_vars=int_vars.keys())
+            model = Model(cardiacFit, nan_policy='propagate', independent_vars=int_vars.keys())
             min_err = 999999999
             final_result = None
 
             # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
             for method in ['leastsq']:
-                fit_kws = {'nan_policy': 'propagate'}
-                result = model.fit(histNdarray, verbose = False, method=method, params=params, fit_kws=fit_kws, **int_vars)
+                result = model.fit(histNdarray, verbose = False, method=method, params=params, **int_vars)
                 if result is not None:
                     res = result.values
                     res.update(int_vars)
