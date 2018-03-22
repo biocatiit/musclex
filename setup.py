@@ -33,7 +33,7 @@ from setuptools import find_packages
 from musclex import __version__
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
-import numpy
+import numpy, sys
 
 # Build the main package, with script etc...
 # ==========================================
@@ -80,7 +80,7 @@ setup(
     },
     ext_modules = [Extension("musclex.modules.QF_utilities",
                  sources=['musclex/modules/QF_utilities.pyx'],
-                 libraries=["m"],
+                 libraries=([] if sys.platform == 'win32' else ["m"]),
                  extra_compile_args=["-ffast-math"],
                  )],
     cmdclass = {'build_ext': build_ext},
