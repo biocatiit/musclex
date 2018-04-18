@@ -1,0 +1,1 @@
+hiddenimports = ['musclex.modules.QF_utilities']
