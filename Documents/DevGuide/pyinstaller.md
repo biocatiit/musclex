@@ -66,20 +66,18 @@ hiddenimports = ['pandas._libs.tslibs.timedeltas']
   `hook-scipy.py`:
 ```python
 from PyInstaller.utils.hooks import collect_dynamic_libs
-
 binaries = collect_dynamic_libs('scipy')
 ```
 
 4. Additional data files are missing. For example, `hook-PyMca5.py`:
 ```python
 from PyInstaller.utils.hooks import collect_data_files, logger
-
 datas = collect_data_files('PyMca5.PyMcaData')
 ```
 
 #### Special hooks
 `__init__.py` of a module is free to extend its `__path__` to 
-include other directories. (See [Extending a Package’s __path__][4].)
+include other directories. (See [Extending a Package’s \_\_path__][4].)
 This will also cause **ModuleNotFoundError** if we do not inform the
 analyzer.
 
@@ -99,7 +97,7 @@ modification in `hook-PyMca5.py` will not help.
 1. [Dependency Walker][6]  
   This tool can help you find the exact DLLs depended by a module (.pyd
   file).
-2. **api-ms-win-\*.dll**
+2. **api-ms-win-\*.dll**  
   This kind of DLLs will probably occur in warnings of both Dependency
   Walker and PyInstaller, but really does not matter. You might prefer
   not to see those warnings when running PyInstaller, try
