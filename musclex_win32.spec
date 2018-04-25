@@ -16,6 +16,17 @@ a = Analysis(['musclex\\main.py'],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
              cipher=block_cipher)
+
+# analysis for launcher
+la = Analysis(['musclex\\launcher.py'],
+               pathex=['.'],
+               win_no_prefer_redirects=False,
+               win_private_assemblies=False,
+               cipher=block_cipher)
+
+MERGE((a, 'main', 'musclex'),
+      (la, 'launcher', 'musclex-launcher'))
+
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,
@@ -26,10 +37,22 @@ exe = EXE(pyz,
           strip=False,
           upx=True,
           console=True )
-coll = COLLECT(exe,
-               a.binaries,
-               a.zipfiles,
-               a.datas,
+
+lpyz = PYZ(la.pure, la.zipped_data,
+             cipher=block_cipher)
+lexe = EXE(lpyz,
+           la.scripts,
+           exclude_binaries=True,
+           name='musclex-launcher',
+           debug=False,
+           strip=False,
+           upx=True,
+           console=False )
+
+coll = COLLECT(exe, lexe,
+               a.binaries, la.binaries,
+               a.zipfiles, la.zipfiles,
+               a.datas, la.datas,
                strip=False,
                upx=True,
                name='musclex')

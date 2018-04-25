@@ -1,0 +1,1 @@
+hiddenimports = ['tifffile._tifffile']
