@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtCore import Qt
 from musclex.ui.ui_launcherform import Ui_LauncherForm
 import sys, subprocess, os.path
 
@@ -24,6 +25,10 @@ class LauncherForm(QWidget):
     def launch(self):
         subprocess.Popen(os.path.join(os.path.dirname(__file__), 'musclex ') +
                          LauncherForm.programs[self.program_idx])
+
+    def keyReleaseEvent(self, event):
+        if event.key() == Qt.Key_Return:
+            self.launch()
     
     @staticmethod
     def main():

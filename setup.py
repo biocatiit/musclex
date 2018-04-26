@@ -76,6 +76,7 @@ setup(
     entry_points={
         'console_scripts': [
             'musclex=musclex.main:main',
+            'musclex-launcher=musclex.launcher:LauncherForm.main'
         ],
     },
     ext_modules = [Extension("musclex.modules.QF_utilities",
