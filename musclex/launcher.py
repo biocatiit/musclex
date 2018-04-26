@@ -23,8 +23,11 @@ class LauncherForm(QWidget):
         self.program_idx = idx
 
     def launch(self):
-        subprocess.Popen(os.path.join(os.path.dirname(__file__), 'musclex ') +
-                         LauncherForm.programs[self.program_idx])
+        prog = LauncherForm.programs[self.program_idx]
+        try:
+            subprocess.Popen(os.path.join(os.path.dirname(__file__), 'musclex ') + prog)
+        except FileNotFoundError:
+            subprocess.Popen('musclex ' + prog)
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Return:
