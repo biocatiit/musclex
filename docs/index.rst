@@ -1,20 +1,24 @@
-.. musclex documentation master file, created by
-   sphinx-quickstart on Fri Apr 27 10:01:26 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Muscle X
+========
 
-Welcome to musclex's documentation!
-===================================
+What is Muscle X?
+--------------------
+
+The Muscle X Application Suite is a collection of programs intended to
+assist with analyzing diffraction X-ray images.
+
+:ref:`Find out how to get it! <install>`
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Muscle X
 
+   install
 
+..
+.. Indices and tables
+.. ==================
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`
