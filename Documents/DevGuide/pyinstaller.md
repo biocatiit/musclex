@@ -120,9 +120,9 @@ Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39
 cp /usr/local/Cellar/opencv/3.4.1_4/lib/python3.6/site-packages/cv2.*so dist/musclex/cv2.so
 ```
 
-2. File not found at `pyFAI/utils/../resouces`  
-  **Description**: The directory `pyFAI/resouces` is referred to as
-  `pyFAI/utils/../resouces`, but `pyFAI/utils` is not generated.  
+2. File not found at `pyFAI/utils/../resources`  
+  **Description**: The directory `pyFAI/resources` is referred to as
+  `pyFAI/utils/../resources`, but `pyFAI/utils` is not generated.  
   **Solution**: Make the directory `pyFAI/utils`.
 ```
 mkdir dist/musclex/pyFAI/utils

@@ -10,7 +10,7 @@
 <key>CFBundleExecutable</key>
 <string>MacOS/musclex-launcher</string>
 <key>CFBundleIconFile</key>
-<string>musclex_logo.icns</string>
+<string>Resources/musclex_logo.icns</string>
 <key>CFBundleInfoDictionaryVersion</key>
 <string>6.0</string>
 <key>CFBundlePackageType</key>
