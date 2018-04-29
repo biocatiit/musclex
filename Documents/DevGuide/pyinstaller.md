@@ -1,10 +1,11 @@
-# Create Stand-alone Windows Program for MuscleX with PyInstaller
-Environment: Python 3.6.4 [MSC v.1900 64 bit (AMD64)] on win32
+# Create Stand-alone Program for MuscleX with PyInstaller
 ## Contents
 - [Basic steps](#basic-steps)
 - [Debugging](#debugging)
+- [Building Mac OS X App Bundle](#building-mac-os-x-app-bundle)
 
 ## Basic steps
+Environment: Python 3.6.4 [MSC v.1900 64 bit (AMD64)] on win32
 ### Build a spec file
 Build a [spec (specification) file][1]. (Work in the root directory
 of musclex project.)
@@ -105,9 +106,51 @@ modification in `hook-PyMca5.py` will not help.
 pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api-ms-win"
 ```
 
+## Building Mac OS X App Bundle
+Above parts describe the process in Windows. For building Mac App, baisc
+steps and settings are almost the same as those for Windows,  but there
+are a few more stuff needed to be done.  
+Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39.2)] on darwin
+### Additional Issues
+1. OpenCV library  
+  **Description**: Error occurs when importing *cv2* module. (Opencv is
+  installed by "brew install".)  
+  **Solution**: Recopy `cv2.so` to the generated folder.
+```
+cp /usr/local/Cellar/opencv/3.4.1_4/lib/python3.6/site-packages/cv2.*so dist/musclex/cv2.so
+```
+
+2. File not found
+  **Description**: The directory `pyFAI/resouces` is referred to as
+  `pyFAI/utils/../resouces`, but `pyFAI/utils` is not generated.  
+  **Solution**: Make the directory `pyFAI/utils`.
+```
+mkdir dist/musclex/pyFAI/utils
+```
+
+### Building App Bundle
+PyInstaller will do this only when both flag `-w` and `-F` are set. (See
+[Building Mac OS X App Bundles][7].) However, we can build it mannually.
+[musclex.app](../../dist/) is a template. (See [Anatomy of a macOS
+Application Bundle][8].)
+1. Move the executables to `Contents/MacOS`  
+  Assume that after the previous process the stand-alone program is
+  generated in `dist/musclex` which contains all executables, libraries
+  and resouses needed at runtime, and `dist/musclex.app` is the target
+  App Bundle.
+```
+cp -r dist/musclex/ dist/musclex.app/Contents/MacOS
+```
+2. Edit the file `Info.plist`  
+  Specify the values of *CFBundleExecutable* and other attributes. (See
+  [the example](../../dist/musclex.app/Contents/Info.plist).)
+
+
 [1]:https://pyinstaller.readthedocs.io/en/v3.3.1/spec-files.html
 [2]:https://pyinstaller.readthedocs.io/en/v3.3.1/when-things-go-wrong.html
 [3]:https://pyinstaller.readthedocs.io/en/v3.3.1/hooks.html
 [4]:https://pyinstaller.readthedocs.io/en/v3.3.1/when-things-go-wrong.html#extending-a-package-s-path
 [5]:https://pyinstaller.readthedocs.io/en/v3.3.1/hooks.html#the-pre-safe-import-module-psim-api-method
 [6]:http://www.dependencywalker.com/
+[7]:https://pyinstaller.readthedocs.io/en/v3.3.1/usage.html#building-mac-os-x-app-bundles
+[8]:https://developer.apple.com/library/content/documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html#//apple_ref/doc/uid/10000123i-CH101-SW19
