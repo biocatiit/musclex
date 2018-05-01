@@ -1,0 +1,331 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Installation by Pip &mdash; MuscleX  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Installation on Docker" href="Docker.html" />
+    <link rel="prev" title="Installation by Installer" href="installer.html" /> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> MuscleX
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Muscle X</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Installation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="installer.html">Installation by Installer</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Installation by Pip</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#preparing">Preparing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#linux">Linux</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mac-os">Mac OS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#windows">Windows</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#installing">Installing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#running-a-program">Running a program</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#updating">Updating</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="Docker.html">Installation on Docker</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">MuscleX</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Installation</a> &raquo;</li>
+        
+      <li>Installation by Pip</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/Installation/pip.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <p><img alt="python logo" src="https://www.python.org/static/community_logos/python-logo-master-v3-TM.png" /></p>
+<div class="section" id="installation-by-pip">
+<span id="installation-by-pip"></span><h1>Installation by Pip<a class="headerlink" href="#installation-by-pip" title="Permalink to this headline">¶</a></h1>
+<p>In order to install the program, you need to install <a class="reference external" href="https://www.python.org/">python 2.7 or 3.6</a>.</p>
+<div class="section" id="preparing">
+<span id="preparing"></span><h2>Preparing<a class="headerlink" href="#preparing" title="Permalink to this headline">¶</a></h2>
+<p>There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT4 or PyQT5, gfortran, PyFAI and Cython.</p>
+<div class="section" id="linux">
+<span id="linux"></span><h3>Linux<a class="headerlink" href="#linux" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">python</span><span class="o">-</span><span class="n">pip</span> <span class="n">libjpeg</span><span class="o">-</span><span class="n">dev</span> <span class="n">libopencv</span><span class="o">-</span><span class="n">dev</span> <span class="n">python</span><span class="o">-</span><span class="n">opencv</span> <span class="n">python</span><span class="o">-</span><span class="n">qt4</span> <span class="n">cython</span> <span class="n">pyfai</span> <span class="n">gfortran</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="mac-os">
+<span id="mac-os"></span><h3>Mac OS<a class="headerlink" href="#mac-os" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">ruby</span> <span class="o">-</span><span class="n">e</span> <span class="s2">&quot;$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)&quot;</span>
+<span class="n">brew</span> <span class="n">install</span> <span class="n">opencv</span>
+<span class="n">brew</span> <span class="n">install</span> <span class="n">cartr</span><span class="o">/</span><span class="n">qt4</span><span class="o">/</span><span class="n">pyqt</span>
+<span class="n">brew</span> <span class="n">install</span> <span class="n">gcc</span>
+<span class="n">sudo</span> <span class="n">easy_install</span> <span class="n">pip</span>
+<span class="n">sudo</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">pyfai</span>
+<span class="n">sudo</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">cython</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="windows">
+<span id="windows"></span><h3>Windows<a class="headerlink" href="#windows" title="Permalink to this headline">¶</a></h3>
+<p>For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and <strong>Microsoft Visual C++</strong> (MSVC) is recommended.</p>
+<div class="section" id="python-2-7-on-windows">
+<span id="python-2-7-on-windows"></span><h4>Python 2.7 on Windows<a class="headerlink" href="#python-2-7-on-windows" title="Permalink to this headline">¶</a></h4>
+<p>The default MSVC chosen by Python 2.7 is MSVC 9.0. We recommend forcing the use of MSVC 14.0 instead. Follow the steps below.</p>
+<ol>
+<li><p class="first">Uninstall <strong>Microsoft Visual C++ Compiler for Python 2.7</strong> (MSVC 9.0)</p>
+<p>If <a class="reference external" href="http://aka.ms/vcpython27">Microsoft Visual C++ Compiler for Python 2.7</a> is installed, uninstall it (See <a class="reference external" href="https://support.microsoft.com/en-us/help/4028054/windows-repair-or-remove-programs-in-windows-10">Repair or remove programs in Windows 10</a>).</p>
+</li>
+<li><p class="first">Install <strong>Microsoft Build Tools 2015 Update 3</strong> (MSVC 14.0)</p>
+<p>The minimal customized installation of <a class="reference external" href="https://www.visualstudio.com/vs/older-downloads/">Microsoft Build Tools 2015 Update 3</a> is not enough. Make sure Windows SDK (8.1 or 10) is included.</p>
+</li>
+<li><p class="first">Temporarily set environment variable <code class="docutils literal notranslate"><span class="pre">VS90COMNTOOLS</span></code></p>
+<p>Type the following command in your current cmd prompt:</p>
+<p><code class="docutils literal notranslate"><span class="pre">set</span> <span class="pre">VS90COMNTOOLS=%VS140COMNTOOLS%</span></code></p>
+</li>
+</ol>
+<p>Then install dependencies:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">numpy</span> <span class="n">cython</span> <span class="n">python</span><span class="o">-</span><span class="n">qt5</span> <span class="n">opencv</span><span class="o">-</span><span class="n">python</span> <span class="n">pyfai</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="python-3-6-on-windows">
+<span id="python-3-6-on-windows"></span><h4>Python 3.6 on Windows<a class="headerlink" href="#python-3-6-on-windows" title="Permalink to this headline">¶</a></h4>
+<p>The default MSVC chosen by Python 3.6 is MSVC 14.0. The minimal customized installation of <a class="reference external" href="https://www.visualstudio.com/vs/older-downloads/">Microsoft Build Tools 2015 Update 3</a> is enough. Then install dependencies:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">cython</span> <span class="n">numpy</span> <span class="n">pyqt5</span> <span class="n">opencv</span><span class="o">-</span><span class="n">python</span> <span class="n">pyfai</span>
+</pre></div>
+</div>
+<blockquote>
+<div><strong>Note</strong>: Omit keyword <em>sudo</em> in the commands in following parts when working on Windows.</div></blockquote>
+</div>
+</div>
+</div>
+<div class="section" id="installing">
+<span id="installing"></span><h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
+<p>Run this command to install Muscle X programs</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">musclex</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-a-program">
+<span id="running-a-program"></span><h2>Running a program<a class="headerlink" href="#running-a-program" title="Permalink to this headline">¶</a></h2>
+<p>Simply run</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">musclex</span> <span class="p">[</span><span class="n">program</span> <span class="n">shortcut</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>For example, run this command to run Diffraction-Centroids</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">musclex</span> <span class="n">dc</span>
+</pre></div>
+</div>
+<p>If you get <em>ImportError: C extension: iNaT not built. If you want to import pandas from the source directory, you may need to run ‘python setup.py build_ext –inplace –force’ to build the C extensions first while you’re running the program</em>, please re-install pandas by</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">U</span> <span class="n">pandas</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="updating">
+<span id="updating"></span><h2>Updating<a class="headerlink" href="#updating" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">U</span> <span class="n">musclex</span>
+</pre></div>
+</div>
+<p>if you do not need to update other dependencies, you can run</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">U</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">deps</span> <span class="n">musclex</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="Docker.html" class="btn btn-neutral float-right" title="Installation on Docker" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="installer.html" class="btn btn-neutral" title="Installation by Installer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, BioCAT.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          
+          SphinxRtdTheme.Navigation.enableSticky();
+          
+      });
+  </script> 
+
+</body>
+</html>
