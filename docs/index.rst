@@ -44,3 +44,4 @@ The project is licensed under the IIT License.
    :caption: Muscle X
 
    Installation/index
+   AppSuite/index

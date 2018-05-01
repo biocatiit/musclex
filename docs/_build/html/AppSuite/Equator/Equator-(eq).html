@@ -1,0 +1,258 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Introduction &mdash; MuscleX  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="The Equatorial Diffraction Pattern from Striated Muscle" href="The-Equatorial-Diffraction-Pattern-from-Striated-Muscle.html" />
+    <link rel="prev" title="Equator" href="index.html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> MuscleX
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Muscle X</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../Installation/index.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Application Suite</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Equator</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Introduction</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#more-details">More Details</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="The-Equatorial-Diffraction-Pattern-from-Striated-Muscle.html">The Equatorial Diffraction Pattern from Striated Muscle</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Equator--How-it-works.html">How it works</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">MuscleX</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Application Suite</a> &raquo;</li>
+        
+          <li><a href="index.html">Equator</a> &raquo;</li>
+        
+      <li>Introduction</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/AppSuite/Equator/Equator-(eq).md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="introduction">
+<span id="introduction"></span><h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>The purpose of the Equator program is to analyze the equatorial portion of muscle X-ray diffraction patterns.</p>
+<p>The Equator program is designed to:</p>
+<ul class="simple">
+<li>Determine the inter filament lattice spacing, d<sub>10</sub></li>
+<li>Fit Voigt or Gaussian model functions to the diffraction peaks in order to estimate their integrated intensities</li>
+<li>Determine I<sub>11</sub>/I<sub>10</sub> intensity ratios</li>
+<li>Obtain estimates for σ<sub>d</sub> and σ<sub>s</sub> from the peak widths</li>
+</ul>
+<p><img alt="screenshot" src="../../_images/ss.png" /></p>
+<p>The program does this with as little user intervention as possible in order to improve reproducibility , reduce operator bias and increase efficiency. It can operate on a whole directory of images and produce results in hours instead of many weeks required for manual processing. Not all patterns are amenable to this approach, however. Any failed cases are flagged for manual processing, either within the Equator program or using other manual approaches. Typically the program succeeds with ~90% of patterns showing diffraction.</p>
+<div class="section" id="more-details">
+<span id="more-details"></span><h2>More Details<a class="headerlink" href="#more-details" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><a class="reference external" href="The-Equatorial-Diffraction-Pattern-from-Striated-Muscle.html">The Equatorial Diffraction Pattern from Striated Muscle</a></li>
+<li><a class="reference external" href="Equator--How-it-works.html">How it works</a></li>
+<li><a class="reference external" href="Equator--How-to-use.html">How to use</a></li>
+<li><a class="reference external" href="Equator--Summary.html">Results file</a></li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="The-Equatorial-Diffraction-Pattern-from-Striated-Muscle.html" class="btn btn-neutral float-right" title="The Equatorial Diffraction Pattern from Striated Muscle" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Equator" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, BioCAT.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          
+          SphinxRtdTheme.Navigation.enableSticky();
+          
+      });
+  </script> 
+
+</body>
+</html>

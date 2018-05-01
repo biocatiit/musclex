@@ -1,0 +1,228 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Finding Center &mdash; MuscleX  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> MuscleX
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Muscle X</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../Installation/index.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Application Suite</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">MuscleX</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+      <li>Finding Center</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/AppSuite/Equator/Image-Processing-Functions.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="finding-center">
+<span id="finding-center"></span><h1>Finding Center<a class="headerlink" href="#finding-center" title="Permalink to this headline">¶</a></h1>
+<p>To find the center, the image will be converted to an 8 bit image, Gaussian filter is applied to reduce noise, apply thresholding and find the circle by fitting an ellipse to the biggest contour of the threshold image. The center is the center of ellipse.</p>
+<p><img alt="-" src="../../_images/thresh.png" /><p> </p>
+<p> </p>
+！<a class="reference external" href="/images/img_proc/center2.png">-</a></p>
+<p>If the circle cannot be determined this way, the center will be calculated by using the <a class="reference external" href="http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=moments#moments">moments</a> method of OpenCV to find the center of the object.</p>
+</div>
+<div class="section" id="calculate-rotation-angle">
+<span id="calculate-rotation-angle"></span><h1>Calculate Rotation Angle<a class="headerlink" href="#calculate-rotation-angle" title="Permalink to this headline">¶</a></h1>
+<p>The program will first calculate the initial angle by fitting an ellipse to the pattern. However, another approach will be applied to find more accurate angle by using azimuthal integration histogram. To find the angle from azimuthal integration histogram is just getting the angle with highest intensity. If the angle from this method is not too different from the initial angle, the angle from this method will be returned. Otherwise, the initial angle will be returned.</p>
+<p><img alt="-" src="../../_images/azimuthal.png" /></p>
+</div>
+<div class="section" id="calculate-r-min">
+<span id="calculate-r-min"></span><h1>Calculate R-min<a class="headerlink" href="#calculate-r-min" title="Permalink to this headline">¶</a></h1>
+<p>R-min is the minimum radius from the center to be analyzed in a given diffraction pattern. The program will create a radial histogram. The x-axis is radius, and the y-axis is the intensity. R-min is determined as the 50% of its maximum value. However, this radius should not be more than 150% of the maximum point location to prevent over removal. For example, if the maximum point is at 35, R-min should be between 36 - 59. If the program cannot find the 50% of the maximum value in this range, R-min will be 59.
+<img alt="-" src="../../_images/rmin.png" /></p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, BioCAT.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          
+          SphinxRtdTheme.Navigation.enableSticky();
+          
+      });
+  </script> 
+
+</body>
+</html>
