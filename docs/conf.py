@@ -55,7 +55,7 @@ from recommonmark.parser import CommonMarkParser
 
 def setup(app):
     app.add_config_value('recommonmark_config', {
-            'url_resolver': lambda url: url.split(os.sep)[-1],
+            #'url_resolver': lambda url: url.split(os.sep)[-1],
             'auto_toc_tree_section': 'Contents',
             'enable_auto_toc_tree': False,
             'enable_auto_doc_ref': False,
