@@ -52,3 +52,4 @@ The project is licensed under the IIT License.
 
    Installation/index
    AppSuite/index
+   ReleaseNotes/index
