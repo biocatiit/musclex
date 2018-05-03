@@ -15,6 +15,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+import os
 
 
 # -- Project information -----------------------------------------------------
@@ -39,6 +40,7 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.mathjax'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -51,11 +53,12 @@ templates_path = ['_templates']
 from recommonmark.transform import AutoStructify
 from recommonmark.parser import CommonMarkParser
 
-github_doc_root = 'https://github.com/rtfd/recommonmark/tree/master/doc/'
 def setup(app):
     app.add_config_value('recommonmark_config', {
-            'url_resolver': lambda url: github_doc_root + url,
+            'url_resolver': lambda url: url.split(os.sep)[-1],
             'auto_toc_tree_section': 'Contents',
+            'enable_auto_toc_tree': False,
+            'enable_auto_doc_ref': False,
             }, True)
     app.add_transform(AutoStructify)
 

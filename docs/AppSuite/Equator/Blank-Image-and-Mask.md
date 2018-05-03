@@ -5,7 +5,7 @@ There 2 settings you can set here, blank image and mask
 ## Blank Image
 Once the window launches, you will see "Select Blank Image(s)" at the bottom. Then, you can select a blank image or multiple images. The program will average them all if you select multiple images. If the image is from Pilatus detector. The program will initial mask threshold, and paint the mask as orange color. You can change it in order to make correct mask.
 
-![-](/images/BM/blank_img1.png)&nbsp;&nbsp;![-](/images/BM/blank_img2.png)
+![-](/images/BM/blank_img1.png)  ![-](/images/BM/blank_img2.png)
 
 ## Additional Mask
 The mask threshold can create mask from the threshold value. If you have additional area which you want to ignore,  you can click "Draw Additional Mask". This button will available only when the blank image is selected. After the button is clicked, there will be a new window pops up. This dialog is a toolkit from [PyMca](http://pymca.sourceforge.net/)
