@@ -12,13 +12,13 @@ assist with analyzing diffraction X-ray images.
 Features
 --------
 
-- Equator (eq)
-- Quadrant Folding (qf)
-- Projection Traces (pt)
-- Scanning Diffraction (di)
-- Image Merger (im)
-- Diffraction Centroids (dc)
-- DDF Processor (ddf)
+- :ref:`Equator (eq) <Equator>`
+- :ref:`Quadrant Folding (qf) <Quadrant Folding>`
+- :ref:`Projection Traces (pt) <Projection Traces>`
+- :ref:`Scanning Diffraction (di) <Scanning Diffraction>`
+- :ref:`Image Merger (im) <Image Merger>`
+- :ref:`Diffraction Centroids (dc) <Diffraction Centroids>`
+- :ref:`DDF Processor (ddf) <DDF Processor>`
 
 Contribute
 ----------
@@ -31,6 +31,13 @@ Support
 
 If you are having issues, please let us know.  
 Submit feedback at https://github.com/biocatiit/musclex/issues.
+
+How to Cite
+-----------
+Click the following badge.
+
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.1195050.svg
+   :target: https://doi.org/10.5281/zenodo.1195050
 
 License
 -------

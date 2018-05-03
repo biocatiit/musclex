@@ -195,17 +195,14 @@
 <div class="section" id="python-2-7-on-windows">
 <span id="python-2-7-on-windows"></span><h4>Python 2.7 on Windows<a class="headerlink" href="#python-2-7-on-windows" title="Permalink to this headline">¶</a></h4>
 <p>The default MSVC chosen by Python 2.7 is MSVC 9.0. We recommend forcing the use of MSVC 14.0 instead. Follow the steps below.</p>
-<ol>
-<li><p class="first">Uninstall <strong>Microsoft Visual C++ Compiler for Python 2.7</strong> (MSVC 9.0)</p>
-<p>If <a class="reference external" href="http://aka.ms/vcpython27">Microsoft Visual C++ Compiler for Python 2.7</a> is installed, uninstall it (See <a class="reference external" href="https://support.microsoft.com/en-us/help/4028054/windows-repair-or-remove-programs-in-windows-10">Repair or remove programs in Windows 10</a>).</p>
-</li>
-<li><p class="first">Install <strong>Microsoft Build Tools 2015 Update 3</strong> (MSVC 14.0)</p>
-<p>The minimal customized installation of <a class="reference external" href="https://www.visualstudio.com/vs/older-downloads/">Microsoft Build Tools 2015 Update 3</a> is not enough. Make sure Windows SDK (8.1 or 10) is included.</p>
-</li>
-<li><p class="first">Temporarily set environment variable <code class="docutils literal notranslate"><span class="pre">VS90COMNTOOLS</span></code></p>
-<p>Type the following command in your current cmd prompt:</p>
-<p><code class="docutils literal notranslate"><span class="pre">set</span> <span class="pre">VS90COMNTOOLS=%VS140COMNTOOLS%</span></code></p>
-</li>
+<ol class="simple">
+<li>Uninstall <strong>Microsoft Visual C++ Compiler for Python 2.7</strong> (MSVC 9.0)<br/>
+If <a class="reference external" href="http://aka.ms/vcpython27">Microsoft Visual C++ Compiler for Python 2.7</a> is installed, uninstall it (See <a class="reference external" href="https://support.microsoft.com/en-us/help/4028054/windows-repair-or-remove-programs-in-windows-10">Repair or remove programs in Windows 10</a>).</li>
+<li>Install <strong>Microsoft Build Tools 2015 Update 3</strong> (MSVC 14.0)<br/>
+The minimal customized installation of <a class="reference external" href="https://www.visualstudio.com/vs/older-downloads/">Microsoft Build Tools 2015 Update 3</a> is not enough. Make sure Windows SDK (8.1 or 10) is included.</li>
+<li>Temporarily set environment variable <code class="docutils literal notranslate"><span class="pre">VS90COMNTOOLS</span></code><br/>
+Type the following command in your current cmd prompt:<br/>
+<code class="docutils literal notranslate"><span class="pre">set</span> <span class="pre">VS90COMNTOOLS=%VS140COMNTOOLS%</span></code></li>
 </ol>
 <p>Then install dependencies:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">numpy</span> <span class="n">cython</span> <span class="n">python</span><span class="o">-</span><span class="n">qt5</span> <span class="n">opencv</span><span class="o">-</span><span class="n">python</span> <span class="n">pyfai</span>
@@ -218,8 +215,10 @@
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">cython</span> <span class="n">numpy</span> <span class="n">pyqt5</span> <span class="n">opencv</span><span class="o">-</span><span class="n">python</span> <span class="n">pyfai</span>
 </pre></div>
 </div>
-<blockquote>
-<div><strong>Note</strong>: Omit keyword <em>sudo</em> in the commands in following parts when working on Windows.</div></blockquote>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Omit keyword <em>sudo</em> in the commands in following parts when working on Windows.</p>
+</div>
 </div>
 </div>
 </div>

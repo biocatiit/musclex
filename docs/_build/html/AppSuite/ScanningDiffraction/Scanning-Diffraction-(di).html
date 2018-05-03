@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>More Details &mdash; MuscleX  documentation</title>
+  <title>Introduction &mdash; MuscleX  documentation</title>
   
 
   
@@ -28,7 +28,9 @@
     <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How it works" href="Scanning-Diffraction--How-it-works.html" />
+    <link rel="prev" title="Scanning Diffraction" href="index.html" /> 
 
   
   <script src="../../_static/js/modernizr.min.js"></script>
@@ -78,9 +80,28 @@
             
             
               <p class="caption"><span class="caption-text">Muscle X</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../Installation/index.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../index.html">Application Suite</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Application Suite</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../Equator/index.html">Equator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../QuadrantFolding/index.html">Quadrant Folding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ProjectionTraces/index.html">Projection Traces</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Scanning Diffraction</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Introduction</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#more-details">More Details</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="Scanning-Diffraction--How-it-works.html">How it works</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Scanning-Diffraction--How-to-use.html">How to use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../ImageMerger/index.html">Image Merger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../DiffractionCentroids/index.html">Diffraction Centroids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../DDFProcessor/index.html">DDF Processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Calibration-Settings.html">Calibration Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Image-Processing-Functions.html">Image Processing Functions</a></li>
+</ul>
+</li>
 </ul>
 
             
@@ -126,7 +147,11 @@
     
       <li><a href="../../index.html">Docs</a> &raquo;</li>
         
-      <li>More Details</li>
+          <li><a href="../index.html">Application Suite</a> &raquo;</li>
+        
+          <li><a href="index.html">Scanning Diffraction</a> &raquo;</li>
+        
+      <li>Introduction</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -145,7 +170,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <p>Scanning diffraction imaging experiments attempt to determine the distribution of diffracting materials such as collagen, myelin, and amyloid structures as a function of position in a sample that is raster scanned in a microbeam. The diffracting materials at a given position in the sample will have varying degrees of orientation so that meridional reflections will be spread out into arcs whose angular width depends on the degree of orientation. In the isotropic case, these reflections would form complete rings.  The information that is desired to extract from these images is 1) the total amount of diffraction material which will be proportional to the integrated intensity 2) chemical identity of the diffracting material which can be determined from its d-spacing 3) orientation of the long axis of the diffracting material (which direction the molecules are “pointing”) and 4) degree of disorientation around this action, determined by the angular width of the meridional arcs. A scanning diffraction imaging experiment may produce many thousands of images so there is a need to process these as automatically as possible with little or no human intervention.
+  <div class="section" id="introduction">
+<span id="introduction"></span><h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>Scanning diffraction imaging experiments attempt to determine the distribution of diffracting materials such as collagen, myelin, and amyloid structures as a function of position in a sample that is raster scanned in a microbeam. The diffracting materials at a given position in the sample will have varying degrees of orientation so that meridional reflections will be spread out into arcs whose angular width depends on the degree of orientation. In the isotropic case, these reflections would form complete rings.  The information that is desired to extract from these images is 1) the total amount of diffraction material which will be proportional to the integrated intensity 2) chemical identity of the diffracting material which can be determined from its d-spacing 3) orientation of the long axis of the diffracting material (which direction the molecules are “pointing”) and 4) degree of disorientation around this action, determined by the angular width of the meridional arcs. A scanning diffraction imaging experiment may produce many thousands of images so there is a need to process these as automatically as possible with little or no human intervention.
 The Circular Projection program has been written in order to automatically detect individual diffraction rings and determine the structural parameters for this ring.</p>
 <p>This information includes …</p>
 <ol class="simple">
@@ -155,14 +182,15 @@ The Circular Projection program has been written in order to automatically detec
 <li>The orientation angle of the ring</li>
 <li>The standard deviation of the intensity in the azimuthal direction i.e. the standard deviation of the orientation angle</li>
 </ol>
-<p>[[/images/CP/image_tab_s.png]]
-[[/images/CP/batch_vec_s.png]]</p>
+<p><img alt="-" src="../../_images/image_tab_s.png" />
+<img alt="-" src="../../_images/batch_vec_s.png" /></p>
 <div class="section" id="more-details">
-<span id="more-details"></span><h1>More Details<a class="headerlink" href="#more-details" title="Permalink to this headline">¶</a></h1>
+<span id="more-details"></span><h2>More Details<a class="headerlink" href="#more-details" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li><a class="reference external" href="https://github.com/biocatiit/musclex/wiki/Scanning-Diffraction-:-How-it-works">How it works</a></li>
-<li><a class="reference external" href="https://github.com/biocatiit/musclex/wiki/Scanning-Diffraction-:-How-to-use">How to use</a></li>
+<li><a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\ScanningDiffraction\Scanning-Diffraction--How-it-works.html">How it works</a></li>
+<li><a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\ScanningDiffraction\Scanning-Diffraction--How-to-use.html">How to use</a></li>
 </ul>
+</div>
 </div>
 
 
@@ -170,6 +198,15 @@ The Circular Projection program has been written in order to automatically detec
            
           </div>
           <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="Scanning-Diffraction--How-it-works.html" class="btn btn-neutral float-right" title="How it works" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Scanning Diffraction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
   
 
   <hr/>

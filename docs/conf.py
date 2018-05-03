@@ -48,7 +48,16 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
+from recommonmark.transform import AutoStructify
 from recommonmark.parser import CommonMarkParser
+
+github_doc_root = 'https://github.com/rtfd/recommonmark/tree/master/doc/'
+def setup(app):
+    app.add_config_value('recommonmark_config', {
+            'url_resolver': lambda url: github_doc_root + url,
+            'auto_toc_tree_section': 'Contents',
+            }, True)
+    app.add_transform(AutoStructify)
 
 source_parsers = {
     '.md': CommonMarkParser,

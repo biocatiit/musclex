@@ -4,9 +4,9 @@ When an image is selected, if there is an image in the same folder named “cali
 
 ## Image processing and fitting model
 The program will process an image by going through multiple processes in the order 
-### 1. [Find Center](Image-Processing-Functions.html#finding-center)
-### 2. [Calculate Rotation Angle](Image-Processing-Functions.html#calculate-rotation-angle)
-### 3. [Calculate R-min](Image-Processing-Functions.html#calculate-r-min)
+### 1. [Find Center](../Image-Processing-Functions.html#finding-center)
+### 2. [Calculate Rotation Angle](../Image-Processing-Functions.html#calculate-rotation-angle)
+### 3. [Calculate R-min](../Image-Processing-Functions.html#calculate-r-min)
 ### 4. Calculate Box Width
 The image will be rotated by the rotation angle determined above, and the area inside R-min removed as in this image. The image will be cropped by using R-min x 1.5.
  

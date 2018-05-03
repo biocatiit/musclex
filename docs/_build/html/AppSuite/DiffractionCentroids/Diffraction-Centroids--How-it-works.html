@@ -1,0 +1,321 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>How it works &mdash; MuscleX  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How to use" href="Diffraction-Centroids--How-to-use.html" />
+    <link rel="prev" title="Introduction" href="Diffraction-Centroids-(dc).html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> MuscleX
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Muscle X</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../Installation/index.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Application Suite</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../Equator/index.html">Equator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../QuadrantFolding/index.html">Quadrant Folding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ProjectionTraces/index.html">Projection Traces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ScanningDiffraction/index.html">Scanning Diffraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ImageMerger/index.html">Image Merger</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Diffraction Centroids</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="Diffraction-Centroids-(dc).html">Introduction</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">How it works</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#meridian">Meridian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#off-meridional-peaks">Off-Meridional peaks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="Diffraction-Centroids--How-to-use.html">How to use</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../DDFProcessor/index.html">DDF Processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Calibration-Settings.html">Calibration Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Image-Processing-Functions.html">Image Processing Functions</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">MuscleX</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Application Suite</a> &raquo;</li>
+        
+          <li><a href="index.html">Diffraction Centroids</a> &raquo;</li>
+        
+      <li>How it works</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/AppSuite/DiffractionCentroids/Diffraction-Centroids--How-it-works.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="how-it-works">
+<span id="how-it-works"></span><h1>How it works<a class="headerlink" href="#how-it-works" title="Permalink to this headline">¶</a></h1>
+<p>This program requires you to specify a range of axial distances containing a  meridional or off-meridian peak that you wish to analyze. You can specify as many of these ranges as you wish. If the number of frames to average is more than 1, all selected images will be average. The program will process the averaged image by going through a series of processes in the order given below.</p>
+<div class="section" id="meridian">
+<span id="meridian"></span><h2>Meridian<a class="headerlink" href="#meridian" title="Permalink to this headline">¶</a></h2>
+<p>Required parameters : all peak ranges and names</p>
+<div class="section" id="find-center">
+<span id="find-center"></span><h3>1. <a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\Image-Processing-Functions.html#finding-center">Find Center</a><a class="headerlink" href="#find-center" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="calculate-rotation-angle">
+<span id="calculate-rotation-angle"></span><h3>2. <a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\Image-Processing-Functions.html#calculate-rotation-angle">Calculate Rotation Angle</a><a class="headerlink" href="#calculate-rotation-angle" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="calculate-r-min">
+<span id="calculate-r-min"></span><h3>3. <a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\Image-Processing-Functions.html#calculate-r-min">Calculate R-min</a><a class="headerlink" href="#calculate-r-min" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="calculate-integrated-area">
+<span id="calculate-integrated-area"></span><h3>4. Calculate Integrated Area<a class="headerlink" href="#calculate-integrated-area" title="Permalink to this headline">¶</a></h3>
+<p>To calculate the integrated intensity trace, the program will perform similar algorithm for <a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\Equator\Equator--How-it-works.html#4-calculate-box-width">Equator’s box width calculation</a>, but it will sum the intensity along the meridian instead of the equator, so the box will be vertical box. This histogram will be split into 2 histograms (Top and bottom)</p>
+</div>
+<div class="section" id="calculate-start-and-end-point-for-convex-hull">
+<span id="calculate-start-and-end-point-for-convex-hull"></span><h3>5. Calculate start and end point for convex hull<a class="headerlink" href="#calculate-start-and-end-point-for-convex-hull" title="Permalink to this headline">¶</a></h3>
+<p>The start point for applying convex hull will be R-min while the end point is 0.7*the minimum distance from center to image bound</p>
+</div>
+<div class="section" id="obtain-the-meridional-intensity-histograms">
+<span id="obtain-the-meridional-intensity-histograms"></span><h3>6. Obtain the Meridional Intensity Histograms<a class="headerlink" href="#obtain-the-meridional-intensity-histograms" title="Permalink to this headline">¶</a></h3>
+<p>This process is also similar to <a class="reference external" href="https://github.com/rtfd/recommonmark/tree/master/doc/AppSuite\Equator\Equator--How-it-works.html#5-get-intensity-histogram">Equator’s get intensity histogram process</a>, but it will integrate the intensity inside the integrated area which is, int his case,  a vertical box (along the meridian)</p>
+</div>
+<div class="section" id="get-peaks">
+<span id="get-peaks"></span><h3>7. Get Peaks<a class="headerlink" href="#get-peaks" title="Permalink to this headline">¶</a></h3>
+<p>Because the peak ranges are provided by the user, in this process, the program will just find the maximum point in each range</p>
+</div>
+<div class="section" id="calculate-baselines">
+<span id="calculate-baselines"></span><h3>8. Calculate Baselines<a class="headerlink" href="#calculate-baselines" title="Permalink to this headline">¶</a></h3>
+<p>After the peak locations are identified, the program will calculate the baseline as 50% of the height of each peak. You can change these values or percentage manually through the results table in the GUI.</p>
+</div>
+<div class="section" id="calculate-other-information">
+<span id="calculate-other-information"></span><h3>9. Calculate other information<a class="headerlink" href="#calculate-other-information" title="Permalink to this headline">¶</a></h3>
+<p>Once the peak locations, and baselines have been idnetified, the information listed below will be calculated for each peak.</p>
+<p><img alt="-" src="../../_images/baseline.png" /></p>
+<ul class="simple">
+<li>Width : distance of 2 intersection points between peak(black) and baseline(yellow)at half height</li>
+<li>Centroid : the dot product of x (distance from center) and y (projected intensity) in range of the left and right intersections. Then, divide the result by the sum of y (projected intensity) along the range.</li>
+<li>Area : height * width / (2.35 * 0.3989)</li>
+</ul>
+</div>
+</div>
+<div class="section" id="off-meridional-peaks">
+<span id="off-meridional-peaks"></span><h2>Off-Meridional peaks<a class="headerlink" href="#off-meridional-peaks" title="Permalink to this headline">¶</a></h2>
+<p>If off-meridional settings are provided, the program will also go through the processes listed below.
+Required parameters : x1,x2,x3,x4,peak 59 range, and peak 51 range.</p>
+<p><img alt="-" src="../../_images/offmer.png" /></p>
+<div class="section" id="get-start-and-end-points-for-off-meridian-convex-hull">
+<span id="get-start-and-end-points-for-off-meridian-convex-hull"></span><h3>10 Get Start and End points for off-meridian Convex hull<a class="headerlink" href="#get-start-and-end-points-for-off-meridian-convex-hull" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Start point : 0.9 * start point of peak 59 range</li>
+<li>End point : 1.1 * end point of peak 51 range</li>
+</ul>
+</div>
+<div class="section" id="get-the-off-meridian-intensity-histograms">
+<span id="get-the-off-meridian-intensity-histograms"></span><h3>11 Get the Off-Meridian Intensity Histograms<a class="headerlink" href="#get-the-off-meridian-intensity-histograms" title="Permalink to this headline">¶</a></h3>
+<p>There are 4 histograms will be produced from this process, Top-left, Top-right, Bottom-left, and Bottom-right. Left histograms are the vertical integrated intensity between x1 and x2 while the right histograms are vertical integrated intensity between x3 and x4. They are all split to top and bottom by using center y</p>
+</div>
+<div class="section" id="get-59-and-51-angstrom-reflection-peak-locations">
+<span id="get-59-and-51-angstrom-reflection-peak-locations"></span><h3>12 Get 59 and 51 Angstrom  reflection  peak locations<a class="headerlink" href="#get-59-and-51-angstrom-reflection-peak-locations" title="Permalink to this headline">¶</a></h3>
+<p>Same process as the meridian’s <a class="reference external" href="#7-get-peaks">Get Peaks</a></p>
+</div>
+<div class="section" id="calculate-baselines-for-peak-59-and-51">
+<span id="calculate-baselines-for-peak-59-and-51"></span><h3>13 Calculate Baselines for peak 59 and 51<a class="headerlink" href="#calculate-baselines-for-peak-59-and-51" title="Permalink to this headline">¶</a></h3>
+<p>Same process as the meridian’s <a class="reference external" href="#8-calculate-baselines">Calculate Baselines</a></p>
+</div>
+<div class="section" id="calculate-other-information-for-peak-59-and-51">
+<span id="calculate-other-information-for-peak-59-and-51"></span><h3>14 Calculate other information for peak 59 and 51<a class="headerlink" href="#calculate-other-information-for-peak-59-and-51" title="Permalink to this headline">¶</a></h3>
+<p>Same process as the meridian’s <a class="reference external" href="#9-calculate-other-information">Calculate other information</a></p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="Diffraction-Centroids--How-to-use.html" class="btn btn-neutral float-right" title="How to use" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="Diffraction-Centroids-(dc).html" class="btn btn-neutral" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, BioCAT.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          
+          SphinxRtdTheme.Navigation.enableSticky();
+          
+      });
+  </script> 
+
+</body>
+</html>

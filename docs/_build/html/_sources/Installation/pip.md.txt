@@ -30,18 +30,14 @@ For windows, we have built the Fortran source for you, so Fortran compiler is no
 #### Python 2.7 on Windows
 The default MSVC chosen by Python 2.7 is MSVC 9.0. We recommend forcing the use of MSVC 14.0 instead. Follow the steps below.
 
-1. Uninstall **Microsoft Visual C++ Compiler for Python 2.7** (MSVC 9.0)
-
+1. Uninstall **Microsoft Visual C++ Compiler for Python 2.7** (MSVC 9.0)<br/>
    If [Microsoft Visual C++ Compiler for Python 2.7][1] is installed, uninstall it (See [Repair or remove programs in Windows 10][3]).
 
-2. Install **Microsoft Build Tools 2015 Update 3** (MSVC 14.0)
-
+2. Install **Microsoft Build Tools 2015 Update 3** (MSVC 14.0)<br/>
    The minimal customized installation of [Microsoft Build Tools 2015 Update 3][2] is not enough. Make sure Windows SDK (8.1 or 10) is included.
 
-3. Temporarily set environment variable `VS90COMNTOOLS`
-
-   Type the following command in your current cmd prompt:
-
+3. Temporarily set environment variable `VS90COMNTOOLS`<br/>
+   Type the following command in your current cmd prompt:<br/>
    `set VS90COMNTOOLS=%VS140COMNTOOLS%`
 
 Then install dependencies:
@@ -55,7 +51,9 @@ The default MSVC chosen by Python 3.6 is MSVC 14.0. The minimal customized insta
 pip install cython numpy pyqt5 opencv-python pyfai
 ```
 
-> **Note**: Omit keyword *sudo* in the commands in following parts when working on Windows.
+```eval_rst
+.. note:: Omit keyword *sudo* in the commands in following parts when working on Windows.
+```
 
 ## Installing
 Run this command to install Muscle X programs
