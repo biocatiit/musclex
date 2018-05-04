@@ -20,7 +20,7 @@ After the peak locations are identified, the program will calculate the baseline
 ### 9. Calculate other information
 Once the peak locations, and baselines have been idnetified, the information listed below will be calculated for each peak.
 
-![-](/images/PT/baseline.png)
+![-](../../images/PT/baseline.png)
 
 - Width : distance of 2 intersection points between peak(black) and baseline(yellow)at half height
 - Centroid : the dot product of x (distance from center) and y (projected intensity) in range of the left and right intersections. Then, divide the result by the sum of y (projected intensity) along the range.
@@ -30,7 +30,7 @@ Once the peak locations, and baselines have been idnetified, the information lis
 If off-meridional settings are provided, the program will also go through the processes listed below. 
 Required parameters : x1,x2,x3,x4,peak 59 range, and peak 51 range.
 
-![-](/images/DC/offmer.png)
+![-](../../images/DC/offmer.png)
 
 ### 10 Get Start and End points for off-meridian Convex hull
 - Start point : 0.9 * start point of peak 59 range

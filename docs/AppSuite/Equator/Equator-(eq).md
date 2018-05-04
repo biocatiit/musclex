@@ -8,7 +8,7 @@ The Equator program is designed to:
 * Determine I<sub>11</sub>/I<sub>10</sub> intensity ratios
 * Obtain estimates for σ<sub>d</sub> and σ<sub>s</sub> from the peak widths
 
-![screenshot](/images/BM/ss.png)
+![screenshot](../../images/BM/ss.png)
 
 The program does this with as little user intervention as possible in order to improve reproducibility , reduce operator bias and increase efficiency. It can operate on a whole directory of images and produce results in hours instead of many weeks required for manual processing. Not all patterns are amenable to this approach, however. Any failed cases are flagged for manual processing, either within the Equator program or using other manual approaches. Typically the program succeeds with ~90% of patterns showing diffraction.
 

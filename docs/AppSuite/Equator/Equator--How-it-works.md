@@ -10,25 +10,25 @@ The program will process an image by going through multiple processes in the ord
 ### 4. Calculate Box Width
 The image will be rotated by the rotation angle determined above, and the area inside R-min removed as in this image. The image will be cropped by using R-min x 1.5.
  
-![-](/images/BM/boxwidth_1.png)
+![-](../../images/BM/boxwidth_1.png)
 
 Then, the program will find the horizontal histogram from this image, calculate the background assuming a convex hull function to the histogram, and the integrated area will be selected as between the start and end point of the histogram. From the image above, the horizontal histogram was
  
-![-](/images/BM/boxwidth_2.png)
+![-](../../images/BM/boxwidth_2.png)
 
 ### 5. Get Intensity Histogram
 When integrated area is calculated, the program will produce a histogram from the rotated image inside the integrated area. (If the blank image and mask is set, the original image will be subtracted by the blank image before rotation)
 
-![-](/images/BM/hist.png)
+![-](../../images/BM/hist.png)
 ### 6. Apply Convex hull to intensity histogram
 The original histogram will be split into left and right sides. Then, the convex hull to each half pattern will be calculated in order to remove the background by using R-min as a starting point.
 
-![-](/images/BM/convexhull.png)
+![-](../../images/BM/convexhull.png)
 
 ### 7. Find Diffraction Peaks
 The program will find peaks from left and right histograms which have had the convex hull background subtracted. This process will find all locations of the peaks. If the image is noisy, it is possible that the program will find too many peaks. ( In the image below, the program found only 2 peaks because the image was not noisy, so it worked very well )
 
-![-](/images/BM/find_peaks.png)
+![-](../../images/BM/find_peaks.png)
 
 ### 8. Managing Diffraction Peaks
 This process prepares and corrects the background-subtracted, intensity histogram before fitting a model. It is possible that the program found peaks from noise, misplaced peaks, or both false positive peaks and false negative peaks. Therefore, these peaks need to be re-positioned in case this process fails. The algorithm  will try to find first symmetric peaks, and find S<sub>10</sub> which is the distance from center to the first peak on the equator. After that, all peak locations will be calculated by using S<sub>10</sub> and theta(h,k). The number of peaks on each side to be fit needs to be specified by the user (default and minimum is 2)

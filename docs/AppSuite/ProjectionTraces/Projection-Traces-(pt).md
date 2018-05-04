@@ -10,7 +10,7 @@ An important capability is to process whole directories of images without user i
 
 *This program is available on MuscleX version 1.3.0 or later.*
 
-![-](/images/PT/boxes_peaks.png)
+![-](../../images/PT/boxes_peaks.png)
 
 ### More Details
 * [How it works](Projection-Traces--How-it-works)

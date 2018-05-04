@@ -10,8 +10,8 @@ This information includes ...
 4.	The orientation angle of the ring
 5.	The standard deviation of the intensity in the azimuthal direction i.e. the standard deviation of the orientation angle
 
-![-](/images/CP/image_tab_s.png)
-![-](/images/CP/batch_vec_s.png)
+![-](../../images/CP/image_tab_s.png)
+![-](../../images/CP/batch_vec_s.png)
 
 ### More Details
 * [How it works](Scanning-Diffraction--How-it-works.html)

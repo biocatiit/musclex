@@ -4,7 +4,7 @@ The meridian of the fiber diffraction pattern from muscle consists of families o
 
 Diffraction Centroids is designed to rapidly and accurately measure the spacings of user specified meridional reflections as well as the 5.9 and 5.1 actin layer lines in a series of diffraction images, such as those generated in a time resolved experiment. The peak profiles in integrated intensity traces along the meridian are often not well modeled by standard functions such as gaussians or voigt functions and may change shape during the course of an experiment. Following Huxley et al., 1994, the spacing of the reflection is estimated as the centroid of the top half of the diffraction peak as an unbiased measure with minimal effect of noise. In this process, a peak width and height is estimated allowing calculation of its integrated intensity using a triangular approximation. Once the desired peaks and approximate locations have been specified by the operator, an entire directory of images can be processed without user intervention.
 
-![-](/images/DC/ss.png)
+![-](../../images/DC/ss.png)
 
 ### More Details
 * [How it works](Diffraction-Centroids--How-it-works.html)

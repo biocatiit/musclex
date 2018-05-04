@@ -8,7 +8,7 @@ The program also can estimate and remove the diffuse background scattering from 
 
 Once set up, the program can process an entire directory of images without user intervention
 
-![-](/images/QF/image_tab.png)
+![-](../../images/QF/image_tab.png)
 
 ### More Details
 * [How it works](Quadrant-Folding--How-it-works.html)

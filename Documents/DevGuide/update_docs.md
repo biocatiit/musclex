@@ -107,6 +107,11 @@ make html
 The built html files can be seen in directory `docs/_build/html`.
 (See more details [here][5].)
 
+Clean the `_build` directory:
+```
+make clean
+```
+
 ## Useful Guides
 - [A beginner’s guide to writing documentation][1]
 - [Restructured Text (reST) and Sphinx CheatSheet][2]

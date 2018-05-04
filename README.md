@@ -9,4 +9,4 @@ The Muscle X program suite is a collection of programs intended to assist with a
 * Diffraction Centroids (dc)
 * DDF Processor (ddf)
 
-## For more information, Please go to our wiki page at https://github.com/biocatiit/musclex/wiki
+## For more information, Please go to our wiki page at https://musclex.readthedocs.io/
