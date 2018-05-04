@@ -30,6 +30,24 @@ authorization from Illinois Institute of Technology.
 import sys
 from musclex import __version__
 from musclex.ui.pyqt_utils import *
+import traceback, subprocess, os.path
+
+def mac_except_hook(*exc_info):
+    fname = os.path.expanduser('~/Documents/musclex.error.log')
+    with open(fname, 'a') as f:
+        f.write(''.join(traceback.format_exception(*exc_info)))
+        f.close()
+    applescript = "'\
+tell app \"System Events\" to \
+display dialog \"Error details are written to the file: {}.\" \
+with title \"Error message\" \
+with icon caution \
+buttons {{\"OK\"}}'".format(fname)
+    # print(applescript)
+    subprocess.Popen('osascript -e ' + applescript, shell=True)
+
+if sys.platform == 'darwin':
+    sys.excepthook = mac_except_hook
 
 def main(arguments=None):
     if arguments is None:
