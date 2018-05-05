@@ -19,3 +19,4 @@ Development is done by current and former students at Illinois Tech with Illinoi
 [J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, G. Agam, T. Irving, MuscleX: software suite for diffraction X-ray 
 imaging V1.13.1, doi:10.5281/zenodo.1195050, March 2018.](https://doi.org/10.5281/zenodo.1195050)
 ![](https://zenodo.org/badge/DOI/10.5281/zenodo.1195050.svg)
+
