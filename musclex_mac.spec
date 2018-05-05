@@ -3,7 +3,7 @@
 block_cipher = None
 
 # pyinstaller --clean -y musclex_mac.spec
-# cp /usr/local/Cellar/opencv/3.4.1_4/lib/python3.6/site-packages/cv2.cpython-36m-darwin.so dist/musclex/cv2.so
+# cp /usr/local/Cellar/libpng/1.6.34/lib/libpng16.16.dylib dist/musclex/libpng16.16.dylib
 # mkdir dist/musclex/pyFAI/utils
 
 

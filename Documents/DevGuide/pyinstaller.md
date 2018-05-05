@@ -112,12 +112,12 @@ steps and settings are almost the same as those for Windows,  but there
 are a few more stuff needed to be done.  
 Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39.2)] on darwin
 ### Additional Issues
-1. OpenCV library  
+1. OpenCV library dependency  
   **Description**: Error occurs when importing *cv2* module. (Opencv is
   installed by "brew install".)  
-  **Solution**: Recopy `cv2.so` to the generated folder.
+  **Solution**: Replace *libpng* with newer version
 ```
-cp /usr/local/Cellar/opencv/3.4.1_4/lib/python3.6/site-packages/cv2.*so dist/musclex/cv2.so
+cp /usr/local/Cellar/libpng/1.6.34/lib/libpng16.16.dylib dist/musclex/libpng16.16.dylib
 ```
 
 2. File not found at `pyFAI/utils/../resources`  
@@ -144,6 +144,7 @@ cp -r dist/musclex/ dist/musclex.app/Contents/MacOS
 2. Edit the file `Info.plist`  
   Specify the values of *CFBundleExecutable* and other attributes. (See
   [the example](../../dist/musclex.app/Contents/Info.plist).)
+  Remember to change the version number.
 
 
 [1]:https://pyinstaller.readthedocs.io/en/v3.3.1/spec-files.html
