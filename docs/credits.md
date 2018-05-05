@@ -14,3 +14,8 @@ Development is done by current and former students at Illinois Tech with Illinoi
 
 * Tom Irving
 * Gady Agam
+
+## How to Cite
+[Biocat team. (2018, March 11). biocatiit/musclex: MuscleX version 1.13.1 (Version 1.13.1). Zenodo. http://doi.org/10.5281/zenodo.1195579](https://doi.org/10.5281/zenodo.1195050)
+![](https://zenodo.org/badge/DOI/10.5281/zenodo.1195050.svg)
+
