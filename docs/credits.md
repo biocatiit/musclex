@@ -1,5 +1,7 @@
 # Project Credits
 
+Development is done by current and former students at Illinois Tech with Illinois Tech faculty advising. Partial project funding by NIH. 
+
 ## Developers
 
 * Jinjian Shao (2015)
