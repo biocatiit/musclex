@@ -1,6 +1,6 @@
 # Project Credits
 
-Development is done by current and former students at Illinois Tech with Illinois Tech faculty advising. Partial project funding by NIH. 
+Development is done by current and former students at Illinois Tech with Illinois Tech faculty advising within the [BioCAT](http://www.bio.aps.anl.gov/) project. Partial project funding by NIH. 
 
 ## Developers
 
@@ -12,8 +12,8 @@ Development is done by current and former students at Illinois Tech with Illinoi
 
 ## Scientific advising
 
-* Tom Irving
-* Gady Agam
+* [Tom Irving](https://science.iit.edu/people/faculty/thomas-irving)
+* [Gady Agam](http://www.cs.iit.edu/~agam/)
 
 ## How to Cite
 [J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, G. Agam, T. Irving, MuscleX: software suite for diffraction X-ray 
