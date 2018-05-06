@@ -1,17 +1,6 @@
 Muscle X
 ========
 
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Muscle X
-
-   intro
-   Installation/index
-   AppSuite/index
-   ReleaseNotes/index
-   credits
-
 
 .. rubric:: What is Muscle X?
 
@@ -51,3 +40,14 @@ Click the following badge.
 
 The project is licensed under the IIT License.
 
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Muscle X
+
+   intro
+   Installation/index
+   AppSuite/index
+   ReleaseNotes/index
+   credits

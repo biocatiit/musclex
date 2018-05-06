@@ -44,6 +44,8 @@ License
 
 Muscle X is licensed under the IIT License:
 
+.. pull-quote::
+
   Copyright 1999 Illinois Institute of Technology
 
   Permission is hereby granted, free of charge, to any person obtaining

@@ -19,3 +19,4 @@ Release Notes
    Version-1.8.2
    Version-1.9
    Version-1.9.1
+   Version-1.13.3
