@@ -35,6 +35,9 @@ Click the following badge.
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.1195050.svg
    :target: https://doi.org/10.5281/zenodo.1195050
 
+`J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, Weikang Ma. G. Agam, T. Irving, MuscleX: software suite for diffraction X-ray 
+imaging V1.13.1, doi:10.5281/zenodo.1195050, March 2018. <https://doi.org/10.5281/zenodo.1195050>`_
+
 .. rubric:: License
 
 The project is licensed under the IIT License.
