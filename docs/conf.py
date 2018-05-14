@@ -22,7 +22,7 @@ import os
 
 project = 'MuscleX'
 copyright = '2018, BioCAT'
-author = 'biocat'
+author = 'BioCAT'
 
 # The short X.Y version
 version = '1.13'
