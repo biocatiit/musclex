@@ -2,6 +2,10 @@ from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtCore import Qt
 from musclex.ui.ui_launcherform import Ui_LauncherForm
 import sys, subprocess, os.path
+from musclex.utils.exception_handler import handlers
+
+if sys.platform in handlers:
+    sys.excepthook = handlers[sys.platform]
 
 class LauncherForm(QWidget):
 
