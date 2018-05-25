@@ -6,6 +6,7 @@ block_cipher = None
 # cp /usr/local/Cellar/libpng/1.6.34/lib/libpng16.16.dylib dist/musclex/libpng16.16.dylib
 # mkdir dist/musclex/pyFAI/utils
 
+# cp -r dist/musclex/ dist/musclex.app/Contents/MacOS
 
 a = Analysis(['musclex/main.py'],
              pathex=['.'],

@@ -328,7 +328,7 @@ class QuadrantFolder(object):
                       pixbin=pixbin,
                       index_bn=index_bn,
                       iprint=0,
-                      ilog=1,
+                      ilog=6,
                       )
 
         background = copy.copy(b)
@@ -391,7 +391,7 @@ class QuadrantFolder(object):
         sig = np.zeros(npix, 'f')
         wrk = np.zeros(9 * npix, 'f')
         iflag = np.zeros(npix * nrast, 'f')
-        ilog = 1
+        ilog = 6
 
         ccp13.bcksmooth(buf=buf,
                         cback=cback,
@@ -468,7 +468,7 @@ class QuadrantFolder(object):
                       bw=np.zeros(maxwin, 'f'),
                       index_bn=np.zeros(maxwin, 'i'),
                       iprint=0,
-                      ilog=1,
+                      ilog=6,
                       )
 
         background = copy.copy(b)
