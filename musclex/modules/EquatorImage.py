@@ -151,6 +151,11 @@ class EquatorImage:
         Calculate R-min of the diffraction. The R-min will be kept in self.info["rmin"]
         Once the R-min is calculated, the integrated area (Box Width) will be re-calculated, so self.info["int_area"] is deleted
         """
+        if 'fixed_rmin' in self.info:
+            self.info['rmin'] = self.info['fixed_rmin']
+            print("R-min is fixed as " + str(self.info['rmin']))
+            return
+
         print("R-min is being calculated...")
         if 'rmin' not in self.info:
             img = copy.copy(self.orig_img)

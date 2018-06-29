@@ -42,6 +42,7 @@ from ..csv_manager import EQ_CVSManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 import musclex
 from .BlankImageSettings import BlankImageSettings
+from ..utils import logger
 
 class EquatorWindow(QMainWindow):
     """
@@ -57,6 +58,7 @@ class EquatorWindow(QMainWindow):
         QWidget.__init__(self)
         self.mainWindow = mainWin
         self.version = musclex.__version__
+        self.logger = None
         self.bioImg = None  # Current EquatorImage object
         self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
@@ -184,12 +186,18 @@ class EquatorWindow(QMainWindow):
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle")
         self.fixedAngleChkBx.setChecked(False)
+        self.fixedRminChkBx = QCheckBox("Fixed R-min")
+        self.fixedRminChkBx.setChecked(False)
         self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
         self.fixedAngle = QSpinBox()
         self.fixedAngle.setKeyboardTracking(False)
         self.fixedAngle.setRange(-360, 360)
         self.fixedAngle.setEnabled(False)
+        self.fixedRmin = QSpinBox()
+        self.fixedRmin.setKeyboardTracking(False)
+        self.fixedRmin.setRange(1, 1000)
+        self.fixedRmin.setEnabled(False)
         self.applyBlank = QCheckBox("Apply Blank Image and Mask")
         self.applyBlank.setChecked(False)
         self.blankSettings = QPushButton("Set")
@@ -210,9 +218,11 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedAngleChkBx, 5, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedAngle, 5, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 6, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 7, 0, 1, 4)
 
-        self.imgProcLayout.addWidget(self.resetAllB, 7, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.resetAllB, 8, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
@@ -230,7 +240,7 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
         self.imageOptionsFrame = QFrame()
-        self.imageOptionsFrame.setFixedWidth(350)
+        self.imageOptionsFrame.setFixedWidth(500)
         self.imageOptionsLayout = QVBoxLayout()
 
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
@@ -345,7 +355,7 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
 
         self.fittingOptionsFrame1 = QFrame()
-        self.fittingOptionsFrame1.setFixedWidth(300)
+        self.fittingOptionsFrame1.setFixedWidth(500)
         self.fittingOptionsLayout = QVBoxLayout(self.fittingOptionsFrame1)
         self.fittingOptionsLayout.setAlignment(Qt.AlignTop)
         self.fittingOptionsLayout.addWidget(self.generalGrp)
@@ -355,7 +365,7 @@ class EquatorWindow(QMainWindow):
 
 
         self.fittingOptionsFrame2 = QFrame()
-        self.fittingOptionsFrame2.setFixedWidth(300)
+        self.fittingOptionsFrame2.setFixedWidth(500)
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
@@ -510,8 +520,8 @@ class EquatorWindow(QMainWindow):
         self.intChkBx.stateChanged.connect(self.updateImage)
         self.rminChkBx.stateChanged.connect(self.updateImage)
         self.imgPeakChkBx.stateChanged.connect(self.updateImage)
-        self.minIntSpnBx.valueChanged.connect(self.intensityChanged)
-        self.maxIntSpnBx.valueChanged.connect(self.intensityChanged)
+        self.minIntSpnBx.editingFinished.connect(self.intensityChanged)
+        self.maxIntSpnBx.editingFinished.connect(self.intensityChanged)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
@@ -521,9 +531,11 @@ class EquatorWindow(QMainWindow):
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
+        self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
-        self.fixedAngle.valueChanged.connect(self.fixedAngleChanged)
-        self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
+        self.fixedAngle.editingFinished.connect(self.fixedAngleChanged)
+        self.fixedRmin.editingFinished.connect(self.fixedRminChanged)
+        self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
         self.applyBlank.stateChanged.connect(self.applyBlankChecked)
         self.blankSettings.clicked.connect(self.blankSettingClicked)
         self.resetAllB.clicked.connect(self.resetAll)
@@ -540,7 +552,7 @@ class EquatorWindow(QMainWindow):
 
         #### Fitting Tab
         # self.skeletalChkBx.stateChanged.connect(self.refreshAllFittingParams)
-        self.nPeakSpnBx.valueChanged.connect(self.nPeakChanged)
+        self.nPeakSpnBx.editingFinished.connect(self.nPeakChanged)
         # self.modelSelect.currentIndexChanged.connect(self.refreshAllFittingParams)
         self.setPeaksB.clicked.connect(self.setManualPeaks)
         self.origHistChkBx.stateChanged.connect(self.refreshGraph)
@@ -562,6 +574,7 @@ class EquatorWindow(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
 
         self.k_chkbx.stateChanged.connect(self.k_checked)
+        self.k_spnbx.editingFinished.connect(self.kChanged)
         self.refittingB.clicked.connect(self.refitting)
 
     def k_checked(self):
@@ -569,6 +582,9 @@ class EquatorWindow(QMainWindow):
         Handle when bias k is checked or unchecked
         """
         self.k_spnbx.setEnabled(self.k_chkbx.isChecked())
+
+    def kChanged(self):
+        self.write_log('backgroudKChanged: k=%f' % self.k_spnbx.value())
 
     def refitting(self):
         """
@@ -980,6 +996,7 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is not None and not self.syncUI:
             self.bioImg.removeInfo("peaks")  # Remove peaks info before re-processing
+            self.write_log('nPeakChanged: nPeak=%d' % self.nPeakSpnBx.value())
 
     def processFolder(self):
         """
@@ -995,6 +1012,8 @@ class EquatorWindow(QMainWindow):
 
         if 'fixed_angle' in settings:
             text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
+        if 'fixed_rmin' in settings:
+            text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
         if 'fixed_int_area' in settings:
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
@@ -1060,7 +1079,8 @@ class EquatorWindow(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.dir_path)
+        settingDialog = CalibrationSettings(self.dir_path) if self.bioImg is None else \
+                        CalibrationSettings(self.dir_path, center=self.bioImg.info['center'])
         self.calSettings = None
         cal_setting = settingDialog.calSettings
         if cal_setting is not None or force:
@@ -1085,6 +1105,7 @@ class EquatorWindow(QMainWindow):
         Re-process and start from apply convexhull
         """
         if self.bioImg is not None and not self.syncUI:
+            self.write_log('maskThresChanged: mask_thres=%f' % self.maskThresSpnBx.value())
             self.bioImg.removeInfo('hulls')
             self.processImage()
 
@@ -1093,6 +1114,9 @@ class EquatorWindow(QMainWindow):
         Remove all processing info from EquatorImage object and re-process with current settings
         """
         if self.bioImg is not None:
+            self.fixedAngleChkBx.setChecked(False)
+            self.fixedRminChkBx.setChecked(False)
+            self.fixedIntAreaChkBx.setChecked(False)
             self.bioImg.removeInfo()
             self.bioImg.delCache()
             self.processImage()
@@ -1175,6 +1199,7 @@ class EquatorWindow(QMainWindow):
         """
         success = self.setCalibrationImage(force=True)
         if self.bioImg is not None and success:
+            self.write_log('calSettingsChanged: %s' % self.calSettings)
             self.bioImg.removeInfo()
             self.processImage()
 
@@ -1257,6 +1282,19 @@ class EquatorWindow(QMainWindow):
         self.fixedAngle.setEnabled(self.fixedAngleChkBx.isChecked())
         if not self.fixedAngleChkBx.isChecked() and self.bioImg is not None:
             self.bioImg.removeInfo("fixed_angle")
+            self.bioImg.delCache()
+            self.processImage()
+
+    def fixedRminChecked(self):
+        """
+        Triggered when fixed R-min is checked or unchecked
+        """
+        self.fixedRmin.setEnabled(self.fixedRminChkBx.isChecked())
+        if not self.fixedRminChkBx.isChecked() and self.bioImg is not None:
+            self.bioImg.removeInfo("fixed_rmin")
+            self.bioImg.removeInfo("rmin")
+            self.bioImg.delCache()
+            self.processImage()
 
     def fixedIntAreaChecked(self):
         """
@@ -1266,6 +1304,8 @@ class EquatorWindow(QMainWindow):
             if not self.fixedIntAreaChkBx.isChecked():
                 self.fixedIntArea = None
                 self.bioImg.removeInfo("fixed_int_area")
+                self.bioImg.delCache()
+                self.processImage()
             else:
                 self.fixedIntArea = self.bioImg.info['int_area']
 
@@ -1275,6 +1315,15 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is not None and not self.syncUI:
             self.bioImg.removeInfo("rotationAngle")
+            self.processImage()
+
+    def fixedRminChanged(self):
+        """
+        Triggered when fixed R-min spinbox value is changed
+        """
+        if self.bioImg is not None and not self.syncUI:
+            self.write_log('fixedRminChanged: fixedRmin=%d' % self.fixedRmin.value())
+            self.bioImg.info['fixed_rmin'] = self.fixedRmin.value()
             self.processImage()
 
     def imgClicked(self, event):
@@ -1382,6 +1431,7 @@ class EquatorWindow(QMainWindow):
         elif func[0] == "rmin":
             # Set new R-min, re-calculate from getting integrated area process
             self.bioImg.info['rmin'] = int(np.round(distance(self.bioImg.info['center'], (x, y))))
+            self.fixedRmin.setValue(self.bioImg.info['rmin'])
             self.bioImg.removeInfo('int_area')
             self.function = None
             self.setRminB.setChecked(False)
@@ -1565,6 +1615,9 @@ class EquatorWindow(QMainWindow):
         Trigger when window is closed
         """
         # delete window object from main window
+        if self.logger is not None:
+            self.logger.popup()
+            self.logger.close()
         self.mainWindow.childWindowClosed(self)
 
     def initWidgets(self, info):
@@ -1604,6 +1657,16 @@ class EquatorWindow(QMainWindow):
         if 'blank_mask' in self.bioImg.info:
             self.applyBlank.setChecked(self.bioImg.info['blank_mask'])
 
+        if 'fixed_angle' in self.bioImg.info:
+            self.fixedAngle.setValue(info['fixed_angle'])
+        self.fixedAngleChkBx.setChecked('fixed_angle' in self.bioImg.info)
+        self.fixedAngle.setEnabled('fixed_angle' in self.bioImg.info)
+
+        self.fixedRminChkBx.setChecked('fixed_rmin' in self.bioImg.info)
+        self.fixedRmin.setEnabled('fixed_rmin' in self.bioImg.info)
+        if 'rmin' in info:
+            self.fixedRmin.setValue(info['rmin'])
+
         self.syncUI = False
 
     def onImageChanged(self):
@@ -1613,15 +1676,22 @@ class EquatorWindow(QMainWindow):
         Process the new image if there's no cache.
         """
         self.bioImg = EquatorImage(self.dir_path, self.imgList[self.currentImg])
+        settings = None
+        #if len(self.bioImg.info) < 2: # use settings of the previous image
+        settings = self.getSettings()
+        if self.calSettings is not None:
+            self.bioImg.removeInfo()
+        self.bioImg.info.update(settings)
+
         self.initWidgets(self.bioImg.info)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
 
         # Process new image
-        self.processImage()
+        self.processImage(settings)
 
-    def processImage(self):
+    def processImage(self, settings=None):
         """
         Process Image by getting all settings and call process() of EquatorImage object
         Then, write data and update UI
@@ -1630,7 +1700,8 @@ class EquatorWindow(QMainWindow):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        settings = self.getSettings()
+        if settings is None:
+            settings = self.getSettings()
         try:
             self.bioImg.process(settings)
         except Exception as e:
@@ -1700,7 +1771,10 @@ class EquatorWindow(QMainWindow):
                     settings["center"] = self.calSettings["center"]
 
         if self.fixedAngleChkBx.isChecked():
-            settings["fixed_angle"] = self.fixedAngle.value()
+            settings['fixed_angle'] = self.fixedAngle.value()
+
+        if self.fixedRminChkBx.isChecked():
+            settings['fixed_rmin'] = self.fixedRmin.value()
 
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
@@ -1776,6 +1850,8 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None or self.syncUI:
             return
+        self.write_log('intensityChanged: minnInt=%f maxInt=%f' % 
+            (self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         self.bioImg.info["minInt"] = self.minIntSpnBx.value()
         self.bioImg.info["maxInt"] = self.maxIntSpnBx.value()
         self.bioImg.saveCache()
@@ -1797,6 +1873,7 @@ class EquatorWindow(QMainWindow):
         self.left_fitting_tab.syncSpinBoxes(info)
         self.right_fitting_tab.syncSpinBoxes(info)
         self.fixedAngle.setValue(info["rotationAngle"])
+        self.fixedRmin.setValue(info['rmin'])
 
         if 'fit_results' in info:
             self.k_spnbx.setValue(info['fit_results']['k'])
@@ -2081,3 +2158,8 @@ class EquatorWindow(QMainWindow):
 
         self.fiberResultTable.setRowCount(ind)
         QApplication.processEvents()
+
+    def write_log(self, msg):
+        if self.logger is None:
+            self.logger = logger.Logger('equator', self.bioImg.dir_path)
+        self.logger.write('[%s] %s' % (self.bioImg.filename, msg))

@@ -1,6 +1,7 @@
 from .pyqt_utils import *
 from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
+import matplotlib as mpl
 import h5py
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -162,9 +163,11 @@ class CPBatchWindow(QMainWindow):
         self.widgetList = []
         self.intesityRange = [0, 1, 1, 2]
         self.mainWin = mainWin
-        self.color_maps = 'jet'
+        self.colormap = 'jet'
         self.isFlipX = False
         self.isFlipY = False
+        self.usingLogScale = False
+        self.rotating90 = False
 
         ##Batch Mode Params
         self.name_dict = {}
@@ -265,6 +268,8 @@ class CPBatchWindow(QMainWindow):
         self.repChoice.addItem("Vector Field")
         self.repChoice.addItem("Elliptical Map")
         self.repChoice.addItem("Intensity and Rotation Map")
+        self.repChoice.addItem("Intensity Map with Arrows")
+        self.repChoice.addItem("Beam Map")
 
         self.colorChoice = QComboBox()
         colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
@@ -272,6 +277,9 @@ class CPBatchWindow(QMainWindow):
                      'Blues', 'Greens', 'Oranges', 'Reds', 'pink']
         for c in colormaps:
             self.colorChoice.addItem(c)
+
+        self.logScale = QCheckBox('Logarithmic Scale')
+        self.rotRAngle = QCheckBox('Rotate 90 degrees')
 
         self.minMap = QDoubleSpinBox()
         self.minMap.setRange(0, 100)
@@ -291,6 +299,7 @@ class CPBatchWindow(QMainWindow):
 
         self.mapFigure = plt.figure()
         self.mapAxes = self.mapFigure.add_subplot(111)
+        self.mapColorbar = None
         self.mapCanvas = FigureCanvas(self.mapFigure)
 
         self.saveButton = QPushButton("Save")
@@ -298,12 +307,14 @@ class CPBatchWindow(QMainWindow):
         self.mapFrame = QFrame()
         self.mapLayout = QGridLayout(self.mapFrame)
         self.mapLayout.addWidget(self.ringSettingsGrp, 0, 0, 2, 3)
-        self.mapLayout.addWidget(self.flipX, 0, 3, 1, 1)
-        self.mapLayout.addWidget(self.flipY, 1, 3, 1, 1)
-        self.mapLayout.addWidget(QLabel("Representation : "), 2, 0, 1, 2)
-        self.mapLayout.addWidget(self.repChoice, 2, 1, 1, 3)
-        self.mapLayout.addWidget(QLabel("Color map : "), 3, 0, 1, 2)
-        self.mapLayout.addWidget(self.colorChoice, 3, 1, 1, 3)
+        self.mapLayout.addWidget(self.flipX, 0, 3, 1, 1, Qt.AlignJustify)
+        self.mapLayout.addWidget(self.flipY, 1, 3, 1, 1, Qt.AlignJustify)
+        self.mapLayout.addWidget(QLabel("Representation : "), 2, 0, 1, 1)
+        self.mapLayout.addWidget(self.repChoice, 2, 1, 1, 2)
+        self.mapLayout.addWidget(self.logScale, 2, 3, 1, 1)
+        self.mapLayout.addWidget(QLabel("Color map : "), 3, 0, 1, 1)
+        self.mapLayout.addWidget(self.colorChoice, 3, 1, 1, 2)
+        self.mapLayout.addWidget(self.rotRAngle, 3, 3, 1, 1)
         self.mapLayout.addWidget(self.mapCanvas, 4, 0, 1, 4)
         self.mapLayout.addLayout(self.intensityLayout, 5, 0, 1, 4)
         self.mapLayout.addWidget(self.saveButton, 6, 0, 1, 4)
@@ -348,6 +359,8 @@ class CPBatchWindow(QMainWindow):
         self.bestRadio.toggled.connect(self.ringChoiceChanged)
         self.flipX.clicked.connect(self.flipMapX)
         self.flipY.clicked.connect(self.flipMapY)
+        self.logScale.stateChanged.connect(self.updateUI)
+        self.rotRAngle.stateChanged.connect(self.updateUI)
         self.img_maxInt.valueChanged.connect(self.maxIntChanged)
         self.img_minInt.valueChanged.connect(self.minIntChanged)
 
@@ -525,6 +538,9 @@ class CPBatchWindow(QMainWindow):
             focused_widget.clearFocus()
 
     def updateUI(self):
+        self.colormap = str(self.colorChoice.currentText())
+        self.usingLogScale = self.logScale.isChecked()
+        self.rotating90 = self.rotRAngle.isChecked()
         representation = self.repChoice.currentText()
         if representation == 'Total Intensity Map':
             self.updateIntensityMap()
@@ -536,6 +552,10 @@ class CPBatchWindow(QMainWindow):
             self.updateEllipticalMap()
         elif representation == 'Intensity and Rotation Map':
             self.updateIntensityMap(angle = True)
+        elif representation == 'Intensity Map with Arrows':
+            self.updateVectorFieldMap(fixedsz=True)
+        elif representation == 'Beam Map':
+            self.updateBeamMap()
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
         QApplication.processEvents()
@@ -565,10 +585,12 @@ class CPBatchWindow(QMainWindow):
             intensity[
                 intensity < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
         max_val = intensity.max()
+        min_val = intensity[intensity > 0].min()
 
         ax = self.mapAxes
         ax.cla()
-        im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=str(self.colorChoice.currentText()))
+        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
         # self.intensityMapFigure.colorbar(im)
         if angle:
             centers = [(x[i] + self.xylim[0]/2, y[j]+self.xylim[1]/2.) for j in range(len(y)) for i in range(len(x))]
@@ -588,27 +610,36 @@ class CPBatchWindow(QMainWindow):
                 if ranges[i] == 0:
                     e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /15., height=(self.xylim[0]+self.xylim[1]) / 2./15.)
                 else:
-                    e_angle = convertRadtoDegreesEllipse(np.pi/2. + angle_factor * self.orientation_dict[i + self.init_number])
+                    e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) + 
+                        angle_factor * self.orientation_dict[i + self.init_number])
                     e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /10., height=(self.xylim[0]+self.xylim[1]) / 2., angle=e_angle)
                 patches.append(e)
-                c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else 0
+                c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
                 colors.append(c)
                 # colors.append(0)
 
-            p = PatchCollection(patches, cmap=str(self.colorChoice.currentText()))
+            colors = np.ma.array(colors, mask=np.array(colors) < 0)
+            min_val = colors[colors > 0].min()
+            norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+            p = PatchCollection(patches, cmap=self.colormap, norm=norm)
             # p = PatchCollection(patches, cmap='gray')
-            p.set_array(np.array(colors))
+            p.set_array(colors)
             ax.add_collection(p)
 
         ax.set_xlim(x.min(), x.max() + self.xylim[0])
         ax.set_ylim(y.min(), y.max() + self.xylim[1])
+        ax.set_facecolor('white')
 
         if self.isFlipX:
             ax.invert_xaxis()
         if self.isFlipY:
             ax.invert_yaxis()
 
-        self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1,wspace=0, hspace=0)
+        if self.mapColorbar is None:
+            self.mapColorbar = self.mapFigure.colorbar(im, ax=ax, fraction=0.08, pad=0.01)
+        else:
+            self.mapFigure.colorbar(im, cax=self.mapColorbar.ax)
+        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1,wspace=0, hspace=0)
         self.mapCanvas.draw()
 
     # def updateAngularRangeTab(self):
@@ -655,7 +686,7 @@ class CPBatchWindow(QMainWindow):
     #         self.angularMapCanvas.draw()
     #         self.update_plot['arange_maps'] = False
 
-    def updateVectorFieldMap(self):
+    def updateVectorFieldMap(self, fixedsz=False):
         if len(self.xyIntensity) < 3:
             return
 
@@ -671,12 +702,15 @@ class CPBatchWindow(QMainWindow):
         orientation = [np.pi - ang for ang in orientation]
         # orientation = [np.pi - ang if ang < np.pi else ang - np.pi for ang in orientation]
         orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
+        if self.rotating90:
+            orientation -= np.pi/2
 
         U = np.cos(orientation)
         V = np.sin(orientation)
         int_display = copy.copy(intensity)
 
         max_val = int_display.max()
+        min_val = int_display[int_display > 0].min()
 
         if self.maxMap.value() < 100:
             int_display[
@@ -685,20 +719,22 @@ class CPBatchWindow(QMainWindow):
             int_display[
                 int_display < self.minMap.value() * max_val / 100.] = self.minMap.value() * max_val / 100.
 
-        speed = (int_display / int_display.max())
+        speed = 1 if fixedsz else (int_display / int_display.max())
         UN = U * speed
         VN = V * speed
         self.vec_UV = [U, V]
 
         ax = self.mapAxes
         ax.cla()
+        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        scale = None if fixedsz else 0.7
         self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
                                     int_display,  # colour the arrows based on this array
-                                    cmap=str(self.colorChoice.currentText()),  # colour map
-                                    headlength=7, headwidth=4, scale_units='xy', scale=0.7, pivot='middle')
+                                    cmap=self.colormap, norm=norm, # colour map
+                                    headlength=7, headwidth=4, scale_units='xy', scale=scale, pivot='middle')
 
-        ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-        ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
+        ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
+        ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
         # ax.set_aspect('auto')
         ax.set_facecolor('black')
 
@@ -708,7 +744,11 @@ class CPBatchWindow(QMainWindow):
             ax.invert_yaxis()
 
         # self.vectorFieldMapFigure.colorbar(self.vec_quiver)
-        self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        if self.mapColorbar is None:
+            self.mapColorbar = self.mapFigure.colorbar(self.vec_quiver, ax=ax, fraction=0.08, pad=0.01)
+        else:
+            self.mapFigure.colorbar(self.vec_quiver, cax=self.mapColorbar.ax)
+        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1, wspace=0, hspace=0)
         self.mapCanvas.draw()
 
         # if self.arrowLengthSlider.value() > 5:
@@ -779,7 +819,8 @@ class CPBatchWindow(QMainWindow):
             if ranges[i] == 0:
                 e = Ellipse(xy=centers[i], width=self.xylim[0]/5., height=self.xylim[0]/5.)
             else:
-                angle = convertRadtoDegreesEllipse(np.pi/2. + angle_factor * self.orientation_dict[i + self.init_number])
+                angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) + 
+                    angle_factor * self.orientation_dict[i + self.init_number])
                 e = Ellipse(xy=centers[i], width= self.xylim[0] * widths[i], height=self.xylim[0],
                             angle=angle)
             patches.append(e)
@@ -788,14 +829,17 @@ class CPBatchWindow(QMainWindow):
             if i < len(int_display):
                 colors.append(int_display[i])
             else:
-                colors.append(0)
+                colors.append(-1)
 
-        p = PatchCollection(patches, cmap=str(self.colorChoice.currentText()))
-        p.set_array(np.array(colors))
+        colors = np.ma.array(colors, mask=np.array(colors) < 0)
+        min_val = colors[colors > 0].min()
+        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        p = PatchCollection(patches, cmap=self.colormap, norm=norm)
+        p.set_array(colors)
         ax.add_collection(p)
         ax.set_facecolor('black')
-        ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-        ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
+        ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
+        ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
         ax.set_aspect('auto')
 
         if self.isFlipX:
@@ -803,9 +847,124 @@ class CPBatchWindow(QMainWindow):
         if self.isFlipY:
             ax.invert_yaxis()
 
-        self.mapFigure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        if self.mapColorbar is None:
+            self.mapColorbar = self.mapFigure.colorbar(p, ax=ax, fraction=0.08, pad=0.01)
+        else:
+            self.mapFigure.colorbar(p, cax=self.mapColorbar.ax)
+        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1, wspace=0, hspace=0)
         # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
         self.mapCanvas.draw()
+
+    def updateBeamMap(self):
+        if len(self.xyIntensity) < 3:
+            return
+
+        x, y = self.xyIntensity[0], self.xyIntensity[1]
+        centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
+
+        int_display = np.array(list(self.intensity_dict.values()))
+        max_val = int_display.max()
+        if self.maxMap.value() < 100:
+            int_display[int_display > self.maxMap.value() * max_val / 100.] = \
+                self.maxMap.value() * max_val / 100.
+        if self.minMap.value() > 0:
+            int_display[int_display < self.minMap.value() * max_val / 100.] = \
+                self.minMap.value() * max_val / 100.
+
+        # generate ellipses
+        ax = self.mapAxes
+        ax.cla()
+        patches = []
+        colors = []
+        for i in range(len(self.hdf_data)):
+            e = Ellipse(xy=centers[i], width=self.xylim[0] * 1.4, height=self.xylim[1] * 1.4)
+            patches.append(e)
+            colors.append(int_display[i] if i < len(int_display) else -1)
+
+        # render the figure
+        colors = np.ma.array(colors, mask=np.array(colors) < 0)
+        min_val = colors[colors > 0].min()
+        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else \
+               mpl.colors.Normalize(vmin=0, vmax=max_val)
+        xlim = (x.min() - self.xylim[0], x.max() + self.xylim[0])
+        ylim = (y.min() - self.xylim[1], y.max() + self.xylim[1])
+        p = PatchCollection(patches, cmap=self.colormap, norm=norm)
+        p.set_array(colors)
+        if False: # no overlapping
+            ax.add_collection(p)
+            ax.set_xlim(*xlim)
+            ax.set_ylim(*ylim)
+            ax.set_facecolor('white')
+        elif True:
+            mask = np.array([(i + j) % 2 == 0 for j in range(len(y)) for i in range(len(x))])
+            patches1, patches2 = [], []
+            for patch, flag in zip(patches, mask):
+                (patches1 if flag else patches2).append(patch)
+            tmpfig, tmpax = plt.subplots(figsize=(12.0, 12.0 / (len(x) + 1) * (len(y) + 1)))
+            tmpfig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+            p1 = PatchCollection(patches1, cmap=self.colormap, norm=norm, antialiaseds=False)
+            p1.set_array(colors[mask])
+            tmpax.add_collection(p1)
+            tmpax.set_xlim(*xlim)
+            tmpax.set_ylim(*ylim)
+            tmpax.set_axis_off()
+            #tmpfig.savefig('fig01.png', transparent=True)
+            tmpfig.canvas.draw()
+            w, h = tmpfig.canvas.get_width_height()
+            #img1 = np.fromstring(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
+            img1 = np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1).copy()
+
+            p2 = PatchCollection(patches2, cmap=self.colormap, norm=norm, antialiaseds=False)
+            p2.set_array(colors[mask == False])
+            tmpax.cla()
+            tmpax.add_collection(p2)
+            tmpax.set_xlim(*xlim)
+            tmpax.set_ylim(*ylim)
+            tmpax.set_axis_off()
+            #tmpfig.savefig('fig02.png', transparent=True)
+            tmpfig.canvas.draw()
+            #img2 = np.fromstring(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
+            img2 = np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
+
+            sx, sy = w / (len(x) + 1), h / (len(y) + 1) # step size in pixel
+            bx, by = sx * 1.4, sy * 1.4 # beam size in pixel
+            ks, kb = sy / sx, by / bx
+            dist = lambda u, v: (u**2+v**2)**0.5
+            scal = lambda u, v: by / 2 / dist(kb * u, v)
+            for idx in np.ndindex(h, w):
+                if img1[idx].sum() >= 765:
+                    img1[idx] = img2[idx]
+                elif img2[idx].sum() < 765: # overlap
+                    rx = idx[1] % sx
+                    ry = idx[0] % sy
+                    x0, y0 = (rx, ry) if ks * rx + ry < sy else (sx - rx, sy - ry)
+                    x1, y1 = (rx, sy - ry) if ks * rx - ry < 0 else (sx - rx, ry)
+                    d0, d1 = dist(x0, y0), dist(x1, y1)
+                    d0, d1 = d0 * (scal(x0, y0) - 1), d1 * (scal(x1, y1) - 1) #
+                    w1, w2 = (d0, d1) if (idx[1] // sx + idx[0] // sy) % 2 > 0 else (d1, d0)
+                    if w1 < 0:
+                        w1, w2 = 0, 1
+                    elif w2 < 0:
+                        w1, w2 = 1, 0
+                    else:
+                        w1, w2 = w1 / (d0 + d1), w2 / (d0 + d1)
+                    img1[idx] = np.array(img1[idx] * w1 + img2[idx] * w2, np.uint8)
+            ax.imshow(img1, origin='upper', extent=[*xlim, *ylim], aspect=4)
+        ax.set_aspect('auto')
+
+        if self.isFlipX:
+            ax.invert_xaxis()
+        if self.isFlipY:
+            ax.invert_yaxis()
+
+        if self.mapColorbar is None:
+            self.mapColorbar = self.mapFigure.colorbar(p, ax=ax, fraction=0.08, pad=0.01)
+        else:
+            self.mapFigure.colorbar(p, cax=self.mapColorbar.ax)
+        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1, wspace=0, hspace=0)
+        self.mapCanvas.draw()
+
 
     def browseHDF(self, dir_path, hdfList=[]):
         hdf_filename = ""
@@ -893,7 +1052,7 @@ class CPBatchWindow(QMainWindow):
                     best_ring = all_rings.iloc[min_ind]
 
                 good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1. and distance_ok
-                peak_inten = 0
+                peak_inten = -1
                 d_spacing = 0
                 angle = 0
                 angle_sigma = 0
@@ -913,7 +1072,7 @@ class CPBatchWindow(QMainWindow):
                 self.angrange_dict[index] = angle_sigma
                 self.distance_dict[index] = d_spacing
             else:
-                self.peak_intensity_dict[index] = 0
+                self.peak_intensity_dict[index] = -1
                 self.orientation_dict[index] = 0
                 self.angrange_dict[index] = 0
                 self.distance_dict[index] = 0
@@ -947,15 +1106,17 @@ class CPBatchWindow(QMainWindow):
         y_grad = abs(y[1] - y[0])
 
         # Plot heatmap for intensity
-        z = [float(self.intensity_dict[i]) if i in self.intensity_dict else 0 for i in
+        z = [float(self.intensity_dict[i]) if i in self.intensity_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
         # z = np.array([z[i:i + x_max] for i in range(0, , x_max)])
         # z = cv2.blur(z, (4,4))
         # intensity = np.array(z)
-        ring_z = [float(self.peak_intensity_dict[i]) if i in self.peak_intensity_dict else 0 for i in
+        ring_z = [float(self.peak_intensity_dict[i]) if i in self.peak_intensity_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
         intensity = np.reshape(z, (len(y), len(x)))
         ring_intensity = np.reshape(ring_z, (len(y), len(x)))
+        intensity = np.ma.array(intensity, mask=intensity < 0)
+        ring_intensity = np.ma.array(ring_intensity, mask=ring_intensity < 0)
 
         self.xyIntensity = [x, y, intensity, ring_intensity]
         self.xylim = [x_grad, y_grad]

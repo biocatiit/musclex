@@ -38,7 +38,7 @@ from ..utils.image_processor import *
 import musclex
 
 class CalibrationSettings(QDialog):
-    def __init__(self, dir_path):
+    def __init__(self, dir_path, **kwargs):
         super(CalibrationSettings, self).__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.dir_path = str(dir_path)
@@ -57,7 +57,7 @@ class CalibrationSettings(QDialog):
             self.calSettings = None
 
         # self.setStyleSheet(getStyleSheet())
-        self.initUI()
+        self.initUI(**kwargs)
         self.setConnection()
         self.setAllToolTips()
 
@@ -67,7 +67,7 @@ class CalibrationSettings(QDialog):
             else:
                 self.updateImage()
 
-    def initUI(self):
+    def initUI(self, **kwargs):
         silverb = 5.83803
         init_lambda = .1033
         init_sdd = 2500
@@ -183,8 +183,12 @@ class CalibrationSettings(QDialog):
             self.centerY.setValue(center[1])
         else:
             self.fixedCenter.setChecked(False)
-            self.centerX.setValue(1000)
-            self.centerY.setValue(1000)
+            if 'center' in kwargs:
+                self.centerX.setValue(kwargs['center'][0])
+                self.centerY.setValue(kwargs['center'][1])
+            else:
+                self.centerX.setValue(1000)
+                self.centerY.setValue(1000)
 
         self.paramLayout.addWidget(QLabel("Lambda : "), 0, 0, 1, 1)
         self.paramLayout.addWidget(self.lambdaSpnBx, 0, 1, 1, 1)

@@ -146,22 +146,22 @@ class EQ_FittingTab(QWidget):
         """
         Set connection for interactive widgets
         """
-        # self.sigmaCSpinBx.valueChanged.connect(self.fixedFittingParams)
-        # self.sigmaDSpinBx.valueChanged.connect(self.fixedFittingParams)
-        # self.sigmaSSpinBx.valueChanged.connect(self.fixedFittingParams)
+        self.sigmaCSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaC', self.sigmaCSpinBx))
+        self.sigmaDSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaD', self.sigmaDSpinBx))
+        self.sigmaSSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaS', self.sigmaSSpinBx))
         self.fixSigmaD.stateChanged.connect(self.fixedParamChecked)
         self.fixSigmaS.stateChanged.connect(self.fixedParamChecked)
         self.fixGamma.stateChanged.connect(self.fixedParamChecked)
-        # self.gammaSpinBx.valueChanged.connect(self.fixedFittingParams)
+        self.gammaSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('gamma', self.gammaSpinBx))
 
         self.fixedIntZ.stateChanged.connect(self.skeletalChecked)
         self.fixedZline.stateChanged.connect(self.skeletalChecked)
         self.fixedSigZ.stateChanged.connect(self.skeletalChecked)
         self.fixedGammaZ.stateChanged.connect(self.skeletalChecked)
-        self.sigZSpnBx.valueChanged.connect(self.skeletalChanged)
-        self.intZSpnBx.valueChanged.connect(self.skeletalChanged)
-        self.zlineSpnBx.valueChanged.connect(self.skeletalChanged)
-        self.gammaZSpnBx.valueChanged.connect(self.skeletalChanged)
+        self.sigZSpnBx.editingFinished.connect(lambda: self.skeletalChanged('sigZ', self.sigZSpnBx))
+        self.intZSpnBx.editingFinished.connect(lambda: self.skeletalChanged('intZ', self.intZSpnBx))
+        self.zlineSpnBx.editingFinished.connect(lambda: self.skeletalChanged('zline', self.zlineSpnBx))
+        self.gammaZSpnBx.editingFinished.connect(lambda: self.skeletalChanged('gammaZ', self.gammaZSpnBx))
 
 
     def syncSpinBoxes(self, info):
@@ -241,11 +241,12 @@ class EQ_FittingTab(QWidget):
         self.sigmaSSpinBx.setEnabled(self.fixSigmaS.isChecked())
         self.gammaSpinBx.setEnabled(self.fixGamma.isChecked())
 
-    def fixedFittingParams(self):
+    def fixedFittingParams(self, name, elem):
         """
         Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated
         """
-        self.parent.refreshAllFittingParams()
+        #self.parent.refreshAllFittingParams()
+        self.write_log('fittingParamsChanged: {0}={1}'.format(name, elem.value()))
 
     def skeletalChecked(self):
         """
@@ -259,13 +260,14 @@ class EQ_FittingTab(QWidget):
         self.intZSpnBx.setEnabled(self.fixedIntZ.isChecked())
         self.gammaZSpnBx.setEnabled(self.fixedGammaZ.isChecked())
 
-    def skeletalChanged(self):
+    def skeletalChanged(self, name, elem):
         """
         Reset all about z line and re-process image
         """
         bioImg = self.parent.bioImg
         if bioImg is None or self.syncUI:
             return
+        self.write_log('skeletalChanged: {0}={1}'.format(name, elem.value()))
         self.parent.refreshFittingParams(self.side)
         self.parent.processImage()
 
@@ -308,3 +310,8 @@ class EQ_FittingTab(QWidget):
                 settings[side + '_fix_gammaz'] = self.gammaZSpnBx.value()
 
         return settings
+
+    def write_log(self, msg):
+        if hasattr(self.parent.__class__, 'write_log') and \
+           callable(getattr(self.parent.__class__, 'write_log')):
+            self.parent.write_log(self.side + ' ' + msg)
