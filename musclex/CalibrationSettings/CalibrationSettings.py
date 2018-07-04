@@ -38,9 +38,11 @@ from ..utils.image_processor import *
 import musclex
 
 class CalibrationSettings(QDialog):
-    def __init__(self, dir_path, **kwargs):
+    def __init__(self, dir_path):
         super(CalibrationSettings, self).__init__(None)
         self.setWindowTitle("Calibration Settings")
+        self.editableVars = {}
+        self.logMsgs = []
         self.dir_path = str(dir_path)
         self.manualCalPoints = None
         self.cal_img = None
@@ -57,7 +59,7 @@ class CalibrationSettings(QDialog):
             self.calSettings = None
 
         # self.setStyleSheet(getStyleSheet())
-        self.initUI(**kwargs)
+        self.initUI()
         self.setConnection()
         self.setAllToolTips()
 
@@ -67,7 +69,7 @@ class CalibrationSettings(QDialog):
             else:
                 self.updateImage()
 
-    def initUI(self, **kwargs):
+    def initUI(self):
         silverb = 5.83803
         init_lambda = .1033
         init_sdd = 2500
@@ -123,6 +125,8 @@ class CalibrationSettings(QDialog):
         self.silverBehenate.setMinimum(0)
         self.silverBehenate.setMaximum(100)
         self.silverBehenate.setSingleStep(5.83803)
+        self.silverBehenate.setObjectName('silverBehenate')
+        self.editableVars[self.silverBehenate.objectName()] = None
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
@@ -158,16 +162,23 @@ class CalibrationSettings(QDialog):
         self.lambdaSpnBx.setDecimals(8)
         self.lambdaSpnBx.setRange(0.00001, 5.)
         self.lambdaSpnBx.setValue(init_lambda)
+        self.lambdaSpnBx.setObjectName('lambdaSpnBx')
+        self.editableVars[self.lambdaSpnBx.objectName()] = None
 
         self.sddSpnBx = QDoubleSpinBox()
         self.sddSpnBx.setDecimals(8)
         self.sddSpnBx.setRange(0., 5000.)
         self.sddSpnBx.setValue(init_sdd)
+        self.sddSpnBx.setObjectName('sddSpnBx')
+        self.editableVars[self.sddSpnBx.objectName()] = None
 
         self.pixsSpnBx = QDoubleSpinBox()
         self.pixsSpnBx.setDecimals(8)
         self.pixsSpnBx.setRange(0.00001, 5.)
         self.pixsSpnBx.setValue(init_pix_size)
+        self.pixsSpnBx.setObjectName('pixsSpnBx')
+        self.editableVars[self.pixsSpnBx.objectName()] = None
+
 
         self.fixedCenter = QCheckBox("Fixed Center")
         self.centerX = QSpinBox()
@@ -183,12 +194,12 @@ class CalibrationSettings(QDialog):
             self.centerY.setValue(center[1])
         else:
             self.fixedCenter.setChecked(False)
-            if 'center' in kwargs:
-                self.centerX.setValue(kwargs['center'][0])
-                self.centerY.setValue(kwargs['center'][1])
-            else:
-                self.centerX.setValue(1000)
-                self.centerY.setValue(1000)
+            self.centerX.setValue(1000)
+            self.centerY.setValue(1000)
+        self.centerX.setObjectName('centerX')
+        self.editableVars[self.centerX.objectName()] = None
+        self.centerY.setObjectName('centerY')
+        self.editableVars[self.centerY.objectName()] = None
 
         self.paramLayout.addWidget(QLabel("Lambda : "), 0, 0, 1, 1)
         self.paramLayout.addWidget(self.lambdaSpnBx, 0, 1, 1, 1)
@@ -222,6 +233,13 @@ class CalibrationSettings(QDialog):
         self.minInt.valueChanged.connect(self.updateImage)
         self.maxInt.valueChanged.connect(self.updateImage)
 
+        self.silverBehenate.editingFinished.connect(lambda: self.settingChanged('silverB', self.silverBehenate))
+        self.lambdaSpnBx.editingFinished.connect(lambda: self.settingChanged('lambda', self.lambdaSpnBx))
+        self.sddSpnBx.editingFinished.connect(lambda: self.settingChanged('sdd', self.sddSpnBx))
+        self.pixsSpnBx.editingFinished.connect(lambda: self.settingChanged('pixS', self.pixsSpnBx))
+        self.centerX.editingFinished.connect(lambda: self.settingChanged('centerX', self.centerX))
+        self.centerY.editingFinished.connect(lambda: self.settingChanged('centerY', self.centerY))
+
     def paramChecked(self):
         self.calImageGrp.setChecked(not self.paramGrp.isChecked())
         self.decalibrate()
@@ -229,6 +247,9 @@ class CalibrationSettings(QDialog):
     def calImageChecked(self):
         self.paramGrp.setChecked(not self.calImageGrp.isChecked())
         self.decalibrate()
+
+    def settingChanged(self, name, obj):
+        self.log_changes(name, obj)
 
     def decalibrate(self):
         self.calSettings = None
@@ -508,3 +529,14 @@ class CalibrationSettings(QDialog):
 
     def getValues(self):
         return self.calSettings
+
+    def init_logging(self):
+        for objName in self.editableVars:
+            self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
+        #print(self.editableVars)
+
+    def log_changes(self, name, obj):
+        newValue = obj.value()
+        varName = obj.objectName()
+        self.logMsgs.append('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
+        self.editableVars[varName] = newValue

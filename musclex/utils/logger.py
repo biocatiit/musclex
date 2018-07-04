@@ -1,4 +1,4 @@
-import os, datetime
+import os, datetime, time
 from ..ui.pyqt_utils import *
 
 class Logger:
@@ -10,6 +10,7 @@ class Logger:
             path...
         '''
         self.logger = None
+        self.name = name
         folder = os.path.expanduser(os.path.join(path, 'log'))
         if not os.path.exists(folder):
             os.mkdir(folder)
@@ -18,18 +19,19 @@ class Logger:
         self.logger = open(fname, 'a')
 
     def write(self, msg):
-        print(msg, file=self.logger)
+        print(time.asctime(), msg, file=self.logger)
 
     def popup(self):
         popupMsg = QMessageBox()
         popupMsg.setWindowTitle('New log generated')
-        popupMsg.setText('New log generated')
-        msg = 'Mannual changes of parameters are recorded in file "%s".\n' % self.logger.name
-        msg += 'Please report them to us if you are willing to help us optimize our program.'
-        popupMsg.setInformativeText(msg)
+        text = 'The log file is stored with the images.\n\n'
+        text += 'Mannual changes of parameters are recorded in file "%s".\n' % self.logger.name
+        text += 'Please report them to us if you are willing to help us optimize our program.'
+        popupMsg.setText(text)
         popupMsg.setStandardButtons(QMessageBox.Ok)
         popupMsg.setIcon(QMessageBox.Information)
-        popupMsg.setFixedWidth(1000)
+        popupMsg.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        popupMsg.setMinimumWidth(1000)
         popupMsg.exec_()
 
     def close(self):

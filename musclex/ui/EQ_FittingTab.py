@@ -41,6 +41,7 @@ class EQ_FittingTab(QWidget):
         self.parent = parent
         self.side = side
         self.syncUI = False
+        self.editableVars = {}
         self.initUI()
         self.setAllToolTips()
         self.setConnections()
@@ -60,6 +61,8 @@ class EQ_FittingTab(QWidget):
         self.sigmaCSpinBx.setMaximum(100)
         self.sigmaCSpinBx.setKeyboardTracking(False)
         self.sigmaCSpinBx.setValue(1.)
+        self.sigmaCSpinBx.setObjectName('sigmaCSpinBx')
+        self.editableVars[self.sigmaCSpinBx.objectName()] = None
 
         self.fixSigmaD = QCheckBox("Fixed Sigma D :")
         self.sigmaDSpinBx = QDoubleSpinBox()
@@ -69,6 +72,8 @@ class EQ_FittingTab(QWidget):
         self.sigmaDSpinBx.setDecimals(6)
         self.sigmaDSpinBx.setKeyboardTracking(False)
         self.sigmaDSpinBx.setValue(1.)
+        self.sigmaDSpinBx.setObjectName('sigmaDSpinBx')
+        self.editableVars[self.sigmaDSpinBx.objectName()] = None
         self.fixSigmaS = QCheckBox("Fixed Sigma S :")
         self.sigmaSSpinBx = QDoubleSpinBox()
         self.sigmaSSpinBx.setEnabled(False)
@@ -77,6 +82,8 @@ class EQ_FittingTab(QWidget):
         self.sigmaSSpinBx.setDecimals(6)
         self.sigmaSSpinBx.setKeyboardTracking(False)
         self.sigmaSSpinBx.setValue(0.0001)
+        self.sigmaSSpinBx.setObjectName('sigmaSSpinBx')
+        self.editableVars[self.sigmaSSpinBx.objectName()] = None
         self.fixGamma = QCheckBox("Fixed gamma :")
         self.gammaSpinBx = QDoubleSpinBox()
         self.gammaSpinBx.setEnabled(False)
@@ -85,6 +92,8 @@ class EQ_FittingTab(QWidget):
         self.gammaSpinBx.setDecimals(6)
         self.gammaSpinBx.setKeyboardTracking(False)
         self.gammaSpinBx.setValue(1)
+        self.gammaSpinBx.setObjectName('gammaSpinBx')
+        self.editableVars[self.gammaSpinBx.objectName()] = None
 
         self.fitSettingLayout.addWidget(QLabel("Sigma C :"), 0, 0, 1, 1)
         self.fitSettingLayout.addWidget(self.sigmaCSpinBx, 0, 1, 1, 1)
@@ -101,21 +110,29 @@ class EQ_FittingTab(QWidget):
         self.skeletalLayout = QGridLayout(self.skeletalGrp)
         self.fixedZline = QCheckBox("Fixed Center : ")
         self.zlineSpnBx = QDoubleSpinBox()
+        self.zlineSpnBx.setObjectName('zlineSpnBx')
+        self.editableVars[self.zlineSpnBx.objectName()] = None
         self.zlineSpnBx.setDecimals(0)
         self.zlineSpnBx.setRange(0, 500)
         self.zlineSpnBx.setKeyboardTracking(False)
         self.fixedIntZ = QCheckBox("Fixed Intensity : ")
         self.intZSpnBx = QDoubleSpinBox()
+        self.intZSpnBx.setObjectName('intZSpnBx')
+        self.editableVars[self.intZSpnBx.objectName()] = None
         self.intZSpnBx.setDecimals(3)
         self.intZSpnBx.setRange(0, 10000000)
         self.intZSpnBx.setKeyboardTracking(False)
         self.fixedSigZ = QCheckBox("Fixed Sigma : ")
         self.sigZSpnBx = QDoubleSpinBox()
+        self.sigZSpnBx.setObjectName('sigZSpnBx')
+        self.editableVars[self.sigZSpnBx.objectName()] = None
         self.sigZSpnBx.setDecimals(6)
         self.sigZSpnBx.setRange(-100, 100)
         self.sigZSpnBx.setKeyboardTracking(False)
         self.fixedGammaZ = QCheckBox("Fixed Gamma : ")
         self.gammaZSpnBx = QDoubleSpinBox()
+        self.gammaZSpnBx.setObjectName('gammaZSpnBx')
+        self.editableVars[self.gammaZSpnBx.objectName()] = None
         self.gammaZSpnBx.setDecimals(6)
         self.gammaZSpnBx.setRange(-100, 100)
         self.gammaZSpnBx.setKeyboardTracking(False)
@@ -246,7 +263,7 @@ class EQ_FittingTab(QWidget):
         Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated
         """
         #self.parent.refreshAllFittingParams()
-        self.write_log('fittingParamsChanged: {0}={1}'.format(name, elem.value()))
+        self.log_changes(name, elem, prefix='(fitting)')
 
     def skeletalChecked(self):
         """
@@ -267,7 +284,7 @@ class EQ_FittingTab(QWidget):
         bioImg = self.parent.bioImg
         if bioImg is None or self.syncUI:
             return
-        self.write_log('skeletalChanged: {0}={1}'.format(name, elem.value()))
+        self.log_changes(name, elem, prefix='(skeletal)')
         self.parent.refreshFittingParams(self.side)
         self.parent.processImage()
 
@@ -311,7 +328,18 @@ class EQ_FittingTab(QWidget):
 
         return settings
 
+    def init_logging(self):
+        for objName in self.editableVars:
+            self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
+        #print(self.side, self.editableVars)
+
     def write_log(self, msg):
         if hasattr(self.parent.__class__, 'write_log') and \
            callable(getattr(self.parent.__class__, 'write_log')):
             self.parent.write_log(self.side + ' ' + msg)
+
+    def log_changes(self, name, obj, prefix=''):
+        newValue = obj.value()
+        varName = obj.objectName()
+        self.write_log('{0}{1}Changed: {2} -> {3}'.format(prefix, name, self.editableVars[varName], newValue))
+        self.editableVars[varName] = newValue

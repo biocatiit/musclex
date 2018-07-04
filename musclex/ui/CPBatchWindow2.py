@@ -1,7 +1,7 @@
 from .pyqt_utils import *
 from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
-import matplotlib as mpl
+from matplotlib.colors import LogNorm, Normalize
 import h5py
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -589,7 +589,7 @@ class CPBatchWindow(QMainWindow):
 
         ax = self.mapAxes
         ax.cla()
-        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
         # self.intensityMapFigure.colorbar(im)
         if angle:
@@ -620,7 +620,7 @@ class CPBatchWindow(QMainWindow):
 
             colors = np.ma.array(colors, mask=np.array(colors) < 0)
             min_val = colors[colors > 0].min()
-            norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+            norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
             p = PatchCollection(patches, cmap=self.colormap, norm=norm)
             # p = PatchCollection(patches, cmap='gray')
             p.set_array(colors)
@@ -726,7 +726,7 @@ class CPBatchWindow(QMainWindow):
 
         ax = self.mapAxes
         ax.cla()
-        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
         scale = None if fixedsz else 0.7
         self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
                                     int_display,  # colour the arrows based on this array
@@ -833,7 +833,7 @@ class CPBatchWindow(QMainWindow):
 
         colors = np.ma.array(colors, mask=np.array(colors) < 0)
         min_val = colors[colors > 0].min()
-        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
         p = PatchCollection(patches, cmap=self.colormap, norm=norm)
         p.set_array(colors)
         ax.add_collection(p)
@@ -884,8 +884,8 @@ class CPBatchWindow(QMainWindow):
         # render the figure
         colors = np.ma.array(colors, mask=np.array(colors) < 0)
         min_val = colors[colors > 0].min()
-        norm = mpl.colors.LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else \
-               mpl.colors.Normalize(vmin=0, vmax=max_val)
+        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else \
+               Normalize(vmin=0, vmax=max_val)
         xlim = (x.min() - self.xylim[0], x.max() + self.xylim[0])
         ylim = (y.min() - self.xylim[1], y.max() + self.xylim[1])
         p = PatchCollection(patches, cmap=self.colormap, norm=norm)
@@ -912,7 +912,6 @@ class CPBatchWindow(QMainWindow):
             #tmpfig.savefig('fig01.png', transparent=True)
             tmpfig.canvas.draw()
             w, h = tmpfig.canvas.get_width_height()
-            #img1 = np.fromstring(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
             img1 = np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1).copy()
 
             p2 = PatchCollection(patches2, cmap=self.colormap, norm=norm, antialiaseds=False)
@@ -924,7 +923,6 @@ class CPBatchWindow(QMainWindow):
             tmpax.set_axis_off()
             #tmpfig.savefig('fig02.png', transparent=True)
             tmpfig.canvas.draw()
-            #img2 = np.fromstring(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
             img2 = np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
 
             sx, sy = w / (len(x) + 1), h / (len(y) + 1) # step size in pixel

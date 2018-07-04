@@ -59,6 +59,7 @@ class EquatorWindow(QMainWindow):
         self.mainWindow = mainWin
         self.version = musclex.__version__
         self.logger = None
+        self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
         self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
@@ -79,7 +80,8 @@ class EquatorWindow(QMainWindow):
         self.setCalibrationImage()
         self.onImageChanged() # Toggle window to process current image
         self.show()
-        self.resize(1000, 100)
+        #self.resize(1000, 100)
+        self.init_logging()
         # focused_widget = QApplication.focusWidget()
         # if focused_widget != None:
         #     focused_widget.clearFocus()
@@ -145,8 +147,12 @@ class EquatorWindow(QMainWindow):
         self.minmaxLabelLayout.addWidget(self.minIntLabel)
         self.minmaxLabelLayout.addWidget(self.maxIntLabel)
         self.minIntSpnBx = QDoubleSpinBox()
+        self.minIntSpnBx.setObjectName('minIntSpnBx')
+        self.editableVars[self.minIntSpnBx.objectName()] = None
         self.minIntSpnBx.setKeyboardTracking(False)
         self.maxIntSpnBx = QDoubleSpinBox()
+        self.maxIntSpnBx.setObjectName('maxIntSpnBx')
+        self.editableVars[self.maxIntSpnBx.objectName()] = None
         self.maxIntSpnBx.setKeyboardTracking(False)
         self.minmaxLayout = QHBoxLayout()
         self.minmaxLayout.addWidget(self.minIntSpnBx)
@@ -171,6 +177,7 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout = QGridLayout()
         self.imgProcGrp.setLayout(self.imgProcLayout)
         self.calibrationB = QPushButton("Calibration Settings")
+        self.calibSettingDialog = None
         self.setRotAndCentB = QPushButton("Set Rotation Angle \nand Center")
         self.setRotAndCentB.setCheckable(True)
         self.setRotAndCentB.setFixedHeight(45)
@@ -191,10 +198,14 @@ class EquatorWindow(QMainWindow):
         self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
         self.fixedAngle = QSpinBox()
+        self.fixedAngle.setObjectName('fixedAngle')
+        self.editableVars[self.fixedAngle.objectName()] = None
         self.fixedAngle.setKeyboardTracking(False)
         self.fixedAngle.setRange(-360, 360)
         self.fixedAngle.setEnabled(False)
         self.fixedRmin = QSpinBox()
+        self.fixedRmin.setObjectName('fixedRmin')
+        self.editableVars[self.fixedRmin.objectName()] = None
         self.fixedRmin.setKeyboardTracking(False)
         self.fixedRmin.setRange(1, 1000)
         self.fixedRmin.setEnabled(False)
@@ -202,7 +213,9 @@ class EquatorWindow(QMainWindow):
         self.applyBlank.setChecked(False)
         self.blankSettings = QPushButton("Set")
         self.blankSettings.setEnabled(False)
-        self.maskThresSpnBx =QDoubleSpinBox()
+        self.maskThresSpnBx = QDoubleSpinBox()
+        self.maskThresSpnBx.setObjectName('maskThresSpnBx')
+        self.editableVars[self.maskThresSpnBx.objectName()] = None
         self.maskThresSpnBx.setRange(-10,10)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
@@ -273,6 +286,8 @@ class EquatorWindow(QMainWindow):
         self.skeletalChkBx = QCheckBox("Skeletal Muscle (Z line)")
         self.skeletalChkBx.setFixedWidth(200)
         self.nPeakSpnBx = QSpinBox()
+        self.nPeakSpnBx.setObjectName('nPeakSpnBx')
+        self.editableVars[self.nPeakSpnBx.objectName()] = None
         self.nPeakSpnBx.setKeyboardTracking(False)
         self.nPeakSpnBx.setMinimum(2)
         self.nPeakSpnBx.setMaximum(40)
@@ -335,6 +350,8 @@ class EquatorWindow(QMainWindow):
 
         self.k_chkbx = QCheckBox("Background K : ")
         self.k_spnbx = QDoubleSpinBox()
+        self.k_spnbx.setObjectName('k_spnbx')
+        self.editableVars[self.k_spnbx.objectName()] = None
         self.k_spnbx.setDecimals(4)
         self.k_spnbx.setRange(0, 99999999)
         self.k_spnbx.setEnabled(False)
@@ -584,7 +601,7 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.setEnabled(self.k_chkbx.isChecked())
 
     def kChanged(self):
-        self.write_log('backgroudKChanged: k=%f' % self.k_spnbx.value())
+        self.log_changes('backgroudK', obj=self.k_spnbx)
 
     def refitting(self):
         """
@@ -996,7 +1013,7 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is not None and not self.syncUI:
             self.bioImg.removeInfo("peaks")  # Remove peaks info before re-processing
-            self.write_log('nPeakChanged: nPeak=%d' % self.nPeakSpnBx.value())
+            self.log_changes('nPeaks', self.nPeakSpnBx)
 
     def processFolder(self):
         """
@@ -1079,15 +1096,21 @@ class EquatorWindow(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.dir_path) if self.bioImg is None else \
-                        CalibrationSettings(self.dir_path, center=self.bioImg.info['center'])
+        if self.calibSettingDialog is None:
+            self.calibSettingDialog = CalibrationSettings(self.dir_path) if self.bioImg is None else \
+                CalibrationSettings(self.dir_path, center=self.bioImg.info['center'])
         self.calSettings = None
-        cal_setting = settingDialog.calSettings
+        cal_setting = self.calibSettingDialog.calSettings
         if cal_setting is not None or force:
-            result = settingDialog.exec_()
+            result = self.calibSettingDialog.exec_()
+            logMsgs = self.calibSettingDialog.logMsgs
             if result == 1:
-                self.calSettings = settingDialog.getValues()
+                self.calSettings = self.calibSettingDialog.getValues()
+                for msg in logMsgs:
+                    self.write_log('(calib) ' + msg)
+                logMsgs.clear()
                 return True
+            logMsgs.clear()
         return False
 
     def rejectClicked(self):
@@ -1105,7 +1128,7 @@ class EquatorWindow(QMainWindow):
         Re-process and start from apply convexhull
         """
         if self.bioImg is not None and not self.syncUI:
-            self.write_log('maskThresChanged: mask_thres=%f' % self.maskThresSpnBx.value())
+            self.log_changes('maskThres', obj=self.maskThresSpnBx)
             self.bioImg.removeInfo('hulls')
             self.processImage()
 
@@ -1199,7 +1222,6 @@ class EquatorWindow(QMainWindow):
         """
         success = self.setCalibrationImage(force=True)
         if self.bioImg is not None and success:
-            self.write_log('calSettingsChanged: %s' % self.calSettings)
             self.bioImg.removeInfo()
             self.processImage()
 
@@ -1322,7 +1344,7 @@ class EquatorWindow(QMainWindow):
         Triggered when fixed R-min spinbox value is changed
         """
         if self.bioImg is not None and not self.syncUI:
-            self.write_log('fixedRminChanged: fixedRmin=%d' % self.fixedRmin.value())
+            self.log_changes('fixedRmin', obj=self.fixedRmin)
             self.bioImg.info['fixed_rmin'] = self.fixedRmin.value()
             self.processImage()
 
@@ -1391,7 +1413,10 @@ class EquatorWindow(QMainWindow):
                 new_center = np.dot(invM, homo_coords)
                 # Set new center and rotaion angle , re-calculate R-min
                 self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+                self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
                 self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
+                self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+                self.log_changes('rotationAngle', obj=self.fixedAngle)
                 self.bioImg.removeInfo('rmin')
                 self.setRotAndCentB.setChecked(False)
                 self.processImage()
@@ -1406,6 +1431,8 @@ class EquatorWindow(QMainWindow):
 
             # Set new rotaion angle , re-calculate from R-min calculation process
             self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] - new_angle
+            self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+            self.log_changes('rotationAngle', obj=self.fixedAngle)
             self.bioImg.removeInfo('rmin')
             self.setAngleB.setChecked(False)
             self.processImage()
@@ -1422,6 +1449,7 @@ class EquatorWindow(QMainWindow):
                 b = max(int_area)
                 # Set new integrated area, re-calculate from getting histogram process
                 self.bioImg.info['int_area'] = (t, b)
+                self.log_changes('intArea', varName='int_area', newValue=(t, b))
                 self.bioImg.removeInfo('hist')
                 if self.fixedIntAreaChkBx.isChecked():
                     self.fixedIntArea = (t, b)
@@ -1432,6 +1460,7 @@ class EquatorWindow(QMainWindow):
             # Set new R-min, re-calculate from getting integrated area process
             self.bioImg.info['rmin'] = int(np.round(distance(self.bioImg.info['center'], (x, y))))
             self.fixedRmin.setValue(self.bioImg.info['rmin'])
+            self.log_changes('Rmin', obj=self.fixedRmin)
             self.bioImg.removeInfo('int_area')
             self.function = None
             self.setRminB.setChecked(False)
@@ -1850,8 +1879,10 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None or self.syncUI:
             return
-        self.write_log('intensityChanged: minnInt=%f maxInt=%f' % 
-            (self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
+        if self.editableVars[self.minIntSpnBx.objectName()] != self.minIntSpnBx.value():
+            self.log_changes('minIntensity', obj=self.minIntSpnBx)
+        else:
+            self.log_changes('maxIntensity', obj=self.maxIntSpnBx)
         self.bioImg.info["minInt"] = self.minIntSpnBx.value()
         self.bioImg.info["maxInt"] = self.maxIntSpnBx.value()
         self.bioImg.saveCache()
@@ -1920,6 +1951,8 @@ class EquatorWindow(QMainWindow):
         ax.cla()
         ax.imshow(disp_img)  # Display selected image
 
+        self.calibSettingDialog.centerX.setValue(center[0])
+        self.calibSettingDialog.centerY.setValue(center[1])
         if self.centerChkBx.isChecked():
             # Draw center
             ax.plot([center[0]], [center[1]], 'bo')
@@ -2159,7 +2192,25 @@ class EquatorWindow(QMainWindow):
         self.fiberResultTable.setRowCount(ind)
         QApplication.processEvents()
 
+    def init_logging(self):
+        for objName in self.editableVars:
+            self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
+        self.editableVars['int_area'] = self.bioImg.info['int_area']
+        self.editableVars['center'] = self.bioImg.info['center']
+        self.left_fitting_tab.init_logging()
+        self.right_fitting_tab.init_logging()
+        self.calibSettingDialog.init_logging()
+        #print(self.editableVars)
+
     def write_log(self, msg):
         if self.logger is None:
             self.logger = logger.Logger('equator', self.bioImg.dir_path)
-        self.logger.write('[%s] %s' % (self.bioImg.filename, msg))
+        img_name = os.path.join(os.path.split(self.bioImg.dir_path)[-1], self.bioImg.filename)
+        self.logger.write('[%s] %s' % (img_name, msg))
+
+    def log_changes(self, name, obj=None, varName='', newValue=None):
+        if obj is not None:
+            varName = obj.objectName()
+            newValue = obj.value()
+        self.write_log('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
+        self.editableVars[varName] = newValue
