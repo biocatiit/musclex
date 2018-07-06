@@ -31,9 +31,13 @@ class Logger:
         popupMsg.setText(text)
         popupMsg.setStandardButtons(QMessageBox.Ok)
         popupMsg.setIcon(QMessageBox.Information)
-        popupMsg.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        try:
+            popupMsg.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        except AttributeError:
+            pass # not supported in Qt4
         popupMsg.setMinimumWidth(1000)
         popupMsg.exec_()
+        self.logger.flush()
 
     def close(self):
         if self.logger is not None:
