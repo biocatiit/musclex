@@ -37,7 +37,6 @@ class Logger:
             pass # not supported in Qt4
         popupMsg.setMinimumWidth(1000)
         popupMsg.exec_()
-        self.logger.flush()
 
     def close(self):
         if self.logger is not None:

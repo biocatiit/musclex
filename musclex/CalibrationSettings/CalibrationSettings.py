@@ -538,5 +538,7 @@ class CalibrationSettings(QDialog):
     def log_changes(self, name, obj):
         newValue = obj.value()
         varName = obj.objectName()
+        if self.editableVars[varName] == newValue:
+            return
         self.logMsgs.append('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
         self.editableVars[varName] = newValue

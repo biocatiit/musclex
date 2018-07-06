@@ -2212,5 +2212,7 @@ class EquatorWindow(QMainWindow):
         if obj is not None:
             varName = obj.objectName()
             newValue = obj.value()
+        if self.editableVars[varName] == newValue:
+            return
         self.write_log('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
         self.editableVars[varName] = newValue

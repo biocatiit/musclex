@@ -341,5 +341,7 @@ class EQ_FittingTab(QWidget):
     def log_changes(self, name, obj, prefix=''):
         newValue = obj.value()
         varName = obj.objectName()
+        if self.editableVars[varName] == newValue:
+            return
         self.write_log('{0}{1}Changed: {2} -> {3}'.format(prefix, name, self.editableVars[varName], newValue))
         self.editableVars[varName] = newValue
