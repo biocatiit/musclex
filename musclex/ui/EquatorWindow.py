@@ -1108,9 +1108,9 @@ class EquatorWindow(QMainWindow):
                 self.calSettings = self.calibSettingDialog.getValues()
                 for msg in logMsgs:
                     self.write_log('(calib) ' + msg)
-                logMsgs.clear()
+                del logMsgs[:]
                 return True
-            logMsgs.clear()
+            del logMsgs[:]
         return False
 
     def rejectClicked(self):

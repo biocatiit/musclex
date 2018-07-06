@@ -1,6 +1,6 @@
-from .ui.ui_launcherform import *
+from musclex.ui.ui_launcherform import *
 import sys, subprocess, os.path
-from .utils.exception_handler import handlers
+from musclex.utils.exception_handler import handlers
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
