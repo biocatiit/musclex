@@ -30,7 +30,7 @@ import os
 from os.path import split, exists, join
 import fabio
 
-input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'pilatus', 'tif', 'hdf5']
+input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'pilatus', 'tif', 'hdf5', 'smv']
 
 def getFilesAndHdf(dir_path):
     fileList = os.listdir(dir_path)
