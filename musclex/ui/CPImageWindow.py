@@ -77,7 +77,7 @@ class CPImageWindow(QMainWindow):
         self.displayImgAxes = self.displayImgFigure.add_subplot(111)
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
         self.imageOptionsFrame = QFrame()
-        self.imageOptionsFrame.setFixedWidth(300)
+        self.imageOptionsFrame.setFixedWidth(400)
         self.imageOptionsLayout = QVBoxLayout()
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
         self.centerChkbx = QCheckBox("Display Center")
@@ -112,6 +112,8 @@ class CPImageWindow(QMainWindow):
         self.angleChkBx.setChecked(True)
         self.rminmaxChkBx = QCheckBox("Display R-min and R-max")
         self.rminmaxChkBx.setChecked(False)
+        self.roiChkBx = QCheckBox("Display ROI")
+        self.roiChkBx.setChecked(False)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -141,6 +143,8 @@ class CPImageWindow(QMainWindow):
         self.displayOptionsLayout.addWidget(self.angleChkBx)
         self.displayOptionsLayout.addSpacing(10)
         self.displayOptionsLayout.addWidget(self.rminmaxChkBx)
+        self.displayOptionsLayout.addSpacing(10)
+        self.displayOptionsLayout.addWidget(self.roiChkBx)
         self.displayOptionGrp.setLayout(self.displayOptionsLayout)
 
         self.setCaliButton = QPushButton("Calibration Settings")
@@ -148,6 +152,9 @@ class CPImageWindow(QMainWindow):
         self.setHullRange = QPushButton("Set Fixed R-min and R-max")
         self.setHullRange.setCheckable(True)
         self.checkable_buttons.append(self.setHullRange)
+        self.setRoiBtn = QPushButton("Set ROI")
+        self.setRoiBtn.setCheckable(True)
+        self.checkable_buttons.append(self.setRoiBtn)
         self.selectRings = QPushButton("Select Rings Manually")
         self.selectRings.setCheckable(True)
         self.checkable_buttons.append(self.selectRings)
@@ -157,6 +164,7 @@ class CPImageWindow(QMainWindow):
         self.settingLayout.addWidget(self.setCaliButton)
         self.settingLayout.addWidget(self.setBlankImageButton)
         self.settingLayout.addWidget(self.setHullRange)
+        self.settingLayout.addWidget(self.setRoiBtn)
         self.settingLayout.addWidget(self.selectRings)
 
         self.imageOptionsLayout.addWidget(self.settingGrp)
@@ -356,9 +364,11 @@ class CPImageWindow(QMainWindow):
         self.blankChkBx.stateChanged.connect(self.updateUI)
         self.angleChkBx.stateChanged.connect(self.updateUI)
         self.rminmaxChkBx.stateChanged.connect(self.updateUI)
+        self.roiChkBx.stateChanged.connect(self.updateUI)
         self.setCaliButton.clicked.connect(self.calibrationClicked)
         self.setBlankImageButton.clicked.connect(self.setBlankAndMask)
         self.setHullRange.clicked.connect(self.setHullRangeClicked)
+        self.setRoiBtn.clicked.connect(self.setRoiBtnClicked)
         self.selectRings.clicked.connect(self.selectRingsClicked)
         self.processFolderButton.clicked.connect(self.processFolder)
         self.prevButton.clicked.connect(self.prevImage)
@@ -438,6 +448,23 @@ class CPImageWindow(QMainWindow):
 
         if self.setHullRange.isChecked():
             self.function = ['hull']
+            ax = self.displayImgAxes
+            ax.lines = []
+            ax.patches = []
+            self.displayImgCanvas.draw_idle()
+        else:
+            self.function = None
+            self.updateImageTab()
+
+    def setRoiBtnClicked(self):
+        """
+        Triggered when select ROI button pressed (Image tab)
+        """
+        if self.cirProj is None:
+            return
+
+        if self.setRoiBtn.isChecked():
+            self.function = ['ROI']
             ax = self.displayImgAxes
             ax.lines = []
             ax.patches = []
@@ -541,18 +568,16 @@ class CPImageWindow(QMainWindow):
         func = self.function
 
         # Provide different behavior depending on current active function
-        if func[0] == "rings":
+        center = self.cirProj.info['center']
+        dis = distance(center, (x, y))
+        if func[0] == 'rings':
             # Add rings to list and draw circles
-            center = self.cirProj.info['center']
-            dis = distance(center, (x,y))
             ax = self.displayImgAxes
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
             self.function.append(int(round(dis)))
             self.displayImgCanvas.draw_idle()
-        elif func[0] == "hull":
-            center = self.cirProj.info['center']
-            dis = distance(center, (x, y))
+        elif func[0] == 'hull':
             self.function.append(int(round(dis)))
             if len(self.function) == 3:
                 rs = self.function[1:]
@@ -565,6 +590,21 @@ class CPImageWindow(QMainWindow):
                 ax = self.displayImgAxes
                 ax.add_patch(
                     patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
+                self.displayImgCanvas.draw_idle()
+        elif func[0] == 'ROI':
+            self.function.append(int(round(dis)))
+            if len(self.function) == 3:
+                rs = self.function[1:]
+                innerR, outerR = min(rs), max(rs)
+                innerR = max(innerR, self.cirProj.info['start_point'])
+                outerR = min(outerR, self.cirProj.info['rmax'])
+                self.cirProj.info['ROI'] = [innerR, outerR]
+                self.cirProj.removeInfo('ring_hists')
+                self.processImage()
+            else:
+                ax = self.displayImgAxes
+                ax.add_patch(
+                    patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none'))
                 self.displayImgCanvas.draw_idle()
 
     def imgOnMotion(self, event):
@@ -581,7 +621,12 @@ class CPImageWindow(QMainWindow):
             orig_img = self.cirProj.original_image
             ix = int(round(x))
             iy = int(round(y))
-            self.statusLabel.setText('x='+str(round(x,2))+', y='+str(round(y,2))+', val='+str(round(orig_img[iy,ix],2)))
+            text = "x={0}, y={1}, val={2}".format(round(x,2), round(y,2), round(orig_img[iy,ix],2))
+            if self.selectRings.isChecked() or self.setHullRange.isChecked() or \
+               self.setRoiBtn.isChecked():
+                dist = distance(self.cirProj.info['center'], (x, y))
+                text = "radius={0}, {1}".format(round(dist, 2), text)
+            self.statusLabel.setText(text)
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -603,33 +648,34 @@ class CPImageWindow(QMainWindow):
             x = int(round(x))
             y = int(round(y))
 
-        if self.function is None:
+        if self.function is None or len(self.function) == 0:
             return
 
         func = self.function
 
-        if func[0] == "rings":
+        center = self.cirProj.info['center']
+        dis = distance(center, (x, y))
+        if func[0] == 'rings':
             # draw circle
             ax = self.displayImgAxes
-            patch_list = ax.patches[0:len(self.function)-1]
-            del ax.patches
-            ax.patches = patch_list
-            center = self.cirProj.info['center']
-            dis = distance(center, (x, y))
-            ax = self.displayImgAxes
+            del ax.patches[(len(self.function) - 1):]
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
             self.displayImgCanvas.draw_idle()
-        if func[0] == 'hull':
+        elif func[0] == 'hull':
             # draw circle
             ax = self.displayImgAxes
-            patch_list = ax.patches[0:len(self.function) - 1]
-            ax.patches = patch_list
-            center = self.cirProj.info['center']
-            dis = distance(center, (x, y))
-            ax = self.displayImgAxes
+            del ax.patches[(len(self.function) - 1):]
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
+            self.displayImgCanvas.draw_idle()
+        elif func[0] == 'ROI':
+            # draw circle
+            ax = self.displayImgAxes
+            del ax.patches[(len(self.function) - 1):]
+            dis = min(max(dis, self.cirProj.info['start_point']), self.cirProj.info['rmax'])
+            ax.add_patch(
+                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none'))
             self.displayImgCanvas.draw_idle()
 
     def setCalibrationImage(self, force = False):
@@ -1018,6 +1064,10 @@ class CPImageWindow(QMainWindow):
                                         facecolor='none'))
             ax.add_patch(patches.Circle(tuple(center), self.cirProj.info['rmax'], linewidth=2, edgecolor='y',
                                         facecolor='none'))
+
+        if self.roiChkBx.isChecked():
+            roi = self.cirProj.info['ROI']
+            ax.add_patch(patches.Wedge(tuple(center), roi[1], 0, 360, width=roi[1]-roi[0], fc='r', alpha=0.25))
 
         ax.set_ylim((0, img.shape[0]))
         ax.set_xlim((0, img.shape[1]))

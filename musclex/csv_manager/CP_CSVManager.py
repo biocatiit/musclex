@@ -96,6 +96,8 @@ class CP_CSVManager():
             errors = info['ring_errors']
             fit_result = info['fitResult']
             for i in range(nRings):
+                if i not in models:
+                    continue
                 ring = models[i]
                 new_data = {'filename':file_name}
                 new_data['ring'] = i+1

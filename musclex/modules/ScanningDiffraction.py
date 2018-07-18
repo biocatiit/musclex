@@ -197,6 +197,8 @@ class ScanningDiffraction:
             self.info['start_point'] = rmin
             self.info['hull_hist'] = hull
             self.info['area'] = simps(hull)
+            if 'ROI' not in self.info:
+                self.info['ROI'] = [rmin, rmax]
             self.removeInfo('m1_rings')
             self.removeInfo('m2_rings')
             self.log('2D integration has been calculated.')
@@ -985,7 +987,11 @@ class ScanningDiffraction:
         deep_valleys_hists = []
 
         # Filter of rings taken into account (complete)
-        rings = [int(round(p)) for p in self.info['model_peaks']]
+        rings, idxs = [], []
+        for i, p in enumerate(self.info['model_peaks']):
+            if self.info['ROI'][0] <= p <= self.info['ROI'][1]:
+                rings.append(int(round(p)))
+                idxs.append(i)
         I2D = copy.copy(self.info['2dintegration'][0])
         I2D2 = copy.copy(I2D)
         if self.original_image.shape == (1043, 981):
@@ -1032,8 +1038,8 @@ class ScanningDiffraction:
             ring_hists.append(real_hist)
 
             # Fit orientation model
-            model_dict[i] = self.get_ring_model([x, hist])
-            errors_dict[i] = 1 - r2_score(orientation_GMM2(x=x, **model_dict[i]), hist)
+            model_dict[idxs[i]] = self.get_ring_model([x, hist])
+            errors_dict[idxs[i]] = 1 - r2_score(orientation_GMM2(x=x, **model_dict[idxs[i]]), hist)
 
             # orig = np.array(histograms[i])
             # fig = plt.figure()
@@ -1055,7 +1061,8 @@ class ScanningDiffraction:
         self.info['ring_errors'] = errors_dict
 
         # Find avarage ranges ( ignore outliers )
-        all_u1s = sorted([model_dict[i]['u'] for i in range(len(histograms)) if errors_dict[i] < 1. and model_dict[i]['sigma'] < 1])
+        all_u1s = sorted([model_dict[idxs[i]]['u'] for i in range(len(histograms)) 
+            if errors_dict[idxs[i]] < 1. and model_dict[idxs[i]]['sigma'] < 1])
         u1_dict = self.select_peaks(all_u1s, times_threshold=1, distance_threshold=0.1, round_val=False)
 
         # Find an average ring model ( ignore models which produce high error )
@@ -1067,7 +1074,7 @@ class ScanningDiffraction:
             sum_sigma = 0
             sum_alpha = 0
             nModels = 0
-            for i in range(len(model_dict)):
+            for i in model_dict:
                 if errors_dict[i] < 1. and abs(model_dict[i]['u']-best_angle) < 0.1:
                     sum_sigma += model_dict[i]['sigma']
                     sum_alpha += model_dict[i]['alpha']
