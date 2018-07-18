@@ -26,6 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 from .EQ_CVSManager import EQ_CVSManager
+from .EQ_CSVManager2 import EQ_CSVManager2
 from .PT_CSVManager import PT_CVSManager
 from .CP_CSVManager import CP_CSVManager
 from .DC_CSVManager import DC_CSVManager

@@ -38,7 +38,7 @@ from ..CalibrationSettings import CalibrationSettings
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, getBlankImageAndMask
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..utils.image_processor import *
-from ..csv_manager import EQ_CVSManager
+from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
 from ..ui.EQ_FittingTab import EQ_FittingTab
 import musclex
 from .BlankImageSettings import BlankImageSettings
@@ -72,6 +72,7 @@ class EquatorWindow(QMainWindow):
             self.inputerror()
             return
         self.csvManager = EQ_CVSManager(self.dir_path)  # Create a CSV Manager object
+        self.csvManager2 = EQ_CSVManager2(self.dir_path)
         self.setWindowTitle("Muscle X Equator v." + self.version)
         # self.setStyleSheet(getStyleSheet())
         self.initUI()  # Initial all UI
@@ -1122,6 +1123,7 @@ class EquatorWindow(QMainWindow):
         self.bioImg.info["reject"] = self.rejectChkBx.isChecked()
         self.bioImg.saveCache()
         self.csvManager.writeNewData(self.bioImg)
+        self.csvManager2.writeNewData(self.bioImg)
 
     def maskThresChanged(self):
         """
@@ -1747,6 +1749,7 @@ class EquatorWindow(QMainWindow):
             raise
 
         self.csvManager.writeNewData(self.bioImg)
+        self.csvManager2.writeNewData(self.bioImg)
         self.resetUI()
         self.refreshStatusbar()
         QApplication.restoreOverrideCursor()

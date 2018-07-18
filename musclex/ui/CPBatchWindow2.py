@@ -1,7 +1,8 @@
 from .pyqt_utils import *
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse, Rectangle
 from matplotlib.collections import PatchCollection
 from matplotlib.colors import LogNorm, Normalize
+from scipy.interpolate import Rbf
 import h5py
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -269,7 +270,6 @@ class CPBatchWindow(QMainWindow):
         self.repChoice.addItem("Elliptical Map")
         self.repChoice.addItem("Intensity and Rotation Map")
         self.repChoice.addItem("Intensity Map with Arrows")
-        self.repChoice.addItem("Beam Map")
 
         self.colorChoice = QComboBox()
         colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
@@ -278,8 +278,22 @@ class CPBatchWindow(QMainWindow):
         for c in colormaps:
             self.colorChoice.addItem(c)
 
+        self.BSDChoice = QComboBox()
+        self.BSDChoice.addItem("None")
+        self.BSDChoice.addItem("RBF Interpolation")
+        self.BSDChoice.addItem("Alpha Blending")
+
         self.logScale = QCheckBox('Logarithmic Scale')
         self.rotRAngle = QCheckBox('Rotate 90 degrees')
+
+        self.beamXSpinBox = QDoubleSpinBox()
+        self.beamYSpinBox = QDoubleSpinBox()
+        self.spacingFrame = QFrame()
+        self.spacingLayout = QGridLayout(self.spacingFrame)
+        self.spacingLayout.addWidget(QLabel("Beam size X : "), 0, 0, 1, 1, Qt.AlignCenter)
+        self.spacingLayout.addWidget(self.beamXSpinBox, 0, 1, 1, 1)
+        self.spacingLayout.addWidget(QLabel("Beam size Y : "), 0, 2, 1, 1, Qt.AlignCenter)
+        self.spacingLayout.addWidget(self.beamYSpinBox, 0, 3, 1, 1)
 
         self.minMap = QDoubleSpinBox()
         self.minMap.setRange(0, 100)
@@ -315,16 +329,21 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(QLabel("Color map : "), 3, 0, 1, 1)
         self.mapLayout.addWidget(self.colorChoice, 3, 1, 1, 2)
         self.mapLayout.addWidget(self.rotRAngle, 3, 3, 1, 1)
-        self.mapLayout.addWidget(self.mapCanvas, 4, 0, 1, 4)
-        self.mapLayout.addLayout(self.intensityLayout, 5, 0, 1, 4)
-        self.mapLayout.addWidget(self.saveButton, 6, 0, 1, 4)
+        self.mapLayout.addWidget(QLabel("Beam shape display: "), 4, 0, 1, 1)
+        self.mapLayout.addWidget(self.BSDChoice, 4, 1, 1, 2)
+        self.mapLayout.addWidget(self.mapCanvas, 5, 0, 1, 4)
+        self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
+        self.mapLayout.addLayout(self.intensityLayout, 7, 0, 1, 4)
+        self.mapLayout.addWidget(self.saveButton, 8, 0, 1, 4)
         self.mapLayout.setRowStretch(0, 1)
         self.mapLayout.setRowStretch(1, 1)
         self.mapLayout.setRowStretch(2, 1)
         self.mapLayout.setRowStretch(3, 1)
-        self.mapLayout.setRowStretch(4, 20)
-        self.mapLayout.setRowStretch(5, 1)
+        self.mapLayout.setRowStretch(4, 1)
+        self.mapLayout.setRowStretch(5, 20)
         self.mapLayout.setRowStretch(6, 1)
+        self.mapLayout.setRowStretch(7, 1)
+        self.mapLayout.setRowStretch(8, 1)
 
         # status bar
         self.statusBar = QStatusBar()
@@ -361,6 +380,8 @@ class CPBatchWindow(QMainWindow):
         self.flipY.clicked.connect(self.flipMapY)
         self.logScale.stateChanged.connect(self.updateUI)
         self.rotRAngle.stateChanged.connect(self.updateUI)
+        self.beamXSpinBox.editingFinished.connect(self.updateUI)
+        self.beamYSpinBox.editingFinished.connect(self.updateUI)
         self.img_maxInt.valueChanged.connect(self.maxIntChanged)
         self.img_minInt.valueChanged.connect(self.minIntChanged)
 
@@ -369,6 +390,7 @@ class CPBatchWindow(QMainWindow):
 
         self.colorChoice.currentIndexChanged.connect(self.updateUI)
         self.repChoice.currentIndexChanged.connect(self.updateUI)
+        self.BSDChoice.currentIndexChanged.connect(self.updateUI)
         self.mapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.saveButton.clicked.connect(self.saveClicked)
         self.moreDetailsButton.clicked.connect(self.popupImageDetails)
@@ -422,19 +444,12 @@ class CPBatchWindow(QMainWindow):
 
         x = self.xyIntensity[0]
         y = self.xyIntensity[1]
+        stepx, stepy = tuple(self.xylim)
         x_max = len(x)
 
-        if x.min() <= event.xdata <= x.max()+self.xylim[0] and y.min() <= event.ydata <= y.max()+self.xylim[1]:
-            indexs = list(range(0, len(x)))
-            col = min(indexs, key=lambda i: abs(x[i] - event.xdata))
-
-            if (self.repChoice.currentText() in ["Total Intensity Map","Intensity and Rotation Map","Ring Intensity Map"]) and event.xdata < x[col]:
-                col -= 1
-
-            indexs = list(range(0, len(y)))
-            row = min(indexs, key=lambda i: abs(y[i] - event.ydata))
-            if (self.repChoice.currentText() in ["Total Intensity Map","Intensity and Rotation Map","Ring Intensity Map"]) and event.ydata < y[row]:
-                row = max(row - 1, 0)
+        if x.min()-stepx/2 <= event.xdata <= x.max()+stepx/2 and y.min()-stepy/2 <= event.ydata <= y.max()+stepy/2:
+            col = min(np.arange(len(x)), key=lambda i: abs(x[i] - event.xdata))
+            row = min(np.arange(len(y)), key=lambda i: abs(y[i] - event.ydata))
 
             ind = row * x_max + col + self.init_number
 
@@ -538,9 +553,11 @@ class CPBatchWindow(QMainWindow):
             focused_widget.clearFocus()
 
     def updateUI(self):
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         self.colormap = str(self.colorChoice.currentText())
         self.usingLogScale = self.logScale.isChecked()
         self.rotating90 = self.rotRAngle.isChecked()
+        self.spacingFrame.setVisible(self.BSDChoice.currentIndex() == 2)
         representation = self.repChoice.currentText()
         if representation == 'Total Intensity Map':
             self.updateIntensityMap()
@@ -554,22 +571,24 @@ class CPBatchWindow(QMainWindow):
             self.updateIntensityMap(angle = True)
         elif representation == 'Intensity Map with Arrows':
             self.updateVectorFieldMap(fixedsz=True)
-        elif representation == 'Beam Map':
-            self.updateBeamMap()
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
         QApplication.processEvents()
+        QApplication.restoreOverrideCursor()
 
 
     def updateIntensityMap(self, total = True, angle = False):
 
         if len(self.xyIntensity) < 3:
             return
+        rendering_mode = self.BSDChoice.currentIndex()
 
+        stepx, stepy = self.xylim[0], self.xylim[1]
+        beamx, beamy = self.beamXSpinBox.value(), self.beamYSpinBox.value()
         x = copy.copy(self.xyIntensity[0])
         y = copy.copy(self.xyIntensity[1])
-        x2 = np.append(x, max(x) + self.xylim[0])
-        y2 = np.append(y, max(y) + self.xylim[1])
+        x2 = np.append(x, max(x) + stepx) - stepx / 2
+        y2 = np.append(y, max(y) + stepy) - stepy / 2
         if total:
             intensity = copy.copy(self.xyIntensity[2])
         else:
@@ -587,13 +606,93 @@ class CPBatchWindow(QMainWindow):
         max_val = intensity.max()
         min_val = intensity[intensity > 0].min()
 
+        xlim = (x.min() - stepx, x.max() + stepx)
+        ylim = (y.min() - stepy, y.max() + stepy)
+
         ax = self.mapAxes
         ax.cla()
-        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
+        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else \
+               Normalize(vmin=0, vmax=max_val)
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
         # self.intensityMapFigure.colorbar(im)
+        if rendering_mode == 1: # RBF Interpolation
+            ax.cla()
+            colorm = matplotlib.cm.ScalarMappable(cmap=self.colormap, norm=norm).to_rgba(intensity)
+            xi, yi = np.meshgrid(x, y)
+            rbf_r = Rbf(xi, yi, colorm[:,:,0], epsilon=(beamx+beamy)/4)
+            rbf_g = Rbf(xi, yi, colorm[:,:,1], epsilon=(beamx+beamy)/4)
+            rbf_b = Rbf(xi, yi, colorm[:,:,2], epsilon=(beamx+beamy)/4)
+            XI, YI = np.meshgrid(np.linspace(*xlim, len(x)*5), np.linspace(*ylim, len(y)*5))
+            ZI = np.zeros((*XI.shape, 3))
+            ZI[:,:,0] = rbf_r(XI, YI)
+            ZI[:,:,1] = rbf_g(XI, YI)
+            ZI[:,:,2] = rbf_b(XI, YI)
+            ax.imshow(ZI, origin='lower', extent=[*xlim, *ylim], aspect=4)
+
+        elif rendering_mode == 2: # Alpha blending
+            ax.cla()
+            if stepx >= beamx and stepy >= beamy:
+                patches, colors = [], []
+                for j in range(len(x)):
+                    for i in range(len(y)):
+                        rect = Rectangle(xy=(x[j]-beamx/2, y[i]-beamy/2), width=beamx, height=beamy)
+                        patches.append(rect)
+                        colors.append(-1 if intensity.mask[i, j] else intensity[i, j])
+                pc = PatchCollection(patches, cmap=self.colormap, norm=norm, antialiaseds=False)
+                pc.set_array(np.ma.array(colors, mask=np.array(colors) < 0))
+                ax.add_collection(pc)
+            else:
+                patchesl = [[], [], [], []]
+                intensityl = [[], [], [], []]
+                for j in range(len(x)):
+                    for i in range(len(y)):
+                        rect = Rectangle(xy=(x[j]-beamx/2, y[i]-beamy/2), width=beamx, height=beamy)
+                        grp = 2 * (i % 2) + (j % 2)
+                        patchesl[grp].append(rect)
+                        intensityl[grp].append(-1 if intensity.mask[i, j] else intensity[i, j])
+                tmpfig, tmpax = plt.subplots(figsize=(12.0, 12.0 / (len(x) + 1) * (len(y) + 1)))
+                tmpfig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+                imgs = []
+                h, w = None, None
+                for i in range(len(patchesl)):
+                    p = PatchCollection(patchesl[i], cmap=self.colormap, norm=norm, antialiaseds=False)
+                    p.set_array(np.ma.array(intensityl[i], mask=np.array(intensityl[i]) < 0))
+                    tmpax.cla()
+                    tmpax.add_collection(p)
+                    tmpax.set_xlim(*xlim)
+                    tmpax.set_ylim(*ylim)
+                    tmpax.set_axis_off()
+                    tmpfig.canvas.draw()
+                    if h is None or w is None:
+                        w, h = tmpfig.canvas.get_width_height() # width and height
+                    imgs.append(np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1))
+
+                sx, sy = w / (len(x) + 1), h / (len(y) + 1) # step size in pixel
+                bx, by = sx * beamx / stepx, sy * beamy / stepy # beam size in pixel
+                def blend(imga, imgb, ori='h'):
+                    img = imga.copy()
+                    for idx in np.ndindex(h, w):
+                        if imga[idx].sum() >= 765:
+                            img[idx] = imgb[idx]
+                        elif imgb[idx].sum() < 765:
+                            if ori != 'v':
+                                rx = idx[1] % sx
+                                d0, d1 = rx - (sx - bx / 2), bx / 2 - rx
+                                w1, w2 = (d0, d1) if (idx[1] // sx) % 2 == 0 else (d1, d0)
+                            else:
+                                ry = idx[0] % sy
+                                d0, d1 = ry - (sy - by / 2), by / 2 - ry
+                                w1, w2 = (d1, d0) if (idx[0] // sy) % 2 == 0 else (d0, d1)
+                            w1 = w1 if w1 > 0 else 0
+                            w2 = w2 if w2 > 0 else 0
+                            w1, w2 = w1 / (w1 + w2), w2 / (w1 + w2)
+                            img[idx] = np.array(imga[idx] * w1 + imgb[idx] * w2, np.uint8)
+                    return img
+                img = blend(blend(imgs[0], imgs[1]), blend(imgs[2], imgs[3]), ori='v')
+                ax.imshow(img, origin='upper', extent=[*xlim, *ylim], aspect=4)
+
         if angle:
-            centers = [(x[i] + self.xylim[0]/2, y[j]+self.xylim[1]/2.) for j in range(len(y)) for i in range(len(x))]
+            centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
             ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
             patches = []
@@ -608,11 +707,11 @@ class CPBatchWindow(QMainWindow):
 
             for i in range(len(self.hdf_data)):
                 if ranges[i] == 0:
-                    e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /15., height=(self.xylim[0]+self.xylim[1]) / 2./15.)
+                    e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
                 else:
                     e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) + 
                         angle_factor * self.orientation_dict[i + self.init_number])
-                    e = Ellipse(xy=centers[i], width=(self.xylim[0]+self.xylim[1]) / 2. /10., height=(self.xylim[0]+self.xylim[1]) / 2., angle=e_angle)
+                    e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
                 patches.append(e)
                 c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
                 colors.append(c)
@@ -626,8 +725,9 @@ class CPBatchWindow(QMainWindow):
             p.set_array(colors)
             ax.add_collection(p)
 
-        ax.set_xlim(x.min(), x.max() + self.xylim[0])
-        ax.set_ylim(y.min(), y.max() + self.xylim[1])
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+        ax.set_aspect('auto')
         ax.set_facecolor('white')
 
         if self.isFlipX:
@@ -855,114 +955,6 @@ class CPBatchWindow(QMainWindow):
         # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
         self.mapCanvas.draw()
 
-    def updateBeamMap(self):
-        if len(self.xyIntensity) < 3:
-            return
-
-        x, y = self.xyIntensity[0], self.xyIntensity[1]
-        centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-
-        int_display = np.array(list(self.intensity_dict.values()))
-        max_val = int_display.max()
-        if self.maxMap.value() < 100:
-            int_display[int_display > self.maxMap.value() * max_val / 100.] = \
-                self.maxMap.value() * max_val / 100.
-        if self.minMap.value() > 0:
-            int_display[int_display < self.minMap.value() * max_val / 100.] = \
-                self.minMap.value() * max_val / 100.
-
-        # generate ellipses
-        ax = self.mapAxes
-        ax.cla()
-        patches = []
-        colors = []
-        for i in range(len(self.hdf_data)):
-            e = Ellipse(xy=centers[i], width=self.xylim[0] * 1.4, height=self.xylim[1] * 1.4)
-            patches.append(e)
-            colors.append(int_display[i] if i < len(int_display) else -1)
-
-        # render the figure
-        colors = np.ma.array(colors, mask=np.array(colors) < 0)
-        min_val = colors[colors > 0].min()
-        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else \
-               Normalize(vmin=0, vmax=max_val)
-        xlim = (x.min() - self.xylim[0], x.max() + self.xylim[0])
-        ylim = (y.min() - self.xylim[1], y.max() + self.xylim[1])
-        p = PatchCollection(patches, cmap=self.colormap, norm=norm)
-        p.set_array(colors)
-        if False: # no overlapping
-            ax.add_collection(p)
-            ax.set_xlim(*xlim)
-            ax.set_ylim(*ylim)
-            ax.set_facecolor('white')
-        elif True:
-            mask = np.array([(i + j) % 2 == 0 for j in range(len(y)) for i in range(len(x))])
-            patches1, patches2 = [], []
-            for patch, flag in zip(patches, mask):
-                (patches1 if flag else patches2).append(patch)
-            tmpfig, tmpax = plt.subplots(figsize=(12.0, 12.0 / (len(x) + 1) * (len(y) + 1)))
-            tmpfig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-
-            p1 = PatchCollection(patches1, cmap=self.colormap, norm=norm, antialiaseds=False)
-            p1.set_array(colors[mask])
-            tmpax.add_collection(p1)
-            tmpax.set_xlim(*xlim)
-            tmpax.set_ylim(*ylim)
-            tmpax.set_axis_off()
-            #tmpfig.savefig('fig01.png', transparent=True)
-            tmpfig.canvas.draw()
-            w, h = tmpfig.canvas.get_width_height()
-            img1 = np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1).copy()
-
-            p2 = PatchCollection(patches2, cmap=self.colormap, norm=norm, antialiaseds=False)
-            p2.set_array(colors[mask == False])
-            tmpax.cla()
-            tmpax.add_collection(p2)
-            tmpax.set_xlim(*xlim)
-            tmpax.set_ylim(*ylim)
-            tmpax.set_axis_off()
-            #tmpfig.savefig('fig02.png', transparent=True)
-            tmpfig.canvas.draw()
-            img2 = np.frombuffer(tmpfig.canvas.tostring_rgb(), np.uint8).reshape(h, w, -1)
-
-            sx, sy = w / (len(x) + 1), h / (len(y) + 1) # step size in pixel
-            bx, by = sx * 1.4, sy * 1.4 # beam size in pixel
-            ks, kb = sy / sx, by / bx
-            dist = lambda u, v: (u**2+v**2)**0.5
-            scal = lambda u, v: by / 2 / dist(kb * u, v)
-            for idx in np.ndindex(h, w):
-                if img1[idx].sum() >= 765:
-                    img1[idx] = img2[idx]
-                elif img2[idx].sum() < 765: # overlap
-                    rx = idx[1] % sx
-                    ry = idx[0] % sy
-                    x0, y0 = (rx, ry) if ks * rx + ry < sy else (sx - rx, sy - ry)
-                    x1, y1 = (rx, sy - ry) if ks * rx - ry < 0 else (sx - rx, ry)
-                    d0, d1 = dist(x0, y0), dist(x1, y1)
-                    d0, d1 = d0 * (scal(x0, y0) - 1), d1 * (scal(x1, y1) - 1) #
-                    w1, w2 = (d0, d1) if (idx[1] // sx + idx[0] // sy) % 2 > 0 else (d1, d0)
-                    if w1 < 0:
-                        w1, w2 = 0, 1
-                    elif w2 < 0:
-                        w1, w2 = 1, 0
-                    else:
-                        w1, w2 = w1 / (d0 + d1), w2 / (d0 + d1)
-                    img1[idx] = np.array(img1[idx] * w1 + img2[idx] * w2, np.uint8)
-            ax.imshow(img1, origin='upper', extent=[*xlim, *ylim], aspect=4)
-        ax.set_aspect('auto')
-
-        if self.isFlipX:
-            ax.invert_xaxis()
-        if self.isFlipY:
-            ax.invert_yaxis()
-
-        if self.mapColorbar is None:
-            self.mapColorbar = self.mapFigure.colorbar(p, ax=ax, fraction=0.08, pad=0.01)
-        else:
-            self.mapFigure.colorbar(p, cax=self.mapColorbar.ax)
-        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1, wspace=0, hspace=0)
-        self.mapCanvas.draw()
-
 
     def browseHDF(self, dir_path, hdfList=[]):
         hdf_filename = ""
@@ -1117,7 +1109,11 @@ class CPBatchWindow(QMainWindow):
         ring_intensity = np.ma.array(ring_intensity, mask=ring_intensity < 0)
 
         self.xyIntensity = [x, y, intensity, ring_intensity]
-        self.xylim = [x_grad, y_grad]
+        self.beamXSpinBox.setValue(x_grad)
+        self.beamXSpinBox.setMaximum(x_grad * 2)
+        self.beamYSpinBox.setValue(y_grad)
+        self.beamYSpinBox.setMaximum(y_grad * 2)
+        self.xylim = [self.beamXSpinBox.value(), self.beamYSpinBox.value()]
         self.refreshAllTabs()
         self.updateImage()
         self.updateUI()
