@@ -718,29 +718,26 @@ class QuadrantFolder(object):
             print("Quadrant folding is being processed...")
             img_width = rotate_img.shape[1]
             img_height = rotate_img.shape[0]
-            fold_width = min(center[0], img_width-center[0])
-            fold_height = min(center[1], img_height-center[1])
+            fold_width = max(center[0], img_width-center[0])
+            fold_height = max(center[1], img_height-center[1])
 
             # Get each fold, and flip them to the same direction
-            top_left = rotate_img[center_y-fold_height:center_y, center_x-fold_width:center_x]
-            top_right = rotate_img[center_y-fold_height:center_y, center_x:center_x+fold_width]
+            top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
+            top_right = rotate_img[max(center_y-fold_height,0):center_y, center_x:center_x+fold_width]
             top_right = cv2.flip(top_right,1)
-            buttom_left = rotate_img[center_y:center_y+fold_height, center_x-fold_width:center_x]
+            buttom_left = rotate_img[center_y:center_y+fold_height, max(center_x-fold_width,0):center_x]
             buttom_left = cv2.flip(buttom_left,0)
             buttom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
             buttom_right = cv2.flip(buttom_right,1)
             buttom_right = cv2.flip(buttom_right,0)
 
             # Add all folds which are not ignored
-            quadrants = []
-            if 0 not in self.info["ignore_folds"]:
-                quadrants.append(top_left)
-            if 1 not in self.info["ignore_folds"]:
-                quadrants.append(top_right)
-            if 2 not in self.info["ignore_folds"]:
-                quadrants.append(buttom_left)
-            if 3 not in self.info["ignore_folds"]:
-                quadrants.append(buttom_right)
+            quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * (self.info['mask_thres'] - 1.)
+            for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
+                quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
+            remained = np.ones(4, dtype=bool)
+            remained[self.info["ignore_folds"]] = False
+            quadrants = quadrants[remained]
 
             # Get average fold from all folds
             self.get_avg_fold(quadrants,fold_height,fold_width)

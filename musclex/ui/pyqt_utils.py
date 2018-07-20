@@ -33,7 +33,7 @@ try:
     matplotlib.use('qt4agg')
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 except ImportError as e1:
-    if str(e1) != "No module named 'PyQt4'":
+    if str(e1) != "No module named 'PyQt4'" and not str(e1).startswith('No module named PyQt4'):
         raise e1
     try:
         from PyQt5.QtCore import *

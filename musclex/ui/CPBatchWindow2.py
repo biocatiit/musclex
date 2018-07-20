@@ -622,12 +622,12 @@ class CPBatchWindow(QMainWindow):
             rbf_r = Rbf(xi, yi, colorm[:,:,0], epsilon=(beamx+beamy)/4)
             rbf_g = Rbf(xi, yi, colorm[:,:,1], epsilon=(beamx+beamy)/4)
             rbf_b = Rbf(xi, yi, colorm[:,:,2], epsilon=(beamx+beamy)/4)
-            XI, YI = np.meshgrid(np.linspace(*xlim, len(x)*5), np.linspace(*ylim, len(y)*5))
-            ZI = np.zeros((*XI.shape, 3))
+            XI, YI = np.meshgrid(np.linspace(xlim[0], xlim[1], len(x)*5), np.linspace(ylim[0], ylim[1], len(y)*5))
+            ZI = np.zeros((XI.shape[0], XI.shape[1], 3))
             ZI[:,:,0] = rbf_r(XI, YI)
             ZI[:,:,1] = rbf_g(XI, YI)
             ZI[:,:,2] = rbf_b(XI, YI)
-            ax.imshow(ZI, origin='lower', extent=[*xlim, *ylim], aspect=4)
+            ax.imshow(ZI, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect=4)
 
         elif rendering_mode == 2: # Alpha blending
             ax.cla()
@@ -689,7 +689,7 @@ class CPBatchWindow(QMainWindow):
                             img[idx] = np.array(imga[idx] * w1 + imgb[idx] * w2, np.uint8)
                     return img
                 img = blend(blend(imgs[0], imgs[1]), blend(imgs[2], imgs[3]), ori='v')
-                ax.imshow(img, origin='upper', extent=[*xlim, *ylim], aspect=4)
+                ax.imshow(img, origin='upper', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect=4)
 
         if angle:
             centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
