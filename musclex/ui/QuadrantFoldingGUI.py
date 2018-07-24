@@ -301,8 +301,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rmaxSpnBx.setKeyboardTracking(False)
         self.rmaxLabel = QLabel("R-max")
         self.radiusLabel = QLabel("Radius Range : ")
-
-        self.rminmaxWidgets = [self.setRminmaxButton, self.rminSpnBx, self.rminLabel, self.rmaxSpnBx, self.rmaxLabel, self.radiusLabel]
+        self.fixedRadiusRangeChkBx = QCheckBox("Fixed Radius Range")
 
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
         self.gaussFWHM = QSpinBox()
@@ -383,7 +382,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.smoothSpnBx = QDoubleSpinBox()
         self.smoothSpnBx.setRange(0, 10000)
-        self.smoothSpnBx.setValue(1)
+        self.smoothSpnBx.setValue(0.1)
         self.smoothSpnBx.setKeyboardTracking(False)
         self.smoothLabel = QLabel("Smoothing factor : ")
 
@@ -429,12 +428,17 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgLayout.addWidget(self.bgChoice, 0, 1, 1, 2)
 
         # R-min R-max settings
-        self.bgLayout.addWidget(self.setRminmaxButton, 2, 0, 1, 3)
-        self.bgLayout.addWidget(self.radiusLabel, 3, 0, 2, 1)
-        self.bgLayout.addWidget(self.rminLabel, 3, 1, 1, 1)
-        self.bgLayout.addWidget(self.rmaxLabel, 3, 2, 1, 1)
-        self.bgLayout.addWidget(self.rminSpnBx, 4, 1, 1, 1)
-        self.bgLayout.addWidget(self.rmaxSpnBx, 4, 2, 1, 1)
+        self.rrangeSettingFrame = QFrame()
+        self.rrangeSettingLayout = QGridLayout(self.rrangeSettingFrame)
+        self.rrangeSettingLayout.setContentsMargins(0, 0, 0, 0)
+        self.rrangeSettingLayout.addWidget(self.setRminmaxButton, 0, 0, 1, 3)
+        self.rrangeSettingLayout.addWidget(self.radiusLabel, 1, 0, 2, 1)
+        self.rrangeSettingLayout.addWidget(self.rminLabel, 1, 1, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.rmaxLabel, 1, 2, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.rmaxSpnBx, 2, 2, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 3)
+        self.bgLayout.addWidget(self.rrangeSettingFrame, 2, 0, 1, 3)
 
         # Gaussian FWHM
         self.bgLayout.addWidget(self.gaussFWHMLabel, 5, 0, 1, 2)
@@ -1376,8 +1380,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         choice = self.bgChoice.currentText()
 
-        for w in self.rminmaxWidgets:
-            w.setHidden(choice=='None')
+        self.rrangeSettingFrame.setHidden(choice=='None')
         
         self.tophat1SpnBx.setHidden(not choice == 'White-top-hats')
         self.tophat1Label.setHidden(not choice == 'White-top-hats')
@@ -1522,10 +1525,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 if inf in self.quadFold.imgCache.keys():
                     del self.quadFold.imgCache[inf]
 
-    def initialWidgets(self, img):
+    def initialWidgets(self, img, previnfo):
         """
         Initial some widgets values which depends on current image
         :param img: selected image
+        :param previnfo: info of the last image
         """
         self.uiUpdating = True
         min_val = img.min()
@@ -1563,8 +1567,12 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.radialBinSpnBx.setValue(info['radial_bin'])
                 self.smoothSpnBx.setValue(info['smooth'])
                 self.tensionSpnBx.setValue(info['tension'])
-                self.rminSpnBx.setValue(info['rmin'])
-                self.rmaxSpnBx.setValue(info['rmax'])
+                if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
+                    self.rminSpnBx.setValue(info['rmin'])
+                    self.rmaxSpnBx.setValue(info['rmax'])
+                else:
+                    self.rminSpnBx.setValue(previnfo['rmin'])
+                    self.rmaxSpnBx.setValue(previnfo['rmax'])
                 self.winSizeX.setValue(info['win_size_x'])
                 self.winSizeY.setValue(info['win_size_y'])
                 self.winSepX.setValue(info['win_sep_x'])
@@ -1606,11 +1614,12 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         self.img_zoom = None
         self.result_zoom = None
+        previnfo = None if self.quadFold is None else self.quadFold.info
         self.quadFold = QuadrantFolder(self.filePath, self.imgList[self.currentFileNumber])
         original_image = self.quadFold.orig_img
         self.imgDetailOnStatusBar.setText(
             str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
-        self.initialWidgets(original_image)
+        self.initialWidgets(original_image, previnfo)
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
         self.processImage()

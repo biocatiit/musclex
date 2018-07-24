@@ -115,6 +115,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.img_zoom = None
         self.function = None
         self.allboxes = {}
+        self.boxes_on_img = {}
         self.boxtypes = {}
         self.bgsubs = {}
         self.peaks = {}
@@ -373,10 +374,9 @@ class ProjectionTracesGUI(QMainWindow):
         ax = self.displayImgAxes
         del ax.lines
         ax.lines = []
-        del ax.patches
-        ax.patches = []
-        del ax.texts
-        ax.texts = []
+        for name, box in self.boxes_on_img.items():
+            box['rect'].remove()
+            box['text'].remove()
         self.displayImgCanvas.draw_idle()
 
     def imgZoomIn(self):
@@ -510,6 +510,7 @@ class ProjectionTracesGUI(QMainWindow):
     def clearBoxes(self):
         self.allboxes = {}
         self.boxtypes = {}
+        self.boxes_on_img = {}
         self.bgsubs = {}
         self.peaks = {}
         self.hull_ranges = {}
@@ -590,6 +591,9 @@ class ProjectionTracesGUI(QMainWindow):
                 del self.allboxes[name]
                 del self.boxtypes[name]
                 del self.bgsubs[name]
+                for artist in self.boxes_on_img[name].values():
+                    artist.remove()
+                del self.boxes_on_img[name]
                 if name in self.peaks:
                     del self.peaks[name]
                 if name in self.hull_ranges:
@@ -649,8 +653,17 @@ class ProjectionTracesGUI(QMainWindow):
 
         # Provide different behavior depending on current active function
         if func is None:
-            self.function = ["im_move", (x, y)]
-        elif func[0] == "box":
+            for name, box in self.allboxes.items():
+                breadth = 10
+                x1, x2, y1, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
+                if (x1 - breadth <= x <= x1 + breadth or x2 - breadth <= x <= x2 + breadth) and \
+                   y1 - breadth <= y <= y2 + breadth or x1 - breadth <= x <= x2 + breadth and \
+                   (y1 - breadth <= y <= y1 + breadth or y2 - breadth <= y <= y2 + breadth):
+                    self.function = ['box_move', name, (x, y)]
+                    break
+            else: 
+                self.function = ['im_move', (x, y)]
+        elif func[0] == 'box':
             func.append((x, y))
             if len(func) == 3:
                 # A box added
@@ -667,6 +680,7 @@ class ProjectionTracesGUI(QMainWindow):
                     w = abs(x1-x2)
                     h = abs(y1-y2)
                     self.boxtypes[name] = 'h' if w >= h else 'v'
+                    self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
                     self.bgsubs[name] = bgsub
                 self.function = None
                 self.addBoxTabs()
@@ -709,6 +723,26 @@ class ProjectionTracesGUI(QMainWindow):
                     self.function = None
                     self.imgZoomInB.setChecked(False)
                     self.updateImage()
+
+    def genBoxArtists(self, name, box, btype):
+        """
+        Generate aritists to represent a box on Axes.
+        """
+        x, x2, y, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
+        w, h = x2 - x, y2 - y
+
+        box = {}
+        if btype == 'h':
+            box['rect'] = patches.Rectangle((x, y), w, h,
+                linewidth=1, edgecolor='#95f70c', facecolor='none')
+            box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., str(name), color='#95f70c', 
+                fontsize=10, horizontalalignment='left', verticalalignment='center')
+        else:
+            box['rect'] = patches.Rectangle((x, y), w, h,
+                linewidth=1, edgecolor='y', facecolor='none')
+            box['text'] = matplotlib.text.Text(x + w /2. , y - 10, str(name), color='y', 
+                fontsize=10, horizontalalignment='center', verticalalignment='center')
+        return box
 
     def imgOnMotion(self, event):
         """
@@ -769,7 +803,7 @@ class ProjectionTracesGUI(QMainWindow):
                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
 
-        elif func[0] == "box":
+        elif func[0] == 'box':
             if len(func) == 1:
                 # cross lines
                 ax = self.displayImgAxes
@@ -801,13 +835,32 @@ class ProjectionTracesGUI(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.displayImgCanvas.draw_idle()
+        elif func[0] == 'box_move':
+            box = self.boxes_on_img[func[1]]
+            offset = (x - func[2][0], y - func[2][1])
+            xy = box['rect'].get_xy()
+            xy_t = box['text'].get_position()
+            box['rect'].set_xy((xy[0] + offset[0], xy[1] + offset[1]))
+            box['text'].set_position((xy_t[0] + offset[0], xy_t[1] + offset[1]))
+            self.displayImgCanvas.draw_idle()
+            func[2] = (x, y)
 
     def imgReleased(self, event):
         """
         Triggered when mouse released from image
         """
-        if self.function is not None and self.function[0] == "im_move":
-            self.function = None
+        if self.function is not None:
+            func = self.function
+            if func[0] == 'im_move':
+                self.function = None
+            if func[0] == 'box_move':
+                box = self.boxes_on_img[func[1]]
+                w, h = box['rect'].get_width(), box['rect'].get_height()
+                xy = box['rect'].get_xy()
+                self.allboxes[func[1]] = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
+                self.function = None
+                self.addBoxTabs()
+                self.processImage()
 
     def leaveImage(self, event):
         """
@@ -892,6 +945,8 @@ class ProjectionTracesGUI(QMainWindow):
             self.boxtypes = cache['types']
             self.bgsubs = cache['bgsubs']
             self.hull_ranges = cache['hull_ranges']
+            for name, box in self.allboxes.items():
+                self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
         else:
             self.allboxes = {}
             self.peaks = {}
@@ -1124,22 +1179,9 @@ class ProjectionTracesGUI(QMainWindow):
         if len(self.allboxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
-                for name in self.allboxes.keys():
-                    b = self.allboxes[name]
-                    x = b[0][0]
-                    y = b[1][0]
-                    w = b[0][1] - b[0][0]
-                    h = b[1][1] - b[1][0]
-
-                    if self.boxtypes[name] == 'h':
-                        ax.add_patch(patches.Rectangle((x, y), w, h,
-                                                       linewidth=1, edgecolor='#95f70c', facecolor='none'))
-                        ax.text(x + w + 10, y + h / 2., str(name), color='#95f70c', fontsize=10, horizontalalignment='left', verticalalignment='center')
-                    else:
-                        ax.add_patch(patches.Rectangle((x, y), w, h,
-                                                       linewidth=1, edgecolor='y', facecolor='none'))
-                        ax.text(x + w /2. , y - 10, str(name), color='y', fontsize=10, horizontalalignment='center',
-                                verticalalignment='center')
+                for name, aritists in self.boxes_on_img.items():
+                    ax.add_patch(aritists['rect'])
+                    ax.add_artist(aritists['text'])
 
             if self.peaksChkBx.isChecked():
                 for name in self.peaks.keys():

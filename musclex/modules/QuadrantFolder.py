@@ -583,14 +583,16 @@ class QuadrantFolder(object):
         """
         get R-min and R-max for backgroun subtraction process. If these value is changed, background subtracted images need to be reproduced.
         """
-        if 'rmin' in self.info and 'rmax' in self.info:
-            return
-
         print("R-min and R-max is being calculated.")
 
         if 'fixed_rmin' in self.info and 'fixed_rmax' in self.info:
+            if 'rmin' in self.info and 'rmax' in self.info:
+                if self.info['rmin'] == self.info['fixed_rmin'] and self.info['rmax'] == self.info['fixed_rmax']:
+                    return
             self.info['rmin'] = self.info['fixed_rmin']
             self.info['rmax'] = self.info['fixed_rmax']
+        elif 'rmin' in self.info and 'rmax' in self.info:
+            return
         else:
             copy_img = copy.copy(self.info['avg_fold'])
             center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
@@ -736,7 +738,7 @@ class QuadrantFolder(object):
             for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
                 quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
             remained = np.ones(4, dtype=bool)
-            remained[self.info["ignore_folds"]] = False
+            remained[list(self.info["ignore_folds"])] = False
             quadrants = quadrants[remained]
 
             # Get average fold from all folds

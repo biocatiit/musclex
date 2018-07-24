@@ -185,10 +185,10 @@ class ProjectionProcessor():
                 if name not in hists:
                     t = types[name]
                     b = boxes[name]
-                    x1 = b[0][0]
-                    x2 = b[0][1]
-                    y1 = b[1][0]
-                    y2 = b[1][1]
+                    x1 = int(b[0][0])
+                    x2 = int(b[0][1])
+                    y1 = int(b[1][0])
+                    y2 = int(b[1][1])
                     area = img[y1:y2+1, x1:x2+1]
                     if t == 'h':
                         hist = np.sum(area, axis=0)
