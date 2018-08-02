@@ -636,7 +636,9 @@ class QuadrantFolder(object):
             else:
                 x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(deg-0.5, deg+0.5))
 
-            hist_y = list(I[hist_x])
+            hist_y = I[int(rmin):int(rmax+1)]
+            hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
+            #hist_y = list(I[hist_x])
 
             hull_x, hull_y = getHull(hist_x, hist_y)
             y_pchip = pchip(hull_x, hull_y, hist_x)

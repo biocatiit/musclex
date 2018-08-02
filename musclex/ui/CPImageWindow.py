@@ -1,5 +1,6 @@
 from .pyqt_utils import *
 import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Normalize
 import logging
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -27,6 +28,10 @@ class CPImageWindow(QMainWindow):
         self.function = None
         self.checkable_buttons = []
         self.fixed_hull_range = None
+        self.ROI = None
+        self.orientationModel = None
+        self.in_batch_process = False
+        self.stop_process = False
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -96,10 +101,12 @@ class CPImageWindow(QMainWindow):
         self.minInt.setKeyboardTracking(False)
         self.minIntLabel = QLabel("Min intensity")
         self.maxIntLabel = QLabel("Max intensity")
+        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.intensityLayout.addWidget(self.minIntLabel, 0, 0)
         self.intensityLayout.addWidget(self.minInt, 0, 1)
         self.intensityLayout.addWidget(self.maxIntLabel, 1, 0)
         self.intensityLayout.addWidget(self.maxInt, 1, 1)
+        self.intensityLayout.addWidget(self.logScaleIntChkBx, 2, 0, 1, 2)
         self.noBGImgChkBx = QCheckBox("Backgound Subtracted Image")
         self.blankChkBx = QCheckBox("Subtract with Blank Image")
         self.blankChkBx.setChecked(True)
@@ -118,6 +125,7 @@ class CPImageWindow(QMainWindow):
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
+        self.processFolderButton.setCheckable(True)
         self.pnButtons = QGridLayout()
         self.prevButton = QPushButton('<')
         self.prevButton.clearFocus()
@@ -158,6 +166,10 @@ class CPImageWindow(QMainWindow):
         self.selectRings = QPushButton("Select Rings Manually")
         self.selectRings.setCheckable(True)
         self.checkable_buttons.append(self.selectRings)
+        self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.addItem("GMM")
+        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
+        self.orientationCmbBx.addItem("Herman Factor (Pi)")
 
         self.settingGrp = QGroupBox("Settings")
         self.settingLayout = QVBoxLayout(self.settingGrp)
@@ -166,6 +178,8 @@ class CPImageWindow(QMainWindow):
         self.settingLayout.addWidget(self.setHullRange)
         self.settingLayout.addWidget(self.setRoiBtn)
         self.settingLayout.addWidget(self.selectRings)
+        self.settingLayout.addWidget(QLabel("Finding orientation:"))
+        self.settingLayout.addWidget(self.orientationCmbBx)
 
         self.imageOptionsLayout.addWidget(self.settingGrp)
         self.imageOptionsLayout.addSpacing(10)
@@ -360,6 +374,7 @@ class CPImageWindow(QMainWindow):
         self.displayRingsChkbx.stateChanged.connect(self.updateUI)
         self.maxInt.valueChanged.connect(self.maxIntChanged)
         self.minInt.valueChanged.connect(self.minIntChanged)
+        self.logScaleIntChkBx.stateChanged.connect(self.updateUI)
         self.noBGImgChkBx.stateChanged.connect(self.updateUI)
         self.blankChkBx.stateChanged.connect(self.updateUI)
         self.angleChkBx.stateChanged.connect(self.updateUI)
@@ -370,7 +385,9 @@ class CPImageWindow(QMainWindow):
         self.setHullRange.clicked.connect(self.setHullRangeClicked)
         self.setRoiBtn.clicked.connect(self.setRoiBtnClicked)
         self.selectRings.clicked.connect(self.selectRingsClicked)
-        self.processFolderButton.clicked.connect(self.processFolder)
+        self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
+        #self.processFolderButton.clicked.connect(self.processFolder)
+        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.prevButton.clicked.connect(self.prevImage)
         self.nextButton.clicked.connect(self.nextImage)
 
@@ -494,6 +511,10 @@ class CPImageWindow(QMainWindow):
             self.function = None
             self.processImage()
 
+    def orientationModelChanged(self):
+        self.orientationModel = self.orientationCmbBx.currentText()
+        self.processImage()
+
     def result_graph_clicked(self, event):
         """
         Triggered when mouse presses on graph in result tab
@@ -599,6 +620,7 @@ class CPImageWindow(QMainWindow):
                 innerR = max(innerR, self.cirProj.info['start_point'])
                 outerR = min(outerR, self.cirProj.info['rmax'])
                 self.cirProj.info['ROI'] = [innerR, outerR]
+                self.ROI = [innerR, outerR]
                 self.cirProj.removeInfo('ring_hists')
                 self.processImage()
             else:
@@ -694,6 +716,14 @@ class CPImageWindow(QMainWindow):
                 return True
         return False
 
+    def batchProcBtnToggled(self):
+        if self.processFolderButton.isChecked():
+            if not self.in_batch_process:
+                self.processFolderButton.setText("Stop")
+                self.processFolder()
+        else:
+            self.stop_process = True
+
     def processFolder(self):
         """
         Process current folder
@@ -706,6 +736,10 @@ class CPImageWindow(QMainWindow):
         flags = self.getFlags()
         text += "\nCurrent Settings"
         text += "\n - Partial integration angle range : "+ str(flags['partial_angle'])
+        if 'orientation_model' in flags:
+            text += "\n - Orientation Model : "+ flags['orientation_model']
+        if 'ROI' in flags:
+            text += "\n - ROI : "+ str(flags['ROI'])
         if self.calSettings is not None:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
@@ -754,15 +788,22 @@ class CPImageWindow(QMainWindow):
             self.logger.addFilter(logging.Filter(name='cp'))
 
             ## Process all images and update progress bar
+            self.in_batch_process = True
             for i in range(nImg):
+                if self.stop_process:
+                    break
                 self.nextImage()
                 self.progressBar.setValue(i)
                 QApplication.processEvents()
+            self.in_batch_process = False
             self.folder_processed = True
         else:
             self.folder_processed = False
 
         self.progressBar.setVisible(False)
+        self.stop_process = False
+        self.processFolderButton.setChecked(False)
+        self.processFolderButton.setText("Process Current Folder")
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -781,6 +822,10 @@ class CPImageWindow(QMainWindow):
     def getFlags(self):
         flags = {}
         flags['partial_angle'] = self.partialRange.value()
+        if self.ROI is not None:
+            flags['ROI'] = self.ROI
+        if self.orientationModel is not None:
+            flags['orientation_model'] = self.orientationModel
 
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
@@ -841,6 +886,7 @@ class CPImageWindow(QMainWindow):
             flags = self.getFlags()
             self.cirProj.process(flags)
             QApplication.restoreOverrideCursor()
+            self.updateParams()
             self.csvManager.write_new_data(self.cirProj)
             self.refreshAllTabs()
             self.updateUI()
@@ -872,6 +918,15 @@ class CPImageWindow(QMainWindow):
             minInt.setValue(min_val)
             maxInt.setValue(max_val*0.1)
             self.updatingUI = False
+
+    def updateParams(self):
+        info = self.cirProj.info
+        if self.ROI is None and info['ROI'] != [info['start_point'], info['rmax']]:
+            self.ROI = info['ROI']
+        if self.orientationModel is None:
+            if 'orientation_model' in info:
+                self.orientationCmbBx.setCurrentText(info['orientation_model'])
+            self.orientationModel = self.orientationCmbBx.currentText()
 
     def updateStatusBar(self, text):
         QApplication.processEvents()
@@ -999,11 +1054,14 @@ class CPImageWindow(QMainWindow):
             if blank is not None:
                 img = img - blank
 
-        img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
+        #img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
 
         ax = self.displayImgAxes
         ax.cla()
-        ax.imshow(img)
+        if self.logScaleIntChkBx.isChecked():
+            ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minInt.value()), vmax=self.maxInt.value()))
+        else:
+            ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
 
         center = (int(np.round(self.cirProj.info['center'][0])), int(np.round(self.cirProj.info['center'][1])))
 
@@ -1246,7 +1304,7 @@ class CPImageWindow(QMainWindow):
         self.selectPeaks.setHidden(hide)
         self.average_ring_chkbx.setHidden(not hide)
         self.ring_hists_chkbx.setHidden(not hide)
-        self.g_model_chkbx.setHidden(not hide)
+        self.g_model_chkbx.setHidden(not hide or self.orientationModel != "GMM")
 
     def updateResultsTab(self):
         self.swapCheckBoxes()
@@ -1318,7 +1376,7 @@ class CPImageWindow(QMainWindow):
             self.result_graph_canvas.draw()
             # self.update_plot['image_result'] = False
 
-        else:
+        elif self.orientationModel == "GMM":
             self.g_model_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
             self.ring_hists_chkbx.setEnabled('ring_hists' in self.cirProj.info.keys())
             self.average_ring_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
@@ -1356,6 +1414,33 @@ class CPImageWindow(QMainWindow):
             self.result_graph_figure.tight_layout()
             self.result_graph_canvas.draw()
 
+        else:
+            self.ring_hists_chkbx.setEnabled('ring_hists' in self.cirProj.info.keys())
+            self.average_ring_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
+
+            ax = self.result_graph_axes
+            ax.cla()
+
+            if 'ring_hists' in self.cirProj.info.keys():
+                x = np.arange(0, 2 * np.pi, np.pi / 180)
+                if 'ring_models' in self.cirProj.info.keys() and self.ring_hists_chkbx.isChecked():
+                    ring_models = self.cirProj.info['ring_models']
+                    for i in ring_models:
+                        ax.plot(x, ring_models[i]['HoFs'], color='g')
+                        u1 = ring_models[i]['u']
+                        ax.plot((u1, u1), (-0.5, 1), color='y')
+                        ax.plot((u1 + np.pi, u1 + np.pi), (-0.5, 1), color='y')
+
+                if 'average_ring_model' in self.cirProj.info.keys() and self.average_ring_chkbx.isChecked():
+                    mod = self.cirProj.info['average_ring_model']
+                    ax.plot(x, mod['HoFs'], color='k')
+                    u1 = mod['u']
+                    ax.plot((u1, u1), (-0.5, 1), color='r')
+                    ax.plot((u1 + np.pi, u1 + np.pi), (-0.5, 1), color='r')
+
+            self.result_graph_figure.tight_layout()
+            self.result_graph_canvas.draw()
+
         processing_results_text = "Total Intensity : "+ str(self.cirProj.info['area'])
         processing_results_text += "\n\nFitting Results :"
         if 'fitResult' in self.cirProj.info.keys():
@@ -1381,24 +1466,26 @@ class CPImageWindow(QMainWindow):
                 m = models[i]
                 rings_info += "Ring " + str(i + 1) + " : \n"
                 rings_info += "\tAngle : " + str(m['u']) + " rads. " + str(convertRadtoDegrees(m['u'])) + "degrees\n"
-                angle_range = (m['u'] - m['sigma'], m['u'] + m['sigma'])
-                rings_info += "\tRange: " + str(angle_range) + " rads"
-                rings_info += " or " + str((convertRadtoDegrees(angle_range[0]), convertRadtoDegrees(angle_range[1]))) + " degrees\n"
-                rings_info += "\tSigma : "+ str(m['sigma'])+ "\n"
-                rings_info += "\tIntensity : "+ str(m['alpha'])+ "\n"
-                rings_info += "\tFitting Error : "+ str(errors[i])+ "\n\n"
+                if self.orientationModel == "GMM":
+                    angle_range = (m['u'] - m['sigma'], m['u'] + m['sigma'])
+                    rings_info += "\tRange: " + str(angle_range) + " rads"
+                    rings_info += " or " + str((convertRadtoDegrees(angle_range[0]), convertRadtoDegrees(angle_range[1]))) + " degrees\n"
+                    rings_info += "\tSigma : "+ str(m['sigma'])+ "\n"
+                    rings_info += "\tIntensity : "+ str(m['alpha'])+ "\n"
+                    rings_info += "\tFitting Error : "+ str(errors[i])+ "\n\n"
 
             rings_info += "\nAverage Angle : \n"
             if 'average_ring_model' in self.cirProj.info.keys():
                 model = self.cirProj.info['average_ring_model']
                 rings_info += " - Angle : " + str(model['u']) + " rads. " + str(
                     convertRadtoDegrees(model['u'])) + "degrees\n"
-                angle_range = (model['u'] - model['sigma'], model['u'] + model['sigma'])
-                rings_info += " - Standard deviation : " + str(model['sigma']) + "\n"
-                rings_info += " - Range: " + str(angle_range) + " rads"
-                rings_info += " or " + str(
-                    (convertRadtoDegrees(angle_range[0]), convertRadtoDegrees(angle_range[1]))) + " degrees\n"
-                rings_info += " - Intensity: " + str(model['alpha']) + "\n"
+                if self.orientationModel == "GMM":
+                    angle_range = (model['u'] - model['sigma'], model['u'] + model['sigma'])
+                    rings_info += " - Standard deviation : " + str(model['sigma']) + "\n"
+                    rings_info += " - Range: " + str(angle_range) + " rads"
+                    rings_info += " or " + str(
+                        (convertRadtoDegrees(angle_range[0]), convertRadtoDegrees(angle_range[1]))) + " degrees\n"
+                    rings_info += " - Intensity: " + str(model['alpha']) + "\n"
             else:
                 if 'ring_models' in self.cirProj.info.keys() and len(self.cirProj.info['ring_models']) > 0:
                     rings_info += "Model can't be fitted. Rings are uniform\n"

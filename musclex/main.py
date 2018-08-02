@@ -99,7 +99,7 @@ def main(arguments=None):
         print("For example,")
         print("\t$ musclex eq")
         print("")
-        print("More details : https://www.github.com/biocatiit/musclex/wiki")
+        print("More details : https://musclex.readthedocs.io")
         print("Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n")
 
 if __name__ == "__main__":

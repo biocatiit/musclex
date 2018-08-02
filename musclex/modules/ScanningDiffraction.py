@@ -94,7 +94,7 @@ class ScanningDiffraction:
         """
         All processing steps
         """
-        self.info.update(flags)
+        self.updateInfo(flags)
         self.log("----------------------------------------------------------------------")
         self.log(fullPath(self.filepath, self.filename)+" is being processed ...")
         self.findCenter()
@@ -130,6 +130,13 @@ class ScanningDiffraction:
         else:
             if k in self.info.keys(): # remove from dictionary if the key exists
                 del self.info[k]
+
+    def updateInfo(self, flags):
+        for flag in ['ROI', 'orientation_model']:
+            if flag not in self.info or flag in flags and flags[flag] != self.info[flag]:
+                self.removeInfo('ring_hists')
+                break
+        self.info.update(flags)
 
     def findCenter(self):
         """
@@ -377,7 +384,14 @@ class ScanningDiffraction:
         """
         if 'ring_hists' not in self.info.keys():
             self.log("=== Rings information is being processed ...")
-            self.processOrientation2()
+            if 'orientation_model' not in self.info:
+                self.info['orientation_model'] = "GMM"
+            if self.info['orientation_model'] == "GMM":
+                self.processOrientation2()
+            elif self.info['orientation_model'] == "Herman Factor (Half Pi)":
+                self.HermanOrientation(ir='h')
+            elif self.info['orientation_model'] == "Herman Factor (Pi)":
+                self.HermanOrientation()
 
     def get_partial_integrations(self, ref_angle):
         """
@@ -978,11 +992,7 @@ class ScanningDiffraction:
 
         return result
 
-    def processOrientation2(self):
-        """
-        Calculate ring orientation - get ring_hists, 'ring_models', 'ring_errors', 'average_ring_model'
-        :return:
-        """
+    def getRingHistograms(self):
         histograms = []
         deep_valleys_hists = []
 
@@ -1014,12 +1024,7 @@ class ScanningDiffraction:
         if len(histograms) < 1:
             return
 
-        # Obtaining gaussian model of each ring histogram, means of gaussians and error over histogram
-        model_dict = {}
-        errors_dict = {}
-        ring_hists = []
-
-        x = np.arange(0, 2 * np.pi, 2 * np.pi / 360)
+        ring_hists, revised_hists = [], []
 
         for i in range(len(histograms)):
 
@@ -1036,10 +1041,27 @@ class ScanningDiffraction:
             real_hist -= min_val
             real_hist[real_hist < 0] = 0
             ring_hists.append(real_hist)
+            revised_hists.append(hist)
+
+        return ring_hists, revised_hists, idxs
+
+    def processOrientation2(self):
+        """
+        Calculate ring orientation - get ring_hists, 'ring_models', 'ring_errors', 'average_ring_model'
+        :return:
+        """
+        ring_hists, revised_hists, idx_dict = self.getRingHistograms()
+        # Obtaining gaussian model of each ring histogram, means of gaussians and error over histogram
+        model_dict = {}
+        errors_dict = {}
+
+        x = np.arange(0, 2 * np.pi, 2 * np.pi / 360)
+
+        for i, hist in zip(idx_dict, revised_hists):
 
             # Fit orientation model
-            model_dict[idxs[i]] = self.get_ring_model([x, hist])
-            errors_dict[idxs[i]] = 1 - r2_score(orientation_GMM2(x=x, **model_dict[idxs[i]]), hist)
+            model_dict[i] = self.get_ring_model([x, hist])
+            errors_dict[i] = 1 - r2_score(orientation_GMM2(x=x, **model_dict[i]), hist)
 
             # orig = np.array(histograms[i])
             # fig = plt.figure()
@@ -1061,8 +1083,8 @@ class ScanningDiffraction:
         self.info['ring_errors'] = errors_dict
 
         # Find avarage ranges ( ignore outliers )
-        all_u1s = sorted([model_dict[idxs[i]]['u'] for i in range(len(histograms)) 
-            if errors_dict[idxs[i]] < 1. and model_dict[idxs[i]]['sigma'] < 1])
+        all_u1s = sorted([model_dict[i]['u'] for i in model_dict 
+            if errors_dict[i] < 1. and model_dict[i]['sigma'] < 1])
         u1_dict = self.select_peaks(all_u1s, times_threshold=1, distance_threshold=0.1, round_val=False)
 
         # Find an average ring model ( ignore models which produce high error )
@@ -1158,6 +1180,62 @@ class ScanningDiffraction:
     #     if not isUniform:
     #         self.info['best_ring'] = taken[min_index]
     #         self.info['model'] = model_dict[min_index]
+
+    def HoF(self, hist, mode='f'):
+        """
+        Calculate Herman Orientation Factors
+        """
+        Ints = []
+        n_pi = len(hist) // 2  # number of hist unit in pi range
+        n_hpi = n_pi // 2      # number of hist unit in half pi range
+        for i in range(n_pi):
+            I = hist[i:(i+n_pi)].copy()
+            I[:i] += np.flipud(hist[:i])
+            I[i:] += np.flipud(hist[(i+n_pi):])
+            Ints.append(I)
+        rads = np.linspace(0, np.pi, n_pi + 1)[:-1]
+        denom = np.sin(rads)
+        numer = (np.cos(rads)**2) * denom
+
+        HoFs = np.zeros(hist.shape)
+        for i in range(len(hist)):
+            I = Ints[i] if i < n_pi else np.flipud(Ints[i - n_pi])
+            if mode == 'f':
+                HoFs[i] = ((I * numer).sum() / (I * denom).sum()) if i < n_pi else HoFs[i - n_pi]
+            else:
+                HoFs[i] = (I[:n_hpi] * numer[:n_hpi]).sum() / (I[:n_hpi] * denom[:n_hpi]).sum()
+        return (3 * HoFs - 1) / 2
+
+    def HermanOrientation(self, ir='f', thres=0.1):
+        """
+        Calculate Herman factors - get ring_hists,
+        :param ir: integration radian, half Pi or Pi
+        :return:
+        """
+        ROI = self.info['ROI']
+        roi_hist = np.sum(self.info['2dintegration'][0][:, ROI[0]:ROI[1]], axis=1)
+        roi_hist -= roi_hist.min()
+        ring_hists, revised_hists, idx_dict = self.getRingHistograms()
+
+        model_dict, errors_dict = {}, {}
+        for i, hist in zip(idx_dict, revised_hists):
+
+            # Calculate herman factors
+            HoFs = self.HoF(hist, ir)
+            u = (int(np.argmax(HoFs) * 360.0 / len(hist)) % 180) * np.pi / 180
+            model_dict[i] = {'u': u, 'HoFs': HoFs, 'sigma': 0, 'alpha': 0, 'bg': 0}
+            errors_dict[i] = 1 + (HoFs.max() - thres) / (thres - 1)
+
+        self.info['ring_hists'] = ring_hists
+        self.info['ring_models'] = model_dict
+        self.info['ring_errors'] = errors_dict
+
+        roi_result = {'sigma': 0, 'alpha': 0, 'bg': 0}
+        roiHoFs = self.HoF(roi_hist, ir)
+        roi_result['u'] = (int(np.argmax(roiHoFs) * 360.0 / len(roi_hist)) % 180) * np.pi / 180
+        roi_result['HoFs'] = roiHoFs
+        self.info['average_ring_model'] = roi_result
+        self.log("Herman orientation reuslt : "+ str(roi_result['u']))
 
 ############################# Batch mode Results #########################################
 
