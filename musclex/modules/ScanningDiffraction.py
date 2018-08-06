@@ -385,9 +385,11 @@ class ScanningDiffraction:
         if 'ring_hists' not in self.info.keys():
             self.log("=== Rings information is being processed ...")
             if 'orientation_model' not in self.info:
-                self.info['orientation_model'] = "GMM"
-            if self.info['orientation_model'] == "GMM":
+                self.info['orientation_model'] = "GMM2"
+            if self.info['orientation_model'] == "GMM2":
                 self.processOrientation2()
+            elif self.info['orientation_model'] == "GMM3":
+                self.processOrientation2(model='GMM3')
             elif self.info['orientation_model'] == "Herman Factor (Half Pi)":
                 self.HermanOrientation(ir='h')
             elif self.info['orientation_model'] == "Herman Factor (Pi)":
@@ -992,6 +994,44 @@ class ScanningDiffraction:
 
         return result
 
+
+    def get_ring_model2(self, hist):
+        """
+        Fit gaussian model to rings
+        :param hist:
+        :return:
+        """
+        # Smooth histogram to find parameters easier
+        hist[1] = smooth(hist[1], 20)
+
+        n_hist = len(hist[1])
+        index = np.argmax(hist[1])
+        u = hist[0][index]
+        if u < np.pi / 2:
+            u += np.pi
+        elif u > 3 * np.pi / 2:
+            u -= np.pi
+
+        # Fit model using same gaussian
+        x = hist[0]
+
+        # Call orientation_GMM3
+        model = Model(orientation_GMM3, independent_vars='x')
+        max_height = np.max(hist[1])
+
+        model.set_param_hint('u', value=u, min=np.pi/2, max=3*np.pi/2)
+        model.set_param_hint('sigma', value=0.1, min=0, max=np.pi*2)
+        model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
+        model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
+
+        result = model.fit(data=hist[1], x=x, params=model.make_params())
+        errs = abs(result.best_fit - result.data)
+        weights = errs / errs.mean() + 1
+        weights[weights > 3.] = 0
+        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights)
+
+        return result.values
+
     def getRingHistograms(self):
         histograms = []
         deep_valleys_hists = []
@@ -1045,7 +1085,7 @@ class ScanningDiffraction:
 
         return ring_hists, revised_hists, idxs
 
-    def processOrientation2(self):
+    def processOrientation2(self, model='GMM2'):
         """
         Calculate ring orientation - get ring_hists, 'ring_models', 'ring_errors', 'average_ring_model'
         :return:
@@ -1060,8 +1100,12 @@ class ScanningDiffraction:
         for i, hist in zip(idx_dict, revised_hists):
 
             # Fit orientation model
-            model_dict[i] = self.get_ring_model([x, hist])
-            errors_dict[i] = 1 - r2_score(orientation_GMM2(x=x, **model_dict[i]), hist)
+            if model == 'GMM2':
+                model_dict[i] = self.get_ring_model([x, hist])
+                errors_dict[i] = 1 - r2_score(orientation_GMM2(x=x, **model_dict[i]), hist)
+            elif model == 'GMM3':
+                model_dict[i] = self.get_ring_model2([x, hist])
+                errors_dict[i] = 1 - r2_score(orientation_GMM3(x=x, **model_dict[i]), hist)
 
             # orig = np.array(histograms[i])
             # fig = plt.figure()
@@ -1206,6 +1250,37 @@ class ScanningDiffraction:
                 HoFs[i] = (I[:n_hpi] * numer[:n_hpi]).sum() / (I[:n_hpi] * denom[:n_hpi]).sum()
         return (3 * HoFs - 1) / 2
 
+    def getRadOfMaxHoF(self, HoFs, mode, ratio=0.05):
+        """
+        Get the radian of the maximum Herman Orientation Factor
+        :param HoFs:
+        :param mode:
+        """
+        nHoFs = len(HoFs)
+        num = int(nHoFs * ratio)
+        if mode == 'f':
+            HoFs = HoFs[:(nHoFs // 2)]
+            num //= 2
+        # get the indices of the top num largest HoFs
+        idxs = sorted(np.arange(len(HoFs)), key=lambda i: HoFs[i])[-num:]
+        idxs = sorted(idxs)
+        # group the indices
+        grps = [[idxs[0]]]
+        for idx in idxs[1:]:
+            if grps[-1][-1] == idx - 1:
+                grps[-1].append(idx)
+            else:
+                grps.append([idx])
+        # handle the round case
+        if len(grps) > 1 and grps[0][0] == 0 and grps[-1][-1] == len(HoFs) - 1:
+            grps[0] += [idx - len(HoFs) for idx in grps[-1]]
+        # find the groups of max number of indices
+        maxn = max(len(grp) for grp in grps)
+        grps = [grp for grp in grps if len(grp) == maxn]
+        opt_grp = sorted(grps, key=lambda g:HoFs[g].sum())[-1]
+        opt_idx = np.mean(opt_grp) % len(HoFs)
+        return 2 * np.pi * opt_idx / nHoFs
+
     def HermanOrientation(self, ir='f', thres=0.1):
         """
         Calculate Herman factors - get ring_hists,
@@ -1222,7 +1297,7 @@ class ScanningDiffraction:
 
             # Calculate herman factors
             HoFs = self.HoF(hist, ir)
-            u = (int(np.argmax(HoFs) * 360.0 / len(hist)) % 180) * np.pi / 180
+            u = self.getRadOfMaxHoF(HoFs, ir)
             model_dict[i] = {'u': u, 'HoFs': HoFs, 'sigma': 0, 'alpha': 0, 'bg': 0}
             errors_dict[i] = 1 + (HoFs.max() - thres) / (thres - 1)
 
@@ -1232,7 +1307,7 @@ class ScanningDiffraction:
 
         roi_result = {'sigma': 0, 'alpha': 0, 'bg': 0}
         roiHoFs = self.HoF(roi_hist, ir)
-        roi_result['u'] = (int(np.argmax(roiHoFs) * 360.0 / len(roi_hist)) % 180) * np.pi / 180
+        roi_result['u'] = self.getRadOfMaxHoF(roiHoFs, ir)
         roi_result['HoFs'] = roiHoFs
         self.info['average_ring_model'] = roi_result
         self.log("Herman orientation reuslt : "+ str(roi_result['u']))
@@ -1286,6 +1361,13 @@ def orientation_GMM2(x, u, sigma, alpha, bg):
 def orientation_GMM2_v1(x, u1, u2, sigma, alpha):
     mod = GaussianModel()
     return mod.eval(x=x, amplitude=alpha, center=u1, sigma=sigma) + mod.eval(x=x, amplitude=alpha, center=u2, sigma=sigma)
+
+
+def orientation_GMM3(x, u, sigma, alpha, bg):
+    mod = GaussianModel()
+    return mod.eval(x=x, amplitude=alpha, center=u, sigma=sigma) + \
+        mod.eval(x=x, amplitude=alpha, center=u-np.pi, sigma=sigma) + \
+        mod.eval(x=x, amplitude=alpha, center=u+np.pi, sigma=sigma) + bg
 
 def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     parameters = []

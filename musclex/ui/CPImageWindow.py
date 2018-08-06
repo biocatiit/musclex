@@ -130,9 +130,11 @@ class CPImageWindow(QMainWindow):
         self.prevButton = QPushButton('<')
         self.prevButton.clearFocus()
         self.nextButton = QPushButton('>')
+        self.filenameLineEdit = QLineEdit()
         self.pnButtons.addWidget(self.processFolderButton, 0, 0, 1, 2)
         self.pnButtons.addWidget(self.prevButton, 1, 0, 1, 1)
         self.pnButtons.addWidget(self.nextButton, 1, 1, 1, 1)
+        self.pnButtons.addWidget(self.filenameLineEdit, 2, 0, 1, 2)
 
         self.displayOptionGrp = QGroupBox()
         self.displayOptionGrp.setTitle('Display Options')
@@ -167,7 +169,8 @@ class CPImageWindow(QMainWindow):
         self.selectRings.setCheckable(True)
         self.checkable_buttons.append(self.selectRings)
         self.orientationCmbBx = QComboBox()
-        self.orientationCmbBx.addItem("GMM")
+        self.orientationCmbBx.addItem("GMM2")
+        self.orientationCmbBx.addItem("GMM3")
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
 
@@ -390,6 +393,7 @@ class CPImageWindow(QMainWindow):
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.prevButton.clicked.connect(self.prevImage)
         self.nextButton.clicked.connect(self.nextImage)
+        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
 
         self.skipFirstPeakChkBx.stateChanged.connect(self.m1_update_plots)
         self.m1OriginalHistChkbx.stateChanged.connect(self.m1_update_plots)
@@ -872,6 +876,7 @@ class CPImageWindow(QMainWindow):
 
     def onImageChanged(self):
         fileName = self.imgList[self.currentFileNumber]
+        self.filenameLineEdit.setText(fileName)
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
         self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
@@ -961,6 +966,13 @@ class CPImageWindow(QMainWindow):
 
     def nextImage(self):
         self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
+        self.onImageChanged()
+
+    def fileNameChanged(self):
+        fileName = self.filenameLineEdit.text().strip()
+        if fileName not in self.imgList:
+            return
+        self.currentFileNumber = self.imgList.index(fileName)
         self.onImageChanged()
 
     def zoomFigure(self, figure, canvas, direction, x, y):
@@ -1304,7 +1316,7 @@ class CPImageWindow(QMainWindow):
         self.selectPeaks.setHidden(hide)
         self.average_ring_chkbx.setHidden(not hide)
         self.ring_hists_chkbx.setHidden(not hide)
-        self.g_model_chkbx.setHidden(not hide or self.orientationModel != "GMM")
+        self.g_model_chkbx.setHidden(not hide or not self.orientationModel.startswith('GMM'))
 
     def updateResultsTab(self):
         self.swapCheckBoxes()
@@ -1376,7 +1388,8 @@ class CPImageWindow(QMainWindow):
             self.result_graph_canvas.draw()
             # self.update_plot['image_result'] = False
 
-        elif self.orientationModel == "GMM":
+        elif self.orientationModel.startswith('GMM'):
+            model = self.orientationModel
             self.g_model_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
             self.ring_hists_chkbx.setEnabled('ring_hists' in self.cirProj.info.keys())
             self.average_ring_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
@@ -1396,19 +1409,21 @@ class CPImageWindow(QMainWindow):
                     ring_errors = self.cirProj.info['ring_errors']
                     for i in ring_models.keys():
                         if ring_errors[i] < 1.5:
-                            gauss = orientation_GMM2(x=x, **ring_models[i])
+                            gauss = (orientation_GMM2 if model == "GMM2" else orientation_GMM3)(x=x, **ring_models[i])
                             ax.plot(x, gauss, color='g')
                             u1 = ring_models[i]['u']
+                            u2 = u1 - np.pi if u1 >= np.pi else u1 + np.pi
                             ax.plot((u1, u1), (0, max(gauss)), color='y')
-                            ax.plot((u1+np.pi, u1+np.pi), (0, max(gauss)), color='y')
+                            ax.plot((u2, u2), (0, max(gauss)), color='y')
 
                 if 'average_ring_model' in self.cirProj.info.keys() and self.average_ring_chkbx.isChecked():
                     mod = self.cirProj.info['average_ring_model']
-                    gauss = orientation_GMM2(x=x, **mod)
+                    gauss = (orientation_GMM2 if model == "GMM2" else orientation_GMM3)(x=x, **mod)
                     u1 = mod['u']
+                    u2 = u1 - np.pi if u1 >= np.pi else u1 + np.pi
                     ax.plot(x, gauss, color='k')
                     ax.plot((u1, u1), (0, max(gauss)), color='r')
-                    ax.plot((u1 + np.pi, u1 + np.pi), (0, max(gauss)), color='r')
+                    ax.plot((u2, u2), (0, max(gauss)), color='r')
 
 
             self.result_graph_figure.tight_layout()
@@ -1429,14 +1444,12 @@ class CPImageWindow(QMainWindow):
                         ax.plot(x, ring_models[i]['HoFs'], color='g')
                         u1 = ring_models[i]['u']
                         ax.plot((u1, u1), (-0.5, 1), color='y')
-                        ax.plot((u1 + np.pi, u1 + np.pi), (-0.5, 1), color='y')
 
                 if 'average_ring_model' in self.cirProj.info.keys() and self.average_ring_chkbx.isChecked():
                     mod = self.cirProj.info['average_ring_model']
                     ax.plot(x, mod['HoFs'], color='k')
                     u1 = mod['u']
                     ax.plot((u1, u1), (-0.5, 1), color='r')
-                    ax.plot((u1 + np.pi, u1 + np.pi), (-0.5, 1), color='r')
 
             self.result_graph_figure.tight_layout()
             self.result_graph_canvas.draw()
@@ -1466,7 +1479,7 @@ class CPImageWindow(QMainWindow):
                 m = models[i]
                 rings_info += "Ring " + str(i + 1) + " : \n"
                 rings_info += "\tAngle : " + str(m['u']) + " rads. " + str(convertRadtoDegrees(m['u'])) + "degrees\n"
-                if self.orientationModel == "GMM":
+                if self.orientationModel.startswith('GMM'):
                     angle_range = (m['u'] - m['sigma'], m['u'] + m['sigma'])
                     rings_info += "\tRange: " + str(angle_range) + " rads"
                     rings_info += " or " + str((convertRadtoDegrees(angle_range[0]), convertRadtoDegrees(angle_range[1]))) + " degrees\n"
@@ -1479,7 +1492,7 @@ class CPImageWindow(QMainWindow):
                 model = self.cirProj.info['average_ring_model']
                 rings_info += " - Angle : " + str(model['u']) + " rads. " + str(
                     convertRadtoDegrees(model['u'])) + "degrees\n"
-                if self.orientationModel == "GMM":
+                if self.orientationModel.startswith('GMM'):
                     angle_range = (model['u'] - model['sigma'], model['u'] + model['sigma'])
                     rings_info += " - Standard deviation : " + str(model['sigma']) + "\n"
                     rings_info += " - Range: " + str(angle_range) + " rads"
