@@ -31,6 +31,7 @@ import os, shutil
 from .pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Normalize
 from os.path import split
 import traceback
 import webbrowser
@@ -66,6 +67,8 @@ class EquatorWindow(QMainWindow):
         self.function = None  # Current active function
         self.syncUI = False  # boolean status for UI sync. Prevent recursive infinite processing
         self.update_plot = {'img': True, 'graph' :True, 'results': True}  # update status of each tab
+        self.in_batch_process = False
+        self.stop_process = False
         self.fixedIntArea = None
         self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
         if len(self.imgList) == 0:
@@ -155,6 +158,7 @@ class EquatorWindow(QMainWindow):
         self.maxIntSpnBx.setObjectName('maxIntSpnBx')
         self.editableVars[self.maxIntSpnBx.objectName()] = None
         self.maxIntSpnBx.setKeyboardTracking(False)
+        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.minmaxLayout = QHBoxLayout()
         self.minmaxLayout.addWidget(self.minIntSpnBx)
         self.minmaxLayout.addWidget(self.maxIntSpnBx)
@@ -170,6 +174,7 @@ class EquatorWindow(QMainWindow):
         self.imgDispOptLayout.addWidget(self.imgPeakChkBx)
         self.imgDispOptLayout.addLayout(self.minmaxLabelLayout)
         self.imgDispOptLayout.addLayout(self.minmaxLayout)
+        self.imgDispOptLayout.addWidget(self.logScaleIntChkBx)
         self.imgDispOptLayout.addWidget(self.imgZoomInB)
         self.imgDispOptLayout.addWidget(self.imgZoomOutB)
         self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
@@ -244,13 +249,16 @@ class EquatorWindow(QMainWindow):
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
+        self.processFolderButton.setCheckable(True)
         self.bottomLayout = QGridLayout()
         self.prevButton = QPushButton("<<<")
         self.nextButton = QPushButton(">>>")
+        self.filenameLineEdit = QLineEdit()
         self.bottomLayout.addWidget(self.rejectChkBx, 0, 0, 1, 2)
         self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
         self.bottomLayout.addWidget(self.prevButton, 2, 0, 1, 1)
         self.bottomLayout.addWidget(self.nextButton, 2, 1, 1, 1)
+        self.bottomLayout.addWidget(self.filenameLineEdit, 3, 0, 1, 2)
         self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
         self.imageOptionsFrame = QFrame()
@@ -365,12 +373,15 @@ class EquatorWindow(QMainWindow):
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton2 = QPushButton("Process Current Folder")
         self.processFolderButton2.setStyleSheet(pfss)
+        self.processFolderButton2.setCheckable(True)
         self.bottomLayout2 = QGridLayout()
         self.prevButton2 = QPushButton("<<<")
         self.nextButton2 = QPushButton(">>>")
+        self.filenameLineEdit2 = QLineEdit()
         self.bottomLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
         self.bottomLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
 
         self.fittingOptionsFrame1 = QFrame()
         self.fittingOptionsFrame1.setFixedWidth(500)
@@ -540,6 +551,7 @@ class EquatorWindow(QMainWindow):
         self.imgPeakChkBx.stateChanged.connect(self.updateImage)
         self.minIntSpnBx.editingFinished.connect(self.intensityChanged)
         self.maxIntSpnBx.editingFinished.connect(self.intensityChanged)
+        self.logScaleIntChkBx.stateChanged.connect(self.updateImage)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
@@ -560,7 +572,9 @@ class EquatorWindow(QMainWindow):
 
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
-        self.processFolderButton.clicked.connect(self.processFolder)
+        #self.processFolderButton.clicked.connect(self.processFolder)
+        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
@@ -582,9 +596,11 @@ class EquatorWindow(QMainWindow):
         self.graphZoomInB.clicked.connect(self.graphZoomIn)
         self.graphZoomOutB.clicked.connect(self.graphZoomOut)
 
-        self.processFolderButton2.clicked.connect(self.processFolder)
+        #self.processFolderButton2.clicked.connect(self.processFolder)
+        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
         self.prevButton2.clicked.connect(self.prevClicked)
         self.nextButton2.clicked.connect(self.nextClicked)
+        self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
         self.fittingFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.fittingFigure.canvas.mpl_connect('motion_notify_event', self.plotOnMotion)
         self.fittingFigure.canvas.mpl_connect('button_release_event', self.plotReleased)
@@ -1016,6 +1032,18 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo("peaks")  # Remove peaks info before re-processing
             self.log_changes('nPeaks', self.nPeakSpnBx)
 
+    def batchProcBtnToggled(self):
+        if self.processFolderButton.isChecked():
+            if not self.in_batch_process:
+                self.processFolderButton.setText("Stop")
+                self.processFolder()
+        elif self.processFolderButton2.isChecked():
+            if not self.in_batch_process:
+                self.processFolderButton2.setText("Stop")
+                self.processFolder()
+        else:
+            self.stop_process = True
+
     def processFolder(self):
         """
         Process current folder
@@ -1084,12 +1112,21 @@ class EquatorWindow(QMainWindow):
             self.progressBar.setVisible(True)
 
             ## Process all images and update progress bar
+            self.in_batch_process = True
             for i in range(nImg):
+                if self.stop_process:
+                    break
                 self.progressBar.setValue(i)
                 QApplication.processEvents()
                 self.nextClicked()
+            self.in_batch_process = False
 
         self.progressBar.setVisible(False)
+        self.stop_process = False
+        self.processFolderButton.setChecked(False)
+        self.processFolderButton.setText("Process Current Folder")
+        self.processFolderButton2.setChecked(False)
+        self.processFolderButton2.setText("Process Current Folder")
 
     def setCalibrationImage(self, force=False):
         """
@@ -1185,6 +1222,17 @@ class EquatorWindow(QMainWindow):
         Going to the next image
         """
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
+        self.onImageChanged()
+
+    def fileNameChanged(self):
+        selected_tab = self.tabWidget.currentIndex()
+        if selected_tab == 0:
+            fileName = self.filenameLineEdit.text().strip()
+        elif selected_tab == 1:
+            fileName = self.filenameLineEdit2.text().strip()
+        if fileName not in self.imgList:
+            return
+        self.currentImg = self.imgList.index(fileName)
         self.onImageChanged()
 
     def keyPressEvent(self, event):
@@ -1706,7 +1754,10 @@ class EquatorWindow(QMainWindow):
         This will create a new EquatorImage object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        self.bioImg = EquatorImage(self.dir_path, self.imgList[self.currentImg])
+        fileName = self.imgList[self.currentImg]
+        self.filenameLineEdit.setText(fileName)
+        self.filenameLineEdit2.setText(fileName)
+        self.bioImg = EquatorImage(self.dir_path, fileName)
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
@@ -1945,14 +1996,18 @@ class EquatorWindow(QMainWindow):
         """
         info = copy.copy(self.bioImg.info)
         img = self.bioImg.getRotatedImage()
-        disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
+        #disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         hulls = info['hulls']['all']
         center = info['center']
         rmin = info['rmin']
         int_area = info['int_area']
         ax = self.displayImgAxes
         ax.cla()
-        ax.imshow(disp_img)  # Display selected image
+        #ax.imshow(disp_img)  # Display selected image
+        if self.logScaleIntChkBx.isChecked():
+            ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minIntSpnBx.value()), vmax=self.maxIntSpnBx.value()))
+        else:
+            ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minIntSpnBx.value(), vmax=self.maxIntSpnBx.value()))
 
         self.calibSettingDialog.centerX.setValue(center[0])
         self.calibSettingDialog.centerY.setValue(center[1])
@@ -1978,13 +2033,13 @@ class EquatorWindow(QMainWindow):
 
         if self.histChkBx.isChecked():
             # Draw background subtracted histogram
-            norm = float(disp_img.shape[0] - center[1]) * .8 / max(hulls)
-            hulls = np.array([disp_img.shape[0] - p * norm for p in hulls])
+            norm = float(img.shape[0] - center[1]) * .8 / max(hulls)
+            hulls = np.array([img.shape[0] - p * norm for p in hulls])
             ax.fill(hulls, facecolor='white')
 
             xs = np.linspace(0, len(hulls), len(hulls))
             if 'fit_results' in info.keys():
-                cardiac = (np.array(getCardiacGraph(xs, info['fit_results'])) * norm - disp_img.shape[0]) * -1
+                cardiac = (np.array(getCardiacGraph(xs, info['fit_results'])) * norm - img.shape[0]) * -1
                 ax.plot(cardiac, color='r')
 
         # Zoom

@@ -30,6 +30,7 @@ __author__ = 'Jiranun.J'
 import sys
 from tifffile import imsave
 import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Normalize
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
@@ -131,6 +132,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spmaxInt.setKeyboardTracking(False)
         self.spmaxInt.setSingleStep(5)
         self.spmaxInt.setDecimals(0)
+        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
 
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
@@ -150,6 +152,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
 
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
@@ -254,6 +257,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
+        self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
 
         self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 1)
@@ -262,6 +266,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 1, 1, 1)
         self.resultDispOptLayout.addWidget(self.resultZoomInB, 3, 0, 1, 1)
         self.resultDispOptLayout.addWidget(self.resultZoomOutB, 3, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 4, 0, 1, 2)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -573,6 +578,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.selectFolder.clicked.connect(self.browseFolder)
         self.spminInt.valueChanged.connect(self.refreshImageTab)
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
+        self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         self.processFolderButton.clicked.connect(self.processFolder)
         self.processFolderButton2.clicked.connect(self.processFolder)
@@ -582,6 +588,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.prevButton2.clicked.connect(self.prevClicked)
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
+        self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
 
         self.selectImageButton.clicked.connect(self.browseFile)
         self.imgZoomInB.clicked.connect(self.imageZoomIn)
@@ -1676,8 +1683,11 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
-            img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
-            ax.imshow(img)
+            #img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
+            if self.logScaleIntChkBx.isChecked():
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
+            else:
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
 
             if self.showSeparator.isChecked():
                 # Draw quadrant separator
@@ -1733,11 +1743,14 @@ class QuadrantFoldingGUI(QMainWindow):
             self.rmaxSpnBx.setValue(self.quadFold.info['rmax'])
 
             # convert image for displaying
-            img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
+            #img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
 
             ax = self.resultAxes
             ax.cla()
-            ax.imshow(img)
+            if self.resLogScaleIntChkBx.isChecked():
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spResultminInt.value()), vmax=self.spResultmaxInt.value()))
+            else:
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spResultminInt.value(), vmax=self.spResultmaxInt.value()))
 
             # if self.showSeparator.isChecked():
             #     ax.axvline(center[0]-1, color='y')
