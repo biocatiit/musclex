@@ -185,15 +185,18 @@ class QuadrantFoldingGUI(QMainWindow):
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
+        self.processFolderButton.setCheckable(True)
 
         self.nextButton = QPushButton()
         self.nextButton.setText(">>>")
         self.prevButton = QPushButton()
         self.prevButton.setText("<<<")
+        self.filenameLineEdit = QLineEdit()
         self.buttonsLayout = QGridLayout()
         self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
         self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
         self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
+        self.buttonsLayout.addWidget(self.filenameLineEdit,2,0,1,2)
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
@@ -519,14 +522,17 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.processFolderButton2 = QPushButton("Process Current Folder")
         self.processFolderButton2.setStyleSheet(pfss)
+        self.processFolderButton2.setCheckable(True)
         self.nextButton2 = QPushButton()
         self.nextButton2.setText(">>>")
         self.prevButton2 = QPushButton()
         self.prevButton2.setText("<<<")
+        self.filenameLineEdit2 = QLineEdit()
         self.buttonsLayout2 = QGridLayout()
         self.buttonsLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
         self.buttonsLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
         self.buttonsLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
+        self.buttonsLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
         self.rightLayout.addLayout(self.buttonsLayout2)
 
         #### Status bar #####
@@ -580,12 +586,16 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
-        self.processFolderButton.clicked.connect(self.processFolder)
-        self.processFolderButton2.clicked.connect(self.processFolder)
+        #self.processFolderButton.clicked.connect(self.processFolder)
+        #self.processFolderButton2.clicked.connect(self.processFolder)
+        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
         self.nextButton.clicked.connect(self.nextClicked)
         self.prevButton.clicked.connect(self.prevClicked)
+        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.nextButton2.clicked.connect(self.nextClicked)
         self.prevButton2.clicked.connect(self.prevClicked)
+        self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
@@ -1622,7 +1632,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.img_zoom = None
         self.result_zoom = None
         previnfo = None if self.quadFold is None else self.quadFold.info
-        self.quadFold = QuadrantFolder(self.filePath, self.imgList[self.currentFileNumber])
+        fileName = self.imgList[self.currentFileNumber]
+        self.filenameLineEdit.setText(fileName)
+        self.filenameLineEdit2.setText(fileName)
+        self.quadFold = QuadrantFolder(self.filePath, fileName)
         original_image = self.quadFold.orig_img
         self.imgDetailOnStatusBar.setText(
             str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
@@ -1942,6 +1955,18 @@ class QuadrantFoldingGUI(QMainWindow):
             self.onImageChanged()
             self.processFolder()
 
+    def batchProcBtnToggled(self):
+        if self.processFolderButton.isChecked():
+            if not self.progressBar.isVisible():
+                self.processFolderButton.setText("Stop")
+                self.processFolder()
+        elif self.processFolderButton2.isChecked():
+            if not self.progressBar.isVisible():
+                self.processFolderButton2.setText("Stop")
+                self.processFolder()
+        else:
+            self.stop_process = True
+
     def processFolder(self):
         fileList = os.listdir(self.filePath)
         self.imgList = []
@@ -1998,11 +2023,19 @@ class QuadrantFoldingGUI(QMainWindow):
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
+            self.stop_process = False
             for i in range(self.numberOfFiles):
+                if self.stop_process:
+                    break
                 self.progressBar.setValue(100. / self.numberOfFiles * i)
                 QApplication.processEvents()
                 self.nextClicked()
             self.progressBar.setVisible(False)
+
+        self.processFolderButton.setChecked(False)
+        self.processFolderButton.setText("Process Current Folder")
+        self.processFolderButton2.setChecked(False)
+        self.processFolderButton2.setText("Process Current Folder")
 
     def browseFile(self):
         """

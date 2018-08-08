@@ -31,7 +31,6 @@ class CPImageWindow(QMainWindow):
         self.ROI = None
         self.orientationModel = None
         self.in_batch_process = False
-        self.stop_process = False
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -793,6 +792,7 @@ class CPImageWindow(QMainWindow):
 
             ## Process all images and update progress bar
             self.in_batch_process = True
+            self.stop_process = False
             for i in range(nImg):
                 if self.stop_process:
                     break
@@ -805,7 +805,6 @@ class CPImageWindow(QMainWindow):
             self.folder_processed = False
 
         self.progressBar.setVisible(False)
-        self.stop_process = False
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Process Current Folder")
 

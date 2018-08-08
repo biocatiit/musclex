@@ -68,7 +68,6 @@ class EquatorWindow(QMainWindow):
         self.syncUI = False  # boolean status for UI sync. Prevent recursive infinite processing
         self.update_plot = {'img': True, 'graph' :True, 'results': True}  # update status of each tab
         self.in_batch_process = False
-        self.stop_process = False
         self.fixedIntArea = None
         self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
         if len(self.imgList) == 0:
@@ -1113,6 +1112,7 @@ class EquatorWindow(QMainWindow):
 
             ## Process all images and update progress bar
             self.in_batch_process = True
+            self.stop_process = False
             for i in range(nImg):
                 if self.stop_process:
                     break
@@ -1122,7 +1122,6 @@ class EquatorWindow(QMainWindow):
             self.in_batch_process = False
 
         self.progressBar.setVisible(False)
-        self.stop_process = False
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Process Current Folder")
         self.processFolderButton2.setChecked(False)
