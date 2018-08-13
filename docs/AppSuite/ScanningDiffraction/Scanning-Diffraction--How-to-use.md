@@ -10,7 +10,9 @@ After an image is selected, the program will process it, and display all informa
 ### Image 
 ![-](../../images/CP/image_tab.png)
 
-There are several options on the right bar. In Settings section, you can do [Calibration Settings](../Calibration-Settings.html) and ring selections. To do the ring selection, you have to click the button, pick rings on the image, and click Done.
+There are several options on the right bar. In Settings section, you can do [Calibration Settings](../Calibration-Settings.html) and ring selections. Several methods of finding orientation based on **GMM** or **Herman Orientation Factor (HoF)** are provided. **Region of Interest (ROI)** is shown as a semitransparent red ring. It is used as the integration area for **HoF** method and only rings in it are considered when performing **GMM** fitting.
+
+To do the ring selection, you have to click the button, pick rings on the image, and click Done. Setting ROI, R-min and R-max can be done in the same way.
 
 ![-](../../images/CP/select_rings1.png)
 
@@ -65,14 +67,14 @@ The box on the right will display fitting results of ring orientation in angular
 
 
 ## Folder Mode
-After a folder is selected, and all images in the folder are processed, the program will read summary.csv and rings.csv to produce 4 maps. There are 4 tabs in this mode, so you can see any maps by choosing the tab. The maps will be displayed on the right. To see the image of a particular pixel, you can just simply click on that pixel in the maps. If the image exists, it will be shown on the left. You can change min or max intensity of the image by spin boxes under the image. To see more detail about the image, you can click "More Details" button at the bottom right corner. Then, there is a new window with individual image mode pops up, and you will see all the detail about the image.
+After a folder is selected, and all images in the folder are processed, the program will read summary.csv and rings.csv to produce several maps. You can choose diffrent map display in *Representation* dropdown menu. The maps will be displayed on the right. To see the image of a particular pixel, you can just simply click on that pixel in the maps. If the image exists, it will be shown on the left. You can change min or max intensity of the image by spin boxes under the image. To see more detail about the image, you can click "More Details" button at the bottom right corner. Then, there is a new window with individual image mode pops up, and you will see all the detail about the image.
 
-### Total Intensity Maps 
+### Total Intensity Map
 ![-](../../images/CP/batch_int.png)
 
 You can change min or max intensity for the maps by spin boxes under the maps.
 
-### Angular Range Maps
+### Ring Intensity Map
 ![-](../../images/CP/batch_ang.png)
 
 You can change min or max intensity for the maps by spin boxes under the maps.
@@ -84,6 +86,20 @@ You can change the length of vector by dragging the slide bar under the maps.
 
 ### Elliptical Representation
 ![-](../../images/CP/batch_ellipse.png)
+
+### Displaying Beam Shape
+- None
+  - Adjacent images are shown conterminal on the map.
+- RBF Interpolation
+
+  ![-](../../images/CP/batch_rbf.png)
+
+- Alpha Blending
+  - Beam width and height can be adjusted using the spinboxex.
+  - Beam size can be either larger or less than step size.
+
+  ![-](../../images/CP/batch_beam.png)
+
 
 If you think there might be some mistakes about fitting results at a pixel, you can fix it by ..
 1. Click on that pixel
