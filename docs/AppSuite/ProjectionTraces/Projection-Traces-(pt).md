@@ -13,5 +13,5 @@ An important capability is to process whole directories of images without user i
 ![-](../../images/PT/boxes_peaks.png)
 
 ### More Details
-* [How it works](Projection-Traces--How-it-works)
-* [How to use](Projection-Traces--How-to-use)
+* [How it works](Projection-Traces--How-it-works.html)
+* [How to use](Projection-Traces--How-to-use.html)
