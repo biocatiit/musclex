@@ -12,6 +12,8 @@ The program will first calculate the initial angle by fitting an ellipse to the 
 
 ![-](../images/img_proc/azimuthal.png)
 
+See [Orientation Finding](Orientation-Finding.html) for more details.
+
 ## Calculate R-min
 R-min is the minimum radius from the center to be analyzed in a given diffraction pattern. The program will create a radial histogram. The x-axis is radius, and the y-axis is the intensity. R-min is determined as the 50% of its maximum value. However, this radius should not be more than 150% of the maximum point location to prevent over removal. For example, if the maximum point is at 35, R-min should be between 36 - 59. If the program cannot find the 50% of the maximum value in this range, R-min will be 59.
 ![-](../images/img_proc/rmin.png)

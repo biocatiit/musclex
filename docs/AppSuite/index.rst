@@ -13,3 +13,4 @@ Application Suite
    DDFProcessor/index
    Calibration-Settings
    Image-Processing-Functions
+   Orientation-Finding
