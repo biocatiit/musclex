@@ -69,6 +69,7 @@ class EquatorWindow(QMainWindow):
         self.update_plot = {'img': True, 'graph' :True, 'results': True}  # update status of each tab
         self.in_batch_process = False
         self.fixedIntArea = None
+        self.orientationModel = None
         self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
         if len(self.imgList) == 0:
             self.inputerror()
@@ -223,6 +224,11 @@ class EquatorWindow(QMainWindow):
         self.editableVars[self.maskThresSpnBx.objectName()] = None
         self.maskThresSpnBx.setRange(-10,10)
         self.maskThresSpnBx.setKeyboardTracking(False)
+        self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.addItem("Max Intensity")
+        self.orientationCmbBx.addItem("GMM")
+        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
+        self.orientationCmbBx.addItem("Herman Factor (Pi)")
 
         self.resetAllB = QPushButton("Reset All")
         self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 4)
@@ -239,8 +245,10 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 7, 0, 1, 4)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 8, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 9, 0, 1, 4)
 
-        self.imgProcLayout.addWidget(self.resetAllB, 8, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.resetAllB, 10, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
@@ -567,6 +575,7 @@ class EquatorWindow(QMainWindow):
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
         self.applyBlank.stateChanged.connect(self.applyBlankChecked)
         self.blankSettings.clicked.connect(self.blankSettingClicked)
+        self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.resetAllB.clicked.connect(self.resetAll)
 
         self.prevButton.clicked.connect(self.prevClicked)
@@ -1062,6 +1071,7 @@ class EquatorWindow(QMainWindow):
         if 'fixed_int_area' in settings:
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
+        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
         text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
         text += "\n  - Model : " + str(settings["model"])
@@ -1226,9 +1236,9 @@ class EquatorWindow(QMainWindow):
     def fileNameChanged(self):
         selected_tab = self.tabWidget.currentIndex()
         if selected_tab == 0:
-            fileName = self.filenameLineEdit.text().strip()
+            fileName = str(self.filenameLineEdit.text()).strip()
         elif selected_tab == 1:
-            fileName = self.filenameLineEdit2.text().strip()
+            fileName = str(self.filenameLineEdit2.text()).strip()
         if fileName not in self.imgList:
             return
         self.currentImg = self.imgList.index(fileName)
@@ -1396,6 +1406,11 @@ class EquatorWindow(QMainWindow):
             self.log_changes('fixedRmin', obj=self.fixedRmin)
             self.bioImg.info['fixed_rmin'] = self.fixedRmin.value()
             self.processImage()
+
+    def orientationModelChanged(self):
+        self.orientationModel = self.orientationCmbBx.currentIndex()
+        self.bioImg.removeInfo('rotationAngle')
+        self.processImage()
 
     def imgClicked(self, event):
         """
@@ -1762,15 +1777,15 @@ class EquatorWindow(QMainWindow):
         settings = self.getSettings()
         if self.calSettings is not None:
             self.bioImg.removeInfo()
-        self.bioImg.info.update(settings)
+        settings.update(self.bioImg.info)
 
-        self.initWidgets(self.bioImg.info)
+        self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
 
         # Process new image
-        self.processImage(settings)
+        self.processImage()
 
     def processImage(self, settings=None):
         """
@@ -1798,6 +1813,7 @@ class EquatorWindow(QMainWindow):
             errMsg.exec_()
             raise
 
+        self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager2.writeNewData(self.bioImg)
         self.resetUI()
@@ -1811,6 +1827,11 @@ class EquatorWindow(QMainWindow):
         """
         self.left_status.setText(s)
         QApplication.processEvents()
+
+    def updateParams(self):
+        info = self.bioImg.info
+        if 'orientation_model' in info:
+            self.orientationModel = info['orientation_model']
 
     def refreshStatusbar(self):
         """
@@ -1837,6 +1858,7 @@ class EquatorWindow(QMainWindow):
         settings.update(self.left_fitting_tab.getFittingSettings())
         settings.update(self.right_fitting_tab.getFittingSettings())
 
+        settings['orientation_model'] = self.orientationModel
         settings['nPeaks'] = self.nPeakSpnBx.value()
         settings['model'] = str(self.modelSelect.currentText())
         settings['isSkeletal'] = self.skeletalChkBx.isChecked()
@@ -2007,6 +2029,9 @@ class EquatorWindow(QMainWindow):
             ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minIntSpnBx.value()), vmax=self.maxIntSpnBx.value()))
         else:
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minIntSpnBx.value(), vmax=self.maxIntSpnBx.value()))
+        ax.set_facecolor('black')
+
+        self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
 
         self.calibSettingDialog.centerX.setValue(center[0])
         self.calibSettingDialog.centerY.setValue(center[1])

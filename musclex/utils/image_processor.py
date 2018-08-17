@@ -260,7 +260,112 @@ def getCenter(img):
     # If there's no method working return center of the image
     return (img.shape[1] / 2, img.shape[0] / 2)
 
-def getRotationAngle(img, center):
+def get_ring_model(hist):
+    """
+    Fit gaussian model to histogram
+    :param hist:
+    :return:
+    """
+    # Smooth histogram to find parameters easier
+    from .histogram_processor import smooth
+    hist[1] = smooth(hist[1], 20)
+
+    n_hist = len(hist[1])
+    index = np.argmax(hist[1])
+    u = hist[0][index]
+    if u < np.pi / 2:
+        u += np.pi
+    elif u > 3 * np.pi / 2:
+        u -= np.pi
+
+    # Fit model using same gaussian
+    x = hist[0]
+
+    # Call orientation_GMM3
+    from lmfit.models import GaussianModel
+    from lmfit import Model
+    def orientation_GMM3(x, u, sigma, alpha, bg):
+        mod = GaussianModel()
+        return mod.eval(x=x, amplitude=alpha, center=u, sigma=sigma) + \
+            mod.eval(x=x, amplitude=alpha, center=u-np.pi, sigma=sigma) + \
+            mod.eval(x=x, amplitude=alpha, center=u+np.pi, sigma=sigma) + bg
+    model = Model(orientation_GMM3, independent_vars='x')
+    max_height = np.max(hist[1])
+
+    model.set_param_hint('u', value=u, min=np.pi/2, max=3*np.pi/2)
+    model.set_param_hint('sigma', value=0.1, min=0, max=np.pi*2)
+    model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
+    model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
+
+    result = model.fit(data=hist[1], x=x, params=model.make_params())
+    errs = abs(result.best_fit - result.data)
+    weights = errs / errs.mean() + 1
+    weights[weights > 3.] = 0
+    result = model.fit(data=hist[1], x=x, params=result.params, weights=weights)
+
+    '''import matplotlib.pyplot as plt
+    plt.plot(x, Model(orientation_GMM3, independent_vars='x').eval(x=x, params=result.params))
+    plt.show()'''
+
+    return result.values
+
+def HoF(hist, mode='f'):
+    """
+    Calculate Herman Orientation Factors
+    """
+    Ints = []
+    n_pi = len(hist) // 2  # number of hist unit in pi range
+    n_hpi = n_pi // 2      # number of hist unit in half pi range
+    for i in range(n_pi):
+        I = hist[i:(i+n_pi)].copy()
+        I[:i] += np.flipud(hist[:i])
+        I[i:] += np.flipud(hist[(i+n_pi):])
+        Ints.append(I)
+    rads = np.linspace(0, np.pi, n_pi + 1)[:-1]
+    denom = np.sin(rads)
+    numer = (np.cos(rads)**2) * denom
+
+    HoFs = np.zeros(hist.shape)
+    for i in range(len(hist)):
+        I = Ints[i] if i < n_pi else np.flipud(Ints[i - n_pi])
+        if mode == 'f':
+            HoFs[i] = ((I * numer).sum() / (I * denom).sum()) if i < n_pi else HoFs[i - n_pi]
+        else:
+            HoFs[i] = (I[:n_hpi] * numer[:n_hpi]).sum() / (I[:n_hpi] * denom[:n_hpi]).sum()
+    return (3 * HoFs - 1) / 2
+
+def getRadOfMaxHoF(HoFs, mode, ratio=0.05):
+    """
+    Get the radian of the maximum Herman Orientation Factor
+    :param HoFs:
+    :param mode:
+    """
+    nHoFs = len(HoFs)
+    num = int(nHoFs * ratio)
+    if mode == 'f':
+        HoFs = HoFs[:(nHoFs // 2)]
+        num //= 2
+    # get the indices of the top num largest HoFs
+    idxs = sorted(np.arange(len(HoFs)), key=lambda i: HoFs[i])[-num:]
+    idxs = sorted(idxs)
+    # group the indices
+    grps = [[idxs[0]]]
+    for idx in idxs[1:]:
+        if grps[-1][-1] == idx - 1:
+            grps[-1].append(idx)
+        else:
+            grps.append([idx])
+    # handle the round case
+    if len(grps) > 1 and grps[0][0] == 0 and grps[-1][-1] == len(HoFs) - 1:
+        grps[0] += [idx - len(HoFs) for idx in grps[-1]]
+    # find the groups of max number of indices
+    maxn = max(len(grp) for grp in grps)
+    grps = [grp for grp in grps if len(grp) == maxn]
+    opt_grp = sorted(grps, key=lambda g:HoFs[g].sum())[-1]
+    opt_idx = np.mean(opt_grp) % len(HoFs)
+    return 2 * np.pi * opt_idx / nHoFs
+
+def getRotationAngle(img, center, method=0):
     """
     Find rotation angle of the diffraction.
     :param img: input image
@@ -305,8 +410,16 @@ def getRotationAngle(img, center):
     # fig.show()
 
     # Find degree which has maximum intensity
-    max_degree = max(np.arange(180), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]) + np.sum(
-        hist[d + 180 - sum_range:d + 181 + sum_range]))  # Find the best degree by its intensity
+    if method == 1: # gmm
+        x = np.arange(0, 2 * np.pi, 2 * np.pi / 360)
+        model_pars = get_ring_model([x, hist])
+        max_degree = int(model_pars['u'] / np.pi * 180) % 180
+    elif 2 <= method <= 3: # 'hof_f' or 'hof_h'
+        HoFs = HoF(hist, 'f' if method == 2 else 'h')
+        max_degree = int(getRadOfMaxHoF(HoFs, 'f' if method == 2 else 'h') / np.pi * 180) % 180
+    else:  # Find the best degree by its intensity
+        max_degree = max(np.arange(180), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]) + np.sum(
+            hist[d + 180 - sum_range:d + 181 + sum_range]))
 
     # # If the degree and initial angle from ellipse are different, return ellipse angle instead
     # if init_angle is not None and abs(max_degree-init_angle) > 20.:

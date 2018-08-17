@@ -173,6 +173,7 @@ class CPImageWindow(QMainWindow):
         self.orientationCmbBx.addItem("GMM3")
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
+        self.orientationCmbBx.setCurrentIndex(2)
 
         self.settingGrp = QGroupBox("Settings")
         self.settingLayout = QVBoxLayout(self.settingGrp)

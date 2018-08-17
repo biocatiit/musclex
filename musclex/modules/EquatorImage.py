@@ -75,7 +75,7 @@ class EquatorImage:
         sigmac - (float)
         isSkeletal - is it skeletal muscle (boolean)
         """
-        self.info.update(settings)
+        self.updateInfo(settings)
         self.applyBlankAndMask()
         self.findCenter()
         self.getRotationAngle()
@@ -103,6 +103,14 @@ class EquatorImage:
         else:
             if k in self.info.keys(): # remove from dictionary if the key exists
                 del self.info[k]
+
+    def updateInfo(self, settings):
+        if settings['orientation_model'] is None:
+            if 'orientation_model' not in self.info or self.info['orientation_model'] is None:
+                settings['orientation_model'] = 1
+            else:
+                del settings['orientation_model']
+        self.info.update(settings)
 
     def applyBlankAndMask(self):
         """
@@ -141,7 +149,7 @@ class EquatorImage:
             else:
                 center = self.info['center']
                 img = copy.copy(self.image)
-                self.info['rotationAngle'] = getRotationAngle(img, center)
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
