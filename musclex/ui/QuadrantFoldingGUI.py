@@ -67,6 +67,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.calSettings = None
         self.ignoreFolds = set()
         self.csv_bg = None
+        self.orientationModel = None
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
         self.setMinimumHeight(800)
@@ -176,11 +177,19 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
+        self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.addItem("Max Intensity")
+        self.orientationCmbBx.addItem("GMM")
+        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
+        self.orientationCmbBx.addItem("Herman Factor (Pi)")
+
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
         self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 3, 0, 1, 1)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 1, 1, 1)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 3, 1, 1, 1)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -586,6 +595,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
+        self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         #self.processFolderButton.clicked.connect(self.processFolder)
         #self.processFolderButton2.clicked.connect(self.processFolder)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
@@ -1491,6 +1501,13 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.uiUpdating = False
             self.refreshImageTab()
 
+    def orientationModelChanged(self):
+        self.orientationModel = self.orientationCmbBx.currentIndex()
+        if self.quadFold is None:
+            return
+        self.deleteInfo(['rotationAngle'])
+        self.processImage()
+
     def ableToProcess(self):
         # Check if image can be processed
         return (self.quadFold is not None and not self.uiUpdating)
@@ -1701,6 +1718,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
             else:
                 ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
+            ax.set_facecolor('black')
+
+            self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
 
             if self.showSeparator.isChecked():
                 # Draw quadrant separator
@@ -1764,6 +1784,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spResultminInt.value()), vmax=self.spResultmaxInt.value()))
             else:
                 ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spResultminInt.value(), vmax=self.spResultmaxInt.value()))
+            ax.set_facecolor('black')
 
             # if self.showSeparator.isChecked():
             #     ax.axvline(center[0]-1, color='y')
@@ -1811,6 +1832,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 errMsg.exec_()
                 raise
 
+            self.updateParams()
             self.refreshAllTabs()
 
             # Save result to folder qf_results
@@ -1871,6 +1893,11 @@ class QuadrantFoldingGUI(QMainWindow):
         self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
         self.csv_bg.to_csv(csv_path)
 
+    def updateParams(self):
+        info = self.quadFold.info
+        if 'orientation_model' in info:
+            self.orientationModel = info['orientation_model']
+
     def resetStatusbar(self):
         fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
         self.imgPathOnStatusBar.setText(
@@ -1886,6 +1913,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.calSettings is not None and 'center' in self.calSettings:
             flags['center'] = self.calSettings['center']
 
+        flags['orientation_model'] = self.orientationModel
         flags["ignore_folds"] = self.ignoreFolds
         flags['bgsub'] = self.bgChoice.currentText()
         flags["cirmin"] = self.minPixRange.value()
@@ -1987,6 +2015,7 @@ class QuadrantFoldingGUI(QMainWindow):
             text += "\n  - Center : " + str(flags["center"])
         if len(self.ignoreFolds) > 0:
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
+        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
         text += "\n  - Background Subtraction Method : "+ str(self.bgChoice.currentText())
 
@@ -2061,6 +2090,17 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.numberOfFiles > 0:
             self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
             self.onImageChanged()
+
+    def fileNameChanged(self):
+        selected_tab = self.tabWidget.currentIndex()
+        if selected_tab == 0:
+            fileName = self.filenameLineEdit.text().strip()
+        elif selected_tab == 1:
+            fileName = self.filenameLineEdit2.text().strip()
+        if fileName not in self.imgList:
+            return
+        self.currentFileNumber = self.imgList.index(fileName)
+        self.onImageChanged()
 
 
 if __name__ == "__main__":

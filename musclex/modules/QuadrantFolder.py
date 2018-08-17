@@ -119,7 +119,7 @@ class QuadrantFolder(object):
         other backgound subtraction params - cirmin, cirmax, nbins, tophat1, tophat2
         """
         print(str(self.img_name) + " is being processed...")
-        self.info.update(flags)
+        self.updateInfo(flags)
         self.initParams()
         self.findCenter()
         self.rotateImg()
@@ -131,6 +131,14 @@ class QuadrantFolder(object):
 
         if "no_cache" not in flags:
             self.cacheInfo()
+
+    def updateInfo(self, flags):
+        if flags['orientation_model'] is None:
+            if 'orientation_model' not in self.info:
+                flags['orientation_model'] = 1
+            else:
+                del flags['orientation_model']
+        self.info.update(flags)
 
     def initParams(self):
         """
@@ -168,7 +176,7 @@ class QuadrantFolder(object):
             print("Rotation Angle is being calculated ... ")
             center = self.info['center']
             img = copy.copy(self.orig_img)
-            self.info['rotationAngle'] = getRotationAngle(img, center)
+            self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.deleteFromDict(self.info, 'avg_fold')
             print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
 
