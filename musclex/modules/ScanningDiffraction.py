@@ -385,8 +385,10 @@ class ScanningDiffraction:
         if 'ring_hists' not in self.info.keys():
             self.log("=== Rings information is being processed ...")
             if 'orientation_model' not in self.info:
-                self.info['orientation_model'] = "GMM2"
-            if self.info['orientation_model'] == "GMM2":
+                self.info['orientation_model'] = "GMM3"
+            if self.info['orientation_model'] == "Max Intensity":
+                self.maxIntensityOrientation()
+            elif self.info['orientation_model'] == "GMM2":
                 self.processOrientation2()
             elif self.info['orientation_model'] == "GMM3":
                 self.processOrientation2(model='GMM3')
@@ -1311,6 +1313,29 @@ class ScanningDiffraction:
         roi_result['HoFs'] = roiHoFs
         self.info['average_ring_model'] = roi_result
         self.log("Herman orientation reuslt : "+ str(roi_result['u']))
+
+    def maxIntensityOrientation(self):
+        ROI = self.info['ROI']
+        roi_hist = np.sum(self.info['2dintegration'][0][:, ROI[0]:ROI[1]], axis=1)
+        ring_hists, revised_hists, idx_dict = self.getRingHistograms()
+
+        model_dict, errors_dict = {}, {}
+        for i, hist in zip(idx_dict, revised_hists):
+
+            # Calculate herman factors
+            u = max(np.arange(180), key=lambda d: np.sum(hist[d:d + 1]) + np.sum(hist[d + 180:d + 181])) * np.pi / 180
+            model_dict[i] = {'u': u, 'sigma': 0, 'alpha': 0, 'bg': 0}
+            errors_dict[i] = 0
+
+        self.info['ring_hists'] = ring_hists
+        self.info['ring_models'] = model_dict
+        self.info['ring_errors'] = errors_dict
+
+        roi_result = {'sigma': 0, 'alpha': 0, 'bg': 0, 'hist': roi_hist}
+        roi_result['u'] = max(np.arange(180), key=lambda d: np.sum(roi_hist[d:d + 1]) + \
+            np.sum(roi_hist[d + 180:d + 181])) * np.pi / 180
+        self.info['average_ring_model'] = roi_result
+        self.log("Max intensity orientation : "+ str(roi_result['u']))
 
 ############################# Batch mode Results #########################################
 

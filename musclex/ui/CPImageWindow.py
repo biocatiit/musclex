@@ -168,6 +168,7 @@ class CPImageWindow(QMainWindow):
         self.selectRings.setCheckable(True)
         self.checkable_buttons.append(self.selectRings)
         self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.addItem("Max Intensity")
         self.orientationCmbBx.addItem("GMM2")
         self.orientationCmbBx.addItem("GMM3")
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
@@ -515,7 +516,7 @@ class CPImageWindow(QMainWindow):
             self.processImage()
 
     def orientationModelChanged(self):
-        self.orientationModel = self.orientationCmbBx.currentText()
+        self.orientationModel = str(self.orientationCmbBx.currentText())
         self.processImage()
 
     def result_graph_clicked(self, event):
@@ -929,8 +930,9 @@ class CPImageWindow(QMainWindow):
             self.ROI = info['ROI']
         if self.orientationModel is None:
             if 'orientation_model' in info:
-                self.orientationCmbBx.setCurrentText(info['orientation_model'])
-            self.orientationModel = self.orientationCmbBx.currentText()
+                self.orientationCmbBx.setCurrentIndex(
+                    self.orientationCmbBx.findText(info['orientation_model']))
+            self.orientationModel = str(self.orientationCmbBx.currentText())
 
     def updateStatusBar(self, text):
         QApplication.processEvents()
@@ -968,7 +970,7 @@ class CPImageWindow(QMainWindow):
         self.onImageChanged()
 
     def fileNameChanged(self):
-        fileName = self.filenameLineEdit.text().strip()
+        fileName = str(self.filenameLineEdit.text()).strip()
         if fileName not in self.imgList:
             return
         self.currentFileNumber = self.imgList.index(fileName)
@@ -1073,6 +1075,7 @@ class CPImageWindow(QMainWindow):
             ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minInt.value()), vmax=self.maxInt.value()))
         else:
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
+        ax.set_facecolor('black')
 
         center = (int(np.round(self.cirProj.info['center'][0])), int(np.round(self.cirProj.info['center'][1])))
 
@@ -1383,8 +1386,6 @@ class CPImageWindow(QMainWindow):
             ax.set_xlabel('Radial distance')
             ax.set_ylabel('Intensity')
             # ax.legend(lines, labels)
-            self.result_graph_figure.tight_layout()
-            self.result_graph_canvas.draw()
             # self.update_plot['image_result'] = False
 
         elif self.orientationModel.startswith('GMM'):
@@ -1395,6 +1396,8 @@ class CPImageWindow(QMainWindow):
 
             ax = self.result_graph_axes
             ax.cla()
+            ax.set_xlabel("Radian")
+            ax.set_ylabel("Intensity")
 
             if 'ring_hists' in self.cirProj.info.keys():
                 ring_hists = self.cirProj.info['ring_hists']
@@ -1424,16 +1427,14 @@ class CPImageWindow(QMainWindow):
                     ax.plot((u1, u1), (0, max(gauss)), color='r')
                     ax.plot((u2, u2), (0, max(gauss)), color='r')
 
-
-            self.result_graph_figure.tight_layout()
-            self.result_graph_canvas.draw()
-
-        else:
+        elif self.orientationModel.startswith('Herman'):
             self.ring_hists_chkbx.setEnabled('ring_hists' in self.cirProj.info.keys())
             self.average_ring_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
 
             ax = self.result_graph_axes
             ax.cla()
+            ax.set_xlabel("Radian")
+            ax.set_ylabel("Herman Orientation Factor")
 
             if 'ring_hists' in self.cirProj.info.keys():
                 x = np.arange(0, 2 * np.pi, np.pi / 180)
@@ -1450,8 +1451,36 @@ class CPImageWindow(QMainWindow):
                     u1 = mod['u']
                     ax.plot((u1, u1), (-0.5, 1), color='r')
 
-            self.result_graph_figure.tight_layout()
-            self.result_graph_canvas.draw()
+        else: # Max Intensity
+            self.ring_hists_chkbx.setEnabled('ring_hists' in self.cirProj.info.keys())
+            self.average_ring_chkbx.setEnabled('average_ring_model' in self.cirProj.info.keys())
+
+            ax = self.result_graph_axes
+            ax.cla()
+            ax.set_xlabel("Radian")
+            ax.set_ylabel("Intensity")
+
+            if 'ring_hists' in self.cirProj.info.keys():
+                ring_hists = self.cirProj.info['ring_hists']
+                x = np.arange(0, 2 * np.pi, np.pi / 180)
+                if 'ring_models' in self.cirProj.info.keys() and self.ring_hists_chkbx.isChecked():
+                    ring_models = self.cirProj.info['ring_models']
+                    print(ring_models, len(ring_hists))
+                    for i, idx in enumerate(ring_models):
+                        ax.plot(x, ring_hists[i], color = tuple(np.array(self.ring_colors[i%len(self.ring_colors)])/255.))
+                        u1 = ring_models[idx]['u']
+                        ax.plot((u1, u1), (0, max(ring_hists[i])), color='y')
+                        ax.plot((u1 + np.pi, u1 + np.pi), (0, max(ring_hists[i])), color='y')
+
+                if 'average_ring_model' in self.cirProj.info.keys() and self.average_ring_chkbx.isChecked():
+                    mod = self.cirProj.info['average_ring_model']
+                    ax.plot(x, mod['hist'], color='k')
+                    u1 = mod['u']
+                    ax.plot((u1, u1), (0, max(mod['hist'])), color='r')
+                    ax.plot((u1 + np.pi, u1 + np.pi), (0, max(mod['hist'])), color='r')
+
+        self.result_graph_figure.tight_layout()
+        self.result_graph_canvas.draw()
 
         processing_results_text = "Total Intensity : "+ str(self.cirProj.info['area'])
         processing_results_text += "\n\nFitting Results :"
