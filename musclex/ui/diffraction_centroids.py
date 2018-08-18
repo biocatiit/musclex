@@ -31,6 +31,7 @@ __author__ = 'Jiranun.J'
 from .pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Normalize
 import sys
 import shutil
 import pickle
@@ -921,6 +922,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.firstImg = True # boolean if the window has processed an image before
         self.rotatedImg = None # rotated avarage image of DiffractionCentroids
         self.off_mer = None # off-meridian settings
+        self.orientationModel = None
 
         if 'fix_ranges' in settings:
             self.fixRanges = settings['fix_ranges']
@@ -981,9 +983,14 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.left_status = QLabel("Path : "+self.dir_path)
         self.right_status = QLabel()
         self.pixel_detail = QLabel()
+        self.progressBar = QProgressBar()
+        self.progressBar.setFixedWidth(300)
+        self.progressBar.setTextVisible(True)
+        self.progressBar.setVisible(False)
         self.statusBar.addWidget(self.left_status)
         self.statusBar.addPermanentWidget(self.pixel_detail)
         self.statusBar.addPermanentWidget(self.right_status)
+        self.statusBar.addPermanentWidget(self.progressBar)
         self.mainLayout.addWidget(self.statusBar)
 
         self.show()
@@ -1043,10 +1050,12 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.minInt.setValue(0.)
         self.minInt.setKeyboardTracking(False)
         self.minIntLabel = QLabel("Min intensity")
+        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.intensityLayout.addWidget(self.minIntLabel, 0, 0)
         self.intensityLayout.addWidget(self.minInt, 0, 1)
         self.intensityLayout.addWidget(self.maxIntLabel, 1, 0)
         self.intensityLayout.addWidget(self.maxInt, 1, 1)
+        self.intensityLayout.addWidget(self.logScaleIntChkBx, 2, 0, 1, 2)
 
         self.zoomLayout = QHBoxLayout()
         self.zoomInB = QPushButton("Zoom in\nImage")
@@ -1085,17 +1094,26 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.setX3X4 = QPushButton('Set Right\nOff-Meridian Area')
         self.setX3X4.setCheckable(True)
         self.setX3X4.setEnabled(self.off_mer is not None)
+        self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.addItem("Max Intensity")
+        self.orientationCmbBx.addItem("GMM")
+        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
+        self.orientationCmbBx.addItem("Herman Factor (Pi)")
         self.calSettingsGrp.setLayout(self.calSetttingsLayout)
         self.calSetttingsLayout.addWidget(self.setCenterAngleB, 0, 0, 1, 2)
         self.calSetttingsLayout.addWidget(self.setAngleB, 1, 0, 1, 2)
         self.calSetttingsLayout.addWidget(self.selectIntArea, 2, 0, 1, 2)
         self.calSetttingsLayout.addWidget(self.setX1X2, 3, 0, 1, 1)
         self.calSetttingsLayout.addWidget(self.setX3X4, 3, 1, 1, 1)
+        self.calSetttingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
+        self.calSetttingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
 
         self.checkableButtons = [self.zoomInB, self.zoomOutB, self.setCenterAngleB, self.setAngleB, self.selectIntArea, self.setX3X4, self.setX1X2]
 
         ### Process Folder Button
-        self.processFolder = QPushButton("Process Current Folder")
+        self.processFolderButton = QPushButton("Process Current Folder")
+        self.processFolderButton.setStyleSheet("QPushButton { color: #ededed; background-color: #af6207}")
+        self.processFolderButton.setCheckable(True)
         ### Previous & Next buttons
         self.pnButtons = QGridLayout()
         self.prevButton = QPushButton('<')
@@ -1103,7 +1121,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.prevButton.setEnabled(pnEnable)
         self.nextButton = QPushButton('>')
         self.nextButton.setEnabled(pnEnable)
-        self.pnButtons.addWidget(self.processFolder, 0, 0, 1, 2)
+        self.pnButtons.addWidget(self.processFolderButton, 0, 0, 1, 2)
         self.pnButtons.addWidget(self.prevButton, 1, 0, 1, 1)
         self.pnButtons.addWidget(self.nextButton, 1, 1, 1, 1)
 
@@ -1139,9 +1157,12 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.graphChkBx.stateChanged.connect(self.hidePlots)
         self.maxInt.valueChanged.connect(self.imageSettingChanged)
         self.minInt.valueChanged.connect(self.imageSettingChanged)
+        self.logScaleIntChkBx.stateChanged.connect(self.imageSettingChanged)
+        self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
-        self.processFolder.clicked.connect(self.processCurrentFolder)
+        #self.processFolderButton.clicked.connect(self.processCurrentFolder)
+        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.selectIntArea.clicked.connect(self.selectIntAreaClicked)
         self.setCenterAngleB.clicked.connect(self.setCenterAngleClicked)
         self.setAngleB.clicked.connect(self.setAngleClicked)
@@ -1639,10 +1660,31 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.currentGroup = (self.currentGroup + 1) % len(self.groupList)
             self.onImageChanged()
 
+    def batchProcBtnToggled(self):
+        if self.processFolderButton.isChecked():
+            if not self.progressBar.isVisible():
+                self.processFolderButton.setText("Stop")
+                self.processCurrentFolder()
+        else:
+            self.stop_process = True
+
     def processCurrentFolder(self):
         # Process current folder
-        for _ in range(len(self.groupList)):
+        self.progressBar.setMaximum(len(self.groupList))
+        self.progressBar.setMinimum(0)
+        self.progressBar.setVisible(True)
+
+        self.stop_process = False
+        for i in range(len(self.groupList)):
+            if self.stop_process:
+                break
             self.nextClicked()
+            self.progressBar.setValue(i)
+            QApplication.processEvents()
+
+        self.progressBar.setVisible(False)
+        self.processFolderButton.setChecked(False)
+        self.processFolderButton.setText("Process Current Folder")
 
     def imageSettingChanged(self):
         # update image
@@ -1650,6 +1692,13 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             return
         self.updated = False
         self.updateUI()
+
+    def orientationModelChanged(self):
+        self.orientationModel = self.orientationCmbBx.currentIndex()
+        if self.difCent is None:
+            return
+        self.difCent.removeInfo('rotationAngle')
+        self.processImage()
 
     def onImageChanged(self):
         # Create a new DiffractionCentroids object and process it
@@ -1666,6 +1715,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :return:
         """
         flags = {}
+        flags['orientation_model'] = self.orientationModel
         if self.bottomDifTab.fixed_se is not None:
             flags['bottom_fixed_se'] = self.bottomDifTab.fixed_se
         if self.topDifTab.fixed_se is not None:
@@ -1696,6 +1746,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             errMsg.exec_()
             raise
 
+        self.updateParams()
         self.writeData()
         self.refreshUI()
         QApplication.restoreOverrideCursor()
@@ -1704,6 +1755,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
     def writeData(self):
         # Write new data to csv file
         self.csvManager.writeNewData(self.difCent.info)
+
+    def updateParams(self):
+        info = self.difCent.info
+        if 'orientation_model' in info:
+            self.orientationModel = info['orientation_model']
 
     def refreshUI(self):
         # Refresh all tabs
@@ -1759,11 +1815,17 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         if not self.updated:
             img = copy.copy(self.difCent.getRotatedImage())
             self.rotatedImg = copy.copy(self.difCent.getRotatedImage())
-            img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
+            #img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
             ax = self.displayImgAxes
             ax.cla()
             # cv2.circle(img, tuple(self.difCent.info['center']), 2, (255,255,0), thickness = 2)
-            ax.imshow(img)
+            if self.logScaleIntChkBx.isChecked():
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minInt.value()), vmax=self.maxInt.value()))
+            else:
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
+            ax.set_facecolor('black')
+
+            self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
 
             if self.areaChkBx.isChecked() and 'int_area' in self.difCent.info:
                 # Draw meridian lines

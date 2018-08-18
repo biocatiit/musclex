@@ -26,4 +26,4 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__version__ = '1.13.10'
+__version__ = '1.13.11'

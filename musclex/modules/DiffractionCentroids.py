@@ -105,7 +105,7 @@ class DiffractionCentroids():
         """
         imgList = self.info['filelist']
         print(str(imgList[0])+' ... '+str(imgList[-1])+' are being processed...')
-        self.info.update(flags)
+        self.updateInfo(flags)
         self.findCenter()
         self.findRotationAngle()
         self.calculateRmin()
@@ -140,6 +140,14 @@ class DiffractionCentroids():
         if k in self.info:
             del self.info[k]
 
+    def updateInfo(self, flags):
+        if flags['orientation_model'] is None:
+            if 'orientation_model' not in self.info:
+                flags['orientation_model'] = 1
+            else:
+                del flags['orientation_model']
+        self.info.update(flags)
+
     def findCenter(self):
         """
         Find center of diffraction, and keep it in self.info["center"]
@@ -159,7 +167,7 @@ class DiffractionCentroids():
         if 'rotationAngle' in self.info:
             return
         center = self.info['center']
-        self.info['rotationAngle'] = getRotationAngle(self.avgImg, center)
+        self.info['rotationAngle'] = getRotationAngle(self.avgImg, center, self.info['orientation_model'])
         print("rotation angle = " + str(self.info['rotationAngle']))
         self.removeInfo('rmin')
 
