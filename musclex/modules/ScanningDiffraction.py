@@ -1064,7 +1064,7 @@ class ScanningDiffraction:
             deep_valleys_hists.append(np.sum(I2D2[:, rings[i]-sigmas[i]:rings[i]+sigmas[i]], axis=1))
 
         if len(histograms) < 1:
-            return
+            return [], [], []
 
         ring_hists, revised_hists = [], []
 
