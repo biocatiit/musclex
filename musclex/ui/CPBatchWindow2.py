@@ -268,8 +268,6 @@ class CPBatchWindow(QMainWindow):
         self.repChoice.addItem("Ring Intensity Map")
         self.repChoice.addItem("Vector Field")
         self.repChoice.addItem("Elliptical Map")
-        self.repChoice.addItem("Intensity and Rotation Map")
-        self.repChoice.addItem("Intensity Map with Arrows")
 
         self.colorChoice = QComboBox()
         colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
@@ -285,6 +283,7 @@ class CPBatchWindow(QMainWindow):
 
         self.logScale = QCheckBox('Logarithmic Scale')
         self.rotRAngle = QCheckBox('Rotate 90 degrees')
+        self.orientationChkBx = QCheckBox('Orientation Display')
 
         self.beamXSpinBox = QDoubleSpinBox()
         self.beamYSpinBox = QDoubleSpinBox()
@@ -331,6 +330,7 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(self.rotRAngle, 3, 3, 1, 1)
         self.mapLayout.addWidget(QLabel("Beam shape display: "), 4, 0, 1, 1)
         self.mapLayout.addWidget(self.BSDChoice, 4, 1, 1, 2)
+        self.mapLayout.addWidget(self.orientationChkBx, 4, 3, 1, 1)
         self.mapLayout.addWidget(self.mapCanvas, 5, 0, 1, 4)
         self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
         self.mapLayout.addLayout(self.intensityLayout, 7, 0, 1, 4)
@@ -380,6 +380,7 @@ class CPBatchWindow(QMainWindow):
         self.flipY.clicked.connect(self.flipMapY)
         self.logScale.stateChanged.connect(self.updateUI)
         self.rotRAngle.stateChanged.connect(self.updateUI)
+        self.orientationChkBx.stateChanged.connect(self.updateUI)
         self.beamXSpinBox.editingFinished.connect(self.updateUI)
         self.beamYSpinBox.editingFinished.connect(self.updateUI)
         self.img_maxInt.valueChanged.connect(self.maxIntChanged)
@@ -567,21 +568,19 @@ class CPBatchWindow(QMainWindow):
             self.updateVectorFieldMap()
         elif representation == 'Elliptical Map':
             self.updateEllipticalMap()
-        elif representation == 'Intensity and Rotation Map':
-            self.updateIntensityMap(angle = True)
-        elif representation == 'Intensity Map with Arrows':
-            self.updateVectorFieldMap(fixedsz=True)
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
         QApplication.processEvents()
         QApplication.restoreOverrideCursor()
 
 
-    def updateIntensityMap(self, total = True, angle = False):
+    def updateIntensityMap(self, total = True):
 
         if len(self.xyIntensity) < 3:
             return
         rendering_mode = self.BSDChoice.currentIndex()
+        self.orientationChkBx.setEnabled(True)
+        angle = self.orientationChkBx.isChecked()
 
         stepx, stepy = self.xylim[0], self.xylim[1]
         beamx, beamy = self.beamXSpinBox.value(), self.beamYSpinBox.value()
@@ -720,10 +719,13 @@ class CPBatchWindow(QMainWindow):
             colors = np.ma.array(colors, mask=np.array(colors) < 0)
             min_val = colors[colors > 0].min()
             norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
-            p = PatchCollection(patches, cmap=self.colormap, norm=norm)
-            # p = PatchCollection(patches, cmap='gray')
-            p.set_array(colors)
-            ax.add_collection(p)
+            #p = PatchCollection(patches, cmap=self.colormap, norm=norm)
+            # p = PatchCollection(patches, cmap='gray', norm=norm)
+            #p.set_array(colors)
+            #ax.add_collection(p)
+            for patch in patches:
+                patch.set_color('black')
+                ax.add_patch(patch)
 
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
@@ -789,6 +791,7 @@ class CPBatchWindow(QMainWindow):
     def updateVectorFieldMap(self, fixedsz=False):
         if len(self.xyIntensity) < 3:
             return
+        self.orientationChkBx.setEnabled(False)
 
         x = self.xyIntensity[0]
         y = self.xyIntensity[1]
@@ -857,6 +860,7 @@ class CPBatchWindow(QMainWindow):
     def updateVectorFieldArrow(self):
         if len(self.xyIntensity) < 3 or len(self.vec_UV) < 2 or self.vec_quiver is None:
             return
+        self.orientationChkBx.setEnabled(False)
 
         intensity = self.xyIntensity[2]
         U = self.vec_UV[0]
