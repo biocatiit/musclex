@@ -1,5 +1,8 @@
 from .pyqt_utils import *
 import matplotlib.patches as patches
+from numpy import ma
+from matplotlib import scale as mscale
+from matplotlib import transforms as mtransforms
 from matplotlib.colors import LogNorm, Normalize
 import logging
 from ..utils.file_manager import *
@@ -8,6 +11,122 @@ from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
 import musclex
 from .BlankImageSettings import BlankImageSettings
+
+class DSpacingScale(mscale.ScaleBase):
+    name = 'dspacing'
+
+    def __init__(self, axis, **kwargs):
+        mscale.ScaleBase.__init__(self)
+        self.lambda_sdd = kwargs.pop('lambda_sdd', 1501.45)
+
+    def get_transform(self):
+        return self.DSpacingTransform(self.lambda_sdd)
+
+    def set_default_locators_and_formatters(self, axis):
+        """
+        Override to set up the locators and formatters to use with the
+        scale.  This is only required if the scale requires custom
+        locators and formatters.  Writing custom locators and
+        formatters is rather outside the scope of this example, but
+        there are many helpful examples in ``ticker.py``.
+
+        In our case, the Mercator example uses a fixed locator from
+        -90 to 90 degrees and a custom formatter class to put convert
+        the radians to degrees and put a degree symbol after the
+        value::
+        """
+        from matplotlib.ticker import Formatter, AutoLocator
+        class DSpacingFormatter(Formatter):
+            def __init__(self, lambda_sdd):
+                Formatter.__init__(self)
+                self.lambda_sdd = lambda_sdd
+            def __call__(self, x, pos=None):
+                if x == 0:
+                    return u"\u221E"
+                else:
+                    return "%.2f" % (self.lambda_sdd / x)
+
+        axis.set_major_locator(AutoLocator())
+        axis.set_major_formatter(DSpacingFormatter(self.lambda_sdd))
+        axis.set_minor_formatter(DSpacingFormatter(self.lambda_sdd))
+
+    def limit_range_for_scale(self, vmin, vmax, minpos):
+        """
+        Override to limit the bounds of the axis to the domain of the
+        transform.  In the case of Mercator, the bounds should be
+        limited to the threshold that was passed in.  Unlike the
+        autoscaling provided by the tick locators, this range limiting
+        will always be adhered to, whether the axis range is set
+        manually, determined automatically or changed through panning
+        and zooming.
+        """
+        return max(vmin, 1), vmax
+
+    class DSpacingTransform(mtransforms.Transform):
+        # There are two value members that must be defined.
+        # ``input_dims`` and ``output_dims`` specify number of input
+        # dimensions and output dimensions to the transformation.
+        # These are used by the transformation framework to do some
+        # error checking and prevent incompatible transformations from
+        # being connected together.  When defining transforms for a
+        # scale, which are, by definition, separable and have only one
+        # dimension, these members should always be set to 1.
+        input_dims = 1
+        output_dims = 1
+        is_separable = True
+        has_inverse = True
+
+        def __init__(self, lambda_sdd):
+            mtransforms.Transform.__init__(self)
+            self.lambda_sdd = lambda_sdd
+
+        def transform_non_affine(self, a):
+            """
+            This transform takes an Nx1 ``numpy`` array and returns a
+            transformed copy.  Since the range of the Mercator scale
+            is limited by the user-specified threshold, the input
+            array must be masked to contain only valid values.
+            ``matplotlib`` will handle masked arrays and remove the
+            out-of-range data from the plot.  Importantly, the
+            ``transform`` method *must* return an array that is the
+            same shape as the input array, since these values need to
+            remain synchronized with values in the other dimension.
+            """
+            masked = ma.masked_where(a <= 0, a)
+            if masked.mask.any():
+                return self.lambda_sdd / masked
+            else:
+                return self.lambda_sdd / a
+
+        def inverted(self):
+            """
+            Override this method so matplotlib knows how to get the
+            inverse transform for this transform.
+            """
+            return DSpacingScale.InvertedDSpacingTransform(
+                self.lambda_sdd)
+
+    class InvertedDSpacingTransform(mtransforms.Transform):
+        input_dims = 1
+        output_dims = 1
+        is_separable = True
+        has_inverse = True
+
+        def __init__(self, lambda_sdd):
+            mtransforms.Transform.__init__(self)
+            self.lambda_sdd = lambda_sdd
+
+        def transform_non_affine(self, a):
+            masked = ma.masked_where(a <= 0, a)
+            if masked.mask.any():
+                return np.flipud(self.lambda_sdd / masked)
+            else:
+                return np.flipud(self.lambda_sdd / a)
+
+        def inverted(self):
+            return DSpacingScale.DSpacingTransform(self.lambda_sdd)
+
+mscale.register_scale(DSpacingScale)
 
 class CPImageWindow(QMainWindow):
     def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
@@ -281,6 +400,7 @@ class CPImageWindow(QMainWindow):
         self.graph_cmbbx.addItem("Angle distribution")
         self.graph_cmbbx.setCurrentIndex(0)
 
+        self.dspacing_chkbx = QCheckBox("D-spacing")
         self.skip_first_peak_chkbx = QCheckBox("Zoom")
         self.skip_first_peak_chkbx.setChecked(False)
         self.original_hist_chkbx = QCheckBox("Original Histogram")
@@ -306,6 +426,7 @@ class CPImageWindow(QMainWindow):
         self.graph_options_frame = QFrame()
         self.graph_options_layout = QVBoxLayout()
         self.graph_options_layout.addWidget(self.selectPeaks)
+        self.graph_options_layout.addWidget(self.dspacing_chkbx)
         self.graph_options_layout.addWidget(self.skip_first_peak_chkbx)
         self.graph_options_layout.addWidget(self.original_hist_chkbx)
         self.graph_options_layout.addWidget(self.hull_hist_chkbx)
@@ -408,6 +529,7 @@ class CPImageWindow(QMainWindow):
 
         self.result_graph_figure.canvas.mpl_connect('button_press_event', self.result_graph_clicked)
         self.selectPeaks.clicked.connect(self.selectPeaksClicked)
+        self.dspacing_chkbx.stateChanged.connect(self.updateUI)
         self.skip_first_peak_chkbx.stateChanged.connect(self.updateUI)
         self.original_hist_chkbx.stateChanged.connect(self.updateUI)
         self.hull_hist_chkbx.stateChanged.connect(self.updateUI)
@@ -610,6 +732,8 @@ class CPImageWindow(QMainWindow):
                 rmin = min(rs)
                 rmax = max(rs)
                 self.fixed_hull_range = (rmin, rmax)
+                self.ROI[0] = max(rmin, self.ROI[0])
+                self.ROI[1] = min(rmax, self.ROI[1])
                 self.cirProj.removeInfo('2dintegration')
                 self.processImage()
             else:
@@ -1311,6 +1435,7 @@ class CPImageWindow(QMainWindow):
 
     def swapCheckBoxes(self):
         hide = (self.graph_cmbbx.currentIndex() != 0)
+        self.dspacing_chkbx.setHidden(hide)
         self.skip_first_peak_chkbx.setHidden(hide)
         self.original_hist_chkbx.setHidden(hide)
         self.rings_chkbx.setHidden(hide)
@@ -1383,8 +1508,15 @@ class CPImageWindow(QMainWindow):
                     # lines.append(line)
                 labels.append('Merged Rings')
 
-            ax.set_xlim(start_plot, end_plot)
-            ax.set_xlabel('Radial distance')
+            self.dspacing_chkbx.setEnabled('lambda_sdd' in self.cirProj.info)
+            if 'lambda_sdd' in self.cirProj.info and self.dspacing_chkbx.isChecked():
+                ax.set_xlim(model_peaks[0] / 2, end_plot)
+                ax.set_xscale('dspacing', lambda_sdd=self.cirProj.info['lambda_sdd'])
+                ax.set_xlabel('d-spacing (nm)')
+            else:
+                ax.set_xlim(start_plot, end_plot)
+                ax.set_xlabel('Radial distance')
+
             ax.set_ylabel('Intensity')
             # ax.legend(lines, labels)
             # self.update_plot['image_result'] = False
@@ -1492,7 +1624,7 @@ class CPImageWindow(QMainWindow):
                     processing_results_text += "\nPeak "+str(i)+': '
                     processing_results_text += "\tcenter(pixel) : "+str(fit_result['u'+str(i)])+'\n'
                     if 'peak_ds' in self.cirProj.info:
-                        processing_results_text += "\tcenter(nn) : " + str(self.cirProj.info['peak_ds'][i-1]) + '\n'
+                        processing_results_text += "\tcenter(nm) : " + str(self.cirProj.info['peak_ds'][i-1]) + '\n'
                     processing_results_text += "\tarea  : " + str(fit_result['alpha' + str(i)]) + '\n'
                     processing_results_text += "\tsigmad : " + str(fit_result['sigmad' + str(i)]) + '\n'
 
