@@ -729,8 +729,8 @@ class CPImageWindow(QMainWindow):
             self.function.append(int(round(dis)))
             if len(self.function) == 3:
                 rs = self.function[1:]
-                rmin = min(rs)
-                rmax = max(rs)
+                rmin = int(min(rs))
+                rmax = int(max(rs))
                 self.fixed_hull_range = (rmin, rmax)
                 self.ROI[0] = max(rmin, self.ROI[0])
                 self.ROI[1] = min(rmax, self.ROI[1])

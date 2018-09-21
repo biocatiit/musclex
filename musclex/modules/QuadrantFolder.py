@@ -135,7 +135,7 @@ class QuadrantFolder(object):
     def updateInfo(self, flags):
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
-                flags['orientation_model'] = 1
+                flags['orientation_model'] = 0
             else:
                 del flags['orientation_model']
         self.info.update(flags)

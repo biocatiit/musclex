@@ -107,7 +107,7 @@ class EquatorImage:
     def updateInfo(self, settings):
         if settings['orientation_model'] is None:
             if 'orientation_model' not in self.info or self.info['orientation_model'] is None:
-                settings['orientation_model'] = 1
+                settings['orientation_model'] = 0
             else:
                 del settings['orientation_model']
         self.info.update(settings)
