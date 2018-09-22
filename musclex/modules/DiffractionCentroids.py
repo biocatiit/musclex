@@ -247,6 +247,8 @@ class DiffractionCentroids():
             img = copy.copy(self.avgImg)
         if angle is None:
             angle = self.info['rotationAngle']
+        if '90rotation' in self.info and self.info['90rotation'] is True:
+            angle = angle - 90 if angle > 90 else angle + 90
 
         return rotateImage(img, self.info["center"], angle, self.mask_thres)
 

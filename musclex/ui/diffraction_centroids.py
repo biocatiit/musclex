@@ -1099,6 +1099,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.orientationCmbBx.addItem("GMM")
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
+        self.rotation90ChkBx = QCheckBox("Rotate 90")
+        self.forceRot90ChkBx = QCheckBox("Persist Rotation")
         self.calSettingsGrp.setLayout(self.calSetttingsLayout)
         self.calSetttingsLayout.addWidget(self.setCenterAngleB, 0, 0, 1, 2)
         self.calSetttingsLayout.addWidget(self.setAngleB, 1, 0, 1, 2)
@@ -1107,6 +1109,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.calSetttingsLayout.addWidget(self.setX3X4, 3, 1, 1, 1)
         self.calSetttingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
         self.calSetttingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
+        self.calSetttingsLayout.addWidget(self.rotation90ChkBx, 6, 0, 1, 1)
+        self.calSetttingsLayout.addWidget(self.forceRot90ChkBx, 6, 1, 1, 1)
 
         self.checkableButtons = [self.zoomInB, self.zoomOutB, self.setCenterAngleB, self.setAngleB, self.selectIntArea, self.setX3X4, self.setX1X2]
 
@@ -1159,6 +1163,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.minInt.valueChanged.connect(self.imageSettingChanged)
         self.logScaleIntChkBx.stateChanged.connect(self.imageSettingChanged)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
+        self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
+        self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
         #self.processFolderButton.clicked.connect(self.processCurrentFolder)
@@ -1700,6 +1706,17 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.difCent.removeInfo('rotationAngle')
         self.processImage()
 
+    def rotation90Checked(self):
+        self.difCent.removeInfo('rmin')
+        self.processImage()
+
+    def forceRot90Checked(self):
+        if self.forceRot90ChkBx.isChecked():
+            self.rotation90ChkBx.setChecked(True)
+            self.rotation90ChkBx.setEnabled(False)
+        else:
+            self.rotation90ChkBx.setEnabled(True)
+
     def onImageChanged(self):
         # Create a new DiffractionCentroids object and process it
         imgList = self.groupList[self.currentGroup]
@@ -1707,6 +1724,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         img = self.difCent.avgImg
         self.right_status.setText(str(img.shape[0])+"x"+str(img.shape[1])+" "+str(img.dtype))
         self.initMinMaxIntensities(self.difCent.avgImg)
+        if self.rotation90ChkBx.isEnabled():
+            self.rotation90ChkBx.setChecked('90rotation' in self.difCent.info and self.difCent.info['90rotation'])
         self.processImage()
 
     def getFlags(self):
@@ -1716,6 +1735,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         flags = {}
         flags['orientation_model'] = self.orientationModel
+        flags['90rotation'] = self.rotation90ChkBx.isChecked()
         if self.bottomDifTab.fixed_se is not None:
             flags['bottom_fixed_se'] = self.bottomDifTab.fixed_se
         if self.topDifTab.fixed_se is not None:
@@ -1826,6 +1846,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             ax.set_facecolor('black')
 
             self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
+            if self.rotation90ChkBx.isEnabled():
+                self.rotation90ChkBx.setChecked('90rotation' in self.difCent.info and self.difCent.info['90rotation'])
 
             if self.areaChkBx.isChecked() and 'int_area' in self.difCent.info:
                 # Draw meridian lines

@@ -136,6 +136,8 @@ class ScanningDiffraction:
             if flag not in self.info or flag in flags and flags[flag] != self.info[flag]:
                 self.removeInfo('ring_hists')
                 break
+        if '90rotation' not in self.info or self.info['90rotation'] != flags['90rotation']:
+            self.removeInfo('ring_hists')
         self.info.update(flags)
 
     def findCenter(self):
@@ -396,6 +398,10 @@ class ScanningDiffraction:
                 self.HermanOrientation(ir='h')
             elif self.info['orientation_model'] == "Herman Factor (Pi)":
                 self.HermanOrientation()
+
+            if 'average_ring_model' in self.info:
+                if '90rotation' in self.info and self.info['90rotation']:
+                    self.info['average_ring_model']['u'] += np.pi/2
 
     def get_partial_integrations(self, ref_angle):
         """

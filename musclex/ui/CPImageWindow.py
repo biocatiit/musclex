@@ -293,6 +293,8 @@ class CPImageWindow(QMainWindow):
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
         self.orientationCmbBx.setCurrentIndex(2)
+        self.rotation90ChkBx = QCheckBox("Rotate 90")
+        self.forceRot90ChkBx = QCheckBox("Persist Rotation")
 
         self.settingGrp = QGroupBox("Settings")
         self.settingLayout = QVBoxLayout(self.settingGrp)
@@ -303,6 +305,8 @@ class CPImageWindow(QMainWindow):
         self.settingLayout.addWidget(self.selectRings)
         self.settingLayout.addWidget(QLabel("Finding orientation:"))
         self.settingLayout.addWidget(self.orientationCmbBx)
+        self.settingLayout.addWidget(self.rotation90ChkBx)
+        self.settingLayout.addWidget(self.forceRot90ChkBx)
 
         self.imageOptionsLayout.addWidget(self.settingGrp)
         self.imageOptionsLayout.addSpacing(10)
@@ -511,6 +515,8 @@ class CPImageWindow(QMainWindow):
         self.setRoiBtn.clicked.connect(self.setRoiBtnClicked)
         self.selectRings.clicked.connect(self.selectRingsClicked)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
+        self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
+        self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
         #self.processFolderButton.clicked.connect(self.processFolder)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.prevButton.clicked.connect(self.prevImage)
@@ -641,6 +647,17 @@ class CPImageWindow(QMainWindow):
     def orientationModelChanged(self):
         self.orientationModel = str(self.orientationCmbBx.currentText())
         self.processImage()
+
+    def rotation90Checked(self):
+        self.cirProj.removeInfo('ring_hists')
+        self.processImage()
+
+    def forceRot90Checked(self):
+        if self.forceRot90ChkBx.isChecked():
+            self.rotation90ChkBx.setChecked(True)
+            self.rotation90ChkBx.setEnabled(False)
+        else:
+            self.rotation90ChkBx.setEnabled(True)
 
     def result_graph_clicked(self, event):
         """
@@ -955,6 +972,7 @@ class CPImageWindow(QMainWindow):
             flags['ROI'] = self.ROI
         if self.orientationModel is not None:
             flags['orientation_model'] = self.orientationModel
+        flags['90rotation'] = self.rotation90ChkBx.isChecked()
 
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
@@ -1006,6 +1024,8 @@ class CPImageWindow(QMainWindow):
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
         self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
+        if self.rotation90ChkBx.isEnabled():
+            self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
         self.processImage()
         self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
             self.numberOfFiles) + ') is processed.')
@@ -1202,6 +1222,9 @@ class CPImageWindow(QMainWindow):
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
         ax.set_facecolor('black')
 
+        if self.rotation90ChkBx.isEnabled():
+            self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
+
         center = (int(np.round(self.cirProj.info['center'][0])), int(np.round(self.cirProj.info['center'][1])))
 
         if self.displayRingsChkbx.isChecked() and 'fitResult' in self.cirProj.info.keys():
@@ -1228,7 +1251,8 @@ class CPImageWindow(QMainWindow):
             models = self.cirProj.info['ring_models']
             errors = self.cirProj.info['ring_errors']
             best_ind = min(errors.items(), key=lambda err:err[1])[0]
-            model = models[best_ind]
+            #model = models[best_ind]
+            model = self.cirProj.info['average_ring_model']
             if model['sigma'] < 1. and errors[best_ind] < 1.:
                 self.angleChkBx.setEnabled('average_ring_model' in self.cirProj.info.keys())
                 if self.angleChkBx.isChecked():
