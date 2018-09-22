@@ -229,6 +229,8 @@ class EquatorWindow(QMainWindow):
         self.orientationCmbBx.addItem("GMM")
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
+        self.rotation90ChkBx = QCheckBox("Rotate 90")
+        self.forceRot90ChkBx = QCheckBox("Persist Rotation")
 
         self.resetAllB = QPushButton("Reset All")
         self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 4)
@@ -247,8 +249,10 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 7, 0, 1, 4)
         self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 8, 0, 1, 4)
         self.imgProcLayout.addWidget(self.orientationCmbBx, 9, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 10, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 10, 2, 1, 2)
 
-        self.imgProcLayout.addWidget(self.resetAllB, 10, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.resetAllB, 11, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
@@ -576,6 +580,8 @@ class EquatorWindow(QMainWindow):
         self.applyBlank.stateChanged.connect(self.applyBlankChecked)
         self.blankSettings.clicked.connect(self.blankSettingClicked)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
+        self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
+        self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
         self.resetAllB.clicked.connect(self.resetAll)
 
         self.prevButton.clicked.connect(self.prevClicked)
@@ -1412,6 +1418,17 @@ class EquatorWindow(QMainWindow):
         self.bioImg.removeInfo('rotationAngle')
         self.processImage()
 
+    def rotation90Checked(self):
+        self.bioImg.removeInfo('rmin')
+        self.processImage()
+
+    def forceRot90Checked(self):
+        if self.forceRot90ChkBx.isChecked():
+            self.rotation90ChkBx.setChecked(True)
+            self.rotation90ChkBx.setEnabled(False)
+        else:
+            self.rotation90ChkBx.setEnabled(True)
+
     def imgClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
@@ -1759,6 +1776,8 @@ class EquatorWindow(QMainWindow):
         self.fixedRmin.setEnabled('fixed_rmin' in self.bioImg.info)
         if 'rmin' in info:
             self.fixedRmin.setValue(info['rmin'])
+        if self.rotation90ChkBx.isEnabled():
+            self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
 
         self.syncUI = False
 
@@ -1787,7 +1806,7 @@ class EquatorWindow(QMainWindow):
         # Process new image
         self.processImage()
 
-    def processImage(self, settings=None):
+    def processImage(self):
         """
         Process Image by getting all settings and call process() of EquatorImage object
         Then, write data and update UI
@@ -1796,8 +1815,7 @@ class EquatorWindow(QMainWindow):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        if settings is None:
-            settings = self.getSettings()
+        settings = self.getSettings()
         try:
             self.bioImg.process(settings)
         except Exception as e:
@@ -1863,6 +1881,7 @@ class EquatorWindow(QMainWindow):
         settings['model'] = str(self.modelSelect.currentText())
         settings['isSkeletal'] = self.skeletalChkBx.isChecked()
         settings['mask_thres'] = self.maskThresSpnBx.value()
+        settings['90rotation'] = self.rotation90ChkBx.isChecked()
 
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
@@ -2032,6 +2051,8 @@ class EquatorWindow(QMainWindow):
         ax.set_facecolor('black')
 
         self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
+        if self.rotation90ChkBx.isEnabled():
+            self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
 
         self.calibSettingDialog.centerX.setValue(center[0])
         self.calibSettingDialog.centerY.setValue(center[1])

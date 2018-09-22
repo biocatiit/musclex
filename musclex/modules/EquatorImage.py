@@ -205,6 +205,8 @@ class EquatorImage:
             img = copy.copy(self.image)
         if angle is None:
             angle = self.info['rotationAngle']
+        if '90rotation' in self.info and self.info['90rotation'] is True:
+            angle = angle - 90 if angle > 90 else angle + 90
 
         if self.rotated_img is None or self.rotated_img[0] != self.info["center"] or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
