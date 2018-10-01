@@ -749,8 +749,11 @@ class CPImageWindow(QMainWindow):
                 rmin = int(min(rs))
                 rmax = int(max(rs))
                 self.fixed_hull_range = (rmin, rmax)
-                self.ROI[0] = max(rmin, self.ROI[0])
-                self.ROI[1] = min(rmax, self.ROI[1])
+                if self.ROI is None:
+                    self.ROI = [rmin, rmax]
+                else:
+                    self.ROI[0] = max(rmin, self.ROI[0])
+                    self.ROI[1] = min(rmax, self.ROI[1])
                 self.cirProj.removeInfo('2dintegration')
                 self.processImage()
             else:
@@ -1252,7 +1255,7 @@ class CPImageWindow(QMainWindow):
             errors = self.cirProj.info['ring_errors']
             best_ind = min(errors.items(), key=lambda err:err[1])[0]
             #model = models[best_ind]
-            model = self.cirProj.info['average_ring_model']
+            model = self.cirProj.info.get('average_ring_model', models[best_ind])
             if model['sigma'] < 1. and errors[best_ind] < 1.:
                 self.angleChkBx.setEnabled('average_ring_model' in self.cirProj.info.keys())
                 if self.angleChkBx.isChecked():
