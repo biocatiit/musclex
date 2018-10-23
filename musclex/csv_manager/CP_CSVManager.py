@@ -104,7 +104,9 @@ class CP_CSVManager():
                 new_data['S'] = fit_result['u' + str(i + 1)]
                 new_data['peak sigma'] = fit_result['sigmad' + str(i + 1)]
                 new_data['peak intensity'] = fit_result['alpha' + str(i + 1)]
-                new_data['angle'] = ring['u']
+                new_data['angle'] = ring['u'] % np.pi
+                if '90rotation' in info and info['90rotation']:
+                    new_data['angle'] = (ring['u'] + np.pi/2) % np.pi
                 new_data['angle sigma'] = ring['sigma']
                 new_data['angle amplitude'] = ring['alpha']
                 new_data['angle fitting error'] = errors[i]
