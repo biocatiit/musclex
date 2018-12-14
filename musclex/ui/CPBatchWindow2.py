@@ -183,6 +183,7 @@ class CPBatchWindow(QMainWindow):
         self.hdf_data = np.array([])
         self.xyIntensity = []
         self.xylim = []
+        self.max_int = None
         self.batchmodeImg = None
         self.batchmodeImgDetails = None
         self.batchmodeImgFilename = None
@@ -304,11 +305,16 @@ class CPBatchWindow(QMainWindow):
         self.maxMap.setKeyboardTracking(False)
         self.maxMap.setValue(100)
         self.maxMap.setSuffix('%')
+        self.minMapVal = QDoubleSpinBox()
+        self.minMapVal.setValue(0)
+        self.maxMapVal = QDoubleSpinBox()
         self.intensityLayout = QGridLayout()
-        self.intensityLayout.addWidget(QLabel("Min : "), 0, 0, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(QLabel("Min Intensity: "), 0, 0, 1, 1, Qt.AlignCenter)
         self.intensityLayout.addWidget(self.minMap, 0, 1, 1, 1)
-        self.intensityLayout.addWidget(QLabel("Max : "), 0, 2, 1, 1, Qt.AlignCenter)
-        self.intensityLayout.addWidget(self.maxMap, 0, 3, 1, 1)
+        self.intensityLayout.addWidget(self.minMapVal, 0, 2, 1, 1)
+        self.intensityLayout.addWidget(QLabel("Max Intensity: "), 0, 3, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(self.maxMap, 0, 4, 1, 1)
+        self.intensityLayout.addWidget(self.maxMapVal, 0, 5, 1, 1)
 
         self.mapFigure = plt.figure()
         self.mapAxes = self.mapFigure.add_subplot(111)
@@ -388,6 +394,8 @@ class CPBatchWindow(QMainWindow):
 
         self.maxMap.valueChanged.connect(self.updateUI)
         self.minMap.valueChanged.connect(self.updateUI)
+        self.maxMapVal.editingFinished.connect(self.maxMapValChanged)
+        self.minMapVal.editingFinished.connect(self.minMapValChanged)
 
         self.colorChoice.currentIndexChanged.connect(self.updateUI)
         self.repChoice.currentIndexChanged.connect(self.updateUI)
@@ -402,6 +410,16 @@ class CPBatchWindow(QMainWindow):
         self.distanceLabel.setEnabled(self.distanceRadio.isChecked())
         self.bandwidthLabel.setEnabled(self.distanceRadio.isChecked())
         self.bandwidthSpnBx.setEnabled(self.distanceRadio.isChecked())
+
+    def maxMapValChanged(self):
+        if self.max_int is None:
+            return
+        self.maxMap.setValue(self.maxMapVal.value() * 100.0 / self.max_int)
+
+    def minMapValChanged(self):
+        if self.max_int is None:
+            return
+        self.minMap.setValue(self.minMapVal.value() * 100.0 / self.max_int)
 
     def closeEvent(self, ev):
         if self.mainWin is not None:
@@ -570,6 +588,10 @@ class CPBatchWindow(QMainWindow):
             self.updateEllipticalMap()
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
+        if self.max_int is not None:
+            self.maxMapVal.setMaximum(self.max_int)
+            self.minMapVal.setValue(self.minMap.value() / 100.0 * self.max_int)
+            self.maxMapVal.setValue(self.maxMap.value() / 100.0 * self.max_int)
         QApplication.processEvents()
         QApplication.restoreOverrideCursor()
 
@@ -596,6 +618,7 @@ class CPBatchWindow(QMainWindow):
         x_coor, y_coor = np.meshgrid(x2, y2)
 
         max_val = intensity.max()
+        self.max_int = max_val
         if self.maxMap.value() < 100:
             intensity[
                 intensity > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
@@ -813,6 +836,7 @@ class CPBatchWindow(QMainWindow):
         int_display = copy.copy(intensity)
 
         max_val = int_display.max()
+        self.max_int = max_val
         min_val = int_display[int_display > 0].min()
 
         if self.maxMap.value() < 100:
@@ -868,6 +892,7 @@ class CPBatchWindow(QMainWindow):
         int_display = copy.copy(intensity)
 
         max_val = int_display.max()
+        self.max_int = max_val
         if self.maxMap.value() < 100:
             int_display[
                 int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
@@ -900,6 +925,7 @@ class CPBatchWindow(QMainWindow):
 
         int_display = np.array(list(self.intensity_dict.values()))
         max_val = int_display.max()
+        self.max_int = max_val
         if self.maxMap.value() < 100:
             int_display[
                 int_display > self.maxMap.value() * max_val / 100.] = self.maxMap.value() * max_val / 100.
@@ -1082,7 +1108,7 @@ class CPBatchWindow(QMainWindow):
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
             self.coord_dict[i] = (self.hdf_data[i - self.init_number][0], self.hdf_data[i - self.init_number][1])
 
-        nCols = 0
+        nCols = len(self.hdf_data) # 1D Scan
         for i in range(self.init_number + 1, len(self.hdf_data) + self.init_number):
             if abs(self.coord_dict[i][1] - self.coord_dict[i - 1][1]) != 0:
                 nCols = i - self.init_number

@@ -1029,6 +1029,8 @@ class CPImageWindow(QMainWindow):
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
+        if self.fixed_hull_range is not None:
+            self.cirProj.removeInfo('2dintegration')
         self.processImage()
         self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
             self.numberOfFiles) + ') is processed.')

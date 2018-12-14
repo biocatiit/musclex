@@ -78,7 +78,7 @@ class CP_CSVManager():
         # Add data to summary.csv
         new_sum_data = {
             'filename' : file_name,
-            'total intensity' : info['area']
+            'total intensity' : info['simple_total_intensity'] #info['area']
         }
 
         if 'model_peaks' in info:
