@@ -37,7 +37,7 @@ class CP_CSVManager():
         createFolder(result_path)
         self.sum_file = fullPath(result_path, "summary.csv")
         self.rings_file = fullPath(result_path, "rings.csv")
-        self.sum_header = ['filename', 'total intensity', 'number of rings']
+        self.sum_header = ['filename', 'total intensity (hull)', 'total intensity', 'number of rings']
         self.rings_header = ['filename', 'ring', 'S', 'd', 'peak sigma', 'peak intensity', 'angle', 'angle sigma', 'angle amplitude', 'angle fitting error']
         self.load_all()
 
@@ -78,7 +78,8 @@ class CP_CSVManager():
         # Add data to summary.csv
         new_sum_data = {
             'filename' : file_name,
-            'total intensity' : info['simple_total_intensity'] #info['area']
+            'total intensity (hull)' : info['area'],
+            'total intensity' : info['simple_total_intensity'] if 'simple_total_intensity' in info else info['area']
         }
 
         if 'model_peaks' in info:

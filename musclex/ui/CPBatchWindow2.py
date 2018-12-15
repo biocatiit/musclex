@@ -265,6 +265,7 @@ class CPBatchWindow(QMainWindow):
         self.flipY.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
         self.repChoice = QComboBox()
+        self.repChoice.addItem("Total Intensity (Convex Hull) Map")
         self.repChoice.addItem("Total Intensity Map")
         self.repChoice.addItem("Ring Intensity Map")
         self.repChoice.addItem("Vector Field")
@@ -578,10 +579,12 @@ class CPBatchWindow(QMainWindow):
         self.rotating90 = self.rotRAngle.isChecked()
         self.spacingFrame.setVisible(self.BSDChoice.currentIndex() == 2)
         representation = self.repChoice.currentText()
+        if representation == 'Total Intensity (Convex Hull) Map':
+            self.updateIntensityMap(type='hull')
         if representation == 'Total Intensity Map':
-            self.updateIntensityMap()
+            self.updateIntensityMap(type='simple')
         elif representation == 'Ring Intensity Map':
-            self.updateIntensityMap(total=False)
+            self.updateIntensityMap(type='ring')
         elif representation == 'Vector Field':
             self.updateVectorFieldMap()
         elif representation == 'Elliptical Map':
@@ -596,7 +599,7 @@ class CPBatchWindow(QMainWindow):
         QApplication.restoreOverrideCursor()
 
 
-    def updateIntensityMap(self, total = True):
+    def updateIntensityMap(self, type='simple'):
 
         if len(self.xyIntensity) < 3:
             return
@@ -610,10 +613,12 @@ class CPBatchWindow(QMainWindow):
         y = copy.copy(self.xyIntensity[1])
         x2 = np.append(x, max(x) + stepx) - stepx / 2
         y2 = np.append(y, max(y) + stepy) - stepy / 2
-        if total:
+        if type == 'hull':
             intensity = copy.copy(self.xyIntensity[2])
-        else:
+        elif type == 'ring':
             intensity = copy.copy(self.xyIntensity[3])
+        elif type == 'simple':
+            intensity = copy.copy(self.xyIntensity[4])
 
         x_coor, y_coor = np.meshgrid(x2, y2)
 
@@ -1031,6 +1036,7 @@ class CPBatchWindow(QMainWindow):
         # Read intensity from csv to organize the info given
         self.name_dict = {}
         self.intensity_dict = {}
+        self.sim_inten_dict = {}
         self.peak_intensity_dict = {}
         self.distance_dict = {}
         self.angrange_dict = {}
@@ -1044,7 +1050,11 @@ class CPBatchWindow(QMainWindow):
             end_ind = filename.rfind('.')
             index = int(row['filename'][start_ind + 1:end_ind])
             self.name_dict[index] = row['filename']
-            self.intensity_dict[index] = row['total intensity']
+            self.intensity_dict[index] = row['total intensity (hull)'] \
+                    if 'total intensity (hull)' in row and not np.isnan(row['total intensity (hull)']) else \
+                    row['total intensity']
+            self.sim_inten_dict[index] = row['total intensity']
+            #print(np.isnan(row['total intensity (hull)']), self.intensity_dict[index], self.sim_inten_dict[index])
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
             all_rings = df_rings[df_rings['filename'] == filename]
@@ -1128,17 +1138,21 @@ class CPBatchWindow(QMainWindow):
         # Plot heatmap for intensity
         z = [float(self.intensity_dict[i]) if i in self.intensity_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
+        simp_z = [float(self.sim_inten_dict[i]) if i in self.sim_inten_dict else -1 for i in
+             range(self.init_number, len(self.hdf_data) + self.init_number)]
         # z = np.array([z[i:i + x_max] for i in range(0, , x_max)])
         # z = cv2.blur(z, (4,4))
         # intensity = np.array(z)
         ring_z = [float(self.peak_intensity_dict[i]) if i in self.peak_intensity_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
         intensity = np.reshape(z, (len(y), len(x)))
+        simp_intensity = np.reshape(simp_z, (len(y), len(x)))
         ring_intensity = np.reshape(ring_z, (len(y), len(x)))
         intensity = np.ma.array(intensity, mask=intensity < 0)
+        simp_intensity = np.ma.array(simp_intensity, mask=simp_intensity < 0)
         ring_intensity = np.ma.array(ring_intensity, mask=ring_intensity < 0)
 
-        self.xyIntensity = [x, y, intensity, ring_intensity]
+        self.xyIntensity = [x, y, intensity, ring_intensity, simp_intensity]
         self.beamXSpinBox.setValue(x_grad)
         self.beamXSpinBox.setMaximum(x_grad * 2)
         self.beamYSpinBox.setValue(y_grad)

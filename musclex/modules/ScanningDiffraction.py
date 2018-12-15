@@ -206,20 +206,20 @@ class ScanningDiffraction:
             self.info['start_point'] = rmin
             self.info['hull_hist'] = hull
             self.info['area'] = simps(hull)
-            self.info['simple_total_intensity'] = self.roiIntesity(center, rmin, rmax)
+            self.info['simple_total_intensity'] = self.roiIntensity(center, rmin, rmax)
             if 'ROI' not in self.info:
                 self.info['ROI'] = [rmin, rmax]
             self.removeInfo('m1_rings')
             self.removeInfo('m2_rings')
             self.log('2D integration has been calculated.')
 
-    def roiIntensity(center, rmin, rmax):
+    def roiIntensity(self, center, rmin, rmax):
         """
         Simply add up all intensity together within ROI.
         """
         img = copy.copy(self.original_image)
         h, w = img.shape
-        xc, yc = np.meshgrid(w, h)
+        xc, yc = np.meshgrid(range(w), range(h))
         eucld = ((xc - center[0]) ** 2 + (yc - center[1]) ** 2) ** 0.5
         return sum(img[(rmin <= eucld) & (eucld < rmax)])
 
