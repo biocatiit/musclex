@@ -72,7 +72,7 @@ setup(
                       'matplotlib',
                       'musclex_ccp13',
                       'PyMca5',
-                      'pandas', 'pyside2'],
+                      'pandas'],
     entry_points={
         'console_scripts': [
             'musclex=musclex.main:main',
