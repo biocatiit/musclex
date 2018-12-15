@@ -63,10 +63,10 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         try:
             path = os.path.dirname(sys.argv[0])
             path = '.' if path == '' else path
-            subprocess.Popen([os.path.join(path, 'musclex'), prog], 
+            subprocess.Popen([os.path.join(path, 'musclex-main'), prog], 
             	shell=(sys.platform=='win32'))
         except FileNotFoundError:
-            subprocess.Popen(['musclex', prog], shell=(sys.platform=='win32'))
+            subprocess.Popen(['musclex-main', prog], shell=(sys.platform=='win32'))
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Return:
