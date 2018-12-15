@@ -1,5 +1,6 @@
 from musclex.ui.ui_launcherform import *
-import sys, subprocess, os.path
+from musclex import __version__
+import sys, subprocess, os, os.path
 import configparser
 from musclex.utils.exception_handler import handlers
 
@@ -16,6 +17,7 @@ class LauncherForm(QWidget):
         # Set up the user interface from Designer.
         self.ui = Ui_LauncherForm()
         self.ui.setupUi(self)
+        self.setWindowTitle("MuscleX Launcher v" + __version__)
 
         # Set up popup message box
         popupMsg = QMessageBox()
@@ -61,7 +63,7 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         try:
             path = os.path.dirname(sys.argv[0])
             path = '.' if path == '' else path
-            subprocess.Popen([os.path.join(path, 'musclex'), prog])
+            subprocess.Popen([os.path.join(path, 'musclex'), prog], shell=True)
         except FileNotFoundError:
             subprocess.Popen(['musclex', prog])
 
