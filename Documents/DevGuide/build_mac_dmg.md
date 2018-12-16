@@ -23,12 +23,12 @@ Use default settings for other attributes like:
   Assume that you are working in the root directory of musclex, and
   the newly created image is named "Muscle X":
 ```
-cp -r dist/musclex.app /Volume/Muscle\ X/
+cp -r dist/musclex.app /Volumes/Muscle\ X/
 ```
 
 3. Create a soft link to **Applications** folder in the image
 ```
-ln -s /Applications /Volume/Muscle\ X/
+ln -s /Applications /Volumes/Muscle\ X/
 ```
 
 4. Eject the image
