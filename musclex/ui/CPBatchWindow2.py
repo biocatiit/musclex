@@ -592,6 +592,7 @@ class CPBatchWindow(QMainWindow):
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
         if self.max_int is not None:
+            self.minMapVal.setMaximum(self.max_int)
             self.maxMapVal.setMaximum(self.max_int)
             self.minMapVal.setValue(self.minMap.value() / 100.0 * self.max_int)
             self.maxMapVal.setValue(self.maxMap.value() / 100.0 * self.max_int)
