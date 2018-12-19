@@ -132,12 +132,15 @@ class ScanningDiffraction:
                 del self.info[k]
 
     def updateInfo(self, flags):
-        for flag in ['ROI', 'orientation_model']:
-            if flag not in self.info or flag in flags and flags[flag] != self.info[flag]:
-                self.removeInfo('ring_hists')
-                break
-        if '90rotation' not in self.info or self.info['90rotation'] != flags['90rotation']:
-            self.removeInfo('ring_hists')
+        depn_lists = {
+            '2dintegration': ['fixed_hull'], 
+            'ring_hists': ['ROI', 'orientation_model', '90rotation']
+        }
+        for key, params in depn_lists.items():
+            for flag in params:
+                if flag in flags and (flag not in self.info or flags[flag] != self.info[flag]):
+                    self.removeInfo(key)
+                    break
         self.info.update(flags)
 
     def findCenter(self):

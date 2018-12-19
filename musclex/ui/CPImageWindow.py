@@ -293,6 +293,7 @@ class CPImageWindow(QMainWindow):
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
         self.orientationCmbBx.setCurrentIndex(2)
+        self.persistROIChkBx = QCheckBox("Persist R-min, R-max & ROI")
         self.rotation90ChkBx = QCheckBox("Rotate 90")
         self.forceRot90ChkBx = QCheckBox("Persist Rotation")
 
@@ -305,6 +306,7 @@ class CPImageWindow(QMainWindow):
         self.settingLayout.addWidget(self.selectRings)
         self.settingLayout.addWidget(QLabel("Finding orientation:"))
         self.settingLayout.addWidget(self.orientationCmbBx)
+        self.settingLayout.addWidget(self.persistROIChkBx)
         self.settingLayout.addWidget(self.rotation90ChkBx)
         self.settingLayout.addWidget(self.forceRot90ChkBx)
 
@@ -889,6 +891,8 @@ class CPImageWindow(QMainWindow):
             text += "\n - Orientation Model : "+ flags['orientation_model']
         if 'ROI' in flags:
             text += "\n - ROI : "+ str(flags['ROI'])
+        if 'fixed_hull' in flags:
+            text += "\n - R-min & R-max : "+ str(flags['fixed_hull'])
         if self.calSettings is not None:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
@@ -968,10 +972,10 @@ class CPImageWindow(QMainWindow):
         if self.mainWin is not None:
             self.mainWin.removeWidget(self)
 
-    def getFlags(self):
+    def getFlags(self, imgChanged=True):
         flags = {}
         flags['partial_angle'] = self.partialRange.value()
-        if self.ROI is not None:
+        if self.ROI is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['ROI'] = self.ROI
         if self.orientationModel is not None:
             flags['orientation_model'] = self.orientationModel
@@ -986,7 +990,7 @@ class CPImageWindow(QMainWindow):
                 if "center" in self.calSettings:
                     flags["center"] = self.calSettings["center"]
 
-        if self.fixed_hull_range is not None:
+        if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['fixed_hull'] = self.fixed_hull_range
 
         return flags
@@ -1029,16 +1033,14 @@ class CPImageWindow(QMainWindow):
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
-        if self.fixed_hull_range is not None:
-            self.cirProj.removeInfo('2dintegration')
-        self.processImage()
+        self.processImage(True)
         self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
             self.numberOfFiles) + ') is processed.')
 
-    def processImage(self):
+    def processImage(self, imgChanged=False):
         if self.cirProj is not None:
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            flags = self.getFlags()
+            flags = self.getFlags(imgChanged)
             self.cirProj.process(flags)
             QApplication.restoreOverrideCursor()
             self.updateParams()
@@ -1076,6 +1078,8 @@ class CPImageWindow(QMainWindow):
 
     def updateParams(self):
         info = self.cirProj.info
+        if 'fixed_hull' in info:
+            self.fixed_hull_range = info['fixed_hull']
         if self.ROI is None and info['ROI'] != [info['start_point'], info['rmax']]:
             self.ROI = info['ROI']
         if self.orientationModel is None:
