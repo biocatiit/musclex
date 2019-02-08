@@ -15,7 +15,7 @@ a = Analysis(['musclex/main.py'],
              hiddenimports=['PyMca5'],
              hookspath=['hooks'],
              runtime_hooks=[],
-             excludes=['tcl', 'zmq', 'IPython', 'PIL'],
+             excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
              cipher=block_cipher)
@@ -23,6 +23,7 @@ a = Analysis(['musclex/main.py'],
 # analysis for launcher
 la = Analysis(['musclex/launcher.py'],
                pathex=['.'],
+               hookspath=['hooks'],
                win_no_prefer_redirects=False,
                win_private_assemblies=False,
                cipher=block_cipher)
