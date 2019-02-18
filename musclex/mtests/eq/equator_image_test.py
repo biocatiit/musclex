@@ -25,6 +25,8 @@ def equator_image_test(pickledir="tmp_verify", inputpath="test_images",
                        in testrecord, return null
     """
     pickledir = os.path.abspath(pickledir)
+    if not os.path.exists(pickledir):
+        os.makedirs(pickledir)
     compdir = os.path.abspath(compdir)
     inputpath = os.path.abspath(inputpath)
     pass_test = True # tracks whether the entire test passed
