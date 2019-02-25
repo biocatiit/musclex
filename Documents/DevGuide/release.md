@@ -5,6 +5,7 @@
   * [Create a source distribution](#create-a-source-distribution)
   * [Create a Windows installer](#create-a-windows-installer)
   * [Create a Mac OS X App Bundle](#create-a-mac-os-x-app-bundle)
+  * [Create a Docker distribution](#create-a-docker-distribution)
   * [Update documents](#update-documents)
 * [Publish a Release](#publish-a-release)
   * [Upload packages to SourceForge](#upload-packages-to-sourceforge)
@@ -38,6 +39,22 @@ pip install dist/musclex-<version>.tar.gz
 
 > If any changes are made to the source code in the source distribution
   during these steps, check if they work in any previous sections.
+
+### Create a Docker distribution
+1. Copy 'Dockerfile' and 'musclex.sh' to an empty folder from  biocatiit/musclex  
+2. Build the Docker image: 
+> docker build -t biocat/musclex . 
+3. Upload the docker image to Docker-hub
+> docker login --username=iitbiocat
+
+> docker images
+
+> docker tag be048eb52814 biocat/musclex:1-14.4
+
+> docker push biocat/musclex
+
+4. Test:
+> musclex.sh
 
 ### Update documents
 [Update docs for Read-the-Docs][4].
