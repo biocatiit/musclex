@@ -5,7 +5,7 @@ from musclex.modules.ProjectionProcessor import ProjectionProcessor
 
 from musclex import __version__
 
-import sys, os, pickle, glob, filecmp
+import sys, os, pickle, glob, filecmp, collections
 
 def module_test(mode, settings, pickledir, inputpath, compdir="eq/test_pickles",
                 testrecord=False, testversion=__version__, keeppickles=False):
@@ -53,7 +53,10 @@ def module_test(mode, settings, pickledir, inputpath, compdir="eq/test_pickles",
             test_object = QuadrantFolder(inputpath, filename)
             test_name = "QUADRANT FOLDER"
         elif mode == 'dc':
-            test_object = DiffractionCentroids(inputpath, filename)
+            print(inputpath)
+            print([filename])
+            test_object = DiffractionCentroids(inputpath, [filename], 0,
+                                               [('peak1',(100,900))], None)
             test_name = "DIFFRACTION CENTROIDS"
         elif mode == 'pt':
             test_object = ProjectionProcessor(inputpath, filename)
@@ -86,6 +89,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir="eq/test_pickles",
 
                 return pass_test
 
+        # module_data = flatten(test_object.info)
         # Test each field in info for equivalence with the field in the test directory
         for field in test_object.info:
             # Write the current info field to a pickle file
@@ -151,6 +155,17 @@ def module_test(mode, settings, pickledir, inputpath, compdir="eq/test_pickles",
 
     return pass_test
 
+# Flattens nested dictionaries
+def flatten(d, parent_key='', sep='_'):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, collections.MutableMapping):
+            items.extend(flatten(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
 if __name__=="__main__":
     inpath = os.path.abspath(os.path.join(os.path.dirname(__file__),"test_images"))
     settingsA = {
@@ -161,7 +176,7 @@ if __name__=="__main__":
     settingsB = {
         "left_sigmac" : 1.0, "right_sigmac" : 1.0, "orientation_model" : 0,
         "nPeaks" : 5, "model" : "Voigt", "isSkeletal" : True,
-        "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : False
+        "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : True
         }
     settingsQF = {
         'bgsub' : 'None',
@@ -189,7 +204,13 @@ if __name__=="__main__":
                   'bgsub' : 'None',
                   'sigmoid' : 0.0,
                   'no_cache' : True,
-                  'orientation_model' : None
+                  'orientation_model' : 0
+    }
+
+    settingsDC = {
+        'orientation_model' : 0,
+        '90rotation' : False,
+        'no_cache' : True
     }
     args = sys.argv
     if args[1] == 'testrecord':
@@ -208,6 +229,11 @@ if __name__=="__main__":
                     pickledir=os.path.join(os.path.dirname(__file__), "qf/test_pickles_settingsQF"),
                     inputpath=inpath,
                     testrecord=True)
+        module_test(mode="dc",
+                    settings=settingsDC,
+                    pickledir=os.path.join(os.path.dirname(__file__), "dc/test_pickles_settingsDC"),
+                    inputpath=inpath,
+                    testrecord=True)
         # module_test(mode="pt",
         #             settings=settingsA,
         #             pickledir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsPT"),
@@ -215,9 +241,15 @@ if __name__=="__main__":
         #             testrecord=True)
 
     if args[1] == 'testverify':
-        module_test(mode="eq",
-                    settings=settingsA,
-                    pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsA"),
+        # module_test(mode="eq",
+        #             settings=settingsA,
+        #             pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsA"),
+        #             inputpath=inpath,
+        #             compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
+        #             testrecord=False)
+        module_test(mode="dc",
+                    settings=settingsDC,
+                    pickledir=os.path.join(os.path.dirname(__file__), "dc/tmp_verify_settingsDC"),
                     inputpath=inpath,
-                    compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
+                    compdir=os.path.join(os.path.dirname(__file__), "dc/test_pickles_settingsDC"),
                     testrecord=False)

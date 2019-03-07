@@ -22,7 +22,7 @@ class MuscleXTest(unittest.TestCase):
         settingsB = {
             "left_sigmac" : 1.0, "right_sigmac" : 1.0, "orientation_model" : 0,
             "nPeaks" : 5, "model" : "Voigt", "isSkeletal" : True,
-            "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : False
+            "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : True
             }
 
         self.assertTrue(
@@ -72,6 +72,27 @@ class MuscleXTest(unittest.TestCase):
                 keeppickles=False
                 ),
             "Quadrant Folder Test for settings configuration QF failed."
+        )
+
+    def testDiffractionCentroids(self):
+        settingsDC = {
+            'orientation_model' : 0,
+            '90rotation' : False,
+            'no_cache' : True
+        }
+
+        self.assertTrue(
+            module_test(
+                mode="dc",
+                settings=settingsDC,
+                pickledir=os.path.join(self.currdir, "dc/tmp_verify_settingsDC"),
+                inputpath=self.inpath,
+                compdir=os.path.join(self.currdir, "dc/test_pickles_settingsDC"),
+                testrecord=False,
+                testversion="1.14.4",
+                keeppickles=False
+            ),
+            "Diffraction Centroids Test for settings configuration DC failed."
         )
 
     # def testProjectionTraces(self):

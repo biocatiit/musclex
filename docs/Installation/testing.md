@@ -100,10 +100,27 @@ settingsQF = {
 ```
 Data input: `test_images`
 
-Pickles to compare to `qf/test_pickles_settingsQF`
+Pickles to compare to: `qf/test_pickles_settingsQF`
 
 To run only this test:
 `python musclex_test/tests/test_suite.py MuscleXTest.testQuadrantFolder`
+
+#### Diffraction Centroids
+The following settings are used.
+```
+settingsDC = {
+      'orientation_model' : 0,
+      '90rotation' : False,
+      'no_cache' : True
+  }
+```
+
+Data input: `test_images`
+
+Pickles to compare to: `dc/test_pickles_settingsDC`
+
+To run only this test:
+`python musclex_test/tests/test_suite.py MuscleXTest.testDiffractionCentroids`
 
 ## Progress Checklist
 
