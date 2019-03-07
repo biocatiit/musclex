@@ -124,12 +124,10 @@ To run only this test:
 
 ## Progress Checklist
 
-1. Equator Image and QuadrantFolder modules have been tested and work with the current data and settings configurations.
+1. Equator Image, QuadrantFolder, and Diffraction Centroids modules have been tested and work with the current data and settings configurations.
 
 2. A way to handle nested directories is needed to test modules like Projection Traces. Python does not enforce a dictionary order, so if a field within the `info` object in a module is a dictionary, the order of the data written to the `Pickle` files could differ when ran in `testverify`, despite the dictionary objects being essentially the same.
 
-3. Recommended settings are needed for Diffraction Centroids. I could not find default settings in the `tests/` directory.
+3. New data is needed to test Scanning Diffraction.
 
-4. New data is needed to test Scanning Diffraction.
-
-5. A selection of sufficient test data and module configurations should be made for the stable test version.
+4. A selection of sufficient test data and module configurations should be made for the stable test version.
