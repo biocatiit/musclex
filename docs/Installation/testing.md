@@ -88,7 +88,7 @@ Pickles to compare to: `eq/test_pickles_settingsA`, `eq/test_pickles_settingsB`
 To run only this test:
 `python musclex_test/tests/test_suite.py MuscleXTest.testEquatorImage`
 
-#### Quadrant Folder
+#### Quadrant Folder Test - `testQuadrantFolder`
 The following settings are used.
 ```
 settingsQF = {
@@ -105,7 +105,7 @@ Pickles to compare to: `qf/test_pickles_settingsQF`
 To run only this test:
 `python musclex_test/tests/test_suite.py MuscleXTest.testQuadrantFolder`
 
-#### Diffraction Centroids
+#### Diffraction Centroids Test - `testDiffractionCentroids`
 The following settings are used.
 ```
 settingsDC = {
@@ -122,7 +122,7 @@ Pickles to compare to: `dc/test_pickles_settingsDC`
 To run only this test:
 `python musclex_test/tests/test_suite.py MuscleXTest.testDiffractionCentroids`
 
-#### Projection Traces
+#### Projection Traces Test - `testProjectionTraces`
 The following settings are used.
 ```
 settingsPT = {
