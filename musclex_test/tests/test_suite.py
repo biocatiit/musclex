@@ -95,42 +95,30 @@ class MuscleXTest(unittest.TestCase):
             "Diffraction Centroids Test for settings configuration DC failed."
         )
 
-    # def testProjectionTraces(self):
-    #     settingsPT = {'boxes': {'1_g': ((136, 699), (524, 550)),
-    #                             '1_c': ((137, 695), (463, 486)),
-    #                             '4_c': ((172, 663), (380, 407)),
-    #                             '4_g': ((172, 663), (600, 629)),
-    #                             'off': ((467, 546), (195, 821))},
-    #                   'bgsubs': {'1_g': 0,
-    #                              '1_c': 1,
-    #                              '4_c': 1,
-    #                              '4_g': 0,
-    #                              'off': 1},
-    #                   'peaks': {'1_g': [60, 117, 149],
-    #                             '1_c': [59, 116, 149],
-    #                             '4_c': [62, 119],
-    #                             '4_g': [61, 116],
-    #                             'off': [27, 54, 81, 109, 136, 163, 197, 228]},
-    #                   'types': {'1_g': 'h', '1_c': 'h', '4_c': 'h', '4_g': 'h', 'off': 'v'},
-    #                   'hull_ranges': {'4_c': (8, 174), '1_c': (20, 205), 'off': (10, 259)},
-    #                   'bgsub' : 'None',
-    #                   'sigmoid' : 0.0,
-    #                   'no_cache' : True,
-    #                   'orientation_model' : None
-    #                   }
-    #     self.assertTrue(
-    #         module_test(
-    #             mode="pt",
-    #             settings=settingsPT,
-    #             pickledir=os.path.join(self.currdir, "pt/tmp_verify_settingsPT"),
-    #             inputpath=self.inpath,
-    #             compdir=os.path.join(self.currdir, "pt/test_pickles_settingsPT"),
-    #             testrecord=False,
-    #             testversion="1.14.4",
-    #             keeppickles=False
-    #             ),
-    #         "Projection Traces Test for settings configuration PT has failed."
-    #     )
+    def testProjectionTraces(self):
+        settingsPT = {
+            'boxes' : {'box1' : ((200, 800),(500, 600))},
+            'bgsubs' : {'box1' : 0},
+            'types' : {'box1' : 'h'},
+            'peaks' : {'box1' : [100]},
+            'bgsub' : 'None',
+            'sigmoid' : 0.0,
+            'no_cache' : True,
+            'orientation_model' : 0
+        }
+        self.assertTrue(
+            module_test(
+                mode="pt",
+                settings=settingsPT,
+                pickledir=os.path.join(self.currdir, "pt/tmp_verify_settingsPT"),
+                inputpath=self.inpath,
+                compdir=os.path.join(self.currdir, "pt/test_pickles_settingsPT"),
+                testrecord=False,
+                testversion="1.14.4",
+                keeppickles=False
+                ),
+            "Projection Traces Test for settings configuration PT has failed."
+        )
 
 if __name__=="__main__":
     unittest.main(verbosity=2)

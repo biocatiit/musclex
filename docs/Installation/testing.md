@@ -122,12 +122,33 @@ Pickles to compare to: `dc/test_pickles_settingsDC`
 To run only this test:
 `python musclex_test/tests/test_suite.py MuscleXTest.testDiffractionCentroids`
 
+#### Projection Traces
+The following settings are used.
+```
+settingsPT = {
+      'boxes' : {'box1' : ((200, 800),(500, 600))},
+      'bgsubs' : {'box1' : 0},
+      'types' : {'box1' : 'h'},
+      'peaks' : {'box1' : [100]},
+      'bgsub' : 'None',
+      'sigmoid' : 0.0,
+      'no_cache' : True,
+      'orientation_model' : 0
+  }
+```
+
+Data input: `test_images`
+
+Pickles to compare to `pt/test_pickles_settingsPT`
+
+To run only this test:
+`python musclex_test/tests/test_suite.py
+MuscleXTest.testProjectionTraces`
+
 ## Progress Checklist
 
-1. Equator Image, QuadrantFolder, and Diffraction Centroids modules have been tested and work with the current data and settings configurations.
+1. Equator Image, QuadrantFolder, Projection Traces, and Diffraction Centroids modules have been tested and work with the current data and settings configurations.
 
-2. A way to handle nested directories is needed to test modules like Projection Traces. Python does not enforce a dictionary order, so if a field within the `info` object in a module is a dictionary, the order of the data written to the `Pickle` files could differ when ran in `testverify`, despite the dictionary objects being essentially the same.
+2. New data is needed to test Scanning Diffraction.
 
-3. New data is needed to test Scanning Diffraction.
-
-4. A selection of sufficient test data and module configurations should be made for the stable test version.
+3. A selection of sufficient test data and module configurations should be made for the stable test version.
