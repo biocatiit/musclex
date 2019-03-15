@@ -314,8 +314,8 @@ class EquatorWindow(QMainWindow):
         self.nPeakSpnBx.setSingleStep(1)
         self.nPeakSpnBx.setValue(2)
         self.modelSelect = QComboBox()
-        self.modelSelect.addItem("Voigt")
         self.modelSelect.addItem("Gaussian")
+        self.modelSelect.addItem("Voigt")
         self.modelSelect.setCurrentIndex(0)
         self.setPeaksB = QPushButton("Start Manual Peak Selection")
         self.setPeaksB.setCheckable(True)
@@ -1036,7 +1036,7 @@ class EquatorWindow(QMainWindow):
         """
         cache_path = fullPath(self.dir_path, "eq_cache")
         shutil.rmtree(cache_path)
-    
+
     def nPeakChanged(self):
         """
         Triggered when number of peaks are changed
