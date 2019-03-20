@@ -346,13 +346,12 @@ class ProjectionProcessor():
                 result_dict = result.values
                 int_vars.pop('x')
                 result_dict.update(int_vars)
-
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
                 self.info['fit_results'][name] = result_dict
                 self.removeInfo(name, 'subtracted_hists')
                 print("Box : "+ str(name))
-                print("Fitting Result : " + str(result_dict))
-                print("Fitting Error : " + str(result_dict['error']))
+                print("Fitting Result : " + str(self.info['fit_results'][name]))
+                print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
                 print("---")
 
 
@@ -365,17 +364,21 @@ class ProjectionProcessor():
         all_hists = self.info['hists2']
         fit_results = self.info['fit_results']
         subt_hists = self.info['subtracted_hists']
+        bgsubs = self.info['bgsubs']
         for name in box_names:
             if name in subt_hists or name not in fit_results:
                 continue
-
-            # Get subtracted histogram if fit result exists
-            fit_result = fit_results[name]
-            hist = all_hists[name]
-            xs = np.arange(0, len(hist))
-            background = layerlineModelBackground(xs, **fit_result)
-            subt_hists[name] = hist-background
-            self.removeInfo(name, 'moved_peaks')
+            if bgsubs[name] == 2: # no background, so there should be no subtraction
+                subt_hists[name] = all_hists[name]
+                self.removeInfo(name, 'moved_peaks')
+            else:
+                # Get subtracted histogram if fit result exists
+                fit_result = fit_results[name]
+                hist = all_hists[name]
+                xs = np.arange(0, len(hist))
+                background = layerlineModelBackground(xs, **fit_result)
+                subt_hists[name] = hist-background
+                self.removeInfo(name, 'moved_peaks')
 
     def getPeakInfos(self):
         """
@@ -406,7 +409,11 @@ class ProjectionProcessor():
                 moved = []
                 i = 0
                 for p in peaks:
-                    moved.append(int(round(model['centerX']+p)))
+                    globalpeak = int(round(model['centerX']+p))
+                    if globalpeak <= len(hist):
+                        moved.append(globalpeak)
+                    else:
+                        moved.append(int(round(model['centerX']-p)))
                     i+=1
                 moved = movePeaks(hist, moved, 10)
                 moved_peaks[name] = moved
@@ -487,7 +494,6 @@ class ProjectionProcessor():
         """
         cache_path = fullPath(self.dir_path, "pt_cache")
         cache_file = fullPath(cache_path, self.filename + '.info')
-
         if exists(cache_path) and isfile(cache_file):
             cinfo = pickle.load(open(cache_file, "rb"))
             if cinfo != None:
@@ -526,7 +532,6 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
 
     #### Background and Meridian
     result = layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2,**kwargs)
-
     #### Other peaks
     i = 0
     while 'p_'+str(i) in kwargs:

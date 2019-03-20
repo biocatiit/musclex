@@ -62,6 +62,7 @@ class BoxDetails(QDialog):
         self.bgChoice = QComboBox()
         self.bgChoice.addItem("Fitting Gaussians")
         self.bgChoice.addItem("Convex Hull")
+        self.bgChoice.addItem("No Background")
 
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
                                               Qt.Horizontal, self)
@@ -661,7 +662,7 @@ class ProjectionTracesGUI(QMainWindow):
                    (y1 - breadth <= y <= y1 + breadth or y2 - breadth <= y <= y2 + breadth):
                     self.function = ['box_move', name, (x, y)]
                     break
-            else: 
+            else:
                 self.function = ['im_move', (x, y)]
         elif func[0] == 'box':
             func.append((x, y))
@@ -735,12 +736,12 @@ class ProjectionTracesGUI(QMainWindow):
         if btype == 'h':
             box['rect'] = patches.Rectangle((x, y), w, h,
                 linewidth=1, edgecolor='#95f70c', facecolor='none')
-            box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., str(name), color='#95f70c', 
+            box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., str(name), color='#95f70c',
                 fontsize=10, horizontalalignment='left', verticalalignment='center')
         else:
             box['rect'] = patches.Rectangle((x, y), w, h,
                 linewidth=1, edgecolor='y', facecolor='none')
-            box['text'] = matplotlib.text.Text(x + w /2. , y - 10, str(name), color='y', 
+            box['text'] = matplotlib.text.Text(x + w /2. , y - 10, str(name), color='y',
                 fontsize=10, horizontalalignment='center', verticalalignment='center')
         return box
 
@@ -867,7 +868,7 @@ class ProjectionTracesGUI(QMainWindow):
         Set pixel information is empty if mouse leaves figure
         """
         self.pixel_detail.setText("")
-        
+
     def imgScrolled(self, event):
         """
         This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out

@@ -628,7 +628,10 @@ class ProjectionBoxTab(QWidget):
                     model_hist = model_hist + convex_hull
 
                 ax.plot(model_hist, color='g')
-                ax2.plot(subtracted_model, color='g')
+                if bgsubs[name] == 2: # if no background subtraction, use the fit from the original model
+                    ax2.plot(model_hist, color='g')
+                else:
+                    ax2.plot(subtracted_model, color='g')
 
             if self.bgChkBx.isChecked():
                 if bgsubs[name] == 1:
