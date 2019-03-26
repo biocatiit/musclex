@@ -7,8 +7,7 @@ class MuscleXTest(unittest.TestCase):
     def setUpClass(cls):
         cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")
-        print(cls.inpath)
-
+        cls.dipath = os.path.join(cls.inpath, "Mn23-1_30umThick_20umSteps_1s")
 
     def testEquatorImage(self):
         """
@@ -118,6 +117,22 @@ class MuscleXTest(unittest.TestCase):
                 keeppickles=False
                 ),
             "Projection Traces Test for settings configuration PT has failed."
+        )
+
+    def testScanningDiffraction(self):
+        settingsDI = {}
+        self.assertTrue(
+            module_test(
+                mode="di",
+                settings=settingsDI,
+                pickledir=os.path.join(self.currdir, "di/tmp_verify_settingsDI"),
+                inputpath=self.inpath,
+                compdir=os.path.join(self.currdir, "di/test_pickles_settingsDI"),
+                testrecord=False,
+                testversion="1.14.4",
+                keeppickles=False
+                ),
+            "Scanning Diffraction Test for settings configuration DI has failed."
         )
 
 if __name__=="__main__":

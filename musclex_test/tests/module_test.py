@@ -1,13 +1,15 @@
+import sys, os, pickle, glob, filecmp, collections
+sys.path.append("../../..")
 from musclex.modules.EquatorImage import EquatorImage
 from musclex.modules.QuadrantFolder import QuadrantFolder
 from musclex.modules.DiffractionCentroids import DiffractionCentroids
 from musclex.modules.ProjectionProcessor import ProjectionProcessor
-
+from musclex.modules.ScanningDiffraction import ScanningDiffraction
+from musclex.csv_manager.CP_CSVManager import CP_CSVManager
 from musclex import __version__
 
-import sys, os, pickle, glob, filecmp, collections
 
-def module_test(mode, settings, pickledir, inputpath, compdir,
+def module_test(mode, settings, pickledir, inputpath, compdir=None,
                 testrecord=False, testversion=__version__, keeppickles=False):
     """
     Run or prepare a test of a module output. In testrecord
@@ -33,10 +35,13 @@ def module_test(mode, settings, pickledir, inputpath, compdir,
     if not os.path.exists(pickledir):
         os.makedirs(pickledir)
 
-    compdir = os.path.abspath(compdir)
+    if not testrecord:
+        compdir = os.path.abspath(compdir)
     inputpath = os.path.abspath(inputpath)
 
     pass_test = True # tracks whether the entire test passed
+    if mode == 'di':
+        inputpath = os.path.join(inputpath, "Mn23-1_30umThick_20umSteps_1s")
     filelist = [f for f in os.listdir(inputpath) if f.endswith(".tif")]
     if len(filelist) == 0:
         print("No images found in the input path - please specify a set of test images to input.")
@@ -59,11 +64,15 @@ def module_test(mode, settings, pickledir, inputpath, compdir,
         elif mode == 'pt':
             test_object = ProjectionProcessor(inputpath, filename)
             test_name = "PROJECTION TRACES"
+        elif mode == 'di':
+            test_object = ScanningDiffraction(inputpath, filename)
+            test_name = "SCANNING DIFFRACTION"
         else:
             raise ValueError("No program mode {}".format(mode))
 
         print("\n\033[3;33m---- Processing file {f} ----\033[0;3140m\n".format(f=filename))
         test_object.process(settings.copy())
+        print(test_object.info.keys())
         results = flatten(test_object.info)
 
         prefix = "_record" if testrecord else "_verify"
@@ -97,6 +106,9 @@ def module_test(mode, settings, pickledir, inputpath, compdir,
             picklefile = open(picklepath, "wb")
             pickle.dump(results[field], picklefile, pickle.HIGHEST_PROTOCOL)
             picklefile.close()
+            if mode == 'di':
+                cp_csvmgr = CP_CSVManager(dir_path=inputpath)
+                cp_csvmgr.write_new_data(test_object)
 
             if not testrecord:
                 # If the version is present, get the pickle to test against
@@ -140,6 +152,12 @@ def module_test(mode, settings, pickledir, inputpath, compdir,
 
     # Print the results of the test over all files
     if not testrecord:
+        if mode == 'di':
+            print("\033[3;33mComparing Scanning Diffraction results...\033[0;3140m\n")
+            pass_test = filecmp.cmp(os.path.join(inputpath, 'cp_results', 'summary.csv'),
+                            os.path.join(inputpath, 'cp_results', 'rcd_summary.csv'))
+            pass_test = filecmp.cmp(os.path.join(inputpath, 'cp_results', 'rings.csv'),
+                            os.path.join(inputpath, 'cp_results', 'rcd_rings.csv'))
         if pass_test:
             print("\n\033[4;32m---- {} TEST SUCCESSFUL ----\033[0;3140m"
                   .format(test_name))
@@ -153,6 +171,11 @@ def module_test(mode, settings, pickledir, inputpath, compdir,
                       .format(im=test, fd=failed_tests[test]))
     else:
         print("\033[4;32m ---- Test files written ---- \033[0;3140m")
+        if mode == 'di':
+            os.rename(os.path.join(inputpath, 'cp_results', 'summary.csv'),
+                      os.path.join(inputpath, 'cp_results', 'rcd_summary.csv'))
+            os.rename(os.path.join(inputpath, 'cp_results', 'rings.csv'),
+                      os.path.join(inputpath, 'cp_results', 'rcd_rings.csv'))
         return
 
     return pass_test
@@ -161,6 +184,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir,
 def flatten(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
+        k = str(k)
         new_key = parent_key + sep + k if parent_key else k
         if isinstance(v, collections.MutableMapping):
             items.extend(flatten(v, new_key, sep=sep).items())
@@ -202,6 +226,7 @@ if __name__=="__main__":
         '90rotation' : False,
         'no_cache' : True
     }
+    settingsDI = {}
 
     args = sys.argv
     if args[1] == 'testrecord':
@@ -230,35 +255,46 @@ if __name__=="__main__":
                     pickledir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsPT"),
                     inputpath=inpath,
                     testrecord=True)
+        module_test(mode="di",
+                    settings=settingsDI,
+                    pickledir=os.path.join(os.path.dirname(__file__), "di/test_pickles_settingsDI"),
+                    inputpath=inpath,
+                    testrecord=True)
 
     if args[1] == 'testverify':
-        module_test(mode="eq",
-                    settings=settingsA,
-                    pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsA"),
+        # module_test(mode="eq",
+        #             settings=settingsA,
+        #             pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsA"),
+        #             inputpath=inpath,
+        #             compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
+        #             testrecord=False)
+        # module_test(mode="eq",
+        #             settings=settingsB,
+        #             pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsB"),
+        #             inputpath=inpath,
+        #             compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsB"),
+        #             testrecord=False)
+        # module_test(mode="qf",
+        #             settings=settingsQF,
+        #             pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsQF"),
+        #             inputpath=inpath,
+        #             compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsQF"),
+        #             testrecord=False)
+        # module_test(mode="dc",
+        #             settings=settingsDC,
+        #             pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsDC"),
+        #             inputpath=inpath,
+        #             compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsDC"),
+        #             testrecord=False)
+        # module_test(mode="pt",
+        #             settings=settingsPT,
+        #             pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsPT"),
+        #             inputpath=inpath,
+        #             compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsPT"),
+        #             testrecord=False)
+        module_test(mode="di",
+                    settings=settingsDI,
+                    pickledir=os.path.join(os.path.dirname(__file__), "di/tmp_verify_settingsDI"),
                     inputpath=inpath,
-                    compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
-                    testrecord=False)
-        module_test(mode="eq",
-                    settings=settingsB,
-                    pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsB"),
-                    inputpath=inpath,
-                    compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsB"),
-                    testrecord=False)
-        module_test(mode="qf",
-                    settings=settingsQF,
-                    pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsQF"),
-                    inputpath=inpath,
-                    compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsQF"),
-                    testrecord=False)
-        module_test(mode="dc",
-                    settings=settingsDC,
-                    pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsDC"),
-                    inputpath=inpath,
-                    compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsDC"),
-                    testrecord=False)
-        module_test(mode="pt",
-                    settings=settingsPT,
-                    pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsPT"),
-                    inputpath=inpath,
-                    compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsPT"),
+                    compdir=os.path.join(os.path.dirname(__file__), "di/test_pickles_settingsDI"),
                     testrecord=False)
