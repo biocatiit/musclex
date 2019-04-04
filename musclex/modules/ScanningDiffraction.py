@@ -133,7 +133,7 @@ class ScanningDiffraction:
 
     def updateInfo(self, flags):
         depn_lists = {
-            '2dintegration': ['fixed_hull'], 
+            '2dintegration': ['fixed_hull'],
             'ring_hists': ['ROI', 'orientation_model', '90rotation']
         }
         for key, params in depn_lists.items():
@@ -212,8 +212,9 @@ class ScanningDiffraction:
             self.info['simple_total_intensity'] = self.roiIntensity(center, rmin, rmax)
             if 'ROI' not in self.info:
                 self.info['ROI'] = [rmin, rmax]
-            self.removeInfo('m1_rings')
-            self.removeInfo('m2_rings')
+            if not 'persist_rings' in self.info:
+                self.removeInfo('m1_rings')
+                self.removeInfo('m2_rings')
             self.log('2D integration has been calculated.')
 
     def roiIntensity(self, center, rmin, rmax):
@@ -387,7 +388,6 @@ class ScanningDiffraction:
             # Check if peaks are guessed right
             model_peaks = [result['u' + str(i)] for i in range(1, len(merged_peaks) + 1)]
             more_info = {'model_peaks': model_peaks, 'fitResult': result, 'minimize_method': methods[best_ind]}
-
             self.info.update(more_info)
 
         if 'lambda_sdd' in self.info.keys() and 'model_peaks' in self.info.keys() and len(self.info['model_peaks']) > 0:
@@ -1149,7 +1149,7 @@ class ScanningDiffraction:
         self.info['ring_errors'] = errors_dict
 
         # Find avarage ranges ( ignore outliers )
-        all_u1s = sorted([model_dict[i]['u'] for i in model_dict 
+        all_u1s = sorted([model_dict[i]['u'] for i in model_dict
             if errors_dict[i] < 1. and model_dict[i]['sigma'] < 1])
         u1_dict = self.select_peaks(all_u1s, times_threshold=1, distance_threshold=0.1, round_val=False)
 

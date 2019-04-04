@@ -1,4 +1,7 @@
-import unittest, os
+import unittest
+import os
+import h5py
+import numpy as np
 from module_test import *
 
 
@@ -8,6 +11,8 @@ class MuscleXTest(unittest.TestCase):
         cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")
         cls.dipath = os.path.join(cls.inpath, "Mn23-1_30umThick_20umSteps_1s")
+        cls.hdfpath = os.path.join(cls.dipath, "MnC23-1_30umThick_20umStep_SVZ_1s_diffScan_0001.hdf")
+        cls.hdfpickle = os.path.join(cls.inpath, "hdf_record", "hdfdata_record.p")
 
     def testEquatorImage(self):
         """
@@ -134,6 +139,10 @@ class MuscleXTest(unittest.TestCase):
                 ),
             "Scanning Diffraction Test for settings configuration DI has failed."
         )
+
+    def testHDFRead(self):
+        self.assertTrue(hdf_read_test(self.hdfpath, self.hdfpickle),
+                        "HDF5 read test failed. Check the h5py module for updates.")
 
 if __name__=="__main__":
     unittest.main(verbosity=2)

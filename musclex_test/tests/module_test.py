@@ -1,5 +1,13 @@
-import sys, os, pickle, glob, filecmp, collections
+import sys
+import os
+import pickle
+import glob
+import filecmp
+import collections
+import h5py
+import numpy as np
 sys.path.append("../../..")
+
 from musclex.modules.EquatorImage import EquatorImage
 from musclex.modules.QuadrantFolder import QuadrantFolder
 from musclex.modules.DiffractionCentroids import DiffractionCentroids
@@ -178,6 +186,22 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
                       os.path.join(inputpath, 'cp_results', 'rcd_rings.csv'))
         return
 
+    return pass_test
+
+def hdf_read_test(hdfpath, rcd_pickle):
+    print("\033[3;33m\nVerifying that data read from {} is equivalent to previously recorded data in {}\033[0;3140m\n"
+          .format(hdfpath, rcd_pickle))
+    hdffile = h5py.File(hdfpath)
+    data = np.array(hdffile.get('data').get('BL'))
+    vfy_pickle = os.path.join(os.path.dirname(hdfpath), "hdfdata_verify.p")
+    with open(vfy_pickle, "wb") as pf:
+        pickle.dump(data, pf, pickle.HIGHEST_PROTOCOL)
+    pass_test = filecmp.cmp(vfy_pickle, rcd_pickle)
+    if pass_test:
+        print("\n\033[4;32m---- HDF5 TEST SUCCESSFUL ----\033[0;3140m")
+        os.remove(vfy_pickle)
+    else:
+        print("\n\033[4;31m---- HDF5 TEST FAILED ----\033[0;3140m")
     return pass_test
 
 # Flattens nested dictionaries

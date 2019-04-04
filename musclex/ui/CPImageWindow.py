@@ -148,6 +148,7 @@ class CPImageWindow(QMainWindow):
         self.checkable_buttons = []
         self.fixed_hull_range = None
         self.ROI = None
+        self.merged_peaks = None
         self.orientationModel = None
         self.in_batch_process = False
 
@@ -285,6 +286,7 @@ class CPImageWindow(QMainWindow):
         self.checkable_buttons.append(self.setRoiBtn)
         self.selectRings = QPushButton("Select Rings Manually")
         self.selectRings.setCheckable(True)
+        self.persistRingsChkBx = QCheckBox("Persist Rings")
         self.checkable_buttons.append(self.selectRings)
         self.orientationCmbBx = QComboBox()
         self.orientationCmbBx.addItem("Max Intensity")
@@ -304,6 +306,7 @@ class CPImageWindow(QMainWindow):
         self.settingLayout.addWidget(self.setHullRange)
         self.settingLayout.addWidget(self.setRoiBtn)
         self.settingLayout.addWidget(self.selectRings)
+        self.settingLayout.addWidget(self.persistRingsChkBx)
         self.settingLayout.addWidget(QLabel("Finding orientation:"))
         self.settingLayout.addWidget(self.orientationCmbBx)
         self.settingLayout.addWidget(self.persistROIChkBx)
@@ -641,6 +644,7 @@ class CPImageWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
         else:
             self.cirProj.info['merged_peaks'] = sorted(self.function[1:])
+            self.merged_peaks = self.cirProj.info['merged_peaks']
             self.selectRings.setText("Select Rings Manually")
             self.cirProj.removeInfo('fitResult')
             self.function = None
@@ -975,6 +979,12 @@ class CPImageWindow(QMainWindow):
     def getFlags(self, imgChanged=True):
         flags = {}
         flags['partial_angle'] = self.partialRange.value()
+        if self.merged_peaks is not None and (self.persistRingsChkBx.isChecked() or not imgChanged):
+            print("Persisting rings at {}..".format(self.merged_peaks))
+            flags['merged_peaks'] = self.merged_peaks
+            flags['m1_rings'] = self.merged_peaks
+            flags['m2_rings'] = self.merged_peaks
+            flags['persist_rings'] = True
         if self.ROI is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['ROI'] = self.ROI
         if self.orientationModel is not None:
@@ -1080,6 +1090,8 @@ class CPImageWindow(QMainWindow):
         info = self.cirProj.info
         if 'fixed_hull' in info:
             self.fixed_hull_range = info['fixed_hull']
+        if 'merged_peaks' in info:
+            self.merged_peaks = info['merged_peaks']
         if self.ROI is None and info['ROI'] != [info['start_point'], info['rmax']]:
             self.ROI = info['ROI']
         if self.orientationModel is None:
