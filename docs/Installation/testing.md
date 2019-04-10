@@ -145,10 +145,21 @@ To run only this test:
 `python musclex_test/tests/test_suite.py
 MuscleXTest.testProjectionTraces`
 
-## Progress Checklist
+#### Scanning Diffraction Test - `testScanningDiffraction`
+Default settings are used (an empty `settings` dictionary is used to initialize processing).
 
-1. Equator Image, QuadrantFolder, Projection Traces, and Diffraction Centroids modules have been tested and work with the current data and settings configurations.
+Data input: `test_images/di_test_data`
 
-2. New data is needed to test Scanning Diffraction.
+Pickles to compare to `di/test_pickles_settingsDI`
 
-3. A selection of sufficient test data and module configurations should be made for the stable test version.
+To run only this test:
+`python musclex_test/tests/test_suite.py
+MuscleXTest.testScanningDiffraction`
+
+#### HDF Read Test - `testHDFRead`
+This test checks to make sure `h5py` can read data from the HDF file generated
+by Scanning Diffraction.
+
+Data input: `test_images/di_test_data/test.hdf`
+
+Pickle to compare to `test_images/hdf_record/hdfdata_record.p`

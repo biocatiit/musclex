@@ -49,7 +49,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
 
     pass_test = True # tracks whether the entire test passed
     if mode == 'di':
-        inputpath = os.path.join(inputpath, "Mn23-1_30umThick_20umSteps_1s")
+        inputpath = os.path.join(inputpath, "di_test_data")
     filelist = [f for f in os.listdir(inputpath) if f.endswith(".tif")]
     if len(filelist) == 0:
         print("No images found in the input path - please specify a set of test images to input.")

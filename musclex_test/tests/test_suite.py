@@ -10,9 +10,10 @@ class MuscleXTest(unittest.TestCase):
     def setUpClass(cls):
         cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")
-        cls.dipath = os.path.join(cls.inpath, "Mn23-1_30umThick_20umSteps_1s")
-        cls.hdfpath = os.path.join(cls.dipath, "MnC23-1_30umThick_20umStep_SVZ_1s_diffScan_0001.hdf")
+        cls.dipath = os.path.join(cls.inpath, "di_test_data")
+        cls.hdfpath = os.path.join(cls.dipath, "test.hdf")
         cls.hdfpickle = os.path.join(cls.inpath, "hdf_record", "hdfdata_record.p")
+        cls.testversion = "1.14.4" # change this to test against a different version
 
     def testEquatorImage(self):
         """
@@ -37,7 +38,7 @@ class MuscleXTest(unittest.TestCase):
                 inputpath=self.inpath,
                 compdir=os.path.join(self.currdir, "eq/test_pickles_settingsA"),
                 testrecord=False,
-                testversion="1.14.4",
+                testversion=self.testversion,
                 keeppickles=False
                 ),
             "Equator Image Test for settings configuration A failed."
@@ -50,7 +51,7 @@ class MuscleXTest(unittest.TestCase):
                 inputpath=self.inpath,
                 compdir=os.path.join(self.currdir, "eq/test_pickles_settingsB"),
                 testrecord=False,
-                testversion="1.14.4",
+                testversion=self.testversion,
                 keeppickles=False
                 ),
             "Equator Image Test for settings configuration B failed."
@@ -72,7 +73,7 @@ class MuscleXTest(unittest.TestCase):
                 inputpath=self.inpath,
                 compdir=os.path.join(self.currdir, "qf/test_pickles_settingsQF"),
                 testrecord=False,
-                testversion="1.14.4",
+                testversion=self.testversion,
                 keeppickles=False
                 ),
             "Quadrant Folder Test for settings configuration QF failed."
@@ -93,7 +94,7 @@ class MuscleXTest(unittest.TestCase):
                 inputpath=self.inpath,
                 compdir=os.path.join(self.currdir, "dc/test_pickles_settingsDC"),
                 testrecord=False,
-                testversion="1.14.4",
+                testversion=self.testversion,
                 keeppickles=False
             ),
             "Diffraction Centroids Test for settings configuration DC failed."
@@ -118,7 +119,7 @@ class MuscleXTest(unittest.TestCase):
                 inputpath=self.inpath,
                 compdir=os.path.join(self.currdir, "pt/test_pickles_settingsPT"),
                 testrecord=False,
-                testversion="1.14.4",
+                testversion=self.testversion,
                 keeppickles=False
                 ),
             "Projection Traces Test for settings configuration PT has failed."
@@ -134,7 +135,7 @@ class MuscleXTest(unittest.TestCase):
                 inputpath=self.inpath,
                 compdir=os.path.join(self.currdir, "di/test_pickles_settingsDI"),
                 testrecord=False,
-                testversion="1.14.4",
+                testversion=self.testversion,
                 keeppickles=False
                 ),
             "Scanning Diffraction Test for settings configuration DI has failed."
