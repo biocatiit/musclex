@@ -33,7 +33,7 @@ from os.path import exists, join
 from threading import Thread
 from musclex.utils.file_manager import getFilesAndHdf, createFolder
 import fabio
-from musclex.utils.image_processor import averageImages
+from musclex.utils.image_processor import averageImages, rotateImage, getRotationAngle, getCenter
 import musclex
 
 class ImageMergerGUI(QMainWindow):
@@ -81,6 +81,9 @@ class ImageMergerGUI(QMainWindow):
 
         self.start_button = QPushButton("Start")
 
+        self.rotateChkBx = QCheckBox("Rotate and Center Images?")
+        self.rotateChkBx.setChecked(False)
+
         self.mainLayout.addWidget(QLabel("Input Directory : "), 0, 0, 1, 1)
         self.mainLayout.addWidget(self.in_directory, 0, 1, 1, 1)
         self.mainLayout.addWidget(self.select_in_folder, 0, 2, 1, 1)
@@ -93,6 +96,8 @@ class ImageMergerGUI(QMainWindow):
         self.mainLayout.addWidget(self.frame_number, 2, 2, 1, 1)
         self.mainLayout.addWidget(self.detailGrp, 3, 0, 1, 3)
         self.mainLayout.addWidget(self.start_button, 4, 0, 1, 3, Qt.AlignCenter)
+
+        self.mainLayout.addWidget(self.rotateChkBx, 2, 0, 1, 3)
 
         self.mainLayout.columnStretch(1)
         self.mainLayout.rowStretch(3)
@@ -194,6 +199,7 @@ class ImageMergerGUI(QMainWindow):
         self.progressbar.setHidden(False)
         self.progressbar.setRange(0, len(self.img_grps))
         self.detail.insertPlainText("\n\n--------------- Start ----------------\n\n")
+
         for i, imgs in enumerate(self.img_grps):
             if len(imgs) > 0:
                 self.progressbar.setValue(i)
@@ -223,7 +229,8 @@ class ImageMergerGUI(QMainWindow):
                 self.detail.moveCursor(QTextCursor.End)
                 QApplication.processEvents()
                 full_imgs = list(map(lambda f: join(input, f), imgs))
-                avg = averageImages(full_imgs)
+                # forimg in full_imgs, rotate and center them
+                avg = averageImages(full_imgs, rotate=self.rotateChkBx.isChecked())
                 fabio.tifimage.tifimage(data=avg).write(join(output, filename))
             else:
                 break

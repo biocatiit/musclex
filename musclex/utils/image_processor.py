@@ -169,15 +169,19 @@ def getCenter(img):
     :return: center
     """
     img = get8bitImage(copy.copy(img))
+    # cv2.imwrite('original.jpg', img)
     img = cv2.GaussianBlur(img, (5, 5), 0)
+    # cv2.imwrite('blurred.jpg', img)
     init_center = None
 
     ##  Find init center by apply thresholding and fit ellipse to the contour which has the maximum size
     cimg = bkImg(copy.copy(img), 0.005, 50)
+    # cv2.imwrite('background.jpg', cimg)
     # display_test(cimg, "threshold")
 
     contours = getContours(cimg)
     cnt = max(contours, key=lambda c: len(c))
+    # print("Maximum contour: {}".format(cnt))
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)
         init_center = (int(round(ellipse[0][0])), int(round(ellipse[0][1])))
@@ -189,6 +193,7 @@ def getCenter(img):
     ## Find center by apply thresholding and fit ellipse to the contour of reflections and find the average center of reflections
     if init_center is not None:
         cimg = thresholdImg(copy.copy(img), 0.00015)
+        # cv2.imwrite('thresholded.jpg', cimg)
         contours = getContours(cimg)
 
         # Find 2 biggest contours (reflections)
@@ -254,6 +259,7 @@ def getCenter(img):
     cimg = bkImg(copy.copy(img), 0.0015, 50)
     circles = cv2.HoughCircles(cimg, 3 , 1, 100,
                                param1=60, param2=20, minRadius=0, maxRadius=0) # 3 = cv2.HOUGH_GRADIENT
+    # cv2.imwrite('circles.jpg', circles)
     if circles is not None:
         return (circles[0][0][0], circles[0][0][1])
 
@@ -548,7 +554,7 @@ def display_test(img, name = "test", max_int = 100):
     img = cv2.resize(img, size)
     cv2.imshow(name, img)
 
-def averageImages(file_list):
+def averageImages(file_list, rotate=False):
     """
     open images and average them all
     :param file_list: list of image path (str)
@@ -557,6 +563,11 @@ def averageImages(file_list):
     all_imgs = []
     for f in file_list:
         img = fabio.open(f).data
+        if rotate:
+            print("Rotating and centering {}".format(f))
+            center = getCenter(img)
+            angle = getRotationAngle(img, center, method=0)
+            img = rotateImage(img, center, angle, mask_thres = -999)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
