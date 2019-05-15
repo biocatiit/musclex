@@ -85,5 +85,6 @@ setup(
                  extra_compile_args=["-ffast-math"],
                  )],
     cmdclass = {'build_ext': build_ext},
-    include_dirs=[numpy.get_include()]
+    include_dirs=[numpy.get_include()],
+    test_suite="musclex/tests"
 )
