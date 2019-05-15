@@ -187,8 +187,8 @@ class ScanningDiffraction:
             I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method="csr_ocl", mask=mask)
             I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr_ocl", mask=mask)
 
-            tth_1, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", mask=mask)
-            tth_2, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", mask=mask)
+            tth_1, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method="csr_ocl", mask=mask)
+            tth_2, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr_ocl", mask=mask)
 
             self.info['2dintegration'] = [I2D, tth, chi]
             self.info['tophat_2dintegration'] = [I2D2, tth2, chi2]
@@ -447,7 +447,7 @@ class ScanningDiffraction:
 
         # Compute histograms for each range
         for a_range in ranges:
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", azimuth_range=a_range, mask=mask)
+            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=a_range, mask=mask)
             histograms.append(I)
 
         return ranges, histograms

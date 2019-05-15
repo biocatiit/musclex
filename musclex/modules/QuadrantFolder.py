@@ -229,7 +229,7 @@ class QuadrantFolder(object):
 
         I2D = []
         for deg in range(180, 271):
-            x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", azimuth_range=(deg, deg+1))
+            x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method="csr_ocl", azimuth_range=(deg, deg+1))
             I2D.append(I)
 
         I2D = np.array(I2D)
@@ -609,7 +609,7 @@ class QuadrantFolder(object):
             # Get 1D azimuthal integration histogram
             ai = pyFAI.AzimuthalIntegrator(detector="agilent_titan")
             ai.setFit2D(100, center[0], center[1])
-            x, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(180, 270))
+            x, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(180, 270))
 
             self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
             self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
@@ -638,11 +638,11 @@ class QuadrantFolder(object):
 
         for deg in np.arange(180, 271, 1):
             if deg == 180 :
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(180, 180.5))
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(180, 180.5))
             elif deg == 270:
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(269.5, 270))
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(269.5, 270))
             else:
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", azimuth_range=(deg-0.5, deg+0.5))
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(deg-0.5, deg+0.5))
 
             hist_y = I[int(rmin):int(rmax+1)]
             hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))

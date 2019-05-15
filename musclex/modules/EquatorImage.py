@@ -178,7 +178,7 @@ class EquatorImage:
             npt_rad = int(round(max([distance(center, c) for c in corners])))
             ai = pyFAI.AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm") # Get 1D Azimuthal integrated histogram
+            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr_ocl") # Get 1D Azimuthal integrated histogram
             self.info['rmin'] = getFirstVallay(I) # R-min is value before the first valley
             self.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
             #
