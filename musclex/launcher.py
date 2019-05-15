@@ -1,8 +1,13 @@
 from musclex.ui.ui_launcherform import *
 from musclex import __version__
 import sys, subprocess, os, os.path
+sys.path.append('..')
 import configparser
+import unittest
+import time
 from musclex.utils.exception_handler import handlers
+
+from musclex.tests.module_test import *
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -13,7 +18,7 @@ class LauncherForm(QWidget):
 
     def __init__(self):
         super(QWidget, self).__init__()
-        
+
         # Set up the user interface from Designer.
         self.ui = Ui_LauncherForm()
         self.ui.setupUi(self)
@@ -35,10 +40,11 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         pmlayout = popupMsg.layout()
         pmlayout.addItem(QSpacerItem(756, 0), pmlayout.rowCount(), 0, 1, pmlayout.columnCount())
         self.popupMsg = popupMsg
-        
+
         # Make some local initializations.
         self.program_idx = 0
         self.ui.runButton.clicked.connect(self.launch)
+        self.ui.testButton.clicked.connect(self.test)
         self.ui.stackedWidget.currentChanged['int'].connect(self.select)
 
         # Read the config file
@@ -54,7 +60,23 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
             open(ininame, 'a').close()
         self.config = config
         self.ininame = ininame
-        
+        self.test_path = os.path.join(os.path.dirname(__file__),
+                                       "tests", "test_logs", "test.log")
+
+        if not os.path.exists(self.test_path):
+            self.testPopup = QMessageBox()
+            self.testPopup.setWindowTitle('Testing')
+            self.testPopup.setTextFormat(Qt.RichText)
+            self.testPopup.setText('No test log found. A test of the MuscleX installation will be run.')
+            self.testPopup.setInformativeText('Press OK to begin the tests. This could take several minutes..')
+            self.testPopup.setIcon(QMessageBox.Information)
+            self.testLayout = self.testPopup.layout()
+            self.testLayout.addItem(QSpacerItem(756, 0), self.testLayout.rowCount(), 0, 1, self.testLayout.columnCount())
+            self.testPopup.exec()
+            QApplication.processEvents()
+            self.test()
+
+
     def select(self, idx):
         self.program_idx = idx
 
@@ -63,10 +85,18 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         try:
             path = os.path.dirname(sys.argv[0])
             path = '.' if path == '' else path
-            subprocess.Popen([os.path.join(path, 'musclex-main'), prog], 
+            subprocess.Popen([os.path.join(path, 'musclex-main'), prog],
             	shell=(sys.platform=='win32'))
         except FileNotFoundError:
             subprocess.Popen(['musclex', prog], shell=(sys.platform=='win32'))
+
+    def test(self):
+        self.td = TestDialog()
+        self.td.show()
+        self.td.activateWindow()
+        self.td.raise_()
+        if not os.path.exists(self.test_path):
+            self.td.run_test()
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Return:
@@ -91,7 +121,204 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         window.show()
         sys.exit(app.exec_())
 
+class TestDialog(QDialog):
+    """
+    Qt Class definition for the TestDialog window.
+    """
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        # Fixed path to the test log
+        self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
+        self.green = QColor(0,150,0)
+        self.red = QColor(150,0,0)
+        self.black = QColor(0,0,0)
+        self.initUI()
+
+    def initUI(self):
+        self.testDialogLayout = QVBoxLayout()
+        self.runTestsButton = QPushButton('Run Tests')
+        self.runGPUTestButton = QPushButton('Run GPU Test')
+        self.showLatestTestButton = QPushButton('Show Latest Test Results')
+        self.cancelButton = QPushButton('Cancel')
+
+        self.progressBar = QProgressBar(self)
+        self.progressBar.setGeometry(0, 0, 300, 25)
+        self.progressBar.setMaximum(100)
+
+        self.testDialogLayout.addWidget(self.runTestsButton)
+        self.testDialogLayout.addWidget(self.runGPUTestButton)
+        self.testDialogLayout.addWidget(self.showLatestTestButton)
+        self.testDialogLayout.addWidget(self.cancelButton)
+        self.testDialogLayout.addWidget(self.progressBar)
+
+        self.runTestsButton.clicked.connect(self.runTestsButtonClicked)
+        self.runGPUTestButton.clicked.connect(self.runGPUTestButtonClicked)
+        self.showLatestTestButton.clicked.connect(self.showLatestTestButtonClicked)
+        self.cancelButton.clicked.connect(self.cancelButtonClicked)
+
+        self.setLayout(self.testDialogLayout)
+        self.resize(700,500)
+
+        self.detail = QTextEdit()
+        self.detail.setReadOnly(True)
+        self.detail.setFontWeight(100)
+        if os.path.exists(self.test_path):
+            self.detail.insertPlainText("Module tests have already been run.\nPress \'Run Tests\' to run the module tests again.")
+            self.detail.insertPlainText("\n\nTest results:\n{}{}{}\nSee the log at {} for more info.\n"
+                                        .format('-'*80,self.get_latest_test(),'-'*80, self.test_path))
+        else:
+            self.detail.insertPlainText("No test logs found. Running unit tests for the first time..\n")
+
+        self.testDialogLayout.addWidget(self.detail)
+        QApplication.processEvents()
+        self.detail.setFontWeight(50)
+        self.detail.moveCursor(QTextCursor.Start)
+        QApplication.processEvents()
+
+
+    def cancelButtonClicked(self):
+        self.close()
+
+    def runTestsButtonClicked(self):
+        self.run_test()
+
+    def runGPUTestButtonClicked(self):
+        """
+        Run GPU Tests from unittest.
+        """
+        self.progressBar.reset()
+        self.detail.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+
+        suite = unittest.TestSuite()
+        suite.addTest(MuscleXTest("testOpenCLDevice"))
+        suite.addTest(MuscleXTest("testGPUIntegratePyFAI"))
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
+
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("GPU tests complete.\n")
+        self.detail.moveCursor(QTextCursor.NoMove)
+        QApplication.processEvents()
+
+        test_results = self.get_latest_test()
+        opencl_pass = (test_results.split('OpenCL GPU Device Test:')[1][1:5] == 'pass')
+        pyfai_pass = (test_results.split('pyFAI Integration Test:')[1][1:5] == 'pass')
+        pass_test = opencl_pass and pyfai_pass
+
+        if pass_test:
+            self.detail.setTextColor(self.green)
+            self.detail.insertPlainText("Tests Passed -- GPU acceleration is available.\n")
+        else:
+            self.detail.setTextColor(self.red)
+            self.detail.insertPlainText("Tests failed -- GPU acceleration is not available.\n")
+        QApplication.processEvents()
+
+        self.detail.setTextColor(self.black)
+        self.detail.setFontWeight(50)
+        self.detail.insertPlainText("Test results:\n{}{}{}"
+                                    .format('-'*80,test_results,'-'*80))
+        self.progressBar.setValue(100)
+        QApplication.processEvents()
+
+    def showLatestTestButtonClicked(self):
+        self.detail.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nLatest test results:\n")
+        self.detail.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+
+        self.detail.setFontWeight(50)
+        self.detail.insertPlainText("{}{}{}"
+                                    .format('-'*80,self.get_latest_test(),'-'*80))
+        QApplication.processEvents()
+
+    def run_test(self):
+        """
+        Run the unittest in a subprocess while monitoring progress
+        from the log in the parent process.
+        """
+        self.progressBar.reset()
+        NTESTS = 8
+        subproc = subprocess.Popen("./run_tests.sh") # run the test program in a subprocess
+
+        if os.path.exists(self.test_path):
+            prev_data = open(self.test_path, 'r').readlines()
+        else:
+            prev_data = ""
+
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nRunning tests of MuscleX modules.\nThis could take a few minutes...")
+        QApplication.processEvents()
+
+        progress = 0
+        test_number = 0
+        while progress < 100 and subproc.poll() is None:
+            time.sleep(0.5)
+            self.detail.moveCursor(QTextCursor.End)
+            self.detail.insertPlainText(".")
+            QApplication.processEvents()
+            if os.path.exists(self.test_path):
+                logfile = open(self.test_path, 'r')
+                curr_data = logfile.readlines()
+                if curr_data != prev_data:
+                    test_number += 1
+                    progress += 100 / NTESTS
+                    self.progressBar.setValue(progress)
+                    QApplication.processEvents()
+
+                    self.detail.moveCursor(QTextCursor.End)
+                    self.detail.insertPlainText("\nFinished test {} out of {}.\n"
+                                                .format(test_number, NTESTS))
+                    QApplication.processEvents()
+                prev_data = curr_data
+            else:
+                pass
+        self.progressBar.setValue(100)
+        QApplication.processEvents()
+
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nModule tests complete.")
+        QApplication.processEvents()
+
+        test_results = self.get_latest_test()
+        if test_results.split('Summary of Test Results')[1].find('fail') != -1:
+            self.detail.setTextColor(self.red)
+            self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
+        else:
+            self.detail.setTextColor(self.green)
+            self.detail.insertPlainText("\nAll tests passed -- see below for details.\n")
+        QApplication.processEvents()
+
+        self.detail.setTextColor(self.black)
+        self.detail.setFontWeight(50)
+        self.detail.insertPlainText("\nTest results:\n{}{}{}\nSee the log at {} for more info."
+                                    .format('-'*80,test_results,'-'*80, self.test_path))
+        QApplication.processEvents()
+
+    def get_latest_test(self):
+        """
+        Display the last test run from the test log.
+        """
+        if os.path.exists(self.test_path):
+            file = open(self.test_path, 'r')
+        else:
+            return ""
+        data = file.read()
+        idx = 1
+        while(idx < 10):
+            last_test = data.split('-'*80)[-idx]
+            if last_test == '\n':
+                idx += 1
+            else:
+                break
+        file.close()
+        return last_test
 
 if __name__ == "__main__":
     LauncherForm.main()
-    

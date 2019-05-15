@@ -106,7 +106,10 @@ class Ui_LauncherForm(object):
         self.horizontalLayout.addItem(spacerItem)
         self.runButton = QPushButton(self.layoutWidget)
         self.runButton.setObjectName("runButton")
+        self.testButton = QPushButton(self.layoutWidget)
+        self.testButton.setObjectName("testButton")
         self.horizontalLayout.addWidget(self.runButton)
+        self.horizontalLayout.addWidget(self.testButton)
 
         self.retranslateUi(LauncherForm)
         self.listWidget.setCurrentRow(0)
@@ -186,4 +189,4 @@ class Ui_LauncherForm(object):
 "<p align=\"justify\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\">See </span><a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor/DDF-Processor-(ddf).html\"><span style=\" text-decoration: underline; color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor/DDF-Processor-(ddf).html</span></a><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\"> for details.</span></p></body></html>"))
         self.quitButton.setText(_translate("LauncherForm", "Quit"))
         self.runButton.setText(_translate("LauncherForm", "Run"))
-
+        self.testButton.setText(_translate("LauncherForm", "Run Tests"))
