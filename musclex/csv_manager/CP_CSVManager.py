@@ -116,7 +116,10 @@ class CP_CSVManager():
                 else:
                     new_data['d'] = '-'
                 new_datas.append(new_data)
-            self.df_rings = self.df_rings.append(new_datas, ignore_index=True)
+            try:
+                self.df_rings = self.df_rings.append(new_datas, ignore_index=True)
+            except:
+                pass
         else:
             for k in self.rings_header:
                 new_data = {}

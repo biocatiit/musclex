@@ -139,8 +139,19 @@ class HDFBrowser(QDialog):
             x_step = self.x_step.value()
             y_step = self.y_step.value()
 
-            x_nStep = int(np.round((x_end - x_start) / x_step) + 1)
-            y_nStep = int(np.round((y_end - y_start) / y_step) + 1)
+            # The total size divided by the step size is the number of steps in
+            # both directions
+            # Check if end - start = 0 for either - if it is then run in
+            # 1D scan mode?
+            if x_step != 0:
+                x_nStep = int(np.round((x_end - x_start) / x_step) + 1)
+            else:
+                x_nStep = 1
+
+            if y_step != 0:
+                y_nStep = int(np.round((y_end - y_start) / y_step) + 1)
+            else:
+                y_nStep = 1
 
             data = []
             for j in range(0, y_nStep):
@@ -601,7 +612,6 @@ class CPBatchWindow(QMainWindow):
 
 
     def updateIntensityMap(self, type='simple'):
-
         if len(self.xyIntensity) < 3:
             return
         rendering_mode = self.BSDChoice.currentIndex()
@@ -609,6 +619,12 @@ class CPBatchWindow(QMainWindow):
         angle = self.orientationChkBx.isChecked()
 
         stepx, stepy = self.xylim[0], self.xylim[1]
+        # if one or the other is 0, this is a 1D scan
+        if stepx == 0:
+            stepx = stepy / 2
+        if stepy == 0:
+            stepy = stepx / 2
+
         beamx, beamy = self.beamXSpinBox.value(), self.beamYSpinBox.value()
         x = copy.copy(self.xyIntensity[0])
         y = copy.copy(self.xyIntensity[1])
@@ -737,7 +753,7 @@ class CPBatchWindow(QMainWindow):
                 if ranges[i] == 0:
                     e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
                 else:
-                    e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) + 
+                    e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
                         angle_factor * self.orientation_dict[i + self.init_number])
                     e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
                 patches.append(e)
@@ -831,6 +847,7 @@ class CPBatchWindow(QMainWindow):
             [float(self.orientation_dict[i]) if i in self.orientation_dict and self.orientation_dict[i] != '' else 0
              for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)])
+        print("Orientation: {}".format(orientation))
         orientation = [np.pi - ang for ang in orientation]
         # orientation = [np.pi - ang if ang < np.pi else ang - np.pi for ang in orientation]
         orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
@@ -865,9 +882,15 @@ class CPBatchWindow(QMainWindow):
                                     int_display,  # colour the arrows based on this array
                                     cmap=self.colormap, norm=norm, # colour map
                                     headlength=7, headwidth=4, scale_units='xy', scale=scale, pivot='middle')
-
-        ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
-        ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
+        # if one of these is 0, it's a 1D scan. set limits on the scale of the non-zero step size
+        if (self.xylim[0]/2 > 0):
+            ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
+        else:
+            ax.set_xlim(x.min() - self.xylim[1]/2, x.max() + self.xylim[1]/2)
+        if (self.xylim[1]/2 >0):
+            ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
+        else:
+            ax.set_ylim(y.min() - self.xylim[0]/2, y.max() + self.xylim[0]/2)
         # ax.set_aspect('auto')
         ax.set_facecolor('black')
 
@@ -955,7 +978,7 @@ class CPBatchWindow(QMainWindow):
             if ranges[i] == 0:
                 e = Ellipse(xy=centers[i], width=self.xylim[0]/5., height=self.xylim[0]/5.)
             else:
-                angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) + 
+                angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
                     angle_factor * self.orientation_dict[i + self.init_number])
                 e = Ellipse(xy=centers[i], width= self.xylim[0] * widths[i], height=self.xylim[0],
                             angle=angle)
@@ -974,8 +997,14 @@ class CPBatchWindow(QMainWindow):
         p.set_array(colors)
         ax.add_collection(p)
         ax.set_facecolor('black')
-        ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
-        ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
+        if (self.xylim[0]/2 > 0):
+            ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
+        else:
+            ax.set_xlim(x.min() - self.xylim[1]/2, x.max() + self.xylim[1]/2)
+        if (self.xylim[1]/2 >0):
+            ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
+        else:
+            ax.set_ylim(y.min() - self.xylim[0]/2, y.max() + self.xylim[0]/2)
         ax.set_aspect('auto')
 
         if self.isFlipX:
@@ -1118,23 +1147,28 @@ class CPBatchWindow(QMainWindow):
 
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
             self.coord_dict[i] = (self.hdf_data[i - self.init_number][0], self.hdf_data[i - self.init_number][1])
-
         nCols = len(self.hdf_data) # 1D Scan
         for i in range(self.init_number + 1, len(self.hdf_data) + self.init_number):
             if abs(self.coord_dict[i][1] - self.coord_dict[i - 1][1]) != 0:
                 nCols = i - self.init_number
                 break
-
-        nRows = int(len(self.hdf_data) / nCols)
+        if nCols != 0:
+            nRows = int(len(self.hdf_data) / nCols)
+        else :
+            nRows = 0
         all_xs = np.reshape(np.array([v[0] for k, v in self.coord_dict.items()]), (nRows, nCols))
         all_ys = np.reshape(np.array([v[1] for k, v in self.coord_dict.items()]), (nRows, nCols))
-
         x = np.mean(all_xs, axis=0)
         y = np.mean(all_ys, axis=1)
 
-        # Check if any error on coordinates
-        x_grad = abs(x[1] - x[0])
-        y_grad = abs(y[1] - y[0])
+        if len(x) > 1:
+            x_grad = abs(x[1] - x[0])
+        else:
+            x_grad = 0
+        if len(y) > 1:
+            y_grad = abs(y[1] - y[0])
+        else:
+            y_grad = 0
 
         # Plot heatmap for intensity
         z = [float(self.intensity_dict[i]) if i in self.intensity_dict else -1 for i in
