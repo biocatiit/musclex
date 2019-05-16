@@ -3,5 +3,10 @@
 Release Date : TBA
 
 ### Updates
-- Added a `unittest` suite for running multiple module tests at once
-- Wrote the module test for EquatorImage
+- Adding a testing module that can be run from the launcher for validating the
+  MuscleX installation
+- Rotate and center options added to ImageMerger
+- 1D scans are possible in Scanning Diffraction batch mode
+- PyOpenCL is a requirement
+- GPU acceleration is now enabled by default if PyOpenCL is installed
+- 'No Background' option added to Projection Traces
