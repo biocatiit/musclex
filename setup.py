@@ -87,5 +87,7 @@ setup(
                  )],
     cmdclass = {'build_ext': build_ext},
     include_dirs=[numpy.get_include()],
+    scripts=['musclex/run_tests.sh'],
+    include_package_data=True,
     test_suite="musclex/tests"
 )
