@@ -206,11 +206,11 @@ class TestDialog(QDialog):
         opencl_results = test_results.split('OpenCL GPU Device Test:')
         pyfai_results = test_results.split('pyFAI Integration Test:')
 
-        if len(opencl_results) >= 1:
+        if len(opencl_results) >= 2:
             opencl_pass = (opencl_results[1][1:5] == 'pass')
         else:
             opencl_pass = False
-        if len(pyfai_results) >= 1:
+        if len(pyfai_results) >= 2:
             pyfai_pass = (pyfai_results[1][1:5] == 'pass')
         else:
             pyfai_pass = False
@@ -298,7 +298,7 @@ class TestDialog(QDialog):
         test_results = self.get_latest_test()
         test_summary = test_results.split('Summary of Test Results')
 
-        if len(test_summary) >= 1:
+        if len(test_summary) >= 2:
             if test_summary[1].find('fail') != -1:
                 self.detail.setTextColor(self.red)
                 self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")

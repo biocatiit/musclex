@@ -9,7 +9,6 @@ import h5py
 import shutil
 import pyFAI
 import numpy as np
-sys.path.append("../../..")
 
 from musclex.modules.EquatorImage import EquatorImage
 from musclex.modules.QuadrantFolder import QuadrantFolder

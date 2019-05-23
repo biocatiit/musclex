@@ -4,9 +4,9 @@ import sys
 import logging
 import platform
 from time import gmtime, strftime
-from musclex.tests.test_utils import *
 
 import musclex
+from musclex.tests.test_utils import module_test, hdf_read_test, gpu_device_test, pyfai_gpu_integrate_test
 
 class MuscleXTest(unittest.TestCase):
     @classmethod
@@ -51,6 +51,8 @@ Linux ID: {}\n
                    lin_name, lin_ver, lin_id)
 
         cls.logname = os.path.join(cls.currdir,"test_logs", "test.log")
+        if not os.path.isdir(os.path.dirname(cls.logname)):
+            os.mkdir(os.path.dirname(cls.logname))
         if os.path.exists(cls.logname):
             append_write = 'a'
         else:
@@ -93,15 +95,6 @@ Linux ID: {}\n
         with open(cls.logname, 'a') as lf:
             lf.write("Ending test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
             lf.write("\n{}\n".format("-"*80))
-
-    # def setUp(self):
-    #     self.logfile.write("\n{}\n".format("-"*80))
-    #     self.logfile.write("Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-    #     self.logfile.write("Testing MuscleX version: {}\n".format(musclex.__version__))
-    #     self.log_system_info()
-    #     self.log_package_info()
-    #     self.log_opencl_info()
-    #     self.logfile.write("\nSummary of Test Results\n")
 
     def testEquatorImage(self):
         """
