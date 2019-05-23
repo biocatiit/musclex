@@ -77,6 +77,11 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = ImageMergerGUI()
             sys.exit(app.exec_())
+        elif prog == 'gui':
+            from musclex.launcher import LauncherForm
+            app = QApplication(sys.argv)
+            myapp = LauncherForm.main()
+            sys.exit(app.exec_())
         else:
             run = False
     else:

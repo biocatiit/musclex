@@ -64,19 +64,18 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
                                        "tests", "test_logs", "test.log")
 
         if not os.path.exists(self.test_path):
-            self.testPopup = QMessageBox()
-            self.testPopup.setWindowTitle('Testing')
-            self.testPopup.setTextFormat(Qt.RichText)
-            self.testPopup.setText('No test log found. A test of the MuscleX installation will be run.')
-            self.testPopup.setInformativeText('Press OK to begin the tests. This could take several minutes..')
-            self.testPopup.setIcon(QMessageBox.Information)
-            self.testLayout = self.testPopup.layout()
-            self.testLayout.addItem(QSpacerItem(756, 0), self.testLayout.rowCount(), 0, 1, self.testLayout.columnCount())
-            self.testPopup.exec()
-            QApplication.processEvents()
+            # self.testPopup = QMessageBox()
+            # self.testPopup.setWindowTitle('Testing')
+            # self.testPopup.setTextFormat(Qt.RichText)
+            # self.testPopup.setText('No test log found. A test of the MuscleX installation will be run.')
+            # self.testPopup.setInformativeText('Press OK to begin the tests. This could take several minutes..')
+            # self.testPopup.setIcon(QMessageBox.Information)
+            # self.testLayout = self.testPopup.layout()
+            # self.testLayout.addItem(QSpacerItem(756, 0), self.testLayout.rowCount(), 0, 1, self.testLayout.columnCount())
+            # self.testPopup.show()
+            # QApplication.processEvents()
             self.test()
-
-
+        QApplication.processEvents()
     def select(self, idx):
         self.program_idx = idx
 
@@ -126,7 +125,7 @@ class TestDialog(QDialog):
     Qt Class definition for the TestDialog window.
     """
     def __init__(self):
-        super().__init__()
+        super(QWidget, self).__init__()
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
@@ -203,8 +202,18 @@ class TestDialog(QDialog):
         QApplication.processEvents()
 
         test_results = self.get_latest_test()
-        opencl_pass = (test_results.split('OpenCL GPU Device Test:')[1][1:5] == 'pass')
-        pyfai_pass = (test_results.split('pyFAI Integration Test:')[1][1:5] == 'pass')
+
+        opencl_results = test_results.split('OpenCL GPU Device Test:')
+        pyfai_results = test_results.split('pyFAI Integration Test:')
+
+        if len(opencl_results) >= 1:
+            opencl_pass = (opencl_results[1][1:5] == 'pass')
+        else:
+            opencl_pass = False
+        if len(pyfai_results) >= 1:
+            pyfai_pass = (pyfai_results[1][1:5] == 'pass')
+        else:
+            pyfai_pass = False
         pass_test = opencl_pass and pyfai_pass
 
         if pass_test:
@@ -243,7 +252,7 @@ class TestDialog(QDialog):
         """
         self.progressBar.reset()
         NTESTS = 8
-        subproc = subprocess.Popen("./run_tests.sh") # run the test program in a subprocess
+        subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"run_tests.sh")) # run the test program in a subprocess
 
         if os.path.exists(self.test_path):
             prev_data = open(self.test_path, 'r').readlines()
@@ -287,12 +296,15 @@ class TestDialog(QDialog):
         QApplication.processEvents()
 
         test_results = self.get_latest_test()
-        if test_results.split('Summary of Test Results')[1].find('fail') != -1:
-            self.detail.setTextColor(self.red)
-            self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
-        else:
-            self.detail.setTextColor(self.green)
-            self.detail.insertPlainText("\nAll tests passed -- see below for details.\n")
+        test_summary = test_results.split('Summary of Test Results')
+
+        if len(test_summary) >= 1:
+            if test_summary[1].find('fail') != -1:
+                self.detail.setTextColor(self.red)
+                self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
+            else:
+                self.detail.setTextColor(self.green)
+                self.detail.insertPlainText("\nAll tests passed -- see below for details.\n")
         QApplication.processEvents()
 
         self.detail.setTextColor(self.black)

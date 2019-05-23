@@ -140,7 +140,8 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
                 pass_field = filecmp.cmp(test_pickle, picklepath)
 
                 # If the two files aren't identical, return some error
-                if not pass_field:
+                # Program_version is usually contained as well, but do not compare those
+                if field is not 'program_version' and not pass_field:
                     print("Testing {data} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m".format(data=field))
                     print("Compare the following files for more information:\n" \
                           "File generated for testing: {p1}\nReference file: {p2}" \
