@@ -28,9 +28,12 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import sys
+import os
+import unittest
 from musclex import __version__
 from musclex.ui.pyqt_utils import *
 from musclex.utils.exception_handler import handlers
+from musclex.tests.module_test import *
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -82,6 +85,26 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = LauncherForm.main()
             sys.exit(app.exec_())
+        elif prog == 'test':
+            suite = unittest.TestSuite()
+            suite.addTest(MuscleXTest("testEquatorImage"))
+            suite.addTest(MuscleXTest("testQuadrantFolder"))
+            suite.addTest(MuscleXTest("testDiffractionCentroids"))
+            suite.addTest(MuscleXTest("testProjectionTraces"))
+            suite.addTest(MuscleXTest("testScanningDiffraction"))
+            suite.addTest(MuscleXTest("testHDFRead"))
+            suite.addTest(MuscleXTest("testOpenCLDevice"))
+            suite.addTest(MuscleXTest("testGPUIntegratePyFAI"))
+            runner = unittest.TextTestRunner()
+            runner.run(suite)
+            sys.exit()
+        elif prog == 'test_gpu':
+            suite = unittest.TestSuite()
+            suite.addTest(MuscleXTest("testOpenCLDevice"))
+            suite.addTest(MuscleXTest("testGPUIntegratePyFAI"))
+            runner = unittest.TextTestRunner()
+            runner.run(suite)
+            sys.exit()
         else:
             run = False
     else:
