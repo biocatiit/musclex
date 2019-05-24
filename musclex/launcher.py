@@ -86,7 +86,7 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
             path = '.' if path == '' else path
             subprocess.Popen([os.path.join(path, 'musclex-main'), prog],
             	shell=(sys.platform=='win32'))
-        except FileNotFoundError:
+        except IOError:
             subprocess.Popen(['musclex', prog], shell=(sys.platform=='win32'))
 
     def test(self):
