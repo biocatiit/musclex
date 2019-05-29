@@ -735,7 +735,7 @@ class CPBatchWindow(QMainWindow):
                 img = blend(blend(imgs[0], imgs[1]), blend(imgs[2], imgs[3]), ori='v')
                 ax.imshow(img, origin='upper', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect=4)
 
-        if angle:
+        if angle: # orientation display for drawing ellipses
             centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
             ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
@@ -873,24 +873,34 @@ class CPBatchWindow(QMainWindow):
         UN = U * speed
         VN = V * speed
         self.vec_UV = [U, V]
-
+        print(int_display)
         ax = self.mapAxes
         ax.cla()
         norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
         scale = None if fixedsz else 0.7
+
+        # scale units determine the length of the vector arrows
+        # for 1d scans, it should scale in the variable direction only
+        if len(x) == 1:
+            scale_units = 'y'
+        elif len(y) == 1:
+            scale_units = 'x'
+        else:
+            scale_units = 'xy'
+
         self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
                                     int_display,  # colour the arrows based on this array
                                     cmap=self.colormap, norm=norm, # colour map
-                                    headlength=7, headwidth=4, scale_units='xy', scale=scale, pivot='middle')
+                                    headlength=7, headwidth=4, scale_units=scale_units, scale=scale, pivot='middle')
         # if one of these is 0, it's a 1D scan. set limits on the scale of the non-zero step size
         if (self.xylim[0]/2 > 0):
-            ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
+            ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
         else:
-            ax.set_xlim(x.min() - self.xylim[1]/2, x.max() + self.xylim[1]/2)
+            ax.set_xlim(x.min() - self.xylim[1], x.max() + self.xylim[1])
         if (self.xylim[1]/2 >0):
-            ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
+            ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
         else:
-            ax.set_ylim(y.min() - self.xylim[0]/2, y.max() + self.xylim[0]/2)
+            ax.set_ylim(y.min() - self.xylim[0], y.max() + self.xylim[0])
         # ax.set_aspect('auto')
         ax.set_facecolor('black')
 

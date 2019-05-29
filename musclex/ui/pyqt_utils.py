@@ -74,7 +74,7 @@ def getAFolder():
     dir_path = QFileDialog.getExistingDirectory(None, "Select a Folder")
     return str(dir_path)
 
-def getSaveFile(path='', filter='Images (*.png)'):
+def getSaveFile(path='', filter='Images (*.png);;SVG (*.svg)'):
     file_name = QFileDialog.getSaveFileName(None, "Save a file", path, filter)
     if isinstance(file_name, tuple):
         file_name = file_name[0]
