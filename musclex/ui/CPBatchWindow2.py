@@ -282,6 +282,7 @@ class CPBatchWindow(QMainWindow):
         self.repChoice.addItem("Ring Intensity Map")
         self.repChoice.addItem("Vector Field")
         self.repChoice.addItem("Elliptical Map")
+        self.repChoice.addItem("D-Space Map")
 
         self.colorChoice = QComboBox()
         colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
@@ -609,6 +610,8 @@ class CPBatchWindow(QMainWindow):
             self.updateVectorFieldMap()
         elif representation == 'Elliptical Map':
             self.updateEllipticalMap()
+        elif representation == 'D-Space Map':
+            self.updateIntensityMap(type='dspace')
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
         if self.max_int is not None:
@@ -645,6 +648,8 @@ class CPBatchWindow(QMainWindow):
             intensity = copy.copy(self.xyIntensity[3])
         elif type == 'simple':
             intensity = copy.copy(self.xyIntensity[4])
+        elif type == 'dspace':
+            intensity = copy.copy(self.xyIntensity[5])
 
         x_coor, y_coor = np.meshgrid(x2, y2)
 
@@ -1197,6 +1202,8 @@ class CPBatchWindow(QMainWindow):
              range(self.init_number, len(self.hdf_data) + self.init_number)]
         simp_z = [float(self.sim_inten_dict[i]) if i in self.sim_inten_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
+        dist_z = [float(self.distance_dict[i]) if i in self.distance_dict else -1 for i in
+             range(self.init_number, len(self.hdf_data) + self.init_number)]
         # z = np.array([z[i:i + x_max] for i in range(0, , x_max)])
         # z = cv2.blur(z, (4,4))
         # intensity = np.array(z)
@@ -1208,8 +1215,9 @@ class CPBatchWindow(QMainWindow):
         intensity = np.ma.array(intensity, mask=intensity < 0)
         simp_intensity = np.ma.array(simp_intensity, mask=simp_intensity < 0)
         ring_intensity = np.ma.array(ring_intensity, mask=ring_intensity < 0)
+        dspace_intensity = np.reshape(dist_z, (len(y), len(x)))
 
-        self.xyIntensity = [x, y, intensity, ring_intensity, simp_intensity]
+        self.xyIntensity = [x, y, intensity, ring_intensity, simp_intensity, dspace_intensity]
         self.beamXSpinBox.setValue(x_grad)
         self.beamXSpinBox.setMaximum(x_grad * 2)
         self.beamYSpinBox.setValue(y_grad)
