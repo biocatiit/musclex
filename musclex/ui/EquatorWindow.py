@@ -293,7 +293,7 @@ class EquatorWindow(QMainWindow):
         ### Fitting Tab ###
         #
         self.fittingTab = QWidget()
-        self.fittingTabLayout = QHBoxLayout(self.fittingTab)
+        self.fittingTabLayout = QGridLayout(self.fittingTab)
 
         # Plot
         self.fittingFigure = plt.figure()
@@ -395,9 +395,9 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
 
         self.fittingOptionsFrame1 = QFrame()
-        self.fittingOptionsFrame1.setFixedWidth(500)
+        self.fittingOptionsFrame1.setFixedWidth(300)
         self.fittingOptionsLayout = QVBoxLayout(self.fittingOptionsFrame1)
-        self.fittingOptionsLayout.setAlignment(Qt.AlignTop)
+        self.fittingOptionsLayout.setAlignment(Qt.AlignLeft)
         self.fittingOptionsLayout.addWidget(self.generalGrp)
         self.fittingOptionsLayout.addSpacing(10)
         self.fittingOptionsLayout.addWidget(self.fitDispOptionGrp)
@@ -405,7 +405,7 @@ class EquatorWindow(QMainWindow):
 
 
         self.fittingOptionsFrame2 = QFrame()
-        self.fittingOptionsFrame2.setFixedWidth(500)
+        self.fittingOptionsFrame2.setFixedWidth(300)
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
@@ -413,9 +413,9 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addStretch()
         self.fittingOptionsLayout2.addLayout(self.bottomLayout2)
 
-        self.fittingTabLayout.addWidget(self.fittingOptionsFrame1)
-        self.fittingTabLayout.addWidget(self.fittingCanvas)
-        self.fittingTabLayout.addWidget(self.fittingOptionsFrame2)
+        self.fittingTabLayout.addWidget(self.fittingOptionsFrame1, 1, 0, 1, 1)
+        self.fittingTabLayout.addWidget(self.fittingCanvas, 0, 1, 2, 2)
+        self.fittingTabLayout.addWidget(self.fittingOptionsFrame2, 0, 0, 1, 1)
         self.tabWidget.addTab(self.fittingTab, "Fitting")
         #
         ### Results Tab ###

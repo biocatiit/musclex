@@ -16,7 +16,7 @@ class MuscleXTest(unittest.TestCase):
         cls.dipath = os.path.join(cls.inpath, "di_test_data")
         cls.hdfpath = os.path.join(cls.dipath, "test.hdf")
         cls.hdfpickle = os.path.join(cls.inpath, "hdf_record", "hdfdata_record.p")
-        cls.testversion = "1.14.4" # change this to test against a different version
+        cls.testversion = "1.14.8" # change this to test against a different version
 
         system = platform.system()
         node = platform.node()

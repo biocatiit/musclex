@@ -51,7 +51,7 @@ class EQ_FittingTab(QWidget):
         Initial all GUIs including : 4 plots and result table
         """
         self.setContentsMargins(0, 0, 0, 0)
-        self.fittingTabLayout = QVBoxLayout(self)
+        self.fittingTabLayout = QGridLayout(self)
 
         self.fitSettingsGrp = QGroupBox("Settings")
         self.fitSettingLayout = QGridLayout(self.fitSettingsGrp)
@@ -146,10 +146,10 @@ class EQ_FittingTab(QWidget):
         self.skeletalLayout.addWidget(self.fixedGammaZ, 3, 0, 1, 1)
         self.skeletalLayout.addWidget(self.gammaZSpnBx, 3, 1, 1, 1)
 
-        self.fittingTabLayout.addSpacing(10)
-        self.fittingTabLayout.addWidget(self.fitSettingsGrp)
-        self.fittingTabLayout.addSpacing(10)
-        self.fittingTabLayout.addWidget(self.skeletalGrp)
+        # self.fittingTabLayout.addSpacing(10)
+        self.fittingTabLayout.addWidget(self.fitSettingsGrp, 0, 0)
+        # self.fittingTabLayout.addSpacing()
+        self.fittingTabLayout.addWidget(self.skeletalGrp, 1, 0)
 
 
     def setAllToolTips(self):

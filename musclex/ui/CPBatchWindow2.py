@@ -1,5 +1,5 @@
 from .pyqt_utils import *
-from matplotlib.patches import Ellipse, Rectangle
+from matplotlib.patches import Ellipse, Rectangle, FancyArrow
 from matplotlib.collections import PatchCollection
 from matplotlib.colors import LogNorm, Normalize
 from scipy.interpolate import Rbf
@@ -9,6 +9,7 @@ from ..modules.ScanningDiffraction import *
 from ..csv_manager import CP_CSVManager
 import musclex
 import pandas as pd
+import numpy as np
 from .CPImageWindow import CPImageWindow
 
 class HDFBrowser(QDialog):
@@ -478,6 +479,14 @@ class CPBatchWindow(QMainWindow):
         stepx, stepy = tuple(self.xylim)
         x_max = len(x)
 
+        # if a 1D scan then scale according to varying axis
+        if len(x) == 1:
+            if x[0] == 0:
+                stepx = stepy/2
+        if len(y) == 1:
+            if y[0] == 0:
+                stepy = stepx/2
+
         if x.min()-stepx/2 <= event.xdata <= x.max()+stepx/2 and y.min()-stepy/2 <= event.ydata <= y.max()+stepy/2:
             col = min(np.arange(len(x)), key=lambda i: abs(x[i] - event.xdata))
             row = min(np.arange(len(y)), key=lambda i: abs(y[i] - event.ydata))
@@ -751,11 +760,16 @@ class CPBatchWindow(QMainWindow):
 
             for i in range(len(self.hdf_data)):
                 if ranges[i] == 0:
-                    e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
+                    # e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
+                    e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=0, dy=0)
                 else:
-                    e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
-                        angle_factor * self.orientation_dict[i + self.init_number])
-                    e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
+                    # e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
+                    #     angle_factor * self.orientation_dict[i + self.init_number])
+                    dx = min(stepx,stepy)/10. * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
+                    dy = min(stepx,stepy)/10. * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
+                    # e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
+                    e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
+
                 patches.append(e)
                 c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
                 colors.append(c)
@@ -847,7 +861,6 @@ class CPBatchWindow(QMainWindow):
             [float(self.orientation_dict[i]) if i in self.orientation_dict and self.orientation_dict[i] != '' else 0
              for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)])
-        print("Orientation: {}".format(orientation))
         orientation = [np.pi - ang for ang in orientation]
         # orientation = [np.pi - ang if ang < np.pi else ang - np.pi for ang in orientation]
         orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
@@ -873,7 +886,6 @@ class CPBatchWindow(QMainWindow):
         UN = U * speed
         VN = V * speed
         self.vec_UV = [U, V]
-        print(int_display)
         ax = self.mapAxes
         ax.cla()
         norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
@@ -891,7 +903,7 @@ class CPBatchWindow(QMainWindow):
         self.vec_quiver = ax.quiver(x, y, UN, VN,  # data
                                     int_display,  # colour the arrows based on this array
                                     cmap=self.colormap, norm=norm, # colour map
-                                    headlength=7, headwidth=4, scale_units=scale_units, scale=scale, pivot='middle')
+                                    headlength=7, headwidth=4, scale_units=scale_units, pivot='middle')
         # if one of these is 0, it's a 1D scan. set limits on the scale of the non-zero step size
         if (self.xylim[0]/2 > 0):
             ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
@@ -957,7 +969,7 @@ class CPBatchWindow(QMainWindow):
         centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
         ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
                   range(self.init_number, len(self.hdf_data) + self.init_number)]
-        max_width = max(ranges)
+        max_width = max(ranges) * 5.
         widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict.keys() and 0 < toFloat(
             self.angrange_dict[i]) / max_width else max_width / 2. for i in
                   range(self.init_number, len(self.hdf_data) + self.init_number)]

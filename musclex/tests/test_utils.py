@@ -114,7 +114,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
             # Write the current info field to a pickle file
             picklepath = os.path.join(pickledir, field+prefix+picklename)
             picklefile = open(picklepath, "wb")
-            pickle.dump(results[field], picklefile, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(results[field], picklefile, protocol=2)
             picklefile.close()
             if mode == 'di':
                 cp_csvmgr = CP_CSVManager(dir_path=inputpath)
@@ -200,21 +200,29 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
 
     return pass_test
 
-def hdf_read_test(hdfpath, rcd_pickle):
-    print("\033[3;33m\nVerifying that data read from {} is equivalent to previously recorded data in {}\033[0;3140m\n"
-          .format(hdfpath, rcd_pickle))
+def hdf_read_test(hdfpath, rcd_pickle, testrecord=False):
     hdffile = h5py.File(hdfpath)
     data = np.array(hdffile.get('data').get('BL'))
-    vfy_pickle = os.path.join(os.path.dirname(hdfpath), "hdfdata_verify.p")
-    with open(vfy_pickle, "wb") as pf:
-        pickle.dump(data, pf, pickle.HIGHEST_PROTOCOL)
-    pass_test = filecmp.cmp(vfy_pickle, rcd_pickle)
-    if pass_test:
-        print("\n\033[4;32m---- HDF5 TEST SUCCESSFUL ----\033[0;3140m")
-        os.remove(vfy_pickle)
+
+    if testrecord:
+        with open(rcd_pickle, "wb") as rp:
+            pickle.dump(data, rp, protocol=2)
+            print("\033[3;33m\nPickling HDF5 data to {}..\033[0;3140m\n"
+                  .format(rcd_pickle))
+            return
     else:
-        print("\n\033[4;31m---- HDF5 TEST FAILED ----\033[0;3140m")
-    return pass_test
+        print("\033[3;33m\nVerifying that data read from {} is equivalent to previously recorded data in {}\033[0;3140m\n"
+              .format(hdfpath, rcd_pickle))
+        vfy_pickle = os.path.join(os.path.dirname(hdfpath), "hdfdata_verify.p")
+        with open(vfy_pickle, "wb") as pf:
+            pickle.dump(data, pf, protocol=2)
+        pass_test = filecmp.cmp(vfy_pickle, rcd_pickle)
+        if pass_test:
+            print("\n\033[4;32m---- HDF5 TEST SUCCESSFUL ----\033[0;3140m")
+            os.remove(vfy_pickle)
+        else:
+            print("\n\033[4;31m---- HDF5 TEST FAILED ----\033[0;3140m")
+        return pass_test
 
 def gpu_device_test():
     try:
@@ -303,6 +311,7 @@ if __name__=="__main__":
     settingsDI = {}
 
     args = sys.argv
+
     if args[1] == 'testrecord':
         module_test(mode="eq",
                     settings=settingsA,
@@ -334,6 +343,9 @@ if __name__=="__main__":
                     pickledir=os.path.join(os.path.dirname(__file__), "di/test_pickles_settingsDI"),
                     inputpath=inpath,
                     testrecord=True)
+        hdf_read_test(hdfpath=os.path.join(inpath, "di_test_data", "test.hdf"),
+                      rcd_pickle=os.path.join(inpath, "hdf_record", "hdfdata_record.p"),
+                      testrecord=True)
 
     if args[1] == 'testverify':
         # module_test(mode="eq",
