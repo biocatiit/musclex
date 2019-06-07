@@ -280,9 +280,9 @@ class CPBatchWindow(QMainWindow):
         self.repChoice.addItem("Total Intensity (Convex Hull) Map")
         self.repChoice.addItem("Total Intensity Map")
         self.repChoice.addItem("Ring Intensity Map")
+        self.repChoice.addItem("D-Space Map")
         self.repChoice.addItem("Vector Field")
         self.repChoice.addItem("Elliptical Map")
-        self.repChoice.addItem("D-Space Map")
 
         self.colorChoice = QComboBox()
         colormaps = ['jet', 'inferno', 'gray', 'gnuplot', 'gnuplot2', 'hsv', 'magma', 'ocean',
@@ -299,6 +299,7 @@ class CPBatchWindow(QMainWindow):
         self.logScale = QCheckBox('Logarithmic Scale')
         self.rotRAngle = QCheckBox('Rotate 90 degrees')
         self.orientationChkBx = QCheckBox('Orientation Display')
+        self.orientationTypeChkBx = QCheckBox('Arrow Orientation?')
 
         self.beamXSpinBox = QDoubleSpinBox()
         self.beamYSpinBox = QDoubleSpinBox()
@@ -351,6 +352,7 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(QLabel("Beam shape display: "), 4, 0, 1, 1)
         self.mapLayout.addWidget(self.BSDChoice, 4, 1, 1, 2)
         self.mapLayout.addWidget(self.orientationChkBx, 4, 3, 1, 1)
+        self.mapLayout.addWidget(self.orientationTypeChkBx, 4, 4, 1, 1)
         self.mapLayout.addWidget(self.mapCanvas, 5, 0, 1, 4)
         self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
         self.mapLayout.addLayout(self.intensityLayout, 7, 0, 1, 4)
@@ -401,6 +403,7 @@ class CPBatchWindow(QMainWindow):
         self.logScale.stateChanged.connect(self.updateUI)
         self.rotRAngle.stateChanged.connect(self.updateUI)
         self.orientationChkBx.stateChanged.connect(self.updateUI)
+        self.orientationTypeChkBx.stateChanged.connect(self.updateUI)
         self.beamXSpinBox.editingFinished.connect(self.updateUI)
         self.beamYSpinBox.editingFinished.connect(self.updateUI)
         self.img_maxInt.valueChanged.connect(self.maxIntChanged)
@@ -628,6 +631,7 @@ class CPBatchWindow(QMainWindow):
             return
         rendering_mode = self.BSDChoice.currentIndex()
         self.orientationChkBx.setEnabled(True)
+        self.orientationTypeChkBx.setEnabled(True)
         angle = self.orientationChkBx.isChecked()
 
         stepx, stepy = self.xylim[0], self.xylim[1]
@@ -765,15 +769,19 @@ class CPBatchWindow(QMainWindow):
 
             for i in range(len(self.hdf_data)):
                 if ranges[i] == 0:
-                    # e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
-                    e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=0, dy=0)
+                    if self.orientationTypeChkBx.isChecked():
+                        e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=0, dy=0)
+                    else:
+                        e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
                 else:
-                    # e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
-                    #     angle_factor * self.orientation_dict[i + self.init_number])
-                    dx = min(stepx,stepy)/10. * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
-                    dy = min(stepx,stepy)/10. * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
-                    # e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
-                    e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
+                    if self.orientationTypeChkBx.isChecked():
+                        dx = min(stepx,stepy)/10. * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
+                        dy = min(stepx,stepy)/10. * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
+                        e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
+                    else:
+                        e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
+                            angle_factor * self.orientation_dict[i + self.init_number])
+                        e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
 
                 patches.append(e)
                 c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
@@ -781,7 +789,10 @@ class CPBatchWindow(QMainWindow):
                 # colors.append(0)
 
             colors = np.ma.array(colors, mask=np.array(colors) < 0)
-            min_val = colors[colors > 0].min()
+            try:
+                min_val = colors[colors > 0].min()
+            except ValueError:
+                min_val = -1
             norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
             #p = PatchCollection(patches, cmap=self.colormap, norm=norm)
             # p = PatchCollection(patches, cmap='gray', norm=norm)
@@ -855,7 +866,10 @@ class CPBatchWindow(QMainWindow):
     def updateVectorFieldMap(self, fixedsz=False):
         if len(self.xyIntensity) < 3:
             return
+        self.orientationChkBx.setChecked(False)
+        self.orientationTypeChkBx.setChecked(False)
         self.orientationChkBx.setEnabled(False)
+        self.orientationTypeChkBx.setEnabled(False)
 
         x = self.xyIntensity[0]
         y = self.xyIntensity[1]
@@ -940,7 +954,10 @@ class CPBatchWindow(QMainWindow):
     def updateVectorFieldArrow(self):
         if len(self.xyIntensity) < 3 or len(self.vec_UV) < 2 or self.vec_quiver is None:
             return
+        self.orientationChkBx.setChecked(False)
+        self.orientationTypeChkBx.setChecked(False)
         self.orientationChkBx.setEnabled(False)
+        self.orientationTypeChkBx.setEnabled(False)
 
         intensity = self.xyIntensity[2]
         U = self.vec_UV[0]
@@ -964,6 +981,10 @@ class CPBatchWindow(QMainWindow):
         self.vectorFieldMapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
 
     def updateEllipticalMap(self):
+        self.orientationChkBx.setChecked(False)
+        self.orientationTypeChkBx.setChecked(False)
+        self.orientationChkBx.setEnabled(False)
+        self.orientationTypeChkBx.setEnabled(False)
 
         if len(self.xyIntensity) < 3:
             return
