@@ -323,6 +323,14 @@ class CPBatchWindow(QMainWindow):
         self.minMapVal = QDoubleSpinBox()
         self.minMapVal.setValue(0)
         self.maxMapVal = QDoubleSpinBox()
+        self.scaleX = QDoubleSpinBox()
+        self.scaleX.setRange(0.01, 100)
+        self.scaleX.setKeyboardTracking(False)
+        self.scaleX.setValue(2)
+        self.scaleY = QDoubleSpinBox()
+        self.scaleY.setRange(0.01, 100)
+        self.scaleY.setKeyboardTracking(False)
+        self.scaleY.setValue(2)
         self.intensityLayout = QGridLayout()
         self.intensityLayout.addWidget(QLabel("Min Intensity: "), 0, 0, 1, 1, Qt.AlignCenter)
         self.intensityLayout.addWidget(self.minMap, 0, 1, 1, 1)
@@ -330,6 +338,10 @@ class CPBatchWindow(QMainWindow):
         self.intensityLayout.addWidget(QLabel("Max Intensity: "), 0, 3, 1, 1, Qt.AlignCenter)
         self.intensityLayout.addWidget(self.maxMap, 0, 4, 1, 1)
         self.intensityLayout.addWidget(self.maxMapVal, 0, 5, 1, 1)
+        self.intensityLayout.addWidget(QLabel("Orientation Scale X: "), 0,6, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(self.scaleX, 0, 7, 1, 1)
+        self.intensityLayout.addWidget(QLabel("Orientation Scale Y: "), 1,6, 1, 1, Qt.AlignCenter)
+        self.intensityLayout.addWidget(self.scaleY, 1, 7, 1, 1)
 
         self.mapFigure = plt.figure()
         self.mapAxes = self.mapFigure.add_subplot(111)
@@ -355,8 +367,8 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(self.orientationTypeChkBx, 4, 4, 1, 1)
         self.mapLayout.addWidget(self.mapCanvas, 5, 0, 1, 4)
         self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
-        self.mapLayout.addLayout(self.intensityLayout, 7, 0, 1, 4)
-        self.mapLayout.addWidget(self.saveButton, 8, 0, 1, 4)
+        self.mapLayout.addLayout(self.intensityLayout, 7, 0, 2, 4)
+        self.mapLayout.addWidget(self.saveButton, 9, 0, 1, 4)
         self.mapLayout.setRowStretch(0, 1)
         self.mapLayout.setRowStretch(1, 1)
         self.mapLayout.setRowStretch(2, 1)
@@ -411,6 +423,8 @@ class CPBatchWindow(QMainWindow):
 
         self.maxMap.valueChanged.connect(self.updateUI)
         self.minMap.valueChanged.connect(self.updateUI)
+        self.scaleX.valueChanged.connect(self.updateUI)
+        self.scaleY.valueChanged.connect(self.updateUI)
         self.maxMapVal.editingFinished.connect(self.maxMapValChanged)
         self.minMapVal.editingFinished.connect(self.minMapValChanged)
 
@@ -772,16 +786,16 @@ class CPBatchWindow(QMainWindow):
                     if self.orientationTypeChkBx.isChecked():
                         e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=0, dy=0)
                     else:
-                        e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /15., height=(stepx + stepy) / 2./15.)
+                        e = Ellipse(xy=centers[i], width=(stepx + stepy)/2./self.scaleX.value(), height=(stepx + stepy)/2./self.scaleY.value())
                 else:
                     if self.orientationTypeChkBx.isChecked():
-                        dx = min(stepx,stepy)/10. * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
-                        dy = min(stepx,stepy)/10. * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
+                        dx = min(stepx,stepy)/self.scaleY.value() * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
+                        dy = min(stepx,stepy)/self.scaleY.value() * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
                         e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
                     else:
                         e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
                             angle_factor * self.orientation_dict[i + self.init_number])
-                        e = Ellipse(xy=centers[i], width=(stepx + stepy) / 2. /10., height=(stepx + stepy) / 2., angle=e_angle)
+                        e = Ellipse(xy=centers[i], width=(stepx + stepy)/2./self.scaleX.value(), height=(stepx + stepy)/2./self.scaleY.value(), angle=e_angle)
 
                 patches.append(e)
                 c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
