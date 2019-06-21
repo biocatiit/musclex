@@ -12,3 +12,6 @@ h5py
 scipy
 matplotlib
 musclex_ccp13
+Cython
+opencv-python
+pyFAI
