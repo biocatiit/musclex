@@ -1,5 +1,22 @@
 # Tests Overview
 
+## Testing a MuscleX Installation
+
+Tests are provided to ensure results from an installation match expected results across different devices and dependency versions. Tests can be run from the command line or from the GUI.
+
+#### GUI Testing
+
+A testing module is provided in the launcher GUI. If no log is found, this procedure will run the first time the GUI is launched on a device. To use the GUI testing module,
+
+1.  Launch the MuscleX GUI  
+2.  Click Run Tests in the bottom right corner
+3.  Click Run Tests again at the top of the window to run all module tests
+4.  If you'd only like to run the GPU tests, click run GPU Test and the test will determine if `pyopencl` is installed properly and if MuscleX can access a GPU
+
+#### Command Line testing
+
+Open a terminal window and run `musclex test` to run all tests. Output from tests will be printed to the command line. Use `musclex test_gpu` to only run the GPU tests.
+
 ## Testing Methodology
 
 The testing suite in `musclex_test/tests/` is used for verifying that MuscleX produces predictable results across version changes.  Each module is tested independently using `module_test.py`. The module test runs in two modes - `testrecord` and `testverify`. In `testrecord`, module output is serialized to `Pickle` files for a particular set of input test data. In `testverify`, the same data is processed again and serialized to `Pickle` files, but is then compared to the files produced in `testrecord` mode. If any of these comparisons fail, it's deemed a failing test and the location of the failure is returned to the user.
@@ -18,8 +35,6 @@ cd musclex_test/tests/
 ```
 python module_test.py testrecord
 ```
-
-As of 3/5/19, this will record test objects for EquatorImage in two different settings mode and for QuadrantFolder.
 
 Serialized `Pickle` files will be written to `<modulename>/test_pickles`. One file is written for each field in a module object's `info` class variable.
 
@@ -163,3 +178,9 @@ by Scanning Diffraction.
 Data input: `test_images/di_test_data/test.hdf`
 
 Pickle to compare to `test_images/hdf_record/hdfdata_record.p`
+
+#### pyFAI Integration Test - `testGPUIntegratePyFAI`
+Verifies that the `pyFAI` integration function works properly when using the `csr_ocl` integration method. Even if `pyopencl` is not installed, this function should work with or without a GPU.
+
+#### GPU Device Test - `testOpenCLDevice`
+Attempts an import of `pyopencl` and, if successful, lists the GPU devices available. This test passes if `OpenCL` and GPU acceleration is available and fails otherwise. Failing this test could indicate a problem with the `pyopencl` installation or imply that GPU acceleration is not available on your device.
