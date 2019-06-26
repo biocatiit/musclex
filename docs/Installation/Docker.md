@@ -22,18 +22,17 @@ sudo groupadd docker
 sudo usermod -aG docker [username] # replace [username] with your user name
 ```
 ## Installing and updating Muscle X program suite
-You need to have the muscle.sh script available in order to update, and run a Muscle X program on docker. You can download muscle.sh by
+You need to have the muscle.sh script available in order to update, and run a Muscle X program on docker. You can download muscle.sh and the latest docker image by
 ```
-curl https://raw.githubusercontent.com/biocatiit/musclex/master/musclex.sh -o musclex.sh
-```
-Make it executable by
-```
-chmod +x musclex.sh
-```
-Run this command to install or update Muscle X programs on Docker
-```
+wget https://raw.githubusercontent.com/biocatiit/musclex/master/musclex.sh && chmod +x musclex.sh
 ./musclex.sh update
 ```
+If you are using ssh to log into a remote server to run musclex there use the following instead
+```
+wget https://raw.githubusercontent.com/biocatiit/musclex/master/musclex-ssh.sh && chmod +x musclex-ssh.sh
+./musclex.sh update
+```
+
 
 ## Running a Muscle X program
 Running the program by running musclex.sh following by a program shortcut
@@ -44,3 +43,8 @@ For example, run this command to run Bio-Muscle
 ```
 ./musclex.sh bm
 ```
+If you are using ssh to log into a remote server to run musclex there use the following instead
+```
+./musclex-ssh.sh bm
+```
+
