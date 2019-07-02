@@ -979,7 +979,7 @@ class ScanningDiffraction:
         params.add("alpha", alpha1, min=0, max=alpha1*5+0.0000001)
         params.add("bg", 0, min = -1, max = max_height+1)
 
-        result = model.fit(hist[1], x=x, params = params)
+        result = model.fit(hist[1], x=x, params = params, nan_policy='omit')
 
         # Compute valley point and circular shift
         # print "U: ", result.values['u'], convertRadtoDegrees(result.values['u'])
@@ -1003,7 +1003,7 @@ class ScanningDiffraction:
         params.add("bg", bg, min = -1, max = max_height)
 
         model = Model(orientation_GMM2, independent_vars='x')
-        result = model.fit(hist_shifted, x=x, params=params)
+        result = model.fit(hist_shifted, x=x, params=params, nan_policy='omit')
         result = result.values
 
         # Correction over shifted peaks
@@ -1046,11 +1046,11 @@ class ScanningDiffraction:
         model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
         model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
 
-        result = model.fit(data=hist[1], x=x, params=model.make_params())
+        result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='omit')
         errs = abs(result.best_fit - result.data)
         weights = errs / errs.mean() + 1
         weights[weights > 3.] = 0
-        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights)
+        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, nan_policy='omit')
 
         return result.values
 
@@ -1442,7 +1442,8 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     for i in range(1, len(gaussians)):
         model += gaussians[i]
 
-    out = model.fit(hists_np, pars, x=x, method=method).values
+    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='omit').values
+    print(out)
     # print "Output Params:", pars
     result = {}
     for i in range(len(indexes)):

@@ -687,8 +687,14 @@ class CPBatchWindow(QMainWindow):
 
         ax = self.mapAxes
         ax.cla()
-        norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else \
-               Normalize(vmin=0, vmax=max_val)
+
+        if self.minMapVal.value() == 0 and self.maxMapVal.value() == 0: # on initialization
+            norm = LogNorm(vmin=min_val+1e-6, vmax=max_val) if self.usingLogScale else \
+                   Normalize(vmin=0, vmax=max_val)
+        else:
+            norm = LogNorm(vmin=self.minMapVal.value()+1e-6, vmax=self.maxMapVal.value()) if self.usingLogScale else \
+                   Normalize(vmin=self.minMapVal.value(), vmax=self.maxMapVal.value())
+
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
         # self.intensityMapFigure.colorbar(im)
         if rendering_mode == 1: # RBF Interpolation
@@ -818,7 +824,9 @@ class CPBatchWindow(QMainWindow):
 
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
-        ax.set_aspect('auto')
+        # ax.set_aspect('auto') # will alter the aspect ratio with window resizing
+        ax.set_aspect('equal') # makes plot aspect ratio static
+        ax.set_adjustable('datalim', share=True)
         ax.set_facecolor('white')
 
         if self.isFlipX:
