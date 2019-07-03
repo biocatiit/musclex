@@ -12,6 +12,8 @@ import pandas as pd
 import numpy as np
 from .CPImageWindow import CPImageWindow
 
+matplotlib.rcParams.update({'font.size': 5})
+
 class HDFBrowser(QDialog):
     """
     Provide options for HDF Browser - select or create one
@@ -483,8 +485,11 @@ class CPBatchWindow(QMainWindow):
 
     def saveClicked(self):
         filename = getSaveFile(join(self.filePath, 'cp_results'))
+        if filename.split('.')[1] == 'svg':
+            self.mapFigure.savefig(filename, format='svg')
+        else:
+            self.mapFigure.savefig(filename, format='png')
         print(str(filename)+" has been saved.")
-        self.mapFigure.savefig(filename)
 
     def plotClicked(self, event):
         self.moreDetailsButton.setHidden(False)
@@ -837,8 +842,10 @@ class CPBatchWindow(QMainWindow):
         if self.mapColorbar is None:
             self.mapColorbar = self.mapFigure.colorbar(im, ax=ax, fraction=0.08, pad=0.01)
         else:
+            self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(im, cax=self.mapColorbar.ax)
-        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1,wspace=0, hspace=0)
+
+        self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9,wspace=0, hspace=0)
         self.mapCanvas.draw()
 
     # def updateAngularRangeTab(self):
@@ -966,8 +973,9 @@ class CPBatchWindow(QMainWindow):
         if self.mapColorbar is None:
             self.mapColorbar = self.mapFigure.colorbar(self.vec_quiver, ax=ax, fraction=0.08, pad=0.01)
         else:
+            self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(self.vec_quiver, cax=self.mapColorbar.ax)
-        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1, wspace=0, hspace=0)
+        self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
         self.mapCanvas.draw()
 
         # if self.arrowLengthSlider.value() > 5:
@@ -1085,8 +1093,9 @@ class CPBatchWindow(QMainWindow):
         if self.mapColorbar is None:
             self.mapColorbar = self.mapFigure.colorbar(p, ax=ax, fraction=0.08, pad=0.01)
         else:
+            self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(p, cax=self.mapColorbar.ax)
-        self.mapFigure.subplots_adjust(left=0.04, bottom=0.08, right=1, top=1, wspace=0, hspace=0)
+        self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
         # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
         self.mapCanvas.draw()
 
