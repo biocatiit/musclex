@@ -4,6 +4,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib.colors import LogNorm, Normalize
 from scipy.interpolate import Rbf
 import h5py
+import os
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..csv_manager import CP_CSVManager
@@ -485,10 +486,13 @@ class CPBatchWindow(QMainWindow):
 
     def saveClicked(self):
         filename = getSaveFile(join(self.filePath, 'cp_results'))
-        if filename.split('.')[1] == 'svg':
+        name, extension = os.path.splitext(filename)
+        if extension == 'svg':
             self.mapFigure.savefig(filename, format='svg')
-        else:
+        elif extension == 'png':
             self.mapFigure.savefig(filename, format='png')
+        else:
+            self.mapFigure.savefig(filename)
         print(str(filename)+" has been saved.")
 
     def plotClicked(self, event):
@@ -605,7 +609,7 @@ class CPBatchWindow(QMainWindow):
             ylim = ax.get_ylim()
             cx = (xlim[0] + xlim[1]) / 2.
             cy = (ylim[0] + ylim[1]) / 2.
-            ax.text(cx, cy, "Please click on map\nto see the image\n and details", fontsize=15, horizontalalignment='center')
+            ax.text(cx, cy, "Please click on map\nto see the image\n and details", horizontalalignment='center')
 
         self.imgFigure.subplots_adjust(left=0.15, bottom=0.25, right=0.85, top=0.90, wspace=0, hspace=0)
         self.imgCanvas.draw()
