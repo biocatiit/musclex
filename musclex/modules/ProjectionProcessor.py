@@ -34,6 +34,7 @@ from lmfit.models import GaussianModel, SkewedGaussianModel, VoigtModel
 import pickle
 from ..utils.file_manager import fullPath, createFolder
 from ..utils.histogram_processor import smooth, movePeaks, getPeakInformations, convexHull
+from ..utils.image_processor import getRotationAngle
 import copy
 import numpy as np
 from sklearn.metrics import r2_score
@@ -63,7 +64,10 @@ class ProjectionProcessor():
                 'moved_peaks':{},
                 'baselines':{},
                 'centroids':{},
-                'widths': {}
+                'widths': {},
+                'centerx': self.orig_img.shape[0] / 2 - 0.5,
+                'centery': self.orig_img.shape[1] / 2 - 0.5,
+                'rotationAngle': None
             }
         else:
             self.info = cache
@@ -143,6 +147,8 @@ class ProjectionProcessor():
             all_name = set(all_name)
             for name in all_name:
                 if name in new_boxes.keys():
+                    if 'refit' in settings:
+                        self.removeInfo(name, 'fit_results')
                     self.addBox(name, new_boxes[name], types[name], bgsubs[name])
                 else:
                     self.removeInfo(name)
@@ -221,12 +227,10 @@ class ProjectionProcessor():
                     peaks = all_peaks[name]
                     start_x = box[0][0]
                     start_y = box[1][0]
-
                     if types[name] == 'h':
-                        centerX = self.orig_img.shape[1] / 2 - start_x
+                        centerX = self.info['centerx'] - start_x
                     else:
-                        centerX = self.orig_img.shape[0] / 2 - start_y
-
+                        centerX = self.info['centery'] - start_y
                     centerX = int(round(centerX))
                     right_hist = hist[centerX:]
                     left_hist = hist[:centerX][::-1]
@@ -291,10 +295,12 @@ class ProjectionProcessor():
 
             # Init Center X
             if self.info['types'][name] == 'h':
-                init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
+                # init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
+                init_center = self.info['centerx'] - start_x
             else:
-                init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
-                
+                # init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
+                init_center = self.info['centery'] - start_y
+
             init_center = int(round(init_center))
             params.add('centerX', init_center, min=init_center - 1., max=init_center + 1.)
 
@@ -401,7 +407,6 @@ class ProjectionProcessor():
 
             ### Find real peak locations in the box (not distance from center)
             model = fit_results[name]
-
             hist = all_hists[name]
 
             if name not in moved_peaks:
@@ -463,6 +468,20 @@ class ProjectionProcessor():
             baselines[peak_num] = baseline
             self.removeInfo(box_name, 'centroids')
             self.removeInfo(box_name, 'widths')
+
+    def updateRotationAngle(self):
+        """
+        Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal.
+        The angle will be kept in self.info["rotationAngle"]
+        """
+        print("Rotation Angle is being calculated...")
+
+        center = (self.info['centerx'], self.info['centery'])
+        img = copy.copy(self.orig_img)
+        self.info['rotationAngle'] = getRotationAngle(img, center)
+
+        print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
+
 
     def removeInfo(self, name, k = None):
         """

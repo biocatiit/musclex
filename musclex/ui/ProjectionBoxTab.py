@@ -62,18 +62,23 @@ class ProjectionBoxTab(QWidget):
         if self.parent.projProc is None:
             return 0
 
-        if self.centerX is None:
-            info = self.parent.projProc.info
-            name = self.name
+        info = self.parent.projProc.info
+        name = self.name
 
-            box = info['boxes'][name]
-            start_x = box[0][0]
-            start_y = box[1][0]
+        box = info['boxes'][name]
+        start_x = box[0][0]
+        start_y = box[1][0]
 
-            if info['types'][name] == 'h':
+        if info['types'][name] == 'h':
+            if self.parent.centerx is None:
                 self.centerX = self.parent.projProc.orig_img.shape[1] / 2. - 0.5 - start_x
             else:
+                self.centerX = self.parent.centerx - start_x
+        else:
+            if self.parent.centery is None:
                 self.centerX = self.parent.projProc.orig_img.shape[0] / 2. - 0.5 - start_y
+            else:
+                self.centerX = self.parent.centery - start_y
 
         return self.centerX
 
@@ -389,10 +394,7 @@ class ProjectionBoxTab(QWidget):
         func = self.function
         box = self.parent.allboxes[self.name]
         type = self.parent.boxtypes[self.name]
-        if type == 'h':
-            center = self.parent.projProc.orig_img.shape[1] / 2 - 0.5 - box[0][0]
-        else:
-            center = self.parent.projProc.orig_img.shape[0] / 2 - 0.5 - box[1][0]
+        center = self.getCenterX()
 
         distance = int(round(abs(center - x)))
 
@@ -468,7 +470,7 @@ class ProjectionBoxTab(QWidget):
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
-            centerX = self.getCenterX()
+            centerX = self.getCenterX() # this should be the center in the box?
             distance = x - centerX
             hist = self.parent.projProc.info['hists'][self.name]
             self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3))+", Intensity = "+str(hist[int(round(x))]))

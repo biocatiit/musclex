@@ -28,11 +28,12 @@ authorization from Illinois Institute of Technology.
 
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 import matplotlib.patches as patches
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFolder
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
-from ..utils.image_processor import getBGR, get8bitImage, getNewZoom
+from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CVSManager
 import sys
@@ -121,6 +122,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.bgsubs = {}
         self.peaks = {}
         self.hull_ranges = {}
+        self.centerx = None
+        self.centery = None
+        self.center_func = None
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -223,9 +227,16 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxesChkBx.setChecked(True)
         self.peaksChkBx = QCheckBox("Peaks")
         self.peaksChkBx.setChecked(True)
+        self.centerChkBx = QCheckBox("Center")
+        self.centerChkBx.setChecked(False)
+        self.qfChkBx = QCheckBox("Quadrant Folded?")
+        self.qfChkBx.setChecked(True)
         self.imgZoomInB = QPushButton("Zoom In")
         self.imgZoomInB.setCheckable(True)
         self.imgZoomOutB = QPushButton("Full")
+        self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
+        self.setRotAndCentB.setCheckable(True)
+        self.setRotAndCentB.setFixedHeight(45)
         self.checkableButtons.append(self.imgZoomInB)
 
         self.minIntLabel = QLabel("Min Intensity")
@@ -241,12 +252,15 @@ class ProjectionTracesGUI(QMainWindow):
 
         self.dispOptLayout.addWidget(self.boxesChkBx, 0, 0, 1, 2)
         self.dispOptLayout.addWidget(self.peaksChkBx, 1, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 2, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 2, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntLabel, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntSpnBx, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 4, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntSpnBx, 4, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.qfChkBx, 2, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.centerChkBx, 3, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.setRotAndCentB, 4, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomInB, 5, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.imgZoomOutB, 5, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.minIntLabel, 6, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.minIntSpnBx, 7, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.maxIntLabel, 8, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.maxIntSpnBx, 9, 1, 1, 1)
 
         # Process Folder Button
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
@@ -321,6 +335,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.minIntSpnBx.valueChanged.connect(self.updateImage)
         self.boxesChkBx.stateChanged.connect(self.updateImage)
         self.peaksChkBx.stateChanged.connect(self.updateImage)
+        self.centerChkBx.stateChanged.connect(self.updateImage)
+        self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
+        self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
@@ -354,7 +371,6 @@ class ProjectionTracesGUI(QMainWindow):
         if self.projProc is not None and success:
             self.processImage()
 
-
     def launchCalibrationSettings(self, force=False):
         """
         Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
@@ -370,6 +386,20 @@ class ProjectionTracesGUI(QMainWindow):
                 self.calSettings = settingDialog.getValues()
                 return True
         return False
+
+    def setAngleAndCenterClicked(self):
+        if len(self.imgList) == 0:
+            return
+
+        if self.setRotAndCentB.isChecked():
+            self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
+            ax = self.displayImgAxes
+            del ax.lines
+            ax.lines = []
+            del ax.patches
+            ax.patches = []
+            self.displayImgCanvas.draw_idle()
+            self.function = ["angle_center"]
 
     def clearImage(self):
         ax = self.displayImgAxes
@@ -405,6 +435,16 @@ class ProjectionTracesGUI(QMainWindow):
         """
         self.update_plot['img'] = True
         self.updateUI()
+
+    def qfChkBxClicked(self):
+        if self.qfChkBx.isChecked():
+            self.center_func = 'quadrant_fold'
+        else:
+            self.center_func = 'automatic'
+        self.updateCenter()
+        self.addBoxTabs()
+        self.processImage()
+        self.resetUI()
 
     def updatePeaks(self, name, peaks):
         """
@@ -690,8 +730,10 @@ class ProjectionTracesGUI(QMainWindow):
             peaks = func[1]
             if len(self.allboxes.keys()) > 0:
                 ax = self.displayImgAxes
-                centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
-                centery = self.projProc.orig_img.shape[0] / 2. - 0.5
+                # centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
+                # centery = self.projProc.orig_img.shape[0] / 2. - 0.5
+                centerx = self.centerx
+                centery = self.centery
                 for name in self.allboxes.keys():
                     box = self.allboxes[name]
                     boxx = box[0]
@@ -713,6 +755,48 @@ class ProjectionTracesGUI(QMainWindow):
                             ax.plot(boxx, (centery + distance, centery + distance), color='r')
                         break
                 self.displayImgCanvas.draw_idle()
+        elif func[0] == "angle_center":
+            ax = self.displayImgAxes
+            axis_size = 5
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.displayImgCanvas.draw_idle()
+            func.append((x, y))
+            if len(func) == 3:
+                QApplication.restoreOverrideCursor()
+
+                if func[1][0] < func[2][0]:
+                    x1, y1 = func[1]
+                    x2, y2 = func[2]
+                else:
+                    x1, y1 = func[2]
+                    x2, y2 = func[1]
+
+                if abs(x2 - x1) == 0:
+                    new_angle = -90
+                else:
+                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
+                # new_angle += 90.
+
+                cx = int(round((x1 + x2) / 2.))
+                cy = int(round((y1 + y2) / 2.))
+                if self.projProc.info['rotationAngle'] is None:
+                    self.projProc.updateRotationAngle()
+                M = cv2.getRotationMatrix2D((self.projProc.info['centerx'], self.projProc.info['centery']), self.projProc.info['rotationAngle'], 1)
+                invM = cv2.invertAffineTransform(M)
+                homo_coords = [cx, cy, 1.]
+                new_center = np.dot(invM, homo_coords)
+                # self.projProc.info['centerx'] = int(round(new_center[0]))
+                # self.projProc.info['centery'] = int(round(new_center[1]))
+                # self.projProc.info['rotationAngle'] = new_angle
+                self.centerx = int(round(new_center[0]))
+                self.centery = int(round(new_center[1]))
+                self.rotationAngle = new_angle
+                self.setRotAndCentB.setChecked(False)
+                self.center_func = 'manual'
+                self.updateCenter()
+                self.processImage()
+                self.resetUI()
         else:
             if func[0] == "im_zoomin":
                 func.append((x, y))
@@ -845,6 +929,30 @@ class ProjectionTracesGUI(QMainWindow):
             box['text'].set_position((xy_t[0] + offset[0], xy_t[1] + offset[1]))
             self.displayImgCanvas.draw_idle()
             func[2] = (x, y)
+        elif func[0] == "angle_center":
+            # draw X on points and a line between points
+            ax = self.displayImgAxes
+            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
+            axis_size = 5
+
+            if len(func) == 1:
+                if len(ax.lines) > 0:
+                    del ax.lines
+                    ax.lines = []
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    first_cross = ax.lines[:2]
+                    del ax.lines
+                    ax.lines = first_cross
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+
+            self.displayImgCanvas.draw_idle()
 
     def imgReleased(self, event):
         """
@@ -959,7 +1067,7 @@ class ProjectionTracesGUI(QMainWindow):
     def onImageChanged(self):
         """
         Need to be called when image is change i.e. to the next image.
-        This will create a new EquatorImage object for the new image and syncUI if cache is available
+        This will create a new ProjectionProcessor object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
         self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file])
@@ -967,7 +1075,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
         self.refreshStatusbar()
-
+        self.updateCenter() # do not update fit results
         # Process new image
         self.processImage()
 
@@ -999,9 +1107,21 @@ class ProjectionTracesGUI(QMainWindow):
                 self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
         self.syncUI = False
 
+    def updateCenter(self, refit=True):
+        if self.center_func == 'automatic':
+            self.centerx, self.centery = getCenter(self.projProc.orig_img)
+        elif self.center_func == 'quadrant_fold' or self.center_func is None: # default to quadrant folded
+            self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
+            self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
+        self.projProc.info['centerx'] = self.centerx
+        self.projProc.info['centery'] = self.centery
+
+        self.projProc.cache = None
+        self.refit = refit
+
     def processImage(self):
         """
-        Process Image by getting all settings and call process() of EquatorImage object
+        Process Image by getting all settings and call process() of ProjectionTraces object
         Then, write data and update UI
         """
         if self.projProc is None:
@@ -1065,7 +1185,9 @@ class ProjectionTracesGUI(QMainWindow):
             'peaks' : self.peaks,
             'types' : self.boxtypes,
             'bgsubs' : self.bgsubs,
-            'hull_ranges' : self.hull_ranges
+            'hull_ranges' : self.hull_ranges,
+            'centerx' : self.centerx,
+            'centery' : self.centery
         }
 
         cache_dir = fullPath(self.dir_path, 'pt_cache')
@@ -1099,6 +1221,12 @@ class ProjectionTracesGUI(QMainWindow):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
+        settings['centerx'] = self.centerx
+        settings['centery'] = self.centery
+
+        if self.refit:
+            settings['refit'] = self.refit
+            self.refit = False
 
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
@@ -1170,7 +1298,6 @@ class ProjectionTracesGUI(QMainWindow):
         """
         if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
-
         img = self.projProc.orig_img
         img = getBGR(get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value()))
         ax = self.displayImgAxes
@@ -1186,8 +1313,8 @@ class ProjectionTracesGUI(QMainWindow):
 
             if self.peaksChkBx.isChecked():
                 for name in self.peaks.keys():
-                    centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
-                    centery = self.projProc.orig_img.shape[0] / 2. - 0.5
+                    centerx = self.centerx
+                    centery = self.centery
                     for p in self.peaks[name]:
                         if self.boxtypes[name] == 'h':
                             ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
@@ -1195,6 +1322,12 @@ class ProjectionTracesGUI(QMainWindow):
                         else:
                             ax.plot(self.allboxes[name][0], (centery - p, centery - p), color='r')
                             ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
+
+            if self.centerChkBx.isChecked():
+                centerx = self.centerx
+                centery = self.centery
+                circle = plt.Circle((centerx, centery), 10, color='g')
+                ax.add_patch(circle)
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:
