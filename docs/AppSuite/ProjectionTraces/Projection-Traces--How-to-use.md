@@ -1,6 +1,6 @@
 # How to use
 
-Once the program is run, you will see the steps 1 to 4 that you have to do on the left menu bar. 
+Once the program is run, you will see the steps 1 to 4 that you have to do on the left menu bar.
 
 ![-](../../images/PT/left_tab.png)
 
@@ -47,7 +47,11 @@ If you select Convex Hull as background subtraction method for a box, and peaks 
 To remove a box, you can just close its tab
 
 ## Display options
-In the image tab, there are display options shown on the right. These options will not affect any processing. You can check "Boxes" or "Peaks" to be displayed on the image. You can zoom-in by pressing "Zoom in" and select the zoom in area on the image by drawing a rectangle. (You can zoom-in or zoom-out by mouse wheeling too). Also, you can select min/max intensity to see the image clearly.
+In the image tab, there are display options shown on the right. These options will not affect any processing. You can check "Boxes", "Center" or "Peaks" to be displayed on the image. You can zoom-in by pressing "Zoom in" and select the zoom in area on the image by drawing a rectangle. (You can zoom-in or zoom-out by mouse wheeling too). Also, you can select min/max intensity to see the image clearly.
+
+As of version 1.14.11, you can specify a rotation angle and center manually. This is done by specifying two reflection peaks in the diffraction. The image will be rotated according to the new angle.
+
+The `Quadrant Folded?` option determines whether the center is assumed to be the half width and height of the image if it's been quadrant folded. If this box is unchecked, the center will be determined automatically. All peaks will be reflected over this center in any drawn boxes. Use the `Center` checkbox to see which center is used by Projection Traces.
 
 ![-](../../images/PT/image_disp_opt.png)
 
@@ -56,7 +60,7 @@ In each box tab, you will see multiple check boxes in the section. You can check
 ![-](../../images/PT/box_disp_opt.png)
 
 ## Other Options
-There're several options on the bottom left in image tab. 
+There're several options on the bottom left in image tab.
 
 ![-](../../images/PT/image_bottom.png)
 
@@ -66,4 +70,3 @@ If this checkbox is checked, and boxes are added, the program will save the orig
 This will process the whole images in current directory with current settings (boxes and peaks)
 * Previous and Next Buttons<br/>
 This will make the program go to process the next or previous image with current settings
-
