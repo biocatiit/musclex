@@ -125,6 +125,8 @@ class ProjectionTracesGUI(QMainWindow):
         self.centerx = None
         self.centery = None
         self.center_func = None
+        self.rotated = False # whether or not
+        self.rotationAngle = 0
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -393,6 +395,8 @@ class ProjectionTracesGUI(QMainWindow):
 
         if self.setRotAndCentB.isChecked():
             self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
+            self.rotated = False
+            self.updateImage()
             ax = self.displayImgAxes
             del ax.lines
             ax.lines = []
@@ -441,10 +445,11 @@ class ProjectionTracesGUI(QMainWindow):
             self.center_func = 'quadrant_fold'
         else:
             self.center_func = 'automatic'
+        self.rotated = False
         self.updateCenter()
-        self.addBoxTabs()
         self.processImage()
-        self.resetUI()
+        self.addBoxTabs()
+        self.updateImage()
 
     def updatePeaks(self, name, peaks):
         """
@@ -786,17 +791,18 @@ class ProjectionTracesGUI(QMainWindow):
                 invM = cv2.invertAffineTransform(M)
                 homo_coords = [cx, cy, 1.]
                 new_center = np.dot(invM, homo_coords)
-                # self.projProc.info['centerx'] = int(round(new_center[0]))
-                # self.projProc.info['centery'] = int(round(new_center[1]))
-                # self.projProc.info['rotationAngle'] = new_angle
                 self.centerx = int(round(new_center[0]))
                 self.centery = int(round(new_center[1]))
                 self.rotationAngle = new_angle
+                self.projProc.info['rotationAngle'] = new_angle
                 self.setRotAndCentB.setChecked(False)
                 self.center_func = 'manual'
+                self.rotated = True
                 self.updateCenter()
+                self.removeAllTabs()
                 self.processImage()
-                self.resetUI()
+                self.addBoxTabs()
+                self.updateImage()
         else:
             if func[0] == "im_zoomin":
                 func.append((x, y))
@@ -1054,6 +1060,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.boxtypes = cache['types']
             self.bgsubs = cache['bgsubs']
             self.hull_ranges = cache['hull_ranges']
+            self.centerx = cache['centerx']
+            self.centery = cache['centery']
+            self.center_func = cache['center_func']
             for name, box in self.allboxes.items():
                 self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
         else:
@@ -1187,7 +1196,8 @@ class ProjectionTracesGUI(QMainWindow):
             'bgsubs' : self.bgsubs,
             'hull_ranges' : self.hull_ranges,
             'centerx' : self.centerx,
-            'centery' : self.centery
+            'centery' : self.centery,
+            'center_func' : self.center_func
         }
 
         cache_dir = fullPath(self.dir_path, 'pt_cache')
@@ -1227,6 +1237,10 @@ class ProjectionTracesGUI(QMainWindow):
         if self.refit:
             settings['refit'] = self.refit
             self.refit = False
+
+        if self.center_func == 'manual' or self.rotated:
+            settings['rotated'] = True
+            settings['rotationAngle'] = self.rotationAngle
 
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
@@ -1298,7 +1312,10 @@ class ProjectionTracesGUI(QMainWindow):
         """
         if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
-        img = self.projProc.orig_img
+        if self.rotated:
+            img = self.projProc.getRotatedImage()
+        else:
+            img = self.projProc.orig_img
         img = getBGR(get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value()))
         ax = self.displayImgAxes
         ax.cla()

@@ -34,7 +34,7 @@ from lmfit.models import GaussianModel, SkewedGaussianModel, VoigtModel
 import pickle
 from ..utils.file_manager import fullPath, createFolder
 from ..utils.histogram_processor import smooth, movePeaks, getPeakInformations, convexHull
-from ..utils.image_processor import getRotationAngle
+from ..utils.image_processor import *
 import copy
 import numpy as np
 from sklearn.metrics import r2_score
@@ -46,6 +46,8 @@ class ProjectionProcessor():
         img = fabio.open(fullPath(dir_path, file_name)).data
         # img -= img.min()
         self.orig_img = img
+        self.rotated_img = None
+        self.rotated = False
         self.version = musclex.__version__
         cache = self.loadCache()
         if cache is None:
@@ -67,7 +69,7 @@ class ProjectionProcessor():
                 'widths': {},
                 'centerx': self.orig_img.shape[0] / 2 - 0.5,
                 'centery': self.orig_img.shape[1] / 2 - 0.5,
-                'rotationAngle': None
+                'rotationAngle' : 0
             }
         else:
             self.info = cache
@@ -129,6 +131,7 @@ class ProjectionProcessor():
         self.updateSettings(settings)
         self.getHistograms()
         self.applyConvexhull()
+        self.updateRotationAngle()
         self.fitModel()
         # self.getOtherResults()
         self.getBackgroundSubtractedHistograms()
@@ -175,6 +178,11 @@ class ProjectionProcessor():
             current.update(new)
             del settings['hull_ranges']
 
+        if 'rotated' in settings:
+            self.rotated = settings['rotated']
+        else:
+            self.rotated = False
+
         self.info.update(settings)
 
     def getHistograms(self):
@@ -186,7 +194,10 @@ class ProjectionProcessor():
             boxes = self.info['boxes']
             types = self.info['types']
             hists = self.info['hists']
-            img = copy.copy(self.orig_img)
+            if self.rotated:
+                img = self.getRotatedImage()
+            else:
+                img = copy.copy(self.orig_img)
             for name in box_names:
                 if name not in hists:
                     t = types[name]
@@ -260,6 +271,16 @@ class ProjectionProcessor():
                     hists2[name] = copy.copy(hists[name])
 
                 self.removeInfo(name, 'fit_results')
+
+    def updateRotationAngle(self):
+        """
+        Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal.
+        The angle will be kept in self.info["rotationAngle"]
+        """
+        if 'rotationAngle' not in self.info:
+            center = (self.info['centerx'], self.info['centery'])
+            img = copy.copy(self.orig_img)
+            self.info['rotationAngle'] = getRotationAngle(img, center)
 
     def fitModel(self):
         """
@@ -469,19 +490,25 @@ class ProjectionProcessor():
             self.removeInfo(box_name, 'centroids')
             self.removeInfo(box_name, 'widths')
 
-    def updateRotationAngle(self):
+    def getRotatedImage(self, img=None, angle=None):
         """
-        Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal.
-        The angle will be kept in self.info["rotationAngle"]
+        Get rotated image by angle. If the input params are not specified. image = original input image, angle = self.info["rotationAngle"]
+        :param img: input image
+        :param angle: rotation angle
+        :return: rotated image
         """
-        print("Rotation Angle is being calculated...")
+        if img is None:
+            img = copy.copy(self.orig_img)
+        if angle is None:
+            angle = self.info['rotationAngle']
+        if '90rotation' in self.info and self.info['90rotation'] is True:
+            angle = angle - 90 if angle > 90 else angle + 90
 
-        center = (self.info['centerx'], self.info['centery'])
-        img = copy.copy(self.orig_img)
-        self.info['rotationAngle'] = getRotationAngle(img, center)
-
-        print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
-
+        if self.rotated_img is None or self.rotated_img[0] != (self.info["centerx"], self.info["centery"]) or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
+            # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
+            self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img,
+                                rotateImage(img, (self.info["centerx"], self.info["centery"]), angle)]
+        return self.rotated_img[3]
 
     def removeInfo(self, name, k = None):
         """
@@ -508,7 +535,7 @@ class ProjectionProcessor():
 
     def loadCache(self):
         """
-        Load info dict from cache. Cache file will be filename.info in folder "eq_cache"
+        Load info dict from cache. Cache file will be filename.info in folder "pt_cache"
         :return: cached info (dict)
         """
         cache_path = fullPath(self.dir_path, "pt_cache")
@@ -522,7 +549,7 @@ class ProjectionProcessor():
 
     def cacheInfo(self):
         """
-        Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
+        Save info dict to cache. Cache file will be save as filename.info in folder "pt_cache"
         :return: -
         """
         cache_path = fullPath(self.dir_path, 'pt_cache')
