@@ -1,6 +1,7 @@
 # Publish a New Release of MuscleX
 
 ## Contents
+* [Process outline](#process-outline)
 * [Prepare a Release](#prepare-a-release)
   * [Create a source distribution](#create-a-source-distribution)
   * [Create a Windows installer](#create-a-windows-installer)
@@ -12,6 +13,15 @@
   * [Upload the project to PyPI](#upload-the-project-to-pypi)
   * [Publish the release on GitHub](#publish-the-release-on-github)
   * [Update the information of the new release on Zenodo](#update-the-information-of-the-new-release-on-zenodo)
+
+## Process outline
+1. Create release tag and enter release notes on Github
+2. Update DOI on Zenodo
+3. Create pip distribution
+4. Create docker distribution
+5. Update documentation on Readthedocs
+6. Create Windows and Mac standalone distributions and upload to Sourceforge (major releases only) 
+
 
 ## Prepare a Release
 ### Create a source distribution
