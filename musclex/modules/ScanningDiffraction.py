@@ -133,8 +133,18 @@ class ScanningDiffraction:
 
     def updateInfo(self, flags):
         depn_lists = {
-            '2dintegration': ['fixed_hull'],
-            'ring_hists': ['ROI', 'orientation_model', '90rotation']
+            '2dintegration': ['fixed_hull', 'merged_peaks'],
+            'ring_hists': ['ROI', 'orientation_model', '90rotation', 'merged_peaks'],
+            'fitResult' : ['m1_rings', 'm2_rings', 'merged_peaks'],
+            'model_peaks' : ['m1_rings', 'm2_rings','merged_peaks'],
+            'm2_runs_dict' : ['m2_rings'],
+            'm2_central_difference' : ['m2_rings'],
+            'merged_rings' : ['m2_rings'],
+            'central_log' : ['m2_rings'],
+            'partial_ranges' : ['m1_rings'],
+            'm1_partial_hist' : ['m1_rings'],
+            'm1_partial_hulls' : ['m1_rings'],
+            'm1_partial_peaks' : ['m1_rings']
         }
         for key, params in depn_lists.items():
             for flag in params:
@@ -979,7 +989,7 @@ class ScanningDiffraction:
         params.add("alpha", alpha1, min=0, max=alpha1*5+0.0000001)
         params.add("bg", 0, min = -1, max = max_height+1)
 
-        result = model.fit(hist[1], x=x, params = params, nan_policy='omit')
+        result = model.fit(hist[1], x=x, params = params, nan_policy='propagate')
 
         # Compute valley point and circular shift
         # print "U: ", result.values['u'], convertRadtoDegrees(result.values['u'])
@@ -1003,7 +1013,7 @@ class ScanningDiffraction:
         params.add("bg", bg, min = -1, max = max_height)
 
         model = Model(orientation_GMM2, independent_vars='x')
-        result = model.fit(hist_shifted, x=x, params=params, nan_policy='omit')
+        result = model.fit(hist_shifted, x=x, params=params, nan_policy='propagate')
         result = result.values
 
         # Correction over shifted peaks
@@ -1046,11 +1056,11 @@ class ScanningDiffraction:
         model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
         model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
 
-        result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='omit')
+        result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='propagate')
         errs = abs(result.best_fit - result.data)
         weights = errs / errs.mean() + 1
         weights[weights > 3.] = 0
-        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, nan_policy='omit')
+        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, nan_policy='propagate')
 
         return result.values
 
@@ -1441,9 +1451,7 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     model = gaussians[0]
     for i in range(1, len(gaussians)):
         model += gaussians[i]
-
-    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='omit').values
-    print(out)
+    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate').values
     # print "Output Params:", pars
     result = {}
     for i in range(len(indexes)):

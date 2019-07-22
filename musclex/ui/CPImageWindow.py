@@ -609,7 +609,9 @@ class CPImageWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
         else:
             self.function = None
+            self.processImage()
             self.updateImageTab()
+
 
     def setRoiBtnClicked(self):
         """
@@ -626,6 +628,7 @@ class CPImageWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
         else:
             self.function = None
+            self.processImage()
             self.updateImageTab()
 
     def selectRingsClicked(self):
@@ -777,6 +780,9 @@ class CPImageWindow(QMainWindow):
                 self.cirProj.info['ROI'] = [innerR, outerR]
                 self.ROI = [innerR, outerR]
                 self.cirProj.removeInfo('ring_hists')
+                self.cirProj.removeInfo('m1_rings')
+                self.cirProj.removeInfo('m2_rings')
+                self.cirProj.removeInfo('merged_peaks')
                 self.processImage()
             else:
                 ax = self.displayImgAxes
@@ -979,18 +985,18 @@ class CPImageWindow(QMainWindow):
     def getFlags(self, imgChanged=True):
         flags = {}
         flags['partial_angle'] = self.partialRange.value()
-        if self.merged_peaks is not None and (self.persistRingsChkBx.isChecked() or not imgChanged):
+        if self.merged_peaks is not None and self.persistRingsChkBx.isChecked():
             print("Persisting rings at {}..".format(self.merged_peaks))
             flags['merged_peaks'] = self.merged_peaks
             flags['m1_rings'] = self.merged_peaks
             flags['m2_rings'] = self.merged_peaks
+            flags['model_peaks'] = self.merged_peaks
             flags['persist_rings'] = True
         if self.ROI is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['ROI'] = self.ROI
         if self.orientationModel is not None:
             flags['orientation_model'] = self.orientationModel
         flags['90rotation'] = self.rotation90ChkBx.isChecked()
-
         if self.calSettings is not None:
             if self.calSettings["type"] == "img":
                 flags["center"] = self.calSettings["center"]
@@ -1268,7 +1274,7 @@ class CPImageWindow(QMainWindow):
                         patches.Circle(tuple(center), int(round(radius + h*sigmad)), linewidth=2, edgecolor=tuple(np.array(self.ring_colors[(i-1)%len(self.ring_colors)])/255.), facecolor='none'))
 
 
-        if 'ring_models' in self.cirProj.info and 'ring_errors' in self.cirProj.info:
+        if 'ring_models' in self.cirProj.info and 'ring_errors' in self.cirProj.info and len(self.cirProj.info['ring_errors']) > 0:
             models = self.cirProj.info['ring_models']
             errors = self.cirProj.info['ring_errors']
             best_ind = min(errors.items(), key=lambda err:err[1])[0]
@@ -1432,7 +1438,6 @@ class CPImageWindow(QMainWindow):
             # self.m1_hist_figure.tight_layout()
             self.m1_hist_canvas.draw()
             self.update_plot['m1_hist'] = False
-
         if 'partial_angle' in self.cirProj.info.keys():
             self.updatingUI = True
             self.partialRange.setValue(self.cirProj.info['partial_angle'])
