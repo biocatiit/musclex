@@ -43,6 +43,7 @@ while getopts ":ulhsv:" opt; do
 done
 shift "$(($OPTIND -1))"
 
+xhost +
 docker run --rm $sshoptions -v /tmp/.X11-unix:/tmp/.X11-unix -v $(pwd):$(pwd) -w $(pwd) --privileged -v /home:/home -e DISPLAY=$displayoptions$DISPLAY -e PYTHONUNBUFFERED=0 biocat/musclex$version musclex $1
-
+xhost -
 
