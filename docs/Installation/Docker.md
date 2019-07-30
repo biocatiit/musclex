@@ -50,7 +50,7 @@ To run a specific version
 ```
 ./musclex.sh -v 1-14.11 eq
 ```
-To updtae musclex
+To update musclex
 ```
 ./musclex.sh -u
 ```
