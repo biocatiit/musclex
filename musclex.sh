@@ -2,6 +2,7 @@
 
 version=""
 sshoptions=""
+displayoptions="unix"
 while getopts ":ulhsv:" opt; do
   case ${opt} in
     u ) 
@@ -33,6 +34,7 @@ while getopts ":ulhsv:" opt; do
       ;;
     s )
       sshoptions="--net=host --env=\"DISPLAY\" --volume=$HOME/.Xauthority:/root/.Xauthority:rw"
+      displayoptions=""
       ;;
     v )
       version=":$OPTARG"
@@ -41,6 +43,6 @@ while getopts ":ulhsv:" opt; do
 done
 shift "$(($OPTIND -1))"
 
-docker run --rm $sshoptions -v /tmp/.X11-unix:/tmp/.X11-unix -v $(pwd):$(pwd) -w $(pwd) --privileged -v /home:/home -e DISPLAY=unix$DISPLAY -e PYTHONUNBUFFERED=0 biocat/musclex$version musclex $1
+docker run --rm $sshoptions -v /tmp/.X11-unix:/tmp/.X11-unix -v $(pwd):$(pwd) -w $(pwd) --privileged -v /home:/home -e DISPLAY=$displayoptions$DISPLAY -e PYTHONUNBUFFERED=0 biocat/musclex$version musclex $1
 
 
