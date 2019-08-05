@@ -88,7 +88,10 @@ class ProjectionProcessor():
         :return:
         """
         box_names = self.info['box_names']
-        if name in box_names and self.info['boxes'][name] != box:
+        if name in box_names and type =='oriented' and self.info['boxes'][name][:-1] != box[-1]:
+            self.removeInfo(name)
+            self.addBox(name, box, type, bgsub)
+        elif name in box_names and self.info['boxes'][name] != box:
             self.removeInfo(name)
             self.addBox(name, box, type, bgsub)
         else:

@@ -987,7 +987,6 @@ class ProjectionTracesGUI(QMainWindow):
                     new_angle = -90
                 else:
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                # new_angle += 90.
 
                 cx = int(round((x1 + x2) / 2.))
                 cy = int(round((y1 + y2) / 2.))
@@ -1033,28 +1032,21 @@ class ProjectionTracesGUI(QMainWindow):
             if btype == 'h':
                 box['rect'] = patches.Rectangle((x, y), w, h,
                     linewidth=1, edgecolor='#95f70c', facecolor='none')
-                box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., str(name), color='#95f70c',
+                box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., name, color='#95f70c',
                     fontsize=10, horizontalalignment='left', verticalalignment='center')
             else:
                 box['rect'] = patches.Rectangle((x, y), w, h,
                     linewidth=1, edgecolor='y', facecolor='none')
-                box['text'] = matplotlib.text.Text(x + w /2. , y - 10, str(name), color='y',
+                box['text'] = matplotlib.text.Text(x + w /2. , y - 20, name, color='y',
                     fontsize=10, horizontalalignment='center', verticalalignment='center')
         elif btype == 'oriented':
             bottom_left, w, h, angle = box[2], box[3], box[4], box[5]
             x, y = box[0][0], box[1][0]
             box = {}
-            if btype == 'oriented':
-                box['rect'] = patches.Rectangle(bottom_left, w, h, angle=angle,
-                    linewidth=1, edgecolor='#95f70c', facecolor='none')
-                box['text'] = matplotlib.text.Text(bottom_left[0], bottom_left[1], str(name)+str(int(angle)), color='#95f70c',
-                    fontsize=10, horizontalalignment='left', verticalalignment='center')
-            else:
-                box['rect'] = patches.Rectangle(bottom_left, w, h, angle=angle,
-                    linewidth=1, edgecolor='r', facecolor='none')
-                box['text'] = matplotlib.text.Text(bottom_left[0], bottom_left[1], str(name)+str(int(angle)), color='r',
-                    fontsize=10, horizontalalignment='left', verticalalignment='center')
-
+            box['rect'] = patches.Rectangle(bottom_left, w, h, angle=angle,
+                linewidth=1, edgecolor='#95f70c', facecolor='none')
+            box['text'] = matplotlib.text.Text(bottom_left[0]-(20*len(name)), bottom_left[1]-30, name, color='#95f70c',
+                fontsize=10, horizontalalignment='left', verticalalignment='center')
         return box
 
     def imgOnMotion(self, event):

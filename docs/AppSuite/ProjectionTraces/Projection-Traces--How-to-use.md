@@ -14,22 +14,25 @@ In this page, you will know about ...
 5. [Other Options](#other-options)
 
 ## Adding Boxes
-To add a box, you have to click on "Add A Box" button, and draw the box on the image. If the height of the box is smaller that its width, this box is horizontal box. Otherwise, it's a vertical box.
 
-![-](../../images/PT/draw_box.png)
+There are three options for box selection: axis aligned, oriented, and center oriented boxes.
 
-After a box is drawn, a box detail dialog will pop up. You need to specify box's name and background subtraction method. This background subtraction will apply to the projection after peaks are selected.
+To add a box, you have to click on one of the box selection buttons, and draw the box on the image. Axis aligned boxes are drawn by selecting a corner and dragging to from a box. The axis of projection can be selected as either horizontal or vertical. Oriented boxes are drawn by select a box center, then the length of the axis of projection, and finally the width of the box. Center oriented boxes are equivalent to oriented boxes, but the pivot is fixed at the center of the image (either the diffraction center, image center (if quadrant folded), or a manually chosen center).
 
-![-](../../images/PT/box_dialog.png)
+![-](../../images/PT/preselection.png)
+
+After a box is drawn, a box detail dialog will pop up. You need to specify box's name and background subtraction method along with the axis of projection for axis aligned boxes. This background subtraction will apply to the projection after peaks are selected. The axis of projection is assumed to be along the length of the box.
+
+![-](../../images/PT/axis_options.png)
 
 Once a box is added, there's a new tab created. You can add how many boxes you need by repeatedly adding a box. The box name will be written on the image and its information will be displayed in its tab.
 
-![-](../../images/PT/boxes.png)
+![-](../../images/PT/box_select.png)
 
 ## Select Approximate peak locations
 To select the approximate peak locations, you can just click on the button, select them in the box and click "Done". When you select a peak, the program will automatically select the corresponding peak on the opposite site.
 
-![-](../../images/PT/image_select_peaks.png)
+![-](../../images/PT/peak_select.png)
 
 If there are multiple boxes, it's better to select the peak locations in the box tab.
 To select peaks in the box tab, you can go to that box tab and select peaks by pressing "Select Peaks" button, then select them on the 1-D projection on the left and press "Done".
