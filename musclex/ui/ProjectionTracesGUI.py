@@ -33,7 +33,7 @@ import matplotlib.patches as patches
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFolder
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
-from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter
+from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImage, rotatePoint
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CVSManager
 import sys
@@ -48,10 +48,11 @@ class BoxDetails(QDialog):
     """
     This class is for Popup window when a box is added
     """
-    def __init__(self, current_box_names):
+    def __init__(self, current_box_names, oriented=False):
         super(BoxDetails, self).__init__(None)
         self.setWindowTitle("Adding a Box")
         self.box_names = current_box_names
+        self.oriented = oriented
         self.initUI()
 
     def initUI(self):
@@ -64,6 +65,10 @@ class BoxDetails(QDialog):
         self.bgChoice.addItem("Fitting Gaussians")
         self.bgChoice.addItem("Convex Hull")
         self.bgChoice.addItem("No Background")
+        if not self.oriented:
+            self.axisChoice = QComboBox()
+            self.axisChoice.addItem("Horizontal")
+            self.axisChoice.addItem("Vertical")
 
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
                                               Qt.Horizontal, self)
@@ -75,7 +80,12 @@ class BoxDetails(QDialog):
         self.boxLayout.addWidget(self.boxName, 0, 1, 1, 1)
         self.boxLayout.addWidget(QLabel("Background Subtraction Method : "), 1, 0, 1, 1)
         self.boxLayout.addWidget(self.bgChoice, 1, 1, 1, 1)
-        self.boxLayout.addWidget(self.bottons, 2, 0, 1, 2, Qt.AlignCenter)
+        if not self.oriented:
+            self.boxLayout.addWidget(QLabel("Axis of Projection : "), 2, 0, 1, 1)
+            self.boxLayout.addWidget(self.axisChoice, 2, 1, 1, 1)
+            self.boxLayout.addWidget(self.bottons, 3, 0, 1, 2, Qt.AlignCenter)
+        else:
+            self.boxLayout.addWidget(self.bottons, 2, 0, 1, 2, Qt.AlignCenter)
 
     def okClicked(self):
         box_name = str(self.boxName.text())
@@ -97,7 +107,10 @@ class BoxDetails(QDialog):
             self.accept()
 
     def getDetails(self):
-        return str(self.boxName.text()), self.bgChoice.currentIndex()
+        if self.oriented:
+            return str(self.boxName.text()), self.bgChoice.currentIndex()
+        else:
+            return str(self.boxName.text()), self.bgChoice.currentIndex(), self.axisChoice.currentIndex()
 
 class ProjectionTracesGUI(QMainWindow):
     """
@@ -125,7 +138,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.centerx = None
         self.centery = None
         self.center_func = None
-        self.rotated = False # whether or not
+        self.rotated = False
         self.rotationAngle = 0
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
@@ -192,11 +205,19 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxGrp = QGroupBox("3. Add boxes")
         self.boxGrp.setEnabled(False)
         self.boxesLayout = QVBoxLayout(self.boxGrp)
-        self.addBoxButton = QPushButton("Add Boxes")
+        self.addBoxButton = QPushButton("Add Axis Aligned Box")
         self.addBoxButton.setCheckable(True)
+        self.addOrientedBoxButton = QPushButton("Add Oriented Box")
+        self.addOrientedBoxButton.setCheckable(True)
+        self.addCenterOrientedBoxButton = QPushButton("Add Centered Oriented Box")
+        self.addCenterOrientedBoxButton.setCheckable(True)
         self.clearBoxButton = QPushButton('Clear All Boxes')
         self.checkableButtons.append(self.addBoxButton)
+        self.checkableButtons.append(self.addOrientedBoxButton)
+        self.checkableButtons.append(self.addCenterOrientedBoxButton)
         self.boxesLayout.addWidget(self.addBoxButton)
+        self.boxesLayout.addWidget(self.addOrientedBoxButton)
+        self.boxesLayout.addWidget(self.addCenterOrientedBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
 
         # Peaks Selection
@@ -345,6 +366,8 @@ class ProjectionTracesGUI(QMainWindow):
 
         # select boxes
         self.addBoxButton.clicked.connect(self.addABox)
+        self.addOrientedBoxButton.clicked.connect(self.addOrientedBox)
+        self.addCenterOrientedBoxButton.clicked.connect(self.addOrientedBox)
         self.clearBoxButton.clicked.connect(self.clearBoxes)
 
         # select peaks
@@ -443,6 +466,8 @@ class ProjectionTracesGUI(QMainWindow):
     def qfChkBxClicked(self):
         if self.qfChkBx.isChecked():
             self.center_func = 'quadrant_fold'
+        elif self.center_func == 'init':
+            pass
         else:
             self.center_func = 'automatic'
         self.rotated = False
@@ -576,7 +601,7 @@ class ProjectionTracesGUI(QMainWindow):
             if self.function is None:
                 # Start function
                 self.addBoxButton.setText("Done")
-                self.setLeftStatus("Add a box to the image by drawing a rectangles (ESC to cancel)")
+                self.setLeftStatus("Add a box to the image by drawing a rectangle (ESC to cancel)")
                 self.function = ['box']
                 ax = self.displayImgAxes
                 ax.lines = []
@@ -585,6 +610,49 @@ class ProjectionTracesGUI(QMainWindow):
                 self.addBoxButton.setChecked(False)
                 self.function = None
                 return
+
+    def addOrientedBox(self):
+        """
+        Triggered when Add Oriented Boxes is pressed
+        :return:
+        """
+        if self.projProc is None:
+            self.addOrientedBoxButton.setChecked(False)
+            self.addCenterOrientedBoxButton.setChecked(False)
+            return
+
+        if self.addOrientedBoxButton.isChecked() and not self.addCenterOrientedBoxButton.isChecked():
+            if self.function is None:
+                # Start function
+                self.addOrientedBoxButton.setText("Done")
+                self.setLeftStatus("Select a pivot point indicating the box center (ESC to cancel)")
+                self.function = ['oriented_box']
+                ax = self.displayImgAxes
+                ax.lines = []
+                self.displayImgCanvas.draw_idle()
+            else:
+                self.addOrientedBoxButton.setChecked(False)
+                self.function = None
+                return
+
+        elif self.addCenterOrientedBoxButton.isChecked() and not self.addOrientedBoxButton.isChecked():
+            if self.function is None:
+                # Start function
+                self.addCenterOrientedBoxButton.setText("Done")
+                self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
+                self.function = ['center_oriented_box']
+                self.function.append((self.centerx, self.centery))
+                ax = self.displayImgAxes
+                ax.lines = []
+                self.displayImgCanvas.draw_idle()
+            else:
+                self.addOrientedBoxButton.setChecked(False)
+                self.function = None
+                return
+        else:
+            self.addCenterOrientedBoxButton.setChecked(False)
+            self.addOrientedBoxButton.setChecked(False)
+            self.resetUI()
 
     def keyPressEvent(self, event):
         """
@@ -700,16 +768,18 @@ class ProjectionTracesGUI(QMainWindow):
         # Provide different behavior depending on current active function
         if func is None:
             for name, box in self.allboxes.items():
-                breadth = 10
-                x1, x2, y1, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
-                if (x1 - breadth <= x <= x1 + breadth or x2 - breadth <= x <= x2 + breadth) and \
-                   y1 - breadth <= y <= y2 + breadth or x1 - breadth <= x <= x2 + breadth and \
-                   (y1 - breadth <= y <= y1 + breadth or y2 - breadth <= y <= y2 + breadth):
-                    self.function = ['box_move', name, (x, y)]
-                    break
+                if self.boxtypes[name] == 'h' or self.boxtypes[name] == 'v':
+                    breadth = 10
+                    x1, x2, y1, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
+                    if (x1 - breadth <= x <= x1 + breadth or x2 - breadth <= x <= x2 + breadth) and \
+                       y1 - breadth <= y <= y2 + breadth or x1 - breadth <= x <= x2 + breadth and \
+                       (y1 - breadth <= y <= y1 + breadth or y2 - breadth <= y <= y2 + breadth):
+                        self.function = ['box_move', name, (x, y)]
+                        break
             else:
                 self.function = ['im_move', (x, y)]
         elif func[0] == 'box':
+            # First draw two lines
             func.append((x, y))
             if len(func) == 3:
                 # A box added
@@ -721,45 +791,181 @@ class ProjectionTracesGUI(QMainWindow):
                 boxDialog = BoxDetails(self.allboxes.keys())
                 result = boxDialog.exec_()
                 if result == 1:
-                    name, bgsub = boxDialog.getDetails()
+                    name, bgsub, axis = boxDialog.getDetails()
                     self.allboxes[name] = ((x1, x2), (y1, y2))
                     w = abs(x1-x2)
                     h = abs(y1-y2)
-                    self.boxtypes[name] = 'h' if w >= h else 'v'
+                    self.boxtypes[name] = 'h' if axis == 0 else 'v'
                     self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
                     self.bgsubs[name] = bgsub
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
+
+        elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
+            if len(func) == 1: # select a pivot
+                ax = self.displayImgAxes
+                axis_size = 5
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                self.displayImgCanvas.draw_idle()
+                func.append((x,y))
+                self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
+
+            elif len(func) == 2: # rotate and extend around the pivot
+                pivot = func[1]
+                deltax = x - pivot[0]
+                deltay = y - pivot[1]
+                x2 = pivot[0] - deltax
+                y2 = pivot[1] - deltay
+                ax = self.displayImgAxes
+                ax.lines = []
+                ax.plot([x, x2], [y, y2], color="r")
+                self.displayImgCanvas.draw_idle()
+
+                if abs(x - pivot[0]) == 0:
+                    new_angle = -90
+                else:
+                    new_angle = -180. * np.arctan((pivot[1] - y) / (pivot[0] - x)) / np.pi
+
+                func.append((x,x2,y,y2, new_angle))
+                self.setLeftStatus("Drag to select the width of the box (must be less than the length) (ESC to cancel)")
+
+            elif len(func) == 3: # drag to select the width
+                ax = self.displayImgAxes
+                if len(ax.patches) > 0:
+                    ax.patches = ax.patches[:len(self.allboxes.keys())]
+                ax.lines = []
+
+                box_angle = func[2][4]
+                angle = np.radians(90 - box_angle)
+
+                # display the box as it's drawn by the user
+                p_mouse = np.array([x,y])
+                if func[2][0] <= func[2][1]: # p1 is to the left
+                    p_left = np.array((func[2][0], func[2][2]))
+                    p_right = np.array((func[2][1], func[2][3]))
+                else:
+                    p_left = np.array((func[2][1], func[2][3]))
+                    p_right = np.array((func[2][0], func[2][2]))
+
+                v1 = p_left - p_right
+                v2 = p_mouse - p_right
+
+                u = v1/np.linalg.norm(v1)
+                n = (-u[1], u[0])
+
+                height = np.abs(np.dot(v2, n))
+                width = np.linalg.norm(p_left - p_right)
+
+                if height*2 < width:
+                    x1_left = p_left[0] - height*np.cos(angle)
+                    y1_left = p_left[1] - height*np.sin(angle)
+                    x2_left = p_left[0] + height*np.cos(angle)
+                    y2_left = p_left[1] + height*np.sin(angle)
+                    x1_right = p_right[0] - height*np.cos(angle)
+                    y1_right = p_right[1] - height*np.sin(angle)
+                    x2_right= p_right[0] + height*np.cos(angle)
+                    y2_right= p_right[1] + height*np.sin(angle)
+
+                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
+
+                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+
+                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+
+                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+
+                    rot_angle = box_angle * -1
+                    bottom_left = (x1_left, y1_left)
+
+                    ax.add_patch(patches.Rectangle(bottom_left, width, height*2, angle=rot_angle,
+                                                   linewidth=1, edgecolor='g', facecolor='none', linestyle='dotted'))
+                    self.displayImgCanvas.draw_idle()
+
+                    boxDialog = BoxDetails(self.allboxes.keys(), oriented=True)
+                    result = boxDialog.exec_()
+                    if result == 1:
+                        # get the image the box was selected on
+                        if self.rotated:
+                            img = self.projProc.getRotatedImage()
+                        else:
+                            img = copy.copy(self.projProc.orig_img)
+
+                        blx, bly = int(bottom_left[0]), int(bottom_left[1])
+                        pivot = func[1]
+                        cx, cy = pivot[0], pivot[1]
+
+                        # get the image rotated around the box center
+                        img = rotateImage(img, (cx, cy), rot_angle)
+
+                        x1, y1 = rotatePoint((cx, cy), (blx, bly), -np.radians(rot_angle))
+                        x2 = x1 + width
+                        y2 = y1 + height*2
+
+                        # add the oriented box
+                        name, bgsub = boxDialog.getDetails()
+                        self.allboxes[name] = ((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot, img)
+                        self.boxtypes[name] = 'oriented'
+                        self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
+                        self.bgsubs[name] = bgsub
+
+                        self.function = None
+
+                        self.addBoxTabs()
+                        self.processImage()
+
         elif func[0] == "peaks":
             peaks = func[1]
             if len(self.allboxes.keys()) > 0:
                 ax = self.displayImgAxes
-                # centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
-                # centery = self.projProc.orig_img.shape[0] / 2. - 0.5
-                centerx = self.centerx
-                centery = self.centery
                 for name in self.allboxes.keys():
                     box = self.allboxes[name]
                     boxx = box[0]
                     boxy = box[1]
-                    if boxx[0] <= x <= boxx[1] and boxy[0] <= y <= boxy[1]:
-                        type = self.boxtypes[name]
+                    type = self.boxtypes[name]
+                    centerx = self.centerx
+                    centery = self.centery
+                    comp_x, comp_y = x, y # use a placeholder x,y for comparisons
+
+                    # if oriented, then rotate x and y into the box
+                    if type == 'oriented':
+                        # switch center to the box center
+                        centerx, centery = box[6][0], box[6][1]
+                        d = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
+                        comp_x, comp_y = rotatePoint((centerx, centery), (comp_x, comp_y), -np.radians(box[5]))
+
+                    if boxx[0] <= comp_x <= boxx[1] and boxy[0] <= comp_y <= boxy[1]:
                         if name not in peaks:
                             peaks[name] = []
 
                         if type == 'h':
-                            distance = int(round(abs(centerx-x)))
+                            distance = int(round(abs(centerx-comp_x)))
                             peaks[name].append(distance)
                             ax.plot((centerx-distance, centerx-distance), boxy, color='r')
                             ax.plot((centerx+distance, centerx+distance), boxy, color='r')
+                        elif type == 'oriented':
+                            distance = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
+                            edge_1 = rotatePoint((centerx, centery), (centerx-distance, boxy[0]), np.radians(box[5]))
+                            edge_2 = rotatePoint((centerx, centery), (centerx-distance, boxy[1]), np.radians(box[5]))
+                            edge_3 = rotatePoint((centerx, centery), (centerx+distance, boxy[0]), np.radians(box[5]))
+                            edge_4 = rotatePoint((centerx, centery), (centerx+distance, boxy[1]), np.radians(box[5]))
+
+                            ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r')
+                            ax.plot((edge_3[0], edge_4[0]), (edge_3[1], edge_4[1]), color='r')
+
+                            peaks[name].append(distance)
                         else:
-                            distance = int(round(abs(centery - y)))
+                            distance = int(round(abs(centery - comp_y)))
                             peaks[name].append(distance)
                             ax.plot(boxx, (centery - distance, centery - distance), color='r')
                             ax.plot(boxx, (centery + distance, centery + distance), color='r')
                         break
                 self.displayImgCanvas.draw_idle()
+
         elif func[0] == "angle_center":
             ax = self.displayImgAxes
             axis_size = 5
@@ -819,20 +1025,36 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Generate aritists to represent a box on Axes.
         """
-        x, x2, y, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
-        w, h = x2 - x, y2 - y
+        if btype == 'h' or btype == 'v':
+            x, x2, y, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
+            w, h = x2 - x, y2 - y
 
-        box = {}
-        if btype == 'h':
-            box['rect'] = patches.Rectangle((x, y), w, h,
-                linewidth=1, edgecolor='#95f70c', facecolor='none')
-            box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., str(name), color='#95f70c',
-                fontsize=10, horizontalalignment='left', verticalalignment='center')
-        else:
-            box['rect'] = patches.Rectangle((x, y), w, h,
-                linewidth=1, edgecolor='y', facecolor='none')
-            box['text'] = matplotlib.text.Text(x + w /2. , y - 10, str(name), color='y',
-                fontsize=10, horizontalalignment='center', verticalalignment='center')
+            box = {}
+            if btype == 'h':
+                box['rect'] = patches.Rectangle((x, y), w, h,
+                    linewidth=1, edgecolor='#95f70c', facecolor='none')
+                box['text'] = matplotlib.text.Text(x + w + 10, y + h / 2., str(name), color='#95f70c',
+                    fontsize=10, horizontalalignment='left', verticalalignment='center')
+            else:
+                box['rect'] = patches.Rectangle((x, y), w, h,
+                    linewidth=1, edgecolor='y', facecolor='none')
+                box['text'] = matplotlib.text.Text(x + w /2. , y - 10, str(name), color='y',
+                    fontsize=10, horizontalalignment='center', verticalalignment='center')
+        elif btype == 'oriented':
+            bottom_left, w, h, angle = box[2], box[3], box[4], box[5]
+            x, y = box[0][0], box[1][0]
+            box = {}
+            if btype == 'oriented':
+                box['rect'] = patches.Rectangle(bottom_left, w, h, angle=angle,
+                    linewidth=1, edgecolor='#95f70c', facecolor='none')
+                box['text'] = matplotlib.text.Text(bottom_left[0], bottom_left[1], str(name)+str(int(angle)), color='#95f70c',
+                    fontsize=10, horizontalalignment='left', verticalalignment='center')
+            else:
+                box['rect'] = patches.Rectangle(bottom_left, w, h, angle=angle,
+                    linewidth=1, edgecolor='r', facecolor='none')
+                box['text'] = matplotlib.text.Text(bottom_left[0], bottom_left[1], str(name)+str(int(angle)), color='r',
+                    fontsize=10, horizontalalignment='left', verticalalignment='center')
+
         return box
 
     def imgOnMotion(self, event):
@@ -875,7 +1097,6 @@ class ProjectionTracesGUI(QMainWindow):
             y = int(round(y))
 
         func = self.function
-
         if func is None:
             return
         elif func[0] == "im_zoomin":
@@ -916,6 +1137,68 @@ class ProjectionTracesGUI(QMainWindow):
                 ax.add_patch(patches.Rectangle((x, y), w, h,
                                                linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
                 self.displayImgCanvas.draw_idle()
+
+        elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
+            ax = self.displayImgAxes
+            ax.lines = []
+            if len(func) == 1:
+                axis_size = 5
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                self.displayImgCanvas.draw_idle()
+            if len(func) == 2:
+                # draw line as angle
+                pivot = func[1]
+                deltax = x - pivot[0]
+                deltay = y - pivot[1]
+                x2 = pivot[0] - deltax
+                y2 = pivot[1] - deltay
+                ax.plot([x, x2], [y, y2], color="r")
+                self.displayImgCanvas.draw_idle()
+            elif len(func) == 3: # get the width of the box
+                if len(ax.patches) > 0:
+                    ax.patches = ax.patches[:len(self.allboxes.keys())]
+
+                angle = np.radians(90 - func[2][4])
+                p_mouse = np.array([x,y])
+                if func[2][0] < func[2][1]: # p1 is to the left
+                    p_left = np.array((func[2][0], func[2][2]))
+                    p_right = np.array((func[2][1], func[2][3]))
+                else:
+                    p_left = np.array((func[2][1], func[2][3]))
+                    p_right = np.array((func[2][0], func[2][2]))
+
+                v1 = p_left - p_right
+                v2 = p_mouse - p_right
+                u = v1/np.linalg.norm(v1)
+                n = (-u[1], u[0])
+
+                height = np.abs(np.dot(v2, n))
+                width = np.linalg.norm(p_left - p_right)
+
+                if height*2 < width:
+
+                    x1_left = p_left[0] - height*np.cos(angle)
+                    y1_left = p_left[1] - height*np.sin(angle)
+                    x2_left = p_left[0] + height*np.cos(angle)
+                    y2_left = p_left[1] + height*np.sin(angle)
+                    x1_right = p_right[0] - height*np.cos(angle)
+                    y1_right = p_right[1] - height*np.sin(angle)
+                    x2_right= p_right[0] + height*np.cos(angle)
+                    y2_right= p_right[1] + height*np.sin(angle)
+
+                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
+
+                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+
+                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+
+                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+                    self.displayImgCanvas.draw_idle()
+
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
@@ -1084,7 +1367,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
         self.refreshStatusbar()
+        self.center_func = 'init'
         self.updateCenter() # do not update fit results
+        self.center_func = None
         # Process new image
         self.processImage()
 
@@ -1119,9 +1404,18 @@ class ProjectionTracesGUI(QMainWindow):
     def updateCenter(self, refit=True):
         if self.center_func == 'automatic':
             self.centerx, self.centery = getCenter(self.projProc.orig_img)
-        elif self.center_func == 'quadrant_fold' or self.center_func is None: # default to quadrant folded
+            if self.qfChkBx.isChecked():
+                self.qfChkBx.setChecked(False)
+        elif self.center_func == 'quadrant_fold': # default to quadrant folded
             self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
             self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
+        elif self.center_func == 'init': # loading from the cache if it exists
+            self.centerx = self.projProc.info['centerx']
+            self.centery = self.projProc.info['centery']
+            if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
+                self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
+                self.qfChkBx.setChecked(False)
+
         self.projProc.info['centerx'] = self.centerx
         self.projProc.info['centery'] = self.centery
 
@@ -1284,7 +1578,9 @@ class ProjectionTracesGUI(QMainWindow):
         # self.graph_zoom = None
         QApplication.restoreOverrideCursor()
         self.selectPeaksButton.setText("Select Approximate Peak Locations")
-        self.addBoxButton.setText("Add A Box")
+        self.addBoxButton.setText("Add Axis Aligned Box")
+        self.addOrientedBoxButton.setText("Add Oriented Box")
+        self.addCenterOrientedBoxButton.setText("Add Center Oriented Box")
 
         for b in self.checkableButtons:
             b.setChecked(False)
@@ -1336,15 +1632,23 @@ class ProjectionTracesGUI(QMainWindow):
                         if self.boxtypes[name] == 'h':
                             ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
                             ax.plot((centerx + p, centerx + p), self.allboxes[name][1], color='m')
+                        elif self.boxtypes[name] == 'oriented':
+                            box = self.allboxes[name]
+                            edge_1 = rotatePoint((box[6][0], box[6][1]), (box[6][0]-p, box[1][0]), np.radians(box[5]))
+                            edge_2 = rotatePoint((box[6][0], box[6][1]), (box[6][0]-p, box[1][1]), np.radians(box[5]))
+                            edge_3 = rotatePoint((box[6][0], box[6][1]), (box[6][0]+p, box[1][0]), np.radians(box[5]))
+                            edge_4 = rotatePoint((box[6][0], box[6][1]), (box[6][0]+p, box[1][1]), np.radians(box[5]))
+                            ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r')
+                            ax.plot((edge_3[0], edge_4[0]), (edge_3[1], edge_4[1]), color='r')
                         else:
                             ax.plot(self.allboxes[name][0], (centery - p, centery - p), color='r')
                             ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
 
-            if self.centerChkBx.isChecked():
-                centerx = self.centerx
-                centery = self.centery
-                circle = plt.Circle((centerx, centery), 10, color='g')
-                ax.add_patch(circle)
+        if self.centerChkBx.isChecked():
+            centerx = self.centerx
+            centery = self.centery
+            circle = plt.Circle((centerx, centery), 10, color='g')
+            ax.add_patch(circle)
 
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:

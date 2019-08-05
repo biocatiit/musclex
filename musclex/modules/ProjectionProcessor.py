@@ -44,6 +44,10 @@ class ProjectionProcessor():
         self.dir_path = dir_path
         self.filename = file_name
         img = fabio.open(fullPath(dir_path, file_name)).data
+        # if img.shape[1] > img.shape[0]: # image is longer than it is wide
+        #     img = cv2.copyMakeBorder(img, top=int((img.shape[1]-img.shape[0])/2), bottom=int((img.shape[1]-img.shape[0])/2), left=0, right=0, borderType=cv2.BORDER_CONSTANT)
+        # else:
+        #     img = cv2.copyMakeBorder(img, top=0, bottom=0, left=int((img.shape[0]-img.shape[1])/2), right=int((img.shape[0]-img.shape[1])/2), borderType=cv2.BORDER_CONSTANT)
         # img -= img.min()
         self.orig_img = img
         self.rotated_img = None
@@ -194,23 +198,33 @@ class ProjectionProcessor():
             boxes = self.info['boxes']
             types = self.info['types']
             hists = self.info['hists']
-            if self.rotated:
-                img = self.getRotatedImage()
-            else:
-                img = copy.copy(self.orig_img)
             for name in box_names:
+                t = types[name]
+                if self.rotated:
+                    img = self.getRotatedImage()
+                else:
+                    img = copy.copy(self.orig_img)
+
                 if name not in hists:
-                    t = types[name]
                     b = boxes[name]
-                    x1 = int(b[0][0])
-                    x2 = int(b[0][1])
-                    y1 = int(b[1][0])
-                    y2 = int(b[1][1])
+
+                    if t == 'oriented':
+                        # rotate bottom left to new origin, then get top right
+                        # the box center
+                        img = copy.copy(b[7])
+
+                    # y is shape[0], x is shape[1]?
+                    x1 = np.max((int(b[0][0]), 0))
+                    x2 = np.min((int(b[0][1]), img.shape[1]))
+                    y1 = np.max((int(b[1][0]), 0))
+                    y2 = np.min((int(b[1][1]), img.shape[0]))
+
                     area = img[y1:y2+1, x1:x2+1]
-                    if t == 'h':
+                    if t == 'h' or t == 'oriented':
                         hist = np.sum(area, axis=0)
                     else:
                         hist = np.sum(area, axis=1)
+
                     hists[name] = hist
 
     def applyConvexhull(self):
@@ -240,6 +254,8 @@ class ProjectionProcessor():
                     start_y = box[1][0]
                     if types[name] == 'h':
                         centerX = self.info['centerx'] - start_x
+                    elif types[name] == 'oriented':
+                        centerX = box[6][0] - start_x
                     else:
                         centerX = self.info['centery'] - start_y
                     centerX = int(round(centerX))
@@ -318,6 +334,8 @@ class ProjectionProcessor():
             if self.info['types'][name] == 'h':
                 # init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
                 init_center = self.info['centerx'] - start_x
+            elif self.info['types'][name] == 'oriented':
+                init_center = box[6][0] - start_x
             else:
                 # init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
                 init_center = self.info['centery'] - start_y
@@ -508,6 +526,7 @@ class ProjectionProcessor():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img,
                                 rotateImage(img, (self.info["centerx"], self.info["centery"]), angle)]
+
         return self.rotated_img[3]
 
     def removeInfo(self, name, k = None):

@@ -490,7 +490,26 @@ def rotateImage(img, center, angle, mask_thres = -999):
         return img
 
     M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
-    # size = max(img.shape[0], img.shape[1])
+    size = max(img.shape[0], img.shape[1])
+
+    # used for expanding the rotated image
+    # im_max_shape = max(img.shape[1], img.shape[0])
+    # print("max image shape: {}".format(im_max_shape))
+    # im_center = (im_max_shape/2, im_max_shape/2)
+    # translation = np.array(im_center) - np.array([img.shape[1]/2, img.shape[0]/2])
+    # print(translation)
+    # T = np.identity(3)
+    # # T[0:1,2] = translation
+    # T[0,2] = translation[0]
+    # T[1,2] = translation[1]
+    # M2 = np.identity(3)
+    # print("M: {}".format(M))
+    # M2[0:2,:] = M
+    # print("M2: {}".format(M2))
+    # M3 = np.dot(T, M2)
+    # print("M3: {}".format(M3))
+    # M1 = M3[0:2,:]
+    # print("M1: {}".format(M1))
 
     if img.shape == (1043, 981):
         img = img.astype('float32')
@@ -502,9 +521,22 @@ def rotateImage(img, center, angle, mask_thres = -999):
         rotated_mask = cv2.warpAffine(mask, M, (img.shape[1],  img.shape[0]))
         rotated_mask[rotated_mask > 0.] = 255
         rotated_img[rotated_mask > 0] = mask_thres
-        return rotated_img
     else:
-        return cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
+        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
+    return rotated_img
+
+def rotatePoint(origin, point, angle):
+    """
+    Rotate a point counterclockwise by a given angle around a given origin.
+
+    The angle should be given in radians.
+    """
+    ox, oy = origin
+    px, py = point
+
+    qx = ox + np.cos(angle) * (px - ox) - np.sin(angle) * (py - oy)
+    qy = oy + np.sin(angle) * (px - ox) + np.cos(angle) * (py - oy)
+    return qx, qy
 
 def getMaskThreshold(img):
     min_val = img.min()

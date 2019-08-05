@@ -66,15 +66,21 @@ class ProjectionBoxTab(QWidget):
         name = self.name
 
         box = info['boxes'][name]
-        start_x = box[0][0]
-        start_y = box[1][0]
 
         if info['types'][name] == 'h':
+            start_x = box[0][0]
             if self.parent.centerx is None:
                 self.centerX = self.parent.projProc.orig_img.shape[1] / 2. - 0.5 - start_x
             else:
                 self.centerX = self.parent.centerx - start_x
+        elif info['types'][name] == 'oriented':
+            start_x = box[0][0]
+            self.centerX = box[6][0] - start_x
         else:
+            if info['types'][name] == 'v':
+                start_y = box[1][0]
+            else:
+                start_y = box[0][1]
             if self.parent.centery is None:
                 self.centerX = self.parent.projProc.orig_img.shape[0] / 2. - 0.5 - start_y
             else:
