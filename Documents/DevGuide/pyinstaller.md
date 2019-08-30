@@ -23,6 +23,11 @@ pyi-makespec -n musclex musclex\main.py
 ```
 `hiddenimports` and **hooks** will be expained in later parts. 
 `excludes` list lib packages not necessarily needed here.
+
+The `.spec` file should include a `musclex-launcher` and a `musclex-main` script.
+See `musclex_mac.spec` and `musclex_win32.spec` in the root of this project 
+for examples.
+
 ### Build the application and run
 Assume your spec file is named "musclex_win32.spec".
 ```
@@ -105,6 +110,10 @@ modification in `hook-PyMca5.py` will not help.
 ```
 pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api-ms-win"
 ```
+3. Runtime errors related to Python packages when executing `dist/musclex/musclex-{main, launcher}` 
+   are sometimes related to bugs in particular dependency versions - try
+   downgrading or upgrading the package in question or trying an adjacent 
+   version of Python.
 
 ## Building Mac OS X App Bundle
 Above parts describe the process in Windows. For building Mac App, baisc
