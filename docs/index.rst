@@ -1,12 +1,8 @@
 Muscle X
 ========
 
-.. rubric:: What is Muscle X?
-
 The Muscle X Application Suite is a collection of programs intended to
 assist with analyzing diffraction X-ray images.
-
-:ref:`Find out how to get it! <install>`
 
 .. rubric:: Features
 
@@ -17,6 +13,11 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Image Merger (im) <Image Merger>`
 - :ref:`Diffraction Centroids (dc) <Diffraction Centroids>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
+
+.. rubric:: Get the softwate
+
+- :ref:`Current stable version: 1.14.12`
+- :ref:`Get muscleX <install>`
 
 .. rubric:: Support
 
