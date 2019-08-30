@@ -12,4 +12,4 @@ The Muscle X program suite is a collection of programs intended to assist with a
 ## For more information, Please go to our wiki page at https://musclex.readthedocs.io/
 
 ## Current Stable Version: 1.14.12
-Get the latest stable release from SourceForge - https://sourceforge.net/projects/musclex/files/
+Get the latest Windows / Mac stable release from SourceForge - https://sourceforge.net/projects/musclex/files/ or the latest Docker release from dockerhub - https://hub.docker.com/search?q=musclex&type=image. For more information on how to install check our wikipage - https://hub.docker.com/search?q=musclex&type=image
