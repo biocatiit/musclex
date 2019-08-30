@@ -16,7 +16,7 @@ assist with analyzing diffraction X-ray images.
 
 .. rubric:: Get the softwate
 
-- :ref:`Current stable version: 1.14.12`
+- Current stable version: 1.14.12
 - :ref:`Get muscleX <install>`
 
 .. rubric:: Support
