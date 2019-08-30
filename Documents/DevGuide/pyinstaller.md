@@ -113,7 +113,11 @@ pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api
 3. Runtime errors related to Python packages when executing `dist/musclex/musclex-{main, launcher}` 
    are sometimes related to bugs in particular dependency versions - try
    downgrading or upgrading the package in question or trying an adjacent 
-   version of Python.
+   version of Python. 
+   
+   See `requirements_1.14.12_mac.txt` for an overview of the pip environment used
+   when MuscleX 1.14.12 was built for Mac. Install this environment using 
+   `pip install -r requirements_1.14.12_mac.txt`.
 
 ## Building Mac OS X App Bundle
 Above parts describe the process in Windows. For building Mac App, baisc
