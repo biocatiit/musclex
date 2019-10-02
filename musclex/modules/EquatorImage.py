@@ -131,29 +131,37 @@ class EquatorImage:
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
-        print("Center is being calculated...")
         if 'center' not in self.info:
-            self.info['center'] = getCenter(self.orig_img)
-            self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
-        print("Done. Center is" + str(self.info['center']))
+            if 'folded' in self.filename:
+                print('Image is folded,', end=" ")
+                self.info['center'] = (int(self.orig_img.shape[1] / 2), int(self.orig_img.shape[0] / 2))
+            else:
+                print("Center is being calculated...")
+                self.info['center'] = getCenter(self.orig_img)
+                self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
+                print("Done.", end=" ")
+        print("Center is" + str(self.info['center']))
 
     def getRotationAngle(self):
         """
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
         Once the rotation angle is calculated, the rmin will be re-calculated, so self.info["rmin"] is deleted
         """
-        print("Rotation Angle is being calculated...")
         if 'rotationAngle' not in self.info:
             if "fixed_angle" in self.info:
+                print("Rotation Angle is fixed...")
                 self.info['rotationAngle'] = self.info["fixed_angle"]
+            elif 'folded' in self.filename:
+                print("Rotation Angle is 0, because image is folded...")
+                self.info['rotationAngle'] = 0
             else:
+                print("Rotation Angle is being calculated...")
                 center = self.info['center']
                 img = copy.copy(self.image)
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
-
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
-
+        
     def calculateRmin(self):
         """
         Calculate R-min of the diffraction. The R-min will be kept in self.info["rmin"]

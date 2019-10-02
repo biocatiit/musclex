@@ -51,6 +51,7 @@ class DiffractionCentroids():
         :param fixRanges: fixed peak ranges configured my users
         :param off_mer: configuration of off-meridian peaks configured my users
         """
+        self.folded = False # will be updated when images are merged
         self.avgImg = self.mergeImages(dir_path, imgList) # avarage all image in a group
         self.mask_thres = getMaskThreshold(self.avgImg)
         self.dir_path = dir_path
@@ -73,10 +74,13 @@ class DiffractionCentroids():
         :return:
         """
         imgList2 = []
+        self.folded = True # True until we find otherwise
         for fname in imgList:
-            fullname = fullPath(dir_path, fname)
-            img = fabio.open(fullname).data
-            imgList2.append(img)
+        	if 'folded' not in fname:
+        		self.folded = False
+        	fullname = fullPath(dir_path, fname)
+        	img = fabio.open(fullname).data
+        	imgList2.append(img)
         return np.mean(imgList2, axis=0)
 
     def loadCache(self, dir_path, imgList):
@@ -153,23 +157,31 @@ class DiffractionCentroids():
         Find center of diffraction, and keep it in self.info["center"]
         This calculation will affect rotation angle, so self.info["rotationAngle"] will be removed
         """
-        if 'center' in self.info:
-            return
-        self.info['center'] = getCenter(self.avgImg)
-        print("center = "+str(self.info['center']))
-        self.removeInfo('rotationAngle')
+        if not 'center' in self.info:
+        	if self.folded:
+        		print("Image is Folded,", end=" ")
+        		self.info['center'] = (int(self.avgImg.shape[1] / 2) - 1, int(self.avgImg.shape[0] / 2))
+        	else:
+        		print("Image is not Folded,", end=" ")
+        		self.info['center'] = getCenter(self.avgImg)
+        	print("center = "+str(self.info['center']))
+        	self.removeInfo('rotationAngle')
 
     def findRotationAngle(self):
         """
         Find rotation angle of diffraction, and keep it in self.info["rotationAngle"]
         This calculation will affect R-min, so self.info["rmin"] will be removed
         """
-        if 'rotationAngle' in self.info:
-            return
-        center = self.info['center']
-        self.info['rotationAngle'] = getRotationAngle(self.avgImg, center, self.info['orientation_model'])
-        print("rotation angle = " + str(self.info['rotationAngle']))
-        self.removeInfo('rmin')
+        if not 'rotationAngle' in self.info:
+            if self.folded:
+                print("Image is Folded,", end=" ")
+                self.info['rotationAngle'] = 0
+            else:
+                print("Image is not Folded,", end=" ")
+                center = self.info['center']
+                self.info['rotationAngle'] = getRotationAngle(self.avgImg, center)
+            print("rotation angle = " + str(self.info['rotationAngle']))
+            self.removeInfo('rmin')
 
     def calculateRmin(self):
         """
