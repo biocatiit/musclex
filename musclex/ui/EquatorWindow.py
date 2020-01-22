@@ -1760,22 +1760,22 @@ class EquatorWindow(QMainWindow):
 
         # Initital reject check box
         if "reject" in info.keys():
-            self.rejectChkBx.setChecked(self.bioImg.info["reject"])
+            self.rejectChkBx.setChecked(info["reject"])
         else:
             self.rejectChkBx.setChecked(False)
 
-        if 'blank_mask' in self.bioImg.info:
-            self.applyBlank.setChecked(self.bioImg.info['blank_mask'])
+        if 'blank_mask' in info:
+            self.applyBlank.setChecked(info['blank_mask'])
 
-        if 'fixed_angle' in self.bioImg.info:
+        if 'fixed_angle' in info:
             self.fixedAngle.setValue(info['fixed_angle'])
-        self.fixedAngleChkBx.setChecked('fixed_angle' in self.bioImg.info)
-        self.fixedAngle.setEnabled('fixed_angle' in self.bioImg.info)
+        self.fixedAngleChkBx.setChecked('fixed_angle' in info)
+        self.fixedAngle.setEnabled('fixed_angle' in info)
 
-        self.fixedRminChkBx.setChecked('fixed_rmin' in self.bioImg.info)
-        self.fixedRmin.setEnabled('fixed_rmin' in self.bioImg.info)
-        if 'rmin' in info:
-            self.fixedRmin.setValue(info['rmin'])
+        self.fixedRminChkBx.setChecked('fixed_rmin' in info)
+        self.fixedRmin.setEnabled('fixed_rmin' in info)
+        if 'fixed_rmin' in info:
+            self.fixedRmin.setValue(info['fixed_rmin'])
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
 
@@ -1794,11 +1794,16 @@ class EquatorWindow(QMainWindow):
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
+        print("Settings in onImageChange before update")
+        print(settings)
         if self.calSettings is not None:
             self.bioImg.removeInfo()
         settings.update(self.bioImg.info)
-
+        print("Settings in onImageChange after update")
+        print(settings)
         self.initWidgets(settings)
+        print("Settings in onImageChange after init widgets")
+        print(self.getSettings())
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
@@ -1816,6 +1821,8 @@ class EquatorWindow(QMainWindow):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
         settings = self.getSettings()
+        print("Settings in processImage:")
+        print(settings)
         try:
             self.bioImg.process(settings)
         except Exception as e:
