@@ -155,7 +155,7 @@ class DiffractionCentroids():
         """
         if 'center' in self.info:
             return
-        self.info['center'] = getCenter(self.avgImg)
+        self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg))
         print("center = "+str(self.info['center']))
         self.removeInfo('rotationAngle')
 

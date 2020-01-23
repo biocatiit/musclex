@@ -133,7 +133,7 @@ class EquatorImage:
        """
         print("Center is being calculated...")
         if 'center' not in self.info:
-            self.info['center'] = getCenter(self.orig_img)
+            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
         print("Done. Center is" + str(self.info['center']))
 

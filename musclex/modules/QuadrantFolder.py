@@ -162,7 +162,7 @@ class QuadrantFolder(object):
         if 'center' in self.info.keys():
             return
         print("Center is being calculated ... ")
-        self.info['center'] = getCenter(self.orig_img)
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
         self.deleteFromDict(self.info, 'rotationAngle')
         print("Done. Center = "+str(self.info['center']))
 

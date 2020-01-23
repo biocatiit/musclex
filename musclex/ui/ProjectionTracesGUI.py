@@ -33,7 +33,7 @@ import matplotlib.patches as patches
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFolder
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
-from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImage, rotatePoint
+from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImage, rotatePoint, processImageForIntCenter
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CVSManager
 import sys
@@ -1395,7 +1395,8 @@ class ProjectionTracesGUI(QMainWindow):
 
     def updateCenter(self, refit=True):
         if self.center_func == 'automatic':
-            self.centerx, self.centery = getCenter(self.projProc.orig_img)
+            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
+            self.centerx, self.centery = center
             if self.qfChkBx.isChecked():
                 self.qfChkBx.setChecked(False)
         elif self.center_func == 'quadrant_fold': # default to quadrant folded

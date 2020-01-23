@@ -160,7 +160,7 @@ class ScanningDiffraction:
         """
         if 'center' not in self.info.keys():
             img = get8bitImage(copy.copy(self.original_image))
-            self.info['center'] = getCenter(img)
+            self.original_image, self.info['center'] = processImageForIntCenter(img, getCenter(img))
             self.log("Center has been calculated. center is "+str(self.info['center']))
 
     def get2DIntegrations(self):

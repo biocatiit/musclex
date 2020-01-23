@@ -184,7 +184,7 @@ def getCenter(img):
     # print("Maximum contour: {}".format(cnt))
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)
-        init_center = (int(round(ellipse[0][0])), int(round(ellipse[0][1])))
+        init_center = (ellipse[0][0], ellipse[0][1])
         # im = getBGR(img)
         # cv2.ellipse(im, ellipse, (0, 255, 0), 2)
         # cv2.circle(im, init_center, 2, (0, 0, 255), thickness=-1)
@@ -205,7 +205,7 @@ def getCenter(img):
                 ellipse = cv2.fitEllipse(cnt)
                 center = ellipse[0]
                 axes = ellipse[1]
-                center = (int(round(center[0])), int(round(center[1])))
+                center = (center[0], center[1])
                 reflections.append((center, np.pi*axes[0]*axes[1]))
                 # im = getBGR(img)
                 # cv2.ellipse(im, ellipse, color=(0, 255, 0), thickness=2)
@@ -227,8 +227,8 @@ def getCenter(img):
                     min_diff = diff
 
             if r1 is not None and r2 is not None:
-                x = int(round((reflections[r1][0][0]+reflections[r1][0][0]) / 2.))
-                y = int(round((reflections[r1][0][1] + reflections[r1][0][1]) / 2.))
+                x = ((reflections[r1][0][0]+reflections[r1][0][0]) / 2.)
+                y = ((reflections[r1][0][1] + reflections[r1][0][1]) / 2.)
                 if init_center is not None and distance(init_center, (x, y)) < 7:
                     # Return average center of reflections
                     return (x, y)
@@ -253,7 +253,7 @@ def getCenter(img):
         m = cv2.moments(copy_img)
         if m['m00'] != 0:
             # initial center
-            return (int(m['m10'] / m['m00']), int(m['m01'] / m['m00']))
+            return ((m['m10'] / m['m00']), (m['m01'] / m['m00']))
 
     # Find Center by fitting circle in the image
     cimg = bkImg(copy.copy(img), 0.0015, 50)
@@ -603,3 +603,20 @@ def averageImages(file_list, rotate=False):
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
+
+def processImageForIntCenter(img, center):
+    """
+    Translate image such that the new center is an integer
+    :param file_list: original image and its center with decimals
+    :return: translated image and nearest integer center
+    """
+    img=img.astype('float32')
+    int_Center = (round(center[0]), round(center[1]))
+    tx = int_Center[0] - center[0]
+    ty = int_Center[1] - center[1]
+    M = np.float32([[1,0,tx],[0,1,ty]])
+    print("In process Image int center, translating original image by tx = " + str(tx) + " and ty = " + str(ty))
+    rows,cols = img.shape
+    translated_Img = cv2.warpAffine(img,M,(cols,rows))
+   
+    return (translated_Img, int_Center)
