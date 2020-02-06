@@ -82,6 +82,10 @@ if you do not need to update other dependencies, you can run
 ```
 sudo pip install -U --no-deps musclex
 ```
+if you need to install the latest version directly from github, you can run
+```
+pip install git+https://github.com/biocatiit/musclex.git
+```
 
 [1]: http://aka.ms/vcpython27
 [2]: https://www.visualstudio.com/vs/older-downloads/
