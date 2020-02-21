@@ -202,10 +202,10 @@ class DiffractionCentroids():
         """
         if 'int_area' in self.info:
             return
-        center = self.info['center']
         rmin = self.info['rmin']
         img = getCenterRemovedImage(copy.copy(self.avgImg), self.info['center'], self.info['rmin']) # remove center location
         rotate_img = self.getRotatedImage(img) # rotate image
+        center = self.info['center']
         l = max(0,center[0]-rmin) # initial guess for left line
         r = min(center[0]+rmin, rotate_img.shape[1]) # initial guess for right line
         area = rotate_img[:,l:r] # Get the area by initial guess
@@ -248,8 +248,16 @@ class DiffractionCentroids():
             angle = self.info['rotationAngle']
         if '90rotation' in self.info and self.info['90rotation'] is True:
             angle = angle - 90 if angle > 90 else angle + 90
+            
+        center = self.info["center"]
+        if "orig_center" in self.info:
+            center = self.info["orig_center"]
+        else:
+            self.info["orig_center"] = center
+        
+        rotImg, self.info["center"] = rotateImage(img, center, angle, self.mask_thres)
 
-        return rotateImage(img, self.info["center"], angle, self.mask_thres)
+        return rotImg
 
     def setConvexhullPoints(self):
         """
@@ -282,9 +290,9 @@ class DiffractionCentroids():
         if 'top_hist' in self.info and 'top_hull' in self.info and 'bottom_hist' in self.info and 'bottom_hull' in self.info:
             return
 
-        center_y = self.info['center'][1]
         int_area = self.info['int_area']
         img = self.getRotatedImage(copy.copy(self.avgImg), self.info['rotationAngle'])
+        center_y = self.info['center'][1]
         img_area = img[:,int_area[0]: int_area[1]]
         ignore = np.array([any(line <= self.mask_thres) for line in img_area])
         hist = np.sum(img_area, axis=1)
@@ -581,12 +589,12 @@ class DiffractionCentroids():
         All backgound subtracted histograms will be kept in self.info["off_mer_hists"]["hull"]
         """
         if "off_mer_hists" not in self.info:
-            center_y = self.info["center"][1]
             x1 = self.info["x1"]
             x2 = self.info["x2"]
             x3 = self.info["x3"]
             x4 = self.info["x4"]
             img = self.getRotatedImage()
+            center_y = self.info["center"][1]
             left_area = img[:, x2:x1]
             right_area = img[:, x3:x4]
             # left_ignore = np.array([any(line < 0) for line in left_area])

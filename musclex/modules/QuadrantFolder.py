@@ -185,8 +185,16 @@ class QuadrantFolder(object):
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
         """
         img = np.array(self.orig_img, dtype="float32")
-        rotate_img = rotateImage(img,self.info["center"], self.info["rotationAngle"], self.info['mask_thres'])
-        return rotate_img
+        
+        center = self.info["center"]
+        if "orig_center" in self.info:
+            center = self.info["orig_center"]
+        else:
+            self.info["orig_center"] = center
+        
+        rotImg, self.info["center"] = rotateImage(img,center, self.info["rotationAngle"], self.info['mask_thres'])
+        
+        return rotImg
 
     def getFoldNumber(self, x, y):
         """
@@ -712,9 +720,6 @@ class QuadrantFolder(object):
             self.deleteFromDict(self.info, 'rmin')
             self.deleteFromDict(self.info, 'rmax')
             self.imgResultForDisplay = None
-            center = self.info['center']
-            center_x = center[0]
-            center_y = center[1]
             if 'blank_mask' in self.info and self.info['blank_mask']:
                 img = np.array(self.orig_img, 'float32')
                 blank, mask = getBlankImageAndMask(self.img_path)
@@ -726,6 +731,9 @@ class QuadrantFolder(object):
                 rotate_img = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.info['mask_thres'])
             else:
                 rotate_img = copy.copy(self.getRotatedImage())
+            center = self.info['center']
+            center_x = center[0]
+            center_y = center[1]
 
             print("Quadrant folding is being processed...")
             img_width = rotate_img.shape[1]

@@ -527,8 +527,14 @@ class ProjectionProcessor():
 
         if self.rotated_img is None or self.rotated_img[0] != (self.info["centerx"], self.info["centery"]) or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-            self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img,
-                                rotateImage(img, (self.info["centerx"], self.info["centery"]), angle)]
+            center = (self.info["centerx"], self.info["centery"])
+            if "orig_center" in self.info:
+                center = self.info["orig_center"]
+            else:
+                self.info["orig_center"] = center
+            
+            rotImg, (self.info["centerx"], self.info["centery"])  = rotateImage(img, center, angle)
+            self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
 
         return self.rotated_img[3]
 

@@ -32,6 +32,7 @@ import numpy as np
 import fabio
 import pyFAI
 from skimage.morphology import white_tophat
+import math
 
 def distance(pt1, pt2):
     """
@@ -488,6 +489,10 @@ def rotateImage(img, center, angle, mask_thres = -999):
     """
     if angle == 0:
         return img
+    
+    if img.shape[0] != img.shape[1]:
+        print("Rotating non square image")
+        return rotateNonSquareImage(img, angle, center)
 
     M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
     size = max(img.shape[0], img.shape[1])
@@ -523,7 +528,7 @@ def rotateImage(img, center, angle, mask_thres = -999):
         rotated_img[rotated_mask > 0] = mask_thres
     else:
         rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
-    return rotated_img
+    return rotated_img, center
 
 def rotatePoint(origin, point, angle):
     """
@@ -599,7 +604,7 @@ def averageImages(file_list, rotate=False):
             print("Rotating and centering {}".format(f))
             center = getCenter(img)
             angle = getRotationAngle(img, center, method=0)
-            img = rotateImage(img, center, angle, mask_thres = -999)
+            img, center = rotateImage(img, center, angle, mask_thres = -999)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
@@ -620,3 +625,39 @@ def processImageForIntCenter(img, center):
     translated_Img = cv2.warpAffine(img,M,(cols,rows))
    
     return (translated_Img, int_Center)
+
+def rotateNonSquareImage(img, angle, center1):
+    """
+    Rotates a non square image by first determining the appropriate square image and then rotating the image.
+    :param file_list: original non square image, angle of rotation and center
+    :return: rotated image and center with respect to new coordinate system
+    """
+    print("initial center is " + str(center1))
+    height, width = img.shape
+    center = (width/2, height/2)
+
+    rotation_mat = cv2.getRotationMatrix2D(center, angle, 1.)
+
+    # rotation calculates the cos and sin, taking absolutes of those.
+    abs_cos = abs(rotation_mat[0,0]) 
+    abs_sin = abs(rotation_mat[0,1])
+
+    # find the new width and height bounds
+    bound_w = int(height * abs_sin + width * abs_cos)
+    bound_h = int(height * abs_cos + width * abs_sin)
+
+    # subtract old image center (bringing image back to origo) and adding the new image center coordinates
+    rotation_mat[0, 2] += bound_w/2 - center[0]
+    rotation_mat[1, 2] += bound_h/2 - center[1]
+
+    maxB = max(bound_h, bound_w)
+
+    center1 = [center1[0], center1[1], 1]
+    center1 = np.dot(rotation_mat, center1)
+    center2 = (int(center1[0]), int(center1[1]))
+    
+    print("New center after rotation is " + str(center2))
+    
+    # rotate image with the new bounds and translated rotation matrix
+    rotated_img = cv2.warpAffine(img, rotation_mat, (maxB, maxB))
+    return rotated_img, center2

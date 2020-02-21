@@ -210,9 +210,15 @@ class EquatorImage:
 
         if self.rotated_img is None or self.rotated_img[0] != self.info["center"] or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-            self.rotated_img = [self.info["center"], angle, img,
-                                rotateImage(img, self.info["center"], angle, self.info['mask_thres'])]
-
+            center = self.info["center"]
+            if "orig_center" in self.info:
+                center = self.info["orig_center"]
+            else:
+                self.info["orig_center"] = center
+            
+            rotImg, self.info["center"] = rotateImage(img, center, angle, self.info['mask_thres'])
+            self.rotated_img = [self.info["center"], angle, img, rotImg]
+            
         return self.rotated_img[3]
 
     def getIntegrateArea(self):
@@ -230,6 +236,7 @@ class EquatorImage:
                 rmin = self.info['rmin']
                 img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin) # remove center location
                 rotate_img = self.getRotatedImage(img) # rotate image
+                center = self.info["center"] #since rotation might change center
                 init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
                 top = max(0, center[1] - init_range)
                 bottom = min(center[1] + init_range, rotate_img.shape[0])
