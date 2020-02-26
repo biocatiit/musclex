@@ -1134,6 +1134,7 @@ class EquatorWindow(QMainWindow):
                     break
                 self.progressBar.setValue(i)
                 QApplication.processEvents()
+                self.processImage()
                 self.nextClicked()
             self.in_batch_process = False
 
@@ -1754,9 +1755,11 @@ class EquatorWindow(QMainWindow):
 
         if 'fit_results' in info:
             fit_results = info['fit_results']
-            self.nPeakSpnBx.setValue(len(fit_results['left_areas']))
             self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_results["model"]))
             self.k_spnbx.setValue(fit_results['k'])
+                
+        if 'nPeaks' in info:
+            self.nPeakSpnBx.setValue(info['nPeaks'])
 
         # Initital reject check box
         if "reject" in info.keys():
