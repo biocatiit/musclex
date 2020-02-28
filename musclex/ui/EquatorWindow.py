@@ -1329,7 +1329,7 @@ class EquatorWindow(QMainWindow):
         self.currentImg = (self.currentImg - 1) % len(self.imgList)
         self.onImageChanged()
         
-     def nextImageFitting(self):
+    def nextImageFitting(self):
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
         
         fileName = self.imgList[self.currentImg]
