@@ -380,6 +380,8 @@ class EquatorWindow(QMainWindow):
         self.k_layout.addWidget(self.k_spnbx)
 
         self.refittingB = QPushButton("Re-fitting")
+        self.refitAllButton = QPushButton("Re-fitting All")
+        self.refitAllButton.setCheckable(True)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton2 = QPushButton("Process Current Folder")
@@ -410,6 +412,7 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
+        self.fittingOptionsLayout2.addWidget(self.refitAllButton)
         self.fittingOptionsLayout2.addStretch()
         self.fittingOptionsLayout2.addLayout(self.bottomLayout2)
 
@@ -541,6 +544,7 @@ class EquatorWindow(QMainWindow):
         self.prevButton2.setToolTip("Go to the previous image in this folder")
         self.processFolderButton2.setToolTip("Process all images in the same directory as the current file")
         self.refittingB.setToolTip("Refit the model again with current settings")
+        self.refitAll.setToolTip("Refit the model again with current Num of Peaks")
 
     def setConnections(self):
         """
@@ -624,6 +628,7 @@ class EquatorWindow(QMainWindow):
         self.k_chkbx.stateChanged.connect(self.k_checked)
         self.k_spnbx.editingFinished.connect(self.kChanged)
         self.refittingB.clicked.connect(self.refitting)
+        self.refitAllButton.toggled.connect(self.refitAllBtnToggled)
 
     def k_checked(self):
         """
@@ -641,6 +646,97 @@ class EquatorWindow(QMainWindow):
         """
         self.refreshAllFittingParams()
         self.processImage()
+        
+    def refitAllBtnToggled(self):
+        if self.refitAllButton.isChecked():
+            if not self.in_batch_process:
+                self.refitAllButton.setText("Stop")
+                self.refitAll()
+        else:
+            self.stop_process = True
+    
+    def refitAll(self):
+        """
+        Refit current folder
+        """
+        ## Popup confirm dialog with settings
+        nImg = len(self.imgList)
+        errMsg = QMessageBox()
+        errMsg.setText('Refitting All')
+        text = 'The current folder will be refitted using current settings. Make sure to adjust them before refitting the folder. \n\n'
+        settings = self.getSettings()
+        text += "\nCurrent Settings"
+
+        if 'fixed_angle' in settings:
+            text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
+        if 'fixed_rmin' in settings:
+            text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
+        if 'fixed_int_area' in settings:
+            text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
+
+        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
+        text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
+        text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
+        text += "\n  - Model : " + str(settings["model"])
+
+        for side in ['left', 'right']:
+            text += "\n  - "+side+" Sigma C : " + str(settings[side+'_sigmac'])
+            if side+'_fix_sigmad' in settings.keys():
+                text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
+            if side+'_fix_sigmas' in settings.keys():
+                text += "\n  - "+side+" Fixed Sigma S : " + str(settings[side+'_fix_sigmas'])
+            if side+'_fix_gamma' in settings.keys():
+                text += "\n  - "+side+" Fixed Gamma : " + str(settings[side+'_fix_gamma'])
+            if side+'_fix_zline' in settings.keys():
+                text += "\n  - "+side+" Fixed Z line Center: " + str(settings[side+'_fix_zline'])
+            if side+'_fix_intz' in settings.keys():
+                text += "\n  - "+side+" Fixed Z line Intensity : " + str(settings[side+'_fix_intz'])
+            if side+'_fix_sigz' in settings.keys():
+                text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
+            if side+'_fix_gammaz' in settings.keys():
+                text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
+
+
+        if self.calSettings is not None:
+            if "center" in self.calSettings:
+                text += "\n  - Calibration Center : " + str(self.calSettings["center"])
+            if self.calSettings["type"] == "img":
+                text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
+                text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+            else:
+                text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
+                text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
+                text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+
+        text += '\n\nAre you sure you want to process ' + str(
+            nImg) + ' image(s) in this Folder? \nThis might take a long time.'
+        errMsg.setInformativeText(text)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
+        ret = errMsg.exec_()
+
+        # If "yes" is pressed
+        if ret == QMessageBox.Yes:
+
+            # Display progress bar
+            self.progressBar.setMaximum(nImg)
+            self.progressBar.setMinimum(0)
+            self.progressBar.setVisible(True)
+
+            ## Process all images and update progress bar
+            self.in_batch_process = True
+            self.stop_process = False
+            for i in range(nImg):
+                if self.stop_process:
+                    break
+                self.progressBar.setValue(i)
+                QApplication.processEvents()
+                self.nextImageFitting()
+            self.in_batch_process = False
+
+        self.progressBar.setVisible(False)
+        self.refitAllButton.setChecked(False)
+        self.refitAllButton.setText("Refitting All")
 
     def applyBlankChecked(self):
         """
@@ -1232,6 +1328,33 @@ class EquatorWindow(QMainWindow):
         """
         self.currentImg = (self.currentImg - 1) % len(self.imgList)
         self.onImageChanged()
+        
+     def nextImageFitting(self):
+        self.currentImg = (self.currentImg + 1) % len(self.imgList)
+        
+        fileName = self.imgList[self.currentImg]
+        self.filenameLineEdit.setText(fileName)
+        self.filenameLineEdit2.setText(fileName)
+        self.bioImg = EquatorImage(self.dir_path, fileName)
+        settings = None
+        #if len(self.bioImg.info) < 2: # use settings of the previous image
+        settings = self.getSettings()
+        nPeaks = settings['nPeaks'] if 'nPeaks' in settings else None
+        isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
+        if self.calSettings is not None:
+            self.bioImg.removeInfo()
+        settings.update(self.bioImg.info)
+        self.refreshAllFittingParams()
+        if nPeaks != None:
+            settings['nPeaks'] = nPeaks
+        if isSkeletal != None:
+            settings['isSkeletal'] = isSkeletal
+        self.initWidgets(settings)
+        self.initMinMaxIntensities(self.bioImg)
+        self.img_zoom = None
+        self.refreshStatusbar()
+        
+        self.processImage()
 
     def nextClicked(self):
         """

@@ -64,11 +64,6 @@ class EquatorImage:
                 "mask_thres" : getMaskThreshold(self.orig_img)
             }
         else:
-            cache['isSkeletal']=True
-            if 'tmp_peaks' in cache:
-                del cache['tmp_peaks']
-                if 'nPeaks' in cache:
-                    del cache['nPeaks']
             self.info = cache
 
     def process(self, settings):
