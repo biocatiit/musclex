@@ -488,7 +488,7 @@ def rotateImage(img, center, angle, mask_thres = -999):
     :return: rotated image
     """
     if angle == 0:
-        return img
+        return img, center
     
     if img.shape[0] != img.shape[1]:
         print("Rotating non square image")
