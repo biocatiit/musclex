@@ -544,7 +544,7 @@ class EquatorWindow(QMainWindow):
         self.prevButton2.setToolTip("Go to the previous image in this folder")
         self.processFolderButton2.setToolTip("Process all images in the same directory as the current file")
         self.refittingB.setToolTip("Refit the model again with current settings")
-        self.refitAll.setToolTip("Refit the model again with current Num of Peaks")
+        self.refitAllButton.setToolTip("Refit the model again with current Num of Peaks")
 
     def setConnections(self):
         """
