@@ -1308,6 +1308,7 @@ class EquatorWindow(QMainWindow):
 
         if self.bioImg is not None:
             self.bioImg.removeInfo('fit_results')
+            self.bioImg.removeInfo('peaks')
             self.refreshFittingParams('left')
             self.refreshFittingParams('right')
 
@@ -1344,7 +1345,7 @@ class EquatorWindow(QMainWindow):
         if self.calSettings is not None:
             self.bioImg.removeInfo()
         settings.update(self.bioImg.info)
-        self.refreshAllFittingParams()
+        
         if nPeaks != None:
             settings['nPeaks'] = nPeaks
         if isSkeletal != None:
@@ -1353,8 +1354,7 @@ class EquatorWindow(QMainWindow):
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
-        
-        self.processImage()
+        self.refitting()
 
     def nextClicked(self):
         """
@@ -1925,11 +1925,7 @@ class EquatorWindow(QMainWindow):
         if self.calSettings is not None:
             self.bioImg.removeInfo()
         settings.update(self.bioImg.info)
-        print("Settings in onImageChange after update")
-        print(settings)
         self.initWidgets(settings)
-        print("Settings in onImageChange after init widgets")
-        print(self.getSettings())
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
