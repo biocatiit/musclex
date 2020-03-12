@@ -36,7 +36,7 @@ import fabio
 # import pyFAI
 from os.path import isfile, exists
 from os import makedirs
-from ..utils.file_manager import fullPath, getBlankImageAndMask
+from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 import musclex
@@ -119,10 +119,15 @@ class EquatorImage:
         img = np.array(self.orig_img, dtype='float32')
         if self.info['blank_mask']:
             blank, mask = getBlankImageAndMask(self.dir_path)
+            maskOnly = getMaskOnly(self.dir_path)
+            print(maskOnly)
             if blank is not None:
                 img = img - blank
             if mask is not None:
                 img[mask>0] = self.info['mask_thres']-1
+            if maskOnly is not None:
+                print("Applying mask only image")
+                img[maskOnly>0] = self.info['mask_thres']-1 
 
         self.image = img
 

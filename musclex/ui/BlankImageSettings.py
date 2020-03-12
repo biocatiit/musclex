@@ -102,6 +102,7 @@ class BlankImageSettings(QDialog):
 
         self.selectImage = QPushButton("Select Blank Image(s)")
         self.drawMask = QPushButton("Draw Additional Mask")
+        self.drawMaskOnly = QPushButton("Draw Mask using Base image")
         self.drawMask.setEnabled(self.selected is not None)
         self.maskThres = QSpinBox()
         self.maskThres.setRange(-10, 10)
@@ -119,6 +120,7 @@ class BlankImageSettings(QDialog):
 
         self.mainLayout.addWidget(self.imageCanvas, 0, 0, 1, 4)
         self.mainLayout.addWidget(self.selectImage, 1, 0, 1, 1)
+        self.mainLayout.addWidget(self.drawMaskOnly, 2, 0, 1, 1)
         self.mainLayout.addWidget(self.drawMask, 1, 1, 1, 1)
         self.mainLayout.addWidget(QLabel("Mask Threshold:"), 1, 2, 1, 1, Qt.AlignRight)
         self.mainLayout.addWidget(self.maskThres, 1, 3, 1, 1)
@@ -130,11 +132,38 @@ class BlankImageSettings(QDialog):
         Set widget handlers
         """
         self.selectImage.clicked.connect(self.browseImage)
+        self.drawMaskOnly.clicked.connect(self.drawMaskOnlyImage)
         self.drawMask.clicked.connect(self.launchDrawMask)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.onMotion)
         self.maskThres.valueChanged.connect(self.generateMask)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
+        
+    def drawMaskOnlyImage(self):
+        """
+        Select a base image on which a mask is drawn
+        The mask drawn is saved in settings folder as 'maskonly.tif'
+        """
+        mask_imgpath = getFiles(path=self.dir_path)[0]
+        print("mask image path " + str(mask_imgpath))
+        self.selected = fabio.open(mask_imgpath).data
+        self.drawMask.setEnabled(False)
+        
+        draw_dialog = MaskImageWidget(self.selected, self.mask)
+        result = draw_dialog.exec_()
+        if result == 1:
+            self.additional_mask = draw_dialog.mask
+            mask = np.zeros(self.selected.shape)
+            thres = self.maskThres.value()
+            mask[self.selected <= thres] = 1
+            if self.additional_mask is not None:
+                mask[self.additional_mask > 0] = 1
+        
+                path = join(self.dir_path, 'settings')
+                createFolder(path)
+                fabio.tifimage.tifimage(data=mask).write(join(path,'maskonly.tif'))
+                self.accept()
+        
 
     def browseImage(self):
         """
