@@ -61,6 +61,11 @@ def getBlankImageAndMask(path):
         blank_img = fabio.open(blank_file).data
     return blank_img, mask
 
+def getMaskOnly(path):
+    maskonly_file = join(join(path, 'settings'),'maskonly.tif')
+    if exists(maskonly_file):
+        return fabio.open(maskonly_file).data
+
 def getImgFiles(fullname):
     """
     Get directory, all image file names in the same directory and current file index

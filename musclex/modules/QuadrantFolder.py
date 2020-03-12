@@ -182,7 +182,7 @@ class QuadrantFolder(object):
             print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
             
     def centerizeImage(self):
-         """
+        """
         Create an enlarged image such that image center is at the center of new image
         """
         center = self.info['center']
