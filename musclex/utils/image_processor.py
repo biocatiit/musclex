@@ -530,6 +530,33 @@ def rotateImage(img, center, angle, mask_thres = -999):
         rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
     return rotated_img, center
 
+def rotateImageAboutPoint(img, point, angle, mask_thres = -999):
+    """
+    Get rotated image by angle about a given point.
+    :param img: input image
+    :param point: point to be rotated about
+    :param angle: rotation angle
+    :return: rotated image
+    """
+    if angle == 0:
+        return img
+
+    M = cv2.getRotationMatrix2D(tuple(point), angle, 1)
+
+    if img.shape == (1043, 981):
+        img = img.astype('float32')
+        if mask_thres == -999:
+            mask_thres = getMaskThreshold(img)
+        mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+        mask[img <= mask_thres] = 255
+        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
+        rotated_mask = cv2.warpAffine(mask, M, (img.shape[1],  img.shape[0]))
+        rotated_mask[rotated_mask > 0.] = 255
+        rotated_img[rotated_mask > 0] = mask_thres
+    else:
+        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
+    return rotated_img
+
 def rotatePoint(origin, point, angle):
     """
     Rotate a point counterclockwise by a given angle around a given origin.
