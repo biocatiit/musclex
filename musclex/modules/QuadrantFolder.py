@@ -122,6 +122,7 @@ class QuadrantFolder(object):
         self.updateInfo(flags)
         self.initParams()
         self.findCenter()
+        self.centerizeImage()
         self.rotateImg()
         self.calculateAvgFold()
         self.getRminmax()
@@ -179,6 +180,31 @@ class QuadrantFolder(object):
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.deleteFromDict(self.info, 'avg_fold')
             print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
+            
+    def centerizeImage(self):
+         """
+        Create an enlarged image such that image center is at the center of new image
+        """
+        center = self.info['center']
+        img = self.orig_img
+        b, l = img.shape
+        img_center = (int(l/2), int(b/2))
+        newX = max(center[0], l-center[0])
+        newY = max(center[1], b-center[1])
+        dim = 2*max(newX, newY)
+        new_img = np.zeros((dim,dim))
+        new_img[0:b,0:l] = img
+        
+        #Translate image to appropriate position
+        transx = int(((dim/2) - center[0]))
+        transy = int(((dim/2) - center[1]))
+        M = np.float32([[1,0,transx],[0,1,transy]])
+        rows,cols = new_img.shape
+        translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
+        
+        self.orig_img = translated_Img
+        self.info['center'] = (int(dim/2), int(dim/2))
+        
 
     def getRotatedImage(self):
         """
