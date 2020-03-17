@@ -214,7 +214,9 @@ class ProjectionProcessor():
                     if t == 'oriented':
                         # rotate bottom left to new origin, then get top right
                         # the box center
-                        img = copy.copy(b[7])
+                        cx, cy = b[6]
+                        rot_angle = b[5]
+                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
 
                     # y is shape[0], x is shape[1]?
                     x1 = np.max((int(b[0][0]), 0))
