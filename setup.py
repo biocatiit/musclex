@@ -75,7 +75,7 @@ setup(
                       'pandas',
                       'Cython',
                       'opencv-python',
-                      'pyFAI'],
+                      'pyFAI==0.15.0'],
     entry_points={
         'console_scripts': [
             'musclex=musclex.main:main',

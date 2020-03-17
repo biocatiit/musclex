@@ -14,4 +14,4 @@ matplotlib
 musclex_ccp13
 Cython
 opencv-python
-pyFAI
+pyFAI==0.15.0
