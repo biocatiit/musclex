@@ -489,10 +489,6 @@ def rotateImage(img, center, angle, mask_thres = -999):
     """
     if angle == 0:
         return img, center
-    
-    if img.shape[0] != img.shape[1]:
-        print("Rotating non square image")
-        return rotateNonSquareImage(img, angle, center)
 
     M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
     size = max(img.shape[0], img.shape[1])
@@ -526,6 +522,9 @@ def rotateImage(img, center, angle, mask_thres = -999):
         rotated_mask = cv2.warpAffine(mask, M, (img.shape[1],  img.shape[0]))
         rotated_mask[rotated_mask > 0.] = 255
         rotated_img[rotated_mask > 0] = mask_thres
+    elif img.shape[0] != img.shape[1]:
+        print("Rotating non square image")
+        return rotateNonSquareImage(img, angle, center)
     else:
         rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
     return rotated_img, center
