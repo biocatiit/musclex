@@ -167,7 +167,7 @@ class CalibrationSettings(QDialog):
 
         self.sddSpnBx = QDoubleSpinBox()
         self.sddSpnBx.setDecimals(8)
-        self.sddSpnBx.setRange(0., 5000.)
+        self.sddSpnBx.setRange(0., 100000000000000000000.)
         self.sddSpnBx.setValue(init_sdd)
         self.sddSpnBx.setObjectName('sddSpnBx')
         self.editableVars[self.sddSpnBx.objectName()] = None
