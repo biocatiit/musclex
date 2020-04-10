@@ -40,7 +40,8 @@ pefile==2017.11.5
 Pillow==5.2.0
 pybind11==2.2.4
 pyFAI==0.15.0
-PyInstaller==3.4
+#PyInstaller==3.4
+PyInstaller==3.6 # changed to resolve security alert
 PyMca5==5.3.1
 pyparsing==2.2.0
 python-dateutil==2.7.3
