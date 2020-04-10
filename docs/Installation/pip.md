@@ -24,6 +24,7 @@ sudo pip install pyfai
 sudo pip install cython
 ```
 
+
 ### Windows
 For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and **Microsoft Visual C++** (MSVC) is recommended.
 
@@ -56,10 +57,42 @@ pip install cython numpy pyqt5 opencv-python pyfai
 ```
 
 ## Installing
+
+### System install
+
 Run this command to install Muscle X programs
 ```
 sudo pip install musclex
 ```
+
+### Virtual environment install
+
+Instead of a system install you may install inside a virtual environment. A virtual environment allows you to have a clean environment that is independent of othe software installations. Use the following to create a virtual environment and install musclex inside it:
+
+```
+python3 -m pip install --user virtualenv
+python3 -m venv musclex
+source musclex/bin/activate
+which python3
+pip3 install cython
+pip3 install numpy
+pip3 install opencv-python
+pip3 install pyfai==0.15.0
+pip3 install PyQt5
+pip3 install musclex
+#pip3 install git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
+musclex eq
+```
+To exit the virtual environment use:
+```
+deactivate
+```
+To re-enter the virtual environment use:
+```
+source musclex/bin/activate
+musclex eq
+```
+
 ## Running a program
 Simply run
 ```
