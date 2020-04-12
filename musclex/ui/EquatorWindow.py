@@ -70,6 +70,7 @@ class EquatorWindow(QMainWindow):
         self.in_batch_process = False
         self.fixedIntArea = None
         self.orientationModel = None
+        self.modeOrientation = None
         self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
         if len(self.imgList) == 0:
             self.inputerror()
@@ -203,6 +204,8 @@ class EquatorWindow(QMainWindow):
         self.fixedRminChkBx.setChecked(False)
         self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
+        self.modeAngleChkBx = QCheckBox("Mode orientation")
+        self.modeAngleChkBx.setChecked(False)
         self.fixedAngle = QSpinBox()
         self.fixedAngle.setObjectName('fixedAngle')
         self.editableVars[self.fixedAngle.objectName()] = None
@@ -247,6 +250,7 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 7, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 7, 2, 1, 2)
         self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 8, 0, 1, 4)
         self.imgProcLayout.addWidget(self.orientationCmbBx, 9, 0, 1, 4)
         self.imgProcLayout.addWidget(self.rotation90ChkBx, 10, 0, 1, 2)
@@ -578,6 +582,7 @@ class EquatorWindow(QMainWindow):
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
+        self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.fixedAngle.editingFinished.connect(self.fixedAngleChanged)
         self.fixedRmin.editingFinished.connect(self.fixedRminChanged)
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
@@ -1520,6 +1525,57 @@ class EquatorWindow(QMainWindow):
             else:
                 self.fixedIntArea = self.bioImg.info['int_area']
 
+    def modeAngleChecked(self):
+        """
+        Triggered when mode angle is checked or unchecked
+        """
+        print("FUnction executed", flush=True)
+
+        if self.bioImg is not None:
+
+            modeOrientation = self.getModeRotation()
+            if modeOrientation != None:
+                if not self.modeAngleChkBx.isChecked():
+                    self.bioImg.delCache()
+                    self.bioImg.removeInfo("mode_angle")
+                    self.processImage()
+                else:
+                    self.bioImg.delCache()
+                    self.bioImg.info["mode_angle"] = modeOrientation
+                    self.processImage()
+            else:
+                f=1
+                self.modeAngleChkBx.setCheckState(Qt.Unchecked) # executes twice, setChecked executes once but button becomes unresponsive for one click
+
+                msg = QMessageBox()
+                msg.setInformativeText("All images in folder must be processed first, use Process Folder to process all images")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Mode Orientation Failed")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.exec_()
+                return
+
+    def getModeRotation(self):
+        """
+        open images and calculate the mode orientation
+        :param file_list: list of image path (str)
+        :return: mode of orientation of all images in the folder
+        """
+        if self.modeOrientation != None:
+            return self.modeOrientation
+        print("Calculating mode of angles of images in directory")
+        angles = []
+        for f in self.imgList:
+            bioImg = EquatorImage(self.dir_path, f)
+            print("Getting angle {}".format(f))
+
+            if 'rotationAngle' not in bioImg.info:
+                return
+            angle = bioImg.info['rotationAngle']
+            angles.append(angle)
+        self.modeOrientation = max(set(angles), key=angles.count)
+        return self.modeOrientation
+
     def fixedAngleChanged(self):
         """
         Triggered when fixed angle spinbox value is changed
@@ -2030,6 +2086,11 @@ class EquatorWindow(QMainWindow):
 
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
+
+        if self.modeAngleChkBx.isChecked():
+            modeOrientation = self.getModeRotation()
+            if modeOrientation != None:
+                settings["mode_angle"] = modeOrientation
 
         if self.applyBlank.isChecked():
             settings['blank_mask'] = True

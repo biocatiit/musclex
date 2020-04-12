@@ -157,6 +157,10 @@ class EquatorImage:
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
+        if "mode_angle" in self.info:
+            print("Using mode orientation {}".format(self.info["mode_angle"]))
+            self.info['rotationAngle'] = self.info["mode_angle"]
+
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
 
     def calculateRmin(self):
