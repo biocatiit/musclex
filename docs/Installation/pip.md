@@ -74,6 +74,7 @@ python3 -m pip install --user virtualenv
 python3 -m venv musclex
 source musclex/bin/activate
 which python3
+pip install --upgrade pip
 pip3 install cython
 pip3 install numpy
 pip3 install opencv-python
