@@ -135,7 +135,7 @@ class EquatorWindow(QMainWindow):
         self.imageVLayout.addWidget(self.displayImgCanvas)
 
         self.imgDispOptionGrp = QGroupBox('Display Options')
-        self.imgDispOptLayout = QVBoxLayout()
+        self.imgDispOptLayout = QGridLayout()
         self.centerChkBx = QCheckBox('Center')
         self.centerChkBx.setChecked(True)
         self.rminChkBx = QCheckBox('R-min')
@@ -148,9 +148,6 @@ class EquatorWindow(QMainWindow):
         self.imgPeakChkBx.setChecked(True)
         self.minIntLabel = QLabel()
         self.maxIntLabel = QLabel()
-        self.minmaxLabelLayout = QHBoxLayout()
-        self.minmaxLabelLayout.addWidget(self.minIntLabel)
-        self.minmaxLabelLayout.addWidget(self.maxIntLabel)
         self.minIntSpnBx = QDoubleSpinBox()
         self.minIntSpnBx.setObjectName('minIntSpnBx')
         self.editableVars[self.minIntSpnBx.objectName()] = None
@@ -160,24 +157,25 @@ class EquatorWindow(QMainWindow):
         self.editableVars[self.maxIntSpnBx.objectName()] = None
         self.maxIntSpnBx.setKeyboardTracking(False)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.minmaxLayout = QHBoxLayout()
-        self.minmaxLayout.addWidget(self.minIntSpnBx)
-        self.minmaxLayout.addWidget(self.maxIntSpnBx)
+        self.persistMaxIntensity = QCheckBox("Persist Max intensity")
         self.imgZoomInB = QPushButton('Zoom In')
         self.imgZoomInB.setCheckable(True)
         self.checkableButtons.append(self.imgZoomInB)
         self.imgZoomOutB = QPushButton('Full')
         self.checkableButtons.append(self.imgZoomOutB)
-        self.imgDispOptLayout.addWidget(self.centerChkBx)
-        self.imgDispOptLayout.addWidget(self.intChkBx)
-        self.imgDispOptLayout.addWidget(self.rminChkBx)
-        self.imgDispOptLayout.addWidget(self.histChkBx)
-        self.imgDispOptLayout.addWidget(self.imgPeakChkBx)
-        self.imgDispOptLayout.addLayout(self.minmaxLabelLayout)
-        self.imgDispOptLayout.addLayout(self.minmaxLayout)
-        self.imgDispOptLayout.addWidget(self.logScaleIntChkBx)
-        self.imgDispOptLayout.addWidget(self.imgZoomInB)
-        self.imgDispOptLayout.addWidget(self.imgZoomOutB)
+        self.imgDispOptLayout.addWidget(self.centerChkBx,1,0,1,2)
+        self.imgDispOptLayout.addWidget(self.intChkBx,1,2,1,2)
+        self.imgDispOptLayout.addWidget(self.rminChkBx,2,0,1,2)
+        self.imgDispOptLayout.addWidget(self.histChkBx,2,2,1,2)
+        self.imgDispOptLayout.addWidget(self.imgPeakChkBx,3,0,1,2)
+        self.imgDispOptLayout.addWidget(self.minIntLabel,4,0,1,2)
+        self.imgDispOptLayout.addWidget(self.maxIntLabel,4,2,1,2)
+        self.imgDispOptLayout.addWidget(self.minIntSpnBx, 5, 0, 1, 2)
+        self.imgDispOptLayout.addWidget(self.maxIntSpnBx, 5, 2, 1, 2)
+        self.imgDispOptLayout.addWidget(self.logScaleIntChkBx,6,0,1,2)
+        self.imgDispOptLayout.addWidget(self.persistMaxIntensity,6,2,1,2)
+        self.imgDispOptLayout.addWidget(self.imgZoomInB,7,0,1,2)
+        self.imgDispOptLayout.addWidget(self.imgZoomOutB,7,2,1,2)
         self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
 
         self.imgProcGrp = QGroupBox("Image Processing")
@@ -1958,6 +1956,10 @@ class EquatorWindow(QMainWindow):
         self.fixedRmin.setEnabled('fixed_rmin' in info)
         if 'fixed_rmin' in info:
             self.fixedRmin.setValue(info['fixed_rmin'])
+
+        if 'fixed_max_intensity' in info:
+            self.maxIntSpnBx.setValue(info['fixed_max_intensity'])
+
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
 
@@ -2084,6 +2086,9 @@ class EquatorWindow(QMainWindow):
         if self.fixedRminChkBx.isChecked():
             settings['fixed_rmin'] = self.fixedRmin.value()
 
+        if self.persistMaxIntensity.isChecked():
+            settings['fixed_max_intensity'] = self.maxIntSpnBx.value()
+
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
 
@@ -2113,7 +2118,10 @@ class EquatorWindow(QMainWindow):
         self.minIntSpnBx.setMinimum(img.min())
         self.minIntSpnBx.setMaximum(img.max())
         self.maxIntSpnBx.setMinimum(img.min())
-        self.maxIntSpnBx.setMaximum(img.max())
+        if self.persistMaxIntensity.isChecked():
+            self.maxIntSpnBx.setMaximum(self.maxIntSpnBx.value())
+        else:
+            self.maxIntSpnBx.setMaximum(img.max())
         self.minIntLabel.setText("Min Intensity <br/>("+str(img.min())+")")
         self.maxIntLabel.setText("Max Intensity <br/>("+str(img.max())+")")
         step = (img.max() - img.min()) * 0.07  # set spinboxes step as 7% of image range
