@@ -754,7 +754,9 @@ class QuadrantFolder(object):
                     img = img - blank
                 if mask is not None:
                     img[mask>0] = self.info['mask_thres'] - 1.
-                rotate_img = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.info['mask_thres'])
+                rotatedImage, newCenter = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.info['mask_thres'])
+                rotate_img = rotatedImage
+                self.info['center'] = newCenter
             else:
                 rotate_img = copy.copy(self.getRotatedImage())
             center = self.info['center']
