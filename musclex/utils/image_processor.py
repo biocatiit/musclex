@@ -443,6 +443,7 @@ def getCenterRemovedImage(img, center, rmin):
     :param rmin: radius of the circle
     :return: image after center location is removed
     """
+    center = (int(center[0]), int(center[1]))
     mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
     cv2.ellipse(mask, tuple(center), axes=(rmin, rmin), angle=0, startAngle=0,
                 endAngle=360, color=255,

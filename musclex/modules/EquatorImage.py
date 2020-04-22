@@ -247,8 +247,8 @@ class EquatorImage:
                 rotate_img = self.getRotatedImage(img) # rotate image
                 center = self.info["center"] #since rotation might change center
                 init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
-                top = max(0, center[1] - init_range)
-                bottom = min(center[1] + init_range, rotate_img.shape[0])
+                top = max(0, int(center[1]) - init_range)
+                bottom = min(int(center[1]) + init_range, rotate_img.shape[0])
                 area = rotate_img[top:bottom, :]
                 hist = np.sum(area, axis=1)  # Get the horizontal histogram from the initital area
                 hull = convexHull(hist) # Apply convexull
@@ -310,15 +310,15 @@ class EquatorImage:
             img_area = self.getRotatedImage()[int_area[0]:int_area[1], :]
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
             if any(ignore):
-                left_ignore = ignore[:center[0]]
+                left_ignore = ignore[:int(center[0])]
                 left_ignore = left_ignore[::-1]
-                right_ignore = ignore[center[0]:]
+                right_ignore = ignore[int(center[0]):]
             else:
                 left_ignore = None
                 right_ignore = None
 
-            left_hist = hist[:center[0]][::-1]
-            right_hist = hist[center[0]:]
+            left_hist = hist[:int(center[0])][::-1]
+            right_hist = hist[int(center[0]):]
             right_hull = convexHull(right_hist, start_p=rmin, end_p=rmax, ignore=right_ignore) # Apply Convex hull for right histogram
             left_hull = convexHull(left_hist, start_p=rmin, end_p=rmax, ignore=left_ignore) # Apply Convex hull for left histogram
 
