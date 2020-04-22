@@ -175,7 +175,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setMinimum(-999)
         self.maskThresSpnBx.setMaximum(999)
         self.maskThresSpnBx.setValue(-999)
-        self.maskThresSpnBx.setKeyboardTracking(False)
 
         self.orientationCmbBx = QComboBox()
         self.orientationCmbBx.addItem("Max Intensity")
