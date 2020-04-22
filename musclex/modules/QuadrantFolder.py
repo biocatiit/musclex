@@ -122,7 +122,8 @@ class QuadrantFolder(object):
         self.updateInfo(flags)
         self.initParams()
         self.findCenter()
-        self.centerizeImage()
+        if self.orig_img.shape != (1043, 981):
+            self.centerizeImage()
         self.rotateImg()
         self.calculateAvgFold()
         self.getRminmax()
@@ -163,7 +164,10 @@ class QuadrantFolder(object):
         if 'center' in self.info.keys():
             return
         print("Center is being calculated ... ")
-        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
+        if self.orig_img.shape == (1043, 981):
+            self.orig_img, self.info['center'] = self.orig_img, (int(getCenter(self.orig_img)[0]), int(getCenter(self.orig_img)[1]))
+        else:
+            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
         self.deleteFromDict(self.info, 'rotationAngle')
         print("Done. Center = "+str(self.info['center']))
 
