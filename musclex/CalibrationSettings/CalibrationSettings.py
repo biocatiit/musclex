@@ -184,11 +184,11 @@ class CalibrationSettings(QDialog):
         self.centerX = QDoubleSpinBox()
         self.centerX.setDecimals(2)
         self.centerX.setPrefix("X:")
-        self.centerX.setRange(0, 2047)
+        self.centerX.setRange(0, 100000000000000000000)
         self.centerY = QDoubleSpinBox()
         self.centerY.setDecimals(2)
         self.centerY.setPrefix("Y:")
-        self.centerY.setRange(0, 2047)
+        self.centerY.setRange(0, 100000000000000000000)
 
         if center is not None:
             self.fixedCenter.setChecked(True)
