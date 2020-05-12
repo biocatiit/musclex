@@ -2476,13 +2476,13 @@ class EquatorWindow(QMainWindow):
                 ind += 1
 
 
-                # Display gamma in table if model is Voigt
-                self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("gamma"))
-                self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gamma'])))
-                self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gamma'])))
-                ind += 1
-
                 if fit_results['model'] == 'Voigt':
+
+                    # Display gamma in table if model is Voigt
+                    self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("gamma"))
+                    self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gamma'])))
+                    self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gamma'])))
+                    ind += 1
 
                     # Display gamma in table if model is Voigt
                     self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Gamma Z"))
