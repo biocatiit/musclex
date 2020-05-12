@@ -285,8 +285,6 @@ class EQ_FittingTab(QWidget):
         if bioImg is None or self.syncUI:
             return
         self.log_changes(name, elem, prefix='(skeletal)')
-        self.parent.refreshFittingParams(self.side)
-        self.parent.processImage()
 
     def hideGamma(self, flag):
         """
