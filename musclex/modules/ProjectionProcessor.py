@@ -50,6 +50,10 @@ class ProjectionProcessor():
         #     img = cv2.copyMakeBorder(img, top=0, bottom=0, left=int((img.shape[0]-img.shape[1])/2), right=int((img.shape[0]-img.shape[1])/2), borderType=cv2.BORDER_CONSTANT)
         # img -= img.min()
         self.orig_img = img
+        if self.orig_img.shape == (1043, 981):
+            self.img_type = "PILATUS"
+        else:
+            self.img_type = "NORMAL"
         self.rotated_img = None
         self.rotated = False
         self.version = musclex.__version__
@@ -216,7 +220,7 @@ class ProjectionProcessor():
                         # the box center
                         cx, cy = b[6]
                         rot_angle = b[5]
-                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
+                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle, self.img_type)
 
                     # y is shape[0], x is shape[1]?
                     x1 = np.max((int(b[0][0]), 0))
@@ -535,7 +539,7 @@ class ProjectionProcessor():
             else:
                 self.info["orig_center"] = center
             
-            rotImg, (self.info["centerx"], self.info["centery"])  = rotateImage(img, center, angle)
+            rotImg, (self.info["centerx"], self.info["centery"])  = rotateImage(img, center, angle, self.img_type)
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
 
         return self.rotated_img[3]

@@ -57,6 +57,10 @@ class QuadrantFolder(object):
         :param img_name: image file name
         """
         self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+        if self.orig_img.shape == (1043, 981):
+            self.img_type = "PILATUS"
+        else:
+            self.img_type = "NORMAL"
         self.empty = False
         self.img_path = img_path
         self.img_name = img_name
@@ -122,8 +126,7 @@ class QuadrantFolder(object):
         self.updateInfo(flags)
         self.initParams()
         self.findCenter()
-        if self.orig_img.shape != (1043, 981):
-            self.centerizeImage()
+        self.centerizeImage()
         self.rotateImg()
         self.calculateAvgFold()
         self.getRminmax()
@@ -147,7 +150,7 @@ class QuadrantFolder(object):
         Initial some parameters in case GUI doesn't specified
         """
         if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
+            self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
         if 'ignore_folds' not  in self.info:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:
@@ -164,10 +167,7 @@ class QuadrantFolder(object):
         if 'center' in self.info.keys():
             return
         print("Center is being calculated ... ")
-        if self.orig_img.shape == (1043, 981):
-            self.orig_img, self.info['center'] = self.orig_img, (int(getCenter(self.orig_img)[0]), int(getCenter(self.orig_img)[1]))
-        else:
-            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info["mask_thres"])
         self.deleteFromDict(self.info, 'rotationAngle')
         print("Done. Center = "+str(self.info['center']))
 
@@ -204,7 +204,19 @@ class QuadrantFolder(object):
         transy = int(((dim/2) - center[1]))
         M = np.float32([[1,0,transx],[0,1,transy]])
         rows,cols = new_img.shape
-        translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
+        mask_thres = self.info["mask_thres"]
+
+        if self.img_type == "PILATUS":
+            if mask_thres == -999:
+                mask_thres = getMaskThreshold(img, self.img_type)
+            mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
+            mask[new_img <= mask_thres] = 255
+            translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
+            translated_mask = cv2.warpAffine(mask, M, (cols, rows))
+            translated_mask[translated_mask > 0.] = 255
+            translated_Img[translated_mask > 0] = mask_thres
+        else:
+            translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
         
         self.orig_img = translated_Img
         self.info['center'] = (int(dim/2), int(dim/2))
@@ -222,7 +234,7 @@ class QuadrantFolder(object):
         else:
             self.info["orig_center"] = center
         
-        rotImg, self.info["center"] = rotateImage(img,center, self.info["rotationAngle"], self.info['mask_thres'])
+        rotImg, self.info["center"] = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
         
         return rotImg
 
@@ -758,7 +770,7 @@ class QuadrantFolder(object):
                     img = img - blank
                 if mask is not None:
                     img[mask>0] = self.info['mask_thres'] - 1.
-                rotatedImage, newCenter = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.info['mask_thres'])
+                rotatedImage, newCenter = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
                 rotate_img = rotatedImage
                 self.info['center'] = newCenter
             else:

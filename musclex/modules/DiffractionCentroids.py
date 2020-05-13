@@ -52,7 +52,11 @@ class DiffractionCentroids():
         :param off_mer: configuration of off-meridian peaks configured my users
         """
         self.avgImg = self.mergeImages(dir_path, imgList) # avarage all image in a group
-        self.mask_thres = getMaskThreshold(self.avgImg)
+        if self.avgImg.shape == (1043, 981):
+            self.img_type = "PILATUS"
+        else:
+            self.img_type = "NORMAL"
+        self.mask_thres = getMaskThreshold(self.avgImg, self.img_type)
         self.dir_path = dir_path
         self.version = musclex.__version__
         self.info = {
@@ -155,7 +159,7 @@ class DiffractionCentroids():
         """
         if 'center' in self.info:
             return
-        self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg))
+        self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg), self.img_type, self.mask_thres)
         print("center = "+str(self.info['center']))
         self.removeInfo('rotationAngle')
 
@@ -255,7 +259,7 @@ class DiffractionCentroids():
         else:
             self.info["orig_center"] = center
         
-        rotImg, self.info["center"] = rotateImage(img, center, angle, self.mask_thres)
+        rotImg, self.info["center"] = rotateImage(img, center, angle, self.img_type, self.mask_thres)
 
         return rotImg
 

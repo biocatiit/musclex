@@ -174,7 +174,11 @@ class BlankImageSettings(QDialog):
             self.selected = averageImages(img_list)
             self.drawMask.setEnabled(True)
             self.maskThres.setRange(self.selected.min()-1, self.selected.max())
-            self.maskThres.setValue(getMaskThreshold(self.selected))
+            if self.selected.shape == (1043, 981):
+                img_type = "PILATUS"
+            else:
+                img_type = "NORMAL"
+            self.maskThres.setValue(getMaskThreshold(self.selected, img_type))
             self.generateMask()
 
     def launchDrawMask(self):

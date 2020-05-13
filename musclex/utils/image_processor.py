@@ -481,7 +481,7 @@ def getNewZoom(current, move, xmax, ymax, ymin=0):
 
         return [(x1, x2), (y1, y2)]
 
-def rotateImage(img, center, angle, mask_thres = -999):
+def rotateImage(img, center, angle, img_type, mask_thres = -999):
     """
     Get rotated image by angle.
     :param img: input image
@@ -513,10 +513,10 @@ def rotateImage(img, center, angle, mask_thres = -999):
     # M1 = M3[0:2,:]
     # print("M1: {}".format(M1))
 
-    if img.shape == (1043, 981):
+    if img_type == "PILATUS":
         img = img.astype('float32')
         if mask_thres == -999:
-            mask_thres = getMaskThreshold(img)
+            mask_thres = getMaskThreshold(img, img_type)
         mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
         mask[img <= mask_thres] = 255
         rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
@@ -530,7 +530,7 @@ def rotateImage(img, center, angle, mask_thres = -999):
         rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
     return rotated_img, center
 
-def rotateImageAboutPoint(img, point, angle, mask_thres = -999):
+def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
     """
     Get rotated image by angle about a given point.
     :param img: input image
@@ -543,10 +543,10 @@ def rotateImageAboutPoint(img, point, angle, mask_thres = -999):
 
     M = cv2.getRotationMatrix2D(tuple(point), angle, 1)
 
-    if img.shape == (1043, 981):
+    if img_type == "PILATUS":
         img = img.astype('float32')
         if mask_thres == -999:
-            mask_thres = getMaskThreshold(img)
+            mask_thres = getMaskThreshold(img, img_type)
         mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
         mask[img <= mask_thres] = 255
         rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
@@ -570,10 +570,10 @@ def rotatePoint(origin, point, angle):
     qy = oy + np.sin(angle) * (px - ox) + np.cos(angle) * (py - oy)
     return qx, qy
 
-def getMaskThreshold(img):
+def getMaskThreshold(img, img_type):
     min_val = img.min()
     mask_thres = min_val - 1.
-    if img.shape == (1043, 981):
+    if img_type == "PILATUS":
         hist = np.histogram(img, 3, (min_val, min_val+3))
         max_ind = np.argmax(hist[0])
         mask_thres = hist[1][max_ind]
@@ -627,16 +627,20 @@ def averageImages(file_list, rotate=False):
     all_imgs = []
     for f in file_list:
         img = fabio.open(f).data
+        if img.shape == (1043, 981):
+            img_type = "PILATUS"
+        else:
+            img_type = "NORMAL"
         if rotate:
             print("Rotating and centering {}".format(f))
             center = getCenter(img)
             angle = getRotationAngle(img, center, method=0)
-            img, center = rotateImage(img, center, angle, mask_thres = -999)
+            img, center = rotateImage(img, center, angle, img_type, mask_thres = -999)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
 
-def processImageForIntCenter(img, center):
+def processImageForIntCenter(img, center, img_type, mask_thres = -999):
     """
     Translate image such that the new center is an integer
     :param file_list: original image and its center with decimals
@@ -649,7 +653,18 @@ def processImageForIntCenter(img, center):
     M = np.float32([[1,0,tx],[0,1,ty]])
     print("In process Image int center, translating original image by tx = " + str(tx) + " and ty = " + str(ty))
     rows,cols = img.shape
-    translated_Img = cv2.warpAffine(img,M,(cols,rows))
+
+    if img_type == "PILATUS":
+        if mask_thres == -999:
+            mask_thres = getMaskThreshold(img, img_type)
+        mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+        mask[img <= mask_thres] = 255
+        translated_Img = cv2.warpAffine(img, M, (cols,rows))
+        translated_mask = cv2.warpAffine(mask, M, (cols,rows))
+        translated_mask[translated_mask > 0.] = 255
+        translated_Img[translated_mask > 0] = mask_thres
+    else:
+        translated_Img = cv2.warpAffine(img,M,(cols,rows))
    
     return (translated_Img, int_Center)
 

@@ -55,13 +55,17 @@ class EquatorImage:
         self.dir_path = dir_path
         self.filename = filename
         self.orig_img = fabio.open(fullPath(dir_path, filename)).data
+        if self.orig_img.shape == (1043, 981):
+            self.img_type = "PILATUS"
+        else:
+            self.img_type = "NORMAL"
         self.rotated_img = None
         self.version = musclex.__version__
         cache = self.loadCache()
         if cache is None:
             # info dictionary will save all results
             self.info = {
-                "mask_thres" : getMaskThreshold(self.orig_img)
+                "mask_thres" : getMaskThreshold(self.orig_img, self.img_type)
             }
         else:
             self.info = cache
@@ -138,7 +142,7 @@ class EquatorImage:
        """
         print("Center is being calculated...")
         if 'center' not in self.info:
-            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
+            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info['mask_thres'])
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
         print("Done. Center is" + str(self.info['center']))
 
@@ -225,7 +229,7 @@ class EquatorImage:
             else:
                 self.info["orig_center"] = center
             
-            rotImg, self.info["center"] = rotateImage(img, center, angle, self.info['mask_thres'])
+            rotImg, self.info["center"] = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
             self.rotated_img = [self.info["center"], angle, img, rotImg]
             
         return self.rotated_img[3]

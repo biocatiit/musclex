@@ -900,7 +900,7 @@ class ProjectionTracesGUI(QMainWindow):
                         cx, cy = pivot[0], pivot[1]
 
                         # get the image rotated around the box center
-                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
+                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle, self.projProc.img_type)
 
                         x1, y1 = rotatePoint((cx, cy), (blx, bly), -np.radians(rot_angle))
                         x2 = x1 + width
@@ -1395,7 +1395,7 @@ class ProjectionTracesGUI(QMainWindow):
 
     def updateCenter(self, refit=True):
         if self.center_func == 'automatic':
-            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
+            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img), self.projProc.img_type)
             self.centerx, self.centery = center
             if self.qfChkBx.isChecked():
                 self.qfChkBx.setChecked(False)

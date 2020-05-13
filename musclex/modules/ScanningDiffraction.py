@@ -56,6 +56,10 @@ class ScanningDiffraction:
     def __init__(self, filepath, filename, logger = None):
         original_image = fabio.open(fullPath(filepath, filename)).data
         self.original_image = original_image
+        if self.original_image.shape == (1043, 981):
+            self.img_type = "PILATUS"
+        else:
+            self.img_type = "NORMAL"
         self.filepath = filepath
         self.filename = filename
         self.logger = logger
@@ -160,7 +164,7 @@ class ScanningDiffraction:
         """
         if 'center' not in self.info.keys():
             img = get8bitImage(copy.copy(self.original_image))
-            self.original_image, self.info['center'] = processImageForIntCenter(img, getCenter(img))
+            self.original_image, self.info['center'] = processImageForIntCenter(img, getCenter(img), self.img_type)
             self.log("Center has been calculated. center is "+str(self.info['center']))
 
     def get2DIntegrations(self):
