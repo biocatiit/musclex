@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import sys
+import copy
 import os, shutil
 from .pyqt_utils import *
 import matplotlib.pyplot as plt
@@ -444,6 +445,34 @@ class EquatorWindow(QMainWindow):
         self.tabWidget.addTab(self.resultTab, "Results")
 
         #
+        ### Parameter Editor ###
+        #
+        self.parameterEditorTab = QWidget()
+        self.parameterEditorTab.setContentsMargins(0, 0, 0, 0)
+        self.parameterEditorLayout = QGridLayout(self.parameterEditorTab)
+        self.paramEditorTitlebox = QGroupBox()
+        self.paramEditorTitleboxLayout = QGridLayout()
+
+        self.parameterEditorTable = QTableWidget()
+        self.parameterEditorTable.setColumnCount(5)
+        self.parameterEditorTable.setHorizontalHeaderLabels(["Fixed", "Parameter", "Value", "Min", "Max"])
+        self.parameterEditorTable.horizontalHeader().setStretchLastSection(True)
+        self.parameterEditorTable.setColumnWidth(0, 50)
+        self.parameterEditorTable.setColumnWidth(1, 250)
+        self.parameterEditorTable.setColumnWidth(2, 250)
+        self.parameterEditorTable.setColumnWidth(3, 250)
+        self.parameterEditorTable.setColumnWidth(4, 250)
+        # self.parameterEditorTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # self.resultLayout.addWidget(self.generalResultTable)
+        self.refitParamsBtn = QPushButton("Re-fit Parameters")
+        self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor</h2>"), 1, 0, 1, 2)
+        self.paramEditorTitleboxLayout.addWidget(self.refitParamsBtn, 1, 2, 1, 2)
+        self.paramEditorTitlebox.setLayout(self.paramEditorTitleboxLayout)
+        self.parameterEditorLayout.addWidget(self.paramEditorTitlebox)
+        self.parameterEditorLayout.addWidget(self.parameterEditorTable)
+        self.tabWidget.addTab(self.parameterEditorTab, "Parameter Editor")
+
+        #
         ### Menu Bar ###
         #
         selectImageAction = QAction('Select a File...', self)
@@ -632,6 +661,10 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.editingFinished.connect(self.kChanged)
         self.refittingB.clicked.connect(self.refitting)
         self.refitAllButton.toggled.connect(self.refitAllBtnToggled)
+
+        #### Parameter Editor Tab
+        self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
+        self.refitParamsBtn.clicked.connect(self.refitParamEditor)
 
     def k_checked(self):
         """
@@ -2218,6 +2251,8 @@ class EquatorWindow(QMainWindow):
             self.updateFittingTab()
         elif selected_tab == 2:
             self.updateResultsTab()
+        elif selected_tab == 3:
+            self.updateParameterEditorTab()
 
         self.syncSpinBoxes()
         self.refreshStatusbar()
@@ -2372,6 +2407,7 @@ class EquatorWindow(QMainWindow):
             genResults += "<b>Skeletal Muscle : </b>" + str(fit_results["isSkeletal"]) + '<br/><br/>'
             genResults += "<b>CenterX : </b>" + str(fit_results["centerX"]) + '<br/><br/>'
             genResults += "<b>S10 : </b>" + str(fit_results["S10"]) + '<br/><br/>'
+            genResults += "<b>S0 : </b>" + str(fit_results["S0"]) + '<br/><br/>'
             if 'd10' in fit_results.keys():
                 genResults += "<b>d10 : </b>" + str(fit_results["d10"]) + '<br/><br/>'
             genResults += "<b>Average I11/I10 per fiber : </b>" + str(fit_results["avg_ratio"]) + '<br/><br/>'
@@ -2492,6 +2528,119 @@ class EquatorWindow(QMainWindow):
 
         self.fiberResultTable.setRowCount(ind)
         QApplication.processEvents()
+
+    def updateParameterEditorTab(self):
+        paramInfo = self.bioImg.info['paramInfo']
+        ind=0
+        self.parameterEditorTable.setRowCount(200)
+        if paramInfo is not None:
+            for k in paramInfo.keys():
+
+                self.parameterEditorTable.setItem(ind, 1, QTableWidgetItem(k))
+                v = paramInfo[k]['val']
+                if not isinstance(v, bool) and (isinstance(v, float) or isinstance(v, int)):
+
+                    chkBoxItem = QTableWidgetItem()
+                    chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                    chkBoxItem.setCheckState(Qt.Checked if paramInfo[k]['fixed'] else Qt.Unchecked)
+
+                    self.parameterEditorTable.setItem(ind, 0, chkBoxItem)
+
+                    valueItem = QDoubleSpinBox(self.parameterEditorTable)
+                    valueItem.setDecimals(6)
+                    valueItem.setRange(float('-inf'), 100000000000000000000)
+                    valueItem.setValue(v)
+                    self.parameterEditorTable.setCellWidget(ind, 2, valueItem)
+
+                    valueItem = QDoubleSpinBox(self.parameterEditorTable)
+                    valueItem.setDecimals(6)
+                    valueItem.setRange(float('-inf'), 100000000000000000000)
+                    valueItem.setValue(paramInfo[k]['min'])
+                    self.parameterEditorTable.setCellWidget(ind, 3, valueItem)
+
+                    valueItem = QDoubleSpinBox(self.parameterEditorTable)
+                    valueItem.setDecimals(6)
+                    valueItem.setRange(float('-inf'), 100000000000000000000)
+                    valueItem.setValue(paramInfo[k]['max'])
+                    self.parameterEditorTable.setCellWidget(ind, 4, valueItem)
+
+                    self.adjustMinMaxColumn(chkBoxItem)
+                else:
+                    valueItem = QTableWidgetItem(str(v))
+                    valueItem.setFlags(Qt.ItemIsEditable)
+                    self.parameterEditorTable.setItem(ind, 2, valueItem)
+                ind+=1
+        self.parameterEditorTable.setRowCount(ind)
+        QApplication.processEvents()
+
+    def adjustMinMaxColumn(self,item):
+        if item.column() == 0:
+            row = item.row()
+            table = self.parameterEditorTable
+            minItem = table.cellWidget(row, 3)
+            maxItem = table.cellWidget(row, 4)
+            if item.checkState() == Qt.Checked:
+                minItem.setEnabled(False)
+                maxItem.setEnabled(False)
+            else:
+                minItem.setEnabled(True)
+                maxItem.setEnabled(True)
+
+    def onRowFixed(self, item):
+        self.adjustMinMaxColumn(item)
+        QApplication.processEvents()
+
+    def getInfoFromParameterEditor(self):
+        paramInfo = {}
+        table = self.parameterEditorTable
+        for row in range(0, table.rowCount()):
+            c0 = table.item(row, 0)
+            c1 = table.item(row, 1).text()
+            paramInfo[c1] = {}
+            if table.cellWidget(row, 2) != None:
+                c2 = table.cellWidget(row, 2).value()
+                c3 = table.cellWidget(row, 3).value()
+                c4 = table.cellWidget(row, 4).value()
+                paramInfo[c1]['fixed'] = c0.checkState() == Qt.Checked
+                paramInfo[c1]['val'] = c2
+                paramInfo[c1]['min'] = c3
+                paramInfo[c1]['max'] = c4
+            else:
+                c2 = table.item(row, 2).text()
+                paramInfo[c1]['fixed'] = True
+                if c2 == 'True' or c2 == 'False':
+                    c2 = bool(c2)
+                paramInfo[c1]['val'] = c2
+        return paramInfo
+
+
+    def refitParamEditor(self):
+        if self.bioImg is None:
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
+        paramInfo = self.getInfoFromParameterEditor()
+        try:
+            self.bioImg.processParameters(paramInfo)
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            errMsg = QMessageBox()
+            errMsg.setText('Unexpected error')
+            msg = 'Please report the problem with error message below and the input image\n\n'
+            msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
+            errMsg.setInformativeText(msg)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.setFixedWidth(300)
+            errMsg.exec_()
+            raise
+
+        self.updateParams()
+        self.csvManager.writeNewData(self.bioImg)
+        self.csvManager2.writeNewData(self.bioImg)
+        self.resetUI()
+        self.refreshStatusbar()
+        QApplication.restoreOverrideCursor()
 
     def init_logging(self):
         for objName in self.editableVars:

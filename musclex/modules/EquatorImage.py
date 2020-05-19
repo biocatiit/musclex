@@ -496,11 +496,13 @@ class EquatorImage:
             centerX = self.info['center'][0]
 
             margin = 10.
+            S0=0
 
             # Add all fitting variables to params
             params = Parameters()
             params.add("centerX", centerX, min=centerX - margin, max=centerX + margin)
             params.add("S10", S[0], min=S[0] - margin, max=S[0] + margin)
+            params.add("S0", S0, min=-0.001,  max=0.001)
 
             for i in range(len(left_areas)):
                 params.add("left_area" + str(i + 1), max(left_areas[i], 100), min=0)
@@ -608,8 +610,9 @@ class EquatorImage:
 
                 centerX = fit_result["centerX"]
                 S10 = fit_result["S10"]
-                model_peaks = [centerX - S10 * theta(i) for i in range(len(left_peaks))]
-                model_peaks.extend([centerX + S10 * theta(i) for i in range(len(right_peaks))])
+                S0 = fit_result["S0"]
+                model_peaks = [centerX + S0 - S10 * theta(i) for i in range(len(left_peaks))]
+                model_peaks.extend([centerX + S0 + S10 * theta(i) for i in range(len(right_peaks))])
 
                 fit_result['model_peaks'] = sorted(model_peaks)
                 all_S = [S10 * theta(i) for i in range(len(left_peaks))]
@@ -619,10 +622,111 @@ class EquatorImage:
                     fit_result['d10'] = self.info["lambda_sdd"] / fit_result['S10']
 
                 self.info['fit_results'] = fit_result
+                self.saveParamInfo(params, int_vars, fit_result)
                 # print "cardiacFit result : ",result.values
 
                 # original_hist = self.info['rhist']
                 # plt.plot(x, original_hist, label = 'histogram_BG')
+
+        if 'fit_results' in self.info:
+            print("Done. Fitting Results : " + str(self.info['fit_results']))
+            if self.info['fit_results']['fiterror'] > 0.2:
+                print("WARNING : High Fitting Error")
+        else:
+            print("Model cannot be fitted.")
+
+    def saveParamInfo(self, params, int_vars, fit_result):
+        paramInfo={}
+        for p in params.keys():
+            param = params[p]
+            paramInfo[p] = {}
+            paramInfo[p]['fixed'] = False
+            paramInfo[p]['val'] = fit_result[p]
+            paramInfo[p]['min'] = param.min
+            paramInfo[p]['max'] = param.max
+
+        for p in int_vars.keys():
+            if p == 'x':
+                continue
+            paramInfo[p] = {}
+            paramInfo[p]['fixed'] = True
+            paramInfo[p]['val'] = int_vars[p]
+            if not isinstance(int_vars[p], bool) and (isinstance(int_vars[p], float) or isinstance(int_vars[p], int)):
+                paramInfo[p]['min'] = int_vars[p] - 10
+                paramInfo[p]['max'] = int_vars[p] + 10
+        self.info['paramInfo'] = paramInfo
+
+    def processParameters(self, paramInfo):
+        left_peaks = self.info['peaks']['left']
+        right_peaks = self.info['peaks']['right']
+
+        hull_hist = self.info['hulls']['all']
+        x = np.arange(0, len(hull_hist))
+        histNdarray = np.array(hull_hist)
+
+        params = Parameters()
+        int_vars = {}
+
+        for p in paramInfo.keys():
+            pinfo = paramInfo[p]
+            if pinfo['fixed']:
+                int_vars[p] = pinfo['val']
+            else:
+                params.add(p, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
+
+
+        int_vars['x'] = x
+
+        # Fit model
+        model = Model(cardiacFit, nan_policy='propagate', independent_vars=int_vars.keys())
+        min_err = 999999999
+        final_result = None
+
+        # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
+        for method in ['leastsq']:
+            result = model.fit(histNdarray, verbose=False, method=method, params=params, **int_vars)
+            if result is not None:
+                res = result.values
+                res.update(int_vars)
+                err = mean_squared_error(histNdarray, cardiacFit(**res))
+                if err < min_err:
+                    min_err = err
+                    final_result = result
+
+        if final_result is not None:
+            fit_result = final_result.values
+            fit_result.update(int_vars)
+            fit_result["fiterror"] = 1. - r2_score(cardiacFit(**fit_result), histNdarray)
+            del fit_result['x']
+            left_areas = [fit_result['left_area' + str(i + 1)] for i in range(len(left_peaks))]
+            right_areas = [fit_result['right_area' + str(i + 1)] for i in range(len(right_peaks))]
+
+            if len(left_areas) < 2 or len(right_areas) < 2:
+                return
+            #### Get Ratio between I10 and I11 ####
+            fit_result['left_ratio'] = 1. * (left_areas[1] / left_areas[0])
+            fit_result['right_ratio'] = 1. * (right_areas[1] / right_areas[0])
+            avg_area_ratios = (fit_result['left_ratio'] + fit_result['right_ratio']) / 2.
+            fit_result['avg_ratio'] = avg_area_ratios
+            fit_result['left_areas'] = left_areas
+            fit_result['right_areas'] = right_areas
+
+            centerX = fit_result["centerX"]
+            S10 = fit_result["S10"]
+            S0 = fit_result["S0"]
+            model_peaks = [centerX + S0 - S10 * theta(i) for i in range(len(left_peaks))]
+            model_peaks.extend([centerX + S0 + S10 * theta(i) for i in range(len(right_peaks))])
+
+            fit_result['model_peaks'] = sorted(model_peaks)
+            all_S = [S10 * theta(i) for i in range(len(left_peaks))]
+            fit_result['all_S'] = all_S
+
+            if "lambda_sdd" in self.info.keys():
+                fit_result['d10'] = self.info["lambda_sdd"] / fit_result['S10']
+
+            self.info['fit_results'] = fit_result
+            self.saveParamInfo(params, int_vars, fit_result)
+            self.saveCache()
 
         if 'fit_results' in self.info:
             print("Done. Fitting Results : " + str(self.info['fit_results']))
@@ -709,7 +813,7 @@ class EquatorImage:
             os.remove(cache_file)
 
 
-def cardiacFit(x, centerX, S10, model, isSkeletal, k
+def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
                , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz
                , right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz, **kwargs):
 
@@ -774,35 +878,35 @@ def cardiacFit(x, centerX, S10, model, isSkeletal, k
             right_areas = sorted(right_areas_dict.items(), key=lambda kv: kv[0])
             right_areas = [v for (_, v) in right_areas]
 
-        result = cardiacSide(model, 'left', x, centerX, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas)
-        result += cardiacSide(model, 'right', x, centerX, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
+        result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas)
+        result += cardiacSide(model, 'right', x, centerX, S0, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
                              right_areas)
         if isSkeletal:
             if model == "Gaussian":
                 mod = GaussianModel()
-                result += mod.eval(x=x, amplitude=left_intz, center=centerX - left_zline,
+                result += mod.eval(x=x, amplitude=left_intz, center=centerX + S0 - left_zline,
                                    sigma=left_sigmaz)
-                result += mod.eval(x=x, amplitude=right_intz, center=centerX + right_zline,
+                result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 + right_zline,
                                    sigma=right_sigmaz)
             elif model == "Voigt":
                 mod = VoigtModel()
-                result += mod.eval(x=x, amplitude=left_intz, center=centerX + left_zline,
+                result += mod.eval(x=x, amplitude=left_intz, center=centerX + S0 + left_zline,
                                    sigma=left_sigmaz, gamma=left_gammaz)
-                result += mod.eval(x=x, amplitude=right_intz, center=centerX - right_zline,
+                result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 - right_zline,
                                    sigma=right_sigmaz, gamma=right_gammaz)
 
         return result + k
 
     return 0
 
-def cardiacSide(model, side, x, centerX, S10, sigmac, sigmad, sigmas, gamma, areas):
+def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas):
     for i, area in enumerate(areas):
         if side == 'left':
             hk = i
-            p = centerX - S10 * theta(hk)
+            p = centerX + S0 - S10 * theta(hk)
         else:
             hk = i
-            p = centerX + S10 * theta(hk)
+            p = centerX + S0 + S10 * theta(hk)
 
         sigmahk = np.sqrt(sigmac ** 2 + (sigmad * theta(hk)) ** 2 + (sigmas * (theta(hk) ** 2)) ** 2)
 
@@ -911,6 +1015,7 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
 def getCardiacGraph(x, fit_results):
     plot_params = {
         'centerX': fit_results['centerX'],
+        'S0': fit_results["S0"],
         'S10': fit_results['S10'],
         'model': fit_results['model'],
         'isSkeletal': fit_results['isSkeletal'],
