@@ -465,7 +465,7 @@ class EquatorWindow(QMainWindow):
         # self.parameterEditorTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # self.resultLayout.addWidget(self.generalResultTable)
         self.refitParamsBtn = QPushButton("Re-fit Parameters")
-        self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor</h2>"), 1, 0, 1, 2)
+        self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor (lmfit values)</h2>"), 1, 0, 1, 2)
         self.paramEditorTitleboxLayout.addWidget(self.refitParamsBtn, 1, 2, 1, 2)
         self.paramEditorTitlebox.setLayout(self.paramEditorTitleboxLayout)
         self.parameterEditorLayout.addWidget(self.paramEditorTitlebox)
