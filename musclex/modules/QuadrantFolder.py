@@ -190,6 +190,7 @@ class QuadrantFolder(object):
         Create an enlarged image such that image center is at the center of new image
         """
         center = self.info['center']
+        center = (int(center[0]), int(center[1]))
         img = self.orig_img
         b, l = img.shape
         img_center = (int(l/2), int(b/2))
