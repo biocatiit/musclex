@@ -2536,6 +2536,8 @@ class EquatorWindow(QMainWindow):
         self.parameterEditorTable.setRowCount(200)
         if paramInfo is not None:
             for k in paramInfo.keys():
+                if 'model' in paramInfo and paramInfo['model']['val'] =='Gaussian' and 'gamma' in k:
+                    continue
 
                 self.parameterEditorTable.setItem(ind, 1, QTableWidgetItem(k))
                 v = paramInfo[k]['val']
