@@ -2530,6 +2530,7 @@ class EquatorWindow(QMainWindow):
         QApplication.processEvents()
 
     def updateParameterEditorTab(self):
+        self.parameterEditorTable.clearContents()
         paramInfo = self.bioImg.info['paramInfo']
         ind=0
         self.parameterEditorTable.setRowCount(200)
