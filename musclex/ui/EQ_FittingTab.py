@@ -227,23 +227,41 @@ class EQ_FittingTab(QWidget):
             self.fixedGammaZ.setHidden(fit_result['model'] != 'Voigt')
             self.gammaZSpnBx.setHidden(fit_result['model'] != 'Voigt')
 
-        self.fixSigmaD.setChecked(side+'_fix_sigmad' in info)
-        self.fixSigmaS.setChecked(side+'_fix_sigmas' in info)
-        self.sigmaDSpinBx.setEnabled(side+'_fix_sigmad' in info)
-        self.sigmaSSpinBx.setEnabled(side+'_fix_sigmas' in info)
+        if side+'_fix_sigmad' in info:
+            self.fixSigmaD.setChecked(True)
+            self.sigmaDSpinBx.setEnabled(True)
+            self.sigmaDSpinBx.setValue(info[side + '_fix_sigmad'])
 
-        self.fixGamma.setChecked(side+'_fix_gamma' in info)
-        self.gammaSpinBx.setEnabled(side+'_fix_gamma' in info)
+        if side+'_fix_sigmas' in info:
+            self.fixSigmaS.setChecked(True)
+            self.sigmaSSpinBx.setEnabled(True)
+            self.sigmaSSpinBx.setValue(info[side+'_fix_sigmas'])
 
-        self.fixedZline.setChecked(side+'_fix_zline' in info)
-        self.fixedZline.setChecked(side+'_fix_zline' in info)
-        self.fixedSigZ.setChecked(side+'_fix_sigz' in info)
-        self.fixedIntZ.setChecked(side+'_fix_intz' in info)
-        self.fixedGammaZ.setChecked(side+'_fix_gammaz' in info)
-        self.zlineSpnBx.setEnabled(side+'_fix_zline' in info)
-        self.sigZSpnBx.setEnabled(side+'_fix_sigz' in info)
-        self.intZSpnBx.setEnabled(side+'_fix_intz' in info)
-        self.gammaZSpnBx.setEnabled(side+'_fix_gammaz' in info)
+        if side+'_fix_gamma' in info:
+            self.fixGamma.setChecked(True)
+            self.gammaSpinBx.setEnabled(True)
+            self.gammaSpinBx.setValue(info[side+'_fix_gamma'])
+
+        if side+'_fix_zline' in info:
+            self.fixedZline.setChecked(True)
+            self.zlineSpnBx.setEnabled(True)
+            self.zlineSpnBx.setValue(info[side + '_fix_zline'])
+
+        if side+'_fix_intz' in info:
+            self.fixedIntZ.setChecked(True)
+            self.intZSpnBx.setEnabled(True)
+            self.intZSpnBx.setValue(info[side + '_fix_intz'])
+
+        if side+'_fix_gammaz' in info:
+            self.fixedGammaZ.setChecked(True)
+            self.gammaZSpnBx.setEnabled(True)
+            self.gammaZSpinBx.setValue(info[side + '_fix_gammaz'])
+
+        if side+'_fix_sigz' in info:
+            self.fixedSigZ.setChecked(True)
+            self.sigZSpnBx.setEnabled(True)
+            self.sigZSpnBx.setValue(info[side+'_fix_sigz'])
+
         self.syncUI = False
 
     def fixedParamChecked(self):
