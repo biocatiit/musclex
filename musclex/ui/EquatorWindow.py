@@ -759,6 +759,9 @@ class EquatorWindow(QMainWindow):
             self.progressBar.setMinimum(0)
             self.progressBar.setVisible(True)
 
+            # Refit current image
+            self.refitting()
+
             ## Process all images and update progress bar
             self.in_batch_process = True
             self.stop_process = False
@@ -1380,7 +1383,7 @@ class EquatorWindow(QMainWindow):
         isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
         if self.calSettings is not None:
             self.bioImg.removeInfo()
-        settings.update(self.bioImg.info)
+        # settings.update(self.bioImg.info)
         
         if nPeaks != None:
             settings['nPeaks'] = nPeaks
@@ -1958,15 +1961,15 @@ class EquatorWindow(QMainWindow):
 
         self.maskThresSpnBx.setValue(info['mask_thres'])
 
-        # init bias k
-        if 'fix_k'in info:
-            self.k_chkbx.setChecked(True)
-            self.k_spnbx.setValue(info['fix_k'])
-
         if 'fit_results' in info:
             fit_results = info['fit_results']
             self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_results["model"]))
             self.k_spnbx.setValue(fit_results['k'])
+
+        # init bias k
+        if 'fix_k' in info:
+            self.k_chkbx.setChecked(True)
+            self.k_spnbx.setValue(info['fix_k'])
                 
         if 'nPeaks' in info:
             self.nPeakSpnBx.setValue(info['nPeaks'])
@@ -2015,7 +2018,7 @@ class EquatorWindow(QMainWindow):
         print(settings)
         if self.calSettings is not None:
             self.bioImg.removeInfo()
-        settings.update(self.bioImg.info)
+        # settings.update(self.bioImg.info)
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
