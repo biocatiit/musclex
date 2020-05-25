@@ -899,7 +899,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     new_center = np.dot(invM, homo_coords)
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
-                    self.quadFold.info['center'] = (cx, cy)
+                    self.quadFold.info['manual_center'] = (cx, cy)
                     self.quadFold.info['rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                     self.deleteInfo(['avg_fold'])
                     self.setCenterRotationButton.setChecked(False)

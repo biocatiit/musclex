@@ -189,6 +189,11 @@ class QuadrantFolder(object):
         """
         Create an enlarged image such that image center is at the center of new image
         """
+
+        # Centerize image only when processing for first time
+        if 'centerized' in self.info:
+            return
+
         center = self.info['center']
         center = (int(center[0]), int(center[1]))
         img = self.orig_img
@@ -221,6 +226,7 @@ class QuadrantFolder(object):
         
         self.orig_img = translated_Img
         self.info['center'] = (int(dim/2), int(dim/2))
+        self.info['centerized'] = True
         
 
     def getRotatedImage(self):
@@ -228,12 +234,15 @@ class QuadrantFolder(object):
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
         """
         img = np.array(self.orig_img, dtype="float32")
-        
-        center = self.info["center"]
-        if "orig_center" in self.info:
-            center = self.info["orig_center"]
+
+        if 'manual_center' in self.info:
+            center = self.info['manual_center']
         else:
-            self.info["orig_center"] = center
+            center = self.info["center"]
+            if "orig_center" in self.info:
+                center = self.info["orig_center"]
+            else:
+                self.info["orig_center"] = center
         
         rotImg, self.info["center"] = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
         
