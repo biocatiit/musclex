@@ -2614,6 +2614,16 @@ class EquatorWindow(QMainWindow):
                 if c2 == 'True' or c2 == 'False':
                     c2 = bool(c2)
                 paramInfo[c1]['val'] = c2
+
+        # Adding remaining parameters as fixed to avoid complaining about missing parameters
+        oldParamInfo = self.bioImg.info['paramInfo']
+        for k in oldParamInfo:
+            if k not in paramInfo:
+                paramInfo[k] = {}
+                paramInfo[k]['fixed'] = True
+                paramInfo[k]['val'] = 0
+                paramInfo[k]['min'] = 0
+                paramInfo[k]['max'] = 1
         return paramInfo
 
 
