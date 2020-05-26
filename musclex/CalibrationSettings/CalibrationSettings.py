@@ -74,15 +74,15 @@ class CalibrationSettings(QDialog):
         init_lambda = .1033
         init_sdd = 2500
         init_pix_size = 0.172
-        type = "img"
+        type = None
         center = None
         if self.calSettings is not None:
-            type = self.calSettings["type"]
+            type = self.calSettings["type"] if "type" in self.calSettings else None
             if type == "cont":
                 init_lambda = self.calSettings["lambda"]
                 init_sdd = self.calSettings["sdd"]
                 init_pix_size = self.calSettings["pixel_size"]
-            else:
+            elif type == "img":
                 silverb = self.calSettings["silverB"]
 
             if 'center' in self.calSettings:
@@ -191,13 +191,15 @@ class CalibrationSettings(QDialog):
         self.centerY.setRange(0, 100000000000000000000)
 
         if center is not None:
-            self.fixedCenter.setChecked(True)
             self.centerX.setValue(center[0])
             self.centerY.setValue(center[1])
         else:
-            self.fixedCenter.setChecked(False)
             self.centerX.setValue(1000)
             self.centerY.setValue(1000)
+
+        self.fixedCenter.setChecked(False)
+        self.centerX.setEnabled(False)
+        self.centerY.setEnabled(False)
         self.centerX.setObjectName('centerX')
         self.editableVars[self.centerX.objectName()] = None
         self.centerY.setObjectName('centerY')
@@ -212,12 +214,12 @@ class CalibrationSettings(QDialog):
         self.paramLayout.addWidget(QLabel("Pixel Size : "), 2, 0, 1, 1)
         self.paramLayout.addWidget(self.pixsSpnBx, 2, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("mm"), 2, 2, 1, 1)
-        self.paramLayout.addWidget(self.fixedCenter, 3, 0, 1, 1)
-        self.paramLayout.addWidget(self.centerX, 3, 1, 1, 1)
-        self.paramLayout.addWidget(self.centerY, 3, 2, 1, 1)
 
         self.mainLayout.addWidget(self.calImageGrp)
         self.mainLayout.addWidget(self.paramGrp)
+        self.mainLayout.addWidget(self.fixedCenter)
+        self.mainLayout.addWidget(self.centerX)
+        self.mainLayout.addWidget(self.centerY)
         self.mainLayout.addWidget(self.bottons)
         self.mainLayout.setAlignment(Qt.AlignCenter)
         self.mainLayout.setAlignment(self.bottons, Qt.AlignCenter)
@@ -234,6 +236,7 @@ class CalibrationSettings(QDialog):
         self.calImageGrp.clicked.connect(self.calImageChecked)
         self.minInt.valueChanged.connect(self.updateImage)
         self.maxInt.valueChanged.connect(self.updateImage)
+        self.fixedCenter.stateChanged.connect(self.centerFixed)
 
         self.silverBehenate.editingFinished.connect(lambda: self.settingChanged('silverB', self.silverBehenate))
         self.lambdaSpnBx.editingFinished.connect(lambda: self.settingChanged('lambda', self.lambdaSpnBx))
@@ -362,6 +365,7 @@ class CalibrationSettings(QDialog):
         cache_path = fullPath(self.dir_path, "settings")
         createFolder(cache_path)
         cache_file = fullPath(cache_path, "calibration.info")
+        self.calSettings={}
 
         if self.paramGrp.isChecked():
             self.calSettings = {
@@ -370,12 +374,12 @@ class CalibrationSettings(QDialog):
                 "sdd": self.sddSpnBx.value(),
                 "type": "cont"
             }
-            if self.fixedCenter.isChecked():
-                self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
-        else:
-            if self.calSettings is not None:
-                self.calSettings["silverB"] = self.silverBehenate.value()
-                self.calSettings["type"] = "img"
+        elif self.calImageGrp.isChecked():
+            self.calSettings["silverB"] = self.silverBehenate.value()
+            self.calSettings["type"] = "img"
+
+        if self.fixedCenter.isChecked():
+            self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
 
         cache = {
             "path": self.pathText.text(),
@@ -523,6 +527,14 @@ class CalibrationSettings(QDialog):
             self.calImgCanvas.setHidden(True)
 
         self.calImgCanvas.draw()
+
+    def centerFixed(self):
+        if self.fixedCenter.isChecked():
+            self.centerX.setEnabled(True)
+            self.centerY.setEnabled(True)
+        else:
+            self.centerX.setEnabled(False)
+            self.centerY.setEnabled(False)
 
 
     def okClicked(self):

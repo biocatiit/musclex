@@ -183,6 +183,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
         self.calibrateButton = QPushButton("Calibration Settings")
+        self.calSettingsDialog = None
         # self.quadFoldButton = QPushButton("Quadrant Folding")
         # self.setCenterButton = QPushButton("Set Rotation and Center")
         # self.setCenterButton.setCheckable(True)
@@ -402,13 +403,16 @@ class ProjectionTracesGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.dir_path)
+
+        if self.calSettingsDialog is None:
+            self.calSettingsDialog = CalibrationSettings(self.dir_path) if self.projProc is None else \
+                CalibrationSettings(self.dir_path, center=self.projProc.info['center'])
         self.calSettings = None
-        cal_setting = settingDialog.calSettings
+        cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
-            result = settingDialog.exec_()
+            result = self.calSettingsDialog.exec_()
             if result == 1:
-                self.calSettings = settingDialog.getValues()
+                self.calSettings = self.calSettingsDialog.getValues()
                 return True
         return False
 
@@ -1346,6 +1350,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.csvManager = PT_CVSManager(self.dir_path, self.allboxes, self.peaks)
         self.addBoxTabs()
         self.selectPeaksGrp.setEnabled(False)
+        self.launchCalibrationSettings()
         self.onImageChanged()
 
     def onImageChanged(self):
@@ -1530,10 +1535,20 @@ class ProjectionTracesGUI(QMainWindow):
             settings['rotationAngle'] = self.rotationAngle
 
         if self.calSettings is not None:
-            if self.calSettings["type"] == "img":
-                settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
-            elif self.calSettings["type"] == "cont":
-                settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+                elif self.calSettings["type"] == "cont":
+                    settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+            if "center" in self.calSettings:
+                settings["center"] = self.calSettings["center"]
+                self.centery = self.calSettings["center"][1]
+                self.centerx = self.calSettings["center"][0]
+                settings['centerx'] = self.centerx
+                settings['centery'] = self.centery
+            else:
+                del settings['centerx']
+                del settings['centery']
 
         return settings
 
@@ -1650,6 +1665,9 @@ class ProjectionTracesGUI(QMainWindow):
         else:
             ax.set_xlim((0, img.shape[1]))
             ax.set_ylim((0, img.shape[0]))
+
+        self.calSettingsDialog.centerX.setValue(self.projProc.info['centerx'])
+        self.calSettingsDialog.centerY.setValue(self.projProc.info['centery'])
 
         self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
         ax.invert_yaxis()

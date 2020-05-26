@@ -194,6 +194,10 @@ class ProjectionProcessor():
         else:
             self.rotated = False
 
+        if 'center' not in settings:
+            self.info['centerx'] = self.orig_img.shape[0] / 2 - 0.5
+            self.info['centery'] = self.orig_img.shape[1] / 2 - 0.5
+
         self.info.update(settings)
 
     def getHistograms(self):

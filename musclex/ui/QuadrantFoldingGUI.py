@@ -166,6 +166,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsGroup.setLayout(self.settingsLayout)
 
         self.calibrationButton = QPushButton("Calibration Settings")
+        self.calSettingsDialog = None
         self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
         self.setCenterRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setCenterRotationButton)
@@ -726,13 +727,15 @@ class QuadrantFoldingGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        settingDialog = CalibrationSettings(self.filePath)
+        if self.calSettingsDialog is None:
+            self.calSettingsDialog = CalibrationSettings(self.filePath) if self.quadFold is None else \
+                CalibrationSettings(self.filePath, center=self.quadFold.info['center'])
         self.calSettings = None
-        cal_setting = settingDialog.calSettings
+        cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
-            result = settingDialog.exec_()
+            result = self.calSettingsDialog.exec_()
             if result == 1:
-                self.calSettings = settingDialog.getValues()
+                self.calSettings = self.calSettingsDialog.getValues()
                 return True
         return False
 
@@ -1729,6 +1732,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.axvline(center[0], color='y')
                 ax.axhline(center[1], color='y')
 
+            self.calSettingsDialog.centerX.setValue(center[0])
+            self.calSettingsDialog.centerY.setValue(center[1])
+
             if len(self.quadFold.info["ignore_folds"]) > 0:
                 # Draw cross line in ignored quadrant
                 for fold in self.quadFold.info["ignore_folds"]:
@@ -1912,8 +1918,12 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         flags = {}
 
-        if self.calSettings is not None and 'center' in self.calSettings:
-            flags['center'] = self.calSettings['center']
+        if self.calSettings is not None:
+            if 'center' in self.calSettings:
+                flags['manual_center'] = self.calSettings['center']
+            elif 'manual_center' in flags:
+                del flags['manual_center']
+
 
         flags['orientation_model'] = self.orientationModel
         flags["ignore_folds"] = self.ignoreFolds

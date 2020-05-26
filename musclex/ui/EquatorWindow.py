@@ -2107,14 +2107,15 @@ class EquatorWindow(QMainWindow):
         settings['90rotation'] = self.rotation90ChkBx.isChecked()
 
         if self.calSettings is not None:
-            if self.calSettings["type"] == "img":
-                settings["center"] = self.calSettings["center"]
-                settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
-            else:
-                settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
-                    "pixel_size"]
-                if "center" in self.calSettings:
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
                     settings["center"] = self.calSettings["center"]
+                    settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+                else:
+                    settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
+                        "pixel_size"]
+            if "center" in self.calSettings:
+                settings["center"] = self.calSettings["center"]
 
         if self.fixedAngleChkBx.isChecked():
             settings['fixed_angle'] = self.fixedAngle.value()

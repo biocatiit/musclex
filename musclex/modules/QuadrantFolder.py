@@ -143,6 +143,8 @@ class QuadrantFolder(object):
                 flags['orientation_model'] = 0
             else:
                 del flags['orientation_model']
+        if 'manual_center' not in flags and 'manual_center' in self.info:
+            del self.info['manual_center']
         self.info.update(flags)
 
     def initParams(self):
@@ -164,7 +166,8 @@ class QuadrantFolder(object):
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
-        if 'center' in self.info.keys():
+        if 'manual_center' in self.info:
+            self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
         self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info["mask_thres"])
@@ -786,14 +789,14 @@ class QuadrantFolder(object):
             else:
                 rotate_img = copy.copy(self.getRotatedImage())
             center = self.info['center']
-            center_x = center[0]
-            center_y = center[1]
+            center_x = int(center[0])
+            center_y = int(center[1])
 
             print("Quadrant folding is being processed...")
             img_width = rotate_img.shape[1]
             img_height = rotate_img.shape[0]
-            fold_width = max(center[0], img_width-center[0])
-            fold_height = max(center[1], img_height-center[1])
+            fold_width = max(int(center[0]), img_width-int(center[0]))
+            fold_height = max(int(center[1]), img_height-int(center[1]))
 
             # Get each fold, and flip them to the same direction
             top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
