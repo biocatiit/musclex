@@ -514,21 +514,20 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
     # print("M1: {}".format(M1))
 
     if img_type == "PILATUS":
+        print("Rotating Pilatus Image")
         img = img.astype('float32')
         if mask_thres == -999:
             mask_thres = getMaskThreshold(img, img_type)
         mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
         mask[img <= mask_thres] = 255
-        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
-        rotated_mask = cv2.warpAffine(mask, M, (img.shape[1],  img.shape[0]))
+        rotated_img, center = rotateNonSquareImage(img, angle, center)
+        rotated_mask, _ = rotateNonSquareImage(mask, angle, center)
         rotated_mask[rotated_mask > 0.] = 255
         rotated_img[rotated_mask > 0] = mask_thres
-    elif img.shape[0] != img.shape[1]:
-        print("Rotating non square image")
-        return rotateNonSquareImage(img, angle, center)
+        return rotated_img, center
     else:
-        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
-    return rotated_img, center
+        print("Rotating normal image")
+        return rotateNonSquareImage(img, angle, center)
 
 def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
     """
