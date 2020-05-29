@@ -69,6 +69,10 @@ class QuadrantFolder(object):
         self.version = musclex.__version__
         cache = self.loadCache() # load from cache if it's available
 
+        self.initImg = None
+        self.centImgTransMat = None # Centerize image transformation matrix
+        self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
+
         # info dictionary will save all results
         if cache is not None:
             self.info = cache
@@ -143,8 +147,6 @@ class QuadrantFolder(object):
                 flags['orientation_model'] = 0
             else:
                 del flags['orientation_model']
-        if 'manual_center' not in flags and 'manual_center' in self.info:
-            del self.info['manual_center']
         self.info.update(flags)
 
     def initParams(self):
@@ -166,6 +168,9 @@ class QuadrantFolder(object):
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
+        if 'calib_center' in self.info:
+            self.info['center'] = self.info['calib_center']
+            return
         if 'manual_center' in self.info:
             self.info['center'] = self.info['manual_center']
             return
@@ -193,13 +198,27 @@ class QuadrantFolder(object):
         Create an enlarged image such that image center is at the center of new image
         """
 
-        # Centerize image only when processing for first time
-        if 'centerized' in self.info:
-            return
-
         center = self.info['center']
+        if self.centImgTransMat is not None:
+            # convert center in initial img coordinate system
+            M = self.centImgTransMat
+            M[0,2] = -1*M[0,2]
+            M[1,2] = -1*M[1,2]
+            center = [center[0], center[1], 1]
+            center = np.dot(M, center)
+            if 'manual_center' in self.info:
+                self.info['manual_center'] = (int(center[0]), int(center[1]))
+            if 'calib_center' in self.info:
+                self.info['calib_center'] = (int(center[0]), int(center[1]))
+
         center = (int(center[0]), int(center[1]))
-        img = self.orig_img
+        if self.initImg is None:
+            # While centerizing image use the first image after reading from file and processing for int center
+            self.initImg = self.orig_img
+            print("Dimension of initial image before centerize ", self.orig_img.shape)
+        img = self.initImg
+        print("Dimension of image before centerize ", img.shape)
+
         b, l = img.shape
         img_center = (int(l/2), int(b/2))
         newX = max(center[0], l-center[0])
@@ -212,6 +231,7 @@ class QuadrantFolder(object):
         transx = int(((dim/2) - center[0]))
         transy = int(((dim/2) - center[1]))
         M = np.float32([[1,0,transx],[0,1,transy]])
+        self.centImgTransMat = M
         rows,cols = new_img.shape
         mask_thres = self.info["mask_thres"]
 
@@ -228,8 +248,9 @@ class QuadrantFolder(object):
             translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
         
         self.orig_img = translated_Img
-        self.info['center'] = (int(dim/2), int(dim/2))
-        self.info['centerized'] = True
+        self.info['center'] = (int(dim / 2), int(dim / 2))
+        self.center_before_rotation = (int(dim / 2), int(dim / 2))
+        print("Dimension of image after centerize ", self.orig_img.shape)
         
 
     def getRotatedImage(self):
@@ -238,14 +259,11 @@ class QuadrantFolder(object):
         """
         img = np.array(self.orig_img, dtype="float32")
 
-        if 'manual_center' in self.info:
-            center = self.info['manual_center']
+        center = self.info["center"]
+        if self.center_before_rotation is not None:
+            center = self.center_before_rotation
         else:
-            center = self.info["center"]
-            if "orig_center" in self.info:
-                center = self.info["orig_center"]
-            else:
-                self.info["orig_center"] = center
+            self.center_before_rotation = center
         
         rotImg, self.info["center"] = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
         
