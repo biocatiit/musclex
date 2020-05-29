@@ -636,6 +636,13 @@ class EquatorImage:
             print("Model cannot be fitted.")
 
     def saveParamInfo(self, params, int_vars, fit_result):
+        '''
+        Save information of parameter editor to the info
+        :param params: this is non fixed parameters used while fitting
+        :param int_vars: this is a dictionary of independent or fixed parameters used while fitting
+        :param fit_result: this contains the fitted values of the parameters
+        :return:
+        '''
         paramInfo={}
         for p in params.keys():
             param = params[p]
@@ -657,6 +664,11 @@ class EquatorImage:
         self.info['paramInfo'] = paramInfo
 
     def processParameters(self, paramInfo):
+        '''
+        Fit routine to fit parameters specified in parameter editor works differently compared to the usual fitting but uses the same underlying fitting functions
+        :param paramInfo: information from parameter editor as dictionary
+        :return:
+        '''
         left_peaks = self.info['peaks']['left']
         right_peaks = self.info['peaks']['right']
 
@@ -700,6 +712,7 @@ class EquatorImage:
             del fit_result['x']
             left_areas = [fit_result['left_area' + str(i + 1)] for i in range(len(left_peaks))]
             right_areas = [fit_result['right_area' + str(i + 1)] for i in range(len(right_peaks))]
+            Speaks = [fit_result['Speak' + str(i+1)] if 'Speak' + str(i+1) in fit_result else 0 for i in range(max(len(left_peaks), len(right_peaks)))]
 
             if len(left_areas) < 2 or len(right_areas) < 2:
                 return
@@ -714,8 +727,8 @@ class EquatorImage:
             centerX = fit_result["centerX"]
             S10 = fit_result["S10"]
             S0 = fit_result["S0"]
-            model_peaks = [centerX + S0 - S10 * theta(i) for i in range(len(left_peaks))]
-            model_peaks.extend([centerX + S0 + S10 * theta(i) for i in range(len(right_peaks))])
+            model_peaks = [centerX + S0 - S10 * theta(i) + Speaks[i] for i in range(len(left_peaks))]
+            model_peaks.extend([centerX + S0 + S10 * theta(i) + Speaks[i] for i in range(len(right_peaks))])
 
             fit_result['model_peaks'] = sorted(model_peaks)
             all_S = [S10 * theta(i) for i in range(len(left_peaks))]
@@ -878,9 +891,23 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
             right_areas = sorted(right_areas_dict.items(), key=lambda kv: kv[0])
             right_areas = [v for (_, v) in right_areas]
 
-        result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas)
+
+        speaks_dict = {}
+        for k in range(1, max(len(left_areas), len(right_areas)) + 1):
+            speaks_dict[k] = 0
+        for kv in kwargs.items():
+            key = kv[0]
+            value = kv[1]
+            if 'Speak' in key:
+                speaks_dict[int(key[5:])] = value
+
+        Speaks = sorted(speaks_dict.items(), key=lambda kv: kv[0])
+        Speaks = [v for (_, v) in Speaks]
+
+
+        result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas, Speaks)
         result += cardiacSide(model, 'right', x, centerX, S0, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
-                             right_areas)
+                             right_areas, Speaks)
         if isSkeletal:
             if model == "Gaussian":
                 mod = GaussianModel()
@@ -899,14 +926,14 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
 
     return 0
 
-def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas):
+def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas, Speak):
     for i, area in enumerate(areas):
         if side == 'left':
             hk = i
-            p = centerX + S0 - S10 * theta(hk)
+            p = centerX + S0 - S10 * theta(hk) + Speak[i]
         else:
             hk = i
-            p = centerX + S0 + S10 * theta(hk)
+            p = centerX + S0 + S10 * theta(hk) + Speak[i]
 
         sigmahk = np.sqrt(sigmac ** 2 + (sigmad * theta(hk)) ** 2 + (sigmas * (theta(hk) ** 2)) ** 2)
 
@@ -1041,6 +1068,8 @@ def getCardiacGraph(x, fit_results):
         'right_gammaz': fit_results['right_gammaz'],
         'k': fit_results['k']
     }
+    if 'Speaks' in fit_results:
+        plot_params['Speaks'] = fit_results['Speaks']
     return cardiacFit(x=x, **plot_params)
 
 def theta(h, k=-1):

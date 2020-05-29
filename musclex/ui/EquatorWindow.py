@@ -465,8 +465,10 @@ class EquatorWindow(QMainWindow):
         # self.parameterEditorTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # self.resultLayout.addWidget(self.generalResultTable)
         self.refitParamsBtn = QPushButton("Re-fit Parameters")
+        self.addSPeakBtn = QPushButton("Add 'S' parameter for peak")
         self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor (lmfit values)</h2>"), 1, 0, 1, 2)
-        self.paramEditorTitleboxLayout.addWidget(self.refitParamsBtn, 1, 2, 1, 2)
+        self.paramEditorTitleboxLayout.addWidget(self.refitParamsBtn, 1, 2, 1, 1)
+        self.paramEditorTitleboxLayout.addWidget(self.addSPeakBtn, 1, 3, 1, 1)
         self.paramEditorTitlebox.setLayout(self.paramEditorTitleboxLayout)
         self.parameterEditorLayout.addWidget(self.paramEditorTitlebox)
         self.parameterEditorLayout.addWidget(self.parameterEditorTable)
@@ -665,6 +667,7 @@ class EquatorWindow(QMainWindow):
         #### Parameter Editor Tab
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
+        self.addSPeakBtn.clicked.connect(self.addSPeak)
 
     def k_checked(self):
         """
@@ -2534,6 +2537,10 @@ class EquatorWindow(QMainWindow):
         QApplication.processEvents()
 
     def updateParameterEditorTab(self):
+        '''
+        Updates Parameter Editor Tab
+        :return:
+        '''
         self.parameterEditorTable.clearContents()
         paramInfo = self.bioImg.info['paramInfo']
         ind=0
@@ -2547,11 +2554,13 @@ class EquatorWindow(QMainWindow):
                 v = paramInfo[k]['val']
                 if not isinstance(v, bool) and (isinstance(v, float) or isinstance(v, int)):
 
-                    chkBoxItem = QTableWidgetItem()
-                    chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-                    chkBoxItem.setCheckState(Qt.Checked if paramInfo[k]['fixed'] else Qt.Unchecked)
+                    if not self.isDynamicParameter(k):
+                        # Parameter cannot be fixed if it is dynamically being handled like left_areas
+                        chkBoxItem = QTableWidgetItem()
+                        chkBoxItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                        chkBoxItem.setCheckState(Qt.Checked if paramInfo[k]['fixed'] else Qt.Unchecked)
 
-                    self.parameterEditorTable.setItem(ind, 0, chkBoxItem)
+                        self.parameterEditorTable.setItem(ind, 0, chkBoxItem)
 
                     valueItem = QDoubleSpinBox(self.parameterEditorTable)
                     valueItem.setDecimals(6)
@@ -2580,7 +2589,27 @@ class EquatorWindow(QMainWindow):
         self.parameterEditorTable.setRowCount(ind)
         QApplication.processEvents()
 
+    def isDynamicParameter(self, paramName):
+        '''
+        Checks whether parameter is dynamically handelled by fitting mechanism
+        :param paramName: Name of the parameter to be checked
+        :return: bool True if it is in the dynamic parameter list
+        '''
+
+        dynamicParams = ['Speak', 'left_area', 'right_area']
+        for p in dynamicParams:
+            if p in paramName:
+                return True
+        return False
+
     def adjustMinMaxColumn(self,item):
+        '''
+        Toggles the min and max items of the row appropriately
+        :param item:
+        :return:
+        '''
+        if item == None:
+            return
         if item.column() == 0:
             row = item.row()
             table = self.parameterEditorTable
@@ -2598,6 +2627,10 @@ class EquatorWindow(QMainWindow):
         QApplication.processEvents()
 
     def getInfoFromParameterEditor(self):
+        '''
+        To get information from parameter editor
+        :return: data from parameter editor as dictionary
+        '''
         paramInfo = {}
         table = self.parameterEditorTable
         for row in range(0, table.rowCount()):
@@ -2608,7 +2641,7 @@ class EquatorWindow(QMainWindow):
                 c2 = table.cellWidget(row, 2).value()
                 c3 = table.cellWidget(row, 3).value()
                 c4 = table.cellWidget(row, 4).value()
-                paramInfo[c1]['fixed'] = c0.checkState() == Qt.Checked
+                paramInfo[c1]['fixed'] = c0.checkState() == Qt.Checked if c0 is not None else False
                 paramInfo[c1]['val'] = c2
                 paramInfo[c1]['min'] = c3
                 paramInfo[c1]['max'] = c4
@@ -2623,15 +2656,58 @@ class EquatorWindow(QMainWindow):
         oldParamInfo = self.bioImg.info['paramInfo']
         for k in oldParamInfo:
             if k not in paramInfo:
-                paramInfo[k] = {}
-                paramInfo[k]['fixed'] = True
-                paramInfo[k]['val'] = 0
-                paramInfo[k]['min'] = 0
-                paramInfo[k]['max'] = 1
+                paramInfo[k] = oldParamInfo[k]
         return paramInfo
 
+    def addSPeak(self):
+        '''
+        Adds Speak parameter to parameter editor
+        :return:
+        '''
+        if self.bioImg is not None and 'peaks' in self.bioImg.info:
+            left_peaks = self.bioImg.info['peaks']['left'] if 'left' in self.bioImg.info['peaks'] else 0
+            right_peaks = self.bioImg.info['peaks']['right'] if 'right' in self.bioImg.info['peaks'] else 0
+            num_peaks = max(len(left_peaks), len(right_peaks))
+            num, ok = QInputDialog.getInt(self, "Peak Number", "Please provide peak number between 1 and " + str(num_peaks))
+            if ok:
+                if num > num_peaks or num<1:
+                    msg = QMessageBox()
+                    msg.setInformativeText(
+                        "Please provide peak number between 1 and " + str(num_peaks))
+                    msg.setStandardButtons(QMessageBox.Ok)
+                    msg.setWindowTitle("Incorrect Peak Number")
+                    msg.setStyleSheet("QLabel{min-width: 500px;}")
+                    msg.exec_()
+                else:
+                    ind = self.parameterEditorTable.rowCount()
+                    self.parameterEditorTable.insertRow(ind)
+
+                    self.parameterEditorTable.setItem(ind, 1, QTableWidgetItem('Speak' + str(num)))
+
+                    valueItem = QDoubleSpinBox(self.parameterEditorTable)
+                    valueItem.setDecimals(6)
+                    valueItem.setRange(float('-inf'), 100000000000000000000)
+                    valueItem.setValue(0)
+                    self.parameterEditorTable.setCellWidget(ind, 2, valueItem)
+
+                    valueItem = QDoubleSpinBox(self.parameterEditorTable)
+                    valueItem.setDecimals(6)
+                    valueItem.setRange(float('-inf'), 100000000000000000000)
+                    valueItem.setValue(-1)
+                    self.parameterEditorTable.setCellWidget(ind, 3, valueItem)
+
+                    valueItem = QDoubleSpinBox(self.parameterEditorTable)
+                    valueItem.setDecimals(6)
+                    valueItem.setRange(float('-inf'), 100000000000000000000)
+                    valueItem.setValue(1)
+                    self.parameterEditorTable.setCellWidget(ind, 4, valueItem)
+                print(num)
 
     def refitParamEditor(self):
+        '''
+        Function to refit parameter editor changes
+        :return:
+        '''
         if self.bioImg is None:
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
