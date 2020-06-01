@@ -62,6 +62,7 @@ class EquatorImage:
         self.rotated_img = None
         self.version = musclex.__version__
         cache = self.loadCache()
+        self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:
             # info dictionary will save all results
             self.info = {
@@ -144,6 +145,12 @@ class EquatorImage:
         if 'center' not in self.info:
             self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info['mask_thres'])
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
+        else:
+            if self.rotMat is not None:
+                center = self.info['center']
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                self.info['center'] = (center[0], center[1])
+                self.info['orig_center'] = (center[0], center[1])
         print("Done. Center is" + str(self.info['center']))
 
     def getRotationAngle(self):
@@ -229,7 +236,7 @@ class EquatorImage:
             else:
                 self.info["orig_center"] = center
             
-            rotImg, self.info["center"] = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
+            rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
             self.rotated_img = [self.info["center"], angle, img, rotImg]
             
         return self.rotated_img[3]

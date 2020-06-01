@@ -68,6 +68,7 @@ class DiffractionCentroids():
         self.info["grp_num"] = grp_number+1
         self.fixRanges = fixRanges
         self.init_off_mer = off_mer
+        self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
 
     def mergeImages(self, dir_path, imgList):
         """
@@ -158,6 +159,11 @@ class DiffractionCentroids():
         This calculation will affect rotation angle, so self.info["rotationAngle"] will be removed
         """
         if 'center' in self.info:
+            if self.rotMat is not None:
+                center = self.info['center']
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                self.info['center'] = (center[0], center[1])
+                self.info['orig_center'] = (center[0], center[1])
             return
         self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg), self.img_type, self.mask_thres)
         print("center = "+str(self.info['center']))
@@ -259,7 +265,7 @@ class DiffractionCentroids():
         else:
             self.info["orig_center"] = center
         
-        rotImg, self.info["center"] = rotateImage(img, center, angle, self.img_type, self.mask_thres)
+        rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.mask_thres)
 
         return rotImg
 

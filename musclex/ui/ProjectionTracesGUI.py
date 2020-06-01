@@ -1002,6 +1002,7 @@ class ProjectionTracesGUI(QMainWindow):
                 new_center = np.dot(invM, homo_coords)
                 self.centerx = int(round(new_center[0]))
                 self.centery = int(round(new_center[1]))
+                self.projProc.info['orig_center'] = (self.centerx, self.centery)
                 self.rotationAngle = new_angle
                 self.projProc.info['rotationAngle'] = new_angle
                 self.setRotAndCentB.setChecked(False)
@@ -1523,9 +1524,6 @@ class ProjectionTracesGUI(QMainWindow):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
-        settings['centerx'] = self.centerx
-        settings['centery'] = self.centery
-
         if self.refit:
             settings['refit'] = self.refit
             self.refit = False
@@ -1542,13 +1540,12 @@ class ProjectionTracesGUI(QMainWindow):
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
             if "center" in self.calSettings:
                 settings["center"] = self.calSettings["center"]
-                self.centery = self.calSettings["center"][1]
-                self.centerx = self.calSettings["center"][0]
-                settings['centerx'] = self.centerx
-                settings['centery'] = self.centery
+                self.projProc.info['orig_center'] = self.calSettings["center"]
+                self.projProc.info['centery'] = self.calSettings["center"][1]
+                self.projProc.info['centerx'] = self.calSettings["center"][0]
             else:
-                del settings['centerx']
-                del settings['centery']
+                del self.projProc.info['centerx']
+                del self.projProc.info['centery']
 
         return settings
 
@@ -1634,8 +1631,8 @@ class ProjectionTracesGUI(QMainWindow):
 
             if self.peaksChkBx.isChecked():
                 for name in self.peaks.keys():
-                    centerx = self.centerx
-                    centery = self.centery
+                    centerx = self.projProc['centerx']
+                    centery = self.projProc['centery']
                     for p in self.peaks[name]:
                         if self.boxtypes[name] == 'h':
                             ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
@@ -1653,8 +1650,8 @@ class ProjectionTracesGUI(QMainWindow):
                             ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
 
         if self.centerChkBx.isChecked():
-            centerx = self.centerx
-            centery = self.centery
+            centerx = self.projProc.info['centerx']
+            centery = self.projProc.info['centery']
             circle = plt.Circle((centerx, centery), 10, color='g')
             ax.add_patch(circle)
 

@@ -58,6 +58,7 @@ class ProjectionProcessor():
         self.rotated = False
         self.version = musclex.__version__
         cache = self.loadCache()
+        self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:
             # info dictionary will save all results
             self.info = {
@@ -194,11 +195,17 @@ class ProjectionProcessor():
         else:
             self.rotated = False
 
-        if 'center' not in settings:
+        self.info.update(settings)
+
+        if 'centerx' in self.info and 'centery' in self.info:
+            if self.rotMat is not None:
+                center = (self.info['centerx'], self.info['centery'])
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                self.info['centerx'], self.info['centery'] = center[0], center[1]
+                self.info['orig_center'] = (center[0], center[1])
+        else:
             self.info['centerx'] = self.orig_img.shape[0] / 2 - 0.5
             self.info['centery'] = self.orig_img.shape[1] / 2 - 0.5
-
-        self.info.update(settings)
 
     def getHistograms(self):
         """
@@ -543,7 +550,7 @@ class ProjectionProcessor():
             else:
                 self.info["orig_center"] = center
             
-            rotImg, (self.info["centerx"], self.info["centery"])  = rotateImage(img, center, angle, self.img_type)
+            rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle, self.img_type)
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
 
         return self.rotated_img[3]

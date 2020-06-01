@@ -489,7 +489,7 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
     :return: rotated image
     """
     if angle == 0:
-        return img, center
+        return img, center, None
 
     M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
     size = max(img.shape[0], img.shape[1])
@@ -520,13 +520,12 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
             mask_thres = getMaskThreshold(img, img_type)
         mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
         mask[img <= mask_thres] = 255
-        rotated_img, center = rotateNonSquareImage(img, angle, center)
-        rotated_mask, _ = rotateNonSquareImage(mask, angle, center)
+        rotated_img, center, rotMat = rotateNonSquareImage(img, angle, center)
+        rotated_mask, _, _ = rotateNonSquareImage(mask, angle, center)
         rotated_mask[rotated_mask > 0.] = 255
         rotated_img[rotated_mask > 0] = mask_thres
-        return rotated_img, center
+        return rotated_img, center, rotMat
     else:
-        print("Rotating normal image")
         return rotateNonSquareImage(img, angle, center)
 
 def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
@@ -634,7 +633,7 @@ def averageImages(file_list, rotate=False):
             print("Rotating and centering {}".format(f))
             center = getCenter(img)
             angle = getRotationAngle(img, center, method=0)
-            img, center = rotateImage(img, center, angle, img_type, mask_thres = -999)
+            img, center, _ = rotateImage(img, center, angle, img_type, mask_thres = -999)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
@@ -673,7 +672,6 @@ def rotateNonSquareImage(img, angle, center1):
     :param file_list: original non square image, angle of rotation and center
     :return: rotated image and center with respect to new coordinate system
     """
-    print("initial center is " + str(center1))
     height, width = img.shape
     center = (width/2, height/2)
 
@@ -697,8 +695,6 @@ def rotateNonSquareImage(img, angle, center1):
     center1 = np.dot(rotation_mat, center1)
     center2 = (int(center1[0]), int(center1[1]))
     
-    print("New center after rotation is " + str(center2))
-    
     # rotate image with the new bounds and translated rotation matrix
     rotated_img = cv2.warpAffine(img, rotation_mat, (maxB, maxB))
-    return rotated_img, center2
+    return rotated_img, center2, rotation_mat

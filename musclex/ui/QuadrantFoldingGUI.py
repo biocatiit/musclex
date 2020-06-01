@@ -737,6 +737,23 @@ class QuadrantFoldingGUI(QMainWindow):
             result = self.calSettingsDialog.exec_()
             if result == 1:
                 self.calSettings = self.calSettingsDialog.getValues()
+
+                if self.calSettings is not None:
+                    if self.calSettingsDialog.fixedCenter.isChecked():
+                        self.quadFold.info['calib_center'] = self.calSettings['center']
+                        self.setCenterRotationButton.setEnabled(False)
+                        self.setCenterRotationButton.setToolTip(
+                            "Please uncheck fixed center in caliberation settings first")
+                        if 'manual_center' in self.quadFold.info:
+                            del self.quadFold.info['manual_center']
+                        if 'center' in self.quadFold.info:
+                            del self.quadFold.info['center']
+                    else:
+                        self.setCenterRotationButton.setEnabled(True)
+                        self.setCenterRotationButton.setToolTip("")
+                        if 'calib_center' in self.quadFold.info:
+                            del self.quadFold.info['calib_center']
+
                 return True
         return False
 
@@ -904,7 +921,9 @@ class QuadrantFoldingGUI(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.quadFold.info['manual_center'] = (cx, cy)
-                    self.quadFold.info['rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
+                    if 'center' in self.quadFold.info:
+                        del self.quadFold.info['center']
+                    self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                     self.deleteInfo(['avg_fold'])
                     self.setCenterRotationButton.setChecked(False)
                     self.processImage()
@@ -928,7 +947,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
-                self.quadFold.info['rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
+                self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                 self.deleteInfo(['avg_fold'])
                 self.setRotationButton.setChecked(False)
                 self.processImage()
@@ -1659,6 +1678,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         self.quadFold = QuadrantFolder(self.filePath, fileName)
+        self.markFixedInfo(self.quadFold.info, previnfo)
         original_image = self.quadFold.orig_img
         self.imgDetailOnStatusBar.setText(
             str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
@@ -1669,6 +1689,19 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def closeEvent(self, ev):
         self.close()
+
+    def markFixedInfo(self, currentInfo, prevInfo):
+        # Deleting the center for appropriate recalculation
+        if 'center' in currentInfo:
+            del currentInfo['center']
+
+        if self.calSettingsDialog.fixedCenter.isChecked():
+            currentInfo['calib_center'] = prevInfo['calib_center']
+            if 'manual_center' in currentInfo:
+                del currentInfo['manual_center']
+        else:
+            if 'calib_center' in currentInfo:
+                del currentInfo['calib_center']
 
     def refreshAllTabs(self):
         """
@@ -1922,20 +1955,6 @@ class QuadrantFoldingGUI(QMainWindow):
         :return: flags (dict)
         """
         flags = {}
-
-        if self.calSettings is not None:
-            if self.calSettingsDialog.fixedCenter.isChecked():
-                self.quadFold.info['calib_center'] = self.calSettings['center']
-                self.setCenterRotationButton.setEnabled(False)
-                self.setCenterRotationButton.setToolTip(
-                    "Please uncheck fixed center in caliberation settings first")
-                if 'manual_center' in self.quadFold.info:
-                    del self.quadFold.info['manual_center']
-            else:
-                self.setCenterRotationButton.setEnabled(True)
-                self.setCenterRotationButton.setToolTip("")
-                if 'calib_center' in self.quadFold.info:
-                    del self.quadFold.info['calib_center']
 
 
         flags['orientation_model'] = self.orientationModel

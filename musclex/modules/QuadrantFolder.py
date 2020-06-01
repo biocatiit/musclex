@@ -72,6 +72,8 @@ class QuadrantFolder(object):
         self.initImg = None
         self.centImgTransMat = None # Centerize image transformation matrix
         self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
+        self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
+        self.centerChanged = False
 
         # info dictionary will save all results
         if cache is not None:
@@ -168,10 +170,22 @@ class QuadrantFolder(object):
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
+        if 'center' in self.info:
+            self.centerChanged = False
+            return
+        self.centerChanged = True
         if 'calib_center' in self.info:
+            center = self.info['calib_center']
+            if self.rotMat is not None:
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                self.info['calib_center'] = center
             self.info['center'] = self.info['calib_center']
             return
         if 'manual_center' in self.info:
+            center = self.info['manual_center']
+            if self.rotMat is not None:
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                self.info['manual_center'] = center
             self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
@@ -185,19 +199,22 @@ class QuadrantFolder(object):
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
         Once the rotation angle is calculated, the average fold will be re-calculated, so self.info["avg_fold"] is deleted
         """
-        if not self.empty and 'rotationAngle' not in self.info.keys():
+        if 'manual_rotationAngle' in self.info:
+            self.info['rotationAngle'] = self.info['manual_rotationAngle']
+        elif not self.empty and 'rotationAngle' not in self.info.keys():
             print("Rotation Angle is being calculated ... ")
             center = self.info['center']
             img = copy.copy(self.orig_img)
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
-            self.deleteFromDict(self.info, 'avg_fold')
-            print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
+        self.deleteFromDict(self.info, 'avg_fold')
+        print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
             
     def centerizeImage(self):
         """
         Create an enlarged image such that image center is at the center of new image
         """
-
+        if not self.centerChanged:
+            return
         center = self.info['center']
         if self.centImgTransMat is not None:
             # convert center in initial img coordinate system
@@ -265,7 +282,7 @@ class QuadrantFolder(object):
         else:
             self.center_before_rotation = center
         
-        rotImg, self.info["center"] = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
+        rotImg, self.info["center"], self.rotMat = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
         
         return rotImg
 
@@ -801,7 +818,7 @@ class QuadrantFolder(object):
                     img = img - blank
                 if mask is not None:
                     img[mask>0] = self.info['mask_thres'] - 1.
-                rotatedImage, newCenter = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
+                rotatedImage, newCenter, self.rotMat = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
                 rotate_img = rotatedImage
                 self.info['center'] = newCenter
             else:
