@@ -753,6 +753,8 @@ class QuadrantFoldingGUI(QMainWindow):
                         self.setCenterRotationButton.setToolTip("")
                         if 'calib_center' in self.quadFold.info:
                             del self.quadFold.info['calib_center']
+                        if 'center' in self.quadFold.info:
+                            del self.quadFold.info['center']
 
                 return True
         return False
