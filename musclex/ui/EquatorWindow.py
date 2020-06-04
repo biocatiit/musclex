@@ -2013,6 +2013,7 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
+        prevInfo = self.bioImg.info if self.bioImg is not None else None
         self.bioImg = EquatorImage(self.dir_path, fileName)
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
@@ -2027,8 +2028,67 @@ class EquatorWindow(QMainWindow):
         self.img_zoom = None
         self.refreshStatusbar()
 
+        if self.fixedParamChanged(prevInfo):
+            print("Refitting next image")
+            self.refreshAllFittingParams()
+
         # Process new image
         self.processImage()
+
+    def fixedParamChanged(self, prevInfo):
+        '''
+        Checks whether any of the fixed paramters have been changed
+        :param prevInfo: info dict of previous image
+        :return: bool True if any fixed param is changed else false
+        '''
+        if prevInfo is None:
+            return False
+
+        currentInfo = self.bioImg.info
+
+        # Check fixed rmin
+        if self.fixedRminChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rmin'):
+            self.bioImg.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
+            return True
+
+        # Check fixed Angle
+        if self.fixedAngleChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rotationAngle'):
+            self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
+            return True
+
+        #Check Background k
+        if self.k_chkbx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'fix_k'):
+            return True
+
+        # Check left and right fitting params
+        for side in ['left', 'right']:
+            fitting_tab = self.left_fitting_tab if side == 'left' else self.right_fitting_tab
+
+            if fitting_tab.fixSigmaD.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_sigmad'):
+                return True
+
+            if fitting_tab.fixSigmaS.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_sigmas'):
+                return True
+
+            if fitting_tab.fixGamma.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_gamma'):
+                return True
+
+            if fitting_tab.parent.skeletalChkBx.isChecked():
+                if fitting_tab.fixedIntZ.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_intz'):
+                    return True
+                if fitting_tab.fixedSigZ.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_sigz'):
+                    return True
+                if fitting_tab.fixedZline.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_zline'):
+                    return True
+                if fitting_tab.fixedGammaZ.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_gammaz'):
+                    return True
+
+        return False
+
+    def paramChanged(self, prevInfo, currentInfo, param):
+        if param not in prevInfo or param not in currentInfo or prevInfo[param] != currentInfo[param]:
+            return True
+        return False
 
     def processImage(self):
         """

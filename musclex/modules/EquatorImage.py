@@ -158,14 +158,16 @@ class EquatorImage:
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
         Once the rotation angle is calculated, the rmin will be re-calculated, so self.info["rmin"] is deleted
         """
+        if "fixed_angle" in self.info:
+            self.info['rotationAngle'] = self.info["fixed_angle"]
+            print("RotationAngle is fixed as " + str(self.info['fixed_angle']))
+            return
+
         print("Rotation Angle is being calculated...")
         if 'rotationAngle' not in self.info:
-            if "fixed_angle" in self.info:
-                self.info['rotationAngle'] = self.info["fixed_angle"]
-            else:
-                center = self.info['center']
-                img = copy.copy(self.image)
-                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
+            center = self.info['center']
+            img = copy.copy(self.image)
+            self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
         if "mode_angle" in self.info:
