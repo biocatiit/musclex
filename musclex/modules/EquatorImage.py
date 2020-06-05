@@ -695,6 +695,30 @@ class EquatorImage:
             else:
                 params.add(p, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
 
+        # When using previous fit to update
+
+        S = self.info['S']
+
+        left_hull = self.info['hulls']['left']
+        right_hull = self.info['hulls']['right']
+
+        left_widths = self.getPeakWidths('left')
+        right_widths = self.getPeakWidths('right')
+
+        right_height = [right_hull[right_peaks[i]] for i in range(len(S))]
+        left_height = [left_hull[left_peaks[i]] for i in range(len(S))]
+
+        # init areas
+        left_areas = [left_height[i] * left_widths[i] * np.sqrt(2 * np.pi) for i in range(len(left_peaks))]
+        right_areas = [right_height[i] * right_widths[i] * np.sqrt(2 * np.pi) for i in range(len(right_peaks))]
+
+        for i in range(len(left_areas)):
+            if "left_area" + str(i + 1) not in paramInfo:
+                params.add("left_area" + str(i + 1), max(left_areas[i], 100), min=0)
+        for i in range(len(right_areas)):
+            if "right_area" + str(i + 1) not in paramInfo:
+                params.add("right_area" + str(i + 1), max(right_areas[i], 100), min=0)
+
 
         int_vars['x'] = x
 

@@ -379,6 +379,7 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.setRange(0, 99999999)
         self.k_spnbx.setEnabled(False)
         self.k_layout = QHBoxLayout()
+        self.use_previous_fit_chkbx = QCheckBox("Use Previous Fit")
         self.k_layout.addWidget(self.k_chkbx)
         self.k_layout.addWidget(self.k_spnbx)
 
@@ -414,6 +415,7 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
+        self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
         self.fittingOptionsLayout2.addWidget(self.refitAllButton)
         self.fittingOptionsLayout2.addStretch()
@@ -684,6 +686,12 @@ class EquatorWindow(QMainWindow):
         :return:
         """
         self.refreshAllFittingParams()
+        if self.use_previous_fit_chkbx.isChecked() and self.bioImg is not None:
+            self.bioImg.updateInfo(self.getSettings())
+            self.bioImg.getPeaks()
+            self.bioImg.managePeaks()
+            self.bioImg.processParameters(self.bioImg.info['paramInfo'])
+            return
         self.processImage()
         
     def refitAllBtnToggled(self):
