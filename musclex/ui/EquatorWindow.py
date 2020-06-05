@@ -687,10 +687,8 @@ class EquatorWindow(QMainWindow):
         """
         self.refreshAllFittingParams()
         if self.use_previous_fit_chkbx.isChecked() and self.bioImg is not None:
-            self.bioImg.updateInfo(self.getSettings())
-            self.bioImg.getPeaks()
-            self.bioImg.managePeaks()
-            self.bioImg.processParameters(self.bioImg.info['paramInfo'])
+            print("Using previous fit")
+            self.processImage(self.bioImg.info['paramInfo'])
             return
         self.processImage()
         
@@ -2040,6 +2038,10 @@ class EquatorWindow(QMainWindow):
             print("Refitting next image")
             self.refreshAllFittingParams()
 
+        if self.use_previous_fit_chkbx.isChecked():
+            print("Using previous fit")
+            self.processImage(self.bioImg.info['paramInfo'])
+
         # Process new image
         self.processImage()
 
@@ -2066,6 +2068,10 @@ class EquatorWindow(QMainWindow):
 
         #Check Background k
         if self.k_chkbx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'fix_k'):
+            return True
+
+        # Check if number of peaks has changed
+        if self.paramChanged(prevInfo, currentInfo, 'nPeaks'):
             return True
 
         # Check left and right fitting params
@@ -2098,7 +2104,7 @@ class EquatorWindow(QMainWindow):
             return True
         return False
 
-    def processImage(self):
+    def processImage(self, paramInfo=None):
         """
         Process Image by getting all settings and call process() of EquatorImage object
         Then, write data and update UI
@@ -2111,7 +2117,7 @@ class EquatorWindow(QMainWindow):
         print("Settings in processImage:")
         print(settings)
         try:
-            self.bioImg.process(settings)
+            self.bioImg.process(settings, paramInfo)
         except Exception as e:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()

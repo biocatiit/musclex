@@ -71,7 +71,7 @@ class EquatorImage:
         else:
             self.info = cache
 
-    def process(self, settings):
+    def process(self, settings, paramInfo):
         """
         All processing steps - all settings are provided by bio-muscle app as a dictionary
         settings must have ...
@@ -90,7 +90,10 @@ class EquatorImage:
         self.applyConvexhull()
         self.getPeaks()
         self.managePeaks()
-        self.fitModel()
+        if paramInfo is not None:
+            self.processParameters(paramInfo)
+        else:
+            self.fitModel()
         if "no_cache" not in settings:
             self.saveCache()
 
