@@ -261,7 +261,7 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx.setFixedWidth(100)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Process Current Folder")
+        self.processFolderButton = QPushButton("Full Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
         self.bottomLayout = QGridLayout()
@@ -388,7 +388,7 @@ class EquatorWindow(QMainWindow):
         self.refitAllButton.setCheckable(True)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton2 = QPushButton("Process Current Folder")
+        self.processFolderButton2 = QPushButton("Full Process Current Folder")
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
         self.bottomLayout2 = QGridLayout()
@@ -1278,7 +1278,6 @@ class EquatorWindow(QMainWindow):
                     break
                 self.progressBar.setValue(i)
                 QApplication.processEvents()
-                self.processImage()
                 self.nextClicked()
             self.in_batch_process = False
 
@@ -2016,6 +2015,10 @@ class EquatorWindow(QMainWindow):
         This will create a new EquatorImage object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
+        if self.fixedFittingParamChanged(self.getSettings()):
+            print("Refitting current image first")
+            self.refitting()
+
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
@@ -2066,7 +2069,21 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
             return True
 
-        #Check Background k
+        return self.fixedFittingParamChanged(prevInfo)
+
+    def fixedFittingParamChanged(self, prevInfo):
+        '''
+        Check left and right fitting params
+        :param prevInfo:
+        :return:
+        '''
+
+        if prevInfo is None or self.bioImg is None:
+            return False
+
+        currentInfo = self.bioImg.info
+
+        # Check Background k
         if self.k_chkbx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'fix_k'):
             return True
 
@@ -2074,7 +2091,10 @@ class EquatorWindow(QMainWindow):
         if self.paramChanged(prevInfo, currentInfo, 'nPeaks'):
             return True
 
-        # Check left and right fitting params
+        #Check if skeletal z line is checked
+        if self.paramChanged(prevInfo, currentInfo, 'isSkeletal'):
+            return True
+
         for side in ['left', 'right']:
             fitting_tab = self.left_fitting_tab if side == 'left' else self.right_fitting_tab
 
@@ -2094,12 +2114,22 @@ class EquatorWindow(QMainWindow):
                     return True
                 if fitting_tab.fixedZline.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_zline'):
                     return True
-                if fitting_tab.fixedGammaZ.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_gammaz'):
+                if fitting_tab.fixedGammaZ.isChecked() and self.paramChanged(prevInfo, currentInfo,
+                                                                             side + '_fix_gammaz'):
                     return True
-
         return False
 
     def paramChanged(self, prevInfo, currentInfo, param):
+        '''
+        Check is the parameter is changed in current vs previous image
+        :param prevInfo: info of prev image
+        :param currentInfo: info of current image
+        :param param: parameter to be checked
+        :return:
+        '''
+        if param not in currentInfo and param not in prevInfo:
+            #Paramter not fixed
+            return False
         if param not in prevInfo or param not in currentInfo or prevInfo[param] != currentInfo[param]:
             return True
         return False
