@@ -55,6 +55,8 @@ class EQ_FittingTab(QWidget):
 
         self.fitSettingsGrp = QGroupBox("Settings")
         self.fitSettingLayout = QGridLayout(self.fitSettingsGrp)
+        self.fixSigmaC = QCheckBox("Sigma C :")
+        self.fixSigmaC.setChecked(True)
         self.sigmaCSpinBx = QDoubleSpinBox()
         self.sigmaCSpinBx.setMinimum(-100)
         self.sigmaCSpinBx.setDecimals(6)
@@ -95,7 +97,7 @@ class EQ_FittingTab(QWidget):
         self.gammaSpinBx.setObjectName('gammaSpinBx')
         self.editableVars[self.gammaSpinBx.objectName()] = None
 
-        self.fitSettingLayout.addWidget(QLabel("Sigma C :"), 0, 0, 1, 1)
+        self.fitSettingLayout.addWidget(self.fixSigmaC, 0, 0, 1, 1)
         self.fitSettingLayout.addWidget(self.sigmaCSpinBx, 0, 1, 1, 1)
         self.fitSettingLayout.addWidget(self.fixSigmaD, 1, 0, 1, 1)
         self.fitSettingLayout.addWidget(self.sigmaDSpinBx, 1, 1, 1, 1)
@@ -166,6 +168,7 @@ class EQ_FittingTab(QWidget):
         self.sigmaCSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaC', self.sigmaCSpinBx))
         self.sigmaDSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaD', self.sigmaDSpinBx))
         self.sigmaSSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaS', self.sigmaSSpinBx))
+        self.fixSigmaC.stateChanged.connect(self.fixSigmaCChecked)
         self.fixSigmaD.stateChanged.connect(self.fixedParamChecked)
         self.fixSigmaS.stateChanged.connect(self.fixedParamChecked)
         self.fixGamma.stateChanged.connect(self.fixedParamChecked)
@@ -184,6 +187,7 @@ class EQ_FittingTab(QWidget):
     def syncSpinBoxes(self, info):
         self.syncUI = True
         side = self.side
+        self.fixSigmaC.setChecked(side + '_fix_sigmac' in info)
         self.fixSigmaD.setChecked(side+'_fix_sigmad' in info)
         self.fixSigmaS.setChecked(side+'_fix_sigmas' in info)
         self.sigmaDSpinBx.setEnabled(side+'_fix_sigmad' in info)
@@ -227,6 +231,11 @@ class EQ_FittingTab(QWidget):
             self.fixedGammaZ.setHidden(fit_result['model'] != 'Voigt')
             self.gammaZSpnBx.setHidden(fit_result['model'] != 'Voigt')
 
+        if side+'_fix_sigmac' in info:
+            self.fixSigmaC.setChecked(True)
+            self.sigmaCSpinBx.setEnabled(True)
+            self.sigmaCSpinBx.setValue(info[side + '_fix_sigmac'])
+
         if side+'_fix_sigmad' in info:
             self.fixSigmaD.setChecked(True)
             self.sigmaDSpinBx.setEnabled(True)
@@ -263,6 +272,16 @@ class EQ_FittingTab(QWidget):
             self.sigZSpnBx.setValue(info[side+'_fix_sigz'])
 
         self.syncUI = False
+
+    def fixSigmaCChecked(self):
+        side = self.side
+        parent = self.parent
+        if self.fixSigmaC.isChecked():
+            if side+'_sigmac' in parent.bioImg.info:
+                del parent.bioImg.info[side+'_sigmac']
+        else:
+            if side+'_fix_sigmac' in parent.bioImg.info:
+                del parent.bioImg.info[side+'_fix_sigmac']
 
     def fixedParamChecked(self):
         """
@@ -320,9 +339,13 @@ class EQ_FittingTab(QWidget):
         """
         settings = {}
         side = self.side
-        settings[side+'_sigmac'] = self.sigmaCSpinBx.value()
 
         # get all locked parameters
+        if self.fixSigmaC.isChecked():
+            settings[side+'_fix_sigmac'] = self.sigmaCSpinBx.value()
+        else:
+            settings[side + '_sigmac'] = self.sigmaCSpinBx.value()
+
         if self.fixSigmaD.isChecked():
             settings[side+'_fix_sigmad'] = self.sigmaDSpinBx.value()
 

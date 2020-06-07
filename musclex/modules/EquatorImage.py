@@ -521,11 +521,14 @@ class EquatorImage:
             for i in range(len(right_areas)):
                 params.add("right_area" + str(i + 1), max(right_areas[i],100), min=0)
 
+            left_sigmac = self.info['left_fix_sigmac'] if 'left_fix_sigmac' in self.info else self.info['left_sigmac']
+            right_sigmac = self.info['right_fix_sigmac'] if 'right_fix_sigmac' in self.info else self.info['right_sigmac']
+
             # Add independent variables to int_vars
             int_vars = {
                 'x': x,
-                'left_sigmac': self.info['left_sigmac'],
-                'right_sigmac': self.info['right_sigmac'],
+                'left_sigmac': left_sigmac,
+                'right_sigmac': right_sigmac,
                 'model': self.info["model"],
                 'isSkeletal': self.info['isSkeletal'],
                 # 'gamma': 1.0
@@ -548,7 +551,7 @@ class EquatorImage:
                 if side+'_fix_gamma' in self.info.keys():
                     int_vars[side+'_gamma'] = self.info[side+'_fix_gamma']
                 else:
-                    init_gamma = np.sqrt(self.info['left_sigmac'] ** 2 + (sigmaD * theta(1)) ** 2 + (sigmaS * (theta(1) ** 2)) ** 2)
+                    init_gamma = np.sqrt(left_sigmac ** 2 + (sigmaD * theta(1)) ** 2 + (sigmaS * (theta(1) ** 2)) ** 2)
                     params.add(side+'_gamma', init_gamma, min=0, max=init_gamma * 5.0 + 1.)
 
                 if self.info['isSkeletal']:

@@ -725,7 +725,10 @@ class EquatorWindow(QMainWindow):
         text += "\n  - Model : " + str(settings["model"])
 
         for side in ['left', 'right']:
-            text += "\n  - "+side+" Sigma C : " + str(settings[side+'_sigmac'])
+            if side+'_fix_sigmac' in settings.keys():
+                text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
+            else:
+                text += "\n  - " + side + " Sigma C : " + str(settings[side + '_sigmac'])
             if side+'_fix_sigmad' in settings.keys():
                 text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
             if side+'_fix_sigmas' in settings.keys():
@@ -1227,7 +1230,10 @@ class EquatorWindow(QMainWindow):
         text += "\n  - Model : " + str(settings["model"])
 
         for side in ['left', 'right']:
-            text += "\n  - "+side+" Sigma C : " + str(settings[side+'_sigmac'])
+            if side+'_fix_sigmac' in settings.keys():
+                text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
+            else:
+                text += "\n  - " + side + " Sigma C : " + str(settings[side + '_sigmac'])
             if side+'_fix_sigmad' in settings.keys():
                 text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
             if side+'_fix_sigmas' in settings.keys():
@@ -2097,6 +2103,9 @@ class EquatorWindow(QMainWindow):
 
         for side in ['left', 'right']:
             fitting_tab = self.left_fitting_tab if side == 'left' else self.right_fitting_tab
+
+            if fitting_tab.fixSigmaC.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_sigmac'):
+                return True
 
             if fitting_tab.fixSigmaD.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_sigmad'):
                 return True
