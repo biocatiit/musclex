@@ -272,6 +272,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
         self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
+        self.resPersistMaxIntensity = QCheckBox("Persist Max intensity")
 
         self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 1)
@@ -281,6 +282,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultDispOptLayout.addWidget(self.resultZoomInB, 3, 0, 1, 1)
         self.resultDispOptLayout.addWidget(self.resultZoomOutB, 3, 1, 1, 1)
         self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 4, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resPersistMaxIntensity, 5, 0, 1, 2)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -1656,7 +1658,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setRange(min_val, max_val)
 
         self.spResultmaxInt.setRange(min_val + 1, max_val)
-        self.spResultmaxInt.setValue(max_val * .1)
+        if not self.resPersistMaxIntensity.isChecked():
+            self.spResultmaxInt.setValue(max_val * .1)
         self.spResultmaxInt.setSingleStep(max_val * .05)
         self.spResultminInt.setRange(min_val, max_val - 1)
         self.spResultminInt.setValue(min_val)
