@@ -50,7 +50,7 @@ class QuadrantFolder(object):
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img_path, img_name):
+    def __init__(self, img_path, img_name, parent):
         """
         Initial value for QuadrantFolder object
         :param img_path: directory path of input image
@@ -74,6 +74,7 @@ class QuadrantFolder(object):
         self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
+        self.parent = parent
 
         # info dictionary will save all results
         if cache is not None:
@@ -143,6 +144,8 @@ class QuadrantFolder(object):
         if "no_cache" not in flags:
             self.cacheInfo()
 
+        self.parent.statusPrint("")
+
     def updateInfo(self, flags):
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
@@ -170,6 +173,7 @@ class QuadrantFolder(object):
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
+        self.parent.statusPrint("Finding Center...")
         if 'center' in self.info:
             self.centerChanged = False
             return
@@ -199,6 +203,7 @@ class QuadrantFolder(object):
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
         Once the rotation angle is calculated, the average fold will be re-calculated, so self.info["avg_fold"] is deleted
         """
+        self.parent.statusPrint("Finding Rotation Angle...")
         if 'manual_rotationAngle' in self.info:
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
         elif not self.empty and 'rotationAngle' not in self.info.keys():
@@ -213,6 +218,7 @@ class QuadrantFolder(object):
         """
         Create an enlarged image such that image center is at the center of new image
         """
+        self.parent.statusPrint("Centererizing image...")
         if not self.centerChanged:
             return
         center = self.info['center']
@@ -689,6 +695,7 @@ class QuadrantFolder(object):
         """
         get R-min and R-max for backgroun subtraction process. If these value is changed, background subtracted images need to be reproduced.
         """
+        self.parent.statusPrint("Finding Rmin and Rmax...")
         print("R-min and R-max is being calculated.")
 
         if 'fixed_rmin' in self.info and 'fixed_rmax' in self.info:
@@ -806,6 +813,7 @@ class QuadrantFolder(object):
         """
         Calculate an average fold for 1-4 quadrants. Quadrants are splitted by center and rotation
         """
+        self.parent.statusPrint("Calculating Avg Fold...")
         if 'avg_fold' not in self.info.keys():
             self.deleteFromDict(self.info, 'rmin')
             self.deleteFromDict(self.info, 'rmax')
@@ -885,6 +893,7 @@ class QuadrantFolder(object):
         - bgimg1 : image after applying background subtraction INSIDE merge radius
         - bgimg2 : image after applying background subtraction OUTSIDE merge radius
         """
+        self.parent.statusPrint("Applying Background Subtraction...")
         print("Background Subtraction is being processed...")
         method = self.info["bgsub"]
 
@@ -927,6 +936,7 @@ class QuadrantFolder(object):
         The result of merging will be kept in self.info["BgSubFold"]
         :return:
         """
+        self.parent.statusPrint("Merging Images...")
         print("Merging images...")
 
         if "BgSubFold" not in self.imgCache:
@@ -951,6 +961,7 @@ class QuadrantFolder(object):
         Put 4 self.info["BgSubFold"] together as a result image
         :return:
         """
+        self.parent.statusPrint("Generating Resultant Image...")
         print("Generating result image from avarage fold...")
         result = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
         if 'rotate' in self.info and self.info['rotate']:

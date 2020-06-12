@@ -514,6 +514,7 @@ class EquatorWindow(QMainWindow):
         #
         self.statusBar = QStatusBar()
         self.left_status = QLabel()
+        self.statusReport = QLabel()
         self.right_status = QLabel()
         self.pixel_detail = QLabel()
         self.progressBar = QProgressBar()
@@ -521,6 +522,7 @@ class EquatorWindow(QMainWindow):
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
         self.statusBar.addWidget(self.left_status)
+        self.statusBar.addPermanentWidget(self.statusReport)
         self.statusBar.addPermanentWidget(self.pixel_detail)
         self.statusBar.addPermanentWidget(self.right_status)
         self.statusBar.addPermanentWidget(self.progressBar)
@@ -1389,7 +1391,7 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        self.bioImg = EquatorImage(self.dir_path, fileName)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self)
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
@@ -1614,7 +1616,7 @@ class EquatorWindow(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            bioImg = EquatorImage(self.dir_path, f)
+            bioImg = EquatorImage(self.dir_path, f, self)
             print("Getting angle {}".format(f))
 
             if 'rotationAngle' not in bioImg.info:
@@ -2029,7 +2031,7 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         prevInfo = self.bioImg.info if self.bioImg is not None else None
-        self.bioImg = EquatorImage(self.dir_path, fileName)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self)
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
@@ -2857,6 +2859,10 @@ class EquatorWindow(QMainWindow):
         self.right_fitting_tab.init_logging()
         self.calibSettingDialog.init_logging()
         #print(self.editableVars)
+
+    def statusPrint(self, text):
+        self.statusReport.setText(text)
+        QApplication.processEvents()
 
     def write_log(self, msg):
         if self.logger is None:

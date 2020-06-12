@@ -45,7 +45,7 @@ class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, filename):
+    def __init__(self, dir_path, filename, parent):
         """
         Initial value for EquatorImage object
         :param dir_path: directory path of input image
@@ -70,6 +70,7 @@ class EquatorImage:
             }
         else:
             self.info = cache
+        self.parent = parent
 
     def process(self, settings, paramInfo):
         """
@@ -96,6 +97,7 @@ class EquatorImage:
             self.fitModel()
         if "no_cache" not in settings:
             self.saveCache()
+        self.parent.statusPrint("")
 
     def removeInfo(self, k=None):
         """
@@ -144,6 +146,7 @@ class EquatorImage:
        Find center of the diffraction. The center will be kept in self.info["center"].
        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
        """
+        self.parent.statusPrint("Finding Center...")
         print("Center is being calculated...")
         if 'center' not in self.info:
             self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info['mask_thres'])
@@ -161,6 +164,7 @@ class EquatorImage:
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
         Once the rotation angle is calculated, the rmin will be re-calculated, so self.info["rmin"] is deleted
         """
+        self.parent.statusPrint("Finding Rotation Angle...")
         if "fixed_angle" in self.info:
             self.info['rotationAngle'] = self.info["fixed_angle"]
             print("RotationAngle is fixed as " + str(self.info['fixed_angle']))
@@ -184,6 +188,7 @@ class EquatorImage:
         Calculate R-min of the diffraction. The R-min will be kept in self.info["rmin"]
         Once the R-min is calculated, the integrated area (Box Width) will be re-calculated, so self.info["int_area"] is deleted
         """
+        self.parent.statusPrint("Calculating Rmin...")
         if 'fixed_rmin' in self.info:
             self.info['rmin'] = self.info['fixed_rmin']
             print("R-min is fixed as " + str(self.info['rmin']))
@@ -252,6 +257,7 @@ class EquatorImage:
         The Integrated Area will be kept in self.info["int_area"]
         Once the Integrated Area is calculated, the histograms will be re-calculated, so self.info["hist"] is deleted
         """
+        self.parent.statusPrint("Calculating Integrated Area...")
         print("Integrated Area is being calculated...")
         if 'int_area' not in self.info:
             center = self.info['center']
@@ -300,6 +306,7 @@ class EquatorImage:
         Getting original histogram of the diffraction in the integrated area. Histogram will be kept in self.info["hist"]
         Once getting histogram is done, the background subtracted histogram will be re-calculated, so self.info["hulls"] is deleted
         """
+        self.parent.statusPrint("Getting Histogram...")
         print("Getting Histogram...")
         if 'hist' not in self.info:
             int_area = self.info['int_area']
@@ -315,6 +322,7 @@ class EquatorImage:
        This will provide left, right, and both separated by centerX
        Once getting background subtracted histogram is done, the temp peaks will be re-calculated, so self.info["tmp_peaks"] is deleted
        """
+        self.parent.statusPrint("Applying Convex Hull...")
         print("Applying Convexhull...")
         if 'hulls' not in self.info:
             center = self.info['center']
@@ -360,6 +368,7 @@ class EquatorImage:
         Temp peaks will be kept in self.info["tmp_peaks"].
         Once getting Temp peaks is done, the real peaks will be re-calculated, so self.info["peaks"] is deleted
         """
+        self.parent.statusPrint("Finding Peaks...")
         print("Finding Peaks...")
         if 'tmp_peaks' not in self.info:
             left_peaks = getPeaksFromHist(self.info['hulls']['left'])
@@ -376,6 +385,7 @@ class EquatorImage:
         Real peaks will be kept in self.info["peaks"].
         Once getting real peaks is done, the fitting results will be re-calculated, so self.info["fit_results"] is deleted
         """
+        self.parent.statusPrint("Selecting Peaks...")
         print("Model Peaks are being selected...")
         if 'peaks' not in self.info:
             left_peaks = movePeaks(self.info['hulls']['left'], sorted(self.info['tmp_peaks']['left']), 5)
@@ -473,6 +483,7 @@ class EquatorImage:
         Fit model to background subtracted histogram by using S10, peak location as initial guess
         Fit results will be kept in self.info["fit_results"].
         """
+        self.parent.statusPrint("Fitting Model...")
         if 'peaks' not in self.info:
             # model cannot be fitted if peaks are not found
             return
@@ -684,6 +695,7 @@ class EquatorImage:
         :param paramInfo: information from parameter editor as dictionary
         :return:
         '''
+        self.parent.statusPrint("Fitting Model...")
         left_peaks = self.info['peaks']['left']
         right_peaks = self.info['peaks']['right']
 

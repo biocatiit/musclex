@@ -556,10 +556,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
+        self.statusReport = QLabel()
         self.imgDetailOnStatusBar = QLabel()
         self.imgCoordOnStatusBar = QLabel()
         self.imgPathOnStatusBar = QLabel()
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
+        self.statusBar.addPermanentWidget(self.statusReport)
         self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
         self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
         self.statusBar.addPermanentWidget(self.progressBar)
@@ -1682,7 +1684,7 @@ class QuadrantFoldingGUI(QMainWindow):
         fileName = self.imgList[self.currentFileNumber]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        self.quadFold = QuadrantFolder(self.filePath, fileName)
+        self.quadFold = QuadrantFolder(self.filePath, fileName, self)
         self.markFixedInfo(self.quadFold.info, previnfo)
         original_image = self.quadFold.orig_img
         self.imgDetailOnStatusBar.setText(
@@ -2139,6 +2141,10 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.numberOfFiles > 0:
             self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
             self.onImageChanged()
+
+    def statusPrint(self, text):
+        self.statusReport.setText(text)
+        QApplication.processEvents()
 
     def fileNameChanged(self):
         selected_tab = self.tabWidget.currentIndex()
