@@ -467,10 +467,12 @@ class EquatorWindow(QMainWindow):
         # self.parameterEditorTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # self.resultLayout.addWidget(self.generalResultTable)
         self.refitParamsBtn = QPushButton("Re-fit Parameters")
-        self.addSPeakBtn = QPushButton("Add 'S' parameter for peak")
+        self.addSPeakBtn = QPushButton("Add 'S' peak parameter")
+        self.enableExtraGaussBtn = QPushButton("Enable Extra Gaussian")
         self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor (lmfit values)</h2>"), 1, 0, 1, 2)
         self.paramEditorTitleboxLayout.addWidget(self.refitParamsBtn, 1, 2, 1, 1)
         self.paramEditorTitleboxLayout.addWidget(self.addSPeakBtn, 1, 3, 1, 1)
+        self.paramEditorTitleboxLayout.addWidget(self.enableExtraGaussBtn, 1, 4, 1, 1)
         self.paramEditorTitlebox.setLayout(self.paramEditorTitleboxLayout)
         self.parameterEditorLayout.addWidget(self.paramEditorTitlebox)
         self.parameterEditorLayout.addWidget(self.parameterEditorTable)
@@ -672,6 +674,7 @@ class EquatorWindow(QMainWindow):
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
+        self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
 
     def k_checked(self):
         """
@@ -2657,6 +2660,9 @@ class EquatorWindow(QMainWindow):
         :return:
         '''
         self.parameterEditorTable.clearContents()
+        if 'paramInfo' not in self.bioImg.info:
+            print("Parameter editor information missing")
+            return
         paramInfo = self.bioImg.info['paramInfo']
         ind=0
         self.parameterEditorTable.setRowCount(200)
@@ -2817,6 +2823,20 @@ class EquatorWindow(QMainWindow):
                     valueItem.setValue(1)
                     self.parameterEditorTable.setCellWidget(ind, 4, valueItem)
                 print(num)
+
+    def enableExtraGauss(self):
+        '''
+        Function to enable extra gaussian
+        :return:
+        '''
+        paramInfo = self.bioImg.info['paramInfo']
+        if 'extraGaussCenter' in paramInfo:
+            for p in ['extraGaussCenter', 'extraGaussArea', 'extraGaussSig']:
+                paramInfo[p]['fixed'] = True
+                paramInfo[p]['val'] = 0.0
+                paramInfo[p]['min'] = 0.0
+                paramInfo[p]['max'] = 10.0
+        self.updateParameterEditorTab()
 
     def refitParamEditor(self):
         '''

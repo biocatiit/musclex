@@ -543,6 +543,9 @@ class EquatorImage:
                 'model': self.info["model"],
                 'isSkeletal': self.info['isSkeletal'],
                 # 'gamma': 1.0
+                'extraGaussCenter': None,
+                'extraGaussSig': None,
+                'extraGaussArea': None,
             }
 
             # Set initial parameters or independent parameters on each side
@@ -879,7 +882,7 @@ class EquatorImage:
 
 def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
                , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz
-               , right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz, **kwargs):
+               , right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz, extraGaussCenter, extraGaussSig, extraGaussArea, **kwargs):
 
     """
     Using for fitting model by lmfit
@@ -956,9 +959,9 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
         Speaks = [v for (_, v) in Speaks]
 
 
-        result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas, Speaks)
+        result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
         result += cardiacSide(model, 'right', x, centerX, S0, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
-                             right_areas, Speaks)
+                             right_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
         if isSkeletal:
             if model == "Gaussian":
                 mod = GaussianModel()
@@ -977,7 +980,7 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
 
     return 0
 
-def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas, Speak):
+def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas, Speak, extraGaussCenter, extraGaussSig, extraGaussArea):
     for i, area in enumerate(areas):
         if side == 'left':
             hk = i
@@ -1005,6 +1008,10 @@ def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma,
                 result = mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk, gamma=gamma)
             else:
                 result += mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk, gamma=gamma)
+
+    if extraGaussSig is not None and extraGaussCenter is not None:
+        mod = GaussianModel()
+        result += mod.eval(x=x, amplitude=extraGaussArea, center=extraGaussCenter, sigma=extraGaussSig)
 
     return result
 
@@ -1117,7 +1124,10 @@ def getCardiacGraph(x, fit_results):
         'right_sigmaz': fit_results['right_sigmaz'],
         'right_intz': fit_results['right_intz'],
         'right_gammaz': fit_results['right_gammaz'],
-        'k': fit_results['k']
+        'k': fit_results['k'],
+        'extraGaussCenter': fit_results['extraGaussCenter'],
+        'extraGaussSig': fit_results['extraGaussSig'],
+        'extraGaussArea': fit_results['extraGaussArea'],
     }
     if 'Speaks' in fit_results:
         plot_params['Speaks'] = fit_results['Speaks']
