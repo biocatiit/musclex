@@ -709,6 +709,8 @@ class QuadrantFoldingGUI(QMainWindow):
             ax.lines = []
             del ax.patches
             ax.patches = []
+            extent, center = self.getExtentAndCenter()
+            self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
             self.function = ["im_rotate"]
         else:
@@ -732,9 +734,11 @@ class QuadrantFoldingGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
+
+        extent, center = self.getExtentAndCenter()
         if self.calSettingsDialog is None:
             self.calSettingsDialog = CalibrationSettings(self.filePath) if self.quadFold is None else \
-                CalibrationSettings(self.filePath, center=self.quadFold.info['center'])
+                CalibrationSettings(self.filePath, center=center)
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
@@ -755,9 +759,9 @@ class QuadrantFoldingGUI(QMainWindow):
                     else:
                         self.setCenterRotationButton.setEnabled(True)
                         self.setCenterRotationButton.setToolTip("")
-                        if 'calib_center' in self.quadFold.info:
+                        if self.quadFold is not None and 'calib_center' in self.quadFold.info:
                             del self.quadFold.info['calib_center']
-                        if 'center' in self.quadFold.info:
+                        if self.quadFold is not None and 'center' in self.quadFold.info:
                             del self.quadFold.info['center']
 
                 return True
@@ -917,8 +921,10 @@ class QuadrantFoldingGUI(QMainWindow):
                     else:
                         new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
-                    cx = int(round((x1 + x2) / 2.))
-                    cy = int(round((y1 + y2) / 2.))
+                    extent, center = self.getExtentAndCenter()
+
+                    cx = int(round((x1 + x2) / 2.) + extent[0])
+                    cy = int(round((y1 + y2) / 2.) + extent[1])
                     M = cv2.getRotationMatrix2D(tuple(self.quadFold.info['center']),
                                                 self.quadFold.info['rotationAngle'], 1)
                     invM = cv2.invertAffineTransform(M)
@@ -935,7 +941,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.processImage()
             elif func[0] == "im_rotate":
                 # set rotation angle
-                center = self.quadFold.info['center']
+                extent, center = self.getExtentAndCenter()
 
                 if center[0] < x:
                     x1 = center[0]
@@ -1045,7 +1051,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imageCanvas.draw_idle()
         elif func[0] == "im_rotate":
             # draw line as angle
-            center = self.quadFold.info["center"]
+            extent, center = self.getExtentAndCenter()
             deltax = x - center[0]
             deltay = y - center[1]
             x2 = center[0] - deltax
@@ -1758,12 +1764,12 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
-            center = self.quadFold.info['center']
+            extent, center = self.getExtentAndCenter()
             #img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
             else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
             ax.set_facecolor('black')
 
             self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
@@ -1783,22 +1789,22 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.plot([0, center[0]], [center[1], 0], color="w")
                         ax.plot([0, center[0]], [0, center[1]], color="w")
                     if fold == 1:
-                        ax.plot([center[0], img.shape[1]], [center[1], 0], color="w")
-                        ax.plot([center[0], img.shape[1]], [0, center[1]], color="w")
+                        ax.plot([center[0], img.shape[1] - extent[0]], [center[1], 0], color="w")
+                        ax.plot([center[0], img.shape[1] - extent[0]], [0, center[1]], color="w")
                     if fold == 2:
-                        ax.plot([0, center[0]], [center[1], img.shape[0]], color="w")
-                        ax.plot([0, center[0]], [img.shape[0], center[1]], color="w")
+                        ax.plot([0, center[0]], [center[1], img.shape[0] - extent[1]], color="w")
+                        ax.plot([0, center[0]], [img.shape[0] - extent[1], center[1]], color="w")
                     if fold == 3:
-                        ax.plot([center[0], img.shape[1]], [center[1], img.shape[0]], color="w")
-                        ax.plot([center[0], img.shape[1]], [img.shape[0], center[1]], color="w")
+                        ax.plot([center[0], img.shape[1] - extent[0]], [center[1], img.shape[0] - extent[1]], color="w")
+                        ax.plot([center[0], img.shape[1] - extent[0]], [img.shape[0] - extent[1], center[1]], color="w")
 
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
             else:
-                ax.set_xlim((0, img.shape[1]))
-                ax.set_ylim((0, img.shape[0]))
+                ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
+                ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
 
             self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
             ax.invert_yaxis()
@@ -1807,6 +1813,21 @@ class QuadrantFoldingGUI(QMainWindow):
 
             self.updated['img'] = True
             self.uiUpdating = False
+
+    def getExtentAndCenter(self):
+        if self.quadFold is None:
+            return [0,0], (0,0)
+        if 'calib_center' in self.quadFold.info:
+            center = self.quadFold.info['calib_center']
+        elif 'manual_center' in self.quadFold.info:
+            center = self.quadFold.info['manual_center']
+        else:
+            _, center = processImageForIntCenter(self.quadFold.initImg, getCenter(self.quadFold.initImg), self.quadFold.img_type, self.quadFold.info["mask_thres"])
+
+        extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
+
+        print("Extent is ", extent)
+        return extent, center
 
     def updateResultTab(self):
         """

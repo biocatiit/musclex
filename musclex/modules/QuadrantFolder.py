@@ -179,10 +179,6 @@ class QuadrantFolder(object):
             return
         self.centerChanged = True
         if 'calib_center' in self.info:
-            center = self.info['calib_center']
-            if self.rotMat is not None:
-                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
-                self.info['calib_center'] = center
             self.info['center'] = self.info['calib_center']
             return
         if 'manual_center' in self.info:
@@ -209,7 +205,7 @@ class QuadrantFolder(object):
         elif not self.empty and 'rotationAngle' not in self.info.keys():
             print("Rotation Angle is being calculated ... ")
             center = self.info['center']
-            img = copy.copy(self.orig_img)
+            img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
         self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
@@ -222,7 +218,7 @@ class QuadrantFolder(object):
         if not self.centerChanged:
             return
         center = self.info['center']
-        if self.centImgTransMat is not None:
+        if self.centImgTransMat is not None and 'calib_center' not in self.info:
             # convert center in initial img coordinate system
             M = self.centImgTransMat
             M[0,2] = -1*M[0,2]
