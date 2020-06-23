@@ -1009,7 +1009,7 @@ def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma,
             else:
                 result += mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk, gamma=gamma)
 
-    if extraGaussSig is not None and extraGaussCenter is not None:
+    if extraGaussSig is not None and extraGaussCenter is not None and extraGaussCenter != 'None' and extraGaussCenter != 'None':
         mod = GaussianModel()
         result += mod.eval(x=x, amplitude=extraGaussArea, center=extraGaussCenter, sigma=extraGaussSig)
 
