@@ -31,7 +31,7 @@ import fabio
 import pickle
 # import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
-from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask
+from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 from skimage.morphology import white_tophat, disk
@@ -75,6 +75,7 @@ class QuadrantFolder(object):
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
         self.parent = parent
+        self.masked = False
 
         # info dictionary will save all results
         if cache is not None:
@@ -109,6 +110,16 @@ class QuadrantFolder(object):
                     # return None
         return None
 
+    def delCache(self):
+        """
+        Delete cache
+        :return: -
+        """
+        cache_path = fullPath(self.img_path, "qf_cache")
+        cache_file = fullPath(cache_path, self.img_name + '.info')
+        if os.path.exists(cache_path) and os.path.isfile(cache_file):
+            os.remove(cache_file)
+
     def deleteFromDict(self, dict, delStr):
         """
         Delete a key and value from dictionary
@@ -132,6 +143,7 @@ class QuadrantFolder(object):
         print(str(self.img_name) + " is being processed...")
         self.updateInfo(flags)
         self.initParams()
+        self.applyBlankImageAndMask()
         self.findCenter()
         self.centerizeImage()
         self.rotateImg()
@@ -167,6 +179,22 @@ class QuadrantFolder(object):
         if 'sigmoid' not in self.info:
             self.info['sigmoid'] = 0.05
 
+    def applyBlankImageAndMask(self):
+        if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
+            img = np.array(self.orig_img, 'float32')
+            blank, mask = getBlankImageAndMask(self.img_path)
+            maskOnly = getMaskOnly(self.img_path)
+            # blank = None
+            if blank is not None:
+                img = img - blank
+            if mask is not None:
+                img[mask > 0] = self.info['mask_thres'] - 1.
+            if maskOnly is not None:
+                print("Applying mask only image")
+                img[maskOnly > 0] = self.info['mask_thres'] - 1
+
+            self.orig_img = img
+            self.masked = True
 
     def findCenter(self):
         """
@@ -204,7 +232,8 @@ class QuadrantFolder(object):
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
         elif not self.empty and 'rotationAngle' not in self.info.keys():
             print("Rotation Angle is being calculated ... ")
-            center = self.info['center']
+            # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
+            _, center = self.parent.getExtentAndCenter()
             img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
         self.deleteFromDict(self.info, 'avg_fold')
@@ -814,19 +843,7 @@ class QuadrantFolder(object):
             self.deleteFromDict(self.info, 'rmin')
             self.deleteFromDict(self.info, 'rmax')
             self.imgResultForDisplay = None
-            if 'blank_mask' in self.info and self.info['blank_mask']:
-                img = np.array(self.orig_img, 'float32')
-                blank, mask = getBlankImageAndMask(self.img_path)
-                # blank = None
-                if blank is not None:
-                    img = img - blank
-                if mask is not None:
-                    img[mask>0] = self.info['mask_thres'] - 1.
-                rotatedImage, newCenter, self.rotMat = rotateImage(img, self.info["center"], self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
-                rotate_img = rotatedImage
-                self.info['center'] = newCenter
-            else:
-                rotate_img = copy.copy(self.getRotatedImage())
+            rotate_img = copy.copy(self.getRotatedImage())
             center = self.info['center']
             center_x = int(center[0])
             center_y = int(center[1])

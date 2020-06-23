@@ -669,7 +669,10 @@ class QuadrantFoldingGUI(QMainWindow):
         Handle when the Blank image and mask is checked or unchecked
         """
         if self.quadFold is not None and not self.uiUpdating:
-            self.deleteInfo(['avg_fold'])
+            self.quadFold.delCache()
+            fileName = self.imgList[self.currentFileNumber]
+            self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+            self.masked = False
             self.processImage()
 
     def keyPressEvent(self, event):
@@ -692,7 +695,10 @@ class QuadrantFoldingGUI(QMainWindow):
         dlg = BlankImageSettings(self.filePath)
         result = dlg.exec_()
         if result == 1 and self.quadFold is not None:
-            self.deleteInfo(['avg_fold'])
+            self.quadFold.delCache()
+            fileName = self.imgList[self.currentFileNumber]
+            self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+            self.masked = False
             self.processImage()
 
 

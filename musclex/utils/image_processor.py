@@ -429,8 +429,14 @@ def getRotationAngle(img, center, method=0):
             hist[d + 180 - sum_range:d + 181 + sum_range]))
 
     # # If the degree and initial angle from ellipse are different, return ellipse angle instead
-    if init_angle is not None and abs(max_degree-init_angle) > 20.:
+    if init_angle is not None and abs(max_degree-init_angle) > 20. and abs(180 - max_degree - init_angle)>20:
         return int(round(init_angle))
+
+    #If max degree is obtuse return the acute angle equivalent of the same
+    if max_degree > 90:
+        return -1*(180-max_degree)
+    if max_degree < -90:
+        return (180+max_degree)
 
     # otherwise, return max degree
     return max_degree
@@ -514,7 +520,6 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
     # print("M1: {}".format(M1))
 
     if img_type == "PILATUS":
-        print("Rotating Pilatus Image")
         img = img.astype('float32')
         if mask_thres == -999:
             mask_thres = getMaskThreshold(img, img_type)
