@@ -1631,8 +1631,8 @@ class ProjectionTracesGUI(QMainWindow):
 
             if self.peaksChkBx.isChecked():
                 for name in self.peaks.keys():
-                    centerx = self.projProc['centerx']
-                    centery = self.projProc['centery']
+                    centerx = self.projProc.info['centerx']
+                    centery = self.projProc.info['centery']
                     for p in self.peaks[name]:
                         if self.boxtypes[name] == 'h':
                             ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
