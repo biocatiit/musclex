@@ -469,7 +469,7 @@ class EquatorWindow(QMainWindow):
         self.refitParamsBtn = QPushButton("Re-fit Parameters")
         self.addSPeakBtn = QPushButton("Add 'S' peak parameter")
         self.enableExtraGaussBtn = QPushButton("Enable Extra Gaussian")
-        self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor (lmfit values)</h2>"), 1, 0, 1, 2)
+        self.paramEditorTitleboxLayout.addWidget(QLabel("<h2>Parameter Editor (lmfit values - does not persist)</h2>"), 1, 0, 1, 2)
         self.paramEditorTitleboxLayout.addWidget(self.refitParamsBtn, 1, 2, 1, 1)
         self.paramEditorTitleboxLayout.addWidget(self.addSPeakBtn, 1, 3, 1, 1)
         self.paramEditorTitleboxLayout.addWidget(self.enableExtraGaussBtn, 1, 4, 1, 1)
@@ -1589,11 +1589,11 @@ class EquatorWindow(QMainWindow):
             modeOrientation = self.getModeRotation()
             if modeOrientation != None:
                 if not self.modeAngleChkBx.isChecked():
-                    self.bioImg.delCache()
+                    self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
                     self.bioImg.removeInfo("mode_angle")
                     self.processImage()
                 else:
-                    self.bioImg.delCache()
+                    self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
                     self.bioImg.info["mode_angle"] = modeOrientation
                     self.processImage()
             else:
@@ -2078,6 +2078,16 @@ class EquatorWindow(QMainWindow):
         # Check fixed Angle
         if self.fixedAngleChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rotationAngle'):
             self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
+            return True
+
+        # Check Mode Angle
+        if (self.modeAngleChkBx.isChecked() and 'mode_angle' not in currentInfo):
+            self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
+            return True
+
+        # Check fixed int area
+        if self.fixedIntAreaChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'int_area'):
+            self.bioImg.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
             return True
 
         return self.fixedFittingParamChanged(prevInfo)
