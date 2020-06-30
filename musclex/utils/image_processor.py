@@ -628,6 +628,9 @@ def averageImages(file_list, rotate=False):
     :return:
     """
     all_imgs = []
+    dims_match, max_dim, max_img_center = checkDimensionsMatch(file_list)
+    if not dims_match:
+        return expandAndAverageImages(file_list, max_dim, max_img_center, rotate)
     for f in file_list:
         img = fabio.open(f).data
         if img.shape == (1043, 981):
@@ -642,6 +645,58 @@ def averageImages(file_list, rotate=False):
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
+
+def expandAndAverageImages(file_list, max_dim, max_img_center, rotate):
+    """
+    open images, expand to largest size and average them all
+    :param file_list: list of image path (str)
+    :param max_dim: dimension of largest image
+    :param max_img_center: center of largest image
+    :return:
+    """
+    all_imgs=[]
+    for f in file_list:
+        img = fabio.open(f).data
+
+        if img.shape == (1043, 981):
+            img_type = "PILATUS"
+        else:
+            img_type = "NORMAL"
+
+        # Expand Image to max size by padding the surrounding by zeros and center of all image coincides
+        center = getCenter(img)
+        expanded_img = np.zeros(max_dim)
+        b, l = img.shape
+        expanded_img[0:b, 0:l] = img
+        transx = int((max_img_center[0] - center[0]))
+        transy = int((max_img_center[1] - center[1]))
+        M = np.float32([[1, 0, transx], [0, 1, transy]])
+        img = cv2.warpAffine(expanded_img, M, max_dim)
+
+        if rotate:
+            print("Rotating and centering {}".format(f))
+            angle = getRotationAngle(img, max_img_center, method=0)
+            img, center, _ = rotateImage(img, max_img_center, angle, img_type, mask_thres = -999)
+        all_imgs.append(img)
+
+    return np.mean(all_imgs, axis=0)
+
+def checkDimensionsMatch(file_list):
+    """
+    Check whether dimensions of all the images match
+    :param file_list: list of image path (str)
+    :return: True if dimensions match
+    """
+    dims = []
+    for f in file_list:
+        img = fabio.open(f).data
+        dims.append(img.shape)
+    max_dim = max(dims)
+    index = dims.index(max_dim)
+    max_img = fabio.open(file_list[index]).data
+    center = getCenter(max_img)
+
+    return dims.count(dims[0]) == len(dims), max_dim, center
 
 def processImageForIntCenter(img, center, img_type, mask_thres = -999):
     """
