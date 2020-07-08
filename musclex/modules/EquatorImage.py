@@ -552,6 +552,11 @@ class EquatorImage:
             for side in ['left', 'right']:
 
                 # If params are fixed, add them to int_vars
+                if side+'_fix_sigmac' in self.info.keys():
+                    int_vars[side+'_sigmac'] = self.info[side+'_fix_sigmac']
+                else:
+                    params.add(side+'_sigmac', self.info[side+'_sigmac'],  min=-10., max=10)
+
                 if side+'_fix_sigmas' in self.info.keys():
                     int_vars[side+'_sigmas'] = self.info[side+'_fix_sigmas']
                 else:

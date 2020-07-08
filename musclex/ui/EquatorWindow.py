@@ -693,9 +693,45 @@ class EquatorWindow(QMainWindow):
         self.refreshAllFittingParams()
         if self.use_previous_fit_chkbx.isChecked() and self.bioImg is not None:
             print("Using previous fit")
+            self.updateFittingParamsInParamInfo()
             self.processImage(self.bioImg.info['paramInfo'])
             return
         self.processImage()
+
+    def updateFittingParamsInParamInfo(self):
+        paramInfo = self.bioImg.info['paramInfo']
+        settings = self.getSettings()
+        paramInfo['isSkeletal']['val'] = settings['isSkeletal']
+
+        if 'fix_k' in settings:
+            paramInfo['k']['fixed'] = True
+            paramInfo['k']['val'] = settings['fix_k']
+        else:
+            paramInfo['k']['fixed'] = False
+            paramInfo['k']['val'] = 0
+
+        for side in ['left', 'right']:
+            fitting_tab = self.left_fitting_tab if side == 'left' else self.right_fitting_tab
+            fitparams = fitting_tab.getFittingSettings()
+            self.updateParamInfo('sigmac', side, fitparams)
+            self.updateParamInfo('sigmad', side, fitparams)
+            self.updateParamInfo('sigmas', side, fitparams)
+            self.updateParamInfo('gamma', side, fitparams)
+            self.updateParamInfo('intz', side, fitparams)
+            self.updateParamInfo('sigz', side, fitparams)
+            self.updateParamInfo('zline', side, fitparams)
+            self.updateParamInfo('gammaz', side, fitparams)
+
+    def updateParamInfo(self, param, side, fitparams):
+        paramInfo = self.bioImg.info['paramInfo']
+        p = param if param != 'sigz' else 'sigmaz' #Handling sigz and sigmaz discrepancy, side_fix_sigz vs side_sigmaz
+        pInfo = paramInfo[side + '_' + p]
+        if side+'_fix_' + param in fitparams:
+            pInfo['fixed'] = True
+            pInfo['val'] = fitparams[side+'_fix_'+param]
+        else:
+            pInfo['fixed'] = False
+
         
     def refitAllBtnToggled(self):
         if self.refitAllButton.isChecked():
@@ -2054,6 +2090,7 @@ class EquatorWindow(QMainWindow):
 
         if self.use_previous_fit_chkbx.isChecked():
             print("Using previous fit")
+            self.updateFittingParamsInParamInfo()
             self.processImage(self.bioImg.info['paramInfo'])
 
         # Process new image
