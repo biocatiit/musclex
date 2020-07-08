@@ -107,6 +107,8 @@ class QuadrantFolder(object):
             if info != None:
                 if info['program_version'] == self.version:
                     return info
+                print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
+                print("Invalidating cache and reprocessing the image")
                     # return None
         return None
 

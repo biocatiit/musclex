@@ -852,6 +852,8 @@ class EquatorImage:
             if cinfo != None:
                 if cinfo['program_version'] == self.version:
                     return cinfo
+                print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
+                print("Invalidating cache and reprocessing the image")
         return None
 
     def saveCache(self):

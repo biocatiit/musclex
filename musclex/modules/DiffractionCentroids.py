@@ -101,6 +101,9 @@ class DiffractionCentroids():
             if cinfo != None:
                 if cinfo['program_version'] == self.version:
                     info = cinfo
+                else:
+                    print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
+                    print("Invalidating cache and reprocessing the image")
 
         return cachefile, info
 
