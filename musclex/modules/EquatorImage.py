@@ -533,13 +533,10 @@ class EquatorImage:
                 params.add("right_area" + str(i + 1), max(right_areas[i],100), min=0)
 
             left_sigmac = self.info['left_fix_sigmac'] if 'left_fix_sigmac' in self.info else self.info['left_sigmac']
-            right_sigmac = self.info['right_fix_sigmac'] if 'right_fix_sigmac' in self.info else self.info['right_sigmac']
 
             # Add independent variables to int_vars
             int_vars = {
                 'x': x,
-                'left_sigmac': left_sigmac,
-                'right_sigmac': right_sigmac,
                 'model': self.info["model"],
                 'isSkeletal': self.info['isSkeletal'],
                 # 'gamma': 1.0
