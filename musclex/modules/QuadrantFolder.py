@@ -273,10 +273,11 @@ class QuadrantFolder(object):
         print("Dimension of image before centerize ", img.shape)
 
         b, l = img.shape
-        img_center = (int(l/2), int(b/2))
-        newX = max(center[0], l-center[0])
-        newY = max(center[1], b-center[1])
-        dim = 2*max(newX, newY)
+        if self.parent.newImgDimension is None:
+            dim = int(2.8*max(l, b))
+            self.parent.newImgDimesion = dim
+        else:
+            dim = self.parent.newImgDimension
         new_img = np.zeros((dim,dim))
         new_img[0:b,0:l] = img
         
@@ -317,10 +318,17 @@ class QuadrantFolder(object):
             center = self.center_before_rotation
         else:
             self.center_before_rotation = center
-        
-        rotImg, self.info["center"], self.rotMat = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
-        
-        return rotImg
+
+        b, l = img.shape
+        rotImg, newCenter, self.rotMat = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
+
+        # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
+        bnew, lnew = rotImg.shape
+        db, dl = (bnew - b)//2, (lnew-l)//2
+        final_rotImg = rotImg[dl:lnew-dl, db:bnew-db]
+        self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+
+        return final_rotImg
 
     def getFoldNumber(self, x, y):
         """

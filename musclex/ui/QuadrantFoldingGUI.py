@@ -29,6 +29,7 @@ __author__ = 'Jiranun.J'
 
 import sys
 from tifffile import imsave
+import json
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 from ..utils.file_manager import *
@@ -72,6 +73,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
         self.setMinimumHeight(800)
+        self.newImgDimension = None
 
     def initUI(self):
         # self.setStyleSheet(getStyleSheet())
@@ -1982,7 +1984,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 img = img.astype("float32")
 
                 # cv2.imwrite(result_file, img)
-                imsave(result_file, img)
+                metadata = json.dumps(True)
+                imsave(result_file, img, description=metadata)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
                 self.saveBackground()

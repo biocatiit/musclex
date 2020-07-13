@@ -28,6 +28,8 @@ authorization from Illinois Institute of Technology.
 
 # import cv2.cv as cv
 import os
+import json
+import tifffile
 from lmfit import Model, Parameters
 from lmfit.models import VoigtModel, GaussianModel
 from sklearn.metrics import r2_score, mean_squared_error
@@ -59,6 +61,14 @@ class EquatorImage:
             self.img_type = "PILATUS"
         else:
             self.img_type = "NORMAL"
+
+        with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
+            metadata = tif.pages[0].tags["ImageDescription"].value
+        try:
+            self.quadrant_folded = json.loads(metadata)
+        except:
+            self.quadrant_folded = False
+
         self.rotated_img = None
         self.version = musclex.__version__
         cache = self.loadCache()
@@ -165,6 +175,12 @@ class EquatorImage:
         Once the rotation angle is calculated, the rmin will be re-calculated, so self.info["rmin"] is deleted
         """
         self.parent.statusPrint("Finding Rotation Angle...")
+
+        if self.quadrant_folded:
+            print("Quadrant folded image: ignoring rotation angle computation")
+            self.info['rotationAngle'] = 0
+            return
+
         if "fixed_angle" in self.info:
             self.info['rotationAngle'] = self.info["fixed_angle"]
             print("RotationAngle is fixed as " + str(self.info['fixed_angle']))
