@@ -68,6 +68,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.ignoreFolds = set()
         self.csv_bg = None
         self.orientationModel = None
+        self.modeOrientation = None
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
         self.setMinimumHeight(800)
@@ -185,6 +186,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
 
+        self.modeAngleChkBx = QCheckBox("Mode orientation")
+        self.modeAngleChkBx.setChecked(False)
+
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
@@ -192,6 +196,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.maskThresSpnBx, 3, 1, 1, 1)
         self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
         self.settingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -615,6 +620,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
+        self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
         self.imgZoomInB.clicked.connect(self.imageZoomIn)
@@ -1550,6 +1556,54 @@ class QuadrantFoldingGUI(QMainWindow):
         self.deleteInfo(['rotationAngle'])
         self.processImage()
 
+    def modeAngleChecked(self):
+        """
+        Triggered when mode angle is checked or unchecked
+        """
+        print("FUnction executed", flush=True)
+
+        if self.quadFold is not None:
+
+            modeOrientation = self.getModeRotation()
+            if modeOrientation != None:
+                if not self.modeAngleChkBx.isChecked():
+                    self.quadFold.deleteFromDict(self.quadFold.info, 'mode_angle')
+                    self.processImage()
+                else:
+                    self.processImage()
+            else:
+                f=1
+                self.modeAngleChkBx.setCheckState(Qt.Unchecked) # executes twice, setChecked executes once but button becomes unresponsive for one click
+
+                msg = QMessageBox()
+                msg.setInformativeText("All images in folder must be processed first, use Process Folder to process all images")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Mode Orientation Failed")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.exec_()
+                return
+
+    def getModeRotation(self):
+        """
+        open images and calculate the mode orientation
+        :param file_list: list of image path (str)
+        :return: mode of orientation of all images in the folder
+        """
+        if self.modeOrientation != None:
+            return self.modeOrientation
+        print("Calculating mode of angles of images in directory")
+        angles = []
+        for f in self.imgList:
+            quadFold = QuadrantFolder(self.filePath, f, self)
+            print("Getting angle {}".format(f))
+
+            if 'rotationAngle' not in quadFold.info:
+                return
+            angle = quadFold.info['rotationAngle']
+            angles.append(angle)
+        self.modeOrientation = max(set(angles), key=angles.count)
+        return self.modeOrientation
+
     def ableToProcess(self):
         # Check if image can be processed
         return (self.quadFold is not None and not self.uiUpdating)
@@ -2013,6 +2067,11 @@ class QuadrantFoldingGUI(QMainWindow):
         flags['boxcar_y'] = self.boxcarY.value()
         flags['cycles'] = self.cycle.value()
         flags['blank_mask'] = self.blankImageGrp.isChecked()
+
+        if self.modeAngleChkBx.isChecked():
+            modeOrientation = self.getModeRotation()
+            if modeOrientation != None:
+                flags["mode_angle"] = modeOrientation
 
         if self.rmaxSpnBx.value() > self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()

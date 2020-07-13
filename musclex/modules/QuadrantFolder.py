@@ -232,6 +232,9 @@ class QuadrantFolder(object):
         self.parent.statusPrint("Finding Rotation Angle...")
         if 'manual_rotationAngle' in self.info:
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
+        elif "mode_angle" in self.info:
+            print("Using mode orientation {}".format(self.info["mode_angle"]))
+            self.info['rotationAngle'] = self.info["mode_angle"]
         elif not self.empty and 'rotationAngle' not in self.info.keys():
             print("Rotation Angle is being calculated ... ")
             # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
