@@ -59,6 +59,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filePath = "" # current directory
         self.quadFold = None # QuadrantFolder object
         self.img_zoom = None # zoom location of original image (x,y range)
+        self.default_img_zoom = None # default zoom calculated after processing image
+        self.default_result_img_zoom = None # default result image zoom calculated after processing image
+        self.zoomOutClicked = False # to check whether zoom out is clicked for using default zoom value
         self.result_zoom = None # zoom location of result image (x,y range)
         self.function = None # current active function
         self.uiUpdating = False # update ui status flag (prevent recursive)
@@ -848,6 +851,9 @@ class QuadrantFoldingGUI(QMainWindow):
         Trigger when set zoom out button is pressed (image tab)
         """
         self.imgZoomInB.setChecked(False)
+        self.zoomOutClicked = True
+        self.default_img_zoom = None
+        self.default_result_img_zoom = None
         self.img_zoom = None
         self.refreshImageTab()
 
@@ -1746,8 +1752,8 @@ class QuadrantFoldingGUI(QMainWindow):
         This will create a new QuadrantFolder object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        self.img_zoom = None
-        self.result_zoom = None
+        # self.img_zoom = None
+        # self.result_zoom = None
         previnfo = None if self.quadFold is None else self.quadFold.info
         fileName = self.imgList[self.currentFileNumber]
         self.filenameLineEdit.setText(fileName)
@@ -1785,7 +1791,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.updated['img'] = False
         self.updated['result'] = False
         self.function = None
-        self.result_zoom = None
+        # self.result_zoom = None
         self.updateUI()
         self.resetStatusbar()
 
@@ -1864,6 +1870,9 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.img_zoom is not None and len(self.img_zoom) == 2:
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
+            elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+                ax.set_xlim(self.default_img_zoom[0])
+                ax.set_ylim(self.default_img_zoom[1])
             else:
                 ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
                 ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
@@ -1926,6 +1935,9 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.result_zoom is not None and len(self.result_zoom) == 2:
                 ax.set_xlim(self.result_zoom[0])
                 ax.set_ylim(self.result_zoom[1])
+            elif self.default_result_img_zoom is not None and len(self.default_result_img_zoom) == 2:
+                ax.set_xlim(self.default_result_img_zoom[0])
+                ax.set_ylim(self.default_result_img_zoom[1])
             else:
                 ax.set_xlim((0, img.shape[1]))
                 ax.set_ylim((0, img.shape[0]))
@@ -2034,6 +2046,14 @@ class QuadrantFoldingGUI(QMainWindow):
             # Update cal settings center with the corresponding coordinate in original (or initial) image
             # so that it persists correctly on moving to next image
             self.calSettings['center'] = info['calib_center']
+        if not self.zoomOutClicked:
+            extent, center = self.getExtentAndCenter()
+            cx, cy = center
+            cxr, cyr = self.quadFold.info['center']
+            xlim, ylim = self.quadFold.initImg.shape
+            xlim, ylim = int(xlim/2), int(ylim/2)
+            self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
+            self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
 
     def resetStatusbar(self):
         fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
