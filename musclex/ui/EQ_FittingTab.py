@@ -195,6 +195,7 @@ class EQ_FittingTab(QWidget):
 
         if 'fit_results' in info:
             fit_result = info['fit_results']
+            self.sigmaCSpinBx.setValue(fit_result[side+'_sigmac'])
             self.sigmaDSpinBx.setValue(fit_result[side+'_sigmad'])
             self.sigmaSSpinBx.setValue(fit_result[side+'_sigmas'])
             self.skeletalGrp.setEnabled(fit_result['isSkeletal'])

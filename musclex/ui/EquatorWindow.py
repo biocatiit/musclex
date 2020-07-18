@@ -261,7 +261,7 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx.setFixedWidth(100)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Full Process Current Folder")
+        self.processFolderButton = QPushButton("Reprocess and Refit current folder")
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
         self.bottomLayout = QGridLayout()
@@ -383,12 +383,12 @@ class EquatorWindow(QMainWindow):
         self.k_layout.addWidget(self.k_chkbx)
         self.k_layout.addWidget(self.k_spnbx)
 
-        self.refittingB = QPushButton("Re-fitting")
-        self.refitAllButton = QPushButton("Re-fitting All")
+        self.refittingB = QPushButton("Refit current image")
+        self.refitAllButton = QPushButton("Refit current folder")
         self.refitAllButton.setCheckable(True)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton2 = QPushButton("Full Process Current Folder")
+        self.processFolderButton2 = QPushButton("Reprocess and Refit current folder")
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
         self.bottomLayout2 = QGridLayout()
@@ -731,6 +731,8 @@ class EquatorWindow(QMainWindow):
             pInfo['val'] = fitparams[side+'_fix_'+param]
         else:
             pInfo['fixed'] = False
+            if side + '_' + param in fitparams:
+                pInfo['val'] = fitparams[side + '_' + param]
 
         
     def refitAllBtnToggled(self):
@@ -768,8 +770,6 @@ class EquatorWindow(QMainWindow):
         for side in ['left', 'right']:
             if side+'_fix_sigmac' in settings.keys():
                 text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
-            else:
-                text += "\n  - " + side + " Sigma C : " + str(settings[side + '_sigmac'])
             if side+'_fix_sigmad' in settings.keys():
                 text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
             if side+'_fix_sigmas' in settings.keys():
@@ -828,7 +828,7 @@ class EquatorWindow(QMainWindow):
 
         self.progressBar.setVisible(False)
         self.refitAllButton.setChecked(False)
-        self.refitAllButton.setText("Refitting All")
+        self.refitAllButton.setText("Refit current folder")
 
     def applyBlankChecked(self):
         """
@@ -1273,8 +1273,6 @@ class EquatorWindow(QMainWindow):
         for side in ['left', 'right']:
             if side+'_fix_sigmac' in settings.keys():
                 text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
-            else:
-                text += "\n  - " + side + " Sigma C : " + str(settings[side + '_sigmac'])
             if side+'_fix_sigmad' in settings.keys():
                 text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
             if side+'_fix_sigmas' in settings.keys():
@@ -1330,9 +1328,9 @@ class EquatorWindow(QMainWindow):
 
         self.progressBar.setVisible(False)
         self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Process Current Folder")
+        self.processFolderButton.setText("Reprocess and Refit current folder")
         self.processFolderButton2.setChecked(False)
-        self.processFolderButton2.setText("Process Current Folder")
+        self.processFolderButton2.setText("Reprocess and Refit current folder")
 
     def setCalibrationImage(self, force=False):
         """
@@ -1408,6 +1406,7 @@ class EquatorWindow(QMainWindow):
 
     def refreshFittingParams(self, side):
         if self.bioImg is not None:
+            self.bioImg.removeInfo(side + '_fix_sigmac')
             self.bioImg.removeInfo(side + '_fix_sigmad')
             self.bioImg.removeInfo(side + '_fix_sigmas')
             self.bioImg.removeInfo(side + '_fix_gamma')
