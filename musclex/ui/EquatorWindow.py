@@ -562,7 +562,7 @@ class EquatorWindow(QMainWindow):
             "Reject the case when model cannot be fitted. The word \"REJECTED\" will appear in summary.csv")
         self.nextButton.setToolTip("Go to the next image in this folder")
         self.prevButton.setToolTip("Go to the previous image in this folder")
-        self.processFolderButton.setToolTip("Process all images in the same directory as the current file")
+        self.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
 
         #
         ### Fitting tab ###
@@ -581,9 +581,9 @@ class EquatorWindow(QMainWindow):
         self.graphZoomOutB.setToolTip("Activate zoom-in operation")
         self.nextButton2.setToolTip("Go to the next image in this folder")
         self.prevButton2.setToolTip("Go to the previous image in this folder")
-        self.processFolderButton2.setToolTip("Process all images in the same directory as the current file")
-        self.refittingB.setToolTip("Refit the model again with current settings")
-        self.refitAllButton.setToolTip("Refit the model again with current Num of Peaks")
+        self.processFolderButton2.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
+        self.refittingB.setToolTip("Refit current image again with current fitting parameters")
+        self.refitAllButton.setToolTip("Refit all images in the directory again with current fitting parameters")
 
     def setConnections(self):
         """
