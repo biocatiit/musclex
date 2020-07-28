@@ -214,13 +214,12 @@ class QuadrantFolder(object):
         if 'manual_center' in self.info:
             center = self.info['manual_center']
             if self.rotMat is not None:
-                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0] + self.dl, center[1] + self.db, 1])
                 self.info['manual_center'] = center
             self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
         self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info["mask_thres"])
-        self.deleteFromDict(self.info, 'rotationAngle')
         print("Done. Center = "+str(self.info['center']))
 
 
@@ -232,16 +231,19 @@ class QuadrantFolder(object):
         self.parent.statusPrint("Finding Rotation Angle...")
         if 'manual_rotationAngle' in self.info:
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
+            del self.info['manual_rotationAngle']
+            self.deleteFromDict(self.info, 'avg_fold')
         elif "mode_angle" in self.info:
             print("Using mode orientation {}".format(self.info["mode_angle"]))
             self.info['rotationAngle'] = self.info["mode_angle"]
+            self.deleteFromDict(self.info, 'avg_fold')
         elif not self.empty and 'rotationAngle' not in self.info.keys():
             print("Rotation Angle is being calculated ... ")
             # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
             _, center = self.parent.getExtentAndCenter()
             img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
-        self.deleteFromDict(self.info, 'avg_fold')
+            self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
             
     def centerizeImage(self):
@@ -325,8 +327,9 @@ class QuadrantFolder(object):
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape
         db, dl = (bnew - b)//2, (lnew-l)//2
-        final_rotImg = rotImg[dl:lnew-dl, db:bnew-db]
+        final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
         self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
         return final_rotImg
 
