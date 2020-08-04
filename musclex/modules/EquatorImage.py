@@ -63,7 +63,8 @@ class EquatorImage:
             self.img_type = "NORMAL"
 
         with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
-            metadata = tif.pages[0].tags["ImageDescription"].value
+            if "ImageDescription" in tif.pages[0].tags:
+                metadata = tif.pages[0].tags["ImageDescription"].value
         try:
             self.quadrant_folded = json.loads(metadata)
         except:
