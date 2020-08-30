@@ -59,3 +59,44 @@ To see all options
 ./musclex.sh -h
 ```
 
+
+
+## Running a Muscle X program by building Docker image
+Use this to build your own docker image and run musclex program on it. This would avoid any permission issues on the files created by the program. Download the following files and cd into the folder with these files.
+```
+musclex-uid.sh
+dockerfile-uid
+```
+Run the following command to build the docker image,
+```
+./musclex-uid.sh -b
+```
+After successfully building the image, run musclex using the following command
+```
+./musclex-uid.sh [program shortcut]
+```
+For example, run this command to run Equator
+```
+./musclex-uid.sh eq
+```
+If you are using ssh to log into a remote server to run musclex there use the following instead
+```
+./musclex-uid.sh -s eq
+```
+To see previous versions
+```
+./musclex-uid.sh -l
+```
+To run a specific version
+```
+./musclex-uid.sh -v 1-14.11 eq
+```
+To update musclex
+```
+./musclex-uid.sh -u
+```
+To see all options
+```
+./musclex-uid.sh -h
+```
+
