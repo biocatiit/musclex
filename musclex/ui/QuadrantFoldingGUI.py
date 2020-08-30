@@ -1996,7 +1996,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 img = img.astype("float32")
 
                 # cv2.imwrite(result_file, img)
-                metadata = json.dumps(True)
+                metadata = json.dumps([True, self.quadFold.initImg.shape])
                 imsave(result_file, img, description=metadata)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 

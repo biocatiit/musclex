@@ -63,6 +63,8 @@ class EquatorWindow(QMainWindow):
         self.logger = None
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
+        self.default_img_zoom = None  # default zoom calculated after processing image
+        self.zoomOutClicked = False  # to check whether zoom out is clicked for using default zoom value
         self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
         self.function = None  # Current active function
@@ -1430,6 +1432,7 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
@@ -1985,6 +1988,8 @@ class EquatorWindow(QMainWindow):
         Triggered when Zoom out image is pressed
         """
         self.imgZoomInB.setChecked(False)
+        self.zoomOutClicked = True
+        self.default_img_zoom = None
         self.img_zoom = None
         self.updateImage()
 
@@ -2070,6 +2075,7 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
         prevInfo = self.bioImg.info if self.bioImg is not None else None
         self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
@@ -2240,6 +2246,11 @@ class EquatorWindow(QMainWindow):
         info = self.bioImg.info
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
+        if not self.zoomOutClicked and self.bioImg.quadrant_folded:
+            cx, cy = self.bioImg.info['center']
+            xlim, ylim = self.bioImg.initialImgDim
+            xlim, ylim = int(xlim/2), int(ylim/2)
+            self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
 
     def refreshStatusbar(self):
         """
@@ -2495,6 +2506,9 @@ class EquatorWindow(QMainWindow):
         if self.img_zoom is not None and len(self.img_zoom) == 2:
             ax.set_xlim(self.img_zoom[0])
             ax.set_ylim(self.img_zoom[1])
+        elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+            ax.set_xlim(self.default_img_zoom[0])
+            ax.set_ylim(self.default_img_zoom[1])
         else:
             ax.set_xlim((0, img.shape[1]))
             ax.set_ylim((0, img.shape[0]))
@@ -2552,6 +2566,9 @@ class EquatorWindow(QMainWindow):
         if self.graph_zoom is not None and len(self.graph_zoom) == 2:
             ax.set_xlim(self.graph_zoom[0])
             ax.set_ylim(self.graph_zoom[1])
+        elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+            ax.set_xlim(self.default_img_zoom[0])
+            ax.set_ylim(self.default_img_zoom[1])
         else:
             self.plot_min = ax.get_ylim()[0]
             ax.set_xlim(0, len(hull))

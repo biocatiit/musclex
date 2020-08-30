@@ -66,7 +66,7 @@ class EquatorImage:
             if "ImageDescription" in tif.pages[0].tags:
                 metadata = tif.pages[0].tags["ImageDescription"].value
         try:
-            self.quadrant_folded = json.loads(metadata)
+            self.quadrant_folded, self.initialImgDim = json.loads(metadata)
         except:
             self.quadrant_folded = False
 
@@ -588,6 +588,7 @@ class EquatorImage:
                     params.add(side+'_gamma', init_gamma, min=0, max=init_gamma * 5.0 + 1.)
 
                 if self.info['isSkeletal']:
+                    self.skeletalVarsNotSet = False
                     if side+'_fix_zline' in self.info:
                         int_vars[side+'_zline'] = self.info[side+'_fix_zline']
                     else:
@@ -611,6 +612,7 @@ class EquatorImage:
                         params.add(side+'_gammaz', 8., min=-5., max=30.)
                 else:
                     # set all z line variables as independent
+                    self.skeletalVarsNotSet = True
                     int_vars[side+'_zline'] = 0
                     int_vars[side+'_sigmaz'] = 0
                     int_vars[side+'_intz'] = 0
@@ -758,6 +760,16 @@ class EquatorImage:
         for i in range(len(right_areas)):
             if "right_area" + str(i + 1) not in paramInfo:
                 params.add("right_area" + str(i + 1), max(right_areas[i], 100), min=0)
+
+        if self.info['isSkeletal'] and self.skeletalVarsNotSet:
+            # If zline is checked and use previous fit used, initialize the zline parameters if not set previously
+            for side in ['left', 'right']:
+                init_z = 1.5
+                params.add(side + '_zline', S[0] * init_z, min=S[0] * init_z - 10, max=S[0] * init_z + 10)
+                params.add(side + '_sigmaz', 8., min=0., max=20.)
+                init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
+                params.add(side + '_intz', init_intz, min=0, max=init_intz * 4. + 1.)
+                params.add(side + '_gammaz', 8., min=-5., max=30.)
 
 
         int_vars['x'] = x
