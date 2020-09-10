@@ -1438,8 +1438,6 @@ class EquatorWindow(QMainWindow):
         settings = self.getSettings()
         nPeaks = settings['nPeaks'] if 'nPeaks' in settings else None
         isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
-        if self.calSettings is not None:
-            self.bioImg.removeInfo()
         # settings.update(self.bioImg.info)
         
         if nPeaks != None:
@@ -2082,6 +2080,7 @@ class EquatorWindow(QMainWindow):
         print("Settings in onImageChange before update")
         print(settings)
         if self.calSettings is not None:
+            print("Clearing the cache as Full reprocess is requested to enable using caliberation settings")
             self.bioImg.removeInfo()
         # settings.update(self.bioImg.info)
         self.initWidgets(settings)
