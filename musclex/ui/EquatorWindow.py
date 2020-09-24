@@ -695,12 +695,22 @@ class EquatorWindow(QMainWindow):
         self.refreshAllFittingParams()
         if self.use_previous_fit_chkbx.isChecked() and self.bioImg is not None:
             print("Using previous fit")
-            self.updateFittingParamsInParamInfo()
+            ret = self.updateFittingParamsInParamInfo()
+            if ret == -1:
+                return
             self.processImage(self.bioImg.info['paramInfo'])
             return
         self.processImage()
 
     def updateFittingParamsInParamInfo(self):
+        if 'paramInfo' not in self.bioImg.info:
+            errMsg = QMessageBox()
+            errMsg.setText('Cache file not found')
+            errMsg.setInformativeText("Please process the image first before using previous fit")
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.exec_()
+            return -1
         paramInfo = self.bioImg.info['paramInfo']
         settings = self.getSettings()
         paramInfo['isSkeletal']['val'] = settings['isSkeletal']
@@ -1350,6 +1360,19 @@ class EquatorWindow(QMainWindow):
             logMsgs = self.calibSettingDialog.logMsgs
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
+
+                # Unchecking use previous fit
+                if self.use_previous_fit_chkbx.isChecked():
+                    print("Caliberation setting changed, unchecking use previous fit")
+                    msg = QMessageBox()
+                    msg.setInformativeText(
+                        "Caliberation setting changed, unchecking use previous fit")
+                    msg.setStandardButtons(QMessageBox.Ok)
+                    msg.setWindowTitle("Unchecking Use Previous fit")
+                    msg.setStyleSheet("QLabel{min-width: 500px;}")
+                    msg.exec_()
+                    self.use_previous_fit_chkbx.setChecked(False)
+
                 for msg in logMsgs:
                     self.write_log('(calib) ' + msg)
                 del logMsgs[:]
@@ -2079,7 +2102,7 @@ class EquatorWindow(QMainWindow):
         settings = self.getSettings()
         print("Settings in onImageChange before update")
         print(settings)
-        if self.calSettings is not None:
+        if (self.calSettings is not None) and (not self.use_previous_fit_chkbx.isChecked()):
             print("Clearing the cache as Full reprocess is requested to enable using caliberation settings")
             self.bioImg.removeInfo()
         # settings.update(self.bioImg.info)
@@ -2094,7 +2117,9 @@ class EquatorWindow(QMainWindow):
 
         if self.use_previous_fit_chkbx.isChecked():
             print("Using previous fit")
-            self.updateFittingParamsInParamInfo()
+            ret = self.updateFittingParamsInParamInfo()
+            if ret == -1:
+                return
             self.processImage(self.bioImg.info['paramInfo'])
 
         # Process new image
