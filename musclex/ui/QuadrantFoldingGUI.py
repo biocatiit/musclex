@@ -947,9 +947,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     cy = int(round((y1 + y2) / 2.) + extent[1])
                     M = cv2.getRotationMatrix2D(tuple(self.quadFold.info['center']),
                                                 self.quadFold.info['rotationAngle'], 1)
-                    invM = cv2.invertAffineTransform(M)
-                    homo_coords = [cx, cy, 1.]
-                    new_center = np.dot(invM, homo_coords)
+                    new_center = [cx, cy]
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.quadFold.info['manual_center'] = (cx, cy)

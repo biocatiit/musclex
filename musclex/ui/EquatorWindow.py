@@ -1781,9 +1781,7 @@ class EquatorWindow(QMainWindow):
                 cx = int(round((x1 + x2) / 2.))
                 cy = int(round((y1 + y2) / 2.))
                 M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
-                invM = cv2.invertAffineTransform(M)
-                homo_coords = [cx, cy, 1.]
-                new_center = np.dot(invM, homo_coords)
+                new_center = [cx, cy]
                 # Set new center and rotaion angle , re-calculate R-min
                 self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
                 self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])

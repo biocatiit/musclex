@@ -62,13 +62,15 @@ class EquatorImage:
         else:
             self.img_type = "NORMAL"
 
-        with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
-            if "ImageDescription" in tif.pages[0].tags:
-                metadata = tif.pages[0].tags["ImageDescription"].value
-        try:
-            self.quadrant_folded, self.initialImgDim = json.loads(metadata)
-        except:
-            self.quadrant_folded = False
+        self.quadrant_folded = False
+        if filename.endswith(".tif"):
+            with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
+                if "ImageDescription" in tif.pages[0].tags:
+                    metadata = tif.pages[0].tags["ImageDescription"].value
+            try:
+                self.quadrant_folded, self.initialImgDim = json.loads(metadata)
+            except:
+                print(filename, " file is not quadrant folded")
 
         self.rotated_img = None
         self.version = musclex.__version__
