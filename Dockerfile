@@ -5,7 +5,7 @@ RUN apt-get install -y python python-dev python-pip
 RUN apt-get install -y libjpeg-dev libopencv-dev python-opencv
 RUN apt-get install -y python-qt4
 RUN apt-get install -y cython
-RUN apt-get install -y pyfai==0.15.0
+RUN apt-get install -y pyfai
 RUN apt-get install -y gfortran
 RUN pip install --upgrade pip
 
