@@ -37,6 +37,7 @@ from ..utils.file_manager import fullPath
 from ..utils.image_processor import *
 from ..utils.histogram_processor import *
 import musclex
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 class DiffractionCentroids():
     """
@@ -201,9 +202,9 @@ class DiffractionCentroids():
 
         corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
         npt_rad = int(round(max([distance(center, c) for c in corners])))
-        ai = pyFAI.AzimuthalIntegrator(detector=det)
+        ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
-        tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr_ocl")
+        tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr")
         self.info['rmin'] = getFirstVallay(I)
         print("R-min = "+str(self.info['rmin']))
         self.removeInfo('int_area')

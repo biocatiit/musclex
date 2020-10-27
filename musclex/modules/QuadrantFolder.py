@@ -39,6 +39,7 @@ from tifffile import imsave
 from scipy.interpolate import UnivariateSpline, PchipInterpolator
 import musclex
 import ccp13
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 # Make sure the cython part is compiled
 # from subprocess import call
@@ -361,7 +362,7 @@ class QuadrantFolder(object):
         center = [copy_img.shape[1]-1, copy_img.shape[0]-1]
         npt_rad = int(distance(center,(0,0)))
 
-        ai = pyFAI.AzimuthalIntegrator(detector="agilent_titan")
+        ai = AzimuthalIntegrator(detector="agilent_titan")
         ai.setFit2D(100, center[0], center[1])
         mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
@@ -374,7 +375,7 @@ class QuadrantFolder(object):
 
         I2D = []
         for deg in range(180, 271):
-            x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method="csr_ocl", azimuth_range=(deg, deg+1))
+            x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method="csr", azimuth_range=(deg, deg+1))
             I2D.append(I)
 
         I2D = np.array(I2D)
@@ -643,7 +644,7 @@ class QuadrantFolder(object):
         center = [copy_img.shape[1] - .5, copy_img.shape[0] - .5]
         npt_rad = int(distance(center, (0, 0)))
 
-        ai = pyFAI.AzimuthalIntegrator(detector="agilent_titan")
+        ai = AzimuthalIntegrator(detector="agilent_titan")
         ai.setFit2D(100, center[0], center[1])
         mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
@@ -753,9 +754,10 @@ class QuadrantFolder(object):
             npt_rad = int(distance(center, (0, 0)))
 
             # Get 1D azimuthal integration histogram
-            ai = pyFAI.AzimuthalIntegrator(detector="agilent_titan")
+            ai = AzimuthalIntegrator(detector="agilent_titan")
             ai.setFit2D(100, center[0], center[1])
-            x, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(180, 270))
+            integration_method = pyFAI.method_registry.IntegrationMethod.select_one_available("csr", 1)
+            x, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
             self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
             self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
@@ -779,16 +781,16 @@ class QuadrantFolder(object):
 
         det = "agilent_titan"
         npt_rad = int(distance(center, (0, 0)))
-        ai = pyFAI.AzimuthalIntegrator(detector=det)
+        ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
 
         for deg in np.arange(180, 271, 1):
             if deg == 180 :
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(180, 180.5))
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(180, 180.5))
             elif deg == 270:
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(269.5, 270))
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(269.5, 270))
             else:
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=(deg-0.5, deg+0.5))
+                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(deg-0.5, deg+0.5))
 
             hist_y = I[int(rmin):int(rmax+1)]
             hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))

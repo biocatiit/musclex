@@ -48,6 +48,7 @@ from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 import pickle
 import musclex
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 class ScanningDiffraction:
     """
@@ -197,14 +198,14 @@ class ScanningDiffraction:
 
             corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
             npt_rad = int(round(max([distance(center, c) for c in corners])))
-            ai = pyFAI.AzimuthalIntegrator(detector=det)
+            ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
 
-            I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method="csr_ocl", mask=mask)
-            I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr_ocl", mask=mask)
+            I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method="csr", mask=mask)
+            I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr", mask=mask)
 
-            tth_1, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method="csr_ocl", mask=mask)
-            tth_2, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr_ocl", mask=mask)
+            tth_1, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method="csr", mask=mask)
+            tth_2, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", mask=mask)
 
             self.info['2dintegration'] = [I2D, tth, chi]
             self.info['tophat_2dintegration'] = [I2D2, tth2, chi2]
@@ -458,12 +459,12 @@ class ScanningDiffraction:
         center = self.info['center']
         corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
         npt_rad = int(round(max([distance(center, c) for c in corners])))
-        ai = pyFAI.AzimuthalIntegrator(detector=det)
+        ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
 
         # Compute histograms for each range
         for a_range in ranges:
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr_ocl", azimuth_range=a_range, mask=mask)
+            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", azimuth_range=a_range, mask=mask)
             histograms.append(I)
 
         return ranges, histograms
