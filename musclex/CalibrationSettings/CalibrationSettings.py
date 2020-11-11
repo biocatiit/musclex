@@ -365,7 +365,8 @@ class CalibrationSettings(QDialog):
         cache_path = fullPath(self.dir_path, "settings")
         createFolder(cache_path)
         cache_file = fullPath(cache_path, "calibration.info")
-        self.calSettings={}
+        if self.calSettings is None:
+            self.calSettings = {}
 
         if self.paramGrp.isChecked():
             self.calSettings = {
