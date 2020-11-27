@@ -1360,7 +1360,8 @@ class EquatorWindow(QMainWindow):
             logMsgs = self.calibSettingDialog.logMsgs
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
-
+                if "center" in self.calSettings:
+                    self.bioImg.info['center'] = self.calSettings["center"]
                 # Unchecking use previous fit
                 if self.use_previous_fit_chkbx.isChecked():
                     print("Caliberation setting changed, unchecking use previous fit")
@@ -2100,9 +2101,6 @@ class EquatorWindow(QMainWindow):
         settings = self.getSettings()
         print("Settings in onImageChange before update")
         print(settings)
-        if (self.calSettings is not None) and (not self.use_previous_fit_chkbx.isChecked()):
-            print("Clearing the cache as Full reprocess is requested to enable using caliberation settings")
-            self.bioImg.removeInfo()
         # settings.update(self.bioImg.info)
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
@@ -2309,12 +2307,11 @@ class EquatorWindow(QMainWindow):
         if self.calSettings is not None:
             if 'type' in self.calSettings:
                 if self.calSettings["type"] == "img":
-                    settings["center"] = self.calSettings["center"]
                     settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
                 else:
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
                         "pixel_size"]
-            if "center" in self.calSettings:
+            if "center" in self.calSettings and self.calibSettingDialog.fixedCenter.isChecked():
                 settings["center"] = self.calSettings["center"]
 
         if self.fixedAngleChkBx.isChecked():
