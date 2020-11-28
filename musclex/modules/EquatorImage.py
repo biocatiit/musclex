@@ -983,8 +983,8 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
 
 
         speaks_dict = {}
-        for k in range(1, max(len(left_areas), len(right_areas)) + 1):
-            speaks_dict[k] = 0
+        for k1 in range(1, max(len(left_areas), len(right_areas)) + 1):
+            speaks_dict[k1] = 0
         for kv in kwargs.items():
             key = kv[0]
             value = kv[1]
