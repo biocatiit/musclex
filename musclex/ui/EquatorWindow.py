@@ -1361,7 +1361,8 @@ class EquatorWindow(QMainWindow):
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
                 if "center" in self.calSettings:
-                    self.bioImg.info['center'] = self.calSettings["center"]
+                    self.bioImg.info['calib_center'] = self.calSettings["center"]
+                    self.bioImg.removeInfo('center')
                 # Unchecking use previous fit
                 if self.use_previous_fit_chkbx.isChecked():
                     print("Caliberation setting changed, unchecking use previous fit")
@@ -2312,7 +2313,7 @@ class EquatorWindow(QMainWindow):
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
                         "pixel_size"]
             if "center" in self.calSettings and self.calibSettingDialog.fixedCenter.isChecked():
-                settings["center"] = self.calSettings["center"]
+                settings["calib_center"] = self.calSettings["center"]
 
         if self.fixedAngleChkBx.isChecked():
             settings['fixed_angle'] = self.fixedAngle.value()
