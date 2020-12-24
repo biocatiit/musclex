@@ -13,7 +13,7 @@ Find the shortcut of MuscleX on the Desktop or in the Start Menu, click it to ru
 Some sample image data are installed to your *Documents* directory under folder `MuscleX`. Feel free to use them.
 
 ## Mac OS X
-Download [the DMG file](https://sourceforge.net/projects/musclex/files/) built for Mac OS X.
+Download [the DMG file](https://sourceforge.net/projects/musclex/files/) built for Mac OS X. **Note that this is an older installer that will not work on newer Macs**
 
 1. Open the DMG file
 2. Drag the App Bundle **MuscleX** to the folder *Applications*
