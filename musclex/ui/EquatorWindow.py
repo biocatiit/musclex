@@ -189,6 +189,10 @@ class EquatorWindow(QMainWindow):
         self.setRotAndCentB = QPushButton("Set Rotation Angle \nand Center")
         self.setRotAndCentB.setCheckable(True)
         self.setRotAndCentB.setFixedHeight(45)
+        self.setCentByChords = QPushButton("Set Center by Chords")
+        self.setCentByChords.setCheckable(True)
+        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
+        self.setCentByPerp.setCheckable(True)
         self.setAngleB = QPushButton("Set \nRotation Angle")
         self.setAngleB.setCheckable(True)
         self.setAngleB.setFixedHeight(45)
@@ -238,24 +242,26 @@ class EquatorWindow(QMainWindow):
 
         self.resetAllB = QPushButton("Reset All")
         self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.setRotAndCentB, 1, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setAngleB, 1, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.setRminB, 2, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setIntAreaB, 2, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.applyBlank, 3, 0, 1, 3)
-        self.imgProcLayout.addWidget(self.blankSettings, 3, 3, 1, 1)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 4, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 5, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 5, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 7, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 7, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 8, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 9, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 10, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 10, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setCentByChords, 1, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setRotAndCentB, 2, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.setAngleB, 2, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.setIntAreaB, 3, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.applyBlank, 4, 0, 1, 3)
+        self.imgProcLayout.addWidget(self.blankSettings, 4, 3, 1, 1)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 5, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 6, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 7, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 8, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 9, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 10, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 11, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 11, 2, 1, 2)
 
         self.imgProcLayout.addWidget(self.resetAllB, 11, 0, 1, 4)
 
@@ -553,6 +559,10 @@ class EquatorWindow(QMainWindow):
         self.calibrationB.setToolTip("Launch Calibration Setting Window")
         self.setRotAndCentB.setToolTip(
             "Activate rotation and center adjustment.\n To adjust, please click 2 center locations of coresponding diffraction on the image")
+        self.setCentByChords.setToolTip(
+            "Activate center adjustment.\n To adjust, please select multiple chords on coresponding diffraction on the image")
+        self.setCentByPerp.setToolTip(
+            "Activate center adjustment.\n To adjust, please select 4 points indicating equatorial and vertical peaks")
         self.setAngleB.setToolTip(
             "Activate rotation adjustment.\n To adjust, please click when the line is on the equator of diffraction")
         self.setRminB.setToolTip("Activate R-min adjustment.\n To adjust, please click location of R-min on the image")
@@ -613,6 +623,8 @@ class EquatorWindow(QMainWindow):
 
         self.calibrationB.clicked.connect(self.calibrationClicked)
         self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
+        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
+        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.setAngleB.clicked.connect(self.setAngleClicked)
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
@@ -1554,6 +1566,116 @@ class EquatorWindow(QMainWindow):
         else:
             self.resetUI()
 
+    def setCenterByPerpClicked(self):
+        """
+        Prepare for manual center selection using perpendicular peaks
+        :return:
+        """
+        if self.bioImg is None:
+            return
+        if self.setCentByPerp.isChecked():
+            self.setLeftStatus("Click on 4 corresponding reflection peaks along the equator and perpendicular (ESC to cancel)")
+            ax = self.displayImgAxes
+            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
+            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
+            del ax.lines
+            ax.lines = []
+            del ax.patches
+            ax.patches = []
+            self.displayImgCanvas.draw_idle()
+            self.function = ["perp_center"]  # set current active function
+        else:
+            self.resetUI()
+
+
+    def setCenterByChordsClicked(self):
+        """
+        Prepare for manual rotation center setting by selecting chords
+        """
+        if self.bioImg is None:
+            return
+
+        if self.setCentByChords.isChecked():
+            self.setLeftStatus("Click on image to select chords (ESC to cancel)")
+            ax = self.displayImgAxes
+            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
+            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
+            del ax.lines
+            ax.lines = []
+            del ax.patches
+            ax.patches = []
+            self.chordpoints=[]
+            self.chordLines = []
+            self.displayImgCanvas.draw_idle()
+            self.function = ["chords_center"]  # set current active function
+        else:
+            QApplication.restoreOverrideCursor()
+            print("Finding Chords center ...")
+            centers = []
+            for i, line1 in enumerate(self.chordLines):
+                for line2 in self.chordLines[i+1:]:
+                    xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
+                    ycent = line1[0]*xcent + line1[1]
+                    center = [xcent, ycent]
+                    print("CenterCalc ", center)
+
+                    centers.append(center)
+
+            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
+            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
+            M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
+            invM = cv2.invertAffineTransform(M)
+            homo_coords = [cx, cy, 1.]
+            new_center = np.dot(invM, homo_coords)
+            print("New center ", new_center)
+            # Set new center and rotaion angle , re-calculate R-min
+            self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+            self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
+            self.setCentByChords.setChecked(False)
+            self.bioImg.removeInfo('rmin')
+            self.processImage()
+
+    def drawPerpendiculars(self):
+        ax = self.displayImgAxes
+        points = self.chordpoints
+        self.chordLines = []
+        for i,p1 in enumerate(points):
+            for p2 in points[i+1:]:
+                slope, cent = self.getPerpendicularLineHomogenous(p1, p2)
+                x_vals = np.array(ax.get_xlim())
+                y_vals = (x_vals - cent[0])*slope + cent[1]
+                self.chordLines.append([slope, cent[1] - slope*cent[0]])
+                ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
+
+    def getPerpendicularLineHomogenous(self, p1, p2):
+        b1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
+        perp_line1 = np.cross(chord_cent, [-1, b1, 0]) #[b1, 1, -1 * (b1 * chord_cent[0] + chord_cent[1])]
+        print("Chord_cent1 ", chord_cent)
+        print("Perp Line ", perp_line1)
+        return -1/b1, chord_cent
+
+    def getIntersectionOfTwoLines(self, line1, line2):
+        """
+        Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
+        :param line1:
+        :param line2:
+        :return:
+        """
+        p1,p2 = line1
+        p3,p4 = line2
+        slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        if p4[0] != p3[0]:
+            slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
+            x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
+            y = slope1*(x - p1[0]) + p1[1]
+        else:
+            # Slope2 is inf
+            x = p4[0]
+            y = slope1 * (x - p1[0]) + p1[1]
+
+        return (int(x), int(y))
+
     def setAngleClicked(self):
         """
         Prepare for manual rotation angle setting
@@ -1756,6 +1878,40 @@ class EquatorWindow(QMainWindow):
         # Provide different behavior depending on current active function
         if func is None:
             self.function = ["im_move", (x, y)]
+        elif func[0] == "chords_center":
+            ax = self.displayImgAxes
+            axis_size = 1
+            self.chordpoints.append([x, y])
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            if len(self.chordpoints) >= 3:
+                self.drawPerpendiculars()
+            self.displayImgCanvas.draw_idle()
+        elif func[0] == "perp_center":
+            ax = self.displayImgAxes
+            axis_size = 5
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.displayImgCanvas.draw_idle()
+            func.append((x, y))
+            if len(func) == 5:
+                QApplication.restoreOverrideCursor()
+
+                line1 = [func[1], func[2]]
+                line2 = [func[3], func[4]]
+                cx,cy = self.getIntersectionOfTwoLines(line1, line2)
+
+                M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
+                invM = cv2.invertAffineTransform(M)
+                homo_coords = [cx, cy, 1.]
+                new_center = np.dot(invM, homo_coords)
+                # Set new center and rotaion angle , re-calculate R-min
+                self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+                self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
+                self.bioImg.removeInfo('rmin')
+                self.setCentByPerp.setChecked(False)
+                self.processImage()
+
         elif func[0] == "angle_center":
             # draw X at points and a line between points
             ax = self.displayImgAxes
@@ -1970,6 +2126,48 @@ class EquatorWindow(QMainWindow):
 
             self.displayImgCanvas.draw_idle()
             # self.displayImgCanvas.flush_events()
+        elif func[0] == "perp_center":
+            # draw X on points and a line between points
+            ax = self.displayImgAxes
+            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
+            axis_size = 5
+
+            if len(func) == 1:
+                if len(ax.lines) > 0:
+                    del ax.lines
+                    ax.lines = []
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    first_cross = ax.lines[:2]
+                    del ax.lines
+                    ax.lines = first_cross
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+
+            elif len(func) == 3:
+                if len(ax.lines) > 0:
+                    first_cross = ax.lines[:7]
+                    del ax.lines
+                    ax.lines = first_cross
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            elif len(func) == 4:
+                start_pt = func[3]
+                if len(ax.lines) > 3:
+                    first_cross = ax.lines[:9]
+                    del ax.lines
+                    ax.lines = first_cross
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.displayImgCanvas.draw_idle()
+
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
