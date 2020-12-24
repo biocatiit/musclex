@@ -15,6 +15,8 @@ sudo curl -sSL https://get.docker.com/ | sh
 ```
 For Windows: you might need to do more steps as described [here](https://github.com/biocatiit/musclex/issues/4)
 
+For Mac: You can install docker by following the steps listed [here](https://docs.docker.com/docker-for-mac/install/)
+
 ## Create docker group and add a user
 You need to add a user to docker group in order to give docker run permission to the user
 ```
