@@ -13,9 +13,11 @@ sudo apt-get update
 sudo apt-get install curl
 sudo curl -sSL https://get.docker.com/ | sh
 ```
-For Windows: you might need to do more steps as described [here](https://github.com/biocatiit/musclex/issues/4)
+For Windows: follow the steps as described [here](https://github.com/biocatiit/musclex/issues/4)
 
-For Mac: You can install docker by following the steps listed [here](https://docs.docker.com/docker-for-mac/install/)
+For Mac: follow the steps as described [here](https://docs.docker.com/docker-for-mac/install/)
+
+For Debian: follow the steps as described [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-10)
 
 ## Create docker group and add a user
 You need to add a user to docker group in order to give docker run permission to the user
