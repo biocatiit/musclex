@@ -194,6 +194,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx = QCheckBox("Mode orientation")
         self.modeAngleChkBx.setChecked(False)
 
+        self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
+        self.cropFoldedImageChkBx.setChecked(False)
+
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
@@ -202,6 +205,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
         self.settingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
         self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -1756,7 +1760,11 @@ class QuadrantFoldingGUI(QMainWindow):
         fileName = self.imgList[self.currentFileNumber]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
+        if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
+            self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+        if 'saveCroppedImage' not in self.quadFold.info:
+            self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
         original_image = self.quadFold.orig_img
         self.imgDetailOnStatusBar.setText(
@@ -1984,7 +1992,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
                 result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
                 result_file, _ = splitext(result_file)
-                result_file += '_folded.tif'
                 img = self.quadFold.imgCache['resultImg']
 
                 # if self.quadFold.info['imgType'] == 'float32':
@@ -1995,7 +2002,21 @@ class QuadrantFoldingGUI(QMainWindow):
 
                 # cv2.imwrite(result_file, img)
                 metadata = json.dumps([True, self.quadFold.initImg.shape])
-                imsave(result_file, img, description=metadata)
+                if self.cropFoldedImageChkBx.isChecked():
+                    print("Cropping folded image ")
+                    ylim, xlim = self.quadFold.initImg.shape
+                    xlim, ylim = int(xlim / 2), int(ylim / 2)
+                    cx,cy = self.quadFold.info['center']
+                    xl,xh = (cx - xlim, cx + xlim)
+                    yl,yh = (cy - ylim, cy + ylim)
+                    print("Before cropping ", img.shape)
+                    img = img[max(yl,0):yh, max(xl,0):xh]
+                    print("After cropping, ", img.shape)
+                    result_file += '_folded_cropped.tif'
+                    imsave(result_file, img)
+                else:
+                    result_file += '_folded.tif'
+                    imsave(result_file, img, description=metadata)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
                 self.saveBackground()
