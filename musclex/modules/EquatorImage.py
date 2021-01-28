@@ -80,7 +80,7 @@ class EquatorImage:
         if cache is None:
             # info dictionary will save all results
             self.info = {
-                "mask_thres" : getMaskThreshold(self.orig_img, self.img_type)
+                "mask_thres" : 0 #getMaskThreshold(self.orig_img, self.img_type)
             }
         else:
             self.info = cache

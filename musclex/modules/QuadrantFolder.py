@@ -174,7 +174,7 @@ class QuadrantFolder(object):
         Initial some parameters in case GUI doesn't specified
         """
         if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
+            self.info['mask_thres'] = 0 #getMaskThreshold(self.orig_img, self.img_type)
         if 'ignore_folds' not  in self.info:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:

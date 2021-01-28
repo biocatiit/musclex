@@ -430,7 +430,7 @@ class CalibrationSettings(QDialog):
         if self.manualCalPoints is not None:
             (center, radius, angle) = cv2.fitEllipse(np.array(self.manualCalPoints))
             self.calSettings = {
-                "center": [int(round(center[0])), int(round(center[1]))],
+                "center": [round(center[0], 4), round(center[1],4)],
                 "radius": int(round((radius[0] + radius[1]) / 4.))
             }
         else:
@@ -463,7 +463,7 @@ class CalibrationSettings(QDialog):
                         continue
 
                     fixcenter = (
-                        int(np.round((center1[0] + center2[0]) / 2.)), int(np.round((center1[1] + center2[1]) / 2.)))
+                        round((center1[0] + center2[0]) / 2., 4), round((center1[1] + center2[1]) / 2., 4))
                     cali_radius = np.mean([radius1[0], radius1[1], radius2[0], radius2[1]])
                     break
 
@@ -471,7 +471,7 @@ class CalibrationSettings(QDialog):
                 if len(contours) > 0:
                     largest_contour = max(contours, key=lambda c: cv2.contourArea(c))
                     (center, radius, angle) = cv2.fitEllipse(largest_contour)
-                    fixcenter = (int(np.round(center[0])), int(np.round(center[1])))
+                    fixcenter = (round(center[0], 4), round(center[1], 4))
                     cali_radius = np.mean([int(np.round(radius[0])), int(np.round(radius[1]))])
                 else:
                     errMsg = QMessageBox()
