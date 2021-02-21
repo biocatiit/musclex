@@ -30,7 +30,12 @@ You need to have the muscle.sh script available in order to update, and run a Mu
 ```
 wget https://raw.githubusercontent.com/biocatiit/musclex/master/musclex.sh && chmod +x musclex.sh
 ```
-
+or by
+```
+curl https://raw.githubusercontent.com/biocatiit/musclex/master/musclex.sh -o musclex.sh
+&& chmod +x musclex.sh
+```
+If you do not have `wget` or `curl` installed you can download the script directly at the following [link](https://raw.githubusercontent.com/biocatiit/musclex/master/musclex.sh) and saving into a file. After saving the file make it executable (e.g. using: `chmod +x musclex.sh`).
 
 
 ## Running a Muscle X program
