@@ -39,6 +39,8 @@ import webbrowser
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, getBlankImageAndMask
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
+from ..modules.QuadrantFolder import QuadrantFolder
+from ..ui.QuadrantFoldingGUI import QuadrantFoldingGUI
 from ..utils.image_processor import *
 from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
 from ..ui.EQ_FittingTab import EQ_FittingTab
@@ -136,6 +138,7 @@ class EquatorWindow(QMainWindow):
         self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
         self.imageVLayout.addWidget(self.displayImgCanvas)
+        self.doubleZoomAxes = None
 
         self.imgDispOptionGrp = QGroupBox('Display Options')
         self.imgDispOptLayout = QGridLayout()
@@ -186,22 +189,22 @@ class EquatorWindow(QMainWindow):
         self.imgProcGrp.setLayout(self.imgProcLayout)
         self.calibrationB = QPushButton("Calibration Settings")
         self.calibSettingDialog = None
-        self.setRotAndCentB = QPushButton("Set Rotation Angle \nand Center")
+        self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
         self.setRotAndCentB.setCheckable(True)
-        self.setRotAndCentB.setFixedHeight(45)
+        # self.setRotAndCentB.setFixedHeight(45)
         self.setCentByChords = QPushButton("Set Center by Chords")
         self.setCentByChords.setCheckable(True)
         self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
         self.setCentByPerp.setCheckable(True)
-        self.setAngleB = QPushButton("Set \nRotation Angle")
+        self.setAngleB = QPushButton("Set Rotation Angle")
         self.setAngleB.setCheckable(True)
-        self.setAngleB.setFixedHeight(45)
+        # self.setAngleB.setFixedHeight(45)
         self.setRminB = QPushButton("Set R-min")
         self.setRminB.setCheckable(True)
-        self.setRminB.setFixedHeight(45)
+        # self.setRminB.setFixedHeight(45)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
-        self.setIntAreaB.setFixedHeight(45)
+        # self.setIntAreaB.setFixedHeight(45)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle")
         self.fixedAngleChkBx.setChecked(False)
@@ -224,9 +227,16 @@ class EquatorWindow(QMainWindow):
         self.fixedRmin.setRange(1, 1000)
         self.fixedRmin.setEnabled(False)
         self.applyBlank = QCheckBox("Apply Blank Image and Mask")
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.doubleZoomMode = False
         self.applyBlank.setChecked(False)
+        self.doubleZoom.setChecked(False)
         self.blankSettings = QPushButton("Set")
         self.blankSettings.setEnabled(False)
+        # self.quadrantFoldCheckbx = QCheckBox("Use Quadrant Folded Image")
+        # self.quadrantFoldCheckbx.setChecked(False)
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setObjectName('maskThresSpnBx')
         self.editableVars[self.maskThresSpnBx.objectName()] = None
@@ -250,18 +260,20 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setIntAreaB, 3, 2, 1, 2)
         self.imgProcLayout.addWidget(self.applyBlank, 4, 0, 1, 3)
         self.imgProcLayout.addWidget(self.blankSettings, 4, 3, 1, 1)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 5, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 5, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 6, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 7, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 7, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 8, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 9, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 10, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 11, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 11, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.doubleZoom, 5, 0, 1, 2)
+        # self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 5, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 8, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 9, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 10, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 11, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 12, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 12, 2, 1, 2)
 
         self.imgProcLayout.addWidget(self.resetAllB, 11, 0, 1, 4)
 
@@ -288,11 +300,11 @@ class EquatorWindow(QMainWindow):
         self.imageOptionsLayout = QVBoxLayout()
 
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
-        self.imageOptionsLayout.addSpacing(10)
+        # self.imageOptionsLayout.addSpacing(10)
         self.imageOptionsLayout.addWidget(self.imgDispOptionGrp)
-        self.imageOptionsLayout.addSpacing(10)
+        # self.imageOptionsLayout.addSpacing(10)
         self.imageOptionsLayout.addWidget(self.imgProcGrp)
-        self.imageOptionsLayout.addStretch()
+        # self.imageOptionsLayout.addStretch()
         self.imageOptionsLayout.addLayout(self.bottomLayout)
         self.imageOptionsFrame.setLayout(self.imageOptionsLayout)
 
@@ -333,7 +345,7 @@ class EquatorWindow(QMainWindow):
         self.checkableButtons.append(self.setPeaksB)
 
         self.genLayout.addWidget(self.skeletalChkBx, 0, 0, 1, 2)
-        self.genLayout.addWidget(QLabel("Number of peaks : <br/>on each side"), 1, 0, 1, 1)
+        self.genLayout.addWidget(QLabel("Number of peaks: <br/>on each side"), 1, 0, 1, 1)
         self.genLayout.addWidget(self.nPeakSpnBx, 1, 1, 1, 1)
         self.genLayout.addWidget(QLabel("Model : "), 2, 0, 1, 1)
         self.genLayout.addWidget(self.modelSelect, 2, 1, 1, 1)
@@ -341,8 +353,8 @@ class EquatorWindow(QMainWindow):
 
         self.fitDispOptionGrp = QGroupBox('Display Options')
         self.fitDispOptLayout = QGridLayout()
-        self.origHistChkBx = QCheckBox('Original Histogram')
-        self.hullChkBx = QCheckBox('After Convexhull')
+        self.origHistChkBx = QCheckBox('Original\nHistogram')
+        self.hullChkBx = QCheckBox('After\nConvexhull')
         self.hullChkBx.setChecked(True)
         self.fitChkBx = QCheckBox('Fitting Graph')
         self.fitChkBx.setChecked(True)
@@ -409,8 +421,8 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
 
         self.fittingOptionsFrame1 = QFrame()
-        self.fittingOptionsFrame1.setFixedWidth(300)
-        self.fittingOptionsLayout = QVBoxLayout(self.fittingOptionsFrame1)
+        self.fittingOptionsFrame1.setFixedWidth(505)
+        self.fittingOptionsLayout = QHBoxLayout(self.fittingOptionsFrame1)
         self.fittingOptionsLayout.setAlignment(Qt.AlignLeft)
         self.fittingOptionsLayout.addWidget(self.generalGrp)
         self.fittingOptionsLayout.addSpacing(10)
@@ -419,7 +431,7 @@ class EquatorWindow(QMainWindow):
 
 
         self.fittingOptionsFrame2 = QFrame()
-        self.fittingOptionsFrame2.setFixedWidth(300)
+        self.fittingOptionsFrame2.setFixedWidth(505)
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
@@ -540,6 +552,8 @@ class EquatorWindow(QMainWindow):
         self.mainLayout.addWidget(self.tabWidget)
         self.mainLayout.addWidget(self.statusBar)
 
+        self.setMinimumHeight(900)
+
     def setAllToolTips(self):
         """
         Set Tooltips for widgets
@@ -594,7 +608,7 @@ class EquatorWindow(QMainWindow):
         self.nextButton2.setToolTip("Go to the next image in this folder")
         self.prevButton2.setToolTip("Go to the previous image in this folder")
         self.processFolderButton2.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
-        self.refittingB.setToolTip("Refit current image again with current fitting parameters")
+        self.refittingB.setToolTip("If you change parameters relating to image processing (e.g. center finding) they will not be used when you refit. Also, image processing parameters (e.g. center) will not change when you refit.")
         self.refitAllButton.setToolTip("Refit all images in the directory again with current fitting parameters")
 
     def setConnections(self):
@@ -636,6 +650,8 @@ class EquatorWindow(QMainWindow):
         self.fixedRmin.editingFinished.connect(self.fixedRminChanged)
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
         self.applyBlank.stateChanged.connect(self.applyBlankChecked)
+        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
+        # self.quadrantFoldCheckbx.stateChanged.connect(self.quadrantFoldChecked)
         self.blankSettings.clicked.connect(self.blankSettingClicked)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
@@ -865,6 +881,49 @@ class EquatorWindow(QMainWindow):
                 self.blankSettingClicked()
             else:
                 self.resetAll()
+
+    def doubleZoomChecked(self):
+        if self.doubleZoom.isChecked():
+            print("Double zoom checked")
+            self.doubleZoomAxes = self.displayImgFigure.add_subplot(333)
+            self.doubleZoomAxes.axes.xaxis.set_visible(False)
+            self.doubleZoomAxes.axes.yaxis.set_visible(False)
+            self.doubleZoomMode = True
+
+            img = self.bioImg.getRotatedImage()
+            ax1 = self.doubleZoomAxes
+            x,y = self.bioImg.info['center']
+            imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                self.doubleZoomPt = (x, y)
+                ax1.imshow(imgScaled)
+                y, x = imgScaled.shape
+                cy, cx = y // 2, x // 2
+                if len(ax1.lines) > 0:
+                    del ax1.lines
+                    ax1.lines = []
+                ax1.patches = []
+
+        else:
+            self.displayImgFigure.delaxes(self.doubleZoomAxes)
+            self.doubleZoomMode = False
+        self.displayImgCanvas.draw_idle()
+
+    def quadrantFoldChecked(self):
+        if self.bioImg is not None:
+            self.bioImg.info['qfChecked'] = self.quadrantFoldCheckbx.isChecked()
+            # fileName = self.imgList[self.currentImg]
+            # qfMetaData = self.bioImg.info['qfMetaData'] if 'qfMetaData' in self.bioImg.info else None
+            # self.bioImg.delCache()
+            # self.img_zoom = None
+            # self.graph_zoom = None
+            # self.default_img_zoom = None
+            # self.bioImg = EquatorImage(self.dir_path, fileName, self)
+            # self.bioImg.info['qfChecked'] = self.quadrantFoldCheckbx.isChecked()
+            # if qfMetaData is not None:
+            #     self.bioImg.info['qfMetaData'] = qfMetaData
+            self.processImage()
 
     def blankSettingClicked(self):
         """
@@ -1845,6 +1904,15 @@ class EquatorWindow(QMainWindow):
         else:
             self.rotation90ChkBx.setEnabled(True)
 
+    def doubleZoomToOrigCoord(self, x, y):
+        M = [[1/5, 0, 0], [0, 1/5, 0],[0, 0, 1]]
+        dzx, dzy = self.doubleZoomPt
+        x, y, _ = np.dot(M, [x, y, 1])
+        newX = dzx -5 + x
+        newY = dzy - 5 + y
+        return (newX, newY)
+
+
     def imgClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
@@ -1872,6 +1940,22 @@ class EquatorWindow(QMainWindow):
             x = min(x, xlim[1])
             y = max(y, 0)
             y = min(y, ylim[0])
+
+        elif self.doubleZoomMode:
+            # If x, y is inside figure and image is clicked for first time in double zoom mode
+            print(x,y)
+            if not self.dontShowAgainDoubleZoomMessageResult:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Please click on zoomed window on the top right")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Mode Orientation Failed")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.setCheckBox(self.dontShowAgainDoubleZoomMessage)
+                msg.exec_()
+                self.dontShowAgainDoubleZoomMessageResult = self.dontShowAgainDoubleZoomMessage.isChecked()
+            self.doubleZoomMode = False
+            return
 
         func = self.function
 
@@ -1916,6 +2000,9 @@ class EquatorWindow(QMainWindow):
             # draw X at points and a line between points
             ax = self.displayImgAxes
             axis_size = 5
+            if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                x,y = self.doubleZoomToOrigCoord(x,y)
+                self.doubleZoomMode = True
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
@@ -2024,6 +2111,20 @@ class EquatorWindow(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>5 and x<img.shape[1]-5 and y>5 and y<img.shape[0]-5:
+                    ax1 = self.doubleZoomAxes
+                    imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                        imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                        self.doubleZoomPt = (x,y)
+                        ax1.imshow(imgScaled)
+                        y, x = imgScaled.shape
+                        cy, cx = y//2, x//2
+                        if len(ax1.lines) > 0:
+                            del ax1.lines
+                            ax1.lines = []
+                        ax1.patches=[]
+                        self.displayImgCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -2103,8 +2204,18 @@ class EquatorWindow(QMainWindow):
                 if len(ax.lines) > 0:
                     del ax.lines
                     ax.lines = []
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            del ax1.lines
+                            ax1.lines = []
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
@@ -2112,9 +2223,19 @@ class EquatorWindow(QMainWindow):
                     first_cross = ax.lines[:2]
                     del ax.lines
                     ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            del ax1.lines
+                            ax1.lines = []
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             # bound = 10
             # ax2.set_xlim((x-bound, x+bound))
@@ -2178,6 +2299,8 @@ class EquatorWindow(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.displayImgCanvas.draw_idle()
+
+        # self.doubleZoomCanvas.draw_idle()
 
     def imgReleased(self, event):
         """
@@ -2419,6 +2542,70 @@ class EquatorWindow(QMainWindow):
             return True
         return False
 
+    def getQFFlags(self):
+        """
+        Get all flags for QuadrantFolder process() from widgets
+        :return: flags (dict)
+        """
+        flags = {}
+
+
+        flags['orientation_model'] = None
+        flags["ignore_folds"] = set()
+        flags['bgsub'] = 'None'
+        flags["cirmin"] = 0
+        flags["cirmax"] = 100
+        flags['win_size_x'] = 10
+        flags['win_size_y'] = 10
+        flags['win_sep_x'] = 10
+        flags['win_sep_y'] = 10
+        flags["bin_theta"] = 30
+        flags['radial_bin'] = 10
+        flags['smooth'] = 0.1
+        flags['tension'] = 1
+        flags["tophat1"] = 5
+        flags["tophat2"] = 20
+        flags['mask_thres'] = self.maskThresSpnBx.value()
+        flags['sigmoid'] = 0.1
+        flags['fwhm'] = 10
+        flags['boxcar_x'] = 10
+        flags['boxcar_y'] = 10
+        flags['cycles'] = 5
+        flags['blank_mask'] = self.applyBlank.isChecked()
+
+        if self.modeAngleChkBx.isChecked():
+            modeOrientation = self.getModeRotation()
+            if modeOrientation != None:
+                flags["mode_angle"] = modeOrientation
+
+        flags['rotate'] = False
+
+        return flags
+
+    def getCenterFromQF(self):
+        if self.quadrantFoldCheckbx.isChecked() or ('qfChecked' in self.bioImg.info and self.bioImg.info['qfChecked']):
+            self.quadrantFoldCheckbx.setCheckState(Qt.Checked)
+            print("Starting QF")
+            filename = self.bioImg.filename
+            self.quadFold = QuadrantFolder(self.dir_path, filename, self)
+            self.newImgDimension = None
+            self.quadFold.process(self.getQFFlags())
+            print("Finished QF")
+            # self.bioImg.orig_img = self.quadFold.imgCache['resultImg']
+            _, center = processImageForIntCenter(self.quadFold.imgCache['resultImg'],
+                                                 getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.img_type,
+                                                 self.quadFold.info["mask_thres"])
+            M = self.quadFold.centImgTransMat
+            if M is not None:
+                M[0, 2] = -1 * M[0, 2]
+                M[1, 2] = -1 * M[1, 2]
+                center = [center[0], center[1], 1]
+                center = np.dot(M, center)
+                self.bioImg.removeInfo()
+                print(center)
+                self.bioImg.info['calib_center'] = (int(center[0]), int(center[1]))
+                self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'])
+
     def processImage(self, paramInfo=None):
         """
         Process Image by getting all settings and call process() of EquatorImage object
@@ -2432,6 +2619,13 @@ class EquatorWindow(QMainWindow):
         print("Settings in processImage:")
         print(settings)
         try:
+                # if self.quadFold.initImg is not None:
+                #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = [True, self.quadFold.initImg.shape]
+                #     self.bioImg.info['qfMetaData'] = [True, self.quadFold.initImg.shape]
+                # else:
+                #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
+            # If QF box checked, get center from QF
+            # self.getCenterFromQF()
             self.bioImg.process(settings, paramInfo)
         except Exception as e:
             QApplication.restoreOverrideCursor()
@@ -2580,6 +2774,21 @@ class EquatorWindow(QMainWindow):
     def refreshGraph(self):
         self.update_plot['graph'] = True
         self.updateUI()
+
+    def getExtentAndCenter(self):
+        if self.quadFold is None:
+            return [0,0], (0,0)
+        if 'calib_center' in self.quadFold.info:
+            center = self.quadFold.info['calib_center']
+        elif 'manual_center' in self.quadFold.info:
+            center = self.quadFold.info['manual_center']
+        else:
+            _, center = processImageForIntCenter(self.quadFold.initImg, getCenter(self.quadFold.initImg), self.quadFold.img_type, self.quadFold.info["mask_thres"])
+
+        extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
+
+        print("Extent is ", extent)
+        return extent, center
 
     def resetUI(self):
         """
