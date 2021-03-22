@@ -176,6 +176,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
         self.setCenterRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setCenterRotationButton)
+        self.setCentByChords = QPushButton("Set Center by Chords")
+        self.setCentByChords.setCheckable(True)
+        self.checkableButtons.append(self.setCentByChords)
+        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
+        self.setCentByPerp.setCheckable(True)
+        self.checkableButtons.append(self.setCentByPerp)
         self.setRotationButton = QPushButton("Set Manual Rotation")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
@@ -197,15 +203,23 @@ class QuadrantFoldingGUI(QMainWindow):
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
 
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.doubleZoomMode = False
+
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 3, 0, 1, 1)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 3, 1, 1, 1)
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 2)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByChords, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByPerp, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 5, 0, 1, 1)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 5, 1, 1, 1)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 8, 0, 1, 2)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 9, 0, 1, 2)
+        self.settingsLayout.addWidget(self.doubleZoom, 10, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -630,6 +644,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
+        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
         self.imgZoomInB.clicked.connect(self.imageZoomIn)
@@ -637,6 +652,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.calibrationButton.clicked.connect(self.calibrationClicked)
         self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
         self.setRotationButton.clicked.connect(self.setRotation)
+        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
+        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.maskThresSpnBx.valueChanged.connect(self.ignoreThresChanged)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
@@ -715,6 +732,118 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold = QuadrantFolder(self.filePath, fileName, self)
             self.masked = False
             self.processImage()
+
+    def setCenterByPerpClicked(self):
+        """
+        Prepare for manual center selection using perpendicular peaks
+        :return:
+        """
+        if self.quadFold is None:
+            return
+        if self.setCentByPerp.isChecked():
+            ax = self.imageAxes
+            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
+            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
+            del ax.lines
+            ax.lines = []
+            del ax.patches
+            ax.patches = []
+            self.imageCanvas.draw_idle()
+            self.function = ["perp_center"]  # set current active function
+        else:
+            self.resetUI()
+
+
+    def setCenterByChordsClicked(self):
+        """
+        Prepare for manual rotation center setting by selecting chords
+        """
+        if self.quadFold is None:
+            return
+
+        if self.setCentByChords.isChecked():
+            ax = self.imageAxes
+            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
+            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
+            del ax.lines
+            ax.lines = []
+            del ax.patches
+            ax.patches = []
+            self.chordpoints=[]
+            self.chordLines = []
+            self.imageCanvas.draw_idle()
+            self.function = ["chords_center"]  # set current active function
+        else:
+            QApplication.restoreOverrideCursor()
+            print("Finding Chords center ...")
+            centers = []
+            for i, line1 in enumerate(self.chordLines):
+                for line2 in self.chordLines[i+1:]:
+                    xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
+                    ycent = line1[0]*xcent + line1[1]
+                    center = [xcent, ycent]
+                    print("CenterCalc ", center)
+
+                    centers.append(center)
+
+            extent, center = self.getExtentAndCenter()
+
+            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
+            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
+            # M = cv2.getRotationMatrix2D(tuple(self.quadFold.info['center']), self.quadFold.info['rotationAngle'], 1)
+            # invM = cv2.invertAffineTransform(M)
+            # homo_coords = [cx, cy, 1.]
+            new_center = [cx, cy] #np.dot(invM, homo_coords)
+            print("New center ", new_center)
+            # Set new center and rotaion angle , re-calculate R-min
+            self.quadFold.info['manual_center'] = (int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
+            if 'center' in self.quadFold.info:
+                del self.quadFold.info['center']
+            print("New center after extent ", self.quadFold.info['manual_center'])
+            self.deleteInfo(['avg_fold'])
+            self.setCentByChords.setChecked(False)
+            self.processImage()
+
+    def drawPerpendiculars(self):
+        ax = self.imageAxes
+        points = self.chordpoints
+        self.chordLines = []
+        for i,p1 in enumerate(points):
+            for p2 in points[i+1:]:
+                slope, cent = self.getPerpendicularLineHomogenous(p1, p2)
+                x_vals = np.array(ax.get_xlim())
+                y_vals = (x_vals - cent[0])*slope + cent[1]
+                self.chordLines.append([slope, cent[1] - slope*cent[0]])
+                ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
+
+    def getPerpendicularLineHomogenous(self, p1, p2):
+        b1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
+        perp_line1 = np.cross(chord_cent, [-1, b1, 0]) #[b1, 1, -1 * (b1 * chord_cent[0] + chord_cent[1])]
+        print("Chord_cent1 ", chord_cent)
+        print("Perp Line ", perp_line1)
+        return -1/b1, chord_cent
+
+    def getIntersectionOfTwoLines(self, line1, line2):
+        """
+        Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
+        :param line1:
+        :param line2:
+        :return:
+        """
+        p1,p2 = line1
+        p3,p4 = line2
+        slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        if p4[0] != p3[0]:
+            slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
+            x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
+            y = slope1*(x - p1[0]) + p1[1]
+        else:
+            # Slope2 is inf
+            x = p4[0]
+            y = slope1 * (x - p1[0]) + p1[1]
+
+        return (int(x), int(y))
 
 
     def setRotation(self):
@@ -861,6 +990,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.img_zoom = None
         self.refreshImageTab()
 
+    def doubleZoomToOrigCoord(self, x, y):
+        M = [[1/5, 0, 0], [0, 1/5, 0],[0, 0, 1]]
+        dzx, dzy = self.doubleZoomPt
+        x, y, _ = np.dot(M, [x, y, 1])
+        newX = dzx -5 + x
+        newY = dzy - 5 + y
+        return (newX, newY)
+
     def imageClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
@@ -890,6 +1027,21 @@ class QuadrantFoldingGUI(QMainWindow):
             y = min(y, ylim[0])
             x = int(round(x))
             y = int(round(y))
+        elif self.doubleZoomMode:
+            # If x, y is inside figure and image is clicked for first time in double zoom mode
+            print(x,y)
+            if not self.dontShowAgainDoubleZoomMessageResult:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Please click on zoomed window on the top right")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Double Zoom Guide")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.setCheckBox(self.dontShowAgainDoubleZoomMessage)
+                msg.exec_()
+                self.dontShowAgainDoubleZoomMessageResult = self.dontShowAgainDoubleZoomMessage.isChecked()
+            self.doubleZoomMode = False
+            return
 
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
@@ -924,10 +1076,52 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.function = None
                     self.imgZoomInB.setChecked(False)
                     self.refreshImageTab()
+            elif func[0] == "chords_center":
+                ax = self.imageAxes
+                axis_size = 1
+                self.chordpoints.append([x, y])
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if len(self.chordpoints) >= 3:
+                    self.drawPerpendiculars()
+                self.imageCanvas.draw_idle()
+            elif func[0] == "perp_center":
+                ax = self.imageAxes
+                axis_size = 5
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                self.imageCanvas.draw_idle()
+                func.append((x, y))
+                if len(func) == 5:
+                    QApplication.restoreOverrideCursor()
+
+                    line1 = [func[1], func[2]]
+                    line2 = [func[3], func[4]]
+                    cx, cy = self.getIntersectionOfTwoLines(line1, line2)
+                    extent, center = self.getExtentAndCenter()
+                    M = cv2.getRotationMatrix2D(tuple(self.quadFold.info['center']), self.quadFold.info['rotationAngle'], 1)
+                    # invM = cv2.invertAffineTransform(M)
+                    # homo_coords = [cx, cy, 1.]
+                    new_center = [cx, cy]#np.dot(invM, homo_coords)
+                    # Set new center and rotaion angle , re-calculate R-min
+                    print("New Center ", new_center)
+                    self.quadFold.info['manual_center'] = (int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
+                    if 'center' in self.quadFold.info:
+                        del self.quadFold.info['center']
+                    print("New center after extent ", self.quadFold.info['manual_center'])
+                    self.deleteInfo(['avg_fold'])
+                    self.setCentByPerp.setChecked(False)
+                    self.processImage()
             elif func[0] == "im_center_rotate":
                 # set center and rotation angle
                 ax = self.imageAxes
                 axis_size = 5
+                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                    extent, _ = self.getExtentAndCenter()
+                    x, y = self.doubleZoomToOrigCoord(x, y)
+                    x = x - extent[0]
+                    y = y - extent[1]
+                    self.doubleZoomMode = True
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
@@ -1003,6 +1197,24 @@ class QuadrantFoldingGUI(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>5 and x<img.shape[1]-5 and y>5 and y<img.shape[0]-5:
+                    extent, _ = self.getExtentAndCenter()
+                    x = x + extent[0]
+                    y = y + extent[1]
+                    print("double zoom mode ", self.doubleZoomMode)
+                    ax1 = self.doubleZoomAxes
+                    imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                        imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                        self.doubleZoomPt = (x,y)
+                        ax1.imshow(imgScaled)
+                        y, x = imgScaled.shape
+                        cy, cx = y//2, x//2
+                        if len(ax1.lines) > 0:
+                            del ax1.lines
+                            ax1.lines = []
+                        ax1.patches=[]
+                        self.imageCanvas.draw_idle()
 
         ax = self.imageAxes
 
@@ -1058,8 +1270,18 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 0:
                     del ax.lines
                     ax.lines = []
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            del ax1.lines
+                            ax1.lines = []
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
@@ -1067,9 +1289,19 @@ class QuadrantFoldingGUI(QMainWindow):
                     first_cross = ax.lines[:2]
                     del ax.lines
                     ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            del ax1.lines
+                            ax1.lines = []
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
         elif func[0] == "im_rotate":
             # draw line as angle
@@ -1566,6 +1798,34 @@ class QuadrantFoldingGUI(QMainWindow):
         self.deleteInfo(['rotationAngle'])
         self.processImage()
 
+    def doubleZoomChecked(self):
+        if self.doubleZoom.isChecked():
+            print("Double zoom checked")
+            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
+            self.doubleZoomAxes.axes.xaxis.set_visible(False)
+            self.doubleZoomAxes.axes.yaxis.set_visible(False)
+            self.doubleZoomMode = True
+
+            img = self.quadFold.getRotatedImage()
+            ax1 = self.doubleZoomAxes
+            x,y = self.quadFold.info['center']
+            imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                self.doubleZoomPt = (x, y)
+                ax1.imshow(imgScaled)
+                y, x = imgScaled.shape
+                cy, cx = y // 2, x // 2
+                if len(ax1.lines) > 0:
+                    del ax1.lines
+                    ax1.lines = []
+                ax1.patches = []
+
+        else:
+            self.imageFigure.delaxes(self.doubleZoomAxes)
+            self.doubleZoomMode = False
+        self.imageCanvas.draw_idle()
+
     def modeAngleChecked(self):
         """
         Triggered when mode angle is checked or unchecked
@@ -1899,11 +2159,10 @@ class QuadrantFoldingGUI(QMainWindow):
         elif 'manual_center' in self.quadFold.info:
             center = self.quadFold.info['manual_center']
         else:
-            _, center = processImageForIntCenter(self.quadFold.initImg, getCenter(self.quadFold.initImg), self.quadFold.img_type, self.quadFold.info["mask_thres"])
+            center = self.quadFold.orig_image_center
 
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
 
-        print("Extent is ", extent)
         return extent, center
 
     def updateResultTab(self):

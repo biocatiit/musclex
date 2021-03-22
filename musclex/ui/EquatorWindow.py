@@ -1949,7 +1949,7 @@ class EquatorWindow(QMainWindow):
                 msg.setInformativeText(
                     "Please click on zoomed window on the top right")
                 msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Mode Orientation Failed")
+                msg.setWindowTitle("Double Zoom Guide")
                 msg.setStyleSheet("QLabel{min-width: 500px;}")
                 msg.setCheckBox(self.dontShowAgainDoubleZoomMessage)
                 msg.exec_()
