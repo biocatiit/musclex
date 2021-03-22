@@ -5,7 +5,7 @@ When an image is selected, the program will immediately process the image automa
 ## Processes
 ### 1. [Find Center](../Image-Processing-Functions.html#finding-center)
 ### 2. [Calculate Rotation Angle](../Image-Processing-Functions.html#calculate-rotation-angle)
-### 3. Centerize image
+### 3. Centerize image (Image size increases)
 The diffraction center need not always occur at the center of the image. Therefore, when we fold about the diffraction center, the four quadrants generated may not be of equal size which results in the quadrant folded image being cropped. The image below illustrates the same.
 
 ![-](../../images/QF/incorrect_centerize.png)

@@ -21,6 +21,13 @@ All options in Display Options will not affect any processing. These options all
 
 ![-](../../images/QF/image_processing.png)
 
+### Mode Orientation Checkbox
+This checkox uses the mode of the orientation angles in calculated from all the images in the folder as the rotation angle for fitting the images. All the images in the folder must be processed first before using this checkbox.
+
+### Save Cropped Image Checkbox
+As discussed in the working of Quadrant Folding, we enlarge the image such that the diffraction center is at the center of the resulting image.
+On selecting this option the resulting quadrant folded image (which is saved in qf_results) is cropped such that the size of the image is same as the original input image size.
+
 #### Set Rotation and Center
 Before setting manual rotation and center, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.<br/>
 ![-](../../images/QF/center.png)
