@@ -1627,16 +1627,14 @@ class EquatorWindow(QMainWindow):
 
     def setCenterByPerpClicked(self):
         """
-        Prepare for manual center selection using perpendicular peaks
-        :return:
+        Prepare for manual rotation center setting by selecting perpendiculars
         """
         if self.bioImg is None:
             return
+
         if self.setCentByPerp.isChecked():
-            self.setLeftStatus("Click on 4 corresponding reflection peaks along the equator and perpendicular (ESC to cancel)")
+            self.setLeftStatus("Click on image to select perpendiculars (ESC to cancel)")
             ax = self.displayImgAxes
-            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
-            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
             del ax.lines
             ax.lines = []
             del ax.patches
@@ -1644,8 +1642,44 @@ class EquatorWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
             self.function = ["perp_center"]  # set current active function
         else:
-            self.resetUI()
+            QApplication.restoreOverrideCursor()
+            func = self.function
+            print(func)
+            horizontalLines = []
+            verticalLines = []
+            intersections = []
+            for i in range(1, len(func)-1, 2):
+                slope = self.calcSlope(func[i], func[i+1])
+                if abs(slope)>1:
+                    verticalLines.append((func[i], func[i+1]))
+                else:
+                    horizontalLines.append((func[i], func[i+1]))
+            for line1 in verticalLines:
+                for line2 in horizontalLines:
+                    cx, cy = self.getIntersectionOfTwoLines(line2, line1)
+                    print("Intersection ", (cx, cy))
+                    intersections.append((cx, cy))
+            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
+            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
 
+            print("Center calc ", (cx, cy))
+
+            M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
+            invM = cv2.invertAffineTransform(M)
+            homo_coords = [cx, cy, 1.]
+            new_center = np.dot(invM, homo_coords)
+            # Set new center and rotaion angle , re-calculate R-min
+            self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+            self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
+            self.bioImg.removeInfo('rmin')
+            self.setCentByPerp.setChecked(False)
+            self.processImage()
+
+
+    def calcSlope(self, pt1, pt2):
+        if pt1[0] == pt2[0]:
+            return float('inf')
+        return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
 
     def setCenterByChordsClicked(self):
         """
@@ -1673,8 +1707,17 @@ class EquatorWindow(QMainWindow):
             centers = []
             for i, line1 in enumerate(self.chordLines):
                 for line2 in self.chordLines[i+1:]:
-                    xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
-                    ycent = line1[0]*xcent + line1[1]
+                    if line1[0] == line2[0]:
+                        continue #parallel lines
+                    if line1[0] == float('inf'):
+                        xcent = line1[1]
+                        ycent = line2[0] * xcent + line2[1]
+                    elif line2[0] == float('inf'):
+                        xcent = line2[1]
+                        ycent = line1[0] * xcent + line1[1]
+                    else:
+                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
+                        ycent = line1[0]*xcent + line1[1]
                     center = [xcent, ycent]
                     print("CenterCalc ", center)
 
@@ -1701,17 +1744,24 @@ class EquatorWindow(QMainWindow):
         for i,p1 in enumerate(points):
             for p2 in points[i+1:]:
                 slope, cent = self.getPerpendicularLineHomogenous(p1, p2)
-                x_vals = np.array(ax.get_xlim())
-                y_vals = (x_vals - cent[0])*slope + cent[1]
-                self.chordLines.append([slope, cent[1] - slope*cent[0]])
+                if slope == float('inf'):
+                    y_vals = np.array(ax.get_ylim())
+                    x_vals = cent[0] + np.zeros(y_vals.shape)
+                    self.chordLines.append([slope, cent[0]])
+                else:
+                    x_vals = np.array(ax.get_xlim())
+                    y_vals = (x_vals - cent[0])*slope + cent[1]
+                    self.chordLines.append([slope, cent[1] - slope*cent[0]])
                 ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
 
     def getPerpendicularLineHomogenous(self, p1, p2):
-        b1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
         chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
-        perp_line1 = np.cross(chord_cent, [-1, b1, 0]) #[b1, 1, -1 * (b1 * chord_cent[0] + chord_cent[1])]
         print("Chord_cent1 ", chord_cent)
-        print("Perp Line ", perp_line1)
+        if b1 == 0:
+            return float('inf'), chord_cent
+        if b1 == float('inf'):
+            return 0, chord_cent
         return -1/b1, chord_cent
 
     def getIntersectionOfTwoLines(self, line1, line2):
@@ -1948,12 +1998,13 @@ class EquatorWindow(QMainWindow):
                 msg = QMessageBox()
                 msg.setInformativeText(
                     "Please click on zoomed window on the top right")
+                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
                 msg.setStandardButtons(QMessageBox.Ok)
                 msg.setWindowTitle("Double Zoom Guide")
                 msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.setCheckBox(self.dontShowAgainDoubleZoomMessage)
+                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
                 msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = self.dontShowAgainDoubleZoomMessage.isChecked()
+                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
             self.doubleZoomMode = False
             return
 
@@ -1978,23 +2029,6 @@ class EquatorWindow(QMainWindow):
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
             func.append((x, y))
-            if len(func) == 5:
-                QApplication.restoreOverrideCursor()
-
-                line1 = [func[1], func[2]]
-                line2 = [func[3], func[4]]
-                cx,cy = self.getIntersectionOfTwoLines(line1, line2)
-
-                M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
-                invM = cv2.invertAffineTransform(M)
-                homo_coords = [cx, cy, 1.]
-                new_center = np.dot(invM, homo_coords)
-                # Set new center and rotaion angle , re-calculate R-min
-                self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
-                self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-                self.bioImg.removeInfo('rmin')
-                self.setCentByPerp.setChecked(False)
-                self.processImage()
 
         elif func[0] == "angle_center":
             # draw X at points and a line between points
@@ -2270,18 +2304,20 @@ class EquatorWindow(QMainWindow):
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
 
-            elif len(func) == 3:
+            elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
-                    first_cross = ax.lines[:7]
+                    n = (len(func)-1)*5//2 + 2
+                    first_cross = ax.lines[:n]
                     del ax.lines
                     ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
-            elif len(func) == 4:
-                start_pt = func[3]
+            elif len(func) % 2 == 0:
+                start_pt = func[-1]
                 if len(ax.lines) > 3:
-                    first_cross = ax.lines[:9]
+                    n = len(func) * 5 // 2 - 1
+                    first_cross = ax.lines[:n]
                     del ax.lines
                     ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2943,6 +2979,7 @@ class EquatorWindow(QMainWindow):
         self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
         ax.invert_yaxis()
         self.displayImgFigure.tight_layout()
+        # ax.set_position([0.06, 0.06, 0.96, 0.96])  # left,bottom,width,height
         self.displayImgCanvas.draw()
 
     def updateFittingTab(self):

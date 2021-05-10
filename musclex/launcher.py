@@ -14,7 +14,7 @@ if sys.platform in handlers:
 
 class LauncherForm(QWidget):
 
-    programs = ['eq', 'qf', 'pt', 'di', 'im', 'dc', 'ddf']
+    programs = ['eq', 'qf', 'pt', 'di', 'im', 'dc', 'ddf', 'ai']
 
     def __init__(self):
         super(QWidget, self).__init__()

@@ -1450,7 +1450,7 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
         gauss = GaussianModel(prefix=prefix)
         pars.update(gauss.make_params())
         pars[prefix + 'center'].set(indexes[i], min=indexes[i] - mean_margin, max=indexes[i] + mean_margin)
-        pars[prefix + 'sigma'].set(parameters[i][0], min=1., max=15.)
+        pars[prefix + 'sigma'].set(parameters[i][0], min=1., max=1000.)
         pars[prefix + 'amplitude'].set(parameters[i][1], min=1, max=1000 * hists_np[indexes[i]])
         gaussians.append(gauss)
 

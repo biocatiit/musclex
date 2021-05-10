@@ -279,7 +279,7 @@ class QuadrantFolder(object):
         b, l = img.shape
         if self.parent.newImgDimension is None:
             dim = int(2.8*max(l, b))
-            self.parent.newImgDimesion = dim
+            self.parent.newImgDimension = dim
         else:
             dim = self.parent.newImgDimension
         new_img = np.zeros((dim,dim))

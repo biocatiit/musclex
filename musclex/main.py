@@ -80,6 +80,11 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = ImageMergerGUI()
             sys.exit(app.exec_())
+        elif prog == 'ai':
+            from musclex.ui.AddIntensities import AddIntensities
+            app = QApplication(sys.argv)
+            myapp = AddIntensities()
+            sys.exit(app.exec_())
         elif prog == 'gui':
             from musclex.launcher import LauncherForm
             app = QApplication(sys.argv)

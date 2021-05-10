@@ -11,6 +11,9 @@ from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
 import musclex
 from .BlankImageSettings import BlankImageSettings
+from csv import writer
+import pandas as pd
+import numpy as np
 
 class DSpacingScale(mscale.ScaleBase):
     name = 'dspacing'
@@ -151,6 +154,7 @@ class CPImageWindow(QMainWindow):
         self.merged_peaks = None
         self.orientationModel = None
         self.in_batch_process = False
+        self.pixelDataFile = None
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -1047,11 +1051,14 @@ class CPImageWindow(QMainWindow):
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
         self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
+        # Calculating grid lines to exclude in pixel data computation
+        grid_lines = np.where(self.cirProj.original_image < 0)
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
         self.processImage(True)
         self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
             self.numberOfFiles) + ') is processed.')
+        self.addPixelDataToCsv(grid_lines)
 
     def processImage(self, imgChanged=False):
         if self.cirProj is not None:
@@ -1063,6 +1070,52 @@ class CPImageWindow(QMainWindow):
             self.csvManager.write_new_data(self.cirProj)
             self.refreshAllTabs()
             self.updateUI()
+
+    def create_circular_mask(self, h, w, center, radius):
+        Y, X = np.ogrid[:h, :w]
+        dist_from_center = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
+
+        mask = dist_from_center > radius
+        return mask
+
+    def addPixelDataToCsv(self, grid_lines):
+        if self.pixelDataFile == None:
+            self.pixelDataFile = self.filePath + '/cp_results/BackgroundSummary.csv'
+            if not os.path.isfile(self.pixelDataFile):
+                header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
+                f = open(self.pixelDataFile, 'a')
+                csv_writer = writer(f)
+                csv_writer.writerow(header)
+                f.close()
+
+        csvDF = pd.read_csv(self.pixelDataFile)
+        recordedFileNames = set(csvDF['File Name'].values)
+
+        # Compute the average pixel value and number of pixels outside rmin/mask
+        blank, mask = getBlankImageAndMask(self.filePath)
+        img = copy.copy(self.cirProj.original_image)
+        if mask != None:
+            numberOfPixels = np.count_nonzero(mask == 0)
+            averagePixelValue = np.average(img[mask == 0])
+        else:
+            h,w = img.shape
+            rmin = self.cirProj.info['start_point']
+            cir_mask = self.create_circular_mask(h,w,center=self.cirProj.info['center'], radius=rmin)
+            # Exclude grid lines in computation
+            print("Gird Lines Coordinates ", grid_lines)
+            cir_mask[grid_lines] = 0
+            numberOfPixels = np.count_nonzero(cir_mask)
+            averagePixelValue = np.average(img[cir_mask])
+
+        if self.cirProj.filename in recordedFileNames:
+            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Average Pixel Value'] = averagePixelValue
+            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Number of Pixels'] = numberOfPixels
+        else:
+            next_row_index = csvDF.shape[0]
+            csvDF.loc[next_row_index] = [self.cirProj.filename, averagePixelValue, numberOfPixels]
+        csvDF.to_csv(self.pixelDataFile, index=False)
+
+
 
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
         min_val = img.min()
