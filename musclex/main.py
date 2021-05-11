@@ -128,6 +128,7 @@ def main(arguments=None):
         print("          im - Image Merger")
         print("          dc - Diffraction Centroids")
         print("          ddf - DDF Processor")
+        print("          ai - Add Intensities")
         print("")
         print("          gui - GUI Launcher")
         print("          test - Run All Tests")
