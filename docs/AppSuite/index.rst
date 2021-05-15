@@ -11,5 +11,6 @@ Application Suite
    ImageMerger/index
    DiffractionCentroids/index
    DDFProcessor/index
+   AddIntensities/index
    Calibration-Settings
    Image-Processing-Functions

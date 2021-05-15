@@ -68,6 +68,8 @@ Finally, we will get ...
 
 After everything is processed, results will be written to summary.csv and a different rings.csv  file. These files will be located in the folder cp results which is created under the folder containing the images. Currently, the file summary.csv contains the name of the image, the total diffracted intensity, and number of rings detected. In the rings.csv file, all information for all rings will be provided along with their fitting error. Note that there is no attempt made to index families of rings. Each ring is associated with its own unique d-spacing. The assumption is that the results data files will be processed by user supplied code to index the patterns.
 
+Another file BackgroundSummary.csv is written to cp results folder after processing. This file contains the Average pixel value and the Number of pixels outside the mask (or outside rmin if a mask is not specified) for each image processed. The calculation ignores any grid lines if present.
+
 ## Folder Mode
 
 When a folder is selected, the program will get all image names in the folder, and check if all images have been processed by checking the summary.csv and rings.csv files. If there are some images which have not been processed, the program will process all those images using the [individual mode](#individual-image-mode) first, and then generate maps from summary.csv and rings.csv.
