@@ -13,6 +13,7 @@
   * [Upload the project to PyPI](#upload-the-project-to-pypi)
   * [Publish the release on GitHub](#publish-the-release-on-github)
   * [Update the information of the new release on Zenodo](#update-the-information-of-the-new-release-on-zenodo)
+  * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
 1. Create release tag and enter release notes on Github
@@ -101,7 +102,7 @@ the GitHub repo. Change them properly according to [Project Credits][10].
 ```
 appimage-builder
 ```
-- For details refer [here][11]
+- For additional details refer [here][11]
 
 
 [1]:pyinstaller.md
