@@ -12,4 +12,5 @@ We provide three ways to install Muscle X. See the following parts for details.
    installer
    pip
    Docker
+   AppImage
    testing
