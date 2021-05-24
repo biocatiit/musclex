@@ -13,6 +13,7 @@
   * [Upload the project to PyPI](#upload-the-project-to-pypi)
   * [Publish the release on GitHub](#publish-the-release-on-github)
   * [Update the information of the new release on Zenodo](#update-the-information-of-the-new-release-on-zenodo)
+  * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
 1. Create release tag and enter release notes on Github
@@ -44,6 +45,7 @@ pip install dist/musclex-<version>.tar.gz
   during these steps, check if they work in any previous sections.
 
 ### Create a Mac OS X App Bundle
+New mac os installation no longer being produced, please use the docker version
 1. [Create Stand-alone Program for Mac OS X with PyInstaller][1]
 2. [Build a DMG Image][3]
 
@@ -66,6 +68,13 @@ pip install dist/musclex-<version>.tar.gz
 4. Test:
 > musclex.sh
 
+5. Record pip package versions:
+> pip freeze > pipversions_1-14.4.txt
+Copy this file into Documents/DevGuide/release-info
+
+### Update documents in docs_archive
+Create a copy of the current docs version in docs_archive and rename it as docs_versionNumber.
+
 ### Update documents
 [Update docs for Read-the-Docs][4].
 
@@ -87,6 +96,14 @@ Pubulish the release [here][8].
 Edit [here][9]. **Authors** are generated according to contributors of
 the GitHub repo. Change them properly according to [Project Credits][10].
 
+### Create App Image using App Image Installer
+- Place muscle/requirements.txt, musclex/musclex and musclex/musclex/main.py in musclex/AppImageBuilder Folder.
+- Open terminal and run the following command
+```
+appimage-builder
+```
+- For additional details refer [here][11]
+
 
 [1]:pyinstaller.md
 [2]:advanced_installer.md
@@ -98,3 +115,4 @@ the GitHub repo. Change them properly according to [Project Credits][10].
 [8]:https://github.com/biocatiit/musclex/releases
 [9]:https://doi.org/10.5281/zenodo.1195050
 [10]:https://musclex.readthedocs.io/en/latest/credits.html
+[11]:https://appimage-builder.readthedocs.io/en/latest/examples/pyqt.html
