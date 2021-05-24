@@ -41,6 +41,9 @@ class Ui_LauncherForm(object):
         item = QListWidgetItem()
         item.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
         self.listWidget.addItem(item)
+        item = QListWidgetItem()
+        item.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
+        self.listWidget.addItem(item)
         self.stackedWidget = QStackedWidget(LauncherForm)
         self.stackedWidget.setGeometry(QRect(270, 10, 521, 541))
         self.stackedWidget.setObjectName("stackedWidget")
@@ -93,6 +96,13 @@ class Ui_LauncherForm(object):
         self.textBrowser_7.setOpenExternalLinks(True)
         self.textBrowser_7.setObjectName("textBrowser_7")
         self.stackedWidget.addWidget(self.page_7)
+        self.page_8 = QWidget()
+        self.page_8.setObjectName("page_8")
+        self.textBrowser_8 = QTextBrowser(self.page_8)
+        self.textBrowser_8.setGeometry(QRect(0, 0, 521, 541))
+        self.textBrowser_8.setOpenExternalLinks(True)
+        self.textBrowser_8.setObjectName("textBrowser_8")
+        self.stackedWidget.addWidget(self.page_8)
         self.layoutWidget = QWidget(LauncherForm)
         self.layoutWidget.setGeometry(QRect(10, 560, 781, 31))
         self.layoutWidget.setObjectName("layoutWidget")
@@ -137,6 +147,8 @@ class Ui_LauncherForm(object):
         item.setText(_translate("LauncherForm", "Diffraction Centroids"))
         item = self.listWidget.item(6)
         item.setText(_translate("LauncherForm", "DDF Processor"))
+        item = self.listWidget.item(7)
+        item.setText(_translate("LauncherForm", "Add Intensities"))
         self.listWidget.setSortingEnabled(__sortingEnabled)
         self.textBrowser.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
@@ -185,6 +197,13 @@ class Ui_LauncherForm(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'SimSun\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; font-weight:600; color:#24292e; background-color:#ffffff;\">DDF Processor</span><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\"> is a program which is able to average data points for ddf file.</span></p>\n"
+"<p align=\"justify\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e;\"><br /></p>\n"
+"<p align=\"justify\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\">See </span><a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor/DDF-Processor-(ddf).html\"><span style=\" text-decoration: underline; color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor/DDF-Processor-(ddf).html</span></a><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\"> for details.</span></p></body></html>"))
+        self.textBrowser_8.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'SimSun\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; font-weight:600; color:#24292e; background-color:#ffffff;\">Add Intensities</span><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\"> is a program which is able to average data points for ddf file.</span></p>\n"
 "<p align=\"justify\" style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e;\"><br /></p>\n"
 "<p align=\"justify\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\">See </span><a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor/DDF-Processor-(ddf).html\"><span style=\" text-decoration: underline; color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor/DDF-Processor-(ddf).html</span></a><span style=\" font-family:\'-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol\'; font-size:10pt; color:#24292e; background-color:#ffffff;\"> for details.</span></p></body></html>"))
         self.quitButton.setText(_translate("LauncherForm", "Quit"))

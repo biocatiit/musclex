@@ -63,7 +63,7 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         self.test_path = os.path.join(os.path.dirname(__file__),
                                        "tests", "test_logs", "test.log")
 
-        if not os.path.exists(self.test_path):
+        #if not os.path.exists(self.test_path):
             # self.testPopup = QMessageBox()
             # self.testPopup.setWindowTitle('Testing')
             # self.testPopup.setTextFormat(Qt.RichText)
@@ -74,7 +74,7 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
             # self.testLayout.addItem(QSpacerItem(756, 0), self.testLayout.rowCount(), 0, 1, self.testLayout.columnCount())
             # self.testPopup.show()
             # QApplication.processEvents()
-            self.test()
+            # self.test()
         QApplication.processEvents()
     def select(self, idx):
         self.program_idx = idx
@@ -252,7 +252,10 @@ class TestDialog(QDialog):
         """
         self.progressBar.reset()
         NTESTS = 8
-        subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"run_tests.sh")) # run the test program in a subprocess
+        if getattr(sys, 'frozen', False):
+            subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"run_tests.sh")) # run the test program in a subprocess
+        elif __file__:
+            subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"run_tests.sh")) # run the test program in a subprocess
 
         if os.path.exists(self.test_path):
             prev_data = open(self.test_path, 'r').readlines()

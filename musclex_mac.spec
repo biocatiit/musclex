@@ -23,6 +23,7 @@ a = Analysis(['musclex/main.py'],
 # analysis for launcher
 la = Analysis(['musclex/launcher.py'],
                pathex=['.'],
+               hiddenimports=['PyMca5'],
                hookspath=['hooks'],
                win_no_prefer_redirects=False,
                win_private_assemblies=False,
