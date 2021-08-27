@@ -2,7 +2,7 @@
 
 For users who do not want to play with Python or Docker environment, we provide the pre-built installer for stand-alone MuscleX program.
 
-[![Download MuscleX](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/musclex/files/latest/download)
+[![Download MuscleX](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/musclex/)
 
 ## Windows
 Download the [Windows Installer](https://sourceforge.net/projects/musclex/) built for Windows (64-bit).
