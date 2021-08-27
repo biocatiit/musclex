@@ -38,7 +38,8 @@ class HDFBrowser(QDialog):
         self.setWindowTitle("HDF Browser")
         self.label = QLabel(self.msg)
 
-        self.browseButton = QPushButton("Browse a HDF File")
+        self.browseButton = QPushButton("Browse a HDF or Log File")
+        self.browseLogFolderButton = QPushButton("Browse a Log Folder")
         self.createButton = QPushButton("Create a HDF File")
 
         self.browseGrp = QGroupBox("Browsed File")
@@ -87,7 +88,8 @@ class HDFBrowser(QDialog):
 
         self.mainLayout.addWidget(self.label, 0, 0, 1, 2)
         self.mainLayout.addWidget(self.browseButton, 1, 0, 1, 1)
-        self.mainLayout.addWidget(self.createButton, 1, 1, 1, 1)
+        self.mainLayout.addWidget(self.browseLogFolderButton, 1, 1, 1, 1)
+        self.mainLayout.addWidget(self.createButton, 1, 2, 1, 1)
         self.mainLayout.addWidget(self.browseGrp, 2, 0, 1, 2)
         self.mainLayout.addWidget(self.createGroup, 3, 0, 1, 2)
         self.mainLayout.addWidget(self.bottons,4, 0, 1, 2)
@@ -97,6 +99,7 @@ class HDFBrowser(QDialog):
         Set handler for widgets
         """
         self.browseButton.clicked.connect(self.browseClicked)
+        self.browseLogFolderButton.clicked.connect(self.browseLogFolderClicked)
         self.createButton.clicked.connect(self.createClicked)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
@@ -105,10 +108,21 @@ class HDFBrowser(QDialog):
         """
         Handle when Browse is clicked
         """
-        self.hdf_file = getAFile('HDF (*.hdf)')
+        self.hdf_file = getAFile('HDF or Log (*.hdf, *.log)')
         if len(self.hdf_file) > 0:
             self.status = 1
             self.browsedFile.setText(self.hdf_file)
+            self.browseGrp.setHidden(False)
+            self.createGroup.setHidden(True)
+
+    def browseLogFolderClicked(self):
+        """
+        Handle when Browse Log Folder is clicked
+        """
+        self.hdf_file = getAFolder()
+        if len(self.hdf_file) > 0:
+            self.status = 1
+            self.browseLogFolderButton.setText(self.hdf_file)
             self.browseGrp.setHidden(False)
             self.createGroup.setHidden(True)
 
@@ -127,7 +141,7 @@ class HDFBrowser(QDialog):
         if self.status == 0:
             errMsg = QMessageBox()
             errMsg.setText('HDF File is not set')
-            errMsg.setInformativeText('Please select a HDF file or create a new one')
+            errMsg.setInformativeText('Please select a HDF or Log file or create a new one')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
             errMsg.exec_()
@@ -1223,9 +1237,7 @@ class CPBatchWindow(QMainWindow):
         self.init_number = min(self.name_dict.keys())
 
         # Read hdf5 file to get the coordinates and image shape
-        hf = h5py.File(hdf_filename, 'r')
-        data = hf.get('data').get('BL')
-        self.hdf_data = np.array(data)
+        self.hdf_data = self.get_scan_data(hdf_filename)
         self.coord_dict = {}
 
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
@@ -1283,6 +1295,52 @@ class CPBatchWindow(QMainWindow):
         self.updateImage()
         self.updateUI()
         QApplication.restoreOverrideCursor()
+
+    def convert_to_float(self, i):
+        return float(i) if i.replace('.', '', 1).replace('-', '').isdigit() else i
+
+    def get_scan_data(self, filename):
+        if h5py.is_hdf5(filename):
+            hf = h5py.File(filename, 'r')
+            return np.array(hf.get('data').get('BL'))
+        elif os.path.isdir(filename):
+            return sorted(self.parse_logfiles_dir(filename), key=lambda x: (x[1], x[0]))
+        elif filename.endswith('.log'):
+            return self.parse_logfile(filename)
+
+    def parse_logfile(self, filename):
+        data_dir, fname = os.path.split(filename)
+        count_filename = os.path.join(data_dir, fname)
+
+        with open(count_filename, 'r') as f:
+            all_lines = f.readlines()
+
+        line_num = 0
+        for i, line in enumerate(all_lines):
+            if not line.startswith('#'):
+                line_num = i
+                break
+
+        headers = all_lines[line_num - 1].replace('\n', '').split('\t')
+        x_index = headers.index('x')
+        y_index = headers.index('y')
+
+        print(f'Log Headers: {headers},\n x index: {x_index},\n y index: {y_index}')
+        scans = []
+        for i in range(line_num, len(all_lines)):
+            data = all_lines[i].replace('\n', '').split('\t')
+            scans.append(list(map(self.convert_to_float, [data[x_index], data[y_index]])))
+        return scans
+
+    def parse_logfiles_dir(self, dir_name):
+        files = os.listdir(dir_name)
+        data = []
+        for f in files:
+            if f.endswith('.log'):
+                scans = self.parse_logfile(os.path.join(dir_name, f))
+                data.extend(scans)
+        return data
+
 
     def refreshAllTabs(self):
         # Set all update flags to True
