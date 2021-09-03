@@ -11,7 +11,7 @@ Download the [Windows Installer](https://sourceforge.net/projects/musclex/) buil
 2. Test the program using test images installed to your `Documents` folder in the `MuscleX` sub-folder
 
 ## Mac OS X
-Download the [DMG file](https://sourceforge.net/projects/musclex/files/) built for MacOS.
+Download the [DMG file](https://sourceforge.net/projects/musclex/files/) built for MacOS (MacOS >=10.15)
 
 1. Open the DMG file
 2. Drag the App Bundle MuscleX to the `Applications` folder
