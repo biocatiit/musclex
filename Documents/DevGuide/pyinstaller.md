@@ -10,7 +10,7 @@ Environment: Python 3.6.4 [MSC v.1900 64 bit (AMD64)] on win32
 Build a [spec (specification) file][1]. (Work in the root directory
 of musclex project.)
 ```
-pyi-makespec -n musclex musclex\main.py
+pyi-makespec -n musclex musclex/main.py
 ```
 ### Edit the spec file
 ```python
@@ -18,7 +18,7 @@ pyi-makespec -n musclex musclex\main.py
     pathex=['.'],
     hiddenimports=['PyMca5'],
     hookspath=['hooks'],
-    excludes=['tcl', 'zmq', 'IPython', 'PIL'],
+    excludes=['tcl', 'zmq', 'IPython'],
     ...
 ```
 `hiddenimports` and **hooks** will be expained in later parts. 
@@ -117,13 +117,16 @@ pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api
    
    See `requirements_1.14.12_mac.txt` for an overview of the pip environment used
    when MuscleX 1.14.12 was built for Mac. Install this environment using 
-   `pip install -r requirements_1.14.12_mac.txt`.
+   `pip install -r requirements_1.14.12_mac.txt`.  
+4. Errors such as "symbol not found: PyString_Type" on MacOS are due to python version miss match. Find the file given in the error message and manually recompiled it with current python version would solve the problem. To build, run python setup.py build_ext --inplace.  
+5. Anothe way to solve the import error is to manually find the file and paste it in the dist folder. For example, in the error message, ".libs/vcomp140.dll" is missing in the sklearn folder. Finder vcomp140.dll under sklearn installation directory and paste it in /dist/musclex/sklearn/.libs.  
 
 ## Building Mac OS X App Bundle
 Above parts describe the process in Windows. For building Mac App, baisc
 steps and settings are almost the same as those for Windows,  but there
 are a few more stuff needed to be done.  
-Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39.2)] on darwin
+Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39.2)] on darwin  
+Environment for 1.15.1: Python 3.9.6 [Clang 12.0.5 (clang-1205.0.22.9)] on darwin  
 ### Additional Issues
 1. OpenCV library dependency  
   **Description**: Error occurs when importing *cv2* module. (Opencv is
@@ -157,7 +160,9 @@ cp -r dist/musclex/ dist/musclex.app/Contents/MacOS
 2. Edit the file `Info.plist`  
   Specify the values of *CFBundleExecutable* and other attributes. (See
   [the example](../../dist/musclex.app/Contents/Info.plist).)
-  Remember to change the version number.
+  Remember to change the version number. 
+  
+3. You may need to register an Apple developer ID and add the certificate to the app to avoid MacOS gatekeeper problems.
 
 
 [1]:https://pyinstaller.readthedocs.io/en/v3.3.1/spec-files.html
