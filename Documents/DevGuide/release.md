@@ -47,7 +47,7 @@ pip install dist/musclex-<version>.tar.gz
 ### Create a Mac OS X App Bundle
 New mac os installation no longer being produced, please use the docker version
 1. [Create Stand-alone Program for Mac OS X with PyInstaller][1]
-2. [Build a DMG Image][3]
+2. [Build a DMG Image or pkg file][3]
 
 > If any changes are made to the source code in the source distribution
   during these steps, check if they work in any previous sections.
