@@ -42,4 +42,17 @@ Use *Disk Utility* again.
 4. Select *Compressed* as Image Format.
 5. *Save* it.
 
-[1]:https://el-tramo.be/blog/fancy-dmg/
+
+
+# Building pkg file for MuscleX  
+Once the MAC OS APP bundle was built by pyinstaller  
+Use packages to build the pkg file  
+
+See [Using Packages to create an installer for distributing macOS apps outside of the Mac App Store][2] for reference. 
+
+
+[1]:https://el-tramo.be/blog/fancy-dmg/  
+[2]:https://www.appcoda.com/packages-macos-apps-distribution/ 
+
+
+
