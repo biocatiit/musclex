@@ -5,13 +5,13 @@ For users who do not want to play with Python or Docker environment, we provide 
 [![Download MuscleX](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/musclex/)
 
 ## Windows
-Download the [Windows Installer](https://sourceforge.net/projects/musclex/) built for Windows (64-bit).
+Download the [Windows Installer](https://sourceforge.net/projects/musclex/) built for Windows Pro 10(64-bit).
 
 1. Find the shortcut of MuscleX on the Desktop or in the Start Menu, and click it to run
 2. Test the program using test images installed to your `Documents` folder in the `MuscleX` sub-folder
 
 ## Mac OS X
-Download the [DMG file](https://sourceforge.net/projects/musclex/files/) built for MacOS (MacOS >=10.15)
+Download the [pkg file](https://sourceforge.net/projects/musclex/files/) built for MacOS (MacOS >=10.15)
 
 1. Open the DMG file
 2. Drag the App Bundle MuscleX to the `Applications` folder
