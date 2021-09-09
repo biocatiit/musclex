@@ -13,10 +13,8 @@ Download the [Windows Installer](https://sourceforge.net/projects/musclex/) buil
 ## Mac OS X
 Download the [pkg file](https://sourceforge.net/projects/musclex/files/) built for MacOS (MacOS >=10.15)
 
-1. Open the DMG file
-2. Drag the App Bundle MuscleX to the `Applications` folder
-3. Eject the image
-4. Find the application in your `Applications` and click it to run
+1. Run the pkg file, install the application.
+
 
 ## Linux
 Download the [AppImage file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
