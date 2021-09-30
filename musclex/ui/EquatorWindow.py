@@ -29,6 +29,8 @@ authorization from Illinois Institute of Technology.
 import sys
 import copy
 import os, shutil
+import json
+
 from .pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -504,6 +506,11 @@ class EquatorWindow(QMainWindow):
         selectImageAction = QAction('Select a File...', self)
         selectImageAction.setShortcut('Ctrl+O')
         selectImageAction.triggered.connect(self.browseFile)
+
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+
         clearCacheAction = QAction('Clear All Caches in Current Folder', self)
         clearCacheAction.setShortcut('Ctrl+D')
         clearCacheAction.triggered.connect(self.clearAllCache)
@@ -515,6 +522,7 @@ class EquatorWindow(QMainWindow):
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(processFolderAction)
         fileMenu.addAction(clearCacheAction)
+        fileMenu.addAction(saveSettingsAction)
 
         launchManualAct = QAction('User Manual', self)
         # launchManualAct.setShortcut('Ctrl+M')
@@ -1300,6 +1308,24 @@ class EquatorWindow(QMainWindow):
                 errMsg.exec_()
             else:
                 self.mainWindow.runBioMuscle(str(file_name))
+    
+    def saveSettings(self):
+        """
+        save settings to json
+        """
+        settings = self.getSettings()
+        paramInfo=self.getInfoFromParameterEditor()
+        
+        settings['paramInfo']=paramInfo
+        
+
+        filename=getSaveFile("musclex/settings/settings.json",None)
+        with open(filename,'w') as f:
+            json.dump(settings,f)
+        
+            
+
+        
 
     def clearAllCache(self):
         """
@@ -1426,11 +1452,14 @@ class EquatorWindow(QMainWindow):
                 CalibrationSettings(self.dir_path, center=self.bioImg.info['center'])
         self.calSettings = None
         cal_setting = self.calibSettingDialog.calSettings
+        
+        print('cal_setting is:',cal_setting)
         if cal_setting is not None or force:
             result = self.calibSettingDialog.exec_()
             logMsgs = self.calibSettingDialog.logMsgs
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
+                
                 if "center" in self.calSettings:
                     self.bioImg.info['calib_center'] = self.calSettings["center"]
                     self.bioImg.removeInfo('center')
@@ -2928,6 +2957,7 @@ class EquatorWindow(QMainWindow):
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minIntSpnBx.value(), vmax=self.maxIntSpnBx.value()))
         ax.set_facecolor('black')
 
+
         self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
@@ -3027,6 +3057,7 @@ class EquatorWindow(QMainWindow):
                     ax.axvline(p, color='r', alpha=0.3)
 
         # Zoom
+        self.plot_min = -50
         if self.graph_zoom is not None and len(self.graph_zoom) == 2:
             ax.set_xlim(self.graph_zoom[0])
             ax.set_ylim(self.graph_zoom[1])
@@ -3036,6 +3067,7 @@ class EquatorWindow(QMainWindow):
         else:
             self.plot_min = ax.get_ylim()[0]
             ax.set_xlim(0, len(hull))
+
 
         self.fittingFigure.tight_layout()
         self.fittingCanvas.draw()
@@ -3398,6 +3430,7 @@ class EquatorWindow(QMainWindow):
         QApplication.restoreOverrideCursor()
 
     def init_logging(self):
+        print("objname:")
         for objName in self.editableVars:
             self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
         self.editableVars['int_area'] = self.bioImg.info['int_area']

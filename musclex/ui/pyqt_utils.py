@@ -26,6 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+from PyQt5 import QtGui
 import matplotlib
 try:
     from PyQt4.QtCore import *
@@ -79,3 +80,9 @@ def getSaveFile(path='', filter='Images (*.png);;SVG (*.svg)'):
     if isinstance(file_name, tuple):
         file_name = file_name[0]
     return str(file_name)
+def file_save(self):
+    name = QtGui.QFileDialog.getSaveFileName(self, 'Save File')
+    file = open(name,'w')
+    text = self.textEdit.toPlainText()
+    file.write(text)
+    file.close()
