@@ -5,7 +5,7 @@
 In order to install the program, you need to install [python 2.7 or 3.6](https://www.python.org/).
 
 ## Preparing
-There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT4 or PyQT5, gfortran, PyFAI and Cython. 
+There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
 
 ### Linux
 ```

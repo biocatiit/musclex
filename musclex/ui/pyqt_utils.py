@@ -27,25 +27,16 @@ authorization from Illinois Institute of Technology.
 """
 
 import matplotlib
-try:
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
-    matplotlib.use('qt4agg')
-    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-except ImportError as e1:
-    if str(e1) != "No module named 'PyQt4'" and not str(e1).startswith('No module named PyQt4'):
-        raise e1
-    try:
-        from PyQt5.QtCore import *
-        from PyQt5.QtWidgets import *
-        from PyQt5.QtGui import *
-        matplotlib.use('qt5agg')
-        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    except ImportError as e2:
-        print("Please install PyQt4 or PyQt5")
-        raise e2
+
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+matplotlib.use('qt5agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from ..utils.file_manager import input_types
+
+print("Qt version:", QT_VERSION_STR)
 
 img_filter = 'Pattern ('
 for t in input_types:
