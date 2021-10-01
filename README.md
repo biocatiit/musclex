@@ -3,6 +3,7 @@ The Muscle X program suite is a collection of programs intended to assist with a
 
 # The collection includes:
 * Equator (eq)
+* headless Equator (eq)
 * Quadrant Folding (qf)
 * Projection Traces (pt)
 * Circular Projection (cp)
