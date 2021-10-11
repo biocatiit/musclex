@@ -14,6 +14,7 @@ from .BlankImageSettings import BlankImageSettings
 from csv import writer
 import pandas as pd
 import numpy as np
+import json
 
 class DSpacingScale(mscale.ScaleBase):
     name = 'dspacing'
@@ -131,19 +132,23 @@ class DSpacingScale(mscale.ScaleBase):
 
 mscale.register_scale(DSpacingScale)
 
-class CPImageWindow(QMainWindow):
-    def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
-        # QDialog.__init__(self, parent)
-        QWidget.__init__(self)
-        self.setWindowTitle(image_name)
+class CPImageWindowh():
+    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', process_folder=False,imgList = None):
+        
+        # import pdb
+        # pdb.set_trace()
         self.fileName = image_name
         self.filePath = dir_path
+        self.inputflag=inputflags
+        self.delcache=delcache
+        self.inputflagfile=inputflagpath
+
+        
         self.csvManager = CP_CSVManager(dir_path)
         self.imgList = []
         self.numberOfFiles = 0
         self.currentFileNumber = 0
-        self.img_zoom = [0, 0, 0, 0]
-        self.currentImgSize = (0, 0)
+        
         self.cirProj = None
         self.calSettings = None
         self.mask = None
@@ -163,14 +168,13 @@ class CPImageWindow(QMainWindow):
                             'image_result': True,
                             'results_text': True
                             }
-        self.intesityRange = [0, 1, 1, 2]
-        self.mainWin = mainWin
+        #self.intesityRange = [0, 1, 1, 2]
+        #self.mainWin = None
         self.logger = None
 
-        self.generateRingColors()
-        self.initUI()
-        self.setConnections()
-        self.setCalibrationImage()
+        # self.generateRingColors()
+        # self.setConnections()
+        # self.setCalibrationImage()
         self.onNewFileSelected(imgList)
         if process_folder and len(self.imgList) > 0:
             self.processFolder()
@@ -187,719 +191,7 @@ class CPImageWindow(QMainWindow):
                         continue
                     self.ring_colors.append([b,g,r])
 
-    def initUI(self):
-        self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
-        # self.setStyleSheet(getStyleSheet())
-        self.centralWidget = QWidget(self)
-        self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
-
-        saveSettingsAction = QAction('Save Current Settings', self)
-        saveSettingsAction.setShortcut('Ctrl+S')
-        saveSettingsAction.triggered.connect(self.saveSettings)
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(saveSettingsAction)
-
-        ### Image mode tabs
-        ## IMAGE MODE 1 : Image tab
-        self.imageTab = QWidget()
-        self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QHBoxLayout(self.imageTab)
-        self.displayedImgLayout = QHBoxLayout()
-        self.displayedImgLayout.setAlignment(Qt.AlignCenter)
-        self.displayImgFigure = plt.figure()
-        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
-        self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
-        self.imageOptionsFrame = QFrame()
-        self.imageOptionsFrame.setFixedWidth(400)
-        self.imageOptionsLayout = QVBoxLayout()
-        self.imageOptionsLayout.setAlignment(Qt.AlignTop)
-        self.centerChkbx = QCheckBox("Display Center")
-        self.displayRingsChkbx = QCheckBox("Display Rings")
-        self.displayRingsChkbx.setChecked(True)
-        self.intensityGrp = QGroupBox()
-        self.intensityGrp.setTitle("Image Intensity")
-        self.intensityGrp.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        self.intensityLayout = QGridLayout()
-        self.intensityGrp.setLayout(self.intensityLayout)
-        self.maxInt = QDoubleSpinBox()
-        self.maxInt.setValue(1)
-        self.maxInt.setKeyboardTracking(False)
-        self.minInt = QDoubleSpinBox()
-        self.minInt.setValue(0)
-        self.minInt.setKeyboardTracking(False)
-        self.minIntLabel = QLabel("Min intensity")
-        self.maxIntLabel = QLabel("Max intensity")
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.intensityLayout.addWidget(self.minIntLabel, 0, 0)
-        self.intensityLayout.addWidget(self.minInt, 0, 1)
-        self.intensityLayout.addWidget(self.maxIntLabel, 1, 0)
-        self.intensityLayout.addWidget(self.maxInt, 1, 1)
-        self.intensityLayout.addWidget(self.logScaleIntChkBx, 2, 0, 1, 2)
-        self.noBGImgChkBx = QCheckBox("Backgound Subtracted Image")
-        self.blankChkBx = QCheckBox("Subtract with Blank Image")
-        self.blankChkBx.setChecked(True)
-        self.noBGImgSpinbx = QSpinBox()
-        self.noBGImgSpinbx.setMinimum(3)
-        self.noBGImgSpinbx.setMaximum(100)
-        self.noBGImgSpinbx.setValue(3)
-        self.noBGImgSpinbx.setEnabled(False)
-        self.angleChkBx = QCheckBox("Display Angle lines")
-        self.angleChkBx.setChecked(True)
-        self.rminmaxChkBx = QCheckBox("Display R-min and R-max")
-        self.rminmaxChkBx.setChecked(False)
-        self.roiChkBx = QCheckBox("Display ROI")
-        self.roiChkBx.setChecked(False)
-
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Process Current Folder")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-        self.pnButtons = QGridLayout()
-        self.prevButton = QPushButton('<')
-        self.prevButton.clearFocus()
-        self.nextButton = QPushButton('>')
-        self.filenameLineEdit = QLineEdit()
-        self.pnButtons.addWidget(self.processFolderButton, 0, 0, 1, 2)
-        self.pnButtons.addWidget(self.prevButton, 1, 0, 1, 1)
-        self.pnButtons.addWidget(self.nextButton, 1, 1, 1, 1)
-        self.pnButtons.addWidget(self.filenameLineEdit, 2, 0, 1, 2)
-
-        self.displayOptionGrp = QGroupBox()
-        self.displayOptionGrp.setTitle('Display Options')
-        self.displayOptionsLayout = QVBoxLayout()
-        self.displayOptionsLayout.addSpacing(15)
-        self.displayOptionsLayout.addWidget(self.intensityGrp)
-        self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.centerChkbx)
-        self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.displayRingsChkbx)
-        self.displayOptionsLayout.addSpacing(10)
-        # self.displayOptionsLayout.addWidget(self.noBGImgChkBx)
-        # self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.blankChkBx)
-        self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.angleChkBx)
-        self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.rminmaxChkBx)
-        self.displayOptionsLayout.addSpacing(10)
-        self.displayOptionsLayout.addWidget(self.roiChkBx)
-        self.displayOptionGrp.setLayout(self.displayOptionsLayout)
-
-        self.setCaliButton = QPushButton("Calibration Settings")
-        self.setBlankImageButton = QPushButton("Blank Image and Mask")
-        self.setHullRange = QPushButton("Set Fixed R-min and R-max")
-        self.setHullRange.setCheckable(True)
-        self.checkable_buttons.append(self.setHullRange)
-        self.setRoiBtn = QPushButton("Set ROI")
-        self.setRoiBtn.setCheckable(True)
-        self.checkable_buttons.append(self.setRoiBtn)
-        self.selectRings = QPushButton("Select Rings Manually")
-        self.selectRings.setCheckable(True)
-        self.persistRingsChkBx = QCheckBox("Persist Rings")
-        self.checkable_buttons.append(self.selectRings)
-        self.orientationCmbBx = QComboBox()
-        self.orientationCmbBx.addItem("Max Intensity")
-        self.orientationCmbBx.addItem("GMM2")
-        self.orientationCmbBx.addItem("GMM3")
-        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
-        self.orientationCmbBx.addItem("Herman Factor (Pi)")
-        self.orientationCmbBx.setCurrentIndex(2)
-        self.persistROIChkBx = QCheckBox("Persist R-min, R-max & ROI")
-        self.rotation90ChkBx = QCheckBox("Rotate 90")
-        self.forceRot90ChkBx = QCheckBox("Persist Rotation")
-
-        self.settingGrp = QGroupBox("Settings")
-        self.settingLayout = QVBoxLayout(self.settingGrp)
-        self.settingLayout.addWidget(self.setCaliButton)
-        self.settingLayout.addWidget(self.setBlankImageButton)
-        self.settingLayout.addWidget(self.setHullRange)
-        self.settingLayout.addWidget(self.setRoiBtn)
-        self.settingLayout.addWidget(self.selectRings)
-        self.settingLayout.addWidget(self.persistRingsChkBx)
-        self.settingLayout.addWidget(QLabel("Finding orientation:"))
-        self.settingLayout.addWidget(self.orientationCmbBx)
-        self.settingLayout.addWidget(self.persistROIChkBx)
-        self.settingLayout.addWidget(self.rotation90ChkBx)
-        self.settingLayout.addWidget(self.forceRot90ChkBx)
-
-        self.imageOptionsLayout.addWidget(self.settingGrp)
-        self.imageOptionsLayout.addSpacing(10)
-        self.imageOptionsLayout.addWidget(self.displayOptionGrp)
-        self.imageOptionsLayout.addStretch()
-        self.imageOptionsLayout.addLayout(self.pnButtons)
-        self.imageOptionsLayout.addSpacing(10)
-        self.imageOptionsFrame.setLayout(self.imageOptionsLayout)
-
-        self.imageTabLayout.addWidget(self.displayImgCanvas)
-        self.imageTabLayout.addWidget(self.imageOptionsFrame)
-
-        ## IMAGE MODE 2 : Method 1 Tab Multiple conical integrations
-        self.method1Tab = QWidget()
-        self.method1Tab.setContentsMargins(0, 0, 0, 0)
-        self.method1TabLayout = QGridLayout(self.method1Tab)
-        self.m1_key_group = QGroupBox()
-        # self.m1_key_group.setTitle()
-        self.m1_keys_layout = QGridLayout(self.m1_key_group)
-        self.skipFirstPeakChkBx = QCheckBox()
-        self.skipFirstPeakChkBx.setText("Zoom")
-        self.skipFirstPeakChkBx.setChecked(False)
-
-        self.m1OriginalHistChkbx = QCheckBox()
-        self.m1OriginalHistChkbx.setText("Original Histogram")
-        self.m1OriginalHistChkbx.setChecked(False)
-
-        self.partialRange = QSpinBox()
-        self.partialRange.setMinimum(30)
-        self.partialRange.setMaximum(180)
-        self.partialRange.setSingleStep(30)
-        self.partialRange.setValue(90)
-        self.partialRange.setKeyboardTracking(False)
-        self.next_range = QPushButton('>>')
-        self.prev_range = QPushButton('<<')
-
-        self.m1_keys_layout.addWidget(self.skipFirstPeakChkBx, 0, 0, 1, 1)
-        self.m1_keys_layout.addWidget(self.m1OriginalHistChkbx, 0, 1, 1, 1)
-        self.m1_keys_layout.addWidget(QLabel('Range Angle (degree) : '), 1, 0, 1, 1)
-        self.m1_keys_layout.addWidget(self.partialRange, 1, 1, 1, 1)
-        change_label = QLabel("Change Range")
-        self.m1_keys_layout.addWidget(change_label, 0, 2, 1, 2)
-        self.m1_keys_layout.setAlignment(change_label, Qt.AlignCenter)
-        self.m1_keys_layout.addWidget(self.prev_range, 1, 2, 1, 1)
-        self.m1_keys_layout.addWidget(self.next_range, 1, 3, 1, 1)
-        self.m1_keys_layout.setAlignment(Qt.AlignTop)
-        self.m1_key_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        self.m1_key_group.setAlignment(Qt.AlignTop)
-
-        self.m1_partial_hist_figure = plt.figure()
-        self.m1_partial_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
-        self.m1_partial_hist_axes = self.m1_partial_hist_figure.add_subplot(111)
-        self.m1_partial_hist_canvas = FigureCanvas(self.m1_partial_hist_figure)
-        # self.toolbar = NavigationToolbar(self.m1_partial_hist_canvas, self)
-        # self.method1TabLayout.addWidget(self.toolbar)
-        self.m1_hist_figure = plt.figure()
-        self.m1_hist_axes = self.m1_hist_figure.add_subplot(111)
-        self.m1_hist_canvas = FigureCanvas(self.m1_hist_figure)
-        self.m1_img_fig = plt.figure()
-        self.m1_img_axes = self.m1_img_fig.add_subplot(111)
-        self.m1_img_canvas = FigureCanvas(self.m1_img_fig)
-        self.method1TabLayout.addWidget(self.m1_img_canvas, 0, 0, 3, 1)
-        self.method1TabLayout.addWidget(self.m1_partial_hist_canvas, 0, 1)
-        self.method1TabLayout.addWidget(self.m1_key_group, 1, 1)
-        self.method1TabLayout.addWidget(self.m1_hist_canvas, 2, 1)
-
-        ## IMAGE MODE 3 : Method 2 Tab
-        self.method2Tab = QWidget()
-        self.method2Tab.setContentsMargins(0, 0, 0, 0)
-        self.method2Tablayout = QGridLayout(self.method2Tab)
-        self.method2ComboBx = QComboBox()
-        self.method2ComboBx.addItem("2D Integration")
-        self.method2ComboBx.addItem("Central Differences")
-        self.method2ComboBx.addItem("Log Central Differences")
-        self.method2ComboBx.setCurrentIndex(2)
-        self.runsChkBx = QCheckBox("Display Runs")
-        self.ringsChkBx = QCheckBox("Display Rings")
-
-        self.m2_cent_diff_fig = plt.figure()
-        self.m2_cent_diff_axes = self.m2_cent_diff_fig.add_subplot(111)
-        self.m2_cent_diff_canvas = FigureCanvas(self.m2_cent_diff_fig)
-        self.method2Tablayout.addWidget(self.method2ComboBx, 0, 0, 1, 1)
-        self.method2Tablayout.addWidget(self.runsChkBx, 0, 1, 1, 1)
-        # self.method2Tablayout.setAlignment(self.runsChkBx, Qt.AlignCenter)
-        self.method2Tablayout.addWidget(self.ringsChkBx, 0, 2, 1, 1)
-        # self.method2Tablayout.setAlignment(self.ringsChkBx, Qt.AlignCenter)
-        self.method2Tablayout.addWidget(self.m2_cent_diff_canvas, 1, 0, 1, 3)
-
-        ## IMAGE MODE 4 : Result Tab
-        self.resultTab = QWidget()
-        self.resultTab.setContentsMargins(0, 0, 0, 0)
-        self.resultTabLayout = QGridLayout(self.resultTab)
-        self.graph_cmbbx = QComboBox()
-        self.graph_cmbbx.addItem("2D Integration and Fitting Information")
-        self.graph_cmbbx.addItem("Angle distribution")
-        self.graph_cmbbx.setCurrentIndex(0)
-
-        self.dspacing_chkbx = QCheckBox("D-spacing")
-        self.skip_first_peak_chkbx = QCheckBox("Zoom")
-        self.skip_first_peak_chkbx.setChecked(False)
-        self.original_hist_chkbx = QCheckBox("Original Histogram")
-        self.original_hist_chkbx.setChecked(False)
-        self.hull_hist_chkbx = QCheckBox("No Background Histogram")
-        self.hull_hist_chkbx.setChecked(True)
-        self.fit_hist_chkbx = QCheckBox("Fit Model")
-        self.fit_hist_chkbx.setChecked(True)
-        self.selectPeaks = QPushButton("Select Peaks Manually")
-        self.selectPeaks.setCheckable(True)
-        self.checkable_buttons.append(self.selectPeaks)
-        self.rings_chkbx = QCheckBox("Model Peaks")
-        self.rings_chkbx.setChecked(True)
-        self.ring_hists_chkbx = QCheckBox("All Rings")
-        self.ring_hists_chkbx.setChecked(True)
-        self.ring_hists_chkbx.setHidden(True)
-        self.average_ring_chkbx = QCheckBox("Average Model")
-        self.average_ring_chkbx.setChecked(False)
-        self.average_ring_chkbx.setHidden(True)
-        self.g_model_chkbx = QCheckBox("Gaussian Models")
-        self.g_model_chkbx.setChecked(True)
-        self.g_model_chkbx.setHidden(True)
-        self.graph_options_frame = QFrame()
-        self.graph_options_layout = QVBoxLayout()
-        self.graph_options_layout.addWidget(self.selectPeaks)
-        self.graph_options_layout.addWidget(self.dspacing_chkbx)
-        self.graph_options_layout.addWidget(self.skip_first_peak_chkbx)
-        self.graph_options_layout.addWidget(self.original_hist_chkbx)
-        self.graph_options_layout.addWidget(self.hull_hist_chkbx)
-        self.graph_options_layout.addWidget(self.rings_chkbx)
-        self.graph_options_layout.addWidget(self.fit_hist_chkbx)
-        self.graph_options_layout.addWidget(self.ring_hists_chkbx)
-        self.graph_options_layout.addWidget(self.g_model_chkbx)
-        self.graph_options_layout.addWidget(self.average_ring_chkbx)
-        self.graph_options_frame.setLayout(self.graph_options_layout)
-
-        # self.graph_options_frame.setFixedWidth(200)
-        self.result_graph_figure = plt.figure()
-        self.result_graph_axes = self.result_graph_figure.add_subplot(111)
-        self.result_graph_canvas = FigureCanvas(self.result_graph_figure)
-        self.processing_results = QTextEdit()
-        self.processing_results.setReadOnly(True)
-        self.processing_results.setText("Angular results : N/A")
-        self.rings_results = QTextEdit()
-        self.rings_results.setReadOnly(True)
-        # self.rings_results.setLineWidth(2)
-        self.rings_results.setText("Rings Information : N/A")
-        self.resultTabLayout.addWidget(self.graph_cmbbx, 0, 0, 1, 4)
-        self.resultTabLayout.addWidget(self.result_graph_canvas, 1, 0, 1, 3)
-        self.resultTabLayout.addWidget(self.graph_options_frame, 1, 3, 1, 1)
-        self.resultTabLayout.addWidget(self.processing_results, 2, 0, 1, 2)
-        self.resultTabLayout.addWidget(self.rings_results, 2, 2, 1, 2)
-        self.resultTabLayout.setRowStretch(0, 2)
-        self.resultTabLayout.setRowStretch(1, 1)
-        self.resultTabLayout.setColumnStretch(0, 1)
-        self.resultTabLayout.setColumnStretch(1, 1)
-        self.resultTabLayout.setColumnStretch(2, 1)
-        self.resultTabLayout.setColumnStretch(3, 1)
-
-        ## tabs
-        self.tabWidget = QTabWidget()
-        self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 300px; }")
-        self.tabWidget.setTabPosition(QTabWidget.North)
-        self.tabWidget.setDocumentMode(False)
-        self.tabWidget.setTabsClosable(False)
-
-        self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 300px; }")
-        self.tabWidget.addTab(self.imageTab, "Image")
-        self.tabWidget.addTab(self.method1Tab, "Method 1\nMultiple Conical Integration")
-        self.tabWidget.addTab(self.method2Tab, "Method 2\nRuns on Central Difference Image")
-        self.tabWidget.addTab(self.resultTab, "Results")
-        self.mainLayout.addWidget(self.tabWidget)
-
-        # status bar
-        self.statusBar = QStatusBar()
-        self.imagePathLabel = QLabel('')
-        self.statusLabel = QLabel('')
-        self.progressBar = QProgressBar()
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        self.statusBar.addWidget(QLabel('   '))
-        self.statusBar.addWidget(self.imagePathLabel)
-        self.statusBar.addPermanentWidget(self.statusLabel)
-        self.statusBar.addPermanentWidget(self.progressBar)
-        self.mainLayout.addWidget(self.statusBar)
-
-        self.show()
-
-    def setConnections(self):
-
-        self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
-        self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
-
-        self.centerChkbx.stateChanged.connect(self.updateUI)
-        self.displayRingsChkbx.stateChanged.connect(self.updateUI)
-        self.maxInt.valueChanged.connect(self.maxIntChanged)
-        self.minInt.valueChanged.connect(self.minIntChanged)
-        self.logScaleIntChkBx.stateChanged.connect(self.updateUI)
-        self.noBGImgChkBx.stateChanged.connect(self.updateUI)
-        self.blankChkBx.stateChanged.connect(self.updateUI)
-        self.angleChkBx.stateChanged.connect(self.updateUI)
-        self.rminmaxChkBx.stateChanged.connect(self.updateUI)
-        self.roiChkBx.stateChanged.connect(self.updateUI)
-        self.setCaliButton.clicked.connect(self.calibrationClicked)
-        self.setBlankImageButton.clicked.connect(self.setBlankAndMask)
-        self.setHullRange.clicked.connect(self.setHullRangeClicked)
-        self.setRoiBtn.clicked.connect(self.setRoiBtnClicked)
-        self.selectRings.clicked.connect(self.selectRingsClicked)
-        self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
-        self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
-        self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
-        #self.processFolderButton.clicked.connect(self.processFolder)
-        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-        self.prevButton.clicked.connect(self.prevImage)
-        self.nextButton.clicked.connect(self.nextImage)
-        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
-
-        self.skipFirstPeakChkBx.stateChanged.connect(self.m1_update_plots)
-        self.m1OriginalHistChkbx.stateChanged.connect(self.m1_update_plots)
-        self.partialRange.valueChanged.connect(self.partialRangeChanged)
-        self.next_range.clicked.connect(self.next_range_pushed)
-        self.prev_range.clicked.connect(self.prev_range_pushed)
-        self.runsChkBx.stateChanged.connect(self.refreshMethod2Tab)
-        self.ringsChkBx.stateChanged.connect(self.refreshMethod2Tab)
-        self.method2ComboBx.currentIndexChanged.connect(self.refreshMethod2Tab)
-        self.graph_cmbbx.currentIndexChanged.connect(self.updateUI)
-
-        self.result_graph_figure.canvas.mpl_connect('button_press_event', self.result_graph_clicked)
-        self.selectPeaks.clicked.connect(self.selectPeaksClicked)
-        self.dspacing_chkbx.stateChanged.connect(self.updateUI)
-        self.skip_first_peak_chkbx.stateChanged.connect(self.updateUI)
-        self.original_hist_chkbx.stateChanged.connect(self.updateUI)
-        self.hull_hist_chkbx.stateChanged.connect(self.updateUI)
-        self.fit_hist_chkbx.stateChanged.connect(self.updateUI)
-        self.rings_chkbx.stateChanged.connect(self.updateUI)
-        self.ring_hists_chkbx.stateChanged.connect(self.updateUI)
-        self.average_ring_chkbx.stateChanged.connect(self.updateUI)
-        self.g_model_chkbx.stateChanged.connect(self.updateUI)
-
-        self.tabWidget.currentChanged.connect(self.updateUI)
-
-    def calibrationClicked(self):
-        """
-        Triggered when calibration settings button pressed
-        """
-        success = self.setCalibrationImage(force=True)
-        if self.cirProj is not None and success:
-            self.cirProj.removeInfo()
-            self.processImage()
-
-    def setBlankAndMask(self):
-        dialog = BlankImageSettings(self.filePath)
-        self.mask = None
-        result = dialog.exec_()
-        if result == 1 and self.cirProj is not None:
-            self.cirProj.removeInfo('2dintegration')
-            self.processImage()
-
-    def selectPeaksClicked(self):
-        """
-        Triggered when select peaks manually button pressed (Result tab)
-        """
-        if self.cirProj is None:
-            return
-
-        if self.selectPeaks.isChecked():
-            self.function = ["peaks"]
-            self.selectPeaks.setText("Done")
-            ax = self.result_graph_axes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
-            hull = self.cirProj.info['hull_hist']
-            ax.plot(hull)
-            self.result_graph_canvas.draw_idle()
-        else:
-            self.cirProj.info['merged_peaks'] = sorted(self.function[1:])
-            self.selectPeaks.setText("Select Peaks Manually")
-            self.cirProj.removeInfo('fitResult')
-            self.function = None
-            self.processImage()
-
-    def setHullRangeClicked(self):
-        """
-        Triggered when select R-min and R-max button pressed (Image tab)
-        """
-        if self.cirProj is None:
-            return
-
-        if self.setHullRange.isChecked():
-            self.function = ['hull']
-            ax = self.displayImgAxes
-            ax.lines = []
-            ax.patches = []
-            self.displayImgCanvas.draw_idle()
-        else:
-            self.function = None
-            self.processImage()
-            self.updateImageTab()
-
-
-    def setRoiBtnClicked(self):
-        """
-        Triggered when select ROI button pressed (Image tab)
-        """
-        if self.cirProj is None:
-            return
-
-        if self.setRoiBtn.isChecked():
-            self.function = ['ROI']
-            ax = self.displayImgAxes
-            ax.lines = []
-            ax.patches = []
-            self.displayImgCanvas.draw_idle()
-        else:
-            self.function = None
-            self.processImage()
-            self.updateImageTab()
-
-    def selectRingsClicked(self):
-        """
-        Triggered when select rings manually button pressed (Image tab)
-        """
-        if self.cirProj is None:
-            return
-
-        if self.selectRings.isChecked():
-            self.function = ["rings"]
-            self.selectRings.setText("Done")
-            ax = self.displayImgAxes
-            ax.lines = []
-            ax.patches = []
-            self.displayImgCanvas.draw_idle()
-        else:
-            self.cirProj.info['merged_peaks'] = sorted(self.function[1:])
-            self.merged_peaks = self.cirProj.info['merged_peaks']
-            self.selectRings.setText("Select Rings Manually")
-            self.cirProj.removeInfo('fitResult')
-            self.function = None
-            self.processImage()
-
-    def orientationModelChanged(self):
-        self.orientationModel = str(self.orientationCmbBx.currentText())
-        self.processImage()
-
-    def rotation90Checked(self):
-        self.cirProj.removeInfo('ring_hists')
-        self.processImage()
-
-    def forceRot90Checked(self):
-        if self.forceRot90ChkBx.isChecked():
-            self.rotation90ChkBx.setChecked(True)
-            self.rotation90ChkBx.setEnabled(False)
-        else:
-            self.rotation90ChkBx.setEnabled(True)
-
-    def result_graph_clicked(self, event):
-        """
-        Triggered when mouse presses on graph in result tab
-        """
-        if self.cirProj is None:
-            return
-
-        x = event.xdata
-        y = event.ydata
-
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            ax = self.displayImgAxes
-            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-
-        if self.function is None:
-            return
-
-        func = self.function
-
-        # Provide different behavior depending on current active function
-        if func[0] == "peaks":
-            # Add rings to list and draw circles
-            ax = self.result_graph_axes
-            ax.axvline(x, color='b')
-            ax.text(x,0,'Peak#'+str(len(self.function)),fontsize=10, horizontalalignment='center')
-            self.function.append(int(round(x)))
-            self.result_graph_canvas.draw_idle()
     
-    def saveSettings(self):
-        """
-        save settings to json
-        """
-        settings = self.getFlags()
-        filename=getSaveFile("musclex/settings/disettings.json",None)
-        if filename!="":
-            import json
-
-            with open(filename,'w') as f:
-                json.dump(settings,f)
-
-    def imgClicked(self, event):
-        """
-        Triggered when mouse presses on image in image tab
-        """
-        if self.cirProj is None:
-            return
-
-        x = event.xdata
-        y = event.ydata
-
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            ax = self.displayImgAxes
-            bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1]) ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-
-        if self.function is None:
-            return
-
-        func = self.function
-
-        # Provide different behavior depending on current active function
-        center = self.cirProj.info['center']
-        dis = distance(center, (x, y))
-        if func[0] == 'rings':
-            # Add rings to list and draw circles
-            ax = self.displayImgAxes
-            ax.add_patch(
-                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
-            self.function.append(int(round(dis)))
-            self.displayImgCanvas.draw_idle()
-        elif func[0] == 'hull':
-            self.function.append(int(round(dis)))
-            if len(self.function) == 3:
-                rs = self.function[1:]
-                rmin = int(min(rs))
-                rmax = int(max(rs))
-                self.fixed_hull_range = (rmin, rmax)
-                if self.ROI is None:
-                    self.ROI = [rmin, rmax]
-                else:
-                    self.ROI[0] = max(rmin, self.ROI[0])
-                    self.ROI[1] = min(rmax, self.ROI[1])
-                self.cirProj.removeInfo('2dintegration')
-                self.processImage()
-            else:
-                ax = self.displayImgAxes
-                ax.add_patch(
-                    patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
-                self.displayImgCanvas.draw_idle()
-        elif func[0] == 'ROI':
-            self.function.append(int(round(dis)))
-            if len(self.function) == 3:
-                rs = self.function[1:]
-                innerR, outerR = min(rs), max(rs)
-                innerR = max(innerR, self.cirProj.info['start_point'])
-                outerR = min(outerR, self.cirProj.info['rmax'])
-                self.cirProj.info['ROI'] = [innerR, outerR]
-                self.ROI = [innerR, outerR]
-                self.cirProj.removeInfo('ring_hists')
-                self.cirProj.removeInfo('m1_rings')
-                self.cirProj.removeInfo('m2_rings')
-                self.cirProj.removeInfo('merged_peaks')
-                self.processImage()
-            else:
-                ax = self.displayImgAxes
-                ax.add_patch(
-                    patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none'))
-                self.displayImgCanvas.draw_idle()
-
-    def imgOnMotion(self, event):
-        """
-        Triggered when mouse hovers on image in image tab
-        """
-        if self.cirProj is None:
-            return
-
-        x = event.xdata
-        y = event.ydata
-
-        if x is not None and y is not None:
-            orig_img = self.cirProj.original_image
-            ix = int(round(x))
-            iy = int(round(y))
-            text = "x={0}, y={1}, val={2}".format(round(x,2), round(y,2), round(orig_img[iy,ix],2))
-            if self.selectRings.isChecked() or self.setHullRange.isChecked() or \
-               self.setRoiBtn.isChecked():
-                dist = distance(self.cirProj.info['center'], (x, y))
-                text = "radius={0}, {1}".format(round(dist, 2), text)
-            self.statusLabel.setText(text)
-
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            self.statusLabel.setText('')
-            ax = self.displayImgAxes
-            bounds = ax.get_window_extent().get_points() ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1]) ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-            x = int(round(x))
-            y = int(round(y))
-
-        if self.function is None or len(self.function) == 0:
-            return
-
-        func = self.function
-
-        center = self.cirProj.info['center']
-        dis = distance(center, (x, y))
-        if func[0] == 'rings':
-            # draw circle
-            ax = self.displayImgAxes
-            del ax.patches[(len(self.function) - 1):]
-            ax.add_patch(
-                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
-            self.displayImgCanvas.draw_idle()
-        elif func[0] == 'hull':
-            # draw circle
-            ax = self.displayImgAxes
-            del ax.patches[(len(self.function) - 1):]
-            ax.add_patch(
-                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
-            self.displayImgCanvas.draw_idle()
-        elif func[0] == 'ROI':
-            # draw circle
-            ax = self.displayImgAxes
-            del ax.patches[(len(self.function) - 1):]
-            dis = min(max(dis, self.cirProj.info['start_point']), self.cirProj.info['rmax'])
-            ax.add_patch(
-                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none'))
-            self.displayImgCanvas.draw_idle()
-
-    def setCalibrationImage(self, force = False):
-        """
-        Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
-        :param force: force to popup the window
-        :return: True if calibration set, False otherwise
-        """
-        settingDialog = CalibrationSettings(self.filePath)
-        self.calSettings = None
-        cal_setting = settingDialog.calSettings
-        if cal_setting is not None or force:
-            result = settingDialog.exec_()
-            if result == 1:
-                self.calSettings = settingDialog.getValues()
-                return True
-        return False
-
     def batchProcBtnToggled(self):
         if self.processFolderButton.isChecked():
             if not self.in_batch_process:
@@ -914,8 +206,7 @@ class CPImageWindow(QMainWindow):
         """
         ## Popup confirm dialog with settings
         nImg = len(self.imgList)
-        errMsg = QMessageBox()
-        errMsg.setText('Process Current Folder')
+        print('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         flags = self.getFlags()
         text += "\nCurrent Settings"
@@ -937,18 +228,14 @@ class CPImageWindow(QMainWindow):
                 text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
                 text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
         text += '\n\nAre you sure you want to process ' + str(nImg) + ' image(s) in this Folder? \nThis might take a long time.'
-        errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-        errMsg.setIcon(QMessageBox.Warning)
-        ret = errMsg.exec_()
+       
+
 
         # If "yes" is pressed
-        if ret == QMessageBox.Yes:
-            # Display progress bar
-            self.progressBar.setMaximum(nImg)
-            self.progressBar.setMinimum(0)
-            self.progressBar.setVisible(True)
+        
+        if True:
 
+        
             log_path = fullPath(self.filePath, 'log')
             if not exists(log_path):
                 os.makedirs(log_path)
@@ -980,16 +267,13 @@ class CPImageWindow(QMainWindow):
                 if self.stop_process:
                     break
                 self.nextImage()
-                self.progressBar.setValue(i)
-                QApplication.processEvents()
+                
             self.in_batch_process = False
             self.folder_processed = True
         else:
             self.folder_processed = False
 
-        self.progressBar.setVisible(False)
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Process Current Folder")
+        
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -1006,31 +290,45 @@ class CPImageWindow(QMainWindow):
             self.mainWin.removeWidget(self)
 
     def getFlags(self, imgChanged=True):
-        flags = {}
-        flags['partial_angle'] = self.partialRange.value()
-        if self.merged_peaks is not None and self.persistRingsChkBx.isChecked():
-            print("Persisting rings at {}..".format(self.merged_peaks))
-            flags['merged_peaks'] = self.merged_peaks
-            flags['m1_rings'] = self.merged_peaks
-            flags['m2_rings'] = self.merged_peaks
-            flags['model_peaks'] = self.merged_peaks
-            flags['persist_rings'] = True
-        if self.ROI is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
-            flags['ROI'] = self.ROI
-        if self.orientationModel is not None:
-            flags['orientation_model'] = self.orientationModel
-        flags['90rotation'] = self.rotation90ChkBx.isChecked()
-        if self.calSettings is not None:
-            if self.calSettings["type"] == "img":
-                flags["center"] = self.calSettings["center"]
-                flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
-            else:
-                flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-                if "center" in self.calSettings:
-                    flags["center"] = self.calSettings["center"]
+        
 
-        if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
-            flags['fixed_hull'] = self.fixed_hull_range
+        
+        if self.inputflag==True:    
+                
+            try:
+                with open(self.inputflagfile) as f:
+                    flags=json.load(f)
+            except:
+                print("Can't load setting file")
+                self.inputflag=False
+                flags={"partial_angle": 90, "orientation_model": "GMM3", "90rotation": False}
+        else:
+            flags={"partial_angle": 90, "orientation_model": "GMM3", "90rotation": False}
+
+        # flags['partial_angle'] = self.partialRange.value()
+        # if self.merged_peaks is not None and self.persistRingsChkBx.isChecked():
+        #     print("Persisting rings at {}..".format(self.merged_peaks))
+        #     flags['merged_peaks'] = self.merged_peaks
+        #     flags['m1_rings'] = self.merged_peaks
+        #     flags['m2_rings'] = self.merged_peaks
+        #     flags['model_peaks'] = self.merged_peaks
+        #     flags['persist_rings'] = True
+        # if self.ROI is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
+        #     flags['ROI'] = self.ROI
+        # if self.orientationModel is not None:
+        #     flags['orientation_model'] = self.orientationModel
+        # flags['90rotation'] = self.rotation90ChkBx.isChecked()
+        # if self.calSettings is not None:
+        #     if self.calSettings["type"] == "img":
+        #         flags["center"] = self.calSettings["center"]
+        #         flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+        #     else:
+        #         flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+        #         if "center" in self.calSettings:
+        #             flags["center"] = self.calSettings["center"]
+
+        # if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
+        #     flags['fixed_hull'] = self.fixed_hull_range
        
 
         return flags
@@ -1050,7 +348,7 @@ class CPImageWindow(QMainWindow):
             self.updateUI()
 
     def onNewFileSelected(self, imgList):
-        self.resize(600, 600)
+        
 
         if imgList is not None:
             self.imgList = imgList
@@ -1065,31 +363,49 @@ class CPImageWindow(QMainWindow):
             self.currentFileNumber = 0
 
     def onImageChanged(self):
+        file=self.fileName+'.info'
+        cache_path = os.path.join(self.filePath, "cp_cache",file)
+        cache_exist=os.path.isfile(cache_path)
+        if self.delcache:
+            if os.path.isfile(cache_path):
+                print('cache is deleted')
+                os.remove(cache_path)
         fileName = self.imgList[self.currentFileNumber]
-        self.filenameLineEdit.setText(fileName)
+        print("current file is "+fileName)
         fileFullPath = fullPath(self.filePath, fileName)
-        self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
         self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
-        self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
+        #self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         # Calculating grid lines to exclude in pixel data computation
-        grid_lines = np.where(self.cirProj.original_image < 0)
-        if self.rotation90ChkBx.isEnabled():
-            self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
+        #grid_lines = np.where(self.cirProj.original_image < 0)
+        # if self.rotation90ChkBx.isEnabled():
+        #     self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
         self.processImage(True)
-        self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
-            self.numberOfFiles) + ') is processed.')
-        self.addPixelDataToCsv(grid_lines)
+        # self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
+        #     self.numberOfFiles) + ') is processed.')
+        # self.addPixelDataToCsv(grid_lines)
+        print('---------------------------------------------------')
+
+        if self.inputflag and cache_exist and not self.delcache:
+            print('cache exists, provided setting file was not used ')
+        elif self.inputflag and (not cache_exist or self.delcache):
+            print('setting file provided and used for fitting')
+        elif not self.inputflag and cache_exist and not self.delcache:
+            print('cache exist, no fitting was performed')
+        elif not self.inputflag and (self.delcache or not cache_exist):
+            print('fitting with default settings')
+        
+        print('---------------------------------------------------')
 
     def processImage(self, imgChanged=False):
         if self.cirProj is not None:
-            QApplication.setOverrideCursor(Qt.WaitCursor)
+            # QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags(imgChanged)
             self.cirProj.process(flags)
-            QApplication.restoreOverrideCursor()
+            # QApplication.restoreOverrideCursor()
             self.updateParams()
             self.csvManager.write_new_data(self.cirProj)
-            self.refreshAllTabs()
-            self.updateUI()
+            # self.refreshAllTabs()
+            # self.updateUI()
 
     def create_circular_mask(self, h, w, center, radius):
         Y, X = np.ogrid[:h, :w]
@@ -1173,11 +489,11 @@ class CPImageWindow(QMainWindow):
             self.merged_peaks = info['merged_peaks']
         if self.ROI is None and info['ROI'] != [info['start_point'], info['rmax']]:
             self.ROI = info['ROI']
-        if self.orientationModel is None:
-            if 'orientation_model' in info:
-                self.orientationCmbBx.setCurrentIndex(
-                    self.orientationCmbBx.findText(info['orientation_model']))
-            self.orientationModel = str(self.orientationCmbBx.currentText())
+        # if self.orientationModel is None:
+        #     # if 'orientation_model' in info:
+        #     #     self.orientationCmbBx.setCurrentIndex(
+        #     #         self.orientationCmbBx.findText(info['orientation_model']))
+        #     self.orientationModel = str(self.orientationCmbBx.currentText())
 
     def updateStatusBar(self, text):
         QApplication.processEvents()

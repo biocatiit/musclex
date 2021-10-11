@@ -86,13 +86,15 @@ class EQStartWindowh:
     #         self.close()
 
     def browseFolder(self):
+        input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+
         if self.dir_path != "":
             imgList = os.listdir(self.dir_path)
         for image in imgList:
             file_name=os.path.join(self.dir_path,image)
             if os.path.isfile(file_name):
                 _, ext = os.path.splitext(str(file_name))
-                if ext=='.tif' or ext=='.smv':
+                if ext in input_types:
                     print("filename is", file_name)
                     self.runBioMuscle(file_name)
     
