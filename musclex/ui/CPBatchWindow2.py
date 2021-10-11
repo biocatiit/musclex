@@ -12,6 +12,7 @@ import musclex
 import pandas as pd
 import numpy as np
 from .CPImageWindow import CPImageWindow
+import json
 
 matplotlib.rcParams.update({'font.size': 5})
 
@@ -156,6 +157,10 @@ class HDFBrowser(QDialog):
             y_end = self.y_end.value()
             x_step = self.x_step.value()
             y_step = self.y_step.value()
+            dihdf={'x_start':x_start,'y_start':y_start, 'x_end':x_end, 'y_end':y_end, 'x_step':x_step,'y_step':y_step}
+            filename=fullPath(self.path,'dihdf.json')
+            with open(filename,'w') as f:
+                json.dump(dihdf,f)
 
             # The total size divided by the step size is the number of steps in
             # both directions

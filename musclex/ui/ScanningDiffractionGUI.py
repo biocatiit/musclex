@@ -100,32 +100,32 @@ class ScanningDiffractionGUI(QMainWindow):
             new_batch_window = CPBatchWindow(self, str(dir_path))
             self.widgetList.append(new_batch_window)
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', help='image file')
-    parser.add_argument('-f', help="handle all images in the folder")
-    # parser.add_argument('-hdf', help="hdf file for the folder")
-    args = parser.parse_args()
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('-i', help='image file')
+#     parser.add_argument('-f', help="handle all images in the folder")
+#     # parser.add_argument('-hdf', help="hdf file for the folder")
+#     args = parser.parse_args()
 
-    if args.i:
-        full_path = abspath(args.i)
-        if isfile(full_path):
-            filepath, filename = os.path.split(full_path)
-            app = QApplication(sys.argv)
-            myapp = CPImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
-            sys.exit(app.exec_())
-        else:
-            print("ERROR: " + str(full_path) + " does not exist. Please select another image.")
-    elif args.f:
-        full_path = abspath(args.f)
-        if exists(full_path) and not isfile(full_path):
-            app = QApplication(sys.argv)
-            myapp = CPImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
-            sys.exit(app.exec_())
-        else:
-            print("ERROR: " + str(full_path)+ " is not a folder.")
-    else:
-        app = QApplication(sys.argv)
-        myapp = ScanningDiffractionGUI()
-        sys.exit(app.exec_())
+#     if args.i:
+#         full_path = abspath(args.i)
+#         if isfile(full_path):
+#             filepath, filename = os.path.split(full_path)
+#             app = QApplication(sys.argv)
+#             myapp = CPImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
+#             sys.exit(app.exec_())
+#         else:
+#             print("ERROR: " + str(full_path) + " does not exist. Please select another image.")
+#     elif args.f:
+#         full_path = abspath(args.f)
+#         if exists(full_path) and not isfile(full_path):
+#             app = QApplication(sys.argv)
+#             myapp = CPImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
+#             sys.exit(app.exec_())
+#         else:
+#             print("ERROR: " + str(full_path)+ " is not a folder.")
+#     else:
+#         app = QApplication(sys.argv)
+#         myapp = ScanningDiffractionGUI()
+#         sys.exit(app.exec_())

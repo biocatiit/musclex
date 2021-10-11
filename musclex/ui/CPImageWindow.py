@@ -194,6 +194,13 @@ class CPImageWindow(QMainWindow):
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
 
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(saveSettingsAction)
+
         ### Image mode tabs
         ## IMAGE MODE 1 : Image tab
         self.imageTab = QWidget()
@@ -712,6 +719,18 @@ class CPImageWindow(QMainWindow):
             ax.text(x,0,'Peak#'+str(len(self.function)),fontsize=10, horizontalalignment='center')
             self.function.append(int(round(x)))
             self.result_graph_canvas.draw_idle()
+    
+    def saveSettings(self):
+        """
+        save settings to json
+        """
+        settings = self.getFlags()
+        filename=getSaveFile("musclex/settings/disettings.json",None)
+        if filename!="":
+            import json
+
+            with open(filename,'w') as f:
+                json.dump(settings,f)
 
     def imgClicked(self, event):
         """
@@ -1012,6 +1031,7 @@ class CPImageWindow(QMainWindow):
 
         if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['fixed_hull'] = self.fixed_hull_range
+       
 
         return flags
 
@@ -1094,7 +1114,7 @@ class CPImageWindow(QMainWindow):
         # Compute the average pixel value and number of pixels outside rmin/mask
         blank, mask = getBlankImageAndMask(self.filePath)
         img = copy.copy(self.cirProj.original_image)
-        if mask != None:
+        if mask is not None:
             numberOfPixels = np.count_nonzero(mask == 0)
             averagePixelValue = np.average(img[mask == 0])
         else:
