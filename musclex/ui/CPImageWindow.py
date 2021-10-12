@@ -1129,10 +1129,10 @@ class CPImageWindow(QMainWindow):
             averagePixelValue = np.average(img[cir_mask])
 
         if self.cirProj.filename in recordedFileNames:
-            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Average Pixel Value'] = averagePixelValue
-            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Number of Pixels'] = numberOfPixels
+            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Average Pixel Value (Outside rmin or mask)'] = averagePixelValue
+            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Number of Pixels (Outside rmin or mask)'] = numberOfPixels
         else:
-            next_row_index = csvDF.shape[0]
+            next_row_index = csvDF.shape[0]+1
             csvDF.loc[next_row_index] = [self.cirProj.filename, averagePixelValue, numberOfPixels]
         csvDF.to_csv(self.pixelDataFile, index=False)
 
