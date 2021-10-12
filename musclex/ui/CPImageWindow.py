@@ -155,6 +155,7 @@ class CPImageWindow(QMainWindow):
         self.orientationModel = None
         self.in_batch_process = False
         self.pixelDataFile = None
+        self.flags={}
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -724,7 +725,7 @@ class CPImageWindow(QMainWindow):
         """
         save settings to json
         """
-        settings = self.getFlags()
+        settings = self.flags
         filename=getSaveFile("musclex/settings/disettings.json",None)
         if filename!="":
             import json
@@ -1031,8 +1032,8 @@ class CPImageWindow(QMainWindow):
 
         if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['fixed_hull'] = self.fixed_hull_range
+        
        
-
         return flags
 
     def maxIntChanged(self):
@@ -1083,8 +1084,8 @@ class CPImageWindow(QMainWindow):
     def processImage(self, imgChanged=False):
         if self.cirProj is not None:
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            flags = self.getFlags(imgChanged)
-            self.cirProj.process(flags)
+            self.flags = self.getFlags(imgChanged)
+            self.cirProj.process(self.flags)
             QApplication.restoreOverrideCursor()
             self.updateParams()
             self.csvManager.write_new_data(self.cirProj)

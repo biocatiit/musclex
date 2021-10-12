@@ -393,6 +393,7 @@ class CPImageWindowh():
             print('cache exist, no fitting was performed')
         elif not self.inputflag and (self.delcache or not cache_exist):
             print('fitting with default settings')
+            print('default settings are "partial_angle": 90, "orientation_model": "GMM3", "90rotation": False')
         
         print('---------------------------------------------------')
 
