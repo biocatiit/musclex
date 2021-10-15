@@ -35,7 +35,7 @@ pip3 install --upgrade PyMca5
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 brew install opencv
-brew install cartr/qt4/pyqt
+brew install qt5
 brew install gcc
 sudo easy_install pip
 sudo pip install pyfai
