@@ -7,7 +7,7 @@ Application Suite
    Equator/index
    QuadrantFolding/index
    ProjectionTraces/index
-   ScanningDiffraction(DI)/index
+   ScanningDiffraction/index
    ImageMerger/index
    DiffractionCentroids/index
    DDFProcessor/index
