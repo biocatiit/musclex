@@ -74,10 +74,11 @@ class ScanningDiffraction:
         if exists(cache_file):
             info = pickle.load(open(cache_file, "rb"))
             if info != None:
-                if info['program_version'] == self.version:
-                    return info
-                print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
-                print("Invalidating cache and reprocessing the image")
+                # if info['program_version'] == self.version:
+                #     return info
+                # print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
+                # print("Invalidating cache and reprocessing the image")
+                return info
         return {}
 
     def cacheInfo(self):
@@ -1065,7 +1066,10 @@ class ScanningDiffraction:
 
         result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='propagate')
         errs = abs(result.best_fit - result.data)
-        weights = errs / errs.mean() + 1
+        if(errs.mean()!=0):
+            weights = errs / errs.mean() + 1
+        else:
+            weights=np.ones_like(errs)
         weights[weights > 3.] = 0
         result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, nan_policy='propagate')
 

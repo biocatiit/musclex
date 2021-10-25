@@ -1,4 +1,4 @@
-Scanning Diffraction
+Scanning Diffraction (DI)
 ====================
 .. _Scanning Diffraction:
 

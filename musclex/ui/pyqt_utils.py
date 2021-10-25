@@ -27,12 +27,13 @@ authorization from Illinois Institute of Technology.
 """
 
 import matplotlib
-
+matplotlib.use('qt5agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5 import QtGui
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-matplotlib.use('qt5agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
 
 from ..utils.file_manager import input_types
 
@@ -70,3 +71,9 @@ def getSaveFile(path='', filter='Images (*.png);;SVG (*.svg)'):
     if isinstance(file_name, tuple):
         file_name = file_name[0]
     return str(file_name)
+def file_save(self):
+    name = QtGui.QFileDialog.getSaveFileName(self, 'Save File')
+    file = open(name,'w')
+    text = self.textEdit.toPlainText()
+    file.write(text)
+    file.close()
