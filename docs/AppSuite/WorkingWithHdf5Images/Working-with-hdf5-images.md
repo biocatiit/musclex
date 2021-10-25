@@ -1,5 +1,3 @@
-# Working with hdf5 image
-
 ### Convert HDF5 file to TIFF files
 The script will generate the tiff files from the hdf5 file. The Metadata are read from the metadata file and added as an ImageDescription tag in all the tiff files.
 
