@@ -13,7 +13,7 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Image Merger (im) <Image Merger>`
 - :ref:`Diffraction Centroids (dc) <Diffraction Centroids>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
-- :ref:`Working with hdf5 images <Working-with-hdf5-images>`
+- :ref:`Working with hdf5 images`
 
 .. rubric:: Get the software
 
