@@ -89,8 +89,23 @@ class EquatorWindow(QMainWindow):
         self.initUI()  # Initial all UI
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
-        self.setCalibrationImage()
-        self.onImageChanged() # Toggle window to process current image
+        
+        
+        
+        #self.onImageChanged() # Toggle window to process current image
+        
+
+        fileName = self.imgList[self.currentImg]
+        self.filenameLineEdit.setText(fileName)
+        self.filenameLineEdit2.setText(fileName)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
+        
+        if self.setCalibrationImage():
+            self.processImage()
+        
+
+        self.processImage()
         self.show()
         #self.resize(1000, 100)
         self.init_logging()
@@ -1449,19 +1464,32 @@ class EquatorWindow(QMainWindow):
         :return: True if calibration set, False otherwise
         """
         if self.calibSettingDialog is None:
-            self.calibSettingDialog = CalibrationSettings(self.dir_path) if self.bioImg is None else \
-                CalibrationSettings(self.dir_path, center=self.bioImg.info['center'])
+            # if self.bioImg is not None:
+            #     self.calibSettingDialog = CalibrationSettings(self.dir_path)
+            # else:
+            #     self.calSettings = None
+            #     return
+            if self.bioImg is None or 'orig_center' not in self.bioImg.info.keys():
+                self.calibSettingDialog = CalibrationSettings(self.dir_path)
+            else:
+                print('here')
+                self.calibSettingDialog =CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
+        else:
+            self.calibSettingDialog =CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
+
         self.calSettings = None
         cal_setting = self.calibSettingDialog.calSettings
-        
+       
         print('cal_setting is:',cal_setting)
         if cal_setting is not None or force:
+            
             result = self.calibSettingDialog.exec_()
             logMsgs = self.calibSettingDialog.logMsgs
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
                 
                 if "center" in self.calSettings:
+                    
                     self.bioImg.info['calib_center'] = self.calSettings["center"]
                     self.bioImg.removeInfo('center')
                 # Unchecking use previous fit
@@ -1480,6 +1508,7 @@ class EquatorWindow(QMainWindow):
                     self.write_log('(calib) ' + msg)
                 del logMsgs[:]
                 return True
+                  
             del logMsgs[:]
         return False
 
@@ -2693,6 +2722,7 @@ class EquatorWindow(QMainWindow):
             # If QF box checked, get center from QF
             # self.getCenterFromQF()
             self.bioImg.process(settings, paramInfo)
+            
         except Exception as e:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()

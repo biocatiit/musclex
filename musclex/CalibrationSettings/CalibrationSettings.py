@@ -38,7 +38,7 @@ from ..utils.image_processor import *
 import musclex
 
 class CalibrationSettings(QDialog):
-    def __init__(self, dir_path):
+    def __init__(self, dir_path,center=None):
         super(CalibrationSettings, self).__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.editableVars = {}
@@ -50,13 +50,20 @@ class CalibrationSettings(QDialog):
         self.version = musclex.__version__
         self.uiUpdating = False
         cache = self.loadSettings()
-
+        
+        
         if cache is not None:
             self.calFile = cache["path"]
             self.calSettings = cache["settings"]
+            
+            print('cache',cache)
+            print('calsettings:',self.calSettings)
         else:
             self.calFile = fullPath(dir_path, "calibration.tif")
-            self.calSettings = None
+            self.calSettings = {}
+    
+        if center is not None:
+            self.calSettings["center"]=center
 
         # self.setStyleSheet(getStyleSheet())
         self.initUI()
@@ -75,7 +82,7 @@ class CalibrationSettings(QDialog):
         init_sdd = 2500
         init_pix_size = 0.172
         type = None
-        center = None
+        center=None
         if self.calSettings is not None:
             type = self.calSettings["type"] if "type" in self.calSettings else None
             if type == "cont":
@@ -348,7 +355,7 @@ class CalibrationSettings(QDialog):
         cache_file = fullPath(cache_path, "calibration.info")
         if exists(cache_path) and isfile(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
-            if cache is not None and "version" in cache and cache["version"] == self.version:
+            if cache is not None and "version" in cache :
                 return cache
         return None
 
@@ -381,6 +388,7 @@ class CalibrationSettings(QDialog):
 
         if self.fixedCenter.isChecked():
             self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
+            
 
         cache = {
             "path": self.pathText.text(),
@@ -484,6 +492,10 @@ class CalibrationSettings(QDialog):
                     return
 
             cali_radius = int(np.round(cali_radius / 2.))
+            # center=(fixcenter[0],fixcenter[1])
+            # rotate_matrix = cv2.getRotationMatrix2D(center=center, angle=-angle, scale=1)
+            # center=np.dot(np.array(center),rotate_matrix)
+            
             self.calSettings = {
                 "center": [fixcenter[0], fixcenter[1]],
                 "radius": cali_radius
