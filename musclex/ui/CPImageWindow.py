@@ -19,7 +19,7 @@ class DSpacingScale(mscale.ScaleBase):
     name = 'dspacing'
 
     def __init__(self, axis, **kwargs):
-        mscale.ScaleBase.__init__(self)
+        mscale.ScaleBase.__init__(self,axis)
         self.lambda_sdd = kwargs.pop('lambda_sdd', 1501.45)
 
     def get_transform(self):
@@ -155,6 +155,7 @@ class CPImageWindow(QMainWindow):
         self.orientationModel = None
         self.in_batch_process = False
         self.pixelDataFile = None
+        self.flags={}
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -193,6 +194,13 @@ class CPImageWindow(QMainWindow):
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
+
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(saveSettingsAction)
 
         ### Image mode tabs
         ## IMAGE MODE 1 : Image tab
@@ -712,6 +720,18 @@ class CPImageWindow(QMainWindow):
             ax.text(x,0,'Peak#'+str(len(self.function)),fontsize=10, horizontalalignment='center')
             self.function.append(int(round(x)))
             self.result_graph_canvas.draw_idle()
+    
+    def saveSettings(self):
+        """
+        save settings to json
+        """
+        settings = self.flags
+        filename=getSaveFile("musclex/settings/disettings.json",None)
+        if filename!="":
+            import json
+
+            with open(filename,'w') as f:
+                json.dump(settings,f)
 
     def imgClicked(self, event):
         """
@@ -1012,7 +1032,8 @@ class CPImageWindow(QMainWindow):
 
         if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['fixed_hull'] = self.fixed_hull_range
-
+        
+       
         return flags
 
     def maxIntChanged(self):
@@ -1063,8 +1084,8 @@ class CPImageWindow(QMainWindow):
     def processImage(self, imgChanged=False):
         if self.cirProj is not None:
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            flags = self.getFlags(imgChanged)
-            self.cirProj.process(flags)
+            self.flags = self.getFlags(imgChanged)
+            self.cirProj.process(self.flags)
             QApplication.restoreOverrideCursor()
             self.updateParams()
             self.csvManager.write_new_data(self.cirProj)
@@ -1094,7 +1115,7 @@ class CPImageWindow(QMainWindow):
         # Compute the average pixel value and number of pixels outside rmin/mask
         blank, mask = getBlankImageAndMask(self.filePath)
         img = copy.copy(self.cirProj.original_image)
-        if mask != None:
+        if mask is not None:
             numberOfPixels = np.count_nonzero(mask == 0)
             averagePixelValue = np.average(img[mask == 0])
         else:
@@ -1108,10 +1129,10 @@ class CPImageWindow(QMainWindow):
             averagePixelValue = np.average(img[cir_mask])
 
         if self.cirProj.filename in recordedFileNames:
-            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Average Pixel Value'] = averagePixelValue
-            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Number of Pixels'] = numberOfPixels
+            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Average Pixel Value (Outside rmin or mask)'] = averagePixelValue
+            csvDF.loc[csvDF['File Name'] == self.cirProj.filename, 'Number of Pixels (Outside rmin or mask)'] = numberOfPixels
         else:
-            next_row_index = csvDF.shape[0]
+            next_row_index = csvDF.shape[0]+1
             csvDF.loc[next_row_index] = [self.cirProj.filename, averagePixelValue, numberOfPixels]
         csvDF.to_csv(self.pixelDataFile, index=False)
 
