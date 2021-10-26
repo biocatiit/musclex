@@ -221,6 +221,8 @@ class EquatorWindow(QMainWindow):
         # self.setRminB.setFixedHeight(45)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
+        self.brightSpot=QPushButton("Find Oritation with Brightest Spots")
+        self.brightSpot.setCheckable(True)
         # self.setIntAreaB.setFixedHeight(45)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle")
@@ -275,22 +277,23 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setAngleB, 2, 2, 1, 2)
         self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setIntAreaB, 3, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.applyBlank, 4, 0, 1, 3)
-        self.imgProcLayout.addWidget(self.blankSettings, 4, 3, 1, 1)
-        self.imgProcLayout.addWidget(self.doubleZoom, 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.brightSpot,4,0,1,2)
+        self.imgProcLayout.addWidget(self.applyBlank, 5, 0, 1, 3)
+        self.imgProcLayout.addWidget(self.blankSettings, 5, 3, 1, 1)
+        self.imgProcLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
         # self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 5, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 7, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 8, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 9, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 9, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 10, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 11, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 12, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 12, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 7, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 8, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 9, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 10, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 10, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 11, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 12, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 13, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 13, 2, 1, 2)
 
         self.imgProcLayout.addWidget(self.resetAllB, 11, 0, 1, 4)
 
@@ -605,6 +608,7 @@ class EquatorWindow(QMainWindow):
         self.setRminB.setToolTip("Activate R-min adjustment.\n To adjust, please click location of R-min on the image")
         self.setIntAreaB.setToolTip(
             "Activate Integrated Area adjustment.\n To adjust, please click start and end position of the Integrated area on the image")
+        self.brightSpot.setToolTip("Use The Brightest Spots to Find The Oritation\n")
         self.maskThresSpnBx.setToolTip("Pixel values to discard")
         self.resetAllB.setToolTip("Reset all manual settings, and process image again with default detection")
         self.rejectChkBx.setToolTip(
@@ -665,6 +669,7 @@ class EquatorWindow(QMainWindow):
         self.setAngleB.clicked.connect(self.setAngleClicked)
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
+        self.brightSpot.clicked.connect(self.brightSpotClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
@@ -1878,6 +1883,8 @@ class EquatorWindow(QMainWindow):
             self.function = ["rmin"]  # set current active function
         else:
             self.resetUI()
+    def brightSpotClicked(self):
+        pass
 
     def setIntAreaClicked(self):
         """

@@ -95,6 +95,8 @@ class EquatorImage:
         sigmac - (float)
         isSkeletal - is it skeletal muscle (boolean)
         """
+        print("settings in process eqimg\n")
+        print(settings)
         self.updateInfo(settings)
         self.applyBlankAndMask()
         self.findCenter()
@@ -265,9 +267,11 @@ class EquatorImage:
             centersNotEq = self.rotated_img[0] != self.info["center"] if type(self.rotated_img[0] != self.info["center"]) == bool else (self.rotated_img[0] != self.info["center"]).any()
         if self.rotated_img is None or centersNotEq or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
+            
             center = self.info["center"]
             if "orig_center" in self.info:
                 center = self.info["orig_center"]
+                print("orig_center",self.info['orig_center'])
             else:
                 self.info["orig_center"] = center
             
@@ -291,6 +295,7 @@ class EquatorImage:
             else:
                 rmin = self.info['rmin']
                 img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin) # remove center location
+                
                 rotate_img = self.getRotatedImage(img) # rotate image
                 center = self.info["center"] #since rotation might change center
                 init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
