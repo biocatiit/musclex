@@ -105,6 +105,7 @@ class EquatorWindow(QMainWindow):
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
+        
         self.refreshStatusbar()
         if self.setCalibrationImage():
             self.processImage()
