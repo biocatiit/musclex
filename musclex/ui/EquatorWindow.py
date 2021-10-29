@@ -100,7 +100,12 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
         self.bioImg = EquatorImage(self.dir_path, fileName, self)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
-        
+        self.calSettings=None
+        settings=self.getSettings()
+        self.initWidgets(settings)
+        self.initMinMaxIntensities(self.bioImg)
+        self.img_zoom = None
+        self.refreshStatusbar()
         if self.setCalibrationImage():
             self.processImage()
         
