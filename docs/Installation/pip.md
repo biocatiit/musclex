@@ -143,6 +143,10 @@ if you need to install the latest version directly from github, you can run
 ```
 pip install git+https://github.com/biocatiit/musclex.git
 ```
+if you need to install a previous version (e.g. v1.15.2) directly from github, you can run
+```
+pip install git+https://github.com/biocatiit/musclex.git@v1.15.2
+```
 
 [1]: http://aka.ms/vcpython27
 [2]: https://www.visualstudio.com/vs/older-downloads/
