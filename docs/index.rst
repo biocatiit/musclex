@@ -14,7 +14,7 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Diffraction Centroids (dc) <Diffraction Centroids>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
-- :ref:`Rec2sq <Convert rectangle image to square images>`
+- :ref:`Convert rectangle images to square images <Convert rectangle image to square images>`
 
 .. rubric:: Get the software
 

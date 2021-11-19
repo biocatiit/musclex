@@ -31,6 +31,8 @@ import copy
 import os, shutil
 import json
 
+from scipy.spatial.kdtree import Rectangle
+
 from .pyqt_utils import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -49,6 +51,9 @@ from ..ui.EQ_FittingTab import EQ_FittingTab
 import musclex
 from .BlankImageSettings import BlankImageSettings
 from ..utils import logger
+from skimage.feature import peak_local_max
+from scipy import ndimage as ndi
+
 
 class EquatorWindow(QMainWindow):
     """
@@ -105,7 +110,6 @@ class EquatorWindow(QMainWindow):
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
-        
         self.refreshStatusbar()
         if self.setCalibrationImage():
             self.processImage()
@@ -227,8 +231,8 @@ class EquatorWindow(QMainWindow):
         # self.setRminB.setFixedHeight(45)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
-        self.brightSpot=QPushButton("Find Oritation with Brightest Spots")
-        self.brightSpot.setCheckable(True)
+        self.brightSpot=QCheckBox("Find Oritation with Brightest Spots")
+        self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle")
@@ -1890,7 +1894,78 @@ class EquatorWindow(QMainWindow):
         else:
             self.resetUI()
     def brightSpotClicked(self):
-        pass
+        """
+        find the oritation along the brightest spots
+        """
+     
+        if self.brightSpot.isChecked():
+            self.setLeftStatus("Please select a center")
+            ax = self.displayImgAxes
+            del ax.lines
+            ax.lines = []
+            del ax.patches
+            ax.patches = []
+            self.displayImgCanvas.draw_idle()
+            # self.function=['bright']
+            if 'center' not in self.bioImg.info:
+                self.bioImg.findCenter()
+            xc,yc=self.bioImg.info['center']
+            ax = self.displayImgAxes
+            # im=self.bioImg.getRotatedImage().copy()
+            im=copy.copy(self.bioImg.getRotatedImage())
+               
+            coordinates,m,b=self.fitb(im,xc,yc)
+            
+            ax.scatter(coordinates[:,1],coordinates[:,0],marker='o')
+            fit_eq=m*coordinates[:,1]+b
+            ax.plot(coordinates[:,1],fit_eq,color='r')
+            fit_eq1=m*coordinates[:,1]+b+23*math.sqrt(1+m**2)
+            fit_eq2=m*coordinates[:,1]+b-23*math.sqrt(1+m**2)
+            ax.plot(coordinates[:,1],fit_eq1,color='r')
+            ax.plot(coordinates[:,1],fit_eq2,color='r')
+
+            self.displayImgCanvas.draw_idle()
+            for i in range(0,im.shape[0]):
+                for j in range(0, im.shape[1]):
+                    if m*j-i+b+23*math.sqrt(1+m**2)<=0:
+                        im[i][j]=0
+                    elif m*j-i+b+50*math.sqrt(1+m**2)>0 and m*j-i+b-50*math.sqrt(1+m**2)<0:
+                        pass
+                    else:
+                        im[i][j]=0
+            
+            orig_img, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
+            
+            center=self.bioImg.info['center']
+           
+            # self.bioImg.removeInfo('rmin')
+            # self.bioImg.removeInfo('int_area')
+            # self.bioImg.removeInfo('fit_results')
+            # self.bioImg.removeInfo('hist')
+            self.fixedAngleChkBx.setChecked(True)
+            
+            new_angle=math.degrees(math.atan(m))
+            #self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
+            angle= self.bioImg.info['rotationAngle'] + new_angle
+            self.bioImg.removeInfo()
+            
+            self.bioImg.info['center']=center
+            self.bioImg.info['rotationAngle'] =angle
+            
+
+            self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
+            self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+            self.log_changes('rotationAngle', obj=self.fixedAngle)
+            self.brightSpot.setChecked(False)
+            self.processImage()
+
+            
+            self.fixedAngleChkBx.setChecked(False)
+            
+        else:
+            self.resetUI()
+
+        
 
     def setIntAreaClicked(self):
         """
@@ -2035,6 +2110,88 @@ class EquatorWindow(QMainWindow):
         return (newX, newY)
 
 
+    def inrec(self, x,y,xmin,ymin,xmax,ymax):
+        if x<xmin:
+            return False
+        elif x>xmax:
+            return False
+        elif y<ymin:
+            return False
+        elif y>ymax:
+            return False
+        else:
+            return True
+
+    def rec(self,cx,cy,coordinates):
+
+        xmin=cx-300
+        xmax=cx+300
+        ymin=cy-300
+        ymax=cy+300
+        deletep=[]
+        for i in range(0,len(coordinates)):
+            x=coordinates[i][0]
+            y=coordinates[i][1]
+            if not self.inrec(x,y,xmin,ymin,xmax,ymax):
+                deletep.append(i)
+        return np.delete(coordinates,deletep,0)
+    
+
+
+    def deleteOutlier(self, coordinates):
+        lold=coordinates.shape[0]
+        lnew=0
+        y=coordinates[:,0]
+        x=coordinates[:,1]
+       
+        while lnew!=lold:
+            lold=lnew
+            m, b = np.polyfit(x,y,1)
+            dist=[]
+            for i in range(0,len(x)):
+                dist.append(abs(m*x[i]-y[i]+b)/math.sqrt(m**2+1))
+            dist=np.array(dist)
+            std=np.std(dist)
+            avg=np.mean(dist)
+            lower=avg-2*std
+            upper=avg+2*std
+        
+            indx=[]
+        
+            for i in range(0,len(dist)):
+                
+                if dist[i]>upper or dist[i]<lower or dist[i]>2*avg:
+                    indx.append(i)
+            x=np.delete(x,indx)
+            y=np.delete(y,indx)
+            lnew=len(x)
+        return x,y,m,b
+
+
+
+
+
+                
+
+    def fitb(self,im,xc,yc):
+        coordinates = peak_local_max(im, min_distance=10,threshold_rel=0.5)
+   
+        coordinates=self.rec(xc,yc,coordinates)
+    
+        l=20
+        if coordinates.shape[0]<20:
+            l=coordinates.shape[0]
+        coordinates=coordinates[0:l,:]
+        x,y,m,b=self.deleteOutlier(coordinates)
+       
+        coordinates=np.stack((y,x),axis=1)
+
+
+        return coordinates, m, b
+
+
+
+
     def imgClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
@@ -2158,6 +2315,72 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo('rmin')
             self.setAngleB.setChecked(False)
             self.processImage()
+        # elif func[0]=="bright":
+            
+
+            # ax = self.displayImgAxes
+            # axis_size = 5
+            # if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+            #     x,y = self.doubleZoomToOrigCoord(x,y)
+            #     self.doubleZoomMode = True
+            # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            # self.displayImgCanvas.draw_idle()
+            # func.append((x, y))
+            # if len(func) == 2:
+            #     QApplication.restoreOverrideCursor()
+            #     xc,yc=func[1]
+                
+
+            #     # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            #     # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            #     im=self.bioImg.getRotatedImage().copy()
+               
+            #     coordinates,m,b=self.fitb(im,xc,yc)
+                
+            #     ax.scatter(coordinates[:,1],coordinates[:,0],marker='o')
+            #     fit_eq=m*coordinates[:,1]+b
+            #     ax.plot(coordinates[:,1],fit_eq,color='r')
+            #     fit_eq1=m*coordinates[:,1]+b+23*math.sqrt(1+m**2)
+            #     fit_eq2=m*coordinates[:,1]+b-23*math.sqrt(1+m**2)
+            #     ax.plot(coordinates[:,1],fit_eq1,color='r')
+            #     ax.plot(coordinates[:,1],fit_eq2,color='r')
+
+            #     self.displayImgCanvas.draw_idle()
+            #     for i in range(0,im.shape[0]):
+            #         for j in range(0, im.shape[1]):
+            #             if m*j-i+b+23*math.sqrt(1+m**2)<=0:
+            #                 im[i][j]=0
+            #             elif m*j-i+b+23*math.sqrt(1+m**2)>0 and m*j-i+b-23*math.sqrt(1+m**2)<0:
+            #                 pass
+            #             else:
+            #                 im[i][j]=0
+               
+            #     orig_img, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
+                
+            #     center=self.bioImg.info['center']
+            #     print(center)
+            #     self.bioImg.removeInfo('rmin')
+            #     self.bioImg.removeInfo('int_area')
+            #     self.fixedAngleChkBx.setChecked(True)
+              
+            #     new_angle=math.degrees(math.atan(m))
+            #     self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
+            #     self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
+            #     self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+            #     self.log_changes('rotationAngle', obj=self.fixedAngle)
+            #     self.brightSpot.setChecked(False)
+            #     self.processImage()
+
+                
+            #     self.fixedAngleChkBx.setChecked(False)
+                
+             
+
+
+                
+                
 
         elif func[0] == "int_area":
             # draw 2 horizontal lines
@@ -2582,6 +2805,11 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
             return True
 
+        if self.brightSpot.isChecked() and self.paramChanged(prevInfo,currentInfo,'rotationAngle'):
+            self.bioImg.removeInfo('rotationAngle')
+            self.bioImg.removeInfo('rmin')
+            return True
+
         return self.fixedFittingParamChanged(prevInfo)
 
     def fixedFittingParamChanged(self, prevInfo):
@@ -2595,6 +2823,7 @@ class EquatorWindow(QMainWindow):
             return False
 
         currentInfo = self.bioImg.info
+        
 
         # Check Background k
         if self.k_chkbx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'fix_k'):
@@ -2734,6 +2963,10 @@ class EquatorWindow(QMainWindow):
                 #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
             # If QF box checked, get center from QF
             # self.getCenterFromQF()
+            if settings['find_oritation']:
+                self.brightSpotClicked()
+
+            
             self.bioImg.process(settings, paramInfo)
             
         except Exception as e:
@@ -2805,6 +3038,7 @@ class EquatorWindow(QMainWindow):
         settings['isSkeletal'] = self.skeletalChkBx.isChecked()
         settings['mask_thres'] = self.maskThresSpnBx.value()
         settings['90rotation'] = self.rotation90ChkBx.isChecked()
+        
 
         if self.calSettings is not None:
             if 'type' in self.calSettings:
@@ -2818,6 +3052,12 @@ class EquatorWindow(QMainWindow):
 
         if self.fixedAngleChkBx.isChecked():
             settings['fixed_angle'] = self.fixedAngle.value()
+        
+        if self.brightSpot.isChecked():
+            settings['find_oritation']=True
+        else:
+            settings['find_oritation']=False
+
 
         if self.fixedRminChkBx.isChecked():
             settings['fixed_rmin'] = self.fixedRmin.value()
@@ -2992,6 +3232,7 @@ class EquatorWindow(QMainWindow):
         center = info['center']
         rmin = info['rmin']
         int_area = info['int_area']
+        
         ax = self.displayImgAxes
         ax.cla()
         #ax.imshow(disp_img)  # Display selected image
