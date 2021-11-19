@@ -1,6 +1,6 @@
-Image Merger
+Add Intensities
 ============
-.. _Image Merger:
+.. _Add Intensities:
 
 .. toctree::
    :maxdepth: 2
