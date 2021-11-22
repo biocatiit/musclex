@@ -58,6 +58,7 @@ class EquatorImage:
         self.dir_path = dir_path
         self.filename = filename
         self.orig_img = fabio.open(fullPath(dir_path, filename)).data
+        self.orig_img=self.orig_img.astype("int32")
         if self.orig_img.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
