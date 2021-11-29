@@ -23,7 +23,9 @@ When integrated area is calculated, the program will produce a histogram from th
 ### 6. Apply Convex hull to intensity histogram
 The original histogram will be split into left and right sides. Then, the convex hull to each half pattern will be calculated in order to remove the background by using R-min as a starting point.
 
-![-](../../images/BM/convexhull.png)
+![-](../../images/BM/convexhull.png)  
+
+Note: When producing the intensity histogram, we ignore colomns with values below the mask threshold. Make sure that when you sepecify the integration area, you exclude sensor gaps, otherwise, you will not get a projection histogram.  
 
 ### 7. Find Diffraction Peaks
 The program will find peaks from left and right histograms which have had the convex hull background subtracted. This process will find all locations of the peaks. If the image is noisy, it is possible that the program will find too many peaks. ( In the image below, the program found only 2 peaks because the image was not noisy, so it worked very well )
