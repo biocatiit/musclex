@@ -1,6 +1,6 @@
-Convert rectangle image to square images
+Convert rectangle images to square images
 =============
-.. _Convert rectangle image to squared images:
+.. _Convert rectangle images to squared images:
 
 .. toctree::
    :maxdepth: 2
