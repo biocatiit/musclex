@@ -20,11 +20,13 @@ For Mac: follow the steps as described [here](https://docs.docker.com/docker-for
 For Debian: follow the steps as described [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-10)
 
 ## Create docker group and add a user
-You need to add a user to docker group in order to give docker run permission to the user
+You need to add a user to docker group in order to give docker run permission to the user  
 ```
 sudo groupadd docker                
 sudo usermod -aG docker [username] # replace [username] with your user name
-```
+```  
+Note: You need to log out and log in again for these settings to take effect.  
+
 ## Installing and updating Muscle X program suite
 You need to have the muscle.sh script available in order to update, and run a Muscle X program on docker. You can download muscle.sh by
 ```
