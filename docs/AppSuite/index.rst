@@ -15,5 +15,5 @@ Application Suite
    Calibration-Settings
    Image-Processing-Functions
    WorkingWithHdf5Images/index  
-   ConvertRectangleImagetoSquareImages/index
+   ConvertRectangleImagestoSquareImages/index
    
