@@ -23,7 +23,7 @@ RUN pip install --upgrade pandas
 RUN pip install --upgrade pillow
 RUN pip install --upgrade matplotlib
 #RUN pip install --upgrade fabio
-#RUN pip install --upgrade cython
+RUN pip install --upgrade cython
 #RUN pip install --upgrade peakutils
 #RUN pip install --upgrade h5py
 #RUN pip install --upgrade scipy
