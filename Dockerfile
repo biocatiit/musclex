@@ -1,6 +1,10 @@
 FROM ubuntu:20.04
 # Install packages.
+ENV TZ=US
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 RUN apt-get update
+RUN apt install -y tzdata
 RUN apt-get install -y python python-dev python3-pip
 RUN apt-get install -y libjpeg-dev libopencv-dev python3-opencv
 RUN apt-get install -y python3-pyqt5
