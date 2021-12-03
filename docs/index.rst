@@ -15,7 +15,7 @@ assist with analyzing diffraction X-ray images.
 - :ref:`DDF Processor (ddf) <DDF Processor>`
 - :ref:`Add Intensities (ai) <Add Intensities>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
-- :ref:`Convert Rectangle Images to Square Images <Convert Rectangle Image to Square Images>`
+- :ref:`Convert Rectangle Images to Square Images <ConvertRectangleImagetoSquareImages>`
 
 .. rubric:: Get the software
 
