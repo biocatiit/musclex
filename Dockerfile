@@ -2,7 +2,7 @@ FROM ubuntu:20.04
 # Install packages.
 RUN apt-get update
 RUN apt-get install -y python python-dev python3-pip
-RUN apt-get install -y libjpeg-dev libopencv-dev python-opencv
+RUN apt-get install -y libjpeg-dev libopencv-dev python3-opencv
 RUN apt-get install -y python3-pyqt5
 RUN apt-get install -y cython
 RUN apt-get install -y pyfai
