@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 # Install packages.
 RUN apt-get update
 RUN apt-get install -y python python-dev python-pip
