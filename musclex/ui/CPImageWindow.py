@@ -1041,14 +1041,16 @@ class CPImageWindow(QMainWindow):
             if self.maxInt.value() < self.minInt.value():
                 self.maxInt.setValue(self.minInt.value()+1)
             self.update_plot['m1_partial_hist'] = True
-        #    self.updateUI()
+            if "center" in self.cirProj.info.keys():
+                self.updateUI()
 
     def minIntChanged(self):
         if self.cirProj is not None and not self.updatingUI:
             if self.maxInt.value() < self.minInt.value():
                 self.minInt.setValue(self.maxInt.value()-1)
             self.update_plot['m1_partial_hist'] = True
-        #    self.updateUI()
+            if "center" in self.cirProj.info.keys():
+                self.updateUI()
 
     def onNewFileSelected(self, imgList):
         self.resize(600, 600)
