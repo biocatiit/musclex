@@ -25,9 +25,9 @@ copyright = '2018, BioCAT'
 author = 'BioCAT'
 
 # The short X.Y version
-version = '1.13'
+version = '1.15'
 # The full version, including alpha/beta/rc tags
-release = '1.13.3'
+release = '1.15.4'
 
 
 # -- General configuration ---------------------------------------------------
