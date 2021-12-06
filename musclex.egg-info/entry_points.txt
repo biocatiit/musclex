@@ -1,3 +1,4 @@
 [console_scripts]
 musclex = musclex.main:main
+musclex-launcher = musclex.launcher:LauncherForm.main
 
