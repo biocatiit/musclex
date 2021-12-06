@@ -82,6 +82,7 @@ Run this command to install Muscle X programs
 ```
 sudo pip install musclex
 ```
+Note: If you are upgrading, add --upgrade at the end.  
 
 ### Virtual environment install
 
