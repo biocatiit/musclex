@@ -21,7 +21,7 @@
 3. Create pip distribution
 4. Create docker distribution
 5. Update documentation on Readthedocs
-6. Create Windows and Mac standalone distributions and upload to Sourceforge (major releases only) 
+6. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only) 
 
 
 ## Prepare a Release
