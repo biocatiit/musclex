@@ -109,7 +109,7 @@ class HDFBrowser(QDialog):
         """
         Handle when Browse is clicked
         """
-        self.hdf_file = getAFile('HDF or Log (*.hdf, *.log)')
+        self.hdf_file = getAFile('HDF (*.hdf) ;; LOG (*.log)')
         if len(self.hdf_file) > 0:
             self.status = 1
             self.browsedFile.setText(self.hdf_file)
@@ -320,7 +320,7 @@ class CPBatchWindow(QMainWindow):
 
         self.logScale = QCheckBox('Logarithmic Scale')
         self.rotRAngle = QCheckBox('Rotate 90 degrees')
-        self.orientationChkBx = QCheckBox('Orientation Display')
+        self.orientationChkBx = QCheckBox('Orientation Arrow Display')
         self.orientationTypeChkBx = QCheckBox('Arrow Orientation?')
 
         self.beamXSpinBox = QDoubleSpinBox()
@@ -386,7 +386,7 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(QLabel("Beam shape display: "), 4, 0, 1, 1)
         self.mapLayout.addWidget(self.BSDChoice, 4, 1, 1, 2)
         self.mapLayout.addWidget(self.orientationChkBx, 4, 3, 1, 1)
-        self.mapLayout.addWidget(self.orientationTypeChkBx, 4, 4, 1, 1)
+        #self.mapLayout.addWidget(self.orientationTypeChkBx, 4, 4, 1, 1)
         self.mapLayout.addWidget(self.mapCanvas, 5, 0, 1, 4)
         self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
         self.mapLayout.addLayout(self.intensityLayout, 7, 0, 2, 4)
@@ -659,11 +659,16 @@ class CPBatchWindow(QMainWindow):
             self.updateIntensityMap(type='dspace')
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
+      
         if self.max_int is not None:
             self.minMapVal.setMaximum(self.max_int)
             self.maxMapVal.setMaximum(self.max_int)
             self.minMapVal.setValue(self.minMap.value() / 100.0 * self.max_int)
             self.maxMapVal.setValue(self.maxMap.value() / 100.0 * self.max_int)
+        if self.orientationChkBx.isChecked():
+            self.orientationTypeChkBx.setChecked(True)
+      
+        
         QApplication.processEvents()
         QApplication.restoreOverrideCursor()
 
@@ -724,6 +729,7 @@ class CPBatchWindow(QMainWindow):
                    Normalize(vmin=self.minMapVal.value(), vmax=self.maxMapVal.value())
 
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
+        
         # self.intensityMapFigure.colorbar(im)
         if rendering_mode == 1: # RBF Interpolation
             ax.cla()
@@ -825,6 +831,11 @@ class CPBatchWindow(QMainWindow):
                     if self.orientationTypeChkBx.isChecked():
                         dx = min(stepx,stepy)/self.scaleY.value() * np.cos(angle_factor * self.orientation_dict[i + self.init_number])
                         dy = min(stepx,stepy)/self.scaleY.value() * np.sin(angle_factor * self.orientation_dict[i + self.init_number])
+                        if self.rotating90:
+                            tempx=dx
+                            tempy=dy
+                            dx=tempy
+                            dy=-tempx   
                         e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
                     else:
                         e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
@@ -870,6 +881,7 @@ class CPBatchWindow(QMainWindow):
 
         self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9,wspace=0, hspace=0)
         self.mapCanvas.draw()
+        
 
     # def updateAngularRangeTab(self):
     #
@@ -919,7 +931,7 @@ class CPBatchWindow(QMainWindow):
         if len(self.xyIntensity) < 3:
             return
         self.orientationChkBx.setChecked(False)
-        self.orientationTypeChkBx.setChecked(False)
+        self.orientationTypeChkBx.setChecked(True)
         self.orientationChkBx.setEnabled(False)
         self.orientationTypeChkBx.setEnabled(False)
 
@@ -1133,6 +1145,7 @@ class CPBatchWindow(QMainWindow):
             hdf_filename = pickle.load(open(hdf_cache, "rb"))
 
         if len(hdf_filename) == 0 or not exists(hdf_filename):
+
             if len(hdfList) == 1:
                 hdf_filename = join(dir_path, hdfList[0])
             else:
@@ -1244,7 +1257,7 @@ class CPBatchWindow(QMainWindow):
         # Read hdf5 file to get the coordinates and image shape
         self.hdf_data = self.get_scan_data(hdf_filename)
         self.coord_dict = {}
-
+        
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
             self.coord_dict[i] = (self.hdf_data[i - self.init_number][0], self.hdf_data[i - self.init_number][1])
         nCols = len(self.hdf_data) # 1D Scan
@@ -1307,7 +1320,59 @@ class CPBatchWindow(QMainWindow):
     def get_scan_data(self, filename):
         if h5py.is_hdf5(filename):
             hf = h5py.File(filename, 'r')
-            return np.array(hf.get('data').get('BL'))
+            coordinates=np.array(hf.get('data').get('BL'))
+            if 'header' in hf.keys():
+                x_initial=hf.get('header').get('Xinitial')[0]
+                y_initial=hf.get('header').get('Yinitial')[0]
+                x_final=hf.get('header').get('Xfinal')[0]
+                y_final=hf.get('header').get('Yfinal')[0]
+                if x_initial>x_final:
+                    xs=-1
+                else:
+                    xs=1
+                if y_initial>y_final:
+                    ys=-1
+                else:
+                    ys=1
+                # x_step=hf.get('header').get('Xstep')[0]
+                # y_step=hf.get('header').get('Ystep')[0]
+            
+                # if x_initial>x_final:
+                #     x_step=-1*x_step
+                # if y_initial>y_final:
+                #     y_step=-1*y_step
+                
+                # xnstep=math.ceil((x_final-x_initial)/x_step)
+                # ynstep=math.ceil((y_final-y_initial)/y_step)
+                # print(x_initial)
+                # print(x_final)
+                # print(xnstep)
+                # print(y_initial)
+                # print(y_final)
+                # print(ynstep)
+                # data=[]
+                # x_initial=x_final
+                # y_initial=y_final
+                # x_step=1
+                # y_step=1
+                
+                # for j in range(0,ynstep):
+                #     y=y_initial+j*y_step
+                #     for i in range(0,xnstep):
+                #         x=x_initial+i*x_step
+                #         data.append((x,y))
+                # coordinates=np.array(data)
+                coordinates=np.array(hf.get('data').get('BL'))
+                
+                l=len(coordinates)
+                coor=[]
+
+                for i in range(0,l):
+                    coor.append((xs*coordinates[i][0],ys*coordinates[i][1]))
+                coordinates=np.array(coor)
+
+
+            return coordinates
         elif os.path.isdir(filename):
             return sorted(self.parse_logfiles_dir(filename), key=lambda x: (x[1], x[0]))
         elif filename.endswith('.log'):
