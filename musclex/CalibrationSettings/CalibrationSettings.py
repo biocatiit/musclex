@@ -324,8 +324,10 @@ class CalibrationSettings(QDialog):
         x = event.xdata
         y = event.ydata
         # ax = self.calImgFigure.add_subplot(337)
-        del self.ax2.lines
-        self.ax2.lines = []
+        # del self.ax2.lines
+        # self.ax2.lines = []
+        for i in range(len(self.ax2.lines)-1,-1,-1):
+            self.ax2.lines.pop(i)
         axis_size = 2
         self.ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
         self.ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
