@@ -111,7 +111,7 @@ appimage-builder
 [4]:update_docs.md
 [5]:https://sourceforge.net/projects/musclex/files/
 [6]:https://sourceforge.net/p/forge/documentation/Release%20Files%20for%20Download/#scp
-[7]:https://packaging.python.org/tutorials/distributing-packages/#uploading-your-project-to-pypi
+[7]:https://realpython.com/pypi-publish-python-package/  
 [8]:https://github.com/biocatiit/musclex/releases
 [9]:https://doi.org/10.5281/zenodo.1195050
 [10]:https://musclex.readthedocs.io/en/latest/credits.html
