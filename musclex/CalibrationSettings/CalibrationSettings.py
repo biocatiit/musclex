@@ -278,17 +278,17 @@ class CalibrationSettings(QDialog):
         if self.manualCal.isChecked():
             self.manualCal.setText("Done")
             self.manualCalPoints = []
-            ax = self.calImgFigure.add_subplot(111)
-            ax.cla()
+            self.ax = self.calImgFigure.add_subplot(111)
+            self.ax.cla()
             _, img = self.getImage()
-            ax.imshow(img)
-            ax.invert_yaxis()
-            ax2 = self.calImgFigure.add_subplot(337)
-            ax2.cla()
-            ax2.imshow(img)
-            ax2.set_yticklabels([])
-            ax2.set_xticklabels([])
-            ax.invert_yaxis()
+            self.ax.imshow(img)
+            self.ax.invert_yaxis()
+            self.ax2 = self.calImgFigure.add_subplot(337)
+            self.ax2.cla()
+            self.ax2.imshow(img)
+            self.ax2.set_yticklabels([])
+            self.ax2.set_xticklabels([])
+            self.ax.invert_yaxis()
             self.calImgCanvas.draw_idle()
         else:
             if len(self.manualCalPoints) < 5:
@@ -310,12 +310,11 @@ class CalibrationSettings(QDialog):
         x = int(round(event.xdata))
         y = int(round(event.ydata))
         self.manualCalPoints.append((x, y))
-        ax = self.calImgFigure.add_subplot(111)
-        ax.plot(x, y, 'ro')
+        self.ax.plot(x,y,'ro')
         _, disp_img = self.getImage()
-        ax.set_xlim((0, disp_img.shape[1]))
-        ax.set_ylim((0, disp_img.shape[0]))
-        ax.invert_yaxis()
+        self.ax.set_xlim((0, disp_img.shape[1]))
+        self.ax.set_ylim((0, disp_img.shape[0]))
+        self.ax.invert_yaxis()
         self.calImgCanvas.draw_idle()
 
     def imgOnMotion(self, event):
@@ -324,16 +323,16 @@ class CalibrationSettings(QDialog):
 
         x = event.xdata
         y = event.ydata
-        ax = self.calImgFigure.add_subplot(337)
-        del ax.lines
-        ax.lines = []
+        # ax = self.calImgFigure.add_subplot(337)
+        #del self.ax2.lines
+        self.ax2.lines = []
         axis_size = 2
-        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        self.ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+        self.ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
         zoom_size = 40
-        ax.set_xlim((x - zoom_size, x + zoom_size))
-        ax.set_ylim((y - zoom_size, y + zoom_size))
-        ax.invert_yaxis()
+        self.ax2.set_xlim((x - zoom_size, x + zoom_size))
+        self.ax2.set_ylim((y - zoom_size, y + zoom_size))
+        self.ax2.invert_yaxis()
         self.calImgCanvas.draw_idle()
 
     def unsetCalImg(self):
