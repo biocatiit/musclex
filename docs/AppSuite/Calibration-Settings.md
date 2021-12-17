@@ -8,7 +8,7 @@ However, if the circle cannot be fit or the circle is in the wrong position, you
 
 ![manual calibration](../images/manual_cali.png)
 
-You will have to click at least 5 points on the ring position, and click Done when you finish. After setting appropriate Silver Behenate, and click OK, the image will be reprocess with a new calibration settings including center and d-spacing.
+You will have to click at least 5 points on the ring position, and click Done when you finish. After setting appropriate calibrant ring d-spacing, and click OK, the image will be reprocess with a new calibration settings including center and d-spacing.
 
 Also, you can manually set the calibration parameters which are λ, Sdd , and pixel size or fix the center location by input coordinates x,y. The center can also be fixed independently of the caliberation image. The fixed center checked indicates that the specified center will be used when we move to next image or process images in the folder.
 
