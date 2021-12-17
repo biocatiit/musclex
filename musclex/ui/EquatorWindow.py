@@ -3394,7 +3394,7 @@ class EquatorWindow(QMainWindow):
 
             if self.calSettings["type"] == "img":
                 genResults += "<b>S<sub>dd</sub> (in pixel) : </b>" + str(self.calSettings["radius"]) + '<br/><br/>'
-                genResults += "<b>Silver Behenate : </b>" + str(self.calSettings["silverB"]) + '<br/><br/>'
+                genResults += "<b>Calibrant ring d-spacing : </b>" + str(self.calSettings["silverB"]) + '<br/><br/>'
             else:
                 genResults += "<b>Lambda : </b>" + str(self.calSettings["lambda"]) + '<br/><br/>'
                 genResults += "<b>S<sub>dd</sub> : </b>" + str(self.calSettings["sdd"]) + '<br/><br/>'
