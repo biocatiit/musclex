@@ -175,9 +175,9 @@ class CPImageWindow(QMainWindow):
         self.onNewFileSelected(imgList)
         if process_folder and len(self.imgList) > 0:
             self.processFolder()
-        # elif len(self.imgList) > 0:
-        #     self.onImageChanged()
-        self.onImageChanged()
+        elif len(self.imgList) > 0:
+            self.onImageChanged()
+        #self.onImageChanged()
 
     def generateRingColors(self):
         possible_vals = [0, 255]
