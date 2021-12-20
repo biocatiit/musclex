@@ -175,8 +175,9 @@ class CPImageWindow(QMainWindow):
         self.onNewFileSelected(imgList)
         if process_folder and len(self.imgList) > 0:
             self.processFolder()
-        elif len(self.imgList) > 0:
-            self.onImageChanged()
+        # elif len(self.imgList) > 0:
+        #     self.onImageChanged()
+        self.onImageChanged()
 
     def generateRingColors(self):
         possible_vals = [0, 255]
@@ -592,10 +593,10 @@ class CPImageWindow(QMainWindow):
             self.function = ["peaks"]
             self.selectPeaks.setText("Done")
             ax = self.result_graph_axes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             hull = self.cirProj.info['hull_hist']
             ax.plot(hull)
             self.result_graph_canvas.draw_idle()
@@ -616,8 +617,10 @@ class CPImageWindow(QMainWindow):
         if self.setHullRange.isChecked():
             self.function = ['hull']
             ax = self.displayImgAxes
-            ax.lines = []
-            ax.patches = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.displayImgCanvas.draw_idle()
         else:
             self.function = None
@@ -635,8 +638,10 @@ class CPImageWindow(QMainWindow):
         if self.setRoiBtn.isChecked():
             self.function = ['ROI']
             ax = self.displayImgAxes
-            ax.lines = []
-            ax.patches = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.displayImgCanvas.draw_idle()
         else:
             self.function = None
@@ -654,8 +659,10 @@ class CPImageWindow(QMainWindow):
             self.function = ["rings"]
             self.selectRings.setText("Done")
             ax = self.displayImgAxes
-            ax.lines = []
-            ax.patches = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.displayImgCanvas.draw_idle()
         else:
             self.cirProj.info['merged_peaks'] = sorted(self.function[1:])
@@ -865,6 +872,7 @@ class CPImageWindow(QMainWindow):
         if func[0] == 'rings':
             # draw circle
             ax = self.displayImgAxes
+
             del ax.patches[(len(self.function) - 1):]
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
@@ -1073,6 +1081,7 @@ class CPImageWindow(QMainWindow):
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
         self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
+       
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         # Calculating grid lines to exclude in pixel data computation
         grid_lines = np.where(self.cirProj.original_image < 0)
@@ -1327,7 +1336,7 @@ class CPImageWindow(QMainWindow):
 
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
-
+        
         center = (int(np.round(self.cirProj.info['center'][0])), int(np.round(self.cirProj.info['center'][1])))
 
         if self.displayRingsChkbx.isChecked() and 'fitResult' in self.cirProj.info.keys():
@@ -1802,3 +1811,4 @@ class CPImageWindow(QMainWindow):
         focused_widget = QApplication.focusWidget()
         if focused_widget != None:
             focused_widget.clearFocus()
+

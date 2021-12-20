@@ -335,7 +335,6 @@ class CPBatchWindowh():
 
         if dir_path != "":
             imgList = os.listdir(dir_path)
-            imgList.sort()
         for image in imgList:
             file_name=os.path.join(dir_path,image)
             if os.path.isfile(file_name):

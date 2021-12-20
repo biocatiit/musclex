@@ -154,7 +154,7 @@ class CalibrationSettings(QDialog):
         self.calImageLayout.addWidget(self.maxIntLabel, 2, 2, 1, 1)
         self.calImageLayout.addWidget(self.maxInt, 2, 3, 1, 1)
         self.calImageLayout.addWidget(self.manualCal, 3, 0, 1, 2)
-        self.calImageLayout.addWidget(QLabel("Calibrant ring d-spacing :"), 3, 2, 1, 1, Qt.AlignRight)
+        self.calImageLayout.addWidget(QLabel("Silver Behenate :"), 3, 2, 1, 1, Qt.AlignRight)
         self.calImageLayout.addWidget(self.silverBehenate, 3, 3, 1, 1)
         # self.calImageLayout.setColumnStretch(1,2)
         self.calImageLayout.setRowStretch(1, 2)
