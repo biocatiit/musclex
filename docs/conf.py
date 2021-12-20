@@ -27,7 +27,7 @@ author = 'BioCAT'
 # The short X.Y version
 version = '1.15'
 # The full version, including alpha/beta/rc tags
-release = '1.15.4'
+release = '1.15.5'
 
 
 # -- General configuration ---------------------------------------------------
