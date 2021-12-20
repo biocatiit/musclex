@@ -231,6 +231,7 @@ class CPBatchWindow(QMainWindow):
         self.initUI()
         self.setConnections()
         self.processFolder(self.filePath)
+        self.angle_sigma=1
 
     def initUI(self):
         self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
@@ -271,6 +272,11 @@ class CPBatchWindow(QMainWindow):
         self.distanceSpnBx.setRange(0, 2000)
         self.distanceSpnBx.setValue(8)
         self.distanceSpnBx.setDecimals(8)
+        self.aSigmaLabel = QLabel("Angle Sigma : ")
+        self.aSigmaSpnBx = QDoubleSpinBox()
+        self.aSigmaSpnBx.setRange(0, 1)
+        self.aSigmaSpnBx.setValue(1.0)
+        self.aSigmaSpnBx.setDecimals(8)
         self.bandwidthLabel = QLabel("Bandwidth : ")
         self.bandwidthSpnBx = QDoubleSpinBox()
         self.bandwidthSpnBx.setRange(0, 1000)
@@ -286,7 +292,9 @@ class CPBatchWindow(QMainWindow):
         self.refreshButton.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.ringSettingsLayout.addWidget(self.bestRadio, 0, 0, 1, 4)
         self.ringSettingsLayout.addWidget(self.distanceRadio, 1, 0, 1, 1)
+        self.ringSettingsLayout.addWidget(self.aSigmaLabel, 0, 1, 1, 1)
         self.ringSettingsLayout.addWidget(self.distanceLabel, 1, 1, 1, 1)
+        self.ringSettingsLayout.addWidget(self.aSigmaSpnBx, 0, 2, 1, 1)
         self.ringSettingsLayout.addWidget(self.distanceSpnBx, 1, 2, 1, 1)
         self.ringSettingsLayout.addWidget(self.bandwidthLabel, 2, 1, 1, 1)
         self.ringSettingsLayout.addWidget(self.bandwidthSpnBx, 2, 2, 1, 1)
@@ -371,6 +379,7 @@ class CPBatchWindow(QMainWindow):
         self.mapCanvas = FigureCanvas(self.mapFigure)
 
         self.saveButton = QPushButton("Save")
+        self.savecsvButton=QPushButton("Save CSV (distance +/- bandwidth)")
 
         self.mapFrame = QFrame()
         self.mapLayout = QGridLayout(self.mapFrame)
@@ -391,6 +400,7 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
         self.mapLayout.addLayout(self.intensityLayout, 7, 0, 2, 4)
         self.mapLayout.addWidget(self.saveButton, 9, 0, 1, 4)
+        self.mapLayout.addWidget(self.savecsvButton, 10, 0, 1, 4)
         self.mapLayout.setRowStretch(0, 1)
         self.mapLayout.setRowStretch(1, 1)
         self.mapLayout.setRowStretch(2, 1)
@@ -455,6 +465,7 @@ class CPBatchWindow(QMainWindow):
         self.BSDChoice.currentIndexChanged.connect(self.updateUI)
         self.mapFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.saveButton.clicked.connect(self.saveClicked)
+        self.savecsvButton.clicked.connect(self.savecsvClicked)
         self.moreDetailsButton.clicked.connect(self.popupImageDetails)
 
     def ringChoiceChanged(self):
@@ -482,6 +493,7 @@ class CPBatchWindow(QMainWindow):
         if win in self.widgetList:
             idx = self.widgetList.index(win)
             del self.widgetList[idx]
+
 
     def flipMapX(self):
         """
@@ -1166,6 +1178,27 @@ class CPBatchWindow(QMainWindow):
             self.processBatchmodeResults()
         else:
             self.close()
+    def savecsvClicked(self):
+        df_rings = self.csvManager.df_rings
+        distance=self.distanceSpnBx.value()
+        max_diff=self.bandwidthSpnBx.value()
+        minv=distance-max_diff
+        maxv=distance+max_diff
+        df_rings=df_rings.loc[(df_rings['d']>=minv) &(df_rings['d']<=maxv)]
+        self.angle_sigma=self.aSigmaSpnBx.value()
+        df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
+        dir_path=self.filePath
+        unit = str(self.unitChoice.currentText())
+        csvname=f'rings_({minv}-{maxv}){unit}_anglesigma{self.angle_sigma}.csv'
+        csvfilepath=os.path.join(dir_path,'cp_results',csvname)
+        print(df_rings.shape)
+        filename=getSaveFile(csvfilepath,None)
+        if filename!="":
+            df_rings.to_csv(filename,index=False)
+
+
+        
+        
 
     def processBatchmodeResults(self):
         QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -1177,6 +1210,14 @@ class CPBatchWindow(QMainWindow):
         df_sum = self.csvManager.df_sum.copy()
         df_sum = df_sum.sort_values(['filename'], ascending=True)
         df_rings = self.csvManager.df_rings
+        self.angle_sigma=1
+        self.angle_sigma=self.aSigmaSpnBx.value()
+        
+        df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
+        filelist=df_rings['filename'].tolist()
+        df_sum=df_sum[df_sum['filename'].isin(filelist)]
+
+        
 
         # Read intensity from csv to organize the info given
         self.name_dict = {}
@@ -1188,6 +1229,7 @@ class CPBatchWindow(QMainWindow):
         self.orientation_dict = {}
         self.fit_dict = {}
         self.fitcd_dict = {}
+ 
 
         for i, row in df_sum.iterrows():
             filename = str(row['filename'])
@@ -1202,12 +1244,16 @@ class CPBatchWindow(QMainWindow):
             #print(np.isnan(row['total intensity (hull)']), self.intensity_dict[index], self.sim_inten_dict[index])
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
-            all_rings = df_rings[df_rings['filename'] == filename]
+       
+            all_rings = df_rings[(df_rings['filename'] == filename) &(df_rings['angle sigma']<self.angle_sigma)]
+            
+
             if len(all_rings) > 0:
                 distance_ok = True
                 if self.bestRadio.isChecked():
                     all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
                     best_ring = all_rings.iloc[0]
+            
                 else:
                     dist = self.distanceSpnBx.value()
                     unit = str(self.unitChoice.currentText())
@@ -1225,8 +1271,8 @@ class CPBatchWindow(QMainWindow):
                         min_ind = 0
                         distance_ok = False
                     best_ring = all_rings.iloc[min_ind]
-
-                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < 1. and distance_ok
+                
+                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < self.angle_sigma and distance_ok
                 peak_inten = -1
                 d_spacing = 0
                 angle = 0
@@ -1256,6 +1302,7 @@ class CPBatchWindow(QMainWindow):
 
         # Read hdf5 file to get the coordinates and image shape
         self.hdf_data = self.get_scan_data(hdf_filename)
+
         self.coord_dict = {}
         
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
@@ -1282,7 +1329,7 @@ class CPBatchWindow(QMainWindow):
             y_grad = abs(y[1] - y[0])
         else:
             y_grad = 0
-
+       
         # Plot heatmap for intensity
         z = [float(self.intensity_dict[i]) if i in self.intensity_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
@@ -1492,3 +1539,4 @@ class CPBatchWindow(QMainWindow):
 
 def convertRadtoDegreesEllipse(rad):
     return rad * 180. / np.pi
+
