@@ -88,8 +88,8 @@ See our [SourceForge repository][5]. Or use other tools for uploading
 See [Uploading your Project to PyPI][7]. Be careful of this step, because
 one version number are only allowed to be used once for uploading one
 source distribution. 
-python setup.py sdist  
-twine upload dist/*  
+> python setup.py sdist  
+> twine upload dist/*  
 
 ### Publish the release on GitHub
 Pubulish the release [here][8].
