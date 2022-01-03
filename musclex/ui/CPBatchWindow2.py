@@ -847,7 +847,7 @@ class CPBatchWindow(QMainWindow):
                             tempx=dx
                             tempy=dy
                             dx=tempy
-                            dy=-tempx   
+                            dy=-tempx
                         e = FancyArrow(x=centers[i][0], y=centers[i][1], dx=dx, dy=dy)
                     else:
                         e_angle = convertRadtoDegreesEllipse((0 if self.rotating90 else np.pi/2.) +
@@ -1211,9 +1211,13 @@ class CPBatchWindow(QMainWindow):
         df_sum = df_sum.sort_values(['filename'], ascending=True)
         df_rings = self.csvManager.df_rings
         self.angle_sigma=1
+       
         self.angle_sigma=self.aSigmaSpnBx.value()
+        #df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
+        #filelist=df_rings[df_rings['angle sigma']<self.angle_sigma]['filename'].tolist()
         
-        
+    
+        #df_sum=df_sum[df_sum['filename'].isin(filelist)]
 
         
 
@@ -1231,6 +1235,7 @@ class CPBatchWindow(QMainWindow):
 
         for i, row in df_sum.iterrows():
             filename = str(row['filename'])
+            
             start_ind = filename.rfind('_')
             end_ind = filename.rfind('.')
             index = int(row['filename'][start_ind + 1:end_ind])
@@ -1270,7 +1275,7 @@ class CPBatchWindow(QMainWindow):
                         distance_ok = False
                     best_ring = all_rings.iloc[min_ind]
                 
-                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] < self.angle_sigma and distance_ok
+                good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] <self.angle_sigma and distance_ok
                 peak_inten = -1
                 d_spacing = 0
                 angle = 0
