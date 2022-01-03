@@ -1243,7 +1243,7 @@ class CPBatchWindow(QMainWindow):
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
        
-            all_rings = df_rings[(df_rings['filename'] == filename) &(df_rings['angle sigma']<self.angle_sigma)]
+            all_rings = df_rings[(df_rings['filename'] == filename) ]
             
 
             if len(all_rings) > 0:
