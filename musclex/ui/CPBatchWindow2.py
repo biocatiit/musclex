@@ -1213,9 +1213,7 @@ class CPBatchWindow(QMainWindow):
         self.angle_sigma=1
         self.angle_sigma=self.aSigmaSpnBx.value()
         
-        df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
-        filelist=df_rings['filename'].tolist()
-        df_sum=df_sum[df_sum['filename'].isin(filelist)]
+        
 
         
 
