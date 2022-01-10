@@ -105,6 +105,7 @@ the GitHub repo. Change them properly according to [Project Credits][10].
 appimage-builder
 ```
 - For additional details refer [here][11]
+- pay attention to the PYTHONPATH in AppImageBuilder.yml, it varies depending on different python version.  
 
 
 [1]:pyinstaller.md
