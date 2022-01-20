@@ -10,6 +10,7 @@ Development is done by current and former students at Illinois Tech with Illinoi
 * Jiranun Jiratrakanvong (2016, 2017)
 * Xintian Li (2018)
 * Grant Nikseresht (2019)
+* Nikhil Miskin (2020, 2021)
 * Ran Huo (2021)
 
 ## Scientific advising
