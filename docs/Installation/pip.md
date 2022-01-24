@@ -98,7 +98,7 @@ pip3 install pyopencl
 pip3 install cython
 pip3 install numpy
 pip3 install opencv-python
-pip3 install pyfai==0.15.0
+pip3 install pyfai
 pip3 install PyQt5
 pip3 install musclex
 #pip3 install git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
