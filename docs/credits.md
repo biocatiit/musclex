@@ -12,6 +12,7 @@ Development is done by current and former students at Illinois Tech with Illinoi
 * Grant Nikseresht (2019)
 * Nikhil Miskin (2020, 2021)
 * Ran Huo (2021)
+* Jules Nabon (2022, 2023)
 
 ## Scientific advising
 
