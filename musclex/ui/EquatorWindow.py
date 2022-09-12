@@ -1488,10 +1488,9 @@ class EquatorWindow(QMainWindow):
             if self.bioImg is None or 'orig_center' not in self.bioImg.info.keys():
                 self.calibSettingDialog = CalibrationSettings(self.dir_path)
             else:
-                print('here')
-                self.calibSettingDialog =CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
+                self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
         else:
-            self.calibSettingDialog =CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
+            self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
 
         self.calSettings = None
         cal_setting = self.calibSettingDialog.calSettings
@@ -1524,7 +1523,6 @@ class EquatorWindow(QMainWindow):
                     self.write_log('(calib) ' + msg)
                 del logMsgs[:]
                 return True
-                  
             del logMsgs[:]
         return False
 

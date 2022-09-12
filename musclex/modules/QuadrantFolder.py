@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 import os
 import fabio
 import pickle
-# import pyFAI
+import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
 from ..utils.histogram_processor import *
@@ -58,6 +58,7 @@ class QuadrantFolder(object):
         :param img_name: image file name
         """
         self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+        self.orig_img=self.orig_img.astype("int32")
         if self.orig_img.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -201,10 +202,12 @@ class QuadrantFolder(object):
 
     def findCenter(self):
         """
-       Find center of the diffraction. The center will be kept in self.info["center"].
-       Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
-       """
+        Find center of the diffraction. The center will be kept in self.info["center"].
+        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
+        """
         self.parent.statusPrint("Finding Center...")
+        if 'mask_thres' not in self.info:
+            self.initParams()
         if 'center' in self.info:
             self.centerChanged = False
             return
@@ -220,7 +223,7 @@ class QuadrantFolder(object):
             self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
-        self.orig_img, self.orig_image_center = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info["mask_thres"])
+        self.orig_img, self.orig_image_center = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info['mask_thres'])
         self.info['center'] = self.orig_image_center
         print("Done. Center = "+str(self.info['center']))
 
@@ -994,7 +997,7 @@ class QuadrantFolder(object):
         :return:
         """
         self.parent.statusPrint("Generating Resultant Image...")
-        print("Generating result image from avarage fold...")
+        print("Generating result image from average fold...")
         result = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)

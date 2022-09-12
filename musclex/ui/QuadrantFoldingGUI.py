@@ -77,6 +77,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setConnections() # set triggered function for widgets
         self.setMinimumHeight(800)
         self.newImgDimension = None
+        self.browseFile()
 
     def initUI(self):
         # self.setStyleSheet(getStyleSheet())
@@ -956,7 +957,7 @@ class QuadrantFoldingGUI(QMainWindow):
         Handle when Calibration Settings button is clicked
         :return:
         """
-        sucess = self.setCalibrationImage(True)
+        sucess = self.setCalibrationImage(force=True)
         if sucess:
             self.deleteInfo(['rotationAngle'])
             self.deleteImgCache(['BgSubFold'])
@@ -982,6 +983,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
                 if self.calSettings is not None:
                     if self.calSettingsDialog.fixedCenter.isChecked():
+                        print(self.calSettings['center'])
                         self.quadFold.info['calib_center'] = self.calSettings['center']
                         self.setCenterRotationButton.setEnabled(False)
                         self.setCenterRotationButton.setToolTip(
@@ -2318,6 +2320,7 @@ class QuadrantFoldingGUI(QMainWindow):
     def getExtentAndCenter(self):
         if self.quadFold is None:
             return [0,0], (0,0)
+        self.quadFold.findCenter()
         if 'calib_center' in self.quadFold.info:
             center = self.quadFold.info['calib_center']
         elif 'manual_center' in self.quadFold.info:
@@ -2553,13 +2556,15 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         self.filePath, self.imgList, self.currentFileNumber = getImgFiles(str(newFile))
         self.numberOfFiles = len(self.imgList)
-
+        fileName = self.imgList[self.currentFileNumber]
+        self.quadFold = QuadrantFolder(self.filePath, fileName, self)
         self.ignoreFolds = set()
         self.selectImageButton.setHidden(True)
         self.selectFolder.setHidden(True)
         self.imageCanvas.setHidden(False)
         self.resetWidgets()
-        self.setCalibrationImage()
+        if self.setCalibrationImage():
+            self.processImage()
         self.onImageChanged()
 
     def resetWidgets(self):

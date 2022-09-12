@@ -105,7 +105,7 @@ def getImgFiles(fullname):
 
 def fullPath(filePath, fileName):
     """
-    Combile a path and file name to get full file name
+    Combine a path and file name to get full file name
     :param filePath: directory (string)
     :param fileName: file name (string)
     :return: filePath/filename (string)

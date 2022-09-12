@@ -30,9 +30,7 @@ import cv2
 import numpy as np
 # import cv2.cv as cv
 import fabio
-import pyFAI
 from skimage.morphology import white_tophat
-import math
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 def distance(pt1, pt2):
