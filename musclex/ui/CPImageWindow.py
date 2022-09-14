@@ -935,7 +935,7 @@ class CPImageWindow(QMainWindow):
             text += "\n - ROI : "+ str(flags['ROI'])
         if 'fixed_hull' in flags:
             text += "\n - R-min & R-max : "+ str(flags['fixed_hull'])
-        if self.calSettings is not None:
+        if self.calSettings is not None and len(self.calSettings) > 0:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
             if self.calSettings["type"] == "img":
@@ -1029,7 +1029,7 @@ class CPImageWindow(QMainWindow):
         if self.orientationModel is not None:
             flags['orientation_model'] = self.orientationModel
         flags['90rotation'] = self.rotation90ChkBx.isChecked()
-        if self.calSettings is not None:
+        if self.calSettings is not None and len(self.calSettings) > 0:
             if self.calSettings["type"] == "img":
                 flags["center"] = self.calSettings["center"]
                 flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]

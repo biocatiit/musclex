@@ -39,7 +39,7 @@ class EQStartWindowh:
     """
     A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
     """
-    def __init__(self,filename,inputsettings,delcache,settingspath):
+    def __init__(self, filename, inputsettings, delcache, settingspath):
        
         self.dir_path = filename
         self.inputFlag=inputsettings
@@ -125,8 +125,8 @@ class EQStartWindowh:
         """
         settingspath=self.settingspath
         if settingspath is None:
-            newWindow = EquatorWindowh(self, filename, self.inputFlag, self.delcache)
+            newWindow = EquatorWindowh(filename, self.inputFlag, self.delcache)
         else:
-            newWindow = EquatorWindowh(self, filename, self.inputFlag, self.delcache,settingspath)
+            newWindow = EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath)
         #self.windowList.append(newWindow)
        

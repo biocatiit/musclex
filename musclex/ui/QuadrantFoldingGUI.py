@@ -1054,11 +1054,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.imgZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.imageAxes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # ax = self.imageAxes
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             self.imageCanvas.draw_idle()
             self.function = ["im_zoomin"]
         else:
@@ -2321,6 +2321,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is None:
             return [0,0], (0,0)
         self.quadFold.findCenter()
+        self.statusPrint("Done.")
         if 'calib_center' in self.quadFold.info:
             center = self.quadFold.info['calib_center']
         elif 'manual_center' in self.quadFold.info:
@@ -2663,7 +2664,7 @@ class QuadrantFoldingGUI(QMainWindow):
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(100. / self.numberOfFiles * i)
+                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
                 self.nextClicked()
             self.progressBar.setVisible(False)

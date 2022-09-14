@@ -291,8 +291,6 @@ class CPImageWindowh():
 
     def getFlags(self, imgChanged=True):
         
-
-        
         if self.inputflag==True:    
                 
             try:

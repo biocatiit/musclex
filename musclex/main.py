@@ -148,9 +148,7 @@ def main(arguments=None):
             myapp = EQStartWindowh(filename, inputsetting, delcache, settingspath)
             sys.exit()
 
-    elif len(arguments)>=5 and arguments[1]=='di' and arguments[2]=='-h':
-        print('this is headless di')
-       
+    elif len(arguments)>=5 and arguments[1]=='di' and arguments[2]=='-h':     
         inputsetting=False
         delcache=False
         run=True

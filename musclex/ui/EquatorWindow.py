@@ -1430,7 +1430,7 @@ class EquatorWindow(QMainWindow):
                 text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
 
 
-        if self.calSettings is not None:
+        if self.calSettings is not None and len(self.calSettings) > 0:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
             if self.calSettings["type"] == "img":
