@@ -31,7 +31,6 @@ import copy
 import os, shutil
 import json
 
-from scipy.spatial.kdtree import Rectangle
 
 from .pyqt_utils import *
 import matplotlib.pyplot as plt
@@ -41,10 +40,9 @@ from os.path import split
 import traceback
 import webbrowser
 from ..CalibrationSettings import CalibrationSettings
-from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, getBlankImageAndMask
+from ..utils.file_manager import fullPath, getImgFiles
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..modules.QuadrantFolder import QuadrantFolder
-from ..ui.QuadrantFoldingGUI import QuadrantFoldingGUI
 from ..utils.image_processor import *
 from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
 from ..ui.EQ_FittingTab import EQ_FittingTab
@@ -52,7 +50,6 @@ import musclex
 from .BlankImageSettings import BlankImageSettings
 from ..utils import logger
 from skimage.feature import peak_local_max
-from scipy import ndimage as ndi
 
 
 class EquatorWindow(QMainWindow):
@@ -1345,19 +1342,13 @@ class EquatorWindow(QMainWindow):
         save settings to json
         """
         settings = self.getSettings()
-        paramInfo=self.getInfoFromParameterEditor()
-        
-        settings['paramInfo']=paramInfo
-        
+        # paramInfo = self.getInfoFromParameterEditor()
+        # settings['paramInfo'] = paramInfo
 
-        filename=getSaveFile("musclex/settings/eqsettings.json",None)
+        filename = getSaveFile("musclex/settings/eqsettings.json",None)
         if filename!="":
             with open(filename,'w') as f:
                 json.dump(settings,f)
-        
-            
-
-        
 
     def clearAllCache(self):
         """
@@ -2969,7 +2960,6 @@ class EquatorWindow(QMainWindow):
             if settings['find_oritation']:
                 self.brightSpotClicked()
 
-            
             self.bioImg.process(settings, paramInfo)
             
         except Exception as e:

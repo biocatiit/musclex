@@ -29,9 +29,6 @@ authorization from Illinois Institute of Technology.
 __author__ = 'Miguel Menendez, Jiranun.J'
 
 from .pyqt_utils import *
-import sys
-from os.path import isfile, abspath
-import argparse
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 import musclex

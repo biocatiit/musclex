@@ -1,15 +1,9 @@
 from .pyqt_utils import *
-from matplotlib.patches import Ellipse, Rectangle, FancyArrow
-from matplotlib.collections import PatchCollection
-from matplotlib.colors import LogNorm, Normalize
-from scipy.interpolate import Rbf
 import h5py
 import os
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..csv_manager import CP_CSVManager
-import musclex
-import pandas as pd
 import numpy as np
 from .CPImageWindowh import CPImageWindowh
 import json

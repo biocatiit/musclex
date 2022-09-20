@@ -1,13 +1,12 @@
 import sys
 import os
 import pickle
-import logging
 import glob
 import filecmp
 import collections
 import h5py
 import shutil
-import pyFAI
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import numpy as np
 
 from musclex.modules.EquatorImage import EquatorImage
@@ -244,7 +243,7 @@ def gpu_device_test():
 
 
 def pyfai_gpu_integrate_test():
-    ai = pyFAI.AzimuthalIntegrator(detector="agilent_titan")
+    ai = AzimuthalIntegrator(detector="agilent_titan")
     data = np.random.random((2048,2048))
     npt = 1000
     pass_test = True

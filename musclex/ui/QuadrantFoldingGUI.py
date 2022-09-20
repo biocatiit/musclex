@@ -115,7 +115,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.bgWd = QWidget()
         self.verImgLayout.addWidget(self.selectImageButton)
-        self.verImgLayout.addWidget(self.selectFolder)
+        # self.verImgLayout.addWidget(self.selectFolder)
         self.imageFigure = plt.figure()
         self.imageAxes = self.imageFigure.add_subplot(111)
         self.imageCanvas = FigureCanvas(self.imageFigure)
@@ -612,11 +612,16 @@ class QuadrantFoldingGUI(QMainWindow):
         selectFolderAction.setShortcut('Ctrl+F')
         selectFolderAction.triggered.connect(self.browseFolder)
 
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(selectFolderAction)
+        fileMenu.addAction(saveSettingsAction)
         # fileMenu.addAction(caliSettingsAction)
         # fileMenu.addAction(exit)
         self.bgChoiceChanged()
@@ -751,10 +756,10 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Drag mouse pointer to select width, click on the image to accept (ESC to cancel)")
             ax = self.imageAxes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             self.function = ['fit_region']
             extent, center = self.getExtentAndCenter()
             sq = self.getRectanglePatch(center, 50, 50)
@@ -772,10 +777,10 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             self.imageCanvas.draw_idle()
             self.function = ["perp_center"]  # set current active function
         else:
@@ -831,13 +836,13 @@ class QuadrantFoldingGUI(QMainWindow):
             return
 
         if self.setCentByChords.isChecked():
-            ax = self.imageAxes
+            # ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             self.chordpoints=[]
             self.chordLines = []
             self.imageCanvas.draw_idle()
@@ -939,11 +944,11 @@ class QuadrantFoldingGUI(QMainWindow):
             # clear plot
             self.imgPathOnStatusBar.setText(
                 "Rotate the line to the pattern equator (ESC to cancel)")
-            ax = self.imageAxes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # ax = self.imageAxes
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             extent, center = self.getExtentAndCenter()
             self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
@@ -987,7 +992,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         self.quadFold.info['calib_center'] = self.calSettings['center']
                         self.setCenterRotationButton.setEnabled(False)
                         self.setCenterRotationButton.setToolTip(
-                            "Please uncheck fixed center in caliberation settings first")
+                            "Please uncheck fixed center in calibration settings first")
                         if 'manual_center' in self.quadFold.info:
                             del self.quadFold.info['manual_center']
                         if 'center' in self.quadFold.info:
@@ -1010,11 +1015,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.setCenterRotationButton.isChecked():
             # clear plot
             self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            ax = self.imageAxes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # ax = self.imageAxes
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             self.imageCanvas.draw_idle()
             self.function = ["im_center_rotate"]
         else:
@@ -1028,11 +1033,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.resultZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.resultAxes
-            del ax.lines
-            ax.lines = []
-            del ax.patches
-            ax.patches = []
+            # ax = self.resultAxes
+            # del ax.lines
+            # ax.lines = []
+            # del ax.patches
+            # ax.patches = []
             self.resultCanvas.draw_idle()
             self.function = ["r_zoomin"]
         else:
@@ -1183,10 +1188,10 @@ class QuadrantFoldingGUI(QMainWindow):
                     scaleY = initImg.shape[1]/dim
                     half_width = int(half_width*scaleX)
                     half_height = int(half_height*scaleY)
-                    croppedImage = initImg[center[1] - half_height:center[1] + half_height, center[0] - half_width:center[0]+half_width]
+                    croppedImage = initImg[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)]
                     new_img = np.zeros(initImg.shape)
                     # Placing cropped image in new image such that size of original image matches new image
-                    new_img[center[1] - half_height:center[1] + half_height, center[0] - half_width:center[0]+half_width] = croppedImage
+                    new_img[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)] = croppedImage
                     print("Cropped Image shape ", croppedImage.shape)
                     print("New Image shape ", new_img.shape)
                     self.quadFold.orig_img = new_img
@@ -1287,7 +1292,26 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if not self.ableToProcess():
             return
-
+        '''
+        if self.setCenterRotationButton.isChecked():
+            if event.xdata is not None or event.ydata is not None:
+                x = event.xdata
+                y = event.ydata
+                ax2 = self.imageFigure.add_subplot(337)
+                if len(ax2.lines) > 0:
+                    del ax2.lines
+                    ax2.lines = []
+                for i in range(len(ax2.lines)-1,-1,-1):
+                    ax2.lines.pop(i)
+                axis_size = 2
+                ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                zoom_size = 40
+                ax2.set_xlim((x - zoom_size, x + zoom_size))
+                ax2.set_ylim((y - zoom_size, y + zoom_size))
+                ax2.invert_yaxis()
+                self.imageCanvas.draw_idle()
+        '''
         x = event.xdata
         y = event.ydata
         img = self.quadFold.getRotatedImage()
@@ -1302,20 +1326,22 @@ class QuadrantFoldingGUI(QMainWindow):
                     extent, _ = self.getExtentAndCenter()
                     x = x + extent[0]
                     y = y + extent[1]
-                    print("double zoom mode ", self.doubleZoomMode)
+                    # print("double zoom mode ", self.doubleZoomMode)
+                    
                     ax1 = self.doubleZoomAxes
-                    imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+                    imgCropped = img[int(y - 5):int(y + 5), int(x - 5):int(x + 5)]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                         imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
                         y, x = imgScaled.shape
                         cy, cx = y//2, x//2
-                        if len(ax1.lines) > 0:
-                            del ax1.lines
-                            ax1.lines = []
-                        ax1.patches=[]
+                        #if len(ax1.lines) > 0:
+                        #    del ax1.lines
+                        #    ax1.lines = []
+                        # ax1.patches=[]
                         self.imageCanvas.draw_idle()
+                    
 
         ax = self.imageAxes
 
@@ -1982,10 +2008,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax1.imshow(imgScaled)
                 y, x = imgScaled.shape
                 cy, cx = y // 2, x // 2
-                if len(ax1.lines) > 0:
-                    del ax1.lines
-                    ax1.lines = []
-                ax1.patches = []
+                #if len(ax1.lines) > 0:
+                #    del ax1.lines
+                #    ax1.lines = []
+                # ax1.patches = []
 
         else:
             self.imageFigure.delaxes(self.doubleZoomAxes)
@@ -2682,6 +2708,17 @@ class QuadrantFoldingGUI(QMainWindow):
         if file_name != "":
             self.onNewFileSelected(str(file_name))
             self.centralWidget.setMinimumSize(700, 500)
+    
+    def saveSettings(self):
+        """
+        save settings to json
+        """
+        settings = self.calSettings
+        filename = getSaveFile("musclex/settings/qfsettings.json", None)
+        if filename != "":
+            import json
+            with open(filename, 'w') as f:
+                json.dump(settings, f)
 
     def prevClicked(self):
         """
@@ -2713,7 +2750,6 @@ class QuadrantFoldingGUI(QMainWindow):
             return
         self.currentFileNumber = self.imgList.index(fileName)
         self.onImageChanged()
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

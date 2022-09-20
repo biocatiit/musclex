@@ -1786,6 +1786,7 @@ musclex/ui/ImageMerger.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py
+musclex/ui/QuadrantFoldingh.py
 musclex/ui/ScanningDiffractionGUI.py
 musclex/ui/__init__.py
 musclex/ui/ddf_processor.py

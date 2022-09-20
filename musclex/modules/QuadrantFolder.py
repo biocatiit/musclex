@@ -35,8 +35,7 @@ from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, g
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 from skimage.morphology import white_tophat, disk
-from tifffile import imsave
-from scipy.interpolate import UnivariateSpline, PchipInterpolator
+from scipy.interpolate import UnivariateSpline
 import musclex
 import ccp13
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator

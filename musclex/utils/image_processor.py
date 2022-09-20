@@ -496,8 +496,8 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
     if angle == 0:
         return img, center, None
 
-    M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
-    size = max(img.shape[0], img.shape[1])
+    # M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
+    # size = max(img.shape[0], img.shape[1])
 
     # used for expanding the rotated image
     # im_max_shape = max(img.shape[1], img.shape[0])

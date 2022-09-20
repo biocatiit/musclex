@@ -194,7 +194,37 @@ def main(arguments=None):
                 myapp= CPBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
                 sys.exit()
 
-            
+    elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':
+            inputsetting=False
+            delcache=False
+            run=True
+            i=3
+            settingspath="empty"
+            while(i<len(arguments)):
+                if arguments[i]=='-s':
+                    inputsetting=True
+                    if i+1<len(arguments) and len(arguments[i+1])>5:
+                        _, ext = os.path.splitext(str(arguments[i+1]))
+                        if ext==".json" and os.path.isfile(arguments[i+1]):
+                            i=i+1
+                            settingspath=arguments[i]
+                        else:
+                            print("Please provide the right settings file")
+                            run=False
+                elif arguments[i]=='-d':
+                    delcache=True
+                elif arguments[i]=='-i' or arguments[i]=='-f':
+                    i=i+1
+                    filename=arguments[i]
+                else:
+                    run=False
+                    break
+                i=i+1
+
+            if run:
+                from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
+                myapp = QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
+                sys.exit()
 
     else:
         run = False
@@ -222,24 +252,14 @@ def main(arguments=None):
         print("\t$ musclex eq")
         print("\t$ musclex eq -h -i test.tif -s config.json")
         print("")
-        print("** musclex eq headless arguments:")
-        print("musclex eq -h -i|-f <file.tif|testfolder> [-s config.json] [-d] ")
+        print("** Musclex headless arguments (works for eq, qf and di):")
+        print("    $ musclex eq|di|qf -h -i|-f <file.tif|testfolder> [-s config.json] [-d] ")
         print("arguments:")
         print("-f <foldername> or -i <filename>")
         print("-d (optional) delete existing cache")
         print("-s (optional) <input setting file>")
         print("")
         print("Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. \nThis will create the necessary setting file. If a setting file is not provided, default settings will be used")
-        print("")
-        print("")
-        print("** musclex di headless arguments:")
-        print("musclex di -h -i|-f <file.tif|testfolder> [-s config.json] [-d] ")
-        print("arguments:")
-        print("-f <foldername> or -i <filename>")
-        print("-d (optional) delete existing cache")
-        print("-s (optional) <input setting file>")
-        print("")
-        print("Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. \nThis will create the necessary setting file. If a setting file is not provided, default settings will be used\n")
         print("Note: If a hdf file does not exist, the program will use the default file. You can generate a hdf step size file using the interactive version (set step size, click ok, the file will be automaticly saved)")
         print("")
         print("More details : https://musclex.readthedocs.io")

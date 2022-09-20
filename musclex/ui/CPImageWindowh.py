@@ -7,10 +7,7 @@ from matplotlib.colors import LogNorm, Normalize
 import logging
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
-from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
-import musclex
-from .BlankImageSettings import BlankImageSettings
 from csv import writer
 import pandas as pd
 import numpy as np

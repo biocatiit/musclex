@@ -27,7 +27,6 @@ authorization from Illinois Institute of Technology.
 """
 import matplotlib.pyplot as plt
 import fabio
-import pyFAI
 from lmfit import Parameters
 from lmfit.models import VoigtModel
 from os import makedirs

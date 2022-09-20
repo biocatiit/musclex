@@ -27,26 +27,15 @@ authorization from Illinois Institute of Technology.
 """
 
 import sys
-import copy
 import json
-import os, shutil
+import os
 from .pyqt_utils import *
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.colors import LogNorm, Normalize
-from os.path import split
 import traceback
-import webbrowser
-from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, getBlankImageAndMask
-from ..modules.EquatorImage import EquatorImage, getCardiacGraph
-from ..modules.QuadrantFolder import QuadrantFolder
-from ..ui.QuadrantFoldingGUI import QuadrantFoldingGUI
+from ..utils.file_manager import getImgFiles
+from ..modules.EquatorImage import EquatorImage
 from ..utils.image_processor import *
 from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
-from ..ui.EQ_FittingTab import EQ_FittingTab
 import musclex
-from .BlankImageSettings import BlankImageSettings
-from ..utils import logger
 
 class EquatorWindowh:
     """
@@ -65,7 +54,7 @@ class EquatorWindowh:
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
         self.default_img_zoom = None  # default zoom calculated after processing image
-        #self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
+        # self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
         self.function = None  # Current active function
         
@@ -83,17 +72,13 @@ class EquatorWindowh:
         self.delcache=delcache
         self.settingspath=settingspath
         
-        
         self.onImageChanged() # Toggle window to process current image
-        
-  
+
 
     def inputerror(self):
         # Display input error to screen
         print('Invalid Input')
         print("Please select non empty failedcases.txt or an image\n\n")
-
-
 
 
     def onImageChanged(self):
@@ -104,32 +89,28 @@ class EquatorWindowh:
         
         fileName = self.imgList[self.currentImg]
         file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "eq_cache",file)
-        cache_exist=os.path.isfile(cache_path)
+        cache_path = os.path.join(self.dir_path, "eq_cache", file)
+        cache_exist = os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
                 os.remove(cache_path)
-                
-            
+
         #prevInfo = self.bioImg.info if self.bioImg is not None else None
         self.bioImg = EquatorImage(self.dir_path, fileName, self)
-        
+
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
-   
+
         settings = None
         settings = self.getSettings()
         print("Settings in onImageChange before update")
         print(settings)
-        
-        
 
         # Process new image
         if 'paramInfo' in settings:
-            paramInfo=settings['paramInfo']
+            paramInfo = settings['paramInfo']
             #settings.pop('paramInfo')
             self.processImage(paramInfo)
         else:
-
             self.processImage()
 
         print('---------------------------------------------------')
@@ -146,8 +127,6 @@ class EquatorWindowh:
         print('---------------------------------------------------')
 
 
-
-    
     def processImage(self, paramInfo=None):
         """
         Process Image by getting all settings and call process() of EquatorImage object
@@ -160,24 +139,17 @@ class EquatorWindowh:
         print("Settings in processImage:")
         print(settings)
         try:
-                
             self.bioImg.process(settings, paramInfo)
         except Exception as e:
-            
-            
             print('Unexpected error')
             msg = 'Please report the problem with error message below and the input image\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             print(msg)
-        
             raise
         
-
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager2.writeNewData(self.bioImg)
-        
-        
 
 
     def updateParams(self):
@@ -190,7 +162,6 @@ class EquatorWindowh:
             xlim, ylim = self.bioImg.initialImgDim
             xlim, ylim = int(xlim/2), int(ylim/2)
             self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
-
 
 
     def getSettings(self):
@@ -222,12 +193,8 @@ class EquatorWindowh:
         for k in settings.keys():
             if self.isDynamicParameter(k):
                 settings.pop(k)
-      
 
         return settings
-
-
-
 
 
     def isDynamicParameter(self, paramName):
@@ -236,16 +203,12 @@ class EquatorWindowh:
         :param paramName: Name of the parameter to be checked
         :return: bool True if it is in the dynamic parameter list
         '''
-
         dynamicParams = ['Speak', 'left_area', 'right_area']
         for p in dynamicParams:
             if p in paramName:
                 return True
         return False
 
-
-  
-        
 
     def statusPrint(self, text):
         print(text)

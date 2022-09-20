@@ -278,7 +278,7 @@ class EquatorImage:
             
             rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
             self.rotated_img = [self.info["center"], angle, img, rotImg]
-            
+
         return self.rotated_img[3]
 
     def getIntegrateArea(self):
@@ -363,6 +363,7 @@ class EquatorImage:
             hist = copy.copy(self.info['hist'])
             int_area = self.info['int_area']
             img_area = self.getRotatedImage()[int_area[0]:int_area[1], :]
+            self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
             if any(ignore):
                 left_ignore = ignore[:int(center[0])]

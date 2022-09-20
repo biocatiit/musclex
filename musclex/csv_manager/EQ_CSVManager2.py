@@ -30,6 +30,8 @@ from os.path import exists
 from os import makedirs
 import pandas as pd
 from ..utils.file_manager import fullPath
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class EQ_CSVManager2:
     """

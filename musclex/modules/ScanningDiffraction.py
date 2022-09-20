@@ -28,20 +28,16 @@ authorization from Illinois Institute of Technology.
 import cv2
 # import cv2.cv as cv
 import numpy as np
-import peakutils
 import copy
 import fabio
 import math
 from skimage.morphology import white_tophat
-import matplotlib.pyplot as plt
 import time
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel
 from scipy.integrate import simps
-import os
-import pyFAI
 from os.path import  exists
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score
 import collections
 from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask
 from ..utils.histogram_processor import *

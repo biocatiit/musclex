@@ -26,14 +26,10 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-
-
-from musclex.utils.file_manager import getImgFiles
 import sys
 import os
 from os.path import split
 from ..ui.EquatorWindowh import EquatorWindowh
-import musclex
 
 class EQStartWindowh:
     """
@@ -125,8 +121,7 @@ class EQStartWindowh:
         """
         settingspath=self.settingspath
         if settingspath is None:
-            newWindow = EquatorWindowh(filename, self.inputFlag, self.delcache)
+            EquatorWindowh(filename, self.inputFlag, self.delcache)
         else:
-            newWindow = EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath)
-        #self.windowList.append(newWindow)
+            EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath)
        
