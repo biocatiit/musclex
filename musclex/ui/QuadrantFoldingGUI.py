@@ -756,15 +756,18 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Drag mouse pointer to select width, click on the image to accept (ESC to cancel)")
             ax = self.imageAxes
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
-            self.function = ['fit_region']
-            extent, center = self.getExtentAndCenter()
-            sq = self.getRectanglePatch(center, 50, 50)
-            ax.add_patch(sq)
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
+            # extent, center = self.getExtentAndCenter()
+            # sq = self.getRectanglePatch(center, 50, 50)
+            # ax.add_patch(sq)
             self.imageCanvas.draw_idle()
+            self.function = ['fit_region']
+        else:
+            self.function = None
+            self.resetStatusbar()
 
     def setCenterByPerpClicked(self):
         """
@@ -777,10 +780,10 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ["perp_center"]  # set current active function
         else:
@@ -836,13 +839,13 @@ class QuadrantFoldingGUI(QMainWindow):
             return
 
         if self.setCentByChords.isChecked():
-            # ax = self.imageAxes
+            ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.chordpoints=[]
             self.chordLines = []
             self.imageCanvas.draw_idle()
@@ -945,10 +948,10 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Rotate the line to the pattern equator (ESC to cancel)")
             # ax = self.imageAxes
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
+            # for i in range(len(ax.lines)-1,-1,-1):
+            #     ax.lines.pop(i)
+            # for i in range(len(ax.patches)-1,-1,-1):
+            #     ax.patches.pop(i)
             extent, center = self.getExtentAndCenter()
             self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
@@ -1016,10 +1019,10 @@ class QuadrantFoldingGUI(QMainWindow):
             # clear plot
             self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
             # ax = self.imageAxes
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
+            # for i in range(len(ax.lines)-1,-1,-1):
+            #     ax.lines.pop(i)
+            # for i in range(len(ax.patches)-1,-1,-1):
+            #     ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ["im_center_rotate"]
         else:
@@ -1033,11 +1036,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.resultZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            # ax = self.resultAxes
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
+            ax = self.resultAxes
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.resultCanvas.draw_idle()
             self.function = ["r_zoomin"]
         else:
@@ -1059,11 +1062,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.imgZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            # ax = self.imageAxes
-            # del ax.lines
-            # ax.lines = []
-            # del ax.patches
-            # ax.patches = []
+            ax = self.imageAxes
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ["im_zoomin"]
         else:
@@ -1177,9 +1180,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     # both width and height selected
                     extent, center = self.getExtentAndCenter()
-                    half_width = abs(func[1] - center[0])
-                    half_height = abs(abs(int(y)) - center[1])
-                    img_center = self.quadFold.info['center']
+                    half_height = abs(func[1] - center[0])
+                    half_width = abs(abs(int(y)) - center[1])
+                    # img_center = self.quadFold.info['center']
                     print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
 
                     dim = self.newImgDimension
@@ -1299,8 +1302,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 y = event.ydata
                 ax2 = self.imageFigure.add_subplot(337)
                 if len(ax2.lines) > 0:
-                    del ax2.lines
-                    ax2.lines = []
+                    for i in range(len(ax2.lines)-1,-1,-1):
+                        ax2.lines.pop(i)
                 for i in range(len(ax2.lines)-1,-1,-1):
                     ax2.lines.pop(i)
                 axis_size = 2
@@ -1336,12 +1339,12 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1.imshow(imgScaled)
                         y, x = imgScaled.shape
                         cy, cx = y//2, x//2
-                        #if len(ax1.lines) > 0:
-                        #    del ax1.lines
-                        #    ax1.lines = []
-                        # ax1.patches=[]
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        for i in range(len(ax1.patches)-1,-1,-1):
+                            ax1.patches.pop(i)
                         self.imageCanvas.draw_idle()
-                    
 
         ax = self.imageAxes
 
@@ -1391,11 +1394,15 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
         elif func[0] == "fit_region":
-            extent, center = self.getExtentAndCenter()
+            if self.calSettings is None or 'center' not in self.calSettings:
+                self.calSettings = {}
+                extent, self.calSettings['center'] = self.getExtentAndCenter()
+            center = self.calSettings['center']
             if len(func) == 2:
                 # width selected, change height as cursor moves
                 if len(ax.patches) > 0:
-                    ax.patches.pop(0)
+                    for i in range(len(ax.patches)-1,-1,-1):
+                        ax.patches.pop(i)
                 hei = 2*abs(y-center[1])
                 wei = 2*abs(func[1] - center[0])
                 sq = self.getRectanglePatch(center, wei, hei)
@@ -1403,8 +1410,12 @@ class QuadrantFoldingGUI(QMainWindow):
             else:
                 # nothing is selected, start by changing width
                 if len(ax.patches) > 0:
-                    ax.patches.pop(0)
-                extent, center = self.getExtentAndCenter()
+                    for i in range(len(ax.patches)-1,-1,-1):
+                        ax.patches.pop(i)
+                if self.calSettings is None or 'center' not in self.calSettings:
+                    self.calSettings = {}
+                    extent, self.calSettings['center'] = self.getExtentAndCenter()
+                center = self.calSettings['center']
                 wei = 2 * abs(x - center[0])
                 sq = self.getRectanglePatch(center, wei, 50)
                 ax.add_patch(sq)
@@ -1415,8 +1426,8 @@ class QuadrantFoldingGUI(QMainWindow):
             axis_size = 5
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    del ax.lines
-                    ax.lines = []
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1425,8 +1436,8 @@ class QuadrantFoldingGUI(QMainWindow):
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
-                            del ax1.lines
-                            ax1.lines = []
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1434,7 +1445,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     first_cross = ax.lines[:2]
-                    del ax.lines
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
                     ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -1445,8 +1457,8 @@ class QuadrantFoldingGUI(QMainWindow):
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
-                            del ax1.lines
-                            ax1.lines = []
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
@@ -1459,17 +1471,18 @@ class QuadrantFoldingGUI(QMainWindow):
 
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    del ax.lines
-                    ax.lines = []
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    first_cross = ax.lines[:2]
-                    del ax.lines
-                    ax.lines = first_cross
+                    # first_cross = ax.lines[:2]
+                    for i in range(len(ax.lines)-1,1,-1):
+                        ax.lines.pop(i)
+                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
@@ -1477,9 +1490,10 @@ class QuadrantFoldingGUI(QMainWindow):
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
-                    first_cross = ax.lines[:n]
-                    del ax.lines
-                    ax.lines = first_cross
+                    # first_cross = ax.lines[:n]
+                    for i in range(len(ax.lines)-1,n-1,-1):
+                        ax.lines.pop(i)
+                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1487,9 +1501,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 start_pt = func[-1]
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
-                    first_cross = ax.lines[:n]
-                    del ax.lines
-                    ax.lines = first_cross
+                    # first_cross = ax.lines[:n]
+                    for i in range(len(ax.lines)-1,n-1,-1):
+                        ax.lines.pop(i)
+                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
@@ -1497,14 +1512,17 @@ class QuadrantFoldingGUI(QMainWindow):
 
         elif func[0] == "im_rotate":
             # draw line as angle
-            extent, center = self.getExtentAndCenter()
+            if self.calSettings is None or 'center' not in self.calSettings:
+                self.calSettings = {}
+                extent, self.calSettings['center'] = self.getExtentAndCenter()
+            center = self.calSettings['center']
             deltax = x - center[0]
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            del ax.lines
-            ax.lines = []
-            ax.plot([x,x2],[y,y2], color = "g")
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
+            ax.plot((x, x2), (y, y2), color='g')
             self.imageCanvas.draw_idle()
 
     def imageReleased(self, event):
@@ -1834,8 +1852,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 "Select R-min and R-max on the image (ESC to cancel)")
             self.function = ['rminmax'] # set active function
             ax = self.resultAxes
-            del ax.lines
-            ax.lines = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
             self.resultCanvas.draw_idle()
         else:
             self.function = None
@@ -2008,10 +2026,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax1.imshow(imgScaled)
                 y, x = imgScaled.shape
                 cy, cx = y // 2, x // 2
-                #if len(ax1.lines) > 0:
-                #    del ax1.lines
-                #    ax1.lines = []
-                # ax1.patches = []
+                if len(ax1.lines) > 0:
+                    for i in range(len(ax1.lines)-1,-1,-1):
+                        ax1.lines.pop(i)
+                for i in range(len(ax1.patches)-1,-1,-1):
+                    ax1.patches.pop(i)
 
         else:
             self.imageFigure.delaxes(self.doubleZoomAxes)
@@ -2346,8 +2365,9 @@ class QuadrantFoldingGUI(QMainWindow):
     def getExtentAndCenter(self):
         if self.quadFold is None:
             return [0,0], (0,0)
-        self.quadFold.findCenter()
-        self.statusPrint("Done.")
+        if not hasattr(self.quadFold, 'orig_image_center'):
+            self.quadFold.findCenter()
+            self.statusPrint("Done.")
         if 'calib_center' in self.quadFold.info:
             center = self.quadFold.info['calib_center']
         elif 'manual_center' in self.quadFold.info:

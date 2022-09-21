@@ -80,7 +80,7 @@ First, you will need to build the program from the code. Open a terminal window 
 
 Build the program:
 ```
-python3 setup.py clean –all
+python3 setup.py clean --all
 python3 setup.py build
 python3 setup.py install
 ```

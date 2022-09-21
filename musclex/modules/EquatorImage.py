@@ -304,7 +304,7 @@ class EquatorImage:
                 bottom = min(int(center[1]) + init_range, rotate_img.shape[0])
                 area = rotate_img[top:bottom, :]
                 hist = np.sum(area, axis=1)  # Get the horizontal histogram from the initital area
-                hull = convexHull(hist) # Apply convexull
+                hull = convexHull(hist) # Apply convexhull
 
                 if len(hist) > 0:
                     max_loc = np.argmax(hull)
