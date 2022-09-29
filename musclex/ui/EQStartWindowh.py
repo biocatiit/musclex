@@ -36,7 +36,7 @@ class EQStartWindowh:
     A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
     """
     def __init__(self, filename, inputsettings, delcache, settingspath):
-       
+
         self.dir_path = filename
         self.inputFlag=inputsettings
         self.delcache=delcache
@@ -49,39 +49,10 @@ class EQStartWindowh:
             print("Can't load image file or folder")
             return
 
-    # def initUI(self):
-    #     QApplication.processEvents()
-    #     self.centralWidget = QWidget(self)
-    #     self.mainLayout = QGridLayout(self.centralWidget)
-    #     self.setCentralWidget(self.centralWidget)
-    #
-    #     self.selectFileButton = QPushButton("Select a File")
-    #     self.selectFileButton.setFixedHeight(50)
-    #     self.selectFolderButton = QPushButton("Select a Folder")
-    #     self.selectFolderButton.setFixedHeight(50)
-    #     self.mainLayout.addWidget(self.selectFileButton, 0, 0, 1, 1)
-    #     # self.mainLayout.addWidget(self.selectFolderButton, 1, 0, 1, 1)
-    #
-    #     self.resize(500, 100)
-    #     self.show()
-    #
-    # def setConnections(self):
-    #     self.selectFileButton.clicked.connect(self.browseFile)
-    #     # self.selectFolderButton.clicked.connect(self.browseFolder)
-
-    # def childWindowClosed(self, childwin):
-    #     """
-    #     Remove child window from list
-    #     :param childwin: EquatorWindow object
-    #     """
-    #     if childwin in self.windowList:
-    #         self.windowList.remove(childwin)
-
-    #     # If window list is empty, exit the program
-    #     if len(self.windowList) == 0:
-    #         self.close()
-
     def browseFolder(self):
+        """
+        Popup an input folder dialog. Users can select a folder
+        """
         input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
 
         if self.dir_path != "":
@@ -93,8 +64,6 @@ class EQStartWindowh:
                 if ext in input_types:
                     print("filename is", file_name)
                     self.runBioMuscle(file_name)
-    
-            
 
     def browseFile(self):
         """

@@ -25,10 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-import matplotlib.pyplot as plt
 from .pyqt_utils import *
-import matplotlib.patches as patches
-from ..modules.EquatorImage import getCardiacGraph
 from ..utils.image_processor import *
 
 class EQ_FittingTab(QWidget):

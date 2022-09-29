@@ -26,23 +26,22 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-# import cv2.cv as cv
 import os
+from os import makedirs
+from os.path import isfile, exists
 import json
+import pickle
 import tifffile
 from lmfit import Model, Parameters
 from lmfit.models import VoigtModel, GaussianModel
 from sklearn.metrics import r2_score, mean_squared_error
-import pickle
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import fabio
+import musclex
 # import pyFAI
-from os.path import isfile, exists
-from os import makedirs
 from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
-import musclex
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 class EquatorImage:
     """
@@ -58,7 +57,9 @@ class EquatorImage:
         self.dir_path = dir_path
         self.filename = filename
         self.orig_img = fabio.open(fullPath(dir_path, filename)).data
-        self.orig_img=self.orig_img.astype("int32")
+        self.orig_img=self.orig_img.astype("float32")
+        self.image = None
+        self.skeletalVarsNotSet = False
         if self.orig_img.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -71,7 +72,7 @@ class EquatorImage:
                     metadata = tif.pages[0].tags["ImageDescription"].value
             try:
                 self.quadrant_folded, self.initialImgDim = json.loads(metadata)
-            except:
+            except Exception:
                 print(filename, " file is not quadrant folded")
 
         self.rotated_img = None
@@ -122,13 +123,12 @@ class EquatorImage:
         :param k: key of dictionary
         :return: -
         """
-
         if k is None:
             keys = list(self.info.keys())
-            for k in keys:
-                del self.info[k]
+            for key in keys:
+                del self.info[key]
         else:
-            if k in self.info.keys(): # remove from dictionary if the key exists
+            if k in self.info: # remove from dictionary if the key exists
                 del self.info[k]
 
     def updateInfo(self, settings):
@@ -154,7 +154,7 @@ class EquatorImage:
                 img[mask>0] = self.info['mask_thres']-1
             if maskOnly is not None:
                 print("Applying mask only image")
-                img[maskOnly>0] = self.info['mask_thres']-1 
+                img[maskOnly>0] = self.info['mask_thres']-1
 
         self.image = img
 
@@ -234,7 +234,7 @@ class EquatorImage:
             npt_rad = int(round(max([distance(center, c) for c in corners])))
             ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr") # Get 1D Azimuthal integrated histogram
+            _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr") # Get 1D Azimuthal integrated histogram
             self.info['rmin'] = getFirstVallay(I) # R-min is value before the first valley
             self.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
             #
@@ -256,7 +256,6 @@ class EquatorImage:
         :param angle: rotation angle
         :return: rotated image
         """
-
         if img is None:
             img = copy.copy(self.image)
         if angle is None:
@@ -268,14 +267,14 @@ class EquatorImage:
             centersNotEq = self.rotated_img[0] != self.info["center"] if type(self.rotated_img[0] != self.info["center"]) == bool else (self.rotated_img[0] != self.info["center"]).any()
         if self.rotated_img is None or centersNotEq or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-            
+
             center = self.info["center"]
             if "orig_center" in self.info:
                 center = self.info["orig_center"]
                 print("orig_center",self.info['orig_center'])
             else:
                 self.info["orig_center"] = center
-            
+
             rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
             self.rotated_img = [self.info["center"], angle, img, rotImg]
 
@@ -296,7 +295,7 @@ class EquatorImage:
             else:
                 rmin = self.info['rmin']
                 img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin) # remove center location
-                
+
                 rotate_img = self.getRotatedImage(img) # rotate image
                 center = self.info["center"] #since rotation might change center
                 init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
@@ -409,7 +408,6 @@ class EquatorImage:
             self.removeInfo('peaks')  # Remove real peaks from info dict to make it be re-calculated
 
         print("Done. Peaks are found : " + str(self.info['tmp_peaks']))
-
 
     def managePeaks(self):
         """
@@ -547,7 +545,7 @@ class EquatorImage:
             hull_hist = self.info['hulls']['all']
             x = np.arange(0, len(hull_hist))
             histNdarray = np.array(hull_hist)
-            total_area = sum(histNdarray)
+            # total_area = sum(histNdarray)
             centerX = self.info['center'][0]
 
             margin = 10.
@@ -753,7 +751,6 @@ class EquatorImage:
                 params.add(p, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
 
         # When using previous fit to update
-
         S = self.info['S']
 
         left_hull = self.info['hulls']['left']
@@ -785,7 +782,6 @@ class EquatorImage:
                 init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
                 params.add(side + '_intz', init_intz, min=0, max=init_intz * 4. + 1.)
                 params.add(side + '_gammaz', 8., min=-5., max=30.)
-
 
         int_vars['x'] = x
 
@@ -895,7 +891,7 @@ class EquatorImage:
 
         if exists(cache_path) and isfile(cache_file):
             cinfo = pickle.load(open(cache_file, "rb"))
-            if cinfo != None:
+            if cinfo is not None:
                 if cinfo['program_version'] == self.version:
                     return cinfo
                 print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
@@ -926,7 +922,6 @@ class EquatorImage:
         cache_file = fullPath(cache_path, self.filename + '.info')
         if exists(cache_path) and isfile(cache_file):
             os.remove(cache_file)
-
 
 def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
                , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz
@@ -974,7 +969,7 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
     # print "======================"
     if kwargs is not None:
 
-        if 'left_areas' in kwargs.keys() and 'right_areas' in kwargs.keys() :
+        if 'left_areas' in kwargs and 'right_areas' in kwargs:
             left_areas = kwargs['left_areas']
             right_areas = kwargs['right_areas']
         else:
@@ -992,7 +987,6 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
             left_areas = [v for (_, v) in left_areas]
             right_areas = sorted(right_areas_dict.items(), key=lambda kv: kv[0])
             right_areas = [v for (_, v) in right_areas]
-
 
         speaks_dict = {}
         for k1 in range(1, max(len(left_areas), len(right_areas)) + 1):
@@ -1029,7 +1023,7 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
     return 0
 
 def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas, Speak, extraGaussCenter, extraGaussSig, extraGaussArea):
-    for i, area in enumerate(areas):
+    for (i, _) in enumerate(areas):
         if side == 'left':
             hk = i
             p = centerX + S0 - S10 * theta(hk) + Speak[i]
@@ -1085,7 +1079,7 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
 
         result = None
 
-        if 'areas' in kwargs.keys():
+        if 'areas' in kwargs:
             areas = kwargs['areas']
         else:
             areas_dict = {}
@@ -1098,7 +1092,7 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
 
         nPeaks = int(len(areas)/2)
 
-        for i, area in enumerate(areas):
+        for (i, _) in enumerate(areas):
             if i < nPeaks:
                 hk = (nPeaks) - i - 1
                 p = centerX - S10 * theta(hk)
@@ -1143,7 +1137,6 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
         return result
 
     return 0
-
 
 def getCardiacGraph(x, fit_results):
     plot_params = {

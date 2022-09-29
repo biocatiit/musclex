@@ -27,26 +27,25 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
-import fabio
 import pickle
+import fabio
 import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
+from scipy.interpolate import UnivariateSpline
+from skimage.morphology import white_tophat, disk
+import ccp13
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+import musclex
+import musclex.modules.QF_utilities as qfu
 from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
-from skimage.morphology import white_tophat, disk
-from scipy.interpolate import UnivariateSpline
-import musclex
-import ccp13
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 # Make sure the cython part is compiled
 # from subprocess import call
 # call(["python setup2.py build_ext --inplace"], shell = True)
 
-import musclex.modules.QF_utilities as qfu
-
-class QuadrantFolder(object):
+class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
@@ -57,7 +56,9 @@ class QuadrantFolder(object):
         :param img_name: image file name
         """
         self.orig_img = fabio.open(fullPath(img_path, img_name)).data
-        self.orig_img=self.orig_img.astype("int32")
+        self.orig_img = self.orig_img.astype("float32")
+        self.orig_image_center = None
+        self.dl, self.db = 0, 0
         if self.orig_img.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -95,7 +96,8 @@ class QuadrantFolder(object):
         cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name + ".info")
         createFolder(fullPath(self.img_path, "qf_cache"))
         self.info['program_version'] = self.version
-        pickle.dump(self.info, open(cache_file, "wb"))
+        with open(cache_file, "wb") as c:
+            pickle.dump(self.info, c)
 
     def loadCache(self):
         """
@@ -104,7 +106,8 @@ class QuadrantFolder(object):
         """
         cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name+".info")
         if os.path.isfile(cache_file):
-            info = pickle.load(open(cache_file, "rb"))
+            with open(cache_file, "rb") as c:
+                info = pickle.load(c)
             if info != None:
                 if info['program_version'] == self.version:
                     return info
@@ -123,15 +126,15 @@ class QuadrantFolder(object):
         if os.path.exists(cache_path) and os.path.isfile(cache_file):
             os.remove(cache_file)
 
-    def deleteFromDict(self, dict, delStr):
+    def deleteFromDict(self, dicto, delStr):
         """
         Delete a key and value from dictionary
         :param dict: input dictionary
         :param delStr: deleting key
         :return: -
         """
-        if delStr in dict.keys():
-            del dict[delStr]
+        if delStr in dicto:
+            del dicto[delStr]
 
     def process(self, flags):
         """
@@ -174,8 +177,8 @@ class QuadrantFolder(object):
         Initial some parameters in case GUI doesn't specified
         """
         if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = 0 #getMaskThreshold(self.orig_img, self.img_type)
-        if 'ignore_folds' not  in self.info:
+            self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
+        if 'ignore_folds' not in self.info:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:
             self.info['bgsub'] = 0
@@ -249,7 +252,7 @@ class QuadrantFolder(object):
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
-            
+
     def centerizeImage(self):
         """
         Create an enlarged image such that image center is at the center of new image
@@ -284,9 +287,9 @@ class QuadrantFolder(object):
             self.parent.newImgDimension = dim
         else:
             dim = self.parent.newImgDimension
-        new_img = np.zeros((dim,dim))
+        new_img = np.zeros((dim,dim)).astype("float32")
         new_img[0:b,0:l] = img
-        
+
         #Translate image to appropriate position
         transx = int(((dim/2) - center[0]))
         transy = int(((dim/2) - center[1]))
@@ -300,25 +303,26 @@ class QuadrantFolder(object):
                 mask_thres = getMaskThreshold(img, self.img_type)
             mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
             mask[new_img <= mask_thres] = 255
+            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
             translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
             translated_mask = cv2.warpAffine(mask, M, (cols, rows))
             translated_mask[translated_mask > 0.] = 255
             translated_Img[translated_mask > 0] = mask_thres
         else:
+            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
             translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
-        
+
         self.orig_img = translated_Img
         self.info['center'] = (int(dim / 2), int(dim / 2))
         self.center_before_rotation = (int(dim / 2), int(dim / 2))
         print("Dimension of image after centerize ", self.orig_img.shape)
-        
+
 
     def getRotatedImage(self):
         """
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
         """
         img = np.array(self.orig_img, dtype="float32")
-
         center = self.info["center"]
         if self.center_before_rotation is not None:
             center = self.center_before_rotation
@@ -326,7 +330,7 @@ class QuadrantFolder(object):
             self.center_before_rotation = center
 
         b, l = img.shape
-        rotImg, newCenter, self.rotMat = rotateImage(img,center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
+        rotImg, newCenter, self.rotMat = rotateImage(img, center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape
@@ -356,6 +360,7 @@ class QuadrantFolder(object):
             return 2
         if x >= center_x and y >= center_y:
             return 3
+        return -1
 
     def applyAngularBGSub(self):
         """
@@ -378,7 +383,7 @@ class QuadrantFolder(object):
 
         I2D = []
         for deg in range(180, 271):
-            x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method="csr", azimuth_range=(deg, deg+1))
+            _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method="csr", azimuth_range=(deg, deg+1))
             I2D.append(I)
 
         I2D = np.array(I2D)
@@ -437,7 +442,7 @@ class QuadrantFolder(object):
         Apply Circular Background Subtraction to average fold, and save the result to self.info['bgimg1']
         """
         fold = copy.copy(self.info['avg_fold'])
-        center = [fold.shape[1] + .5, fold.shape[0] + .5]
+        # center = [fold.shape[1] + .5, fold.shape[0] + .5]
 
         img = self.makeFullImage(fold)
         img = img.astype("float32")
@@ -450,7 +455,7 @@ class QuadrantFolder(object):
         rmin = float(self.info['rmin'])
         rmax = float(self.info['rmax'])
         bin_size = float(self.info["radial_bin"])
-        smooth = self.info['smooth']
+        smoo = self.info['smooth']
         tension = self.info['tension']
         max_bin = int(np.ceil((rmax - rmin) / bin_size))*10
         max_num = int(np.ceil(rmax * 2 * np.pi))*10
@@ -466,7 +471,7 @@ class QuadrantFolder(object):
         index_bn = np.zeros(max_num, 'f')
 
         ccp13.bgcsym2(ad=ad, b=b,
-                      smoo=smooth,
+                      smoo=smoo,
                       tens=tension,
                       pc1=pc1,
                       pc2=pc2,
@@ -498,7 +503,7 @@ class QuadrantFolder(object):
 
         self.info['bgimg1'] = result
 
-    def applySmoothedBGSub(self, type='gauss'):
+    def applySmoothedBGSub(self, typ='gauss'):
         fold = copy.copy(self.info['avg_fold'])
 
         img = self.makeFullImage(fold)
@@ -514,7 +519,7 @@ class QuadrantFolder(object):
         smbuf = np.zeros(maxfunc, 'f')
         vals = np.zeros(20, 'f')
 
-        if type == 'gauss':
+        if typ == 'gauss':
             vals[0] = self.info['fwhm']
             vals[1] = self.info['cycles']
             vals[2] = float(self.info['rmin'])
@@ -583,7 +588,7 @@ class QuadrantFolder(object):
         :return:
         """
         fold = copy.copy(self.info['avg_fold'])
-        center = [fold.shape[1] + .5, fold.shape[0] + .5]
+        # center = [fold.shape[1] + .5, fold.shape[0] + .5]
 
         img = self.makeFullImage(fold)
         width = img.shape[1]
@@ -595,7 +600,7 @@ class QuadrantFolder(object):
         jwid = self.info['win_size_y']
         isep = self.info['win_sep_x']
         jsep = self.info['win_sep_y']
-        smooth = self.info['smooth']
+        smoo = self.info['smooth']
         tension = self.info['tension']
         pc1 = self.info['cirmin'] / 100.
         pc2 = self.info['cirmax'] / 100.
@@ -609,7 +614,7 @@ class QuadrantFolder(object):
                       jwid=jwid,
                       isep=isep,
                       jsep=jsep,
-                      smoo=smooth,
+                      smoo=smoo,
                       tens=tension,
                       pc1=pc1,
                       pc2=pc2,
@@ -645,19 +650,19 @@ class QuadrantFolder(object):
         """
         copy_img = copy.copy(self.info['avg_fold'])
         center = [copy_img.shape[1] - .5, copy_img.shape[0] - .5]
-        npt_rad = int(distance(center, (0, 0)))
+        # npt_rad = int(distance(center, (0, 0)))
 
         ai = AzimuthalIntegrator(detector="agilent_titan")
         ai.setFit2D(100, center[0], center[1])
-        mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
+        # mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
         start_p = self.info["cirmin"]  # minimum value of circular background subtraction pixel range in percent
         end_p = self.info["cirmax"]  # maximum value of circular background subtraction pixel range in percent
         rmin = self.info["rmin"]  # minimum radius for background subtraction
         rmax = self.info["rmax"]  # maximum radius for background subtraction
         radial_bin = self.info["radial_bin"]
-        smooth = self.info['smooth']
-        tension = self.info['tension']
+        smoo = self.info['smooth']
+        # tension = self.info['tension']
 
         # I2D = []
         # for deg in range(180, 271):
@@ -699,7 +704,7 @@ class QuadrantFolder(object):
         xs, ys = qfu.getCircularDiscreteBackground(np.array(copy_img, np.float32), rmin, start_p, end_p, radial_bin, nBin, max_pts)
 
         max_distance = int(round(distance(center, (0,0)))) + 10
-        sp = UnivariateSpline(xs, ys, s=smooth)
+        sp = UnivariateSpline(xs, ys, s=smoo)
         newx = np.arange(rmin, rmax)
         interpolate = sp(newx)
 
@@ -738,7 +743,7 @@ class QuadrantFolder(object):
 
     def getRminmax(self):
         """
-        get R-min and R-max for backgroun subtraction process. If these value is changed, background subtracted images need to be reproduced.
+        get R-min and R-max for background subtraction process. If these value is changed, background subtracted images need to be reproduced.
         """
         self.parent.statusPrint("Finding Rmin and Rmax...")
         print("R-min and R-max is being calculated.")
@@ -760,7 +765,7 @@ class QuadrantFolder(object):
             ai = AzimuthalIntegrator(detector="agilent_titan")
             ai.setFit2D(100, center[0], center[1])
             integration_method = pyFAI.method_registry.IntegrationMethod.select_one_available("csr", 1)
-            x, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
+            _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
             self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
             self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
@@ -789,11 +794,11 @@ class QuadrantFolder(object):
 
         for deg in np.arange(180, 271, 1):
             if deg == 180 :
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(180, 180.5))
+                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(180, 180.5))
             elif deg == 270:
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(269.5, 270))
+                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(269.5, 270))
             else:
-                x, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(deg-0.5, deg+0.5))
+                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(deg-0.5, deg+0.5))
 
             hist_y = I[int(rmin):int(rmax+1)]
             hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
@@ -863,7 +868,7 @@ class QuadrantFolder(object):
         if 'avg_fold' not in self.info.keys():
             self.deleteFromDict(self.info, 'rmin')
             self.deleteFromDict(self.info, 'rmax')
-            self.imgResultForDisplay = None
+            # self.imgResultForDisplay = None
             rotate_img = copy.copy(self.getRotatedImage())
             center = self.info['center']
             center_x = int(center[0])
@@ -895,8 +900,7 @@ class QuadrantFolder(object):
 
             # Get average fold from all folds
             self.get_avg_fold(quadrants,fold_height,fold_width)
-
-            if 'resultImg' in self.imgCache.keys():
+            if 'resultImg' in self.imgCache:
                 del self.imgCache['resultImg']
 
             print("Done.")
@@ -913,7 +917,7 @@ class QuadrantFolder(object):
 
         if len(self.info["ignore_folds"]) < 4:
             # if self.info['pixel_folding']:
-            # avarage fold by pixel to pixel by cython
+            # average fold by pixel to pixel by cython
             result = qfu.get_avg_fold_float32(np.array(quadrants, dtype="float32"), len(quadrants), fold_height, fold_width,
                                                   self.info['mask_thres'])
             # else:
@@ -962,7 +966,7 @@ class QuadrantFolder(object):
                 self.info["bgimg2"] = white_tophat(avg_fold, disk(self.info["tophat2"]))
             self.deleteFromDict(self.imgCache, "BgSubFold")
 
-        print("Done")
+        print("Done.")
 
     def mergeImages(self):
         """

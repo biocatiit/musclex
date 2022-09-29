@@ -30,10 +30,10 @@ __author__ = 'Jiranun.J'
 
 import sys
 import os
-from .pyqt_utils import *
 from os.path import split
-from ..ui.EquatorWindow import EquatorWindow
 import musclex
+from .pyqt_utils import *
+from ..ui.EquatorWindow import EquatorWindow
 
 class EQStartWindow(QMainWindow):
     """

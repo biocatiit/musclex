@@ -1,12 +1,12 @@
-from .pyqt_utils import *
 from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
 import h5py
+import pandas as pd
+import musclex
+from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..csv_manager import CP_CSVManager
-import musclex
-import pandas as pd
 from .CPImageWindow import CPImageWindow
 
 
@@ -184,6 +184,8 @@ class CPBatchWindow(QMainWindow):
         self.batchmodeImgFilename = None
         self.updatingUI = False
         self.plots = {}
+        self.init_number = 0
+        self.intensityRange = []
 
         self.vec_UV = []
         self.vec_quiver = None
@@ -562,7 +564,7 @@ class CPBatchWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
+        if focused_widget is not None:
             focused_widget.clearFocus()
 
     def updateUI(self):
@@ -789,10 +791,10 @@ class CPBatchWindow(QMainWindow):
             y = self.xyIntensity[1]
 
             centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
+            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0. for i in
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
             max_width = max(ranges)
-            widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict.keys() and 0 < toFloat(
+            widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict and 0 < toFloat(
                 self.angrange_dict[i]) / max_width else max_width / 2. for i in
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
 
@@ -982,16 +984,16 @@ class CPBatchWindow(QMainWindow):
                 errMsg.exec_()
         else:
             df_sum = self.csvManager.df_sum
-            df_rings = self.csvManager.df_rings
+            # df_rings = self.csvManager.df_rings
             imgs1 = set(df_sum['filename'])
-            imgs2 = set(df_rings['filename'])
+            # imgs2 = set(df_rings['filename'])
             # all_imgs = imgs1 & imgs2
             all_imgs = imgs1
             tmp_imlist = set(imgList[:])
             imgList = list(tmp_imlist - all_imgs)
             imgList.sort()
             if len(imgList) > 0:
-                cp = CPImageWindow(self, "", dir_path, process_folder=True, imgList=imgList)
+                CPImageWindow(self, "", dir_path, process_folder=True, imgList=imgList)
             self.browseHDF(dir_path, hdfList)
 
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
@@ -1028,9 +1030,9 @@ class CPBatchWindow(QMainWindow):
         self.statusLabel.setText(text)
         QApplication.processEvents()
 
-    def updateStatusBar(self, text, bar=None):
+    def updateStatusBar(self, text, sbar=None):
         QApplication.processEvents()
         self.imagePathLabel.setText(text)
-        if bar is not None:
-            self.progressBar.setValue(bar)
+        if sbar is not None:
+            self.progressBar.setValue(sbar)
         QApplication.processEvents()

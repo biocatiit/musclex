@@ -61,10 +61,10 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
         pass_file = True
 
         if mode == 'eq':
-            test_object = EquatorImage(inputpath, filename)
+            test_object = EquatorImage(inputpath, filename, None)
             test_name = "EQUATOR IMAGE"
         elif mode == 'qf':
-            test_object = QuadrantFolder(inputpath, filename)
+            test_object = QuadrantFolder(inputpath, filename, None)
             test_name = "QUADRANT FOLDER"
         elif mode == 'dc':
             test_object = DiffractionCentroids(inputpath, [filename], 0,
@@ -248,7 +248,7 @@ def pyfai_gpu_integrate_test():
     npt = 1000
     pass_test = True
     try:
-        ai.integrate1d(data, 1000, unit="r_mm", method="csr_ocl")
+        ai.integrate1d(data, npt, unit="r_mm", method="csr_ocl")
     except:
         pass_test = False
 

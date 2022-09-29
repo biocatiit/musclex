@@ -27,20 +27,18 @@ authorization from Illinois Institute of Technology.
 """
 
 import sys
-from tifffile import imsave
 import json
-import matplotlib.patches as patches
+from os.path import splitext
+import traceback
+from tifffile import imsave
+import pandas as pd
+import musclex
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
 from .pyqt_utils import *
-from os.path import split, splitext
-import musclex
-import traceback
-import pandas as pd
-from ..CalibrationSettings import CalibrationSettings
 
-class QuadrantFoldingh(QMainWindow):
+class QuadrantFoldingh:
     """
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
@@ -68,25 +66,35 @@ class QuadrantFoldingh(QMainWindow):
         self.orientationModel = None
         self.modeOrientation = None
         self.newImgDimension = None
-        
+
         self.dir_path, self.imgList, self.currentFileNumber = getImgFiles(str(filename))
+        self.numberOfFiles = 0
         if len(self.imgList) == 0:
             self.inputerror()
             return
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
+        fileName = self.imgList[self.currentFileNumber]
+        self.quadFold = QuadrantFolder(self.dir_path, fileName, self)
 
+        if self.inputsettings:
+            self.setCalibrationImage()
+            self.processImage()
         self.onImageChanged()
 
     def inputerror(self):
-        # Display input error to screen
+        """
+        Display input error to screen
+        """
         print('Invalid Input')
         print("Please select non empty failedcases.txt or an image\n\n")
 
     def ableToProcess(self):
-        # Check if image can be processed
-        return (self.quadFold is not None)
+        """
+        Check if image can be processed
+        """
+        return self.quadFold is not None
 
     def deleteInfo(self, delList):
         """
@@ -104,21 +112,23 @@ class QuadrantFoldingh(QMainWindow):
         This will create a new QuadrantFolder object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-
         fileName = self.imgList[self.currentFileNumber]
         file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "qf_cache",file)
+        cache_path = os.path.join(self.dir_path, "qf_cache", file)
         cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
                 os.remove(cache_path)
 
-        self.quadFold = QuadrantFolder(self.dir_path, fileName, self)
+        # self.quadFold = QuadrantFolder(self.dir_path, fileName, self)
 
-        flags = None
-        flags = self.getFlags()
+        if 'ignore_folds' in self.quadFold.info:
+            self.ignoreFolds = self.quadFold.info['ignore_folds']
+
+        # self.updateParams()
+        self.markFixedInfo(self.quadFold.info)
         print("Settings in onImageChange before update")
-        print(flags)
+        print(self.calSettings)
 
         # Process new image
         self.processImage()
@@ -133,14 +143,25 @@ class QuadrantFoldingh(QMainWindow):
             print('cache exist, no fitting was performed')
         elif not self.inputsettings and (self.delcache or not cache_exist):
             print('fitting with default settings')
-        
+
         print('---------------------------------------------------')
+
+    def markFixedInfo(self, currentInfo):
+        """
+        Deleting the center for appropriate recalculation
+        """
+        if 'center' in currentInfo:
+            del currentInfo['center']
+
+        if 'calib_center' in currentInfo:
+            del currentInfo['calib_center']
 
     def getExtentAndCenter(self):
         if self.quadFold is None:
             return [0,0], (0,0)
-        self.quadFold.findCenter()
-        self.statusPrint("Done.")
+        if self.quadFold.orig_image_center is None:
+            self.quadFold.findCenter()
+            self.statusPrint("Done.")
         if 'calib_center' in self.quadFold.info:
             center = self.quadFold.info['calib_center']
         elif 'manual_center' in self.quadFold.info:
@@ -158,14 +179,13 @@ class QuadrantFoldingh(QMainWindow):
         Then, write data and update UI
         """
         if self.ableToProcess():
-
             flags = self.getFlags()
             print("Flags in processImage:")
             print(flags)
 
             try:
                 self.quadFold.process(flags)
-            except Exception as e:
+            except Exception:
                 print('Unexpected error')
                 msg = 'Please report the problem with error message below and the input image\n\n'
                 msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
@@ -175,7 +195,7 @@ class QuadrantFoldingh(QMainWindow):
             self.updateParams()
 
             # Save result to folder qf_results
-            if 'resultImg' in self.quadFold.imgCache.keys():
+            if 'resultImg' in self.quadFold.imgCache:
                 result_path = fullPath(self.dir_path, 'qf_results')
                 createFolder(result_path)
 
@@ -188,9 +208,9 @@ class QuadrantFoldingh(QMainWindow):
                 # else:
                 #     img = img.astype(self.quadFold.info['imgType'])
                 img = img.astype("float32")
-
                 metadata = json.dumps([True, self.quadFold.initImg.shape])
                 result_file += '_folded.tif'
+                # fabio_img = fabio.fabioimage.FabioImage(img, metadata)
                 imsave(result_file, img, description=metadata)
 
                 self.saveBackground()
@@ -238,13 +258,7 @@ class QuadrantFoldingh(QMainWindow):
             # Update cal settings center with the corresponding coordinate in original (or initial) image
             # so that it persists correctly on moving to next image
             self.calSettings['center'] = info['calib_center']
-        extent, center = self.getExtentAndCenter()
-        cx, cy = center
-        cxr, cyr = self.quadFold.info['center']
-        xlim, ylim = self.quadFold.initImg.shape
-        xlim, ylim = int(xlim/2), int(ylim/2)
-        self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
-        self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
+        self.getExtentAndCenter()
 
     def getFlags(self):
         """
@@ -254,21 +268,31 @@ class QuadrantFoldingh(QMainWindow):
         flags = {}
 
         flags['orientation_model'] = self.orientationModel
-        flags["ignore_folds"] = self.ignoreFolds
-        flags['bgsub'] = 'None' # No background substraction in headless mode
-        settingspath=self.settingspath
+        flags['ignore_folds'] = self.ignoreFolds
+        # default values, same as QuadrantFoldingGUI.py default
+        flags['bgsub'] = 'None'
+        flags["cirmin"] = 0.0
+        flags["cirmax"] = 25.0
+        flags['win_size_x'] = 10
+        flags['win_size_y'] = 10
+        flags['win_sep_x'] = 10
+        flags['win_sep_y'] = 10
+        flags["bin_theta"] = 30
+        flags['radial_bin'] = 10
+        flags['smooth'] = 0.1
+        flags['tension'] = 1.0
+        flags["tophat1"] = 5
+        flags['tophat2'] = 20
+        flags['mask_thres'] = 0.0 # getMaskThreshold(self.quadFold.orig_img, self.quadFold.img_type)
+        flags['sigmoid'] = 0.1
+        flags['fwhm'] = 10
+        flags['boxcar_x'] = 10
+        flags['boxcar_y'] = 10
+        flags['cycles'] = 5
+        flags['blank_mask'] = False
+        flags['rotate'] = False
 
-        if self.inputsettings==True:    
-                
-            try:
-                with open(settingspath) as f:
-                    flags.update(json.load(f))
-            except:
-                print("Can't load setting file")
-                self.inputsettings=False
-                flags.update({"center": [1030.22, 1015.58], "radius": 686, "silverB": 5.83803, "type": "img"})
-        # else:
-        #     flags.update({"center": [1030.22, 1015.58], "radius": 686, "silverB": 5.83803, "type": "img"})
+        #self.setCalibrationImage()
 
         if 'center' in flags:
             flags.pop('center')
@@ -287,14 +311,14 @@ class QuadrantFoldingh(QMainWindow):
 
         flags = self.getFlags()
         print("\nCurrent Settings")
-        if 'center' in flags.keys():
+        if 'center' in flags:
             print("\n  - Center : " + str(flags["center"]))
         if len(self.ignoreFolds) > 0:
             print("\n  - Ignore Folds : " + str(list(self.ignoreFolds)))
         print("\n  - Mask Threshold : " + str(flags["mask_thres"]))
 
         if flags['bgsub'] != 'None':
-            if 'fixed_rmin' in flags.keys():
+            if 'fixed_rmin' in flags:
                 print("\n  - R-min : " + str(flags["fixed_rmin"]))
                 print("\n  - R-max : " + str(flags["fixed_rmax"]))
 
@@ -319,16 +343,32 @@ class QuadrantFoldingh(QMainWindow):
 
         print('\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.')
 
-    def fileNameChanged(self):
-        selected_tab = self.tabWidget.currentIndex()
-        if selected_tab == 0:
-            fileName = self.filenameLineEdit.text().strip()
-        elif selected_tab == 1:
-            fileName = self.filenameLineEdit2.text().strip()
-        if fileName not in self.imgList:
-            return
-        self.currentFileNumber = self.imgList.index(fileName)
-        self.onImageChanged()
-
     def statusPrint(self, text):
         print(text)
+
+    def setCalibrationImage(self):
+        """
+        Popup Calibration Settings window, if there's calibration settings in cache or force to open
+        :param force: force to popup the window
+        :return: True if calibration set, False otherwise
+        """
+        settingspath=self.settingspath
+
+        if self.inputsettings:
+            try:
+                with open(settingspath, 'r') as f:
+                    self.calSettings = json.load(f)
+            except Exception:
+                print("Can't load setting file")
+                self.inputsettings=False
+                self.calSettings = {"center": [1030.22, 1015.58], "radius": 686, "silverB": 5.83803, "type": "img"}
+            self.quadFold.info['calib_center'] = self.calSettings['center']
+            if 'manual_center' in self.quadFold.info:
+                del self.quadFold.info['manual_center']
+            if 'center' in self.quadFold.info:
+                del self.quadFold.info['center']
+        else:
+            if self.quadFold is not None and 'calib_center' in self.quadFold.info:
+                del self.quadFold.info['calib_center']
+            if self.quadFold is not None and 'center' in self.quadFold.info:
+                del self.quadFold.info['center']

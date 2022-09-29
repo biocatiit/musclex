@@ -1,19 +1,20 @@
-from .pyqt_utils import *
+import logging
+from csv import writer
+import json
 import matplotlib.patches as patches
-from numpy import ma
 from matplotlib import scale as mscale
 from matplotlib import transforms as mtransforms
 from matplotlib.colors import LogNorm, Normalize
-import logging
+import pandas as pd
+import numpy as np
+from numpy import ma
+import musclex
+from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import CP_CSVManager
-import musclex
 from .BlankImageSettings import BlankImageSettings
-from csv import writer
-import pandas as pd
-import numpy as np
 
 class DSpacingScale(mscale.ScaleBase):
     name = 'dspacing'
@@ -155,7 +156,10 @@ class CPImageWindow(QMainWindow):
         self.orientationModel = None
         self.in_batch_process = False
         self.pixelDataFile = None
-        self.flags={}
+        self.flags = {}
+        self.stop_process = False
+        self.intensityRange = []
+        self.updatingUI = False
 
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
@@ -727,7 +731,7 @@ class CPImageWindow(QMainWindow):
             ax.text(x,0,'Peak#'+str(len(self.function)),fontsize=10, horizontalalignment='center')
             self.function.append(int(round(x)))
             self.result_graph_canvas.draw_idle()
-    
+
     def saveSettings(self):
         """
         save settings to json
@@ -735,8 +739,6 @@ class CPImageWindow(QMainWindow):
         settings = self.flags
         filename=getSaveFile("musclex/settings/disettings.json",None)
         if filename!="":
-            import json
-
             with open(filename,'w') as f:
                 json.dump(settings,f)
 
@@ -1040,8 +1042,7 @@ class CPImageWindow(QMainWindow):
 
         if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['fixed_hull'] = self.fixed_hull_range
-        
-       
+
         return flags
 
     def maxIntChanged(self):
@@ -1081,7 +1082,7 @@ class CPImageWindow(QMainWindow):
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
         self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
-       
+
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         # Calculating grid lines to exclude in pixel data computation
         grid_lines = np.where(self.cirProj.original_image < 0)
@@ -1111,7 +1112,7 @@ class CPImageWindow(QMainWindow):
         return mask
 
     def addPixelDataToCsv(self, grid_lines):
-        if self.pixelDataFile == None:
+        if self.pixelDataFile is None:
             self.pixelDataFile = self.filePath + '/cp_results/BackgroundSummary.csv'
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
@@ -1124,7 +1125,7 @@ class CPImageWindow(QMainWindow):
         recordedFileNames = set(csvDF['File Name'].values)
 
         # Compute the average pixel value and number of pixels outside rmin/mask
-        blank, mask = getBlankImageAndMask(self.filePath)
+        _, mask = getBlankImageAndMask(self.filePath)
         img = copy.copy(self.cirProj.original_image)
         if mask is not None:
             numberOfPixels = np.count_nonzero(mask == 0)
@@ -1280,7 +1281,7 @@ class CPImageWindow(QMainWindow):
         self.function = None
         for b in self.checkable_buttons:
             b.setChecked(False)
-        for k in self.update_plot.keys():
+        for k in self.update_plot:
             self.update_plot[k] = True
 
     def m1_update_plots(self):
@@ -1320,7 +1321,7 @@ class CPImageWindow(QMainWindow):
     def updateImageTab(self):
         img = copy.copy(self.cirProj.original_image)
         if self.blankChkBx.isChecked():
-            blank, mask = getBlankImageAndMask(self.filePath)
+            blank, _ = getBlankImageAndMask(self.filePath)
             if blank is not None:
                 img = img - blank
 
@@ -1336,7 +1337,7 @@ class CPImageWindow(QMainWindow):
 
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
-        
+
         center = (int(np.round(self.cirProj.info['center'][0])), int(np.round(self.cirProj.info['center'][1])))
 
         if self.displayRingsChkbx.isChecked() and 'fitResult' in self.cirProj.info.keys():
@@ -1753,15 +1754,15 @@ class CPImageWindow(QMainWindow):
         processing_results_text = "Total Intensity : "+ str(self.cirProj.info['area'])
         processing_results_text += "\n\nFitting Results :"
         if 'fitResult' in self.cirProj.info.keys():
-                fit_result = self.cirProj.info['fitResult']
-                n = int(len(fit_result.keys())/3)
-                for i in range(1, n+1):
-                    processing_results_text += "\nPeak "+str(i)+': '
-                    processing_results_text += "\tcenter(pixel) : "+str(fit_result['u'+str(i)])+'\n'
-                    if 'peak_ds' in self.cirProj.info:
-                        processing_results_text += "\tcenter(nm) : " + str(self.cirProj.info['peak_ds'][i-1]) + '\n'
-                    processing_results_text += "\tarea  : " + str(fit_result['alpha' + str(i)]) + '\n'
-                    processing_results_text += "\tsigmad : " + str(fit_result['sigmad' + str(i)]) + '\n'
+            fit_result = self.cirProj.info['fitResult']
+            n = int(len(fit_result.keys())/3)
+            for i in range(1, n+1):
+                processing_results_text += "\nPeak "+str(i)+': '
+                processing_results_text += "\tcenter(pixel) : "+str(fit_result['u'+str(i)])+'\n'
+                if 'peak_ds' in self.cirProj.info:
+                    processing_results_text += "\tcenter(nm) : " + str(self.cirProj.info['peak_ds'][i-1]) + '\n'
+                processing_results_text += "\tarea  : " + str(fit_result['alpha' + str(i)]) + '\n'
+                processing_results_text += "\tsigmad : " + str(fit_result['sigmad' + str(i)]) + '\n'
 
         self.processing_results.setText(processing_results_text)
 
@@ -1809,6 +1810,5 @@ class CPImageWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
+        if focused_widget is not None:
             focused_widget.clearFocus()
-

@@ -28,29 +28,28 @@ authorization from Illinois Institute of Technology.
 
 import sys
 import copy
-import os, shutil
+import os
+from os.path import split
+import shutil
 import json
-
-
-from .pyqt_utils import *
+import math
+import traceback
+import webbrowser
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
-from os.path import split
-import traceback
-import webbrowser
+from skimage.feature import peak_local_max
+import musclex
+from .pyqt_utils import *
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.file_manager import fullPath, getImgFiles
+from ..utils import logger
+from ..utils.image_processor import *
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..modules.QuadrantFolder import QuadrantFolder
-from ..utils.image_processor import *
 from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
 from ..ui.EQ_FittingTab import EQ_FittingTab
-import musclex
 from .BlankImageSettings import BlankImageSettings
-from ..utils import logger
-from skimage.feature import peak_local_max
-
 
 class EquatorWindow(QMainWindow):
     """
@@ -80,6 +79,17 @@ class EquatorWindow(QMainWindow):
         self.fixedIntArea = None
         self.orientationModel = None
         self.modeOrientation = None
+        self.doubleZoomAxes = None
+        self.doubleZoomMode = False
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.newImgDimension = None
+        self.plot_min = None
+        self.stop_process = False
+        self.doubleZoomPt = None
+        self.chordpoints = []
+        self.chordLines = []
+        self.quadFold = None
+
         self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
         if len(self.imgList) == 0:
             self.inputerror()
@@ -91,11 +101,8 @@ class EquatorWindow(QMainWindow):
         self.initUI()  # Initial all UI
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
-        
-        
-        
+
         #self.onImageChanged() # Toggle window to process current image
-        
 
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
@@ -108,9 +115,8 @@ class EquatorWindow(QMainWindow):
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
-        if self.setCalibrationImage():
-            self.processImage()
-        
+        self.setCalibrationImage()
+        #    self.processImage()
 
         self.processImage()
         self.show()
@@ -133,7 +139,7 @@ class EquatorWindow(QMainWindow):
     def mousePressEvent(self, event):
         # Clear focus when mouse pressed
         focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
+        if focused_widget is not None:
             focused_widget.clearFocus()
 
     def initUI(self):
@@ -455,7 +461,6 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout.addSpacing(10)
         self.fittingOptionsLayout.addWidget(self.fitDispOptionGrp)
         self.fittingOptionsLayout.addStretch()
-
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(505)
@@ -796,6 +801,7 @@ class EquatorWindow(QMainWindow):
             self.updateParamInfo('sigz', side, fitparams)
             self.updateParamInfo('zline', side, fitparams)
             self.updateParamInfo('gammaz', side, fitparams)
+        return 0
 
     def updateParamInfo(self, param, side, fitparams):
         paramInfo = self.bioImg.info['paramInfo']
@@ -809,7 +815,6 @@ class EquatorWindow(QMainWindow):
             if side + '_' + param in fitparams:
                 pInfo['val'] = fitparams[side + '_' + param]
 
-        
     def refitAllBtnToggled(self):
         if self.refitAllButton.isChecked():
             if not self.in_batch_process:
@@ -817,7 +822,7 @@ class EquatorWindow(QMainWindow):
                 self.refitAll()
         else:
             self.stop_process = True
-    
+
     def refitAll(self):
         """
         Refit current folder
@@ -843,23 +848,22 @@ class EquatorWindow(QMainWindow):
         text += "\n  - Model : " + str(settings["model"])
 
         for side in ['left', 'right']:
-            if side+'_fix_sigmac' in settings.keys():
+            if side+'_fix_sigmac' in settings:
                 text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
-            if side+'_fix_sigmad' in settings.keys():
+            if side+'_fix_sigmad' in settings:
                 text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
-            if side+'_fix_sigmas' in settings.keys():
+            if side+'_fix_sigmas' in settings:
                 text += "\n  - "+side+" Fixed Sigma S : " + str(settings[side+'_fix_sigmas'])
-            if side+'_fix_gamma' in settings.keys():
+            if side+'_fix_gamma' in settings:
                 text += "\n  - "+side+" Fixed Gamma : " + str(settings[side+'_fix_gamma'])
-            if side+'_fix_zline' in settings.keys():
+            if side+'_fix_zline' in settings:
                 text += "\n  - "+side+" Fixed Z line Center: " + str(settings[side+'_fix_zline'])
-            if side+'_fix_intz' in settings.keys():
+            if side+'_fix_intz' in settings:
                 text += "\n  - "+side+" Fixed Z line Intensity : " + str(settings[side+'_fix_intz'])
-            if side+'_fix_sigz' in settings.keys():
+            if side+'_fix_sigz' in settings:
                 text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
-            if side+'_fix_gammaz' in settings.keys():
+            if side+'_fix_gammaz' in settings:
                 text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
-
 
         if self.calSettings is not None:
             if "center" in self.calSettings:
@@ -934,13 +938,12 @@ class EquatorWindow(QMainWindow):
                 self.doubleZoomPt = (x, y)
                 ax1.imshow(imgScaled)
                 y, x = imgScaled.shape
-                cy, cx = y // 2, x // 2
+                # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
                         ax1.lines.pop(i)
                 for i in range(len(ax1.patches)-1,-1,-1):
                     ax1.patches.pop(i)
-
         else:
             self.displayImgFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
@@ -969,7 +972,6 @@ class EquatorWindow(QMainWindow):
         result = dlg.exec_()
         if result == 1 and self.bioImg is not None:
             self.resetAll()
-
 
     def graphZoomIn(self):
         """
@@ -1337,7 +1339,7 @@ class EquatorWindow(QMainWindow):
                 errMsg.exec_()
             else:
                 self.mainWindow.runBioMuscle(str(file_name))
-    
+
     def saveSettings(self):
         """
         save settings to json
@@ -1404,23 +1406,22 @@ class EquatorWindow(QMainWindow):
         text += "\n  - Model : " + str(settings["model"])
 
         for side in ['left', 'right']:
-            if side+'_fix_sigmac' in settings.keys():
+            if side+'_fix_sigmac' in settings:
                 text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
-            if side+'_fix_sigmad' in settings.keys():
+            if side+'_fix_sigmad' in settings:
                 text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
-            if side+'_fix_sigmas' in settings.keys():
+            if side+'_fix_sigmas' in settings:
                 text += "\n  - "+side+" Fixed Sigma S : " + str(settings[side+'_fix_sigmas'])
-            if side+'_fix_gamma' in settings.keys():
+            if side+'_fix_gamma' in settings:
                 text += "\n  - "+side+" Fixed Gamma : " + str(settings[side+'_fix_gamma'])
-            if side+'_fix_zline' in settings.keys():
+            if side+'_fix_zline' in settings:
                 text += "\n  - "+side+" Fixed Z line Center: " + str(settings[side+'_fix_zline'])
-            if side+'_fix_intz' in settings.keys():
+            if side+'_fix_intz' in settings:
                 text += "\n  - "+side+" Fixed Z line Intensity : " + str(settings[side+'_fix_intz'])
-            if side+'_fix_sigz' in settings.keys():
+            if side+'_fix_sigz' in settings:
                 text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
-            if side+'_fix_gammaz' in settings.keys():
+            if side+'_fix_gammaz' in settings:
                 text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
-
 
         if self.calSettings is not None and len(self.calSettings) > 0:
             if "center" in self.calSettings:
@@ -1486,17 +1487,17 @@ class EquatorWindow(QMainWindow):
 
         self.calSettings = None
         cal_setting = self.calibSettingDialog.calSettings
-       
+
         print('cal_setting is:',cal_setting)
         if cal_setting is not None or force:
-            
+
             result = self.calibSettingDialog.exec_()
             logMsgs = self.calibSettingDialog.logMsgs
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
-                
+
                 if "center" in self.calSettings:
-                    
+
                     self.bioImg.info['calib_center'] = self.calSettings["center"]
                     self.bioImg.removeInfo('center')
                 # Unchecking use previous fit
@@ -1520,7 +1521,7 @@ class EquatorWindow(QMainWindow):
 
     def rejectClicked(self):
         """
-        Mark EquatorImage object as rejected. Save to cache and write data tto summary file
+        Mark EquatorImage object as rejected. Save to cache and write data to summary file
         """
         if self.bioImg is None or self.syncUI:
             return
@@ -1585,10 +1586,10 @@ class EquatorWindow(QMainWindow):
         """
         self.currentImg = (self.currentImg - 1) % len(self.imgList)
         self.onImageChanged()
-        
+
     def nextImageFitting(self):
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
-        
+
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
@@ -1600,10 +1601,10 @@ class EquatorWindow(QMainWindow):
         nPeaks = settings['nPeaks'] if 'nPeaks' in settings else None
         isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
         # settings.update(self.bioImg.info)
-        
-        if nPeaks != None:
+
+        if nPeaks is not None:
             settings['nPeaks'] = nPeaks
-        if isSkeletal != None:
+        if isSkeletal is not None:
             settings['isSkeletal'] = isSkeletal
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
@@ -1721,7 +1722,7 @@ class EquatorWindow(QMainWindow):
                     horizontalLines.append((func[i], func[i+1]))
             for line1 in verticalLines:
                 for line2 in horizontalLines:
-                    cx, cy = self.getIntersectionOfTwoLines(line2, line1)
+                    cx, cy = self.getIntersectionOfTwoLines(line1, line2)
                     print("Intersection ", (cx, cy))
                     intersections.append((cx, cy))
             cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
@@ -1739,7 +1740,6 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo('rmin')
             self.setCentByPerp.setChecked(False)
             self.processImage()
-
 
     def calcSlope(self, pt1, pt2):
         if pt1[0] == pt2[0]:
@@ -1762,7 +1762,7 @@ class EquatorWindow(QMainWindow):
                 ax.lines.pop(i)
             for i in range(len(ax.patches)-1,-1,-1):
                 ax.patches.pop(i)
-            self.chordpoints=[]
+            self.chordpoints = []
             self.chordLines = []
             self.displayImgCanvas.draw_idle()
             self.function = ["chords_center"]  # set current active function
@@ -1888,7 +1888,6 @@ class EquatorWindow(QMainWindow):
         """
         find the oritation along the brightest spots
         """
-     
         if self.brightSpot.isChecked():
             self.setLeftStatus("Please select a center")
             ax = self.displayImgAxes
@@ -1904,9 +1903,9 @@ class EquatorWindow(QMainWindow):
             ax = self.displayImgAxes
             # im=self.bioImg.getRotatedImage().copy()
             im=copy.copy(self.bioImg.getRotatedImage())
-               
+
             coordinates,m,b=self.fitb(im,xc,yc)
-            
+
             ax.scatter(coordinates[:,1],coordinates[:,0],marker='o')
             fit_eq=m*coordinates[:,1]+b
             ax.plot(coordinates[:,1],fit_eq,color='r')
@@ -1924,25 +1923,24 @@ class EquatorWindow(QMainWindow):
                         pass
                     else:
                         im[i][j]=0
-            
-            orig_img, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
-            
+
+            _, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
+
             center=self.bioImg.info['center']
-           
+
             # self.bioImg.removeInfo('rmin')
             # self.bioImg.removeInfo('int_area')
             # self.bioImg.removeInfo('fit_results')
             # self.bioImg.removeInfo('hist')
             self.fixedAngleChkBx.setChecked(True)
-            
+
             new_angle=math.degrees(math.atan(m))
             #self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
             angle= self.bioImg.info['rotationAngle'] + new_angle
             self.bioImg.removeInfo()
-            
+
             self.bioImg.info['center']=center
             self.bioImg.info['rotationAngle'] =angle
-            
 
             self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
             self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
@@ -1950,13 +1948,10 @@ class EquatorWindow(QMainWindow):
             self.brightSpot.setChecked(False)
             self.processImage()
 
-            
             self.fixedAngleChkBx.setChecked(False)
-            
+
         else:
             self.resetUI()
-
-        
 
     def setIntAreaClicked(self):
         """
@@ -2017,7 +2012,7 @@ class EquatorWindow(QMainWindow):
         if self.bioImg is not None:
 
             modeOrientation = self.getModeRotation()
-            if modeOrientation != None:
+            if modeOrientation is not None:
                 if not self.modeAngleChkBx.isChecked():
                     self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
                     self.bioImg.removeInfo("mode_angle")
@@ -2027,7 +2022,6 @@ class EquatorWindow(QMainWindow):
                     self.bioImg.info["mode_angle"] = modeOrientation
                     self.processImage()
             else:
-                f=1
                 self.modeAngleChkBx.setCheckState(Qt.Unchecked) # executes twice, setChecked executes once but button becomes unresponsive for one click
 
                 msg = QMessageBox()
@@ -2044,7 +2038,7 @@ class EquatorWindow(QMainWindow):
         :param file_list: list of image path (str)
         :return: mode of orientation of all images in the folder
         """
-        if self.modeOrientation != None:
+        if self.modeOrientation is not None:
             return self.modeOrientation
         print("Calculating mode of angles of images in directory")
         angles = []
@@ -2053,7 +2047,7 @@ class EquatorWindow(QMainWindow):
             print("Getting angle {}".format(f))
 
             if 'rotationAngle' not in bioImg.info:
-                return
+                return None
             angle = bioImg.info['rotationAngle']
             angles.append(angle)
         self.modeOrientation = max(set(angles), key=angles.count)
@@ -2131,7 +2125,7 @@ class EquatorWindow(QMainWindow):
         lnew=0
         y=coordinates[:,0]
         x=coordinates[:,1]
-       
+
         while lnew!=lold:
             lold=lnew
             m, b = np.polyfit(x,y,1)
@@ -2143,11 +2137,10 @@ class EquatorWindow(QMainWindow):
             avg=np.mean(dist)
             lower=avg-2*std
             upper=avg+2*std
-        
+
             indx=[]
-        
+
             for i in range(0,len(dist)):
-                
                 if dist[i]>upper or dist[i]<lower or dist[i]>2*avg:
                     indx.append(i)
             x=np.delete(x,indx)
@@ -2157,17 +2150,13 @@ class EquatorWindow(QMainWindow):
 
     def fitb(self,im,xc,yc):
         coordinates = peak_local_max(im, min_distance=10,threshold_rel=0.5)
-   
         coordinates=self.rec(xc,yc,coordinates)
-    
         l=20
         if coordinates.shape[0]<20:
             l=coordinates.shape[0]
         coordinates=coordinates[0:l,:]
         x,y,m,b=self.deleteOutlier(coordinates)
-       
         coordinates=np.stack((y,x),axis=1)
-
         return coordinates, m, b
 
     def imgClicked(self, event):
@@ -2266,7 +2255,7 @@ class EquatorWindow(QMainWindow):
 
                 cx = int(round((x1 + x2) / 2.))
                 cy = int(round((y1 + y2) / 2.))
-                M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
+                # M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
                 new_center = [cx, cy]
                 # Set new center and rotaion angle , re-calculate R-min
                 self.bioImg.info['center'] = (int(round(new_center[1])), int(round(new_center[0])))
@@ -2294,8 +2283,6 @@ class EquatorWindow(QMainWindow):
             self.setAngleB.setChecked(False)
             self.processImage()
         # elif func[0]=="bright":
-            
-
             # ax = self.displayImgAxes
             # axis_size = 5
             # if self.doubleZoom.isChecked() and not self.doubleZoomMode:
@@ -2309,14 +2296,13 @@ class EquatorWindow(QMainWindow):
             # if len(func) == 2:
             #     QApplication.restoreOverrideCursor()
             #     xc,yc=func[1]
-                
 
             #     # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             #     # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             #     im=self.bioImg.getRotatedImage().copy()
-               
+
             #     coordinates,m,b=self.fitb(im,xc,yc)
-                
+
             #     ax.scatter(coordinates[:,1],coordinates[:,0],marker='o')
             #     fit_eq=m*coordinates[:,1]+b
             #     ax.plot(coordinates[:,1],fit_eq,color='r')
@@ -2334,15 +2320,15 @@ class EquatorWindow(QMainWindow):
             #                 pass
             #             else:
             #                 im[i][j]=0
-               
+
             #     orig_img, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
-                
+
             #     center=self.bioImg.info['center']
             #     print(center)
             #     self.bioImg.removeInfo('rmin')
             #     self.bioImg.removeInfo('int_area')
             #     self.fixedAngleChkBx.setChecked(True)
-              
+
             #     new_angle=math.degrees(math.atan(m))
             #     self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
             #     self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
@@ -2351,7 +2337,6 @@ class EquatorWindow(QMainWindow):
             #     self.brightSpot.setChecked(False)
             #     self.processImage()
 
-                
             #     self.fixedAngleChkBx.setChecked(False)
 
         elif func[0] == "int_area":
@@ -2362,14 +2347,14 @@ class EquatorWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
             if len(func) == 3:
                 int_area = [int(round(func[1])), int(round(func[2]))]
-                t = min(int_area)
+                min_t = min(int_area)
                 b = max(int_area)
                 # Set new integrated area, re-calculate from getting histogram process
-                self.bioImg.info['int_area'] = (t, b)
-                self.log_changes('intArea', varName='int_area', newValue=(t, b))
+                self.bioImg.info['int_area'] = (min_t, b)
+                self.log_changes('intArea', varName='int_area', newValue=(min_t, b))
                 self.bioImg.removeInfo('hist')
                 if self.fixedIntAreaChkBx.isChecked():
-                    self.fixedIntArea = (t, b)
+                    self.fixedIntArea = (min_t, b)
                 self.function = None
                 self.setIntAreaB.setChecked(False)
                 self.processImage()
@@ -2526,10 +2511,10 @@ class EquatorWindow(QMainWindow):
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,-1,-1):
+                    # first_cross = ax.lines[:2]
+                    for i in range(len(ax.lines)-1,1,-1):
                         ax.lines.pop(i)
-                    ax.lines = first_cross
+                    # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -2683,7 +2668,7 @@ class EquatorWindow(QMainWindow):
         if 'fix_k' in info:
             self.k_chkbx.setChecked(True)
             self.k_spnbx.setValue(info['fix_k'])
-                
+
         if 'nPeaks' in info:
             self.nPeakSpnBx.setValue(info['nPeaks'])
 
@@ -2804,7 +2789,6 @@ class EquatorWindow(QMainWindow):
             return False
 
         currentInfo = self.bioImg.info
-        
 
         # Check Background k
         if self.k_chkbx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'fix_k'):
@@ -2892,7 +2876,7 @@ class EquatorWindow(QMainWindow):
 
         if self.modeAngleChkBx.isChecked():
             modeOrientation = self.getModeRotation()
-            if modeOrientation != None:
+            if modeOrientation is not None:
                 flags["mode_angle"] = modeOrientation
 
         flags['rotate'] = False
@@ -2947,8 +2931,8 @@ class EquatorWindow(QMainWindow):
                 self.brightSpotClicked()
 
             self.bioImg.process(settings, paramInfo)
-            
-        except Exception as e:
+
+        except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
@@ -3017,7 +3001,6 @@ class EquatorWindow(QMainWindow):
         settings['isSkeletal'] = self.skeletalChkBx.isChecked()
         settings['mask_thres'] = self.maskThresSpnBx.value()
         settings['90rotation'] = self.rotation90ChkBx.isChecked()
-        
 
         if self.calSettings is not None:
             if 'type' in self.calSettings:
@@ -3031,7 +3014,7 @@ class EquatorWindow(QMainWindow):
 
         if self.fixedAngleChkBx.isChecked():
             settings['fixed_angle'] = self.fixedAngle.value()
-        
+
         if self.brightSpot.isChecked():
             settings['find_oritation']=True
         else:
@@ -3049,7 +3032,7 @@ class EquatorWindow(QMainWindow):
 
         if self.modeAngleChkBx.isChecked():
             modeOrientation = self.getModeRotation()
-            if modeOrientation != None:
+            if modeOrientation is not None:
                 settings["mode_angle"] = modeOrientation
 
         if self.applyBlank.isChecked():
@@ -3127,7 +3110,7 @@ class EquatorWindow(QMainWindow):
         QApplication.restoreOverrideCursor()
         for b in self.checkableButtons:
             b.setChecked(False)
-        for k in self.update_plot.keys():
+        for k in self.update_plot:
             self.update_plot[k] = True
 
         # change seleck peak button's text
@@ -3211,7 +3194,7 @@ class EquatorWindow(QMainWindow):
         center = info['center']
         rmin = info['rmin']
         int_area = info['int_area']
-        
+
         ax = self.displayImgAxes
         ax.cla()
         #ax.imshow(disp_img)  # Display selected image
@@ -3332,11 +3315,9 @@ class EquatorWindow(QMainWindow):
             self.plot_min = ax.get_ylim()[0]
             ax.set_xlim(0, len(hull))
 
-
         self.fittingFigure.tight_layout()
         self.fittingCanvas.draw()
         self.update_plot['fit'] = False
-
 
     def updateResultsTab(self):
         """
@@ -3364,7 +3345,6 @@ class EquatorWindow(QMainWindow):
                 genResults += " <b>(High Error)</b>"
         else:
             genResults +=  "<b>Model cannot be fit</b>"
-
 
         if self.calSettings is not None:
             genResults += "<h2>Calibration Settings</h2>"
@@ -3459,7 +3439,6 @@ class EquatorWindow(QMainWindow):
                 self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_intz'])))
                 ind += 1
 
-
                 if fit_results['model'] == 'Voigt':
 
                     # Display gamma in table if model is Voigt
@@ -3552,7 +3531,7 @@ class EquatorWindow(QMainWindow):
         :param item:
         :return:
         '''
-        if item == None:
+        if item is None:
             return
         if item.column() == 0:
             row = item.row()
@@ -3581,7 +3560,7 @@ class EquatorWindow(QMainWindow):
             c0 = table.item(row, 0)
             c1 = table.item(row, 1).text()
             paramInfo[c1] = {}
-            if table.cellWidget(row, 2) != None:
+            if table.cellWidget(row, 2) is not None:
                 c2 = table.cellWidget(row, 2).value()
                 c3 = table.cellWidget(row, 3).value()
                 c4 = table.cellWidget(row, 4).value()
@@ -3592,7 +3571,7 @@ class EquatorWindow(QMainWindow):
             else:
                 c2 = table.item(row, 2).text()
                 paramInfo[c1]['fixed'] = True
-                if c2 == 'True' or c2 == 'False':
+                if c2 in ('True', 'False'):
                     c2 = bool(c2)
                 paramInfo[c1]['val'] = c2
 
@@ -3673,7 +3652,7 @@ class EquatorWindow(QMainWindow):
         paramInfo = self.getInfoFromParameterEditor()
         try:
             self.bioImg.processParameters(paramInfo)
-        except Exception as e:
+        except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
@@ -3722,4 +3701,3 @@ class EquatorWindow(QMainWindow):
             return
         self.write_log('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
         self.editableVars[varName] = newValue
-

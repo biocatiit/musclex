@@ -25,26 +25,25 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-import cv2
-# import cv2.cv as cv
-import numpy as np
 import copy
-import fabio
 import math
-from skimage.morphology import white_tophat
 import time
+from os.path import exists
+import collections
+import pickle
+import cv2
+import numpy as np
+import fabio
+from skimage.morphology import white_tophat
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel
 from scipy.integrate import simps
-from os.path import  exists
 from sklearn.metrics import r2_score
-import collections
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+import musclex
 from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
-import pickle
-import musclex
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 class ScanningDiffraction:
     """
@@ -52,7 +51,7 @@ class ScanningDiffraction:
     """
     def __init__(self, filepath, filename, logger = None):
         original_image = fabio.open(fullPath(filepath, filename)).data
-        self.original_image = original_image
+        self.original_image = original_image.astype("float32")
         if self.original_image.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -69,7 +68,7 @@ class ScanningDiffraction:
         cache_file = fullPath(cache_path, self.filename+'.info')
         if exists(cache_file):
             info = pickle.load(open(cache_file, "rb"))
-            if info != None:
+            if info is not None:
                 # if info['program_version'] == self.version:
                 #     return info
                 # print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
@@ -94,7 +93,7 @@ class ScanningDiffraction:
         if self.logger is not None:
             self.logger.debug(msg)
 
-    def process(self, flags = {}):
+    def process(self, flags={}):
         """
         All processing steps
         """
@@ -129,10 +128,10 @@ class ScanningDiffraction:
         """
         if k is None:
             keys = list(self.info.keys())
-            for k in keys:
-                del self.info[k]
+            for key in keys:
+                del self.info[key]
         else:
-            if k in self.info.keys(): # remove from dictionary if the key exists
+            if k in self.info: # remove from dictionary if the key exists
                 del self.info[k]
 
     def updateInfo(self, flags):
@@ -201,8 +200,8 @@ class ScanningDiffraction:
             I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method="csr", mask=mask)
             I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr", mask=mask)
 
-            tth_1, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method="csr", mask=mask)
-            tth_2, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", mask=mask)
+            _, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method="csr", mask=mask)
+            _, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", mask=mask)
 
             self.info['2dintegration'] = [I2D, tth, chi]
             self.info['tophat_2dintegration'] = [I2D2, tth2, chi2]
@@ -226,7 +225,7 @@ class ScanningDiffraction:
             self.info['simple_total_intensity'] = self.roiIntensity(center, rmin, rmax)
             if 'ROI' not in self.info:
                 self.info['ROI'] = [rmin, rmax]
-            if not 'persist_rings' in self.info:
+            if 'persist_rings' not in self.info:
                 self.removeInfo('m1_rings')
                 self.removeInfo('m2_rings')
             self.log('2D integration has been calculated.')
@@ -378,13 +377,13 @@ class ScanningDiffraction:
             # x = np.array(range(len(hists_np)))
 
             # Fit several times and take the minimum error result
-            limit_iterations = 1
+            # limit_iterations = 1
             temp_model = []
             temp_error = []
             # methods = ['leastsq', 'lbfgsb', 'cg', 'tnc', 'slsqp']
             methods = ['leastsq']
 
-            for i in range(len(methods)):
+            for (i, _) in enumerate(methods):
                 start = time.time()
                 t_m, error = fitGMMv2(hists_np, merged_peaks, sigmaList, methods[i])
                 temp_model.append(t_m)
@@ -461,7 +460,7 @@ class ScanningDiffraction:
 
         # Compute histograms for each range
         for a_range in ranges:
-            tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", azimuth_range=a_range, mask=mask)
+            _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", azimuth_range=a_range, mask=mask)
             histograms.append(I)
 
         return ranges, histograms
@@ -543,18 +542,18 @@ class ScanningDiffraction:
         i = 0
         while i < self.original_image.shape[1]:
             if i in runs:
-                distance = 0
+                dist = 0
                 start = i
                 end = i
                 for c in range(1, self.original_image.shape[1] - i):
 
                     if i + c in runs:
                         end = i + c
-                        distance = 0
+                        dist = 0
                     else:
-                        distance += 1
+                        dist += 1
 
-                    if distance > distance_threshold:
+                    if dist > distance_threshold:
                         result_rings[(end + start) / 2] = (start, end)
                         i += c
                         break
@@ -593,7 +592,7 @@ class ScanningDiffraction:
         l_peaks = sorted(aux_results.keys())
 
         prev = 0
-        for i in range(len(l_peaks)):
+        for (i, _) in enumerate(l_peaks):
             aux_freq = aux_results[l_peaks[i]]
             if l_peaks[i] - prev < distance_threshold:
                 freq = 0
@@ -644,63 +643,63 @@ class ScanningDiffraction:
 
         return 1. * peaks[0] / min_di
 
-    def get_closer_peak(self, model, num_peaks, p, distance):
+    def get_closer_peak(self, model, num_peaks, p, dist):
         """
         Get the peak that close to p by distance
         :param model: model containing all peaks
         :param num_peaks: number of peaks
         :param p: peak location
-        :param distance: minimum distance
+        :param dist: minimum distance
         :return:
         """
         for i in range(1, num_peaks + 1):
-            if abs(model['u' + str(i)] - p) < distance:
+            if abs(model['u' + str(i)] - p) < dist:
                 return model['u' + str(i)], model['sigmad' + str(i)]
         return -1, -1
 
-    def get_missed_rings_by_distance(self, num_peaks, distance, limit):
+    def get_missed_rings_by_distance(self, num_peaks, dist, limit):
         """
         Get missed ring by using d-spacing
         :param num_peaks: number of peaks
-        :param distance: d-spacing
+        :param dist: d-spacing
         :param limit: limit number of rings
         :return:
         """
-        distance_threshold = distance / 3
+        distance_threshold = dist / 3
         peaks = []
         sigmas = []
-        type = []
+        typ = []
         sigma_default = 3
         model_result = self.info['fitResult']
 
         # Limit rings to inside image
         image_lenght = len(self.info['orig_hists']) - self.info['start_point']
 
-        if limit * distance > image_lenght:
-            limit = int(image_lenght/distance)
+        if limit * dist > image_lenght:
+            limit = int(image_lenght/dist)
 
         if limit < 10:
             limit = 0
             for limit in range(1, 10):
-                if limit * distance > image_lenght:
+                if limit * dist > image_lenght:
                     break
 
         limit = min(10 ,limit) #### jiranun
 
         for i in range(1, limit):
-            location = distance * i
+            location = dist * i
             p_found, sigma_found = self.get_closer_peak(model_result, num_peaks, location, distance_threshold)
             if p_found == -1:
                 # Include non-existing peak
                 peaks.append(location)
                 sigmas.append(sigma_default)
-                type.append({'non-existing': -1})
+                typ.append({'non-existing': -1})
             else:
                 peaks.append(p_found)
                 sigmas.append(sigma_found)
-                type.append({'existing': 0})
+                typ.append({'existing': 0})
 
-        return peaks, sigmas, type
+        return peaks, sigmas, typ
 
     def get_ring_angle_range(self, ring_radius, img_center, shape):
         """
@@ -732,7 +731,7 @@ class ScanningDiffraction:
         # self.log(msg)
         return ring_range
 
-    def removeValleys2(self, deep_hist, orig_hist, name = ""):
+    def removeValleys2(self, deep_hist, orig_hist, name=""):
         """
         Remove valley from ring hist (pilatus line)
         :param hists: radial histogram
@@ -745,7 +744,7 @@ class ScanningDiffraction:
 
         deep_hist = copy.copy(deep_hist)
         orig_hist = copy.copy(orig_hist)
-        deep_smooth_hist = smooth(deep_hist,5) + 0.0000000001 # Prevent divide by zero
+        # deep_smooth_hist = smooth(deep_hist, 5) + 0.0000000001 # Prevent divide by zero
         i = 1
 
         while i < len(orig_hist)-1:
@@ -875,7 +874,7 @@ class ScanningDiffraction:
         limit = int(np.round(max(peaks)/d * 1.5))
         rads, sigmas, type_rings = self.get_missed_rings_by_distance(len(peaks), d, limit)
 
-        for i in range(0, len(rads)):
+        for (i, _) in enumerate(rads):
             h = 1
             rad_min = int(np.around(rads[i] - h * sigmas[i]))
             rad_max = int(np.around(rads[i] + h * sigmas[i]))
@@ -1040,7 +1039,7 @@ class ScanningDiffraction:
         # Smooth histogram to find parameters easier
         hist[1] = smooth(hist[1], 20)
 
-        n_hist = len(hist[1])
+        # n_hist = len(hist[1])
         index = np.argmax(hist[1])
         u = hist[0][index]
         if u < np.pi / 2:
@@ -1062,7 +1061,7 @@ class ScanningDiffraction:
 
         result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='propagate')
         errs = abs(result.best_fit - result.data)
-        if(errs.mean()!=0):
+        if errs.mean() != 0:
             weights = errs / errs.mean() + 1
         else:
             weights=np.ones_like(errs)
@@ -1096,7 +1095,7 @@ class ScanningDiffraction:
 
         sigmas = [int(round(s)) for s in self.getInitSigma(self.info['hull_hist'], rings)]
         self.log("Peaks to check = "+ str(rings))
-        for i in range(len(rings)):
+        for (i, _) in enumerate(rings):
             histograms.append(np.sum(I2D[:, rings[i]-sigmas[i]:rings[i]+sigmas[i]], axis=1))
             deep_valleys_hists.append(np.sum(I2D2[:, rings[i]-sigmas[i]:rings[i]+sigmas[i]], axis=1))
 
@@ -1105,7 +1104,7 @@ class ScanningDiffraction:
 
         ring_hists, revised_hists = [], []
 
-        for i in range(len(histograms)):
+        for (i, _) in enumerate(histograms):
 
             # remove valleys and remove linear background
             hist = copy.copy(histograms[i])
@@ -1445,7 +1444,7 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     pars = Parameters()
     gaussians = []
     mean_margin = 15
-    for i in range(len(indexes)):
+    for (i, _) in enumerate(indexes):
         prefix = 'g' + str(i + 1) + '_'
         gauss = GaussianModel(prefix=prefix)
         pars.update(gauss.make_params())

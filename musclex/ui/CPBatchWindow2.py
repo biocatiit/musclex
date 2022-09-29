@@ -1,18 +1,18 @@
-from .pyqt_utils import *
+import os
+import json
 from matplotlib.patches import Ellipse, Rectangle, FancyArrow
 from matplotlib.collections import PatchCollection
 from matplotlib.colors import LogNorm, Normalize
+import pandas as pd
+import numpy as np
 from scipy.interpolate import Rbf
 import h5py
-import os
+import musclex
+from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..csv_manager import CP_CSVManager
-import musclex
-import pandas as pd
-import numpy as np
 from .CPImageWindow import CPImageWindow
-import json
 
 matplotlib.rcParams.update({'font.size': 5})
 
@@ -199,14 +199,21 @@ class CPBatchWindow(QMainWindow):
         self.intesityRange = [0, 1, 1, 2]
         self.mainWin = mainWin
         self.colormap = 'jet'
+        self.mapColorbar = None
         self.isFlipX = False
         self.isFlipY = False
         self.usingLogScale = False
         self.rotating90 = False
+        self.init_number = 0
+        self.update_plot = {}
+        self.intensityRange = []
+
 
         ##Batch Mode Params
         self.name_dict = {}
         self.intensity_dict = {}
+        self.sim_inten_dict = {}
+        self.peak_intensity_dict = {}
         self.distance_dict = {}
         self.angrange_dict = {}
         self.orientation_dict = {}
@@ -517,7 +524,7 @@ class CPBatchWindow(QMainWindow):
 
     def saveClicked(self):
         filename = getSaveFile(join(self.filePath, 'cp_results'))
-        name, extension = os.path.splitext(filename)
+        _, extension = os.path.splitext(filename)
         if extension == 'svg':
             self.mapFigure.savefig(filename, format='svg')
         elif extension == 'png':
@@ -647,7 +654,7 @@ class CPBatchWindow(QMainWindow):
 
     def mousePressEvent(self, event):
         focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
+        if focused_widget is not None:
             focused_widget.clearFocus()
 
     def updateUI(self):
@@ -658,20 +665,20 @@ class CPBatchWindow(QMainWindow):
         self.spacingFrame.setVisible(self.BSDChoice.currentIndex() == 2)
         representation = self.repChoice.currentText()
         if representation == 'Total Intensity (Convex Hull) Map':
-            self.updateIntensityMap(type='hull')
+            self.updateIntensityMap(typ='hull')
         if representation == 'Total Intensity Map':
-            self.updateIntensityMap(type='simple')
+            self.updateIntensityMap(typ='simple')
         elif representation == 'Ring Intensity Map':
-            self.updateIntensityMap(type='ring')
+            self.updateIntensityMap(typ='ring')
         elif representation == 'Vector Field':
             self.updateVectorFieldMap()
         elif representation == 'Elliptical Map':
             self.updateEllipticalMap()
         elif representation == 'D-Space Map':
-            self.updateIntensityMap(type='dspace')
+            self.updateIntensityMap(typ='dspace')
         # elif selected_tab == 1:
         #     self.updateAngularRangeTab()
-      
+
         if self.max_int is not None:
             self.minMapVal.setMaximum(self.max_int)
             self.maxMapVal.setMaximum(self.max_int)
@@ -679,13 +686,11 @@ class CPBatchWindow(QMainWindow):
             self.maxMapVal.setValue(self.maxMap.value() / 100.0 * self.max_int)
         if self.orientationChkBx.isChecked():
             self.orientationTypeChkBx.setChecked(True)
-      
-        
+
         QApplication.processEvents()
         QApplication.restoreOverrideCursor()
 
-
-    def updateIntensityMap(self, type='simple'):
+    def updateIntensityMap(self, typ='simple'):
         if len(self.xyIntensity) < 3:
             return
         rendering_mode = self.BSDChoice.currentIndex()
@@ -705,13 +710,13 @@ class CPBatchWindow(QMainWindow):
         y = copy.copy(self.xyIntensity[1])
         x2 = np.append(x, max(x) + stepx) - stepx / 2
         y2 = np.append(y, max(y) + stepy) - stepy / 2
-        if type == 'hull':
+        if typ == 'hull':
             intensity = copy.copy(self.xyIntensity[2])
-        elif type == 'ring':
+        elif typ == 'ring':
             intensity = copy.copy(self.xyIntensity[3])
-        elif type == 'simple':
+        elif typ == 'simple':
             intensity = copy.copy(self.xyIntensity[4])
-        elif type == 'dspace':
+        elif typ == 'dspace':
             intensity = copy.copy(self.xyIntensity[5])
 
         x_coor, y_coor = np.meshgrid(x2, y2)
@@ -741,7 +746,7 @@ class CPBatchWindow(QMainWindow):
                    Normalize(vmin=self.minMapVal.value(), vmax=self.maxMapVal.value())
 
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
-        
+
         # self.intensityMapFigure.colorbar(im)
         if rendering_mode == 1: # RBF Interpolation
             ax.cla()
@@ -821,7 +826,7 @@ class CPBatchWindow(QMainWindow):
 
         if angle: # orientation display for drawing ellipses
             centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
+            ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0. for i in
                       range(self.init_number, len(self.hdf_data) + self.init_number)]
             patches = []
             colors = []
@@ -893,7 +898,6 @@ class CPBatchWindow(QMainWindow):
 
         self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9,wspace=0, hspace=0)
         self.mapCanvas.draw()
-        
 
     # def updateAngularRangeTab(self):
     #
@@ -984,7 +988,7 @@ class CPBatchWindow(QMainWindow):
         ax = self.mapAxes
         ax.cla()
         norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
-        scale = None if fixedsz else 0.7
+        # scale = None if fixedsz else 0.7
 
         # scale units determine the length of the vector arrows
         # for 1d scans, it should scale in the variable direction only
@@ -1000,11 +1004,11 @@ class CPBatchWindow(QMainWindow):
                                     cmap=self.colormap, norm=norm, # colour map
                                     headlength=7, headwidth=4, scale_units=scale_units, pivot='middle')
         # if one of these is 0, it's a 1D scan. set limits on the scale of the non-zero step size
-        if (self.xylim[0]/2 > 0):
+        if self.xylim[0]/2 > 0:
             ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
         else:
             ax.set_xlim(x.min() - self.xylim[1], x.max() + self.xylim[1])
-        if (self.xylim[1]/2 >0):
+        if self.xylim[1]/2 > 0:
             ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
         else:
             ax.set_ylim(y.min() - self.xylim[0], y.max() + self.xylim[0])
@@ -1070,10 +1074,10 @@ class CPBatchWindow(QMainWindow):
         y = self.xyIntensity[1]
 
         centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
-        ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict.keys() else 0. for i in
+        ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0. for i in
                   range(self.init_number, len(self.hdf_data) + self.init_number)]
         max_width = max(ranges) * 5.
-        widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict.keys() and 0 < toFloat(
+        widths = [toFloat(self.angrange_dict[i]) / max_width if i in self.angrange_dict and 0 < toFloat(
             self.angrange_dict[i]) / max_width else max_width / 2. for i in
                   range(self.init_number, len(self.hdf_data) + self.init_number)]
 
@@ -1122,11 +1126,11 @@ class CPBatchWindow(QMainWindow):
         p.set_array(colors)
         ax.add_collection(p)
         ax.set_facecolor('black')
-        if (self.xylim[0]/2 > 0):
+        if self.xylim[0]/2 > 0:
             ax.set_xlim(x.min() - self.xylim[0]/2, x.max() + self.xylim[0]/2)
         else:
             ax.set_xlim(x.min() - self.xylim[1]/2, x.max() + self.xylim[1]/2)
-        if (self.xylim[1]/2 >0):
+        if self.xylim[1]/2 > 0:
             ax.set_ylim(y.min() - self.xylim[1]/2, y.max() + self.xylim[1]/2)
         else:
             ax.set_ylim(y.min() - self.xylim[0]/2, y.max() + self.xylim[0]/2)
@@ -1145,7 +1149,6 @@ class CPBatchWindow(QMainWindow):
         self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
         # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
         self.mapCanvas.draw()
-
 
     def browseHDF(self, dir_path, hdfList=[]):
         hdf_filename = ""
@@ -1178,12 +1181,13 @@ class CPBatchWindow(QMainWindow):
             self.processBatchmodeResults()
         else:
             self.close()
+
     def savecsvClicked(self):
         df_rings = self.csvManager.df_rings
-        distance=self.distanceSpnBx.value()
+        dist=self.distanceSpnBx.value()
         max_diff=self.bandwidthSpnBx.value()
-        minv=distance-max_diff
-        maxv=distance+max_diff
+        minv=dist-max_diff
+        maxv=dist+max_diff
         df_rings=df_rings.loc[(df_rings['d']>=minv) &(df_rings['d']<=maxv)]
         self.angle_sigma=self.aSigmaSpnBx.value()
         df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
@@ -1196,10 +1200,6 @@ class CPBatchWindow(QMainWindow):
         if filename!="":
             df_rings.to_csv(filename,index=False)
 
-
-        
-        
-
     def processBatchmodeResults(self):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         dir_path = self.filePath
@@ -1211,15 +1211,12 @@ class CPBatchWindow(QMainWindow):
         df_sum = df_sum.sort_values(['filename'], ascending=True)
         df_rings = self.csvManager.df_rings
         self.angle_sigma=1
-       
+
         self.angle_sigma=self.aSigmaSpnBx.value()
         #df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
         #filelist=df_rings[df_rings['angle sigma']<self.angle_sigma]['filename'].tolist()
-        
-    
-        #df_sum=df_sum[df_sum['filename'].isin(filelist)]
 
-        
+        #df_sum=df_sum[df_sum['filename'].isin(filelist)]
 
         # Read intensity from csv to organize the info given
         self.name_dict = {}
@@ -1231,11 +1228,10 @@ class CPBatchWindow(QMainWindow):
         self.orientation_dict = {}
         self.fit_dict = {}
         self.fitcd_dict = {}
- 
 
         for i, row in df_sum.iterrows():
             filename = str(row['filename'])
-            
+
             start_ind = filename.rfind('_')
             end_ind = filename.rfind('.')
             index = int(row['filename'][start_ind + 1:end_ind])
@@ -1247,16 +1243,15 @@ class CPBatchWindow(QMainWindow):
             #print(np.isnan(row['total intensity (hull)']), self.intensity_dict[index], self.sim_inten_dict[index])
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
-       
+
             all_rings = df_rings[(df_rings['filename'] == filename) ]
-            
 
             if len(all_rings) > 0:
                 distance_ok = True
                 if self.bestRadio.isChecked():
                     all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
                     best_ring = all_rings.iloc[0]
-            
+
                 else:
                     dist = self.distanceSpnBx.value()
                     unit = str(self.unitChoice.currentText())
@@ -1269,12 +1264,12 @@ class CPBatchWindow(QMainWindow):
                         max_dif = self.bandwidthSpnBx.value()
                         if abs(float(all_rings.iloc[min_ind][col])-dist) > max_dif:
                             distance_ok = False
-                    except:
+                    except Exception:
                         print("WARNING : Unable to find the closest ring to the specified d-spacing for image %s" % (row['filename']))
                         min_ind = 0
                         distance_ok = False
                     best_ring = all_rings.iloc[min_ind]
-                
+
                 good_model = float(best_ring['angle fitting error']) < 1. and best_ring['angle sigma'] <self.angle_sigma and distance_ok
                 peak_inten = -1
                 d_spacing = 0
@@ -1289,7 +1284,6 @@ class CPBatchWindow(QMainWindow):
                         d_spacing = float(best_ring['d'])
                     elif pd.notnull(best_ring['S']):
                         d_spacing = float(best_ring['S'])
-
 
                 self.peak_intensity_dict[index] = peak_inten
                 self.orientation_dict[index] = angle
@@ -1307,7 +1301,7 @@ class CPBatchWindow(QMainWindow):
         self.hdf_data = self.get_scan_data(hdf_filename)
 
         self.coord_dict = {}
-        
+
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
             self.coord_dict[i] = (self.hdf_data[i - self.init_number][0], self.hdf_data[i - self.init_number][1])
         nCols = len(self.hdf_data) # 1D Scan
@@ -1332,7 +1326,7 @@ class CPBatchWindow(QMainWindow):
             y_grad = abs(y[1] - y[0])
         else:
             y_grad = 0
-       
+
         # Plot heatmap for intensity
         z = [float(self.intensity_dict[i]) if i in self.intensity_dict else -1 for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)]
@@ -1386,12 +1380,12 @@ class CPBatchWindow(QMainWindow):
                     ys=1
                 # x_step=hf.get('header').get('Xstep')[0]
                 # y_step=hf.get('header').get('Ystep')[0]
-            
+
                 # if x_initial>x_final:
                 #     x_step=-1*x_step
                 # if y_initial>y_final:
                 #     y_step=-1*y_step
-                
+
                 # xnstep=math.ceil((x_final-x_initial)/x_step)
                 # ynstep=math.ceil((y_final-y_initial)/y_step)
                 # print(x_initial)
@@ -1405,7 +1399,7 @@ class CPBatchWindow(QMainWindow):
                 # y_initial=y_final
                 # x_step=1
                 # y_step=1
-                
+
                 # for j in range(0,ynstep):
                 #     y=y_initial+j*y_step
                 #     for i in range(0,xnstep):
@@ -1413,14 +1407,13 @@ class CPBatchWindow(QMainWindow):
                 #         data.append((x,y))
                 # coordinates=np.array(data)
                 coordinates=np.array(hf.get('data').get('BL'))
-                
+
                 l=len(coordinates)
                 coor=[]
 
                 for i in range(0,l):
                     coor.append((xs*coordinates[i][0],ys*coordinates[i][1]))
                 coordinates=np.array(coor)
-
 
             return coordinates
         elif os.path.isdir(filename):
@@ -1461,7 +1454,6 @@ class CPBatchWindow(QMainWindow):
                 data.extend(scans)
         return data
 
-
     def refreshAllTabs(self):
         # Set all update flags to True
         self.update_plot = {'intensity_maps': True,
@@ -1487,16 +1479,16 @@ class CPBatchWindow(QMainWindow):
                 errMsg.exec_()
         else:
             df_sum = self.csvManager.df_sum
-            df_rings = self.csvManager.df_rings
+            # df_rings = self.csvManager.df_rings
             imgs1 = set(df_sum['filename'])
-            imgs2 = set(df_rings['filename'])
+            # imgs2 = set(df_rings['filename'])
             # all_imgs = imgs1 & imgs2
             all_imgs = imgs1
             tmp_imlist = set(imgList[:])
             imgList = list(tmp_imlist - all_imgs)
             imgList.sort()
             if len(imgList) > 0:
-                cp = CPImageWindow(self, "", dir_path, process_folder=True, imgList=imgList)
+                CPImageWindow(self, "", dir_path, process_folder=True, imgList=imgList)
             self.browseHDF(dir_path, hdfList)
 
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
@@ -1533,13 +1525,12 @@ class CPBatchWindow(QMainWindow):
         self.statusLabel.setText(text)
         QApplication.processEvents()
 
-    def updateStatusBar(self, text, bar=None):
+    def updateStatusBar(self, text, sbar=None):
         QApplication.processEvents()
         self.imagePathLabel.setText(text)
-        if bar is not None:
-            self.progressBar.setValue(bar)
+        if sbar is not None:
+            self.progressBar.setValue(sbar)
         QApplication.processEvents()
 
 def convertRadtoDegreesEllipse(rad):
     return rad * 180. / np.pi
-

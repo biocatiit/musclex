@@ -16,6 +16,7 @@ sudo apt-get update
 sudo apt-get install python3 python3-pip python3-dev gfortran
 sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
 pip3 install --upgrade pip
+pip3 install --upgrade distro
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
@@ -37,6 +38,7 @@ python3 -m venv musclex
 source musclex/bin/activate
 which python3
 pip3 install --upgrade pip
+pip3 install --upgrade distro
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy

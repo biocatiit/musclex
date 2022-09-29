@@ -29,13 +29,13 @@ authorization from Illinois Institute of Technology.
 import sys
 import json
 import os
-from .pyqt_utils import *
 import traceback
+import musclex
+from .pyqt_utils import *
 from ..utils.file_manager import getImgFiles
 from ..modules.EquatorImage import EquatorImage
 from ..utils.image_processor import *
 from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
-import musclex
 
 class EquatorWindowh:
     """
@@ -49,7 +49,7 @@ class EquatorWindowh:
         :param delcache: flag for deleting cache
         :param settingspath: setting file directory
         """
-        
+
         self.version = musclex.__version__
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
@@ -57,7 +57,7 @@ class EquatorWindowh:
         # self.img_zoom = None  # Params for x and y ranges of displayed image in image tab
         self.graph_zoom = None # Params for x and y ranges of displayed graph in fitting tab
         self.function = None  # Current active function
-        
+
         self.in_batch_process = False
         self.fixedIntArea = None
         self.orientationModel = None
@@ -71,22 +71,20 @@ class EquatorWindowh:
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
-        
-        self.onImageChanged() # Toggle window to process current image
 
+        self.onImageChanged() # Toggle window to process current image
 
     def inputerror(self):
         # Display input error to screen
         print('Invalid Input')
         print("Please select non empty failedcases.txt or an image\n\n")
 
-
     def onImageChanged(self):
         """
-        This will create a new EquatorImage object for the new image 
+        This will create a new EquatorImage object for the new image
         Process the new image if there's no cache.
         """
-        
+
         fileName = self.imgList[self.currentImg]
         file=fileName+'.info'
         cache_path = os.path.join(self.dir_path, "eq_cache", file)
@@ -123,46 +121,43 @@ class EquatorWindowh:
             print('cache exist, no fitting was performed')
         elif not self.inputsettings and (self.delcache or not cache_exist):
             print('fitting with default settings')
-        
-        print('---------------------------------------------------')
 
+        print('---------------------------------------------------')
 
     def processImage(self, paramInfo=None):
         """
         Process Image by getting all settings and call process() of EquatorImage object
-        Then, write data 
+        Then, write data
         """
         if self.bioImg is None:
             return
-        
+
         settings = self.getSettings()
         print("Settings in processImage:")
         print(settings)
         try:
             self.bioImg.process(settings, paramInfo)
-        except Exception as e:
+        except Exception:
             print('Unexpected error')
             msg = 'Please report the problem with error message below and the input image\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
             print(msg)
             raise
-        
+
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager2.writeNewData(self.bioImg)
-
 
     def updateParams(self):
         info = self.bioImg.info
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
-     
+
         if self.bioImg.quadrant_folded:
             cx, cy = self.bioImg.info['center']
             xlim, ylim = self.bioImg.initialImgDim
             xlim, ylim = int(xlim/2), int(ylim/2)
             self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
-
 
     def getSettings(self):
         """
@@ -171,13 +166,12 @@ class EquatorWindowh:
         """
         settings = {}
         settingspath=self.settingspath
-      
-        if self.inputsettings==True:    
-                
+
+        if self.inputsettings:
             try:
                 with open(settingspath) as f:
                     settings=json.load(f)
-            except:
+            except Exception:
                 print("Can't load setting file")
                 self.inputsettings=False
                 settings={"left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0, \
@@ -196,7 +190,6 @@ class EquatorWindowh:
 
         return settings
 
-
     def isDynamicParameter(self, paramName):
         '''
         Checks whether parameter is dynamically handelled by fitting mechanism
@@ -209,8 +202,6 @@ class EquatorWindowh:
                 return True
         return False
 
-
     def statusPrint(self, text):
         print(text)
-
    

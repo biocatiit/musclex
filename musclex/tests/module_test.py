@@ -1,8 +1,7 @@
 import unittest
 import os
-import sys
-import logging
 import platform
+import distro
 from time import gmtime, strftime
 
 import musclex
@@ -27,7 +26,7 @@ class MuscleXTest(unittest.TestCase):
         python_version = platform.python_version()
         osx_ver, osx_info, osx_machine = platform.mac_ver()
         win_rel, win_ver, win_csd, proc_type = platform.win32_ver()
-        lin_name, lin_ver, lin_id = platform.linux_distribution()
+        lin_name, lin_ver, lin_id = distro.linux_distribution()
 
         sysinfo = """\nSYSTEM INFO
 System: {}

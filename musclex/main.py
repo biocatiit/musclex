@@ -214,6 +214,10 @@ def main(arguments=None):
                 elif arguments[i]=='-d':
                     delcache=True
                 elif arguments[i]=='-i' or arguments[i]=='-f':
+                    if arguments[i]=='-i':
+                        isFile = True
+                    else:
+                        isFile = False
                     i=i+1
                     filename=arguments[i]
                 else:
@@ -223,7 +227,19 @@ def main(arguments=None):
 
             if run:
                 from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
-                myapp = QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
+                if isFile:
+                    myapp = QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
+                else:
+                    input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+                    imgList = os.listdir(filename)
+                    imgList.sort()
+                    for image in imgList:
+                        file_name=os.path.join(filename,image)
+                        if os.path.isfile(file_name):
+                            _, ext = os.path.splitext(str(file_name))
+                            if ext in input_types:
+                                print("filename is", file_name)
+                                myapp = QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
                 sys.exit()
 
     else:
