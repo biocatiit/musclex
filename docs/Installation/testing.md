@@ -1,4 +1,4 @@
-# Tests Overview (Coming soon)  
+# Tests Overview
 
 ## Testing a MuscleX Installation
 
@@ -54,7 +54,7 @@ cd result_testing/v1.15.6
 
 ## Testing Methodology
 
-The testing suite in `musclex_test/tests/` is used for verifying that MuscleX produces predictable results across version changes.  Each module is tested independently using `module_test.py`. The module test runs in two modes - `testrecord` and `testverify`. In `testrecord`, module output is serialized to `Pickle` files for a particular set of input test data. In `testverify`, the same data is processed again and serialized to `Pickle` files, but is then compared to the files produced in `testrecord` mode. If any of these comparisons fail, it's deemed a failing test and the location of the failure is returned to the user.
+The testing suite in `musclex/tests/` is used for verifying that MuscleX produces predictable results across version changes.  Each module is tested independently using `module_test.py`. The module test runs in two modes - `testrecord` and `testverify`. In `testrecord`, module output is serialized to `Pickle` files for a particular set of input test data. In `testverify`, the same data is processed again and serialized to `Pickle` files, but is then compared to the files produced in `testrecord` mode. If any of these comparisons fail, it's deemed a failing test and the location of the failure is returned to the user.
 
 This approach provides a couple of important assurances. For developers, it ensures that no unexpected changes in module behavior come up that are caused by changes across versions. For installers, this verifies that an installation is behaving in the way developers expected. The testing framework also provides a tool for ensuring the reproducibility of results across devices.
 
@@ -64,11 +64,11 @@ When a new version is pushed that causes changes in test output, a new set of te
 
 1.  Change directory to the test directory.
 ```
-cd musclex_test/tests/
+cd musclex/tests/
 ```
 2. Run `module_test.py` in `testrecord` mode.
 ```
-python module_test.py testrecord
+python test_utils.py testrecord
 ```
 
 Serialized `Pickle` files will be written to `<modulename>/test_pickles`. One file is written for each field in a module object's `info` class variable.
@@ -82,7 +82,7 @@ Once output data has been recorded using `testrecord`, tests can be run using `t
 
 To run the whole testing suite use the following command from the root of the repository:
 ```
-python -m unittest discover -s musclex_test
+python test_utils.py testverify
 ```
 
 A successful test should produce output similar to the following:
@@ -90,13 +90,13 @@ A successful test should produce output similar to the following:
 
 ## Testing Data
 
-Test data used is found in `/musclex_test/tests/test_images`. Each time data in this directory is changed, `testrecord` should be rerun.
+Test data used is found in `/musclex/tests/test_images`. Each time data in this directory is changed, `testrecord` should be rerun.
 
 Given a module and corresponding settings, test `Pickle` files are written to folders in `<module_name>/test_pickles_<settings_name>`. In `testverify` mode, a directory `<module_name>/tmp_verify_<settings_name>` is utilized to store generated `Pickle` files that are used for comparison, but are deleted at the end of the test. A `keeppickles` argument is included in the `module_test` function and can be changed to `True` to keep the `testverify` `Pickle` objects. If a test fails, these temporary `Pickle` objects are kept to be used for comparison.
 
 ## Test Suite Summary
 
-The `unittest` suite is in `musclex_test/tests/test_suite.py`. It uses Python's unit testing framework to run tests for each module under different configurations and provides a summary of the results. They can all be run using the instructions for running in `testverify` mode given above. A summary of each test that's defined in the `unittest` suite is given below.
+The `unittest` suite is in `musclex/tests/module_test.py`. It uses Python's unit testing framework to run tests for each module under different configurations and provides a summary of the results. They can all be run using the instructions for running in `testverify` mode given above. A summary of each test that's defined in the `unittest` suite is given below.
 
 These default test settings were taken from examples in the `tests` folder in the root directory.
 

@@ -17,12 +17,12 @@
 
 ## Process outline
 1. Test release (GUI == Headless, Current == Previous)
-1. Create release tag and enter release notes on Github
-2. Update DOI on Zenodo (If it was not done automaticly)  
-3. Create pip distribution
-4. Create docker distribution
-5. Update documentation on Readthedocs
-6. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only) 
+2. Create release tag and enter release notes on Github
+3. Update DOI on Zenodo (If it was not done automaticly)  
+4. Create pip distribution
+5. Create docker distribution
+6. Update documentation on Readthedocs
+7. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only) 
 
 
 ## Prepare a Release
