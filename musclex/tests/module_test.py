@@ -1,9 +1,8 @@
 import unittest
 import os
 import platform
-import distro
 from time import gmtime, strftime
-
+import distro
 import musclex
 from musclex.tests.test_utils import module_test, hdf_read_test, gpu_device_test, pyfai_gpu_integrate_test
 
@@ -15,7 +14,7 @@ class MuscleXTest(unittest.TestCase):
         cls.dipath = os.path.join(cls.inpath, "di_test_data")
         cls.hdfpath = os.path.join(cls.dipath, "test.hdf")
         cls.hdfpickle = os.path.join(cls.inpath, "hdf_record", "hdfdata_record.p")
-        cls.testversion = "1.14.8" # change this to test against a different version
+        cls.testversion = musclex.__version__ # change this to test against a different version
 
         system = platform.system()
         node = platform.node()
@@ -24,7 +23,7 @@ class MuscleXTest(unittest.TestCase):
         machine = platform.machine()
         arch = platform.architecture()
         python_version = platform.python_version()
-        osx_ver, osx_info, osx_machine = platform.mac_ver()
+        osx_ver, osx_info, _ = platform.mac_ver()
         win_rel, win_ver, win_csd, proc_type = platform.win32_ver()
         lin_name, lin_ver, lin_id = distro.linux_distribution()
 
@@ -66,12 +65,12 @@ Linux ID: {}\n
             try:
                 import h5py
                 lf.write("h5py Version: {}\n".format(h5py.__version__))
-            except:
+            except Exception:
                 lf.write("Unable to import h5py\n")
             try:
                 import lmfit
                 lf.write("lmfit Version: {}\n".format(lmfit.__version__))
-            except:
+            except Exception:
                 lf.write("Unable to import lmfit\n")
 
             lf.write("OpenCL Information\n")
@@ -84,7 +83,7 @@ Linux ID: {}\n
                 lf.write("OpenCL Version: {}\n".format(opencl_version))
                 lf.write("CPUs: {}\n".format(cpus))
                 lf.write("GPUs: {}\n".format(gpus))
-            except:
+            except Exception:
                 lf.write("OpenCL not available. Check pyopencl installation.\n")
 
             lf.write("\nSummary of Test Results\n")
@@ -119,7 +118,7 @@ Linux ID: {}\n
                                 compdir=os.path.join(self.currdir, "eq/test_pickles_settingsA"),
                                 testrecord=False,
                                 testversion=self.testversion,
-                                 keeppickles=False)
+                                keeppickles=False)
         self.log_results(pass_test, "Equator Image")
         self.assertTrue(pass_test,"Equator Image Test for settings configuration A failed.")
 

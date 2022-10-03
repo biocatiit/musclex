@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import os
 import pickle
+import hashlib
 import fabio
 import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
@@ -76,7 +77,11 @@ class QuadrantFolder:
         self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
-        self.parent = parent
+        if parent is not None:
+            self.parent = parent
+        else:
+            self.parent = self
+        self.newImgDimension = None
         self.masked = False
 
         # info dictionary will save all results
@@ -252,6 +257,23 @@ class QuadrantFolder:
             self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
+
+    def getExtentAndCenter(self):
+        if self is None:
+            return [0,0], (0,0)
+        if self.orig_image_center is None:
+            self.findCenter()
+            self.statusPrint("Done.")
+        if 'calib_center' in self.info:
+            center = self.info['calib_center']
+        elif 'manual_center' in self.info:
+            center = self.info['manual_center']
+        else:
+            center = self.orig_image_center
+
+        extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
+
+        return extent, center
 
     def centerizeImage(self):
         """
@@ -1030,3 +1052,6 @@ class QuadrantFolder:
         resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = buttom_right
 
         return resultImg
+
+    def statusPrint(self, text):
+        print(text)

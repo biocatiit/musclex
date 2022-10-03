@@ -37,7 +37,7 @@ Benchmark the GPU:
 ```
 	glxgears
 ```
-(if not installed, run the command : sudo apt-get install mesa-utils)
+(if not installed, run the command : `sudo apt-get install mesa-utils`)
 
 To access the GPU settings:
 ```

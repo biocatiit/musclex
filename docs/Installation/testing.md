@@ -6,7 +6,7 @@ Tests are provided to ensure results from an installation match expected results
 
 #### GUI Testing
 
-A testing module is provided in the launcher GUI. If no log is found, this procedure will run the first time the GUI is launched on a device. To use the GUI testing module,
+A testing module is provided in the launcher GUI. If no log is found, this procedure will run the first time the GUI is launched on a device. To use the GUI testing module:
 
 1.  Launch the MuscleX GUI  
 2.  Click Run Tests in the bottom right corner
@@ -16,6 +16,41 @@ A testing module is provided in the launcher GUI. If no log is found, this proce
 #### Command Line testing
 
 Open a terminal window and run `musclex test` to run all tests. Output from tests will be printed to the command line. Use `musclex test_gpu` to only run the GPU tests.
+
+#### GitHub code testing (using headless)
+
+A testing module is provided using headless version of MuscleX. To use it:
+
+1. If you are working with a virtual environment, activate it. Else skip this step.
+```
+source PATH_TO_VENV/bin/activate
+```
+2. Go to the result_testing directory and your corresponding version.
+```
+cd result_testing/v1.15.6
+```
+3. Run `musclex_tester.sh`. If it is the first time running the tests, please answer 'yes' to the question asked at launch.
+```
+./musclex_tester.sh
+```
+
+#### Environment testing
+
+A script is provided to compare your current pip environment to ours at the release of a new version.
+
+1. If you are working with a virtual environment, activate it. Else skip this step.
+```
+source PATH_TO_VENV/bin/activate
+```
+2. Go to the result_testing directory and your corresponding version.
+```
+cd result_testing/v1.15.6
+```
+3. Run `environment_tester.sh`.
+```
+./environment_tester.sh
+```
+
 
 ## Testing Methodology
 

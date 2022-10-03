@@ -86,9 +86,12 @@ class EquatorImage:
             }
         else:
             self.info = cache
-        self.parent = parent
+        if parent is not None:
+            self.parent = parent
+        else:
+            self.parent = self
 
-    def process(self, settings, paramInfo):
+    def process(self, settings, paramInfo=None):
         """
         All processing steps - all settings are provided by bio-muscle app as a dictionary
         settings must have ...
@@ -922,6 +925,9 @@ class EquatorImage:
         cache_file = fullPath(cache_path, self.filename + '.info')
         if exists(cache_path) and isfile(cache_file):
             os.remove(cache_file)
+    
+    def statusPrint(self, text):
+        print(text)
 
 def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
                , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz

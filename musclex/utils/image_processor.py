@@ -65,7 +65,7 @@ def get8bitImage(img, min = None, max = None):
     :param max: max intensity
     :return: uint8 image
     """
-    cimg = np.array(img, dtype=np.float)
+    cimg = np.array(img, dtype=np.float32)
     if max is None:
         max = img.max() * 0.5
     cimg[cimg > max] = max

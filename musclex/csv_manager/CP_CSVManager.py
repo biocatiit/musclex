@@ -85,7 +85,8 @@ class CP_CSVManager():
         if 'model_peaks' in info:
             new_sum_data['number of rings'] = len(info['model_peaks'])
 
-        self.df_sum = self.df_sum.append(new_sum_data, ignore_index = True)
+        self.df_sum = pd.concat([self.df_sum, pd.DataFrame.from_records([new_sum_data])])
+        # self.df_sum = self.df_sum.append(new_sum_data, ignore_index = True) # Future warning deprecated
         self.df_sum.reset_index()
         self.df_sum.to_csv(self.sum_file, index=False, columns=self.sum_header)  # Write to csv file
 
@@ -117,7 +118,8 @@ class CP_CSVManager():
                     new_data['d'] = '-'
                 new_datas.append(new_data)
             try:
-                self.df_rings = self.df_rings.append(new_datas, ignore_index=True)
+                self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_datas])])
+                # self.df_rings = self.df_rings.append(new_datas, ignore_index=True) # Future warning deprecated
             except:
                 pass
         else:
@@ -127,7 +129,8 @@ class CP_CSVManager():
                     new_data[k] = file_name
                 else:
                     new_data[k] = '-'
-            self.df_rings = self.df_rings.append(new_data, ignore_index = True)
+            self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_datas])])
+            # self.df_rings = self.df_rings.append(new_data, ignore_index = True) # Future warning deprecated
 
         self.df_rings.reset_index()
         self.df_rings.to_csv(self.rings_file, index=False, columns=self.rings_header)  # Write to csv file

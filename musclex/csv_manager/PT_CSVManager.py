@@ -120,7 +120,8 @@ class PT_CVSManager:
             if col not in new_data:
                 new_data[col] = '-'
 
-        self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True)
+        self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([pd.Series(new_data)])])
+        # self.dataframe = self.dataframe.append(pd.Series(new_data), ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
         self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
 

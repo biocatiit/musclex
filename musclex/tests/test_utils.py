@@ -4,18 +4,17 @@ import pickle
 import glob
 import filecmp
 import collections
-import h5py
 import shutil
+import h5py
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import numpy as np
-
+from musclex import __version__
 from musclex.modules.EquatorImage import EquatorImage
 from musclex.modules.QuadrantFolder import QuadrantFolder
 from musclex.modules.DiffractionCentroids import DiffractionCentroids
 from musclex.modules.ProjectionProcessor import ProjectionProcessor
 from musclex.modules.ScanningDiffraction import ScanningDiffraction
 from musclex.csv_manager.CP_CSVManager import CP_CSVManager
-from musclex import __version__
 
 
 def module_test(mode, settings, pickledir, inputpath, compdir=None,
@@ -55,7 +54,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
     if len(filelist) == 0:
         print("No images found in the input path - please specify a set of test images to input.")
         return
-    failed_tests = {filename : list() for filename in filelist}
+    failed_tests = {filename : [] for filename in filelist}
 
     for filename in filelist:
         pass_file = True
@@ -139,7 +138,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
 
                 # If the two files aren't identical, return some error
                 # Program_version is usually contained as well, but do not compare those
-                if field is not 'program_version' and not pass_field:
+                if field != 'program_version' and not pass_field:
                     print("Testing {data} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m".format(data=field))
                     print("Compare the following files for more information:\n" \
                           "File generated for testing: {p1}\nReference file: {p2}" \
@@ -235,7 +234,7 @@ def gpu_device_test():
             return True
         print("OpenCL is installed, but no GPU devices were found. GPU acceleration of pyFAI is unavailable.")
         return False
-    except:
+    except Exception:
         print("\n\033[4;31m---- OPENCL DEVICE TEST FAILED ----\033[0;3140m")
         print("Check to make sure that pyopencl was installed properly or \
               proceed without GPU acceleration if other tests pass.")
@@ -249,7 +248,7 @@ def pyfai_gpu_integrate_test():
     pass_test = True
     try:
         ai.integrate1d(data, npt, unit="r_mm", method="csr_ocl")
-    except:
+    except Exception:
         pass_test = False
 
     if pass_test:
@@ -317,11 +316,11 @@ if __name__=="__main__":
                     pickledir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
                     inputpath=inpath,
                     testrecord=True)
-        # module_test(mode="eq",
-        #             settings=settingsB,
-        #             pickledir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsB"),
-        #             inputpath=inpath,
-        #             testrecord=True)
+        module_test(mode="eq",
+                    settings=settingsB,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsB"),
+                    inputpath=inpath,
+                    testrecord=True)
         module_test(mode="qf",
                     settings=settingsQF,
                     pickledir=os.path.join(os.path.dirname(__file__), "qf/test_pickles_settingsQF"),
@@ -347,36 +346,36 @@ if __name__=="__main__":
                       testrecord=True)
 
     if args[1] == 'testverify':
-        # module_test(mode="eq",
-        #             settings=settingsA,
-        #             pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsA"),
-        #             inputpath=inpath,
-        #             compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
-        #             testrecord=False)
-        # module_test(mode="eq",
-        #             settings=settingsB,
-        #             pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsB"),
-        #             inputpath=inpath,
-        #             compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsB"),
-        #             testrecord=False)
-        # module_test(mode="qf",
-        #             settings=settingsQF,
-        #             pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsQF"),
-        #             inputpath=inpath,
-        #             compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsQF"),
-        #             testrecord=False)
-        # module_test(mode="dc",
-        #             settings=settingsDC,
-        #             pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsDC"),
-        #             inputpath=inpath,
-        #             compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsDC"),
-        #             testrecord=False)
-        # module_test(mode="pt",
-        #             settings=settingsPT,
-        #             pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsPT"),
-        #             inputpath=inpath,
-        #             compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsPT"),
-        #             testrecord=False)
+        module_test(mode="eq",
+                    settings=settingsA,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsA"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsA"),
+                    testrecord=False)
+        module_test(mode="eq",
+                    settings=settingsB,
+                    pickledir=os.path.join(os.path.dirname(__file__), "eq/tmp_verify_settingsB"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "eq/test_pickles_settingsB"),
+                    testrecord=False)
+        module_test(mode="qf",
+                    settings=settingsQF,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsQF"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsQF"),
+                    testrecord=False)
+        module_test(mode="dc",
+                    settings=settingsDC,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsDC"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsDC"),
+                    testrecord=False)
+        module_test(mode="pt",
+                    settings=settingsPT,
+                    pickledir=os.path.join(os.path.dirname(__file__), "pt/tmp_verify_settingsPT"),
+                    inputpath=inpath,
+                    compdir=os.path.join(os.path.dirname(__file__), "pt/test_pickles_settingsPT"),
+                    testrecord=False)
         module_test(mode="di",
                     settings=settingsDI,
                     pickledir=os.path.join(os.path.dirname(__file__), "di/tmp_verify_settingsDI"),

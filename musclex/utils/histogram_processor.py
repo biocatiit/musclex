@@ -50,7 +50,7 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
         end_p = len(hist)
 
     hist_x = list(range(start_p, end_p))
-    hist_y = np.array(hist[hist_x], dtype=np.float)
+    hist_y = np.array(hist[hist_x], dtype=np.float32)
 
     if len(hist_x) < 5:
         return np.array(hist)

@@ -81,7 +81,8 @@ class QuadrantFoldingh:
         if self.inputsettings:
             self.setCalibrationImage()
             self.processImage()
-        self.onImageChanged()
+        else:
+            self.onImageChanged()
 
     def inputerror(self):
         """
@@ -283,7 +284,10 @@ class QuadrantFoldingh:
         flags['tension'] = 1.0
         flags["tophat1"] = 5
         flags['tophat2'] = 20
-        flags['mask_thres'] = 0.0 # getMaskThreshold(self.quadFold.orig_img, self.quadFold.img_type)
+        if self.quadFold.img_type == "PILATUS":
+            flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img, self.quadFold.img_type)
+        else:
+            flags['mask_thres'] = self.quadFold.orig_img.min()
         flags['sigmoid'] = 0.1
         flags['fwhm'] = 10
         flags['boxcar_x'] = 10

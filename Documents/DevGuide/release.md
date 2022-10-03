@@ -16,6 +16,7 @@
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
+1. Test release (GUI == Headless, Current == Previous)
 1. Create release tag and enter release notes on Github
 2. Update DOI on Zenodo (If it was not done automaticly)  
 3. Create pip distribution

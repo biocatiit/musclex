@@ -158,7 +158,8 @@ class EQ_CSVManager2:
             elif file_name in self.failedcases:
                 self.failedcases.remove(file_name)
 
-        self.dataframe = self.dataframe.append(data, ignore_index=True)
+        self.dataframe = pd.concat([self.dataframe, pd.DataFrame.from_records([data])])
+        # self.dataframe = self.dataframe.append(data, ignore_index=True) # Future warning deprecated
         self.dataframe.reset_index()
         self.dataframe.to_csv(self.filename, index=False, columns=self.colnames) # Write to csv file
 

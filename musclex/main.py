@@ -30,11 +30,10 @@ authorization from Illinois Institute of Technology.
 import os
 import sys
 import unittest
-
 from musclex import __version__
-#from musclex.tests.module_test import *
-from musclex.ui.pyqt_utils import *
-from musclex.utils.exception_handler import handlers
+from .ui.pyqt_utils import *
+from .utils.exception_handler import handlers
+from .tests.module_test import MuscleXTest
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -48,52 +47,52 @@ def main(arguments=None):
         prog = arguments[1]
         if prog == 'eq':
             app = QApplication(sys.argv)
-            from musclex.ui.EQStartWindow import EQStartWindow
-            myapp = EQStartWindow()
+            from .ui.EQStartWindow import EQStartWindow
+            EQStartWindow()
             sys.exit(app.exec_())
 
         elif prog == 'qf':
             app = QApplication(sys.argv)
-            from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
-            myapp = QuadrantFoldingGUI()
+            from .ui.QuadrantFoldingGUI import QuadrantFoldingGUI
+            QuadrantFoldingGUI()
             sys.exit(app.exec_())
         elif prog == 'di':
             app = QApplication(sys.argv)
-            from musclex.ui.ScanningDiffractionGUI import \
+            from .ui.ScanningDiffractionGUI import \
                 ScanningDiffractionGUI
-            myapp = ScanningDiffractionGUI()
+            ScanningDiffractionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':
-            from musclex.ui.diffraction_centroids import \
+            from .ui.diffraction_centroids import \
                 DiffractionCentroidStartWindow
             app = QApplication(sys.argv)
-            myapp = DiffractionCentroidStartWindow()
+            DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
         elif prog == 'ddf':
-            from musclex.ui.ddf_processor import DDFWindow
+            from .ui.ddf_processor import DDFWindow
             app = QApplication(sys.argv)
-            myapp = DDFWindow()
+            DDFWindow()
             sys.exit(app.exec_())
         elif prog == 'pt':
-            from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
+            from .ui.ProjectionTracesGUI import ProjectionTracesGUI
             app = QApplication(sys.argv)
-            myapp = ProjectionTracesGUI()
+            ProjectionTracesGUI()
             sys.exit(app.exec_())
         elif prog == 'im':
-            from musclex.ui.ImageMerger import ImageMergerGUI
+            from .ui.ImageMerger import ImageMergerGUI
             app = QApplication(sys.argv)
-            myapp = ImageMergerGUI()
+            ImageMergerGUI()
             sys.exit(app.exec_())
         elif prog == 'ai':
-            from musclex.ui.AddIntensities import AddIntensities
+            from .ui.AddIntensities import AddIntensities
             app = QApplication(sys.argv)
-            myapp = AddIntensities()
+            AddIntensities()
             sys.exit(app.exec_())
         elif prog == 'gui':
-            from musclex.launcher import LauncherForm
+            from .launcher import LauncherForm
             app = QApplication(sys.argv)
-            myapp = LauncherForm.main()
-            sys.exit(app.exec_())
+            LauncherForm.main()
+            # sys.exit(app.exec_())
         elif prog == 'test':
             suite = unittest.TestSuite()
             suite.addTest(MuscleXTest("testEquatorImage"))
@@ -122,7 +121,7 @@ def main(arguments=None):
         run=True
         i=3
         settingspath="empty"
-        while(i<len(arguments)):
+        while i < len(arguments):
             if arguments[i]=='-s':
                 inputsetting=True
                 if i+1<len(arguments) and len(arguments[i+1])>5:
@@ -142,21 +141,21 @@ def main(arguments=None):
                 run=False
                 break
             i=i+1
-        
+
         if run:
-            from musclex.ui.EQStartWindowh import EQStartWindowh
-            myapp = EQStartWindowh(filename, inputsetting, delcache, settingspath)
+            from .ui.EQStartWindowh import EQStartWindowh
+            EQStartWindowh(filename, inputsetting, delcache, settingspath)
             sys.exit()
 
-    elif len(arguments)>=5 and arguments[1]=='di' and arguments[2]=='-h':     
+    elif len(arguments)>=5 and arguments[1]=='di' and arguments[2]=='-h':
         inputsetting=False
         delcache=False
         run=True
         i=3
         settingspath='empty'
         processFolder=False
-        while(i<len(arguments)):
-            
+        while i < len(arguments):
+
             if arguments[i]=='-s':
                 inputsetting=True
                 if i+1<len(arguments) and len(arguments[i+1])>5:
@@ -186,61 +185,58 @@ def main(arguments=None):
 
         if run:
             if not processFolder:
-                from musclex.ui.CPImageWindowh import CPImageWindowh
-                myapp= CPImageWindowh(str(fileName), str(filePath),inputsetting, delcache, settingspath)
+                from .ui.CPImageWindowh import CPImageWindowh
+                CPImageWindowh(str(fileName), str(filePath),inputsetting, delcache, settingspath)
                 sys.exit()
             else:
-                from musclex.ui.CPBatchWindowh import CPBatchWindowh
-                myapp= CPBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
+                from .ui.CPBatchWindowh import CPBatchWindowh
+                CPBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
                 sys.exit()
 
     elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':
-            inputsetting=False
-            delcache=False
-            run=True
-            i=3
-            settingspath="empty"
-            while(i<len(arguments)):
-                if arguments[i]=='-s':
-                    inputsetting=True
-                    if i+1<len(arguments) and len(arguments[i+1])>5:
-                        _, ext = os.path.splitext(str(arguments[i+1]))
-                        if ext==".json" and os.path.isfile(arguments[i+1]):
-                            i=i+1
-                            settingspath=arguments[i]
-                        else:
-                            print("Please provide the right settings file")
-                            run=False
-                elif arguments[i]=='-d':
-                    delcache=True
-                elif arguments[i]=='-i' or arguments[i]=='-f':
-                    if arguments[i]=='-i':
-                        isFile = True
+        inputsetting=False
+        delcache=False
+        run=True
+        i=3
+        settingspath="empty"
+        while i < len(arguments):
+            if arguments[i]=='-s':
+                inputsetting=True
+                if i+1<len(arguments) and len(arguments[i+1])>5:
+                    _, ext = os.path.splitext(str(arguments[i+1]))
+                    if ext==".json" and os.path.isfile(arguments[i+1]):
+                        i=i+1
+                        settingspath=arguments[i]
                     else:
-                        isFile = False
-                    i=i+1
-                    filename=arguments[i]
-                else:
-                    run=False
-                    break
+                        print("Please provide the right settings file")
+                        run=False
+            elif arguments[i]=='-d':
+                delcache=True
+            elif arguments[i]=='-i' or arguments[i]=='-f':
+                is_file = arguments[i]=='-i'
                 i=i+1
+                filename=arguments[i]
+            else:
+                run=False
+                break
+            i=i+1
 
-            if run:
-                from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
-                if isFile:
-                    myapp = QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
-                else:
-                    input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
-                    imgList = os.listdir(filename)
-                    imgList.sort()
-                    for image in imgList:
-                        file_name=os.path.join(filename,image)
-                        if os.path.isfile(file_name):
-                            _, ext = os.path.splitext(str(file_name))
-                            if ext in input_types:
-                                print("filename is", file_name)
-                                myapp = QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
-                sys.exit()
+        if run:
+            from .ui.QuadrantFoldingh import QuadrantFoldingh
+            if is_file:
+                QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
+            else:
+                in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+                imgList = os.listdir(filename)
+                imgList.sort()
+                for image in imgList:
+                    file_name=os.path.join(filename,image)
+                    if os.path.isfile(file_name):
+                        _, ext = os.path.splitext(str(file_name))
+                        if ext in in_types:
+                            print("filename is", file_name)
+                            QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
+            sys.exit()
 
     else:
         run = False
