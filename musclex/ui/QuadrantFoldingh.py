@@ -36,6 +36,7 @@ import musclex
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
+from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 
 class QuadrantFoldingh:
@@ -76,6 +77,7 @@ class QuadrantFoldingh:
         self.delcache=delcache
         self.settingspath=settingspath
         fileName = self.imgList[self.currentFileNumber]
+        self.csvManager = QF_CSVManager(self.dir_path)
         self.quadFold = QuadrantFolder(self.dir_path, fileName, self)
 
         if self.inputsettings:
@@ -194,6 +196,7 @@ class QuadrantFoldingh:
                 raise
 
             self.updateParams()
+            self.csvManager.writeNewData(self.quadFold)
 
             # Save result to folder qf_results
             if 'resultImg' in self.quadFold.imgCache:

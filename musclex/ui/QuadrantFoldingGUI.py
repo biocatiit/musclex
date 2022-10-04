@@ -40,6 +40,7 @@ import musclex
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
+from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
@@ -2460,6 +2461,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
             self.updateParams()
             self.refreshAllTabs()
+            self.csvManager.writeNewData(self.quadFold)
 
             # Save result to folder qf_results
             if 'resultImg' in self.quadFold.imgCache:
@@ -2604,6 +2606,7 @@ class QuadrantFoldingGUI(QMainWindow):
         :param newFile: full name of selected file
         """
         self.filePath, self.imgList, self.currentFileNumber = getImgFiles(str(newFile))
+        self.csvManager = QF_CSVManager(self.filePath)
         self.numberOfFiles = len(self.imgList)
         fileName = self.imgList[self.currentFileNumber]
         self.quadFold = QuadrantFolder(self.filePath, fileName, self)

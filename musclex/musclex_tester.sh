@@ -1,0 +1,446 @@
+#!/usr/bin/bash
+
+echo "Starting tests..."
+
+DIR=$( pwd; )
+
+LOG='tests/test_logs/summary_test.log'
+
+<<COMMENT
+while true; do
+	read -p 'Do you want to generate results before testing your software? It will take a few minutes. [y/n]' -r -n 1 yn
+	echo
+	case $yn in
+		[Yy]* ) echo "Generating a headless instance..."; ./musclex_headless_generator.sh; ./musclex_headless_compare.sh; break;;
+		[Nn]* ) break;;
+		* ) echo "Please answer yes or no.";;
+	esac
+done
+COMMENT
+
+echo "Generating a headless instance..."
+
+./musclex_headless_generator.sh
+./musclex_headless_compare.sh
+
+echo 'Comparing headless and correct instances...'
+
+### MAR images ###
+## Analysis and comparison ##
+# Equator headless test #
+echo "
+------------------------------------ MAR RESULTS ------------------------------------"
+echo "Comparing the results of Equator with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+  if ($1 == Y) {
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+  } 
+}' "$DIR/tests/testResults/MARimages/eq_results/summary2.csv" >> file1
+	echo $line | awk -F',' -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+}' >> file11
+done < $DIR/tests/testImages/MARimages/eq_results/summary2.csv
+diff --color file11 file1 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+# Diffraction headless test #
+echo "Comparing the results of Diffraction with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+  if ($1 == Y) {
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+  } 
+}' "$DIR/tests/testResults/MARimages/cp_results/summary.csv" >> file2
+	echo $line | awk -F',' -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+}' >> file22
+done < $DIR/tests/testImages/MARimages/cp_results/summary.csv
+diff -y --color file22 file2 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+# Quadrant folder headless test #
+echo "Comparing the results of Quandrant Folder with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/testResults/MARimages/qf_results/summary.csv" >> file3
+	echo $line >> file33
+done < $DIR/tests/testImages/MARimages/qf_results/summary.csv
+diff -y --color file33 file3 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+
+rm -f file1 file11 file2 file22 file3 file33 filename res
+
+### EIGER images ###
+## Analysis and comparison ##
+# Equator headless test #
+echo "
+------------------------------------ EIGER RESULTS ------------------------------------"
+echo "Comparing the results of Equator with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+  if ($1 == Y) {
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+  } 
+}' "$DIR/tests/testResults/EIGERimages/eq_results/summary2.csv" >> file1
+	echo $line | awk -F',' -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+}' >> file11
+done < $DIR/tests/testImages/EIGERimages/eq_results/summary2.csv
+diff -y --color file11 file1 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+# Diffraction headless test #
+echo "Comparing the results of Diffraction with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+  if ($1 == Y) {
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+  } 
+}' "$DIR/tests/testResults/EIGERimages/cp_results/summary.csv" >> file2
+	echo $line | awk -F',' -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+}' >> file22
+done < $DIR/tests/testImages/EIGERimages/cp_results/summary.csv
+diff -y --color file22 file2 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+# Quadrant folder headless test #
+echo "Comparing the results of Quandrant Folder with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/testResults/EIGERimages/qf_results/summary.csv" >> file3
+	echo $line >> file33
+done < $DIR/tests/testImages/EIGERimages/qf_results/summary.csv
+diff -y --color file33 file3 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+
+rm -f file1 file11 file2 file22 file3 file33 filename res
+
+### Pilatus 1M images ###
+## Analysis and comparison ##
+# Equator headless test #
+echo "
+------------------------------------ PILATUS 1M RESULTS ------------------------------------"
+echo "Comparing the results of Equator with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+  if ($1 == Y) {
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+  } 
+}' "$DIR/tests/testResults/PILATUSimages/eq_results/summary2.csv" >> file1
+	echo $line | awk -F',' -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+}' >> file11
+done < $DIR/tests/testImages/PILATUSimages/eq_results/summary2.csv
+diff -y --color file11 file1 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+# Diffraction headless test #
+echo "Comparing the results of Diffraction with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+  if ($1 == Y) {
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+  } 
+}' "$DIR/tests/testResults/PILATUSimages/cp_results/summary.csv" >> file2
+	echo $line | awk -F',' -vOFS=',' '
+function foo(str) {
+  if(match(str, /[0-9]+\.[0-9]+/)) {
+    gsub(/[0-9]+\.[0-9]+/, sprintf("%.4f",str), str)
+  } 
+  return str;
+} 
+{
+    for (i=1; i<=NF; i++) 
+    	printf "%s%s", foo($i),(i<NF?OFS:ORS)
+}' >> file22
+done < $DIR/tests/testImages/PILATUSimages/cp_results/summary.csv
+diff -y --color file22 file2 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+# Quadrant folder headless test #
+echo "Comparing the results of Quandrant Folder with a set of correct results..."
+while read line
+do
+	name=$(cut -d, -f1 <<<"$line")
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/testResults/PILATUSimages/qf_results/summary.csv" >> file3
+	echo $line >> file33
+done < $DIR/tests/testImages/PILATUSimages/qf_results/summary.csv
+diff -y --color file33 file3 > res
+if grep -e'-,-' -q res
+then
+	echo 'Failed to produce the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'tif,-,-' res | tee -a $LOG
+	echo -e '=== \033[0;31m[ERROR]\033[0m' | tee -a $LOG
+fi
+if grep -e'|\|<\|>' -q res
+then
+	echo 'Mismatches between the following files:' | tee -a $LOG
+	echo '===' | tee -a $LOG
+	grep -e'|\|<\|>' res | tee -a $LOG
+	echo -e '=== \033[0;31m[FAIL]\033[0m' | tee -a $LOG
+else
+	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
+fi
+
+rm -f file1 file11 file2 file22 file3 file33 filename res
+
+echo "
+Done.
+"
+<<COMMENT
+while true; do
+	read -p 'Do you want to clean the results generated during the testing? [y/n]' -r -n 1 yn
+	echo
+	case $yn in
+		[Yy]* ) echo "Deleting generated files...";
+		rm -r testImages/EIGERimages/eq_*;
+		rm -r testImages/EIGERimages/qf_*;
+		rm -r testImages/EIGERimages/cp_*;
+		rm -r testImages/MARimages/eq_*;
+		rm -r testImages/MARimages/qf_*;
+		rm -r testImages/MARimages/cp_*;
+		rm -r testImages/PILATUSimages/eq_*;
+		rm -r testImages/PILATUSimages/qf_*;
+		rm -r testImages/PILATUSimages/cp_*;
+		 break;;
+		[Nn]* ) break;;
+		* ) echo "Please answer yes or no.";;
+	esac
+done
+COMMENT
+
+echo "Deleting generated files..."
+rm -r tests/testImages/EIGERimages/eq_*
+rm -r tests/testImages/EIGERimages/qf_*
+rm -r tests/testImages/EIGERimages/cp_*
+rm -r tests/testImages/MARimages/eq_*
+rm -r tests/testImages/MARimages/qf_*
+rm -r tests/testImages/MARimages/cp_*
+rm -r tests/testImages/PILATUSimages/eq_*
+rm -r tests/testImages/PILATUSimages/qf_*
+rm -r tests/testImages/PILATUSimages/cp_*
+rm -r tests/testImages/EIGERimages/failedcases.txt
+rm -r tests/testImages/MARimages/failedcases.txt
+rm -r tests/testImages/PILATUSimages/failedcases.txt
+
+echo "Done."
+

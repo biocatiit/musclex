@@ -62,7 +62,10 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         self.ininame = ininame
         self.test_path = os.path.join(os.path.dirname(__file__),
                                        "tests", "test_logs", "test.log")
-
+        self.sum_test_path = os.path.join(os.path.dirname(__file__),
+                                       "tests", "test_logs", "summary_test.log")
+        self.env_path = os.path.join(os.path.dirname(__file__),
+                                       "tests", "test_logs", "environment_test.log")
         #if not os.path.exists(self.test_path):
             # self.testPopup = QMessageBox()
             # self.testPopup.setWindowTitle('Testing')
@@ -94,8 +97,8 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         self.td.show()
         self.td.activateWindow()
         self.td.raise_()
-        if not os.path.exists(self.test_path):
-            self.td.run_test()
+        # if not os.path.exists(self.test_path):
+        #     self.td.run_detailed_test()
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Return:
@@ -129,6 +132,8 @@ class TestDialog(QDialog):
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
+        self.sum_test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "summary_test.log")
+        self.env_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "environment_test.log")
         self.green = QColor(0,150,0)
         self.red = QColor(150,0,0)
         self.black = QColor(0,0,0)
@@ -136,7 +141,9 @@ class TestDialog(QDialog):
 
     def initUI(self):
         self.testDialogLayout = QVBoxLayout()
-        self.runTestsButton = QPushButton('Run Tests')
+        self.runSummaryTestsButton = QPushButton('Run Summary Tests')
+        self.runDetailedTestsButton = QPushButton('Run Detailed Tests')
+        self.runEnvironmentTestButton = QPushButton('Run Environment Test')
         self.runGPUTestButton = QPushButton('Run GPU Test')
         self.showLatestTestButton = QPushButton('Show Latest Test Results')
         self.cancelButton = QPushButton('Cancel')
@@ -145,13 +152,17 @@ class TestDialog(QDialog):
         self.progressBar.setGeometry(0, 0, 300, 25)
         self.progressBar.setMaximum(100)
 
-        self.testDialogLayout.addWidget(self.runTestsButton)
+        self.testDialogLayout.addWidget(self.runSummaryTestsButton)
+        self.testDialogLayout.addWidget(self.runDetailedTestsButton)
+        self.testDialogLayout.addWidget(self.runEnvironmentTestButton)
         self.testDialogLayout.addWidget(self.runGPUTestButton)
         self.testDialogLayout.addWidget(self.showLatestTestButton)
         self.testDialogLayout.addWidget(self.cancelButton)
         self.testDialogLayout.addWidget(self.progressBar)
 
-        self.runTestsButton.clicked.connect(self.runTestsButtonClicked)
+        self.runSummaryTestsButton.clicked.connect(self.runSummaryTestsButtonClicked)
+        self.runDetailedTestsButton.clicked.connect(self.runDetailedTestsButtonClicked)
+        self.runEnvironmentTestButton.clicked.connect(self.runEnvTestButtonClicked)
         self.runGPUTestButton.clicked.connect(self.runGPUTestButtonClicked)
         self.showLatestTestButton.clicked.connect(self.showLatestTestButtonClicked)
         self.cancelButton.clicked.connect(self.cancelButtonClicked)
@@ -162,12 +173,12 @@ class TestDialog(QDialog):
         self.detail = QTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setFontWeight(100)
-        if os.path.exists(self.test_path):
+        if os.path.exists(self.test_path) or os.path.exists(self.sum_test_path):
             self.detail.insertPlainText("Module tests have already been run.\nPress \'Run Tests\' to run the module tests again.")
             self.detail.insertPlainText("\n\nTest results:\n{}{}{}\nSee the log at {} for more info.\n"
                                         .format('-'*80,self.get_latest_test(),'-'*80, self.test_path))
         else:
-            self.detail.insertPlainText("No test logs found. Running unit tests for the first time..\n")
+            self.detail.insertPlainText("No test logs found. Running tests for the first time..\n")
 
         self.testDialogLayout.addWidget(self.detail)
         QApplication.processEvents()
@@ -179,8 +190,57 @@ class TestDialog(QDialog):
     def cancelButtonClicked(self):
         self.close()
 
-    def runTestsButtonClicked(self):
-        self.run_test()
+    def runSummaryTestsButtonClicked(self):
+        self.run_summary_test()
+
+    def runDetailedTestsButtonClicked(self):
+        self.run_detailed_test()
+
+    def runEnvTestButtonClicked(self):
+        """
+        Run Environment Tests.
+        """
+        self.progressBar.reset()
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nRunning environment tests of MuscleX modules.\nThis will take a few seconds...")
+        QApplication.processEvents()
+
+        if getattr(sys, 'frozen', False):
+            subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"environment_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)) # run the test program in a subprocess
+        elif __file__:
+            subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"environment_tester.sh"),  cwd=os.path.dirname(__file__)) # run the test program in a subprocess
+        
+        self.progressBar.setValue(0)
+        QApplication.processEvents()
+        while subproc.poll() is None:
+            time.sleep(0.5)
+            self.detail.moveCursor(QTextCursor.End)
+            self.detail.insertPlainText(".")
+            QApplication.processEvents()
+        self.progressBar.setValue(100)
+        QApplication.processEvents()
+
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nEnvironment tests complete.")
+        QApplication.processEvents()
+
+        test_results = self.get_env_test()
+
+        if test_results.find('WARNING') != -1:
+            self.detail.setTextColor(self.red)
+            self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
+        else:
+            self.detail.setTextColor(self.green)
+            self.detail.insertPlainText("\nAll tests passed -- see below for details.\n")
+        QApplication.processEvents()
+
+        self.detail.setTextColor(self.black)
+        self.detail.setFontWeight(50)
+        self.detail.insertPlainText("Test results:\n{}{}{}"
+                                    .format('-'*80,test_results,'-'*80))
+        QApplication.processEvents()
 
     def runGPUTestButtonClicked(self):
         """
@@ -245,7 +305,78 @@ class TestDialog(QDialog):
                                     .format('-'*80,self.get_latest_test(),'-'*80))
         QApplication.processEvents()
 
-    def run_test(self):
+    def run_summary_test(self):
+        """
+        Run the gross result testing in a subprocess while monitoring progress
+        from the log in the parent process.
+        """
+        self.progressBar.reset()
+        NTESTS = 19
+        if getattr(sys, 'frozen', False):
+            subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"musclex_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)) # run the test program in a subprocess
+        elif __file__:
+            subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"musclex_tester.sh"),  cwd=os.path.dirname(__file__)) # run the test program in a subprocess
+
+        if os.path.exists(self.sum_test_path):
+            prev_data = open(self.sum_test_path, 'r').readlines()
+        else:
+            prev_data = ""
+
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nRunning summary tests of MuscleX modules.\nThis could take a few minutes...")
+        QApplication.processEvents()
+
+        progress = 0
+        test_number = 0
+        while progress < 100 and subproc.poll() is None:
+            time.sleep(0.5)
+            self.detail.moveCursor(QTextCursor.End)
+            self.detail.insertPlainText(".")
+            QApplication.processEvents()
+            if os.path.exists(self.sum_test_path):
+                logfile = open(self.sum_test_path, 'r')
+                curr_data = logfile.readlines()
+                if curr_data != prev_data:
+                    test_number += 1
+                    progress += 100 / NTESTS
+                    self.progressBar.setValue(progress)
+                    QApplication.processEvents()
+
+                    self.detail.moveCursor(QTextCursor.End)
+                    self.detail.insertPlainText("\nFinished test {} out of {}.\n"
+                                                .format(test_number, NTESTS))
+                    QApplication.processEvents()
+                prev_data = curr_data
+            else:
+                pass
+        self.progressBar.setValue(100)
+        QApplication.processEvents()
+
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nModule tests complete.")
+        QApplication.processEvents()
+
+        test_results = self.get_latest_sum_test()
+        test_summary = test_results.split('Summary of Test Results')
+
+        if len(test_summary) >= 2:
+            if test_summary[1].find('FAIL') != -1 or test_summary[1].find('ERROR') != -1:
+                self.detail.setTextColor(self.red)
+                self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
+            else:
+                self.detail.setTextColor(self.green)
+                self.detail.insertPlainText("\nAll tests passed -- see below for details.\n")
+        QApplication.processEvents()
+
+        self.detail.setTextColor(self.black)
+        self.detail.setFontWeight(50)
+        self.detail.insertPlainText("\nTest results:\n{}{}{}\nSee the log at {} for more info."
+                                    .format('-'*80,test_summary[1],'-'*80, self.sum_test_path))
+        QApplication.processEvents()
+
+    def run_detailed_test(self):
         """
         Run the unittest in a subprocess while monitoring progress
         from the log in the parent process.
@@ -264,7 +395,7 @@ class TestDialog(QDialog):
 
         self.detail.moveCursor(QTextCursor.End)
         self.detail.setFontWeight(100)
-        self.detail.insertPlainText("\nRunning tests of MuscleX modules.\nThis could take a few minutes...")
+        self.detail.insertPlainText("\nRunning detailed tests of MuscleX modules.\nThis could take a few minutes...")
         QApplication.processEvents()
 
         progress = 0
@@ -322,6 +453,44 @@ class TestDialog(QDialog):
         """
         if os.path.exists(self.test_path):
             file = open(self.test_path, 'r')
+        else:
+            return ""
+        data = file.read()
+        idx = 1
+        while(idx < 10):
+            last_test = data.split('-'*80)[-idx]
+            if last_test == '\n':
+                idx += 1
+            else:
+                break
+        file.close()
+        return last_test
+
+    def get_latest_sum_test(self):
+        """
+        Display the last summary test run from the test log.
+        """
+        if os.path.exists(self.sum_test_path):
+            file = open(self.sum_test_path, 'r')
+        else:
+            return ""
+        data = file.read()
+        idx = 1
+        while(idx < 10):
+            last_test = data.split('-'*80)[-idx]
+            if last_test == '\n':
+                idx += 1
+            else:
+                break
+        file.close()
+        return last_test
+
+    def get_env_test(self):
+        """
+        Display the last environment test run from the test log.
+        """
+        if os.path.exists(self.env_path):
+            file = open(self.env_path, 'r')
         else:
             return ""
         data = file.read()

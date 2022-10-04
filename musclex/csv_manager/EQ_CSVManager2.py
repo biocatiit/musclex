@@ -30,8 +30,6 @@ from os.path import exists
 from os import makedirs
 import pandas as pd
 from ..utils.file_manager import fullPath
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class EQ_CSVManager2:
     """
@@ -55,13 +53,13 @@ class EQ_CSVManager2:
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
-    def loadFailedCases(self, dir):
+    def loadFailedCases(self, direc):
         """
-        Load failed cases file from the directory and keep t2hem in self.failedcases
-        :param dir: input directory (str)
+        Load failed cases file from the directory and keep them in self.failedcases
+        :param direc: input directory (str)
         :return: -
         """
-        self.failedcasesfile = fullPath(dir, "failedcases.txt")
+        self.failedcasesfile = fullPath(direc, "failedcases.txt")
         self.failedcases = set()
         if exists(self.failedcasesfile):
             for line in open(self.failedcasesfile, 'r'):
@@ -74,7 +72,7 @@ class EQ_CSVManager2:
         :return:
         """
         if not exists(self.filename):
-            self.dataframe = pd.DataFrame(columns = self.colnames )
+            self.dataframe = pd.DataFrame(columns = self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
         # print self.dataframe

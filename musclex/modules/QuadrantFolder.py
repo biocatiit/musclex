@@ -28,7 +28,6 @@ authorization from Illinois Institute of Technology.
 
 import os
 import pickle
-import hashlib
 import fabio
 import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
