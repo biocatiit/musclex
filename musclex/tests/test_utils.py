@@ -100,7 +100,7 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
                 print("\033[1;31m \nTEST FAILED -- NO TEST PICKLES FOUND --")
                 print("\033[0;3840mNo test pickle files corresponding to " \
                       " version {ver} found in folder {p}." \
-                      "\033[0;3140mDid you run \'python equator_image_test.py testrecord\'" \
+                      "\033[0;3140mDid you run \'python test_utils.py testrecord\'" \
                       " from the MuscleX version you're trying to test against?\n"
                       .format(ver=testversion, p=compdir))
                 pass_test = False

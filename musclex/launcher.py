@@ -62,10 +62,6 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         self.ininame = ininame
         self.test_path = os.path.join(os.path.dirname(__file__),
                                        "tests", "test_logs", "test.log")
-        self.sum_test_path = os.path.join(os.path.dirname(__file__),
-                                       "tests", "test_logs", "summary_test.log")
-        self.env_path = os.path.join(os.path.dirname(__file__),
-                                       "tests", "test_logs", "environment_test.log")
         #if not os.path.exists(self.test_path):
             # self.testPopup = QMessageBox()
             # self.testPopup.setWindowTitle('Testing')
@@ -132,8 +128,6 @@ class TestDialog(QDialog):
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
-        self.sum_test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "summary_test.log")
-        self.env_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "environment_test.log")
         self.green = QColor(0,150,0)
         self.red = QColor(150,0,0)
         self.black = QColor(0,0,0)
@@ -141,8 +135,8 @@ class TestDialog(QDialog):
 
     def initUI(self):
         self.testDialogLayout = QVBoxLayout()
-        self.runSummaryTestsButton = QPushButton('Run Summary Tests')
-        self.runDetailedTestsButton = QPushButton('Run Detailed Tests')
+        self.runSummaryTestsButton = QPushButton('Run Global Tests')
+        self.runDetailedTestsButton = QPushButton('Run Detailed Implementation Tests')
         self.runEnvironmentTestButton = QPushButton('Run Environment Test')
         self.runGPUTestButton = QPushButton('Run GPU Test')
         self.showLatestTestButton = QPushButton('Show Latest Test Results')
@@ -173,7 +167,7 @@ class TestDialog(QDialog):
         self.detail = QTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setFontWeight(100)
-        if os.path.exists(self.test_path) or os.path.exists(self.sum_test_path):
+        if os.path.exists(self.test_path):
             self.detail.insertPlainText("Module tests have already been run.\nPress \'Run Tests\' to run the module tests again.")
             self.detail.insertPlainText("\n\nTest results:\n{}{}{}\nSee the log at {} for more info.\n"
                                         .format('-'*80,self.get_latest_test(),'-'*80, self.test_path))
@@ -226,7 +220,7 @@ class TestDialog(QDialog):
         self.detail.insertPlainText("\nEnvironment tests complete.")
         QApplication.processEvents()
 
-        test_results = self.get_env_test()
+        test_results = self.get_latest_test()
 
         if test_results.find('WARNING') != -1:
             self.detail.setTextColor(self.red)
@@ -317,8 +311,8 @@ class TestDialog(QDialog):
         elif __file__:
             subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"musclex_tester.sh"),  cwd=os.path.dirname(__file__)) # run the test program in a subprocess
 
-        if os.path.exists(self.sum_test_path):
-            prev_data = open(self.sum_test_path, 'r').readlines()
+        if os.path.exists(self.test_path):
+            prev_data = open(self.test_path, 'r').readlines()
         else:
             prev_data = ""
 
@@ -334,8 +328,8 @@ class TestDialog(QDialog):
             self.detail.moveCursor(QTextCursor.End)
             self.detail.insertPlainText(".")
             QApplication.processEvents()
-            if os.path.exists(self.sum_test_path):
-                logfile = open(self.sum_test_path, 'r')
+            if os.path.exists(self.test_path):
+                logfile = open(self.test_path, 'r')
                 curr_data = logfile.readlines()
                 if curr_data != prev_data:
                     test_number += 1
@@ -358,7 +352,7 @@ class TestDialog(QDialog):
         self.detail.insertPlainText("\nModule tests complete.")
         QApplication.processEvents()
 
-        test_results = self.get_latest_sum_test()
+        test_results = self.get_latest_test()
         test_summary = test_results.split('Summary of Test Results')
 
         if len(test_summary) >= 2:
@@ -373,7 +367,7 @@ class TestDialog(QDialog):
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
         self.detail.insertPlainText("\nTest results:\n{}{}{}\nSee the log at {} for more info."
-                                    .format('-'*80,test_summary[1],'-'*80, self.sum_test_path))
+                                    .format('-'*80,test_summary[1],'-'*80, self.test_path))
         QApplication.processEvents()
 
     def run_detailed_test(self):
@@ -453,44 +447,6 @@ class TestDialog(QDialog):
         """
         if os.path.exists(self.test_path):
             file = open(self.test_path, 'r')
-        else:
-            return ""
-        data = file.read()
-        idx = 1
-        while(idx < 10):
-            last_test = data.split('-'*80)[-idx]
-            if last_test == '\n':
-                idx += 1
-            else:
-                break
-        file.close()
-        return last_test
-
-    def get_latest_sum_test(self):
-        """
-        Display the last summary test run from the test log.
-        """
-        if os.path.exists(self.sum_test_path):
-            file = open(self.sum_test_path, 'r')
-        else:
-            return ""
-        data = file.read()
-        idx = 1
-        while(idx < 10):
-            last_test = data.split('-'*80)[-idx]
-            if last_test == '\n':
-                idx += 1
-            else:
-                break
-        file.close()
-        return last_test
-
-    def get_env_test(self):
-        """
-        Display the last environment test run from the test log.
-        """
-        if os.path.exists(self.env_path):
-            file = open(self.env_path, 'r')
         else:
             return ""
         data = file.read()

@@ -1,9 +1,7 @@
 #!/usr/bin/bash
 
-DIR=$( pwd; )
-
-mkdir tests/test_logs
-LOG="tests/test_logs/environment_test.log"
+mkdir -p tests/test_logs
+LOG="tests/test_logs/test.log"
 
 echo "
 PACKAGES AT THE RELEASE of v1.15.6

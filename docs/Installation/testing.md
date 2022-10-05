@@ -15,42 +15,12 @@ A testing module is provided in the launcher GUI. If no log is found, this proce
 
 #### Command Line testing
 
-Open a terminal window and run `musclex test` to run all tests. Output from tests will be printed to the command line. Use `musclex test_gpu` to only run the GPU tests.
-
-#### GitHub code testing (using headless)
-
-A testing module is provided using headless version of MuscleX. To use it:
-
-1. If you are working with a virtual environment, activate it. Else skip this step.
-```
-source PATH_TO_VENV/bin/activate
-```
-2. Go to the result_testing directory and your corresponding version.
-```
-cd result_testing/v1.15.6
-```
-3. Run `musclex_tester.sh`. If it is the first time running the tests, please answer 'yes' to the question asked at launch.
-```
-./musclex_tester.sh
-```
+Open a terminal window and run `musclex test_global` to run global testing. You can also run `musclex test_impl` to run detailed implementation tests. Output from tests will be printed to the command line. Use `musclex test_gpu` to only run the GPU tests. 
 
 #### Environment testing
 
-A script is provided to compare your current pip environment to ours at the release of a new version.
-
-1. If you are working with a virtual environment, activate it. Else skip this step.
-```
-source PATH_TO_VENV/bin/activate
-```
-2. Go to the result_testing directory and your corresponding version.
-```
-cd result_testing/v1.15.6
-```
-3. Run `environment_tester.sh`.
-```
-./environment_tester.sh
-```
-
+Open a terminal window and run `musclex test_env` to run environment tests. Output from tests will be printed to the command line. It compares the Python and packages versions used for the release of the latest versions to the versions installed in the current environment. The release versions are saved as raw data in the `musclex/environment_tester.sh` script. 
+This is mostly for control purpose: it is possible to fail the test and have MuscleX functionalities working fine.
 
 ## Testing Methodology
 
@@ -93,6 +63,15 @@ A successful test should produce output similar to the following:
 Test data used is found in `/musclex/tests/test_images`. Each time data in this directory is changed, `testrecord` should be rerun.
 
 Given a module and corresponding settings, test `Pickle` files are written to folders in `<module_name>/test_pickles_<settings_name>`. In `testverify` mode, a directory `<module_name>/tmp_verify_<settings_name>` is utilized to store generated `Pickle` files that are used for comparison, but are deleted at the end of the test. A `keeppickles` argument is included in the `module_test` function and can be changed to `True` to keep the `testverify` `Pickle` objects. If a test fails, these temporary `Pickle` objects are kept to be used for comparison.
+
+## Global testing module
+
+Those tests are based on bash scripts `musclex/musclex_tester.sh`, `musclex/musclex_headless_generator.sh` and `musclex/musclex_headless_compare.sh`.
+
+1. It takes a set of two images for each main type of image (MAR, EIGER and PILATUS for a total of six images) that are saved in `musclex/tests/testImages` and run the functionalities that have a headless run available (Equator, Quadrant Folder and Diffraction). A Json file for each functionality has be saved with the pictures for calibration purpose.
+2. Once the results are created, it transfers the results to a temporary file and run it again. 
+3. Once it is done, it compares the results created during the first run to the ones made during the second run by comparing the `summary.csv` files. This test makes sure that no randomness is disturbing the software.
+4. It then compares those results to a set of precreated results saved in `musclex/tests/testResults` that have been generated using the GUI version of the functionalities. This tests makes sure that GUI and headless are giving identical resuts.
 
 ## Test Suite Summary
 

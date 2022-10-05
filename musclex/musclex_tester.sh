@@ -2,9 +2,8 @@
 
 echo "Starting tests..."
 
-DIR=$( pwd; )
-
-LOG='tests/test_logs/summary_test.log'
+mkdir -p tests/test_logs
+LOG='tests/test_logs/test.log'
 
 <<COMMENT
 while true; do
@@ -23,14 +22,14 @@ echo "Generating a headless instance..."
 ./musclex_headless_generator.sh
 ./musclex_headless_compare.sh
 
-echo 'Comparing headless and correct instances...'
+echo 'Comparing headless and correct instances...' | tee -a $LOG
 
 ### MAR images ###
 ## Analysis and comparison ##
 # Equator headless test #
 echo "
------------------------------------- MAR RESULTS ------------------------------------"
-echo "Comparing the results of Equator with a set of correct results..."
+------------------------------------ MAR RESULTS ------------------------------------" | tee -a $LOG
+echo "Comparing the results of Equator with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -46,7 +45,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/testResults/MARimages/eq_results/summary2.csv" >> file1
+}' "tests/testResults/MARimages/eq_results/summary2.csv" >> file1
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -58,7 +57,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file11
-done < $DIR/tests/testImages/MARimages/eq_results/summary2.csv
+done < tests/testImages/MARimages/eq_results/summary2.csv
 diff --color file11 file1 > res
 if grep -e'-,-' -q res
 then
@@ -77,7 +76,7 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Diffraction headless test #
-echo "Comparing the results of Diffraction with a set of correct results..."
+echo "Comparing the results of Diffraction with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -93,7 +92,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/testResults/MARimages/cp_results/summary.csv" >> file2
+}' "tests/testResults/MARimages/cp_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -105,7 +104,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < $DIR/tests/testImages/MARimages/cp_results/summary.csv
+done < tests/testImages/MARimages/cp_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -124,13 +123,13 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Quadrant folder headless test #
-echo "Comparing the results of Quandrant Folder with a set of correct results..."
+echo "Comparing the results of Quandrant Folder with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
-	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/testResults/MARimages/qf_results/summary.csv" >> file3
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "tests/testResults/MARimages/qf_results/summary.csv" >> file3
 	echo $line >> file33
-done < $DIR/tests/testImages/MARimages/qf_results/summary.csv
+done < tests/testImages/MARimages/qf_results/summary.csv
 diff -y --color file33 file3 > res
 if grep -e'-,-' -q res
 then
@@ -155,8 +154,8 @@ rm -f file1 file11 file2 file22 file3 file33 filename res
 ## Analysis and comparison ##
 # Equator headless test #
 echo "
------------------------------------- EIGER RESULTS ------------------------------------"
-echo "Comparing the results of Equator with a set of correct results..."
+------------------------------------ EIGER RESULTS ------------------------------------" | tee -a $LOG
+echo "Comparing the results of Equator with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -172,7 +171,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/testResults/EIGERimages/eq_results/summary2.csv" >> file1
+}' "tests/testResults/EIGERimages/eq_results/summary2.csv" >> file1
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -184,7 +183,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file11
-done < $DIR/tests/testImages/EIGERimages/eq_results/summary2.csv
+done < tests/testImages/EIGERimages/eq_results/summary2.csv
 diff -y --color file11 file1 > res
 if grep -e'-,-' -q res
 then
@@ -203,7 +202,7 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Diffraction headless test #
-echo "Comparing the results of Diffraction with a set of correct results..."
+echo "Comparing the results of Diffraction with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -219,7 +218,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/testResults/EIGERimages/cp_results/summary.csv" >> file2
+}' "tests/testResults/EIGERimages/cp_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -231,7 +230,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < $DIR/tests/testImages/EIGERimages/cp_results/summary.csv
+done < tests/testImages/EIGERimages/cp_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -250,13 +249,13 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Quadrant folder headless test #
-echo "Comparing the results of Quandrant Folder with a set of correct results..."
+echo "Comparing the results of Quandrant Folder with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
-	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/testResults/EIGERimages/qf_results/summary.csv" >> file3
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "tests/testResults/EIGERimages/qf_results/summary.csv" >> file3
 	echo $line >> file33
-done < $DIR/tests/testImages/EIGERimages/qf_results/summary.csv
+done < tests/testImages/EIGERimages/qf_results/summary.csv
 diff -y --color file33 file3 > res
 if grep -e'-,-' -q res
 then
@@ -281,8 +280,8 @@ rm -f file1 file11 file2 file22 file3 file33 filename res
 ## Analysis and comparison ##
 # Equator headless test #
 echo "
------------------------------------- PILATUS 1M RESULTS ------------------------------------"
-echo "Comparing the results of Equator with a set of correct results..."
+------------------------------------ PILATUS 1M RESULTS ------------------------------------" | tee -a $LOG
+echo "Comparing the results of Equator with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -298,7 +297,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/testResults/PILATUSimages/eq_results/summary2.csv" >> file1
+}' "tests/testResults/PILATUSimages/eq_results/summary2.csv" >> file1
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -310,7 +309,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file11
-done < $DIR/tests/testImages/PILATUSimages/eq_results/summary2.csv
+done < tests/testImages/PILATUSimages/eq_results/summary2.csv
 diff -y --color file11 file1 > res
 if grep -e'-,-' -q res
 then
@@ -329,7 +328,7 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Diffraction headless test #
-echo "Comparing the results of Diffraction with a set of correct results..."
+echo "Comparing the results of Diffraction with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -345,7 +344,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/testResults/PILATUSimages/cp_results/summary.csv" >> file2
+}' "tests/testResults/PILATUSimages/cp_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -357,7 +356,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < $DIR/tests/testImages/PILATUSimages/cp_results/summary.csv
+done < tests/testImages/PILATUSimages/cp_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -376,13 +375,13 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Quadrant folder headless test #
-echo "Comparing the results of Quandrant Folder with a set of correct results..."
+echo "Comparing the results of Quandrant Folder with a set of correct results..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
-	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/testResults/PILATUSimages/qf_results/summary.csv" >> file3
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "tests/testResults/PILATUSimages/qf_results/summary.csv" >> file3
 	echo $line >> file33
-done < $DIR/tests/testImages/PILATUSimages/qf_results/summary.csv
+done < tests/testImages/PILATUSimages/qf_results/summary.csv
 diff -y --color file33 file3 > res
 if grep -e'-,-' -q res
 then

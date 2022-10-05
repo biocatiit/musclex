@@ -1,36 +1,33 @@
 #!/usr/bin/bash
 
-DIR=$( pwd; )
-
-mkdir $DIR/tests/tmp
-mkdir $DIR/tests/tmp/PILATUSimages
-mkdir $DIR/tests/tmp/EIGERimages
-mkdir $DIR/tests/tmp/MARimages
-mv -f $DIR/tests/testImages/PILATUSimages/eq_* $DIR/tests/tmp/PILATUSimages
-mv -f $DIR/tests/testImages/PILATUSimages/qf_* $DIR/tests/tmp/PILATUSimages
-mv -f $DIR/tests/testImages/PILATUSimages/cp_* $DIR/tests/tmp/PILATUSimages
-mv -f $DIR/tests/testImages/EIGERimages/eq_* $DIR/tests/tmp/EIGERimages
-mv -f $DIR/tests/testImages/EIGERimages/qf_* $DIR/tests/tmp/EIGERimages
-mv -f $DIR/tests/testImages/EIGERimages/cp_* $DIR/tests/tmp/EIGERimages
-mv -f $DIR/tests/testImages/MARimages/eq_* $DIR/tests/tmp/MARimages
-mv -f $DIR/tests/testImages/MARimages/qf_* $DIR/tests/tmp/MARimages
-mv -f $DIR/tests/testImages/MARimages/cp_* $DIR/tests/tmp/MARimages
+mkdir -p tests/tmp/PILATUSimages
+mkdir -p tests/tmp/EIGERimages
+mkdir -p tests/tmp/MARimages
+mv -f tests/testImages/PILATUSimages/eq_* tests/tmp/PILATUSimages
+mv -f tests/testImages/PILATUSimages/qf_* tests/tmp/PILATUSimages
+mv -f tests/testImages/PILATUSimages/cp_* tests/tmp/PILATUSimages
+mv -f tests/testImages/EIGERimages/eq_* tests/tmp/EIGERimages
+mv -f tests/testImages/EIGERimages/qf_* tests/tmp/EIGERimages
+mv -f tests/testImages/EIGERimages/cp_* tests/tmp/EIGERimages
+mv -f tests/testImages/MARimages/eq_* tests/tmp/MARimages
+mv -f tests/testImages/MARimages/qf_* tests/tmp/MARimages
+mv -f tests/testImages/MARimages/cp_* tests/tmp/MARimages
 
 echo "Generating a second headless instance..."
 
 ./musclex_headless_generator.sh
 
-LOG='tests/test_logs/summary_test.log'
+LOG='tests/test_logs/test.log'
 echo 'Summary of Test Results' >> $LOG
 
-echo "Comparing two headless instances..."
+echo "Comparing two headless instances..." | tee -a $LOG
 
 ### MAR images ###
 ## Analysis and comparison ##
 # Equator headless test #
 echo "
------------------------------------- MAR RESULTS ------------------------------------"
-echo "Comparing the results of Equator with another instance of headless..."
+------------------------------------ MAR RESULTS ------------------------------------" | tee -a $LOG
+echo "Comparing the results of Equator with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -46,7 +43,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/tmp/MARimages/eq_results/summary2.csv" >> file1
+}' "tests/tmp/MARimages/eq_results/summary2.csv" >> file1
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -58,7 +55,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file11
-done < $DIR/tests/testImages/MARimages/eq_results/summary2.csv
+done < tests/testImages/MARimages/eq_results/summary2.csv
 diff --color file11 file1 > res
 if grep -e'-,-' -q res
 then
@@ -77,7 +74,7 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Diffraction headless test #
-echo "Comparing the results of Diffraction with another instance of headless..."
+echo "Comparing the results of Diffraction with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -93,7 +90,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/tmp/MARimages/cp_results/summary.csv" >> file2
+}' "tests/tmp/MARimages/cp_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -105,7 +102,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < $DIR/tests/testImages/MARimages/cp_results/summary.csv
+done < tests/testImages/MARimages/cp_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -124,13 +121,13 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Quadrant folder headless test #
-echo "Comparing the results of Quandrant Folder with another instance of headless..."
+echo "Comparing the results of Quandrant Folder with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
-	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/tmp/MARimages/qf_results/summary.csv" >> file3
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "tests/tmp/MARimages/qf_results/summary.csv" >> file3
 	echo $line >> file33
-done < $DIR/tests/testImages/MARimages/qf_results/summary.csv
+done < tests/testImages/MARimages/qf_results/summary.csv
 diff -y --color file33 file3 > res
 if grep -e'-,-' -q res
 then
@@ -155,8 +152,8 @@ rm -f file1 file11 file2 file22 file3 file33 filename res
 ## Analysis and comparison ##
 # Equator headless test (without calibration) #
 echo "
------------------------------------- EIGER RESULTS ------------------------------------"
-echo "Comparing the results of Equator with another instance of headless..."
+------------------------------------ EIGER RESULTS ------------------------------------" | tee -a $LOG
+echo "Comparing the results of Equator with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -172,7 +169,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/tmp/EIGERimages/eq_results/summary2.csv" >> file1
+}' "tests/tmp/EIGERimages/eq_results/summary2.csv" >> file1
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -184,7 +181,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file11
-done < $DIR/tests/testImages/EIGERimages/eq_results/summary2.csv
+done < tests/testImages/EIGERimages/eq_results/summary2.csv
 diff -y --color file11 file1 > res
 if grep -e'-,-' -q res
 then
@@ -203,7 +200,7 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Diffraction headless test (without calibration) #
-echo "Comparing the results of Diffraction with another instance of headless..."
+echo "Comparing the results of Diffraction with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -219,7 +216,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/tmp/EIGERimages/cp_results/summary.csv" >> file2
+}' "tests/tmp/EIGERimages/cp_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -231,7 +228,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < $DIR/tests/testImages/EIGERimages/cp_results/summary.csv
+done < tests/testImages/EIGERimages/cp_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -250,13 +247,13 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Quadrant folder headless test #
-echo "Comparing the results of Quandrant Folder with another instance of headless..."
+echo "Comparing the results of Quandrant Folder with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
-	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/tmp/EIGERimages/qf_results/summary.csv" >> file3
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "tests/tmp/EIGERimages/qf_results/summary.csv" >> file3
 	echo $line >> file33
-done < $DIR/tests/testImages/EIGERimages/qf_results/summary.csv
+done < tests/testImages/EIGERimages/qf_results/summary.csv
 diff -y --color file33 file3 > res
 if grep -e'-,-' -q res
 then
@@ -281,8 +278,8 @@ rm -f file1 file11 file2 file22 file3 file33 filename res
 ## Analysis and comparison ##
 # Equator headless test #
 echo "
------------------------------------- PILATUS 1M RESULTS ------------------------------------"
-echo "Comparing the results of Equator with another instance of headless..."
+------------------------------------ PILATUS 1M RESULTS ------------------------------------" | tee -a $LOG
+echo "Comparing the results of Equator with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -298,7 +295,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/tmp/PILATUSimages/eq_results/summary2.csv" >> file1
+}' "tests/tmp/PILATUSimages/eq_results/summary2.csv" >> file1
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -310,7 +307,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file11
-done < $DIR/tests/testImages/PILATUSimages/eq_results/summary2.csv
+done < tests/testImages/PILATUSimages/eq_results/summary2.csv
 diff -y --color file11 file1 > res
 if grep -e'-,-' -q res
 then
@@ -329,7 +326,7 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Diffraction headless test #
-echo "Comparing the results of Diffraction with another instance of headless..."
+echo "Comparing the results of Diffraction with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
@@ -345,7 +342,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "$DIR/tests/tmp/PILATUSimages/cp_results/summary.csv" >> file2
+}' "tests/tmp/PILATUSimages/cp_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -357,7 +354,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < $DIR/tests/testImages/PILATUSimages/cp_results/summary.csv
+done < tests/testImages/PILATUSimages/cp_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -376,13 +373,13 @@ else
 	echo -e "\033[0;32m[PASS]\033[0m" | tee -a $LOG
 fi
 # Quadrant folder headless test #
-echo "Comparing the results of Quandrant Folder with another instance of headless..."
+echo "Comparing the results of Quandrant Folder with another instance of headless..." | tee -a $LOG
 while read line
 do
 	name=$(cut -d, -f1 <<<"$line")
-	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "$DIR/tests/tmp/PILATUSimages/qf_results/summary.csv" >> file3
+	awk -F',' -vY="$name" '{ if ( Y == $1 ) print $0 }' "tests/tmp/PILATUSimages/qf_results/summary.csv" >> file3
 	echo $line >> file33
-done < $DIR/tests/testImages/PILATUSimages/qf_results/summary.csv
+done < tests/testImages/PILATUSimages/qf_results/summary.csv
 diff -y --color file33 file3 > res
 if grep -e'-,-' -q res
 then
@@ -402,7 +399,7 @@ else
 fi
 
 rm -f file1 file11 file2 file22 file3 file33 filename res
-rm -r $DIR/tests/tmp
+rm -r tests/tmp
 
 echo "
 Done."

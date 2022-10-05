@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 """
 import os
 import sys
+import subprocess
 import unittest
 from musclex import __version__
 from .ui.pyqt_utils import *
@@ -93,7 +94,13 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             LauncherForm.main()
             # sys.exit(app.exec_())
-        elif prog == 'test':
+        elif prog == 'test_global':
+            if getattr(sys, 'frozen', False):
+                subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"musclex_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)).wait() # run the test program in a subprocess
+            elif __file__:
+                subprocess.Popen(os.path.join(os.path.dirname(__file__),"musclex_tester.sh"),  cwd=os.path.dirname(__file__)).wait() # run the test program in a subprocess
+            sys.exit()
+        elif prog == 'test_impl':
             suite = unittest.TestSuite()
             suite.addTest(MuscleXTest("testEquatorImage"))
             suite.addTest(MuscleXTest("testQuadrantFolder"))
@@ -105,6 +112,12 @@ def main(arguments=None):
             suite.addTest(MuscleXTest("testGPUIntegratePyFAI"))
             runner = unittest.TextTestRunner()
             runner.run(suite)
+            sys.exit()
+        elif prog == 'test_env':
+            if getattr(sys, 'frozen', False):
+                subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"environment_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)).wait() # run the test program in a subprocess
+            elif __file__:
+                subprocess.Popen(os.path.join(os.path.dirname(__file__),"environment_tester.sh"),  cwd=os.path.dirname(__file__)).wait() # run the test program in a subprocess
             sys.exit()
         elif prog == 'test_gpu':
             suite = unittest.TestSuite()
@@ -257,7 +270,9 @@ def main(arguments=None):
         print("          ai - Add Intensities")
         print("")
         print("          gui - GUI Launcher")
-        print("          test - Run All Tests")
+        print("          test_global - Run Global Tests")
+        print("          test_impl - Run Detailed Implementation Tests")
+        print("          test_env - Run Environment Tests")
         print("          test_gpu - Run GPU Testing Module")
         print("")
         print("For example,")
