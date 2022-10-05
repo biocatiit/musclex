@@ -30,7 +30,7 @@ import sys
 import json
 from os.path import splitext
 import traceback
-from tifffile import imsave
+import fabio
 import pandas as pd
 import musclex
 from ..utils.file_manager import *
@@ -212,11 +212,10 @@ class QuadrantFoldingh:
                 # else:
                 #     img = img.astype(self.quadFold.info['imgType'])
                 img = img.astype("float32")
-                metadata = json.dumps([True, self.quadFold.initImg.shape])
                 result_file += '_folded.tif'
-                # fabio_img = fabio.fabioimage.FabioImage(img, metadata)
-                imsave(result_file, img, description=metadata)
-
+                # metadata = json.dumps([True, self.quadFold.initImg.shape])
+                # imsave(result_file, img, description=metadata)
+                fabio.tifimage.tifimage(data=img).write(result_file)
                 self.saveBackground()
 
     def saveBackground(self):
@@ -236,7 +235,9 @@ class QuadrantFoldingh:
         # create bg folder
         createFolder(bg_path)
         resultImg = resultImg.astype("float32")
-        imsave(result_path, resultImg)
+        # imsave(result_path, resultImg)
+        fabio.tifimage.tifimage(data=resultImg).write(result_path)
+
 
         total_inten = np.sum(resultImg)
         csv_path = join(bg_path, 'background_sum.csv')

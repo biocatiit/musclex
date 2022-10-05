@@ -31,12 +31,12 @@ import sys
 import json
 import traceback
 from os.path import split, splitext
-from tifffile import imsave
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pyplot as plt
 import pandas as pd
 import musclex
+import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.QuadrantFolder import QuadrantFolder
@@ -2479,7 +2479,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 img = img.astype("float32")
 
                 # cv2.imwrite(result_file, img)
-                metadata = json.dumps([True, self.quadFold.initImg.shape])
+                # metadata = json.dumps([True, self.quadFold.initImg.shape])
                 if self.cropFoldedImageChkBx.isChecked():
                     print("Cropping folded image ")
                     ylim, xlim = self.quadFold.initImg.shape
@@ -2491,10 +2491,12 @@ class QuadrantFoldingGUI(QMainWindow):
                     img = img[max(yl,0):yh, max(xl,0):xh]
                     print("After cropping, ", img.shape)
                     result_file += '_folded_cropped.tif'
-                    imsave(result_file, img)
+                    # imsave(result_file, img)
+                    fabio.tifimage.tifimage(data=img).write(result_file)
                 else:
                     result_file += '_folded.tif'
-                    imsave(result_file, img, description=metadata)
+                    # imsave(result_file, img, description=metadata)
+                    fabio.tifimage.tifimage(data=img).write(result_file)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
                 self.saveBackground()
@@ -2517,7 +2519,8 @@ class QuadrantFoldingGUI(QMainWindow):
         # create bg folder
         createFolder(bg_path)
         resultImg = resultImg.astype("float32")
-        imsave(result_path, resultImg)
+        # imsave(result_path, resultImg)
+        fabio.tifimage.tifimage(data=resultImg).write(result_path)
 
         total_inten = np.sum(resultImg)
         csv_path = join(bg_path, 'background_sum.csv')

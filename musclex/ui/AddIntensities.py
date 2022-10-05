@@ -34,7 +34,7 @@ from os.path import isfile, abspath
 import os
 import re
 import argparse
-from tifffile import imsave
+import fabio
 import collections
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -116,7 +116,8 @@ class AddIntensities(QMainWindow):
                     img = self.resizeImage(img, sum_img.shape)
                 sum_img += img
             result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
-            imsave(result_file, sum_img)
+            # imsave(result_file, sum_img)
+            fabio.tifimage.tifimage(data=sum_img).write(result_file)
             print('Saved ', result_file)
             print('Resulting image shape ', sum_img.shape)
 
