@@ -2,6 +2,7 @@ scikit-image
 openpyxl
 tifffile
 numpy
+distro
 scikit-learn
 lmfit
 ConfigParser

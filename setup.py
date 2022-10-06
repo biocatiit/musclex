@@ -61,6 +61,7 @@ setup(
                       'openpyxl',
                       'tifffile',
                       'numpy',
+                      'distro',
                       'scikit-learn',
                       'lmfit',
                       'ConfigParser',
