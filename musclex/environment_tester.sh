@@ -20,7 +20,7 @@ lmfit             1.0.3
 fabio             0.14.0
 h5py              3.7.0
 scipy             1.9.1
-matplotlib        3.5.3
+matplotlib        3.6.0
 Cython            0.29.32
 opencv-python     4.1.2.30
 pyFAI             0.21.3" | tee -a pack | tee -a $LOG # This is a copy paste of the result following before making a new release

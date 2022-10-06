@@ -16,14 +16,14 @@
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
-1. Test release (GUI == Headless, Current == Previous)
+1. Test release (GUI == Headless, Current == Previous) using the testing module.
 2. Create release tag and enter release notes on Github
-3. Update DOI on Zenodo (If it was not done automaticly)  
+3. Update DOI on Zenodo (If it was not done automatically)  
 4. Create pip distribution
 5. Create docker distribution
 6. Update documentation on Readthedocs
-7. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only) 
-
+7. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only)
+8. Test release on each distribution.
 
 ## Prepare a Release
 ### Create a source distribution

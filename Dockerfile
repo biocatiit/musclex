@@ -1,38 +1,23 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 # Install packages.
 ENV TZ=US
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update
-RUN apt install -y tzdata
-RUN apt-get install -y python python-dev python3-pip
-RUN apt-get install -y libjpeg-dev libopencv-dev python3-opencv
-RUN apt-get install -y python3-pyqt5
-RUN apt-get install -y cython
-RUN apt-get install -y pyfai
-RUN apt-get install -y gfortran
-RUN pip install --upgrade pip
+RUN apt-get install -y python3 python3-dev python3-pip gfortran
+RUN apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
 
-
-#RUN pip install --upgrade scikit-image
-#RUN pip install --upgrade tifffile
-RUN pip install --upgrade numpy
-RUN pip install --upgrade lmfit
-RUN pip install --upgrade pandas
-#RUN pip install --upgrade scikit-learn
-#RUN pip install --upgrade ConfigParser
-RUN pip install --upgrade pillow
-RUN pip install --upgrade matplotlib
-#RUN pip install --upgrade fabio
-RUN pip install --upgrade cython
-#RUN pip install --upgrade peakutils
-#RUN pip install --upgrade h5py
-#RUN pip install --upgrade scipy
-#RUN pip install --upgrade matplotlib
-#RUN pip install --upgrade musclexflibs
-#RUN pip install --upgrade PyMca5
-RUN pip install pyqt5
-RUN apt-get install -y git
+RUN pip3 install --upgrade pip
+RUN pip3 install --upgrade distro
+RUN pip3 install --upgrade pyopencl
+RUN pip3 install --upgrade cython
+RUN pip3 install --upgrade numpy
+RUN pip3 install --upgrade opencv-python
+RUN pip3 install --upgrade pyfai
+RUN pip3 install --upgrade PyQt5
+RUN pip3 install --upgrade musclexflibs
+RUN pip3 install --upgrade fisx
+RUN pip3 install --upgrade future
 
 RUN pip install --upgrade musclex
 #RUN pip3 install git+https://github.com/biocatiit/musclex.git@v1.15.4

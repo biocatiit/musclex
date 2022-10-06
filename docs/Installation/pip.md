@@ -10,25 +10,19 @@ There are some modules need to be installed before installing Muscle X. They are
 ### Linux
 ```
 sudo apt-get update
-sudo apt-get install python3 python3-pip python3-dev libjpeg-dev libopencv-dev python3-opencv python3-qt5 cython pyfai gfortran
-sudo apt-get install mesa-common-dev
+sudo apt-get install python3 python3-pip python3-dev gfortran
+sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
 pip3 install --upgrade pip
-pip3 install --upgrade scikit-image
-pip3 install --upgrade tifffile
+pip3 install --upgrade distro
+pip3 install --upgrade pyopencl
+pip3 install --upgrade cython
 pip3 install --upgrade numpy
-pip3 install --upgrade lmfit
-pip3 install --upgrade pandas
-pip3 install --upgrade scikit-learn
-pip3 install --upgrade ConfigParser
-pip3 install --upgrade pillow
-pip3 install --upgrade matplotlib
-pip3 install --upgrade Cython
-pip3 install --upgrade peakutils
-pip3 install --upgrade h5py
-pip3 install --upgrade scipy
-pip3 install --upgrade matplotlib
+pip3 install --upgrade opencv-python
+pip3 install --upgrade pyfai
+pip3 install --upgrade PyQt5
 pip3 install --upgrade musclexflibs
-pip3 install --upgrade PyMca5
+pip3 install --upgrade fisx
+pip3 install --upgrade future
 ```
 
 ### Mac OS

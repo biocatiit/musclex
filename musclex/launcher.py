@@ -135,8 +135,8 @@ class TestDialog(QDialog):
 
     def initUI(self):
         self.testDialogLayout = QVBoxLayout()
-        self.runSummaryTestsButton = QPushButton('Run Global Tests')
-        self.runDetailedTestsButton = QPushButton('Run Detailed Implementation Tests')
+        self.runSummaryTestsButton = QPushButton('Run MuscleX Global Summary Tests')
+        self.runDetailedTestsButton = QPushButton('Run MuscleX Detailed Implementation Tests')
         self.runEnvironmentTestButton = QPushButton('Run Environment Test')
         self.runGPUTestButton = QPushButton('Run GPU Test')
         self.showLatestTestButton = QPushButton('Show Latest Test Results')

@@ -49,51 +49,51 @@ def main(arguments=None):
         if prog == 'eq':
             app = QApplication(sys.argv)
             from .ui.EQStartWindow import EQStartWindow
-            EQStartWindow()
+            myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
             sys.exit(app.exec_())
 
         elif prog == 'qf':
             app = QApplication(sys.argv)
             from .ui.QuadrantFoldingGUI import QuadrantFoldingGUI
-            QuadrantFoldingGUI()
+            myapp = QuadrantFoldingGUI()
             sys.exit(app.exec_())
         elif prog == 'di':
             app = QApplication(sys.argv)
             from .ui.ScanningDiffractionGUI import \
                 ScanningDiffractionGUI
-            ScanningDiffractionGUI()
+            myapp = ScanningDiffractionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':
             from .ui.diffraction_centroids import \
                 DiffractionCentroidStartWindow
             app = QApplication(sys.argv)
-            DiffractionCentroidStartWindow()
+            myapp = DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
         elif prog == 'ddf':
             from .ui.ddf_processor import DDFWindow
             app = QApplication(sys.argv)
-            DDFWindow()
+            myapp = DDFWindow()
             sys.exit(app.exec_())
         elif prog == 'pt':
             from .ui.ProjectionTracesGUI import ProjectionTracesGUI
             app = QApplication(sys.argv)
-            ProjectionTracesGUI()
+            myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
         elif prog == 'im':
             from .ui.ImageMerger import ImageMergerGUI
             app = QApplication(sys.argv)
-            ImageMergerGUI()
+            myapp = ImageMergerGUI()
             sys.exit(app.exec_())
         elif prog == 'ai':
             from .ui.AddIntensities import AddIntensities
             app = QApplication(sys.argv)
-            AddIntensities()
+            myapp = AddIntensities()
             sys.exit(app.exec_())
         elif prog == 'gui':
             from .launcher import LauncherForm
             app = QApplication(sys.argv)
-            LauncherForm.main()
-            # sys.exit(app.exec_())
+            myapp = LauncherForm.main()
+            sys.exit(app.exec_())
         elif prog == 'test_global':
             if getattr(sys, 'frozen', False):
                 subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"musclex_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)).wait() # run the test program in a subprocess
