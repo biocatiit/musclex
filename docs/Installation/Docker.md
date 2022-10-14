@@ -19,6 +19,31 @@ For Mac: follow the steps as described [here](https://docs.docker.com/docker-for
 
 For Debian: follow the steps as described [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-10)
 
+## Installing Docker as a non-root user
+MuscleX is often creating folders during its use in order to store the results. With the normal version of Docker, you will need to be a root user to access those files.
+Since Docker 20.10, it is possible to use 'rootless' Docker. We recommend using this way to use Docker to facilitate the access to MuscleX's results.
+
+Follow the [rootless docker](https://docs.docker.com/engine/security/rootless/) instructions and [post-install](https://docs.docker.com/engine/installation/linux/linux-postinstall/) instructions.
+
+For Ubuntu:
+```
+sudo apt-get update
+sudo apt-get install curl
+curl -fsSL https://get.docker.com/rootless | sh
+```
+
+Make sure the following environment variables are set (use `echo $PATH` and `echo $DOCKER_HOST`). If this is not the case, execute this:
+```
+export PATH=/home/jules/bin:$PATH
+export DOCKER_HOST=unix:///run/user/1000/docker.sock
+```
+
+For other distributions, refer to the [rootless docker website](https://docs.docker.com/engine/security/rootless/).
+
+If the installation fails with `Aborting because rootful Docker (/var/run/docker.sock) is running and accessible.`, run the following command `sudo systemctl disable --now docker.service docker.socket` then reboot your system before trying the installation again.
+
+If the results folders are still under root rights, it might be because you are still using the "rootful" version of Docker, run `docker context use rootless`.
+
 ## Create docker group and add a user
 You need to add a user to docker group in order to give docker run permission to the user  
 ```
@@ -110,4 +135,3 @@ To see all options
 ```
 ./musclex-uid.sh -h
 ```
-
