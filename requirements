@@ -15,3 +15,5 @@ musclex_ccp13
 Cython
 opencv-python
 pyFAI
+distro
+PyMca5

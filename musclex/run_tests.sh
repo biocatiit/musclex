@@ -1,2 +1,2 @@
 #!/bin/sh
-python -m musclex.tests.module_test
+python3 -m musclex.tests.module_test

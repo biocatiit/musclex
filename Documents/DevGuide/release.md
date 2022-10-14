@@ -16,14 +16,15 @@
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
-1. Test release (GUI == Headless, Current == Previous) using the testing module.
-2. Create release tag and enter release notes on Github
-3. Update DOI on Zenodo (If it was not done automatically)  
-4. Create pip distribution
-5. Create docker distribution
-6. Update documentation on Readthedocs
-7. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only)
-8. Test release on each distribution.
+1. Generate pickle testing files (see "Installation -> Testing" documentation, section 'testrecord') for the release version, update `environment_tester.sh` and `tests/test_logs/release.log`.
+2. Test release (GUI == Headless, Current == Previous) using the testing module.
+3. Create release tag and enter release notes on Github.
+4. Update DOI on Zenodo (if it was not done automatically).
+5. Create pip distribution and upload to PyPI.
+6. Create docker distribution.
+7. Update documentation on Readthedocs.
+8. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only).
+9. Test release on each distribution.
 
 ## Prepare a Release
 ### Create a source distribution
@@ -64,10 +65,13 @@ New mac os installation no longer being produced, please use the docker version
 
 > docker tag be048eb52814 biocat/musclex:1-14.4
 
+> docker push biocat/musclex:1-14.4
 > docker push biocat/musclex
 
+Note: The first push is to save a tagged version, and the second push is to update the `latest` version available on docker (pulled by default when no version is specified).
+
 4. Test:
-> musclex.sh
+> ./musclex.sh
 
 5. Record pip package versions:
 > pip freeze > pipversions_1-14.4.txt
@@ -88,19 +92,20 @@ See our [SourceForge repository][5]. Or use other tools for uploading
 ### Upload the project to PyPI
 See [Uploading your Project to PyPI][7]. Be careful of this step, because
 one version number are only allowed to be used once for uploading one
-source distribution. 
+source distribution.
+
 > python setup.py sdist  
 > twine upload dist/*  
 
 ### Publish the release on GitHub
-Pubulish the release [here][8].
+Publish the release [here][8].
 
 ### Update the information of the new release on Zenodo
 Edit [here][9]. **Authors** are generated according to contributors of
 the GitHub repo. Change them properly according to [Project Credits][10].
 
 ### Create App Image using App Image Installer
-- Place muscle/requirements.txt, musclex/musclex and musclex/musclex/main.py in musclex/AppImageBuilder Folder.
+- Place musclex/requirements.txt, musclex/musclex and musclex/musclex/main.py in musclex/AppImageBuilder Folder.
 - Open terminal and run the following command
 ```
 appimage-builder

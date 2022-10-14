@@ -62,6 +62,8 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         self.ininame = ininame
         self.test_path = os.path.join(os.path.dirname(__file__),
                                        "tests", "test_logs", "test.log")
+        self.release_path = os.path.join(os.path.dirname(__file__),
+                                       "tests", "test_logs", "release.log")
         #if not os.path.exists(self.test_path):
             # self.testPopup = QMessageBox()
             # self.testPopup.setWindowTitle('Testing')
@@ -128,6 +130,7 @@ class TestDialog(QDialog):
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
+        self.release_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "release.log")
         self.green = QColor(0,150,0)
         self.red = QColor(150,0,0)
         self.black = QColor(0,0,0)
@@ -140,6 +143,7 @@ class TestDialog(QDialog):
         self.runEnvironmentTestButton = QPushButton('Run Environment Test')
         self.runGPUTestButton = QPushButton('Run GPU Test')
         self.showLatestTestButton = QPushButton('Show Latest Test Results')
+        self.showReleaseButton = QPushButton('Show Release Results')
         self.cancelButton = QPushButton('Cancel')
 
         self.progressBar = QProgressBar(self)
@@ -151,6 +155,7 @@ class TestDialog(QDialog):
         self.testDialogLayout.addWidget(self.runEnvironmentTestButton)
         self.testDialogLayout.addWidget(self.runGPUTestButton)
         self.testDialogLayout.addWidget(self.showLatestTestButton)
+        self.testDialogLayout.addWidget(self.showReleaseButton)
         self.testDialogLayout.addWidget(self.cancelButton)
         self.testDialogLayout.addWidget(self.progressBar)
 
@@ -159,6 +164,7 @@ class TestDialog(QDialog):
         self.runEnvironmentTestButton.clicked.connect(self.runEnvTestButtonClicked)
         self.runGPUTestButton.clicked.connect(self.runGPUTestButtonClicked)
         self.showLatestTestButton.clicked.connect(self.showLatestTestButtonClicked)
+        self.showReleaseButton.clicked.connect(self.showReleaseButtonClicked)
         self.cancelButton.clicked.connect(self.cancelButtonClicked)
 
         self.setLayout(self.testDialogLayout)
@@ -297,6 +303,20 @@ class TestDialog(QDialog):
         self.detail.setFontWeight(50)
         self.detail.insertPlainText("{}{}{}"
                                     .format('-'*80,self.get_latest_test(),'-'*80))
+        QApplication.processEvents()
+
+    def showReleaseButtonClicked(self):
+        self.detail.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nLatest release results:\n")
+        self.detail.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+
+        self.detail.setFontWeight(50)
+        self.detail.insertPlainText("{}{}{}"
+                                    .format('-'*80,self.get_release_results(),'-'*80))
         QApplication.processEvents()
 
     def run_summary_test(self):
@@ -459,6 +479,25 @@ class TestDialog(QDialog):
                 break
         file.close()
         return last_test
+
+    def get_release_results(self):
+        """
+        Display the last release results and versions from the test log.
+        """
+        if os.path.exists(self.release_path):
+            file = open(self.release_path, 'r')
+        else:
+            return ""
+        data = file.read()
+        idx = 1
+        while(idx < 10):
+            release = data.split('-'*80)[-idx]
+            if release == '\n':
+                idx += 1
+            else:
+                break
+        file.close()
+        return release
 
 if __name__ == "__main__":
     LauncherForm.main()

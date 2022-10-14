@@ -15,6 +15,7 @@ Some modules need to be installed before installing Muscle X. They are Pip, Open
 sudo apt-get update
 sudo apt-get install python3 python3-pip python3-dev gfortran
 sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
+
 pip3 install --upgrade pip
 pip3 install --upgrade distro
 pip3 install --upgrade pyopencl
@@ -33,6 +34,10 @@ pip3 install --upgrade future
 Instead of a system install you may install inside a virtual environment. A virtual environment allows you to have a clean environment that is independent of other software installations. Use the following to create a virtual environment (you will run MuscleX in this environment):
 
 ```
+sudo apt-get update
+sudo apt-get install python3 python3-pip python3-dev gfortran
+sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
+
 python3 -m pip install --user virtualenv
 python3 -m venv musclex
 source musclex/bin/activate
@@ -49,6 +54,10 @@ pip3 install --upgrade musclexflibs
 pip3 install --upgrade fisx
 pip3 install --upgrade future
 ```
+```eval_rst
+.. note:: The `apt-get` commands are needed and they are not restricted to the virtual environment even in the case.
+```
+
 To exit the virtual environment use:
 ```
 deactivate

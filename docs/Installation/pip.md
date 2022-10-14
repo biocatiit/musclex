@@ -12,6 +12,7 @@ There are some modules need to be installed before installing Muscle X. They are
 sudo apt-get update
 sudo apt-get install python3 python3-pip python3-dev gfortran
 sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
+
 pip3 install --upgrade pip
 pip3 install --upgrade distro
 pip3 install --upgrade pyopencl
@@ -64,17 +65,13 @@ The default MSVC chosen by Python 3.6 is MSVC 14.0. The minimal customized insta
 pip install cython numpy pyqt5 opencv-python pyfai
 ```
 
-```eval_rst
-.. note:: Omit keyword *sudo* in the commands in following parts when working on Windows.
-```
-
 ## Installing
 
 ### System install
 
 Run this command to install Muscle X programs
 ```
-sudo pip install musclex
+pip install musclex
 ```
 Note: If you are upgrading, add --upgrade at the end.  
 
@@ -88,6 +85,7 @@ python3 -m venv musclex
 source musclex/bin/activate
 which python3
 pip install --upgrade pip
+pip3 install distro
 pip3 install pyopencl
 pip3 install cython
 pip3 install numpy
@@ -128,11 +126,11 @@ pip3 install opencv-python==4.1.2.30
 
 ## Updating
 ```
-sudo pip install -U musclex
+pip install -U musclex
 ```
 if you do not need to update other dependencies, you can run
 ```
-sudo pip install -U --no-deps musclex
+pip install -U --no-deps musclex
 ```
 if you need to install the latest version directly from github, you can run
 ```

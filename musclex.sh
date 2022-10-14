@@ -23,11 +23,11 @@ while getopts ":ulhsv:" opt; do
       echo "  u = update" 
       echo "  l = list versions" 
       echo "  s = ssh permissions" 
-      echo "  v = select version (e.g. -v 1-14.4)" 
+      echo "  v = select version (e.g. -v 1-15.7)" 
       echo ""
       echo "E.g.:"
       echo "  $(basename $0) -l"
-      echo "  $(basename $0) -v 1-14.4 eq"
+      echo "  $(basename $0) -v 1-15.7 eq"
       echo "  $(basename $0) -v 1-14.11 -s eq"
       echo ""
       exit

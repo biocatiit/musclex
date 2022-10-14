@@ -1,5 +1,6 @@
 import unittest
 import os
+import sys
 import platform
 from time import gmtime, strftime
 import distro
@@ -9,7 +10,10 @@ from musclex.tests.test_utils import module_test, hdf_read_test, gpu_device_test
 class MuscleXTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.currdir = os.path.dirname(__file__)
+        if getattr(sys, 'frozen', False):
+            cls.currdir = os.path.dirname(sys._MEIPASS)
+        else:
+            cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")
         cls.dipath = os.path.join(cls.inpath, "di_test_data")
         cls.hdfpath = os.path.join(cls.dipath, "test.hdf")

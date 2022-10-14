@@ -30,7 +30,7 @@ echo "
 PACKAGES INSTALLED ON YOUR COMPUTER
 " | tee -a $LOG
 
-VERS=$(python --version)
+VERS=$(python3 --version)
 echo $VERS | tee -a $LOG
 echo "
 Package         Version" | tee -a $LOG
@@ -77,5 +77,5 @@ else
 " | tee -a $LOG
 fi
 
-rm -f packages_installed pack res
+rm -f packages_installed pack res reqs
 

@@ -1,0 +1,22 @@
+
+*** Version tested on Python 3.8 - on Ubuntu 20.04 and 22.04, macOS 12.6, Windows 10 and Windows 11.
+
+*** Tests passed on Linux: MuscleX Global Summary Tests, MuscleX Detailed Implementation Tests, Environment Test, GPU Test
+
+*** Tests passed on Windows, macOS: Not available yet
+
+*** Pip versions detail:
+
+scikit-image      0.19.3
+tifffile          2022.8.12
+numpy             1.23.3
+pandas            1.5.0rc0
+scikit-learn      1.1.2
+lmfit             1.0.3
+fabio             0.14.0
+h5py              3.7.0
+scipy             1.9.1
+matplotlib        3.6.0
+Cython            0.29.32
+opencv-python     4.1.2.30
+pyFAI             0.21.3

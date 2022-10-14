@@ -32,9 +32,9 @@ import sys
 import subprocess
 import unittest
 from musclex import __version__
-from .ui.pyqt_utils import *
-from .utils.exception_handler import handlers
-from .tests.module_test import MuscleXTest
+from musclex.ui.pyqt_utils import *
+from musclex.utils.exception_handler import handlers
+from musclex.tests.module_test import MuscleXTest
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -48,49 +48,49 @@ def main(arguments=None):
         prog = arguments[1]
         if prog == 'eq':
             app = QApplication(sys.argv)
-            from .ui.EQStartWindow import EQStartWindow
+            from musclex.ui.EQStartWindow import EQStartWindow
             myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
             sys.exit(app.exec_())
 
         elif prog == 'qf':
             app = QApplication(sys.argv)
-            from .ui.QuadrantFoldingGUI import QuadrantFoldingGUI
+            from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()
             sys.exit(app.exec_())
         elif prog == 'di':
             app = QApplication(sys.argv)
-            from .ui.ScanningDiffractionGUI import \
+            from musclex.ui.ScanningDiffractionGUI import \
                 ScanningDiffractionGUI
             myapp = ScanningDiffractionGUI()
             sys.exit(app.exec_())
         elif prog == 'dc':
-            from .ui.diffraction_centroids import \
+            from musclex.ui.diffraction_centroids import \
                 DiffractionCentroidStartWindow
             app = QApplication(sys.argv)
             myapp = DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
         elif prog == 'ddf':
-            from .ui.ddf_processor import DDFWindow
+            from musclex.ui.ddf_processor import DDFWindow
             app = QApplication(sys.argv)
             myapp = DDFWindow()
             sys.exit(app.exec_())
         elif prog == 'pt':
-            from .ui.ProjectionTracesGUI import ProjectionTracesGUI
+            from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
             app = QApplication(sys.argv)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
         elif prog == 'im':
-            from .ui.ImageMerger import ImageMergerGUI
+            from musclex.ui.ImageMerger import ImageMergerGUI
             app = QApplication(sys.argv)
             myapp = ImageMergerGUI()
             sys.exit(app.exec_())
         elif prog == 'ai':
-            from .ui.AddIntensities import AddIntensities
+            from musclex.ui.AddIntensities import AddIntensities
             app = QApplication(sys.argv)
             myapp = AddIntensities()
             sys.exit(app.exec_())
         elif prog == 'gui':
-            from .launcher import LauncherForm
+            from musclex.launcher import LauncherForm
             app = QApplication(sys.argv)
             myapp = LauncherForm.main()
             sys.exit(app.exec_())
@@ -156,7 +156,7 @@ def main(arguments=None):
             i=i+1
 
         if run:
-            from .ui.EQStartWindowh import EQStartWindowh
+            from musclex.ui.EQStartWindowh import EQStartWindowh
             EQStartWindowh(filename, inputsetting, delcache, settingspath)
             sys.exit()
 
@@ -198,11 +198,11 @@ def main(arguments=None):
 
         if run:
             if not processFolder:
-                from .ui.CPImageWindowh import CPImageWindowh
+                from musclex.ui.CPImageWindowh import CPImageWindowh
                 CPImageWindowh(str(fileName), str(filePath),inputsetting, delcache, settingspath)
                 sys.exit()
             else:
-                from .ui.CPBatchWindowh import CPBatchWindowh
+                from musclex.ui.CPBatchWindowh import CPBatchWindowh
                 CPBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
                 sys.exit()
 
@@ -235,7 +235,7 @@ def main(arguments=None):
             i=i+1
 
         if run:
-            from .ui.QuadrantFoldingh import QuadrantFoldingh
+            from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
             if is_file:
                 QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
             else:

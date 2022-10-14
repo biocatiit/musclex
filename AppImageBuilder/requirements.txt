@@ -13,6 +13,8 @@ scipy
 matplotlib
 musclex_ccp13
 Cython
-opencv-python
+opencv-python==4.1.2.30
+PyQt5==5.12.2
 pyFAI
+distro
 PyMca5

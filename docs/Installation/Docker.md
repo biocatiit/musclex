@@ -5,7 +5,7 @@
 In order to install the program, you need to install Docker first.
 
 ## Installing Docker
-To install Docker follow the [docker website](https://www.docker.com/community-edition) instructions and [post-install](https://docs.docker.com/engine/installation/linux/linux-postinstall/) instructions.
+To install Docker follow the [docker website](https://docs.docker.com/engine/install/) instructions and [post-install](https://docs.docker.com/engine/installation/linux/linux-postinstall/) instructions.
  
 For Ubuntu:
 ```

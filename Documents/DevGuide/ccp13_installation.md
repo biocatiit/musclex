@@ -23,7 +23,6 @@ Besides basic requirements, package administrator needs additional tools.
 - [twine][3]
 - wheel
 
-
 1. [MinGW-W64][2] or any other available package containing Fortran compiler is
   required to build musclex_ccp13.
 2. [twine][3] is used to upload distributions to PyPI repository.

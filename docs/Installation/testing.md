@@ -1,4 +1,4 @@
-# Tests Overview
+# Tests Overview (Only available on pip version)
 
 ## Testing a MuscleX Installation
 
