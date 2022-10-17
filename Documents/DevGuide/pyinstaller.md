@@ -6,6 +6,7 @@
 
 ## Basic steps
 Environment: Python 3.6.4 [MSC v.1900 64 bit (AMD64)] on win32
+Environment for 1.15.7: Python 3.8.10 [MSC v.1900 64 bit (AMD64)] on win32
 ### Build a spec file
 Build a [spec (specification) file][1]. (Work in the root directory
 of musclex project.)
@@ -128,7 +129,8 @@ Above parts describe the process in Windows. For building Mac App, baisc
 steps and settings are almost the same as those for Windows,  but there
 are a few more stuff needed to be done.  
 Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39.2)] on darwin  
-Environment for 1.15.1: Python 3.9.6 [Clang 12.0.5 (clang-1205.0.22.9)] on darwin  
+Environment for 1.15.1: Python 3.9.6 [Clang 12.0.5 (clang-1205.0.22.9)] on darwin
+Environment for 1.15.7: Python 3.8.10 on darwin
 ### Additional Issues
 1. OpenCV library dependency  
   **Description**: Error occurs when importing *cv2* module. (Opencv is
