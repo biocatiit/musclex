@@ -121,7 +121,7 @@ pip install -U pandas
 ```
 If you get "Could not load the Qt platform plugin" install an older version of opencv by
 ```
-pip3 install opencv-python==4.1.2.30
+pip3 install opencv-python==4.2.0.32
 ```
 
 ## Updating

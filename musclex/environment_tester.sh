@@ -22,7 +22,7 @@ h5py              3.7.0
 scipy             1.9.1
 matplotlib        3.6.0
 Cython            0.29.32
-opencv-python     4.1.2.30
+opencv-python     4.2.0.32
 pyFAI             0.21.3" | tee -a pack | tee -a $LOG # This is a copy paste of the result following before making a new release
 
 echo "
