@@ -4,7 +4,7 @@ Use the following instructions to run the app image on Fedora, Debian, Arch, Cen
 - Open terminal where the AppImage is located
 - Run the following commands
 ```
-chmod u+x MuscleX-1.15.1-x86_64.AppImage
-./MuscleX-1.15.1-x86_64.AppImage
+chmod u+x musclex-1.15.7-x86_64.AppImage
+./musclex-1.15.7-x86_64.AppImage
 ```
 

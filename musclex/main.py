@@ -262,7 +262,7 @@ def main(arguments=None):
         print("")
         print("          eq [<-h>] - Equator (-h for headless version)")
         print("          di [<-h>] - Scanning Diffraction (-h for headless version)")
-        print("          qf - Quadrant Folding")
+        print("          qf [<-h>] - Quadrant Folding (-h for headless version)")
         print("          pt - Projection Traces")
         print("          im - Image Merger")
         print("          dc - Diffraction Centroids")

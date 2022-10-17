@@ -34,7 +34,7 @@ curl -fsSL https://get.docker.com/rootless | sh
 
 Make sure the following environment variables are set (use `echo $PATH` and `echo $DOCKER_HOST`). If this is not the case, execute this:
 ```
-export PATH=/home/jules/bin:$PATH
+export PATH=/home/[user]/bin:$PATH
 export DOCKER_HOST=unix:///run/user/1000/docker.sock
 ```
 
