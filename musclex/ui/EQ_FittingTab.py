@@ -25,6 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
 from .pyqt_utils import *
 from ..utils.image_processor import *
 
@@ -150,7 +151,6 @@ class EQ_FittingTab(QWidget):
         # self.fittingTabLayout.addSpacing()
         self.fittingTabLayout.addWidget(self.skeletalGrp, 1, 0)
 
-
     def setAllToolTips(self):
         """
         Set Tooltips for widgets
@@ -180,8 +180,10 @@ class EQ_FittingTab(QWidget):
         self.zlineSpnBx.editingFinished.connect(lambda: self.skeletalChanged('zline', self.zlineSpnBx))
         self.gammaZSpnBx.editingFinished.connect(lambda: self.skeletalChanged('gammaZ', self.gammaZSpnBx))
 
-
     def syncSpinBoxes(self, info):
+        """
+        Synchronize spin boxes
+        """
         self.syncUI = True
         side = self.side
         self.fixSigmaC.setChecked(side + '_fix_sigmac' in info)
@@ -208,6 +210,9 @@ class EQ_FittingTab(QWidget):
         self.syncUI = False
 
     def initSpinBoxes(self, info):
+        """
+        Initialize spin box
+        """
         self.syncUI = True
         side = self.side
         if 'fit_results' in info:
@@ -272,6 +277,9 @@ class EQ_FittingTab(QWidget):
         self.syncUI = False
 
     def fixSigmaCChecked(self):
+        """
+        Triggered when fix sigma C is checked
+        """
         side = self.side
         parent = self.parent
         if self.fixSigmaC.isChecked():
@@ -297,7 +305,7 @@ class EQ_FittingTab(QWidget):
         """
         Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated
         """
-        #self.parent.refreshAllFittingParams()
+        # self.parent.refreshAllFittingParams()
         self.log_changes(name, elem, prefix='(fitting)')
 
     def skeletalChecked(self):
@@ -366,19 +374,28 @@ class EQ_FittingTab(QWidget):
         return settings
 
     def init_logging(self):
+        """
+        Initialize the logging
+        """
         for objName in self.editableVars:
             self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
         #print(self.side, self.editableVars)
 
     def write_log(self, msg):
+        """
+        Write the log
+        """
         if hasattr(self.parent.__class__, 'write_log') and \
            callable(getattr(self.parent.__class__, 'write_log')):
             self.parent.write_log(self.side + ' ' + msg)
 
     def log_changes(self, name, obj, prefix=''):
+        """
+        Change the log file and rewrite it
+        """
         newValue = obj.value()
         varName = obj.objectName()
         if self.editableVars[varName] == newValue:
             return
-        self.write_log('{0}{1}Changed: {2} -> {3}'.format(prefix, name, self.editableVars[varName], newValue))
+        self.write_log(f'{prefix}{name}Changed: {self.editableVars[varName]} -> {newValue}')
         self.editableVars[varName] = newValue

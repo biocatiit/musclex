@@ -38,7 +38,6 @@ from sklearn.metrics import r2_score, mean_squared_error
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import fabio
 import musclex
-# import pyFAI
 from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
@@ -135,6 +134,11 @@ class EquatorImage:
                 del self.info[k]
 
     def updateInfo(self, settings):
+        """
+        Update info dict using settings
+        :param settings: calibration settings
+        :return: -
+        """
         if settings['orientation_model'] is None:
             if 'orientation_model' not in self.info or self.info['orientation_model'] is None:
                 settings['orientation_model'] = 0
@@ -207,7 +211,7 @@ class EquatorImage:
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
         if "mode_angle" in self.info:
-            print("Using mode orientation {}".format(self.info["mode_angle"]))
+            print(f'Using mode orientation {self.info["mode_angle"]}')
             self.info['rotationAngle'] = self.info["mode_angle"]
 
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
@@ -240,15 +244,6 @@ class EquatorImage:
             _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr") # Get 1D Azimuthal integrated histogram
             self.info['rmin'] = getFirstVallay(I) # R-min is value before the first valley
             self.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
-            #
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111)
-            # ax.plot(I[:int(len(I)/4)])
-            # ax.axvline(self.info['rmin'], color = 'r')
-            # ax.set_xlabel("radius (pixel)")
-            # ax.set_ylabel("intensity (pixel)")
-            # ax.set_xlim((0, len(I[:int(len(I)/4)])))
-            # fig.show()
 
         print("Done. R-min is " + str(self.info['rmin']))
 
@@ -471,7 +466,6 @@ class EquatorImage:
 
         # self.info['peak'] = [symP, peak]
         S10 = int((first_left + first_right) / 2.)
-
         self.info['S'] = [S10]
 
         # Find other S values based on S10 and theta function
@@ -483,7 +477,6 @@ class EquatorImage:
             SList.append(s_pos)
 
         maximum_nPeaks = 2
-
         # Find peaks correponding to S values
         for i, S in enumerate(SList):
             self.info['S'].append(S)
@@ -560,10 +553,10 @@ class EquatorImage:
             params.add("S10", S[0], min=S[0] - margin, max=S[0] + margin)
             params.add("S0", S0, min=-0.001,  max=0.001)
 
-            for i in range(len(left_areas)):
-                params.add("left_area" + str(i + 1), max(left_areas[i], 100), min=0)
-            for i in range(len(right_areas)):
-                params.add("right_area" + str(i + 1), max(right_areas[i],100), min=0)
+            for (i, e) in enumerate(left_areas):
+                params.add("left_area" + str(i + 1), max(e, 100), min=0)
+            for (i, e) in enumerate(right_areas):
+                params.add("right_area" + str(i + 1), max(e, 100), min=0)
 
             left_sigmac = self.info['left_fix_sigmac'] if 'left_fix_sigmac' in self.info else self.info['left_sigmac']
 
@@ -689,10 +682,6 @@ class EquatorImage:
 
                 self.info['fit_results'] = fit_result
                 self.saveParamInfo(params, int_vars, fit_result)
-                # print "cardiacFit result : ",result.values
-
-                # original_hist = self.info['rhist']
-                # plt.plot(x, original_hist, label = 'histogram_BG')
 
         if 'fit_results' in self.info:
             print("Done. Fitting Results : " + str(self.info['fit_results']))
@@ -724,7 +713,7 @@ class EquatorImage:
             paramInfo[p] = {}
             paramInfo[p]['fixed'] = True
             paramInfo[p]['val'] = int_vars[p]
-            if not isinstance(int_vars[p], bool) and (isinstance(int_vars[p], float) or isinstance(int_vars[p], int)):
+            if not isinstance(int_vars[p], bool) and isinstance(int_vars[p], (float, int)):
                 paramInfo[p]['min'] = int_vars[p] - 10
                 paramInfo[p]['max'] = int_vars[p] + 10
         self.info['paramInfo'] = paramInfo
@@ -769,12 +758,12 @@ class EquatorImage:
         left_areas = [left_height[i] * left_widths[i] * np.sqrt(2 * np.pi) for i in range(len(left_peaks))]
         right_areas = [right_height[i] * right_widths[i] * np.sqrt(2 * np.pi) for i in range(len(right_peaks))]
 
-        for i in range(len(left_areas)):
+        for (i, e) in enumerate(left_areas):
             if "left_area" + str(i + 1) not in paramInfo:
-                params.add("left_area" + str(i + 1), max(left_areas[i], 100), min=0)
-        for i in range(len(right_areas)):
+                params.add("left_area" + str(i + 1), max(e, 100), min=0)
+        for (i, e) in enumerate(right_areas):
             if "right_area" + str(i + 1) not in paramInfo:
-                params.add("right_area" + str(i + 1), max(right_areas[i], 100), min=0)
+                params.add("right_area" + str(i + 1), max(e, 100), min=0)
 
         if self.info['isSkeletal'] and self.skeletalVarsNotSet:
             # If zline is checked and use previous fit used, initialize the zline parameters if not set previously
@@ -925,14 +914,19 @@ class EquatorImage:
         cache_file = fullPath(cache_path, self.filename + '.info')
         if exists(cache_path) and isfile(cache_file):
             os.remove(cache_file)
-    
+
     def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
         print(text)
 
-def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
-               , left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz
-               , right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz, extraGaussCenter, extraGaussSig, extraGaussArea, **kwargs):
-
+def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k,
+                left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
+                right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline,
+                right_gammaz, extraGaussCenter, extraGaussSig, extraGaussArea, **kwargs):
     """
     Using for fitting model by lmfit
     :param x: x range (list)
@@ -951,30 +945,7 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
     :param kwargs: area1, area2, ..., areaN as parameters or areas as a list
     :return:
     """
-    # print "center=", centerX
-    # print "S10=",S10
-    # print "model=",model
-    # print "isSkeletal=",isSkeletal
-    # print "left_sigmad=", left_sigmad
-    # print "left_sigmas=", left_sigmas
-    # print "left_sigmac=", left_sigmac
-    # print "left_gamma=", left_gamma
-    # print "left_intz=", left_intz
-    # print "left_sigmaz=", left_sigmaz
-    # print "left_zline=", left_zline
-    # print "left_gammaz=", left_gammaz
-    # print "right_sigmad=", right_sigmad
-    # print "right_sigmas=", right_sigmas
-    # print "right_sigmac=", right_sigmac
-    # print "right_gamma=", right_gamma
-    # print "right_intz=", right_intz
-    # print "right_sigmaz=", right_sigmaz
-    # print "right_zline=", right_zline
-    # print "right_gammaz=", right_gammaz
-    # print "kwargs=", kwargs
-    # print "======================"
     if kwargs is not None:
-
         if 'left_areas' in kwargs and 'right_areas' in kwargs:
             left_areas = kwargs['left_areas']
             right_areas = kwargs['right_areas']
@@ -1005,8 +976,6 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
 
         Speaks = sorted(speaks_dict.items(), key=lambda kv: kv[0])
         Speaks = [v for (_, v) in Speaks]
-
-
         result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
         result += cardiacSide(model, 'right', x, centerX, S0, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
                              right_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
@@ -1023,12 +992,14 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k
                                    sigma=left_sigmaz, gamma=left_gammaz)
                 result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 - right_zline,
                                    sigma=right_sigmaz, gamma=right_gammaz)
-
         return result + k
-
     return 0
 
-def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma, areas, Speak, extraGaussCenter, extraGaussSig, extraGaussArea):
+def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas,
+                gamma, areas, Speak, extraGaussCenter, extraGaussSig, extraGaussArea):
+    """
+    Using for fitting model by lmfit
+    """
     for (i, _) in enumerate(areas):
         if side == 'left':
             hk = i
@@ -1040,16 +1011,11 @@ def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas, gamma,
         sigmahk = np.sqrt(sigmac ** 2 + (sigmad * theta(hk)) ** 2 + (sigmas * (theta(hk) ** 2)) ** 2)
 
         if model == "Gaussian":
-            # if i == 0:
-            #     result = (areas[i]/sigmahk)*np.exp(-np.log(2)*((x-p)/sigmahk)**2)
-            # else:
-            #     result += (areas[i]/sigmahk)*np.exp(-np.log(2)*((x-p)/sigmahk)**2)
             mod = GaussianModel()
             if i == 0:
                 result = mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk)
             else:
                 result += mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk)
-
         elif model == "Voigt":
             mod = VoigtModel()
             if i == 0:
@@ -1082,9 +1048,7 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
     :return:
     """
     if kwargs is not None:
-
         result = None
-
         if 'areas' in kwargs:
             areas = kwargs['areas']
         else:
@@ -1109,10 +1073,6 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
             sigmahk = np.sqrt(sigmac ** 2 + (sigmad * theta(hk)) ** 2 + (sigmas * (theta(hk) ** 2)) ** 2)
 
             if model == "Gaussian":
-                # if i == 0:
-                #     result = (areas[i]/sigmahk)*np.exp(-np.log(2)*((x-p)/sigmahk)**2)
-                # else:
-                #     result += (areas[i]/sigmahk)*np.exp(-np.log(2)*((x-p)/sigmahk)**2)
                 mod = GaussianModel()
                 if i == 0:
                     result = mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk)
@@ -1139,12 +1099,14 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
                                    sigma=sigmaz, gamma=gammaz)
                 result += mod.eval(x=x, amplitude=intz, center=centerX - zline,
                                    sigma=sigmaz, gamma=gammaz)
-
         return result
-
     return 0
 
 def getCardiacGraph(x, fit_results):
+    """
+    Give the cardiac graph based on the fit results.
+    :param fit_results: fit results
+    """
     plot_params = {
         'centerX': fit_results['centerX'],
         'S0': fit_results["S0"],

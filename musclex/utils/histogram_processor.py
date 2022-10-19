@@ -27,7 +27,6 @@ authorization from Illinois Institute of Technology.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     """
@@ -57,12 +56,8 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
 
     hist_y2 = hist_y.copy()
     if ignore is not None:
-        # hist2 = np.array(hist)
-        # hist_y2 = smooth(hist2[hist_x], 5)
         ignore2 = ignore[hist_x]
         hist_y2[ignore2] = int(max(hist_y2)*1.5)
-    # else:
-    #     hist_y2 = smooth(hist_y, 5)
 
     hull_x, hull_y = getHull(hist_x, hist_y2)
     hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
@@ -72,29 +67,6 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
     ret.extend(np.zeros(len(hist)-end_p))
 
     if ignore is not None:
-        # i = 0
-        # while i < len(ret):
-        #     if ignore[i]:
-        #         start_ind = i - 1
-        #         while i < len(ret) and ignore[i]:
-        #             i += 1
-        #         start_ind = max(0, start_ind)
-        #         end_ind = min(i, len(ret) - 1)
-        #
-        #         if start_ind == 0:
-        #             sub = ret[end_ind]
-        #         elif end_ind >= len(hist2) - 1:
-        #             sub = np.empty(end_ind-start_ind+1)
-        #             sub.fill(ret[start_ind])
-        #             i = end_ind
-        #         else:
-        #             xs = np.linspace(0, end_ind - start_ind + 1, end_ind - start_ind + 1)
-        #             val_s = ret[start_ind]
-        #             val_e = ret[end_ind]
-        #             m = (val_e - val_s) / len(xs)
-        #             sub = np.array([m * x + val_s for x in xs])
-        #         ret[start_ind: end_ind + 1] = sub
-        #     i += 1
         sub = np.array(ret)
         sub[ignore] = 0
         ret = list(sub)
@@ -118,7 +90,7 @@ def getHull(x_data, y_data):
     lasthullindex = 0
 
     points = len(y_data)
-    while (lasthullindex < points - 1):
+    while lasthullindex < points - 1:
         slope = (y_data[lasthullindex + 1] - y_data[lasthullindex]) / (
             x_data[lasthullindex + 1] - x_data[lasthullindex])
         currenthullindex = lasthullindex + 1
@@ -174,36 +146,38 @@ def getSubtractedHist(xdata, ydata, xhull, yhull):
     return suby
 
 def pchip(x, y, u):
-    # calculate the first derivative at each section
-    # there will be len(x)-1
-    h = list()
+    """
+    Calculate the first derivative at each section
+    there will be len(x)-1
+    """
+    h = []
     h0 = x[0]
     for h1 in x[1:]:
         h.append(h1 - h0)
         h0 = h1
 
-    delta = list()
-    for i in range(len(h)):
-        delta.append((y[i + 1] - y[i]) / h[i])
+    delta = []
+    for (j, f) in enumerate(h):
+        delta.append((y[j + 1] - y[j]) / f)
 
-    d = list()
+    d = []
     d.append(pchipend(h[0], h[1], delta[0], delta[1]))
-    for i in range(1, len(x) - 1):
-        d.append(pchipslopes(h[i - 1], h[i], delta[i - 1], delta[i]))
+    for k in range(1, len(x) - 1):
+        d.append(pchipslopes(h[k - 1], h[k], delta[k - 1], delta[k]))
 
     d.append(pchipend(h[-1], h[-2], delta[-1], delta[-2]))
 
     # evaluate function
-    pchipy = list()
+    pchipy = []
     segmentlx = x[0]
     segmently = y[0]
-    for i in range(len(delta)):
+    for (i, e) in enumerate(delta):
         segmentrx = x[i + 1]
         segmentry = y[i + 1]
         leftindex = u.index(segmentlx)
         rightindex = u.index(segmentrx)
-        c = (3 * delta[i] - 2 * d[i] - d[i + 1]) / h[i]
-        b = (d[i] - 2 * delta[i] + d[i + 1]) / (h[i] ** 2)
+        c = (3 * e - 2 * d[i] - d[i + 1]) / h[i]
+        b = (d[i] - 2 * e + d[i + 1]) / (h[i] ** 2)
         dfloat = d[i]
         for j in u[leftindex:rightindex]:
             j = j - u[leftindex]
@@ -213,13 +187,13 @@ def pchip(x, y, u):
 
     # append the last point
     pchipy.append(y[-1])
-
     return pchipy
 
 def pchipslopes(hm, h, deltam, delta):
-    # PCHIPSLOPES  Slopes for shape-preserving Hermite cubic
-    # pchipslopes(h,delta) computes d(k) = P(x(k)).
-    #
+    """
+    PCHIPSLOPES  Slopes for shape-preserving Hermite cubic
+    pchipslopes(h,delta) computes d(k) = P(x(k)).
+    """
     # Slopes at interior points
     # delta = diff(y)./diff(x).
     # d(k) = 0 if delta(k-1) and delta(k) have opposites
@@ -235,7 +209,9 @@ def pchipslopes(hm, h, deltam, delta):
         return 0.0
 
 def pchipend(h1, h2, del1, del2):
-    # Noncentered, shape-preserving, three-point formula.
+    """
+    Noncentered, shape-preserving, three-point formula.
+    """
     d = ((2 * h1 + h2) * del1 - h1 * del2) / (h1 + h2)
     if sign(d) != sign(del1):
         d = 0
@@ -244,6 +220,9 @@ def pchipend(h1, h2, del1, del2):
     return d
 
 def sign(d):
+    """
+    Return the sign of d
+    """
     if d > 0:
         return 1
     if d == 0:
@@ -307,12 +286,11 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
             else:
                 i += 1
             new_list.append(s)
-        if not i == len(derivate) - 1:
+        if i != len(derivate) - 1:
             new_list.append(peak_list[i])
         peak_list = new_list
 
     peak_list.sort()
-
     return peak_list
 
 def movePeaks(hist, peaks, dist=20):
@@ -325,7 +303,6 @@ def movePeaks(hist, peaks, dist=20):
     """
     peakList = []
     smooth_hist = smooth(hist)
-    # smooth_hist = hist[:]
     for pk in peaks:
         p = int(round(pk))
         while True:
@@ -398,12 +375,10 @@ def getWidth(hist, max_loc, baseline):
     """
     l = 1
     r = 1
-
     while max_loc - l > 0 and hist[max_loc - l] > baseline:
         l += 1
     while  max_loc + r < len(hist)-1 and hist[max_loc + r] > baseline:
         r += 1
-
     return l+r, (max_loc - l, max_loc + r)
 
 def getPeakInformations(hist, peaks, baselines):
@@ -414,14 +389,12 @@ def getPeakInformations(hist, peaks, baselines):
     :param baselines: baselines of peaks (list)
     :return: result with infomations (dict)
     """
-    # self.fitModel(hist, peaks, baselines)
     centroids = []
     widths = []
     intersectionsList = []
     areas = []
 
-    for i in range(len(peaks)):
-        p = peaks[i]
+    for (i, p) in enumerate(peaks):
         baseline = baselines[i]
         width, intersections = getWidth(hist, p, baseline)
         cent = getCentroid(hist, p, intersections)
@@ -437,7 +410,8 @@ def getPeakInformations(hist, peaks, baselines):
     return results
 
 def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
-    """smooth the data using a window with requested size.
+    """
+    Smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.
     The signal is prepared by introducing reflected copies of the signal
@@ -478,11 +452,10 @@ def smooth(x, window_len=10, window='hanning'): # From http://scipy-cookbook.rea
     if window_len < 3:
         return x
 
-    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+    if window not in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
         raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     s=np.r_[2*x[0]-x[window_len:1:-1], x, 2*x[-1]-x[-1:-window_len:-1]]
-    #print(len(s))
 
     if window == 'flat': #moving average
         w = np.ones(window_len,'d')

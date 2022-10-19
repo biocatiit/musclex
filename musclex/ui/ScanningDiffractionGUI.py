@@ -26,25 +26,27 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__author__ = 'Miguel Menendez, Jiranun.J'
-
+import musclex
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
-import musclex
-from .CPImageWindow import CPImageWindow
-from .CPBatchWindow2 import CPBatchWindow
+from .DIImageWindow import DIImageWindow
+from .DIBatchWindow import DIBatchWindow
 
 class ScanningDiffractionGUI(QMainWindow):
+    """
+    A class for window displaying all information of a selected image.
+    """
     resizeCompleted = pyqtSignal()
-
     def __init__(self):
         QWidget.__init__(self)
         self.widgetList = []
         self.initUI()
 
     def initUI(self):
-        # self.setStyleSheet(getStyleSheet())
+        """
+        Initialize the UI
+        """
         self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
@@ -76,53 +78,37 @@ class ScanningDiffractionGUI(QMainWindow):
         self.resize(400,150)
 
     def removeWidget(self, win):
+        """
+        Remove a widget from the current window.
+        :param win: the widget to remove
+        """
         if win in self.widgetList:
             idx = self.widgetList.index(win)
             del self.widgetList[idx]
 
     def onNewFileSelected(self, fullfilepath):
+        """
+        Triggered when a new file is selected.
+        :param fullfilepath: the path of the selected file
+        """
         filePath, fileName = os.path.split(fullfilepath)
-        new_image_window = CPImageWindow(self, str(fileName), str(filePath))
+        new_image_window = DIImageWindow(self, str(fileName), str(filePath))
         self.widgetList.append(new_image_window)
 
     def browseFile(self):
+        """
+        Open a window to browse files.
+        """
         file_name = getAFile()
         QApplication.processEvents()
         if file_name != "":
             self.onNewFileSelected(str(file_name))
 
     def browseFolder(self):
+        """
+        Open a window to browse folders.
+        """
         dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
         if dir_path != "":
-            new_batch_window = CPBatchWindow(self, str(dir_path))
+            new_batch_window = DIBatchWindow(self, str(dir_path))
             self.widgetList.append(new_batch_window)
-
-# if __name__ == "__main__":
-
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('-i', help='image file')
-#     parser.add_argument('-f', help="handle all images in the folder")
-#     # parser.add_argument('-hdf', help="hdf file for the folder")
-#     args = parser.parse_args()
-
-#     if args.i:
-#         full_path = abspath(args.i)
-#         if isfile(full_path):
-#             filepath, filename = os.path.split(full_path)
-#             app = QApplication(sys.argv)
-#             myapp = CPImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
-#             sys.exit(app.exec_())
-#         else:
-#             print("ERROR: " + str(full_path) + " does not exist. Please select another image.")
-#     elif args.f:
-#         full_path = abspath(args.f)
-#         if exists(full_path) and not isfile(full_path):
-#             app = QApplication(sys.argv)
-#             myapp = CPImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
-#             sys.exit(app.exec_())
-#         else:
-#             print("ERROR: " + str(full_path)+ " is not a folder.")
-#     else:
-#         app = QApplication(sys.argv)
-#         myapp = ScanningDiffractionGUI()
-#         sys.exit(app.exec_())

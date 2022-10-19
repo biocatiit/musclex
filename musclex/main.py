@@ -27,6 +27,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
 import os
 import sys
 import subprocess
@@ -51,7 +52,6 @@ def main(arguments=None):
             from musclex.ui.EQStartWindow import EQStartWindow
             myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
             sys.exit(app.exec_())
-
         elif prog == 'qf':
             app = QApplication(sys.argv)
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
@@ -128,6 +128,7 @@ def main(arguments=None):
             sys.exit()
         else:
             run = False
+
     elif len(arguments) >= 5 and arguments[1]=='eq' and arguments[2]=='-h':
         inputsetting=False
         delcache=False
@@ -154,7 +155,6 @@ def main(arguments=None):
                 run=False
                 break
             i=i+1
-
         if run:
             from musclex.ui.EQStartWindowh import EQStartWindowh
             EQStartWindowh(filename, inputsetting, delcache, settingspath)
@@ -168,7 +168,6 @@ def main(arguments=None):
         settingspath='empty'
         processFolder=False
         while i < len(arguments):
-
             if arguments[i]=='-s':
                 inputsetting=True
                 if i+1<len(arguments) and len(arguments[i+1])>5:
@@ -193,17 +192,15 @@ def main(arguments=None):
             else:
                 run=False
                 break
-
             i=i+1
-
         if run:
             if not processFolder:
-                from musclex.ui.CPImageWindowh import CPImageWindowh
-                CPImageWindowh(str(fileName), str(filePath),inputsetting, delcache, settingspath)
+                from musclex.ui.DIImageWindowh import DIImageWindowh
+                DIImageWindowh(str(fileName), str(filePath),inputsetting, delcache, settingspath)
                 sys.exit()
             else:
-                from musclex.ui.CPBatchWindowh import CPBatchWindowh
-                CPBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
+                from musclex.ui.DIBatchWindowh import DIBatchWindowh
+                DIBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
                 sys.exit()
 
     elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':
@@ -233,7 +230,6 @@ def main(arguments=None):
                 run=False
                 break
             i=i+1
-
         if run:
             from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
             if is_file:

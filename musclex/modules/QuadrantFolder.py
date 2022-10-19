@@ -91,7 +91,6 @@ class QuadrantFolder:
                 'imgType' : str(self.orig_img.dtype)
             }
 
-
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
@@ -112,12 +111,11 @@ class QuadrantFolder:
         if os.path.isfile(cache_file):
             with open(cache_file, "rb") as c:
                 info = pickle.load(c)
-            if info != None:
+            if info is not None:
                 if info['program_version'] == self.version:
                     return info
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
-                    # return None
         return None
 
     def delCache(self):
@@ -169,6 +167,11 @@ class QuadrantFolder:
         self.parent.statusPrint("")
 
     def updateInfo(self, flags):
+        """
+        Update info dict using flags
+        :param flags: flags
+        :return: -
+        """
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
                 flags['orientation_model'] = 0
@@ -190,6 +193,10 @@ class QuadrantFolder:
             self.info['sigmoid'] = 0.05
 
     def applyBlankImageAndMask(self):
+        """
+        Apply the blank image and mask threshold on the orig_img
+        :return: -
+        """
         if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
             img = np.array(self.orig_img, 'float32')
             blank, mask = getBlankImageAndMask(self.img_path)
@@ -245,7 +252,7 @@ class QuadrantFolder:
             del self.info['manual_rotationAngle']
             self.deleteFromDict(self.info, 'avg_fold')
         elif "mode_angle" in self.info:
-            print("Using mode orientation {}".format(self.info["mode_angle"]))
+            print(f'Using mode orientation {self.info["mode_angle"]}')
             self.info['rotationAngle'] = self.info["mode_angle"]
             self.deleteFromDict(self.info, 'avg_fold')
         elif not self.empty and 'rotationAngle' not in self.info.keys():
@@ -258,6 +265,10 @@ class QuadrantFolder:
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
 
     def getExtentAndCenter(self):
+        """
+        Give the extent and the center of the image in self.
+        :return: extent, center
+        """
         if self is None:
             return [0,0], (0,0)
         if self.orig_image_center is None:
@@ -525,6 +536,10 @@ class QuadrantFolder:
         self.info['bgimg1'] = result
 
     def applySmoothedBGSub(self, typ='gauss'):
+        """
+        Apply the background substraction smoothed, with default type to gaussian.
+        :param typ: type of the substraction
+        """
         fold = copy.copy(self.info['avg_fold'])
 
         img = self.makeFullImage(fold)
@@ -685,40 +700,6 @@ class QuadrantFolder:
         smoo = self.info['smooth']
         # tension = self.info['tension']
 
-        # I2D = []
-        # for deg in range(180, 271):
-        #     if deg == 180:
-        #         x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", azimuth_range=(deg, deg + 0.5))
-        #     elif deg == 270:
-        #         x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", azimuth_range=(deg - 0.5, deg))
-        #     else:
-        #         x, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", azimuth_range=(deg - 0.5, deg + 0.5))
-        #     I2D.append(I)
-
-        # I2D, tth, chi = ai.integrate2d(copy_img, npt_rad, npt_azim=3600, unit="r_mm", method="csr_ocl")
-        # I2D = np.array(I2D[0:900])
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.cla()
-        # ax.imshow(I2D)
-        # fig.show()
-
-        # I2D = np.array(I2D)
-        # xs = []
-        # ys = []
-        #
-        # for r in np.arange(rmin, rmax, radial_bin):
-        #     pixels = I2D[:,r:r+radial_bin]
-        #     pixels = sorted(np.ravel(pixels))
-        #     start_ind = int(round(len(pixels) * start_p / 100.))
-        #     end_ind = int(round(len(pixels) * end_p / 100.))
-        #     if start_ind >= end_ind:
-        #         val = pixels[start_ind]
-        #     else:
-        #         val = np.mean(pixels[start_ind:end_ind])
-        #     xs.append(r+radial_bin/2.)
-        #     ys.append(val)
-
         max_pts = (2.*np.pi*rmax / 4. + 10) * radial_bin
         nBin = int((rmax-rmin)/radial_bin)
 
@@ -733,12 +714,6 @@ class QuadrantFolder:
         newy = list(np.zeros(rmin))
         newy.extend(list(interpolate))
         newy.extend(np.zeros(max_distance-rmax))
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.plot(xs, ys, "ro", label = "orig")
-        # ax.plot(newx, newy, label = "smooth")
-        # ax.legend()
-        # fig.show()
 
         self.info['bg_line'] = [xs, ys, newx, newy]
         # Create background from spline line
@@ -749,14 +724,13 @@ class QuadrantFolder:
 
         # Subtract original average fold by background
         self.info['bgimg1'] = result
-        #
-        # result_path = fullPath(self.img_path, "qf_results")
-        # createFolder(result_path)
-        # background = background.astype("float32")
-        # imsave(fullPath(result_path, "cir_bg.tif"), background)
 
     def getFirstPeak(self, hist):
-        # Start from index 5 and go to the right until slope is less than -10
+        """
+        Find the first peak using the histogram.
+        Start from index 5 and go to the right until slope is less than -10
+        :param hist: histogram
+        """
         for i in range(5, int(len(hist)/2)):
             if hist[i] - hist[i-1] < -10:
                 return i
@@ -764,7 +738,7 @@ class QuadrantFolder:
 
     def getRminmax(self):
         """
-        get R-min and R-max for background subtraction process. If these value is changed, background subtracted images need to be reproduced.
+        Get R-min and R-max for background subtraction process. If these value is changed, background subtracted images need to be reproduced.
         """
         self.parent.statusPrint("Finding Rmin and Rmax...")
         print("R-min and R-max is being calculated.")
@@ -829,38 +803,9 @@ class QuadrantFolder:
             y_pchip = pchip(hull_x, hull_y, hist_x)
             pchiplines.append(y_pchip)
 
-        #
-        # for deg in np.arange(0, 91, 1):
-        #     # for each 1 degree from 0 to 90, get azimuth histogram
-        #     hist_y = []
-        #
-        #     for r in range(rmin, rmax+1):
-        #         x = int(round(1.* r * np.math.cos(np.deg2rad(deg))))
-        #         y = int(round(1.* r * np.math.sin(np.deg2rad(deg))))
-        #         if x > copy_img.shape[1] or y > copy_img.shape[0]:
-        #             break
-        #         hist_y.append(copy_img[copy_img.shape[0]-y-1,copy_img.shape[1]-x-1])
-        #
-        #     # get 1D convex hull pchip line for each azimuth histogram
-        #     hull_x, hull_y = getHull(hist_x, hist_y)
-        #     y_pchip = pchip(hull_x, hull_y, hist_x)
-        #     pchiplines.append(y_pchip)
-
         # Smooth each histogram by radius
         pchiplines = np.array(pchiplines, dtype="float32")
         pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.cla()
-        # ax.imshow(pchiplines)
-        # fig.show()
-        #
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.cla()
-        # ax.imshow(pchiplines2)
-        # fig.show()
 
         # Produce Background from each pchip line
         background = qfu.make2DConvexhullBG2(pchiplines2, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax)
@@ -873,10 +818,6 @@ class QuadrantFolder:
 
         # Subtract original average fold by background
         result = copy_img - background
-
-        # imsave(fullPath(self.img_path,self.img_name)+".bg.tif", background)
-        # imsave(fullPath(self.img_path, self.img_name) + ".orig.tif", np.array(copy_img, dtype="float32"))
-        # result -= result.min()
 
         self.info['bgimg1'] = result
 
@@ -1009,10 +950,6 @@ class QuadrantFolder:
             self.imgCache['BgSubFold'] = qfu.combine_bgsub_float32(img1, img2, center[0], center[1], sigmoid, rad)
             self.deleteFromDict(self.imgCache, "resultImg")
 
-            # display_test(img1, "in",500)
-            # display_test(img2, "out",500)
-            # display_test(self.imgCache['BgSubFold'], "result",500)
-
         print("Done.")
 
     def generateResultImage(self):
@@ -1034,7 +971,6 @@ class QuadrantFolder:
         :param fold:
         :return: result image
         """
-
         fold_height = fold.shape[0]
         fold_width = fold.shape[1]
 
@@ -1053,4 +989,9 @@ class QuadrantFolder:
         return resultImg
 
     def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
         print(text)

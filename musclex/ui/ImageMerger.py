@@ -26,21 +26,17 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__author__ = 'Jiranun.J'
-
-from .pyqt_utils import *
-from os.path import exists, join
-from threading import Thread
-from musclex.utils.file_manager import getFilesAndHdf, createFolder
+from os.path import join
 import fabio
-from musclex.utils.image_processor import averageImages, rotateImage, getRotationAngle, getCenter
 import musclex
+from musclex.utils.image_processor import averageImages
+from musclex.utils.file_manager import getFilesAndHdf, createFolder
+from .pyqt_utils import *
 
 class ImageMergerGUI(QMainWindow):
     """
     A class for GUI of Image Merger
     """
-
     def __init__(self):
         """
         Initial window
@@ -141,7 +137,6 @@ class ImageMergerGUI(QMainWindow):
         self.img_list = sorted(imgs)
         self.updateImageGroups()
 
-
     def updateImageGroups(self):
         """
         Group images and update details
@@ -151,12 +146,11 @@ class ImageMergerGUI(QMainWindow):
         self.detail.clear()
         detail = "Available Groups : \n"
         if len(grps) >= 1:
-            for i in range(len(grps)):
-                detail += "Group "+ str(i+1)+ " : " + str(grps[i][0]) + " ... " + str(grps[i][-1]) + '\n'
+            for (i, grp) in enumerate(grps):
+                detail += "Group "+ str(i+1)+ " : " + str(grp[0]) + " ... " + str(grp[-1]) + '\n'
 
         self.detail.insertPlainText(detail)
         self.detail.moveCursor(QTextCursor.End)
-
 
     def splitImages(self):
         """
@@ -170,7 +164,6 @@ class ImageMergerGUI(QMainWindow):
             grps.append(imgs[i:i + frames])
 
         return grps
-
 
     def start_clicked(self):
         """
@@ -194,7 +187,7 @@ class ImageMergerGUI(QMainWindow):
         merging images
         :return:
         """
-        input = str(self.in_directory.text())
+        inpt = str(self.in_directory.text())
         output = str(self.out_directory.text())
         self.progressbar.setHidden(False)
         self.progressbar.setRange(0, len(self.img_grps))
@@ -221,14 +214,14 @@ class ImageMergerGUI(QMainWindow):
 
                 # Update details
                 details = "- Merging Group "+ str(i+1)+" : \n"
-                for j in range(len(imgs)):
-                    details += str(j+1)+". "+imgs[j]+"\n"
+                for (j, img) in enumerate(imgs):
+                    details += str(j+1)+". "+img+"\n"
                 details += "To : " + filename +'\n\n'
 
                 self.detail.insertPlainText(details)
                 self.detail.moveCursor(QTextCursor.End)
                 QApplication.processEvents()
-                full_imgs = list(map(lambda f: join(input, f), imgs))
+                full_imgs = list(map(lambda f: join(inpt, f), imgs))
                 # forimg in full_imgs, rotate and center them
                 avg = averageImages(full_imgs, rotate=self.rotateChkBx.isChecked())
                 fabio.tifimage.tifimage(data=avg).write(join(output, filename))

@@ -26,8 +26,6 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__author__ = 'Jiranun.J'
-
 import sys
 import os
 from os.path import split
@@ -46,26 +44,6 @@ class EQStartWindow(QMainWindow):
         self.windowList = [] # use this list to keep EquatorWindow objects to prevent python delete it
         self.browseFile() # start program by browse a file
 
-    # def initUI(self):
-    #     QApplication.processEvents()
-    #     self.centralWidget = QWidget(self)
-    #     self.mainLayout = QGridLayout(self.centralWidget)
-    #     self.setCentralWidget(self.centralWidget)
-    #
-    #     self.selectFileButton = QPushButton("Select a File")
-    #     self.selectFileButton.setFixedHeight(50)
-    #     self.selectFolderButton = QPushButton("Select a Folder")
-    #     self.selectFolderButton.setFixedHeight(50)
-    #     self.mainLayout.addWidget(self.selectFileButton, 0, 0, 1, 1)
-    #     # self.mainLayout.addWidget(self.selectFolderButton, 1, 0, 1, 1)
-    #
-    #     self.resize(500, 100)
-    #     self.show()
-    #
-    # def setConnections(self):
-    #     self.selectFileButton.clicked.connect(self.browseFile)
-    #     # self.selectFolderButton.clicked.connect(self.browseFolder)
-
     def childWindowClosed(self, childwin):
         """
         Remove child window from list
@@ -77,32 +55,6 @@ class EQStartWindow(QMainWindow):
         # If window list is empty, exit the program
         if len(self.windowList) == 0:
             self.close()
-
-    # def browseFolder(self):
-    #     dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
-    #     if dir_path != "":
-    #         imgList = getImgFiles(str(dir_path))
-    #         nImg = len(imgList)
-    #
-    #         if nImg < 1:
-    #             errMsg = QMessageBox()
-    #             errMsg.setText('Process Folder Error')
-    #             errMsg.setInformativeText(
-    #                 'This is an empty folder. Please select another file or folder.')
-    #             errMsg.setStandardButtons(QMessageBox.Ok)
-    #             errMsg.setIcon(QMessageBox.Warning)
-    #             errMsg.exec_()
-    #             return
-    #
-    #         errMsg = QMessageBox()
-    #         errMsg.setText('Process folder')
-    #         errMsg.setInformativeText('Are you sure you want to process ' + str(len(imgList)) + ' image(s)? This might take long.')
-    #         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-    #         errMsg.setIcon(QMessageBox.Warning)
-    #         ret = errMsg.exec_()
-    #
-    #         if ret == QMessageBox.Yes:
-    #             print "YEAH!"
 
     def browseFile(self):
         """

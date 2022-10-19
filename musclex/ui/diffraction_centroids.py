@@ -26,21 +26,19 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__author__ = 'Jiranun.J'
-
-from .pyqt_utils import *
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.colors import LogNorm, Normalize
 import sys
 import shutil
 import pickle
 import traceback
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Normalize
+import musclex
+from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.DiffractionCentroids import DiffractionCentroids
 from ..csv_manager import DC_CSVManager
-import musclex
 
 class OffMeridianTab(QWidget):
     """
@@ -102,7 +100,7 @@ class OffMeridianTab(QWidget):
         self.mainLayout.addWidget(self.allFiguresCanvas["bottom_right"][1], 1, 1, 1, 1)
         self.mainLayout.addWidget(self.resultTable, 0, 2, 1, 1)
         self.mainLayout.addWidget(self.settingGrpBx, 1, 2, 1, 1)
-        
+
         self.mainLayout.setColumnStretch(0, 1)
         self.mainLayout.setColumnStretch(1, 1)
         self.mainLayout.setColumnStretch(2, 1)
@@ -114,7 +112,7 @@ class OffMeridianTab(QWidget):
         self.resultTable.itemChanged.connect(self.handleItemChanged)
         self.setSEButton.clicked.connect(self.startSESelection)
 
-        for side in self.allFiguresCanvas.keys():
+        for side in self.allFiguresCanvas:
             fig = self.allFiguresCanvas[side][0]
             fig.canvas.mpl_connect("motion_notify_event", self.plotOnMotion)
             fig.canvas.mpl_connect("button_press_event", self.plotClicked)
@@ -146,14 +144,12 @@ class OffMeridianTab(QWidget):
         else:
             self.function = None
 
-
     def plotClicked(self, event):
         """
         Triggered when mouse clicked on the graph
         """
         x = event.xdata
-        y = event.ydata
-
+        # y = event.ydata
         difCent = self.mainwin.getCurrentDifCent()
 
         if self.function is None or difCent is None or 'off_mer_hists' not in difCent.info.keys() or len(self.function) < 1:
@@ -168,15 +164,13 @@ class OffMeridianTab(QWidget):
                 difCent.removeInfo('off_mer_rmin_rmax')
                 self.function = None
                 self.mainwin.processImage()
-        
-        
+
     def plotOnMotion(self, event):
         """
         Triggered when mouse hovers on the graph
         """
         x = event.xdata
         y = event.ydata
-
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.mainwin.pixel_detail.setText("")
@@ -198,8 +192,7 @@ class OffMeridianTab(QWidget):
                 ax.axvline(x, color = 'r')
                 canvas = self.allFiguresCanvas[q][1]
                 canvas.draw()
-        
-    
+
     def handleItemChanged(self, item):
         """
         Trigger when a baseline value in table is changed
@@ -230,7 +223,6 @@ class OffMeridianTab(QWidget):
         all_peaks = info["off_mer_peaks"]
         all_baselines = info["off_mer_baselines"]
         peak_infos = info["off_mer_peak_info"]
-
         self.resultTable.setRowCount(8)
         row = 0
 
@@ -314,7 +306,7 @@ class DiffractionTab(QWidget):
     A class for diffraction tab containnig a plot, display options, settings and result table
     """
     tableHeader = ["reject", "name", "centroid", "baseline", "intensity"]
-    def __init__(self, mainwin, dif_side, fix_ranges = []):
+    def __init__(self, mainwin, dif_side, fix_ranges=[]):
         """
         Initial tab
         :param mainwin: main window
@@ -326,6 +318,7 @@ class DiffractionTab(QWidget):
         self.fixRanges = fix_ranges
         self.dif_side = dif_side
         self.fixed_se = None
+        self.max_size = None
         self.updated = False # update status of tab
         self.function = None # current active function
         self.updateUIonly = False # param for UI sync
@@ -472,7 +465,9 @@ class DiffractionTab(QWidget):
                 self.mainwin.writeData()
 
     def keyPressEvent(self, event):
-        # Trigger when a key on keyboard is pressed
+        """
+        Trigger when a key on keyboard is pressed
+        """
         self.mainwin.keyPressEvent(event)
 
     def manualSESelectClicked(self):
@@ -544,7 +539,9 @@ class DiffractionTab(QWidget):
             self.function = None
 
     def zoomOutClicked(self):
-        # Clear zoom locations and redraw everything
+        """
+        Clear zoom locations and redraw everything
+        """
         self.updated = False
         self.mainwin.redrawPlots()
         self.zoom = None
@@ -577,7 +574,6 @@ class DiffractionTab(QWidget):
             x = min(x, xlim[1])
             y = max(y, 0)
             y = min(y, ylim[0])
-
 
         if self.function is None:
             self.function = ["move", (x,y)]
@@ -827,8 +823,7 @@ class DiffractionTab(QWidget):
 
         if self.peakChkBx.isChecked():
             # Draw peak lines
-            for i in range(len(peaks)):
-                p = peaks[i]
+            for (i, p) in enumerate(peaks):
                 n = names[i]
                 ax.plot(p, hull_hist[p], 'ro')
                 ax.text(p+2, hull_hist[p], n, fontsize=13)
@@ -868,16 +863,15 @@ class DiffractionTab(QWidget):
 
         # Update table
         self.resultTable.setRowCount(len(centroids))
-        for i in range(len(centroids)):
+        for (i, centroid) in enumerate(centroids):
             item = QTableWidgetItem(str(names[i]))
             item.setFlags(Qt.ItemIsEnabled)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('name'), item)
 
-            item = QTableWidgetItem(str(centroids[i]))
+            item = QTableWidgetItem(str(centroid))
             item.setFlags(Qt.ItemIsEnabled)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('centroid'), item)
 
-            # item.setFlags(Qt.ItemIsSelectable |  Qt.ItemIsEnabled | Qt.ItemIsEditable)
             self.resultTable.setItem(i, DiffractionTab.tableHeader.index('baseline'), QTableWidgetItem(str(baselines[i])))
 
             item = QTableWidgetItem(str(areas[i]))
@@ -923,6 +917,54 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.rotatedImg = None # rotated avarage image of DiffractionCentroids
         self.off_mer = None # off-meridian settings
         self.orientationModel = None
+        self.imageTab = None
+        self.imageTabLayout = None
+        self.displayImgFigure = None
+        self.displayImgAxes = None
+        self.displayImgCanvas = None
+        self.plotsLayout = None
+        self.topDifAxes = None
+        self.topDifCanvas = None
+        self.topDifFigure = None
+        self.bottomDifAxes = None
+        self.bottomDifCanvas = None
+        self.bottomDifFigure = None
+        self.imageOptionsFrame = None
+        self.imageNameGrp = None
+        self.imageNames = None
+        self.imnLayout = None
+        self.areaChkBx = None
+        self.offMerChkBx = None
+        self.graphChkBx = None
+        self.intensityGrp = None
+        self.intensityLayout = None
+        self.maxInt = None
+        self.maxIntLabel = None
+        self.logScaleIntChkBx = None
+        self.zoomLayout = None
+        self.zoomInB = None
+        self.zoomOutB = None
+        self.displayOptionGrp = None
+        self.displayOptionsLayout = None
+        self.calSettingsGrp = None
+        self.calSetttingsLayout = None
+        self.setCenterAngleB = None
+        self.setAngleB = None
+        self.selectIntArea = None
+        self.setX1X2 = None
+        self.setX3X4 = None
+        self.orientationCmbBx = None
+        self.rotation90ChkBx = None
+        self.forceRot90ChkBx = None
+        self.checkableButtons = None
+        self.processFolderButton = None
+        self.pnButtons = None
+        self.prevButton = None
+        self.nextButton = None
+        self.imageOptionsLayout = None
+        self.stop_process = None
+        self.minInt = None
+        self.minIntLabel = None
 
         if 'fix_ranges' in settings:
             self.fixRanges = settings['fix_ranges']
@@ -940,7 +982,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.onImageChanged()
 
     def getCurrentDifCent(self):
-        # get current DiffractionCentroids object
+        """
+        Get current DiffractionCentroids object
+        """
         return self.difCent
 
     def initUI(self, pnEnable = False):
@@ -1002,7 +1046,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :param pnEnable: enable previous and next buttons
         :return: -
         """
-
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QGridLayout(self.imageTab)
@@ -1077,7 +1120,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.displayOptionsLayout.addLayout(self.zoomLayout)
         self.displayOptionGrp.setLayout(self.displayOptionsLayout)
 
-
         ### Image processing ###
         self.calSettingsGrp = QGroupBox()
         self.calSettingsGrp.setTitle('Calculation Settings')
@@ -1148,7 +1190,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.tabWidget.addTab(self.imageTab, "Image")
 
     def setConnections(self):
-        # Set Connections for interactive widgets
+        """
+        Set Connections for interactive widgets
+        """
         self.tabWidget.currentChanged.connect(self.updateUI)
 
         ### image tab
@@ -1178,13 +1222,17 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.zoomOutB.clicked.connect(self.imgZoomOutClicked)
 
     def setBaseline(self, side, peak_ind, new_baseline):
-        ## New baseline is sent from diffraction tab and then send it to DifftactionCentroids object
+        """
+        New baseline is sent from diffraction tab and then send it to DifftactionCentroids object
+        """
         if self.difCent is not None and not self.updateUIonly:
             self.difCent.setBaseline(side, peak_ind, new_baseline)
             self.processImage()
 
     def hidePlots(self):
-        # Hide all plots in the first tab (image)
+        """
+        Hide all plots in the first tab (image)
+        """
         self.topDifCanvas.setHidden(not self.graphChkBx.isChecked())
         self.bottomDifCanvas.setHidden(not self.graphChkBx.isChecked())
         if self.graphChkBx.isChecked():
@@ -1197,7 +1245,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         Manage key press event on keyboard
         """
         key = event.key()
-
         if key == Qt.Key_Right:
             self.nextClicked()
         elif key == Qt.Key_Left:
@@ -1239,7 +1286,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.function = None
             self.updated = False
             self.updateUI()
-    
+
     def setCenterAngleClicked(self):
         """
         Set active function to trigger rotation angle setting
@@ -1257,7 +1304,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.function = None
             self.updated = False
             self.updateUI()
-    
+
     def setAngleClicked(self):
         """
         Set active function to trigger rotation angle setting
@@ -1276,7 +1323,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.function = None
             self.updated = False
             self.updateUI()
-            
+
     def setX1X2Clicked(self):
         """
         Set active function to trigger x1,x2 setting
@@ -1320,7 +1367,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         """
         if self.difCent is None:
             return
-
         if self.selectIntArea.isChecked():
             ax = self.displayImgAxes
             while len(ax.lines) > 0:
@@ -1389,7 +1435,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             elif func[0] == "angle":
                 # set rotation angle
                 center = self.difCent.info['center']
-
                 if center[0] < x:
                     x1 = center[0]
                     y1 = center[1]
@@ -1467,7 +1512,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         if self.difCent is None or event.xdata is None or event.ydata is None or self.rotatedImg is None:
             self.pixel_detail.setText("")
             return
-
         x = int(round(event.xdata))
         y = int(round(event.ydata))
 
@@ -1500,7 +1544,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             y = int(round(y))
 
         func = self.function
-
         if func is None:
             return
 
@@ -1655,18 +1698,25 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.displayImgCanvas.draw_idle()
 
     def prevClicked(self):
-        # Go to the previous image
+        """
+        Go to the previous image
+        """
         if self.prevButton.isEnabled():
             self.currentGroup = (self.currentGroup - 1) % len(self.groupList)
             self.onImageChanged()
 
     def nextClicked(self):
-        # Go to the next image
+        """
+        Go to the next image
+        """
         if self.nextButton.isEnabled():
             self.currentGroup = (self.currentGroup + 1) % len(self.groupList)
             self.onImageChanged()
 
     def batchProcBtnToggled(self):
+        """
+        Triggered when the process button is toggled
+        """
         if self.processFolderButton.isChecked():
             if not self.progressBar.isVisible():
                 self.processFolderButton.setText("Stop")
@@ -1675,7 +1725,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.stop_process = True
 
     def processCurrentFolder(self):
-        # Process current folder
+        """
+        Process current folder
+        """
         self.progressBar.setMaximum(len(self.groupList))
         self.progressBar.setMinimum(0)
         self.progressBar.setVisible(True)
@@ -1693,13 +1745,18 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.processFolderButton.setText("Process Current Folder")
 
     def imageSettingChanged(self):
-        # update image
+        """
+        Update image
+        """
         if self.updateUIonly:
             return
         self.updated = False
         self.updateUI()
 
     def orientationModelChanged(self):
+        """
+        Change the orientation model and reprocess the image
+        """
         self.orientationModel = self.orientationCmbBx.currentIndex()
         if self.difCent is None:
             return
@@ -1707,10 +1764,16 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.processImage()
 
     def rotation90Checked(self):
+        """
+        Triggered when the rotation 90 degrees is checked
+        """
         self.difCent.removeInfo('rmin')
         self.processImage()
 
     def forceRot90Checked(self):
+        """
+        Force the 90 degrees rotation
+        """
         if self.forceRot90ChkBx.isChecked():
             self.rotation90ChkBx.setChecked(True)
             self.rotation90ChkBx.setEnabled(False)
@@ -1718,7 +1781,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.rotation90ChkBx.setEnabled(True)
 
     def onImageChanged(self):
-        # Create a new DiffractionCentroids object and process it
+        """
+        Create a new DiffractionCentroids object and process it
+        """
         imgList = self.groupList[self.currentGroup]
         self.difCent = DiffractionCentroids(self.dir_path, imgList, self.currentGroup, self.fixRanges, self.off_mer)
         img = self.difCent.avgImg
@@ -1745,7 +1810,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         return flags
 
     def processImage(self):
-        # Process current DiffractionCentroids object, refresh UI, and write data to csv file
+        """
+        Process current DiffractionCentroids object, refresh UI, and write data to csv file
+        """
         if self.difCent is None:
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -1773,16 +1840,23 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         QApplication.processEvents()
 
     def writeData(self):
-        # Write new data to csv file
+        """
+        Write new data to csv file
+        """
         self.csvManager.writeNewData(self.difCent.info)
 
     def updateParams(self):
+        """
+        Update parameters
+        """
         info = self.difCent.info
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
 
     def refreshUI(self):
-        # Refresh all tabs
+        """
+        Refresh all tabs
+        """
         self.updated = False
         self.function = None
         self.setCursor(Qt.ArrowCursor)
@@ -1795,7 +1869,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.updateUI()
 
     def updateUI(self):
-        # Update UI on current tab
+        """
+        Update UI on current tab
+        """
         if self.difCent is None:
             return
         self.updateUIonly = True
@@ -1811,7 +1887,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.updateUIonly = False
 
     def initMinMaxIntensities(self, img):
-        # initial min max intensity ranges, value, and step
+        """
+        initial min max intensity ranges, value, and step
+        """
         self.updateUIonly = True
         self.maxInt.setMinimum(img.min())
         self.maxInt.setMaximum(img.max())
@@ -1891,11 +1969,15 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             self.plots_updated = True
 
     def redrawPlots(self):
-        # set updated status to false to trigger program to refresh plots
+        """
+        Set updated status to false to trigger program to refresh plots
+        """
         self.plots_updated = False
 
     def closeEvent(self, ev):
-        # Trigger when window is closed.
+        """
+        Trigger when window is closed.
+        """
         self.mainWindow.childWindowClosed(self)
 
 class DiffractionCentroidStartWindow(QMainWindow):
@@ -1958,7 +2040,6 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.folderTabLayout.addWidget(self.startGroup, 3, 2, 1, 2)
         self.folderTabLayout.setAlignment(self.startButton, Qt.AlignCenter)
 
-
         #### File selection tab ####
         self.filesTab = QWidget()
         self.filesTab.setContentsMargins(0, 0, 0, 0)
@@ -1983,8 +2064,6 @@ class DiffractionCentroidStartWindow(QMainWindow):
         ### Fixed peak ranges option ###
         self.fixRangesGroup = QGroupBox("Meridian Peak Ranges")
         self.fixRangesGroup.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        # self.fixRangesGroup.setCheckable(True)
-        # self.fixRangesGroup.setChecked(False)
         self.fixRangesLayout = QGridLayout()
         self.fixRangesGroup.setLayout(self.fixRangesLayout)
         self.addRangeButton = QPushButton("Add")
@@ -2080,7 +2159,9 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.show()
 
     def setConnections(self):
-        # Set all connections for interactive widget
+        """
+        Set all connections for interactive widget
+        """
         self.browseFolderButton.clicked.connect(self.browseFolder)
         self.groupSpnBx.valueChanged.connect(self.groupImages)
         # self.fixRangesGroup.clicked.connect(self.setNameFocus)
@@ -2107,12 +2188,16 @@ class DiffractionCentroidStartWindow(QMainWindow):
             self.fixRangesTable.removeRow(ind)
 
     def setNameFocus(self):
-        # Set window focus to peak name
+        """
+        Set window focus to peak name
+        """
         self.peakName.setFocus()
         self.peakName.selectAll()
 
     def startRangeSet(self):
-        # move focus to end point when start point is set
+        """
+        Move focus to end point when start point is set
+        """
         self.endRange.setFocus()
         self.endRange.selectAll()
 
@@ -2177,7 +2262,9 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.fixRangesTable.setColumnWidth(1, col_width)
 
     def removeAllFixedRange(self):
-        # Remove all fixed ranges
+        """
+        Remove all fixed ranges
+        """
         self.fixRanges = []
         self.fixRangeNames = []
         self.fixRangesTable.setRowCount(0)
@@ -2217,6 +2304,9 @@ class DiffractionCentroidStartWindow(QMainWindow):
             self.initSettings(dir_path)
 
     def loadSettings(self, dir_path):
+        """
+        Load the cached settings if they exist
+        """
         file = fullPath(fullPath(dir_path, "dc_cache"), "settings.cache")
         if exists(file):
             settings = pickle.load(open(file, "rb"))
@@ -2267,7 +2357,6 @@ class DiffractionCentroidStartWindow(QMainWindow):
             else:
                 self.startGroup.addItem(str(groupNum) + ' - ' + self.imgList[i])
             groupNum += 1
-        # self.startGroup.setCurrentIndex(0) #jiranun test
 
     def preprocessFolder(self, dir_path):
         """
@@ -2326,7 +2415,6 @@ class DiffractionCentroidStartWindow(QMainWindow):
                 settings['group'] = 0
                 grpList = [self.selectedImages]
 
-        # if self.fixRangesGroup.isChecked():
         fix_ranges = sorted([(str(self.fixRangeNames[i]),self.fixRanges[i]) for i in range(len(self.fixRanges))], key = lambda nr : nr[1][0])
 
         if len(fix_ranges) == 0:
@@ -2348,7 +2436,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
             e51 = self.end51SpnBx.value()
             s59 = self.start59SpnBx.value()
             e59 = self.end59SpnBx.value()
-            if x1 == 0 or x2==0 or x3==0 or x4==0 or x1>=x2 or x3>=x4:
+            if x1 == 0 or x2 == 0 or x3 == 0 or x4 == 0 or x1 >= x2 or x3 >= x4:
                 errMsg = QMessageBox()
                 errMsg.setText('Off Meridian information is incorrect')
                 errMsg.setInformativeText('Please specify all x1,x2,x3, and x4 with x1 < x2 and x3 < x4')
@@ -2356,7 +2444,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
                 return
-            if s51 == 0 or e51==0 or s59==0 or e59==0:
+            if s51 == 0 or e51 == 0 or s59 == 0 or e59 == 0:
                 errMsg = QMessageBox()
                 errMsg.setText('Off Meridian information is missing')
                 errMsg.setInformativeText('Please specify both 51 and 59 ranges')
@@ -2390,7 +2478,6 @@ class DiffractionCentroidStartWindow(QMainWindow):
         createFolder(cache_path)
         pickle.dump(settings, open(fullPath(cache_path,"settings.cache"), "wb"))
 
-
         # Create DiffractionCentroidProcessWindow object, execute it with all settings
         newWindow = DiffractionCentroidProcessWindow(self, dir_path, grpList, settings)
 
@@ -2398,15 +2485,15 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.windowList.append(newWindow)
 
     def delete_old_results(self, dir_path, cache_path, new_settings):
+        """
+        Delete the old results saved in the cache
+        """
         old_settings = self.loadSettings(dir_path)
         if old_settings != new_settings and exists(cache_path):
             shutil.rmtree(cache_path)
 
     def childWindowClosed(self, childwin):
-        # Remove DiffractionCentroidProcessWindow
+        """
+        Remove DiffractionCentroidProcessWindow
+        """
         self.windowList.remove(childwin)
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    myapp = DiffractionCentroidStartWindow()
-    sys.exit(app.exec_())

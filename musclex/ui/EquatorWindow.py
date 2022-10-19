@@ -47,7 +47,7 @@ from ..utils import logger
 from ..utils.image_processor import *
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..modules.QuadrantFolder import QuadrantFolder
-from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
+from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 
@@ -94,14 +94,12 @@ class EquatorWindow(QMainWindow):
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.csvManager = EQ_CVSManager(self.dir_path)  # Create a CSV Manager object
-        self.csvManager2 = EQ_CSVManager2(self.dir_path)
+        self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.setWindowTitle("Muscle X Equator v." + self.version)
         # self.setStyleSheet(getStyleSheet())
         self.initUI()  # Initial all UI
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
-
         #self.onImageChanged() # Toggle window to process current image
 
         fileName = self.imgList[self.currentImg]
@@ -120,14 +118,15 @@ class EquatorWindow(QMainWindow):
 
         self.processImage()
         self.show()
-        #self.resize(1000, 100)
         self.init_logging()
         # focused_widget = QApplication.focusWidget()
         # if focused_widget != None:
         #     focused_widget.clearFocus()
 
     def inputerror(self):
-        # Display input error to screen
+        """
+        Display input error to screen
+        """
         errMsg = QMessageBox()
         errMsg.setText('Invalid Input')
         errMsg.setInformativeText("Please select non empty failedcases.txt or an image\n\n")
@@ -137,7 +136,9 @@ class EquatorWindow(QMainWindow):
         self.close()
 
     def mousePressEvent(self, event):
-        # Clear focus when mouse pressed
+        """
+        Clear focus when mouse pressed
+        """
         focused_widget = QApplication.focusWidget()
         if focused_widget is not None:
             focused_widget.clearFocus()
@@ -157,9 +158,7 @@ class EquatorWindow(QMainWindow):
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 200px; }")
         self.checkableButtons = []
 
-        #
         ### Image Tab ###
-        #
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
@@ -345,9 +344,7 @@ class EquatorWindow(QMainWindow):
         self.imageTabLayout.addWidget(self.imageOptionsFrame)
         self.tabWidget.addTab(self.imageTab, "Image")
 
-        #
         ### Fitting Tab ###
-        #
         self.fittingTab = QWidget()
         self.fittingTabLayout = QGridLayout(self.fittingTab)
 
@@ -477,9 +474,8 @@ class EquatorWindow(QMainWindow):
         self.fittingTabLayout.addWidget(self.fittingCanvas, 0, 1, 2, 2)
         self.fittingTabLayout.addWidget(self.fittingOptionsFrame2, 0, 0, 1, 1)
         self.tabWidget.addTab(self.fittingTab, "Fitting")
-        #
+
         ### Results Tab ###
-        #
         self.resultTab = QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
         self.resultLayout = QGridLayout(self.resultTab)
@@ -498,9 +494,7 @@ class EquatorWindow(QMainWindow):
         self.resultLayout.addWidget(self.fiberResultTable)
         self.tabWidget.addTab(self.resultTab, "Results")
 
-        #
         ### Parameter Editor ###
-        #
         self.parameterEditorTab = QWidget()
         self.parameterEditorTab.setContentsMargins(0, 0, 0, 0)
         self.parameterEditorLayout = QGridLayout(self.parameterEditorTab)
@@ -530,9 +524,7 @@ class EquatorWindow(QMainWindow):
         self.parameterEditorLayout.addWidget(self.parameterEditorTable)
         self.tabWidget.addTab(self.parameterEditorTab, "Parameter Editor")
 
-        #
         ### Menu Bar ###
-        #
         selectImageAction = QAction('Select a File...', self)
         selectImageAction.setShortcut('Ctrl+O')
         selectImageAction.triggered.connect(self.browseFile)
@@ -569,9 +561,7 @@ class EquatorWindow(QMainWindow):
         helpMenu.addAction(shortcutKeysAct)
         # helpMenu.addAction(aboutAct)
 
-        #
         ### Status Bar ###
-        #
         self.statusBar = QStatusBar()
         self.left_status = QLabel()
         self.statusReport = QLabel()
@@ -596,9 +586,7 @@ class EquatorWindow(QMainWindow):
         """
         Set Tooltips for widgets
         """
-        #
         ### image tab ###
-        #
         self.centerChkBx.setToolTip("Show the detected projection center")
         self.intChkBx.setToolTip("Show the detected Integrated area ")
         self.rminChkBx.setToolTip("Show the detected R-min")
@@ -629,9 +617,7 @@ class EquatorWindow(QMainWindow):
         self.prevButton.setToolTip("Go to the previous image in this folder")
         self.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
 
-        #
         ### Fitting tab ###
-        #
         self.nPeakSpnBx.setToolTip("Select number of peaks on each side that will be fitted by model")
         self.modelSelect.setToolTip("Select the fitting model")
         self.setPeaksB.setToolTip(
@@ -654,15 +640,11 @@ class EquatorWindow(QMainWindow):
         """
         Set connection for interactive widgets
         """
-        #
         ### Tab Widget ###
-        #
         self.tabWidget.currentChanged.connect(self.updateUI)
         # self.fittingTabWidget.currentChanged.connect(self.updateUI)
 
-        #
         ### Image Tab ###
-        #
         self.centerChkBx.stateChanged.connect(self.updateImage)
         self.histChkBx.stateChanged.connect(self.updateImage)
         self.intChkBx.stateChanged.connect(self.updateImage)
@@ -753,6 +735,9 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.setEnabled(self.k_chkbx.isChecked())
 
     def kChanged(self):
+        """
+        Handle when bias k is changed
+        """
         self.log_changes('backgroudK', obj=self.k_spnbx)
 
     def refitting(self):
@@ -771,6 +756,9 @@ class EquatorWindow(QMainWindow):
         self.processImage()
 
     def updateFittingParamsInParamInfo(self):
+        """
+        Update the fitting params in param info
+        """
         if 'paramInfo' not in self.bioImg.info:
             errMsg = QMessageBox()
             errMsg.setText('Cache file not found')
@@ -804,6 +792,9 @@ class EquatorWindow(QMainWindow):
         return 0
 
     def updateParamInfo(self, param, side, fitparams):
+        """
+        Update param info with the parameters given to the function
+        """
         paramInfo = self.bioImg.info['paramInfo']
         p = param if param != 'sigz' else 'sigmaz' #Handling sigz and sigmaz discrepancy, side_fix_sigz vs side_sigmaz
         pInfo = paramInfo[side + '_' + p]
@@ -816,6 +807,9 @@ class EquatorWindow(QMainWindow):
                 pInfo['val'] = fitparams[side + '_' + param]
 
     def refitAllBtnToggled(self):
+        """
+        Triggered when refit all button is clicked
+        """
         if self.refitAllButton.isChecked():
             if not self.in_batch_process:
                 self.refitAllButton.setText("Stop")
@@ -922,6 +916,9 @@ class EquatorWindow(QMainWindow):
                 self.resetAll()
 
     def doubleZoomChecked(self):
+        """
+        Triggered when double zoom toggle is checked
+        """
         if self.doubleZoom.isChecked():
             print("Double zoom checked")
             self.doubleZoomAxes = self.displayImgFigure.add_subplot(333)
@@ -950,6 +947,9 @@ class EquatorWindow(QMainWindow):
         self.displayImgCanvas.draw_idle()
 
     def quadrantFoldChecked(self):
+        """
+        Triggered when Quadrant fold toggle is checked
+        """
         if self.bioImg is not None:
             self.bioImg.info['qfChecked'] = self.quadrantFoldCheckbx.isChecked()
             # fileName = self.imgList[self.currentImg]
@@ -1370,6 +1370,9 @@ class EquatorWindow(QMainWindow):
             self.log_changes('nPeaks', self.nPeakSpnBx)
 
     def batchProcBtnToggled(self):
+        """
+        Triggered when the process batch button is toggled.
+        """
         if self.processFolderButton.isChecked():
             if not self.in_batch_process:
                 self.processFolderButton.setText("Stop")
@@ -1528,7 +1531,7 @@ class EquatorWindow(QMainWindow):
         self.bioImg.info["reject"] = self.rejectChkBx.isChecked()
         self.bioImg.saveCache()
         self.csvManager.writeNewData(self.bioImg)
-        self.csvManager2.writeNewData(self.bioImg)
+        self.csvManager.writeNewData2(self.bioImg)
 
     def maskThresChanged(self):
         """
@@ -1569,6 +1572,9 @@ class EquatorWindow(QMainWindow):
             self.refreshFittingParams('right')
 
     def refreshFittingParams(self, side):
+        """
+        Refresh the fitting parameters by cleaning the old information
+        """
         if self.bioImg is not None:
             self.bioImg.removeInfo(side + '_fix_sigmac')
             self.bioImg.removeInfo(side + '_fix_sigmad')
@@ -1588,8 +1594,10 @@ class EquatorWindow(QMainWindow):
         self.onImageChanged()
 
     def nextImageFitting(self):
+        """
+        Used for processing of a folder to process the next image
+        """
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
-
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
@@ -1620,6 +1628,9 @@ class EquatorWindow(QMainWindow):
         self.onImageChanged()
 
     def fileNameChanged(self):
+        """
+        Triggered when the name of the current file is changed
+        """
         selected_tab = self.tabWidget.currentIndex()
         if selected_tab == 0:
             fileName = str(self.filenameLineEdit.text()).strip()
@@ -1742,6 +1753,11 @@ class EquatorWindow(QMainWindow):
             self.processImage()
 
     def calcSlope(self, pt1, pt2):
+        """
+        Compute the slope using 2 points.
+        :param pt1, pt2: 2 points
+        :return: slope
+        """
         if pt1[0] == pt2[0]:
             return float('inf')
         return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
@@ -1803,6 +1819,9 @@ class EquatorWindow(QMainWindow):
             self.processImage()
 
     def drawPerpendiculars(self):
+        """
+        Draw perpendiculars on the image
+        """
         ax = self.displayImgAxes
         points = self.chordpoints
         self.chordLines = []
@@ -1820,6 +1839,9 @@ class EquatorWindow(QMainWindow):
                 ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
 
     def getPerpendicularLineHomogenous(self, p1, p2):
+        """
+        Give the perpendicular line homogeneous
+        """
         b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
         chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
         print("Chord_cent1 ", chord_cent)
@@ -1928,10 +1950,6 @@ class EquatorWindow(QMainWindow):
 
             center=self.bioImg.info['center']
 
-            # self.bioImg.removeInfo('rmin')
-            # self.bioImg.removeInfo('int_area')
-            # self.bioImg.removeInfo('fit_results')
-            # self.bioImg.removeInfo('hist')
             self.fixedAngleChkBx.setChecked(True)
 
             new_angle=math.degrees(math.atan(m))
@@ -2044,7 +2062,7 @@ class EquatorWindow(QMainWindow):
         angles = []
         for f in self.imgList:
             bioImg = EquatorImage(self.dir_path, f, self)
-            print("Getting angle {}".format(f))
+            print(f'Getting angle {f}')
 
             if 'rotationAngle' not in bioImg.info:
                 return None
@@ -2071,15 +2089,24 @@ class EquatorWindow(QMainWindow):
             self.processImage()
 
     def orientationModelChanged(self):
+        """
+        Use when the orientation model is changed in the GUI
+        """
         self.orientationModel = self.orientationCmbBx.currentIndex()
         self.bioImg.removeInfo('rotationAngle')
         self.processImage()
 
     def rotation90Checked(self):
+        """
+        Triggered when the rotation 90 degrees is checked
+        """
         self.bioImg.removeInfo('rmin')
         self.processImage()
 
     def forceRot90Checked(self):
+        """
+        Force the rotation of 90 degrees
+        """
         if self.forceRot90ChkBx.isChecked():
             self.rotation90ChkBx.setChecked(True)
             self.rotation90ChkBx.setEnabled(False)
@@ -2087,6 +2114,9 @@ class EquatorWindow(QMainWindow):
             self.rotation90ChkBx.setEnabled(True)
 
     def doubleZoomToOrigCoord(self, x, y):
+        """
+        Compute the new x and y for double zoom to orig coord
+        """
         M = [[1/5, 0, 0], [0, 1/5, 0],[0, 0, 1]]
         dzx, dzy = self.doubleZoomPt
         x, y, _ = np.dot(M, [x, y, 1])
@@ -2094,69 +2124,80 @@ class EquatorWindow(QMainWindow):
         newY = dzy - 5 + y
         return (newX, newY)
 
-    def inrec(self, x,y,xmin,ymin,xmax,ymax):
-        if x<xmin:
+    def inrec(self, x, y, xmin, ymin, xmax, ymax):
+        """
+        inrec
+        """
+        if x < xmin:
             return False
-        elif x>xmax:
+        elif x > xmax:
             return False
-        elif y<ymin:
+        elif y < ymin:
             return False
-        elif y>ymax:
+        elif y > ymax:
             return False
         else:
             return True
 
-    def rec(self,cx,cy,coordinates):
-
-        xmin=cx-300
-        xmax=cx+300
-        ymin=cy-300
-        ymax=cy+300
-        deletep=[]
-        for i in range(0,len(coordinates)):
-            x=coordinates[i][0]
-            y=coordinates[i][1]
-            if not self.inrec(x,y,xmin,ymin,xmax,ymax):
+    def rec(self, cx, cy, coordinates):
+        """
+        rec
+        """
+        xmin = cx - 300
+        xmax = cx + 300
+        ymin = cy - 300
+        ymax = cy + 300
+        deletep = []
+        for (i, coord) in enumerate(coordinates):
+            x = coord[0]
+            y = coord[1]
+            if not self.inrec(x, y, xmin, ymin, xmax, ymax):
                 deletep.append(i)
-        return np.delete(coordinates,deletep,0)
+        return np.delete(coordinates, deletep, 0)
 
     def deleteOutlier(self, coordinates):
-        lold=coordinates.shape[0]
-        lnew=0
-        y=coordinates[:,0]
-        x=coordinates[:,1]
+        """
+        Delete the outliers for the coordinates given
+        :param coordinates
+        """
+        lold = coordinates.shape[0]
+        lnew = 0
+        y = coordinates[:,0]
+        x = coordinates[:,1]
 
-        while lnew!=lold:
-            lold=lnew
-            m, b = np.polyfit(x,y,1)
-            dist=[]
-            for i in range(0,len(x)):
-                dist.append(abs(m*x[i]-y[i]+b)/math.sqrt(m**2+1))
-            dist=np.array(dist)
-            std=np.std(dist)
-            avg=np.mean(dist)
-            lower=avg-2*std
-            upper=avg+2*std
+        while lnew != lold:
+            lold = lnew
+            m, b = np.polyfit(x, y, 1)
+            dist = []
+            for (i, _) in enumerate(x):
+                dist.append(abs(m*x[i] - y[i] + b) / math.sqrt(m**2 + 1))
+            dist = np.array(dist)
+            std = np.std(dist)
+            avg = np.mean(dist)
+            lower = avg - 2*std
+            upper = avg + 2*std
 
-            indx=[]
-
-            for i in range(0,len(dist)):
-                if dist[i]>upper or dist[i]<lower or dist[i]>2*avg:
+            indx = []
+            for (i, d) in enumerate(dist):
+                if d > upper or d < lower or d > 2*avg:
                     indx.append(i)
-            x=np.delete(x,indx)
-            y=np.delete(y,indx)
-            lnew=len(x)
-        return x,y,m,b
+            x = np.delete(x, indx)
+            y = np.delete(y, indx)
+            lnew = len(x)
+        return x, y, m, b
 
-    def fitb(self,im,xc,yc):
-        coordinates = peak_local_max(im, min_distance=10,threshold_rel=0.5)
-        coordinates=self.rec(xc,yc,coordinates)
-        l=20
-        if coordinates.shape[0]<20:
-            l=coordinates.shape[0]
-        coordinates=coordinates[0:l,:]
-        x,y,m,b=self.deleteOutlier(coordinates)
-        coordinates=np.stack((y,x),axis=1)
+    def fitb(self, im, xc, yc):
+        """
+        fitb
+        """
+        coordinates = peak_local_max(im, min_distance=10, threshold_rel=0.5)
+        coordinates = self.rec(xc, yc, coordinates)
+        l = 20
+        if coordinates.shape[0] < 20:
+            l = coordinates.shape[0]
+        coordinates = coordinates[0:l, :]
+        x, y, m, b = self.deleteOutlier(coordinates)
+        coordinates = np.stack((y, x), axis=1)
         return coordinates, m, b
 
     def imgClicked(self, event):
@@ -2168,7 +2209,6 @@ class EquatorWindow(QMainWindow):
 
         x = event.xdata
         y = event.ydata
-
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
@@ -2205,7 +2245,6 @@ class EquatorWindow(QMainWindow):
             return
 
         func = self.function
-
         # Provide different behavior depending on current active function
         if func is None:
             self.function = ["im_move", (x, y)]
@@ -2338,7 +2377,6 @@ class EquatorWindow(QMainWindow):
             #     self.processImage()
 
             #     self.fixedAngleChkBx.setChecked(False)
-
         elif func[0] == "int_area":
             # draw 2 horizontal lines
             func.append(y)
@@ -2397,7 +2435,7 @@ class EquatorWindow(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>5 and x<img.shape[1]-5 and y>5 and y<img.shape[0]-5:
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x > 5 and x < img.shape[1]-5 and y > 5 and y < img.shape[0]-5:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[y - 5:y + 5, x - 5:x + 5]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
@@ -2528,14 +2566,6 @@ class EquatorWindow(QMainWindow):
                                 ax1.lines.pop(i)
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            # bound = 10
-            # ax2.set_xlim((x-bound, x+bound))
-            # ax2.set_ylim((y-bound, y+bound))
-            # del ax2.lines
-            # ax2.lines = []
-            # ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            # ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             self.displayImgCanvas.draw_idle()
             # self.displayImgCanvas.flush_events()
@@ -2784,7 +2814,6 @@ class EquatorWindow(QMainWindow):
         :param prevInfo:
         :return:
         '''
-
         if prevInfo is None or self.bioImg is None:
             return False
 
@@ -2884,6 +2913,9 @@ class EquatorWindow(QMainWindow):
         return flags
 
     def getCenterFromQF(self):
+        """
+        Give the center from QF
+        """
         if self.quadrantFoldCheckbx.isChecked() or ('qfChecked' in self.bioImg.info and self.bioImg.info['qfChecked']):
             self.quadrantFoldCheckbx.setCheckState(Qt.Checked)
             print("Starting QF")
@@ -2947,7 +2979,7 @@ class EquatorWindow(QMainWindow):
 
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
-        self.csvManager2.writeNewData(self.bioImg)
+        self.csvManager.writeNewData2(self.bioImg)
         self.resetUI()
         self.refreshStatusbar()
         QApplication.restoreOverrideCursor()
@@ -2961,6 +2993,9 @@ class EquatorWindow(QMainWindow):
         QApplication.processEvents()
 
     def updateParams(self):
+        """
+        Update the parameters
+        """
         info = self.bioImg.info
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
@@ -3083,10 +3118,17 @@ class EquatorWindow(QMainWindow):
         self.syncUI = False
 
     def refreshGraph(self):
+        """
+        Refresht the graph displayed by updating the UI
+        """
         self.update_plot['graph'] = True
         self.updateUI()
 
     def getExtentAndCenter(self):
+        """
+        Give the Extant and center
+        :return: extent, center
+        """
         if self.quadFold is None:
             return [0,0], (0,0)
         if 'calib_center' in self.quadFold.info:
@@ -3176,10 +3218,6 @@ class EquatorWindow(QMainWindow):
 
         self.syncSpinBoxes()
         self.refreshStatusbar()
-
-        # focused_widget = QApplication.focusWidget()
-        # if focused_widget != None:
-        #     focused_widget.clearFocus()
 
         QApplication.processEvents()
 
@@ -3475,7 +3513,7 @@ class EquatorWindow(QMainWindow):
 
                 self.parameterEditorTable.setItem(ind, 1, QTableWidgetItem(k))
                 v = paramInfo[k]['val']
-                if not isinstance(v, bool) and (isinstance(v, float) or isinstance(v, int)):
+                if not isinstance(v, bool) and isinstance(v, (float, int)):
 
                     if not self.isDynamicParameter(k):
                         # Parameter cannot be fixed if it is dynamically being handled like left_areas
@@ -3546,6 +3584,9 @@ class EquatorWindow(QMainWindow):
                 maxItem.setEnabled(True)
 
     def onRowFixed(self, item):
+        """
+        on row fixed
+        """
         self.adjustMinMaxColumn(item)
         QApplication.processEvents()
 
@@ -3667,13 +3708,15 @@ class EquatorWindow(QMainWindow):
 
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
-        self.csvManager2.writeNewData(self.bioImg)
+        self.csvManager.writeNewData2(self.bioImg)
         self.resetUI()
         self.refreshStatusbar()
         QApplication.restoreOverrideCursor()
 
     def init_logging(self):
-        print("objname:")
+        """
+        Initialize the logging
+        """
         for objName in self.editableVars:
             self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
         self.editableVars['int_area'] = self.bioImg.info['int_area']
@@ -3681,23 +3724,33 @@ class EquatorWindow(QMainWindow):
         self.left_fitting_tab.init_logging()
         self.right_fitting_tab.init_logging()
         self.calibSettingDialog.init_logging()
-        #print(self.editableVars)
-
-    def statusPrint(self, text):
-        self.statusReport.setText(text)
-        QApplication.processEvents()
 
     def write_log(self, msg):
+        """
+        Write the log
+        """
         if self.logger is None:
             self.logger = logger.Logger('equator', self.bioImg.dir_path)
         img_name = os.path.join(os.path.split(self.bioImg.dir_path)[-1], self.bioImg.filename)
-        self.logger.write('[%s] %s' % (img_name, msg))
+        self.logger.write(f'[{img_name}] {msg}')
 
     def log_changes(self, name, obj=None, varName='', newValue=None):
+        """
+        Change the log file and rewrite it
+        """
         if obj is not None:
             varName = obj.objectName()
             newValue = obj.value()
         if self.editableVars[varName] == newValue:
             return
-        self.write_log('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
+        self.write_log(f'{name}Changed: {self.editableVars[varName]} -> {newValue}')
         self.editableVars[varName] = newValue
+
+    def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
+        self.statusReport.setText(text)
+        QApplication.processEvents()

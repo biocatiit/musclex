@@ -1,19 +1,51 @@
-from musclex.ui.ui_launcherform import *
-from musclex import __version__
-import sys, subprocess, os, os.path
-sys.path.append('..')
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
 import configparser
 import unittest
 import time
+import sys
+import subprocess
+import os
+import os.path
+sys.path.append('..')
+from musclex.ui.ui_launcherform import *
+from musclex import __version__
 from musclex.utils.exception_handler import handlers
-
 from musclex.tests.module_test import *
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
 
 class LauncherForm(QWidget):
-
+    """
+    Qt class definition for the GUI launcher
+    """
     programs = ['eq', 'qf', 'pt', 'di', 'im', 'dc', 'ddf', 'ai']
 
     def __init__(self):
@@ -23,6 +55,7 @@ class LauncherForm(QWidget):
         self.ui = Ui_LauncherForm()
         self.ui.setupUi(self)
         self.setWindowTitle("MuscleX Launcher v" + __version__)
+        self.td = None
 
         # Set up popup message box
         popupMsg = QMessageBox()
@@ -64,23 +97,18 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
                                        "tests", "test_logs", "test.log")
         self.release_path = os.path.join(os.path.dirname(__file__),
                                        "tests", "test_logs", "release.log")
-        #if not os.path.exists(self.test_path):
-            # self.testPopup = QMessageBox()
-            # self.testPopup.setWindowTitle('Testing')
-            # self.testPopup.setTextFormat(Qt.RichText)
-            # self.testPopup.setText('No test log found. A test of the MuscleX installation will be run.')
-            # self.testPopup.setInformativeText('Press OK to begin the tests. This could take several minutes..')
-            # self.testPopup.setIcon(QMessageBox.Information)
-            # self.testLayout = self.testPopup.layout()
-            # self.testLayout.addItem(QSpacerItem(756, 0), self.testLayout.rowCount(), 0, 1, self.testLayout.columnCount())
-            # self.testPopup.show()
-            # QApplication.processEvents()
-            # self.test()
         QApplication.processEvents()
+
     def select(self, idx):
+        """
+        Select a module to launch
+        """
         self.program_idx = idx
 
     def launch(self):
+        """
+        Launch the selected module
+        """
         prog = LauncherForm.programs[self.program_idx]
         try:
             path = os.path.dirname(sys.argv[0])
@@ -91,18 +119,25 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
             subprocess.Popen(['musclex', prog], shell=(sys.platform=='win32'))
 
     def test(self):
+        """
+        Open tests
+        """
         self.td = TestDialog()
         self.td.show()
         self.td.activateWindow()
         self.td.raise_()
-        # if not os.path.exists(self.test_path):
-        #     self.td.run_detailed_test()
 
     def keyReleaseEvent(self, event):
+        """
+        Key release event
+        """
         if event.key() == Qt.Key_Return:
             self.launch()
 
     def closeEvent(self, event):
+        """
+        Close event
+        """
         if not self.popupMsg.checkBox().isChecked():
             self.popupMsg.exec_()
             if self.popupMsg.checkBox().isChecked():
@@ -116,6 +151,9 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
 
     @staticmethod
     def main():
+        """
+        Main function for the launcher
+        """
         app = QApplication(sys.argv)
         window = LauncherForm()
         window.show()
@@ -127,7 +165,7 @@ class TestDialog(QDialog):
     """
     def __init__(self):
         super(QWidget, self).__init__()
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        # self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
         self.release_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "release.log")
@@ -137,6 +175,9 @@ class TestDialog(QDialog):
         self.initUI()
 
     def initUI(self):
+        """
+        Initialize the UI
+        """
         self.testDialogLayout = QVBoxLayout()
         self.runSummaryTestsButton = QPushButton('Run MuscleX Global Summary Tests')
         self.runDetailedTestsButton = QPushButton('Run MuscleX Detailed Implementation Tests')
@@ -175,8 +216,7 @@ class TestDialog(QDialog):
         self.detail.setFontWeight(100)
         if os.path.exists(self.test_path):
             self.detail.insertPlainText("Module tests have already been run.\nPress \'Run Tests\' to run the module tests again.")
-            self.detail.insertPlainText("\n\nTest results:\n{}{}{}\nSee the log at {} for more info.\n"
-                                        .format('-'*80,self.get_latest_test(),'-'*80, self.test_path))
+            self.detail.insertPlainText(f"\n\nTest results:\n{'-'*80}{self.get_latest_test()}{'-'*80}\nSee the log at {self.test_path} for more info.\n")
         else:
             self.detail.insertPlainText("No test logs found. Running tests for the first time..\n")
 
@@ -186,14 +226,22 @@ class TestDialog(QDialog):
         self.detail.moveCursor(QTextCursor.Start)
         QApplication.processEvents()
 
-
     def cancelButtonClicked(self):
+        """
+        Triggered when Cancel button is clicked
+        """
         self.close()
 
     def runSummaryTestsButtonClicked(self):
+        """
+        Triggered when Global summary test button is clicked
+        """
         self.run_summary_test()
 
     def runDetailedTestsButtonClicked(self):
+        """
+        Triggered when Detailed implementation test button is clicked
+        """
         self.run_detailed_test()
 
     def runEnvTestButtonClicked(self):
@@ -210,7 +258,7 @@ class TestDialog(QDialog):
             subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"environment_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)) # run the test program in a subprocess
         elif __file__:
             subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"environment_tester.sh"),  cwd=os.path.dirname(__file__)) # run the test program in a subprocess
-        
+
         self.progressBar.setValue(0)
         QApplication.processEvents()
         while subproc.poll() is None:
@@ -238,8 +286,7 @@ class TestDialog(QDialog):
 
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText("Test results:\n{}{}{}"
-                                    .format('-'*80,test_results,'-'*80))
+        self.detail.insertPlainText(f"Test results:\n{'-'*80}{test_results}{'-'*80}")
         QApplication.processEvents()
 
     def runGPUTestButtonClicked(self):
@@ -286,12 +333,14 @@ class TestDialog(QDialog):
 
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText("Test results:\n{}{}{}"
-                                    .format('-'*80,test_results,'-'*80))
+        self.detail.insertPlainText(f"Test results:\n{'-'*80}{test_results}{'-'*80}")
         self.progressBar.setValue(100)
         QApplication.processEvents()
 
     def showLatestTestButtonClicked(self):
+        """
+        Triggered when the Show lastest test button is clicked
+        """
         self.detail.moveCursor(QTextCursor.End)
         QApplication.processEvents()
 
@@ -301,11 +350,13 @@ class TestDialog(QDialog):
         QApplication.processEvents()
 
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText("{}{}{}"
-                                    .format('-'*80,self.get_latest_test(),'-'*80))
+        self.detail.insertPlainText(f"{'-'*80}{self.get_latest_test()}{'-'*80}")
         QApplication.processEvents()
 
     def showReleaseButtonClicked(self):
+        """
+        Triggered when the Show release button is clicked
+        """
         self.detail.moveCursor(QTextCursor.End)
         QApplication.processEvents()
 
@@ -315,8 +366,7 @@ class TestDialog(QDialog):
         QApplication.processEvents()
 
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText("{}{}{}"
-                                    .format('-'*80,self.get_release_results(),'-'*80))
+        self.detail.insertPlainText(f"{'-'*80}{self.get_release_results()}{'-'*80}")
         QApplication.processEvents()
 
     def run_summary_test(self):
@@ -358,8 +408,7 @@ class TestDialog(QDialog):
                     QApplication.processEvents()
 
                     self.detail.moveCursor(QTextCursor.End)
-                    self.detail.insertPlainText("\nFinished test {} out of {}.\n"
-                                                .format(test_number, NTESTS))
+                    self.detail.insertPlainText(f"\nFinished test {test_number} out of {NTESTS}.\n")
                     QApplication.processEvents()
                 prev_data = curr_data
             else:
@@ -386,8 +435,7 @@ class TestDialog(QDialog):
 
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText("\nTest results:\n{}{}{}\nSee the log at {} for more info."
-                                    .format('-'*80,test_summary[1],'-'*80, self.test_path))
+        self.detail.insertPlainText(f"\nTest results:\n{'-'*80}{test_summary[1]}{'-'*80}\nSee the log at {self.test_path} for more info.")
         QApplication.processEvents()
 
     def run_detailed_test(self):
@@ -429,8 +477,7 @@ class TestDialog(QDialog):
                     QApplication.processEvents()
 
                     self.detail.moveCursor(QTextCursor.End)
-                    self.detail.insertPlainText("\nFinished test {} out of {}.\n"
-                                                .format(test_number, NTESTS))
+                    self.detail.insertPlainText(f"\nFinished test {test_number} out of {NTESTS}.\n")
                     QApplication.processEvents()
                 prev_data = curr_data
             else:
@@ -457,8 +504,7 @@ class TestDialog(QDialog):
 
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText("\nTest results:\n{}{}{}\nSee the log at {} for more info."
-                                    .format('-'*80,test_results,'-'*80, self.test_path))
+        self.detail.insertPlainText(f"\nTest results:\n{'-'*80}{test_results}{'-'*80}\nSee the log at {self.test_path} for more info.")
         QApplication.processEvents()
 
     def get_latest_test(self):
@@ -471,7 +517,7 @@ class TestDialog(QDialog):
             return ""
         data = file.read()
         idx = 1
-        while(idx < 10):
+        while idx < 10:
             last_test = data.split('-'*80)[-idx]
             if last_test == '\n':
                 idx += 1
@@ -490,7 +536,7 @@ class TestDialog(QDialog):
             return ""
         data = file.read()
         idx = 1
-        while(idx < 10):
+        while idx < 10:
             release = data.split('-'*80)[-idx]
             if release == '\n':
                 idx += 1

@@ -44,7 +44,6 @@ class QuadrantFoldingh:
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-
     def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/qfsettings.json'):
         """
         :param filename: selected file name
@@ -123,8 +122,6 @@ class QuadrantFoldingh:
             if os.path.isfile(cache_path):
                 os.remove(cache_path)
 
-        # self.quadFold = QuadrantFolder(self.dir_path, fileName, self)
-
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
 
@@ -160,6 +157,9 @@ class QuadrantFoldingh:
             del currentInfo['calib_center']
 
     def getExtentAndCenter(self):
+        """
+        Give the extent and center of the image
+        """
         if self.quadFold is None:
             return [0,0], (0,0)
         if self.quadFold.orig_image_center is None:
@@ -173,7 +173,6 @@ class QuadrantFoldingh:
             center = self.quadFold.orig_image_center
 
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
-
         return extent, center
 
     def processImage(self):
@@ -185,7 +184,6 @@ class QuadrantFoldingh:
             flags = self.getFlags()
             print("Flags in processImage:")
             print(flags)
-
             try:
                 self.quadFold.process(flags)
             except Exception:
@@ -219,6 +217,9 @@ class QuadrantFoldingh:
                 self.saveBackground()
 
     def saveBackground(self):
+        """
+        Save the background image in bg folder
+        """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
         avg_fold = info["avg_fold"]
@@ -238,7 +239,6 @@ class QuadrantFoldingh:
         # imsave(result_path, resultImg)
         fabio.tifimage.tifimage(data=resultImg).write(result_path)
 
-
         total_inten = np.sum(resultImg)
         csv_path = join(bg_path, 'background_sum.csv')
         if self.csv_bg is None:
@@ -256,6 +256,9 @@ class QuadrantFoldingh:
         self.csv_bg.to_csv(csv_path)
 
     def updateParams(self):
+        """
+        Update the parameters
+        """
         info = self.quadFold.info
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
@@ -300,14 +303,15 @@ class QuadrantFoldingh:
         flags['blank_mask'] = False
         flags['rotate'] = False
 
-        #self.setCalibrationImage()
-
         if 'center' in flags:
             flags.pop('center')
 
         return flags
 
     def processFolder(self):
+        """
+        Process the folder selected
+        """
         fileList = os.listdir(self.dir_path)
         self.imgList = []
         for f in fileList:
@@ -352,6 +356,11 @@ class QuadrantFoldingh:
         print('\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.')
 
     def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
         print(text)
 
     def setCalibrationImage(self):
@@ -361,7 +370,6 @@ class QuadrantFoldingh:
         :return: True if calibration set, False otherwise
         """
         settingspath=self.settingspath
-
         if self.inputsettings:
             try:
                 with open(settingspath, 'r') as f:

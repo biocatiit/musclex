@@ -25,11 +25,12 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
 from os.path import exists
 import pandas as pd
 from ..utils.file_manager import fullPath, createFolder
 
-class PT_CVSManager:
+class PT_CSVManager:
     """
     A class taking care of writing results including csv file of Projection Traces
     """
@@ -38,6 +39,7 @@ class PT_CVSManager:
         init with directory path
         :param dir_path:
         """
+        self.dataframe = None
         result_path = fullPath(dir_path, "pt_results")
         createFolder(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
@@ -78,7 +80,6 @@ class PT_CVSManager:
             self.dataframe = pd.DataFrame(columns = self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
-        # print self.dataframe
 
     def writeNewData(self, projProc):
         """

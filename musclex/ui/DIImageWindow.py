@@ -1,10 +1,40 @@
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
 import logging
 from csv import writer
 import json
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 from matplotlib import scale as mscale
 from matplotlib import transforms as mtransforms
 from matplotlib.colors import LogNorm, Normalize
+from matplotlib.ticker import Formatter, AutoLocator
 import pandas as pd
 import numpy as np
 from numpy import ma
@@ -13,17 +43,22 @@ from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..CalibrationSettings import CalibrationSettings
-from ..csv_manager import CP_CSVManager
+from ..csv_manager import DI_CSVManager
 from .BlankImageSettings import BlankImageSettings
 
 class DSpacingScale(mscale.ScaleBase):
+    """
+    D Spacing scale class
+    """
     name = 'dspacing'
-
     def __init__(self, axis, **kwargs):
         mscale.ScaleBase.__init__(self,axis)
         self.lambda_sdd = kwargs.pop('lambda_sdd', 1501.45)
 
     def get_transform(self):
+        """
+        Give the D Spacing tranform object
+        """
         return self.DSpacingTransform(self.lambda_sdd)
 
     def set_default_locators_and_formatters(self, axis):
@@ -39,14 +74,16 @@ class DSpacingScale(mscale.ScaleBase):
         the radians to degrees and put a degree symbol after the
         value::
         """
-        from matplotlib.ticker import Formatter, AutoLocator
         class DSpacingFormatter(Formatter):
+            """
+            D Spacing formatter
+            """
             def __init__(self, lambda_sdd):
                 Formatter.__init__(self)
                 self.lambda_sdd = lambda_sdd
             def __call__(self, x, pos=None):
                 if x == 0:
-                    return u"\u221E"
+                    return "\u221E"
                 else:
                     return "%.2f" % (self.lambda_sdd / x)
 
@@ -67,19 +104,20 @@ class DSpacingScale(mscale.ScaleBase):
         return max(vmin, 1), vmax
 
     class DSpacingTransform(mtransforms.Transform):
-        # There are two value members that must be defined.
-        # ``input_dims`` and ``output_dims`` specify number of input
-        # dimensions and output dimensions to the transformation.
-        # These are used by the transformation framework to do some
-        # error checking and prevent incompatible transformations from
-        # being connected together.  When defining transforms for a
-        # scale, which are, by definition, separable and have only one
-        # dimension, these members should always be set to 1.
+        """
+        There are two value members that must be defined.
+        ``input_dims`` and ``output_dims`` specify number of input
+        dimensions and output dimensions to the transformation.
+        These are used by the transformation framework to do some
+        error checking and prevent incompatible transformations from
+        being connected together.  When defining transforms for a
+        scale, which are, by definition, separable and have only one
+        dimension, these members should always be set to 1.
+        """
         input_dims = 1
         output_dims = 1
         is_separable = True
         has_inverse = True
-
         def __init__(self, lambda_sdd):
             mtransforms.Transform.__init__(self)
             self.lambda_sdd = lambda_sdd
@@ -111,16 +149,21 @@ class DSpacingScale(mscale.ScaleBase):
                 self.lambda_sdd)
 
     class InvertedDSpacingTransform(mtransforms.Transform):
+        """
+        Inverted of the previous class
+        """
         input_dims = 1
         output_dims = 1
         is_separable = True
         has_inverse = True
-
         def __init__(self, lambda_sdd):
             mtransforms.Transform.__init__(self)
             self.lambda_sdd = lambda_sdd
 
         def transform_non_affine(self, a):
+            """
+            See previous class
+            """
             masked = ma.masked_where(a <= 0, a)
             if masked.mask.any():
                 return np.flipud(self.lambda_sdd / masked)
@@ -128,18 +171,23 @@ class DSpacingScale(mscale.ScaleBase):
                 return np.flipud(self.lambda_sdd / a)
 
         def inverted(self):
+            """
+            See previous class
+            """
             return DSpacingScale.DSpacingTransform(self.lambda_sdd)
 
 mscale.register_scale(DSpacingScale)
 
-class CPImageWindow(QMainWindow):
+class DIImageWindow(QMainWindow):
+    """
+    A class to process Scanning diffraction on a file
+    """
     def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
-        # QDialog.__init__(self, parent)
         QWidget.__init__(self)
         self.setWindowTitle(image_name)
         self.fileName = image_name
         self.filePath = dir_path
-        self.csvManager = CP_CSVManager(dir_path)
+        self.csvManager = DI_CSVManager(dir_path)
         self.imgList = []
         self.numberOfFiles = 0
         self.currentFileNumber = 0
@@ -160,7 +208,6 @@ class CPImageWindow(QMainWindow):
         self.stop_process = False
         self.intensityRange = []
         self.updatingUI = False
-
         self.m1_selected_range = 0
         self.update_plot = {'m1_partial_hist': True,
                             'm1_hist': True,
@@ -181,9 +228,11 @@ class CPImageWindow(QMainWindow):
             self.processFolder()
         elif len(self.imgList) > 0:
             self.onImageChanged()
-        #self.onImageChanged()
 
     def generateRingColors(self):
+        """
+        Generate colors for the rings
+        """
         possible_vals = [0, 255]
         self.ring_colors = []
         for b in possible_vals:
@@ -194,8 +243,10 @@ class CPImageWindow(QMainWindow):
                     self.ring_colors.append([b,g,r])
 
     def initUI(self):
+        """
+        Initialize the UI
+        """
         self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
-        # self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -282,8 +333,6 @@ class CPImageWindow(QMainWindow):
         self.displayOptionsLayout.addSpacing(10)
         self.displayOptionsLayout.addWidget(self.displayRingsChkbx)
         self.displayOptionsLayout.addSpacing(10)
-        # self.displayOptionsLayout.addWidget(self.noBGImgChkBx)
-        # self.displayOptionsLayout.addSpacing(10)
         self.displayOptionsLayout.addWidget(self.blankChkBx)
         self.displayOptionsLayout.addSpacing(10)
         self.displayOptionsLayout.addWidget(self.angleChkBx)
@@ -346,7 +395,6 @@ class CPImageWindow(QMainWindow):
         self.method1Tab.setContentsMargins(0, 0, 0, 0)
         self.method1TabLayout = QGridLayout(self.method1Tab)
         self.m1_key_group = QGroupBox()
-        # self.m1_key_group.setTitle()
         self.m1_keys_layout = QGridLayout(self.m1_key_group)
         self.skipFirstPeakChkBx = QCheckBox()
         self.skipFirstPeakChkBx.setText("Zoom")
@@ -382,8 +430,6 @@ class CPImageWindow(QMainWindow):
         self.m1_partial_hist_figure.subplots_adjust(top=0.90, bottom=0.20)
         self.m1_partial_hist_axes = self.m1_partial_hist_figure.add_subplot(111)
         self.m1_partial_hist_canvas = FigureCanvas(self.m1_partial_hist_figure)
-        # self.toolbar = NavigationToolbar(self.m1_partial_hist_canvas, self)
-        # self.method1TabLayout.addWidget(self.toolbar)
         self.m1_hist_figure = plt.figure()
         self.m1_hist_axes = self.m1_hist_figure.add_subplot(111)
         self.m1_hist_canvas = FigureCanvas(self.m1_hist_figure)
@@ -412,9 +458,7 @@ class CPImageWindow(QMainWindow):
         self.m2_cent_diff_canvas = FigureCanvas(self.m2_cent_diff_fig)
         self.method2Tablayout.addWidget(self.method2ComboBx, 0, 0, 1, 1)
         self.method2Tablayout.addWidget(self.runsChkBx, 0, 1, 1, 1)
-        # self.method2Tablayout.setAlignment(self.runsChkBx, Qt.AlignCenter)
         self.method2Tablayout.addWidget(self.ringsChkBx, 0, 2, 1, 1)
-        # self.method2Tablayout.setAlignment(self.ringsChkBx, Qt.AlignCenter)
         self.method2Tablayout.addWidget(self.m2_cent_diff_canvas, 1, 0, 1, 3)
 
         ## IMAGE MODE 4 : Result Tab
@@ -472,7 +516,6 @@ class CPImageWindow(QMainWindow):
         self.processing_results.setText("Angular results : N/A")
         self.rings_results = QTextEdit()
         self.rings_results.setReadOnly(True)
-        # self.rings_results.setLineWidth(2)
         self.rings_results.setText("Rings Information : N/A")
         self.resultTabLayout.addWidget(self.graph_cmbbx, 0, 0, 1, 4)
         self.resultTabLayout.addWidget(self.result_graph_canvas, 1, 0, 1, 3)
@@ -492,7 +535,6 @@ class CPImageWindow(QMainWindow):
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
-
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 300px; }")
         self.tabWidget.addTab(self.imageTab, "Image")
         self.tabWidget.addTab(self.method1Tab, "Method 1\nMultiple Conical Integration")
@@ -517,7 +559,9 @@ class CPImageWindow(QMainWindow):
         self.show()
 
     def setConnections(self):
-
+        """
+        Set the connections between the buttons and the functions
+        """
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
 
@@ -539,7 +583,6 @@ class CPImageWindow(QMainWindow):
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
         self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
-        #self.processFolderButton.clicked.connect(self.processFolder)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.prevButton.clicked.connect(self.prevImage)
         self.nextButton.clicked.connect(self.nextImage)
@@ -579,6 +622,9 @@ class CPImageWindow(QMainWindow):
             self.processImage()
 
     def setBlankAndMask(self):
+        """
+        Set the blank image and mask threshold
+        """
         dialog = BlankImageSettings(self.filePath)
         self.mask = None
         result = dialog.exec_()
@@ -677,14 +723,23 @@ class CPImageWindow(QMainWindow):
             self.processImage()
 
     def orientationModelChanged(self):
+        """
+        Triggered when the orientation model is changed
+        """
         self.orientationModel = str(self.orientationCmbBx.currentText())
         self.processImage()
 
     def rotation90Checked(self):
+        """
+        Triggered when the 90 degrees rotation is checked
+        """
         self.cirProj.removeInfo('ring_hists')
         self.processImage()
 
     def forceRot90Checked(self):
+        """
+        Force the 90 degrees rotation
+        """
         if self.forceRot90ChkBx.isChecked():
             self.rotation90ChkBx.setChecked(True)
             self.rotation90ChkBx.setEnabled(False)
@@ -700,7 +755,6 @@ class CPImageWindow(QMainWindow):
 
         x = event.xdata
         y = event.ydata
-
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             ax = self.displayImgAxes
@@ -773,7 +827,6 @@ class CPImageWindow(QMainWindow):
             return
 
         func = self.function
-
         # Provide different behavior depending on current active function
         center = self.cirProj.info['center']
         dis = distance(center, (x, y))
@@ -832,16 +885,15 @@ class CPImageWindow(QMainWindow):
 
         x = event.xdata
         y = event.ydata
-
         if x is not None and y is not None:
             orig_img = self.cirProj.original_image
             ix = int(round(x))
             iy = int(round(y))
-            text = "x={0}, y={1}, val={2}".format(round(x,2), round(y,2), round(orig_img[iy,ix],2))
+            text = f"x={round(x,2)}, y={round(y,2)}, val={round(orig_img[iy,ix],2)}"
             if self.selectRings.isChecked() or self.setHullRange.isChecked() or \
                self.setRoiBtn.isChecked():
                 dist = distance(self.cirProj.info['center'], (x, y))
-                text = "radius={0}, {1}".format(round(dist, 2), text)
+                text = f"radius={round(dist, 2)}, {text}"
             self.statusLabel.setText(text)
 
         # Calculate new x,y if cursor is outside figure
@@ -868,13 +920,11 @@ class CPImageWindow(QMainWindow):
             return
 
         func = self.function
-
         center = self.cirProj.info['center']
         dis = distance(center, (x, y))
         if func[0] == 'rings':
             # draw circle
             ax = self.displayImgAxes
-
             del ax.patches[(len(self.function) - 1):]
             ax.add_patch(
                 patches.Circle(tuple(center), dis, linewidth=2, edgecolor='y', facecolor='none'))
@@ -912,6 +962,9 @@ class CPImageWindow(QMainWindow):
         return False
 
     def batchProcBtnToggled(self):
+        """
+        Process folder on click of the button
+        """
         if self.processFolderButton.isChecked():
             if not self.in_batch_process:
                 self.processFolderButton.setText("Stop")
@@ -968,7 +1021,7 @@ class CPImageWindow(QMainWindow):
             filename = "CirProj_""%02d" % current.tm_year + "%02d" % current.tm_mon + "%02d" % current.tm_mday + \
                        "_" + "%02d" % current.tm_hour + "%02d" % current.tm_min + "%02d" % current.tm_sec + ".log"
             filename = fullPath(log_path, filename)
-            self.logger = logging.getLogger('cp')
+            self.logger = logging.getLogger('di')
             self.logger.setLevel(logging.DEBUG)
             self.logger.propagate = False
 
@@ -982,7 +1035,7 @@ class CPImageWindow(QMainWindow):
 
             # add the handlers to the self.logger
             self.logger.addHandler(handler)
-            self.logger.addFilter(logging.Filter(name='cp'))
+            self.logger.addFilter(logging.Filter(name='di'))
 
             ## Process all images and update progress bar
             self.in_batch_process = True
@@ -1003,6 +1056,9 @@ class CPImageWindow(QMainWindow):
         self.processFolderButton.setText("Process Current Folder")
 
     def keyPressEvent(self, event):
+        """
+        Triggered on key press
+        """
         key = event.key()
 
         if key == Qt.Key_Right:
@@ -1013,14 +1069,20 @@ class CPImageWindow(QMainWindow):
             self.refreshAllTabs()
 
     def closeEvent(self, ev):
+        """
+        Close event
+        """
         if self.mainWin is not None:
             self.mainWin.removeWidget(self)
 
     def getFlags(self, imgChanged=True):
+        """
+        Give the flags for the object associated
+        """
         flags = {}
         flags['partial_angle'] = self.partialRange.value()
         if self.merged_peaks is not None and self.persistRingsChkBx.isChecked():
-            print("Persisting rings at {}..".format(self.merged_peaks))
+            print(f"Persisting rings at {self.merged_peaks}..")
             flags['merged_peaks'] = self.merged_peaks
             flags['m1_rings'] = self.merged_peaks
             flags['m2_rings'] = self.merged_peaks
@@ -1046,6 +1108,9 @@ class CPImageWindow(QMainWindow):
         return flags
 
     def maxIntChanged(self):
+        """
+        Change the max int
+        """
         if self.cirProj is not None and not self.updatingUI:
             if self.maxInt.value() < self.minInt.value():
                 self.maxInt.setValue(self.minInt.value()+1)
@@ -1054,6 +1119,9 @@ class CPImageWindow(QMainWindow):
                 self.updateUI()
 
     def minIntChanged(self):
+        """
+        Change the min int
+        """
         if self.cirProj is not None and not self.updatingUI:
             if self.maxInt.value() < self.minInt.value():
                 self.minInt.setValue(self.maxInt.value()-1)
@@ -1062,6 +1130,9 @@ class CPImageWindow(QMainWindow):
                 self.updateUI()
 
     def onNewFileSelected(self, imgList):
+        """
+        Used when a new file is selected
+        """
         self.resize(600, 600)
 
         if imgList is not None:
@@ -1077,6 +1148,9 @@ class CPImageWindow(QMainWindow):
             self.currentFileNumber = 0
 
     def onImageChanged(self):
+        """
+        When the image is changed, process the scanning diffraction again
+        """
         fileName = self.imgList[self.currentFileNumber]
         self.filenameLineEdit.setText(fileName)
         fileFullPath = fullPath(self.filePath, fileName)
@@ -1094,6 +1168,9 @@ class CPImageWindow(QMainWindow):
         self.addPixelDataToCsv(grid_lines)
 
     def processImage(self, imgChanged=False):
+        """
+        Process the scanning diffraction
+        """
         if self.cirProj is not None:
             QApplication.setOverrideCursor(Qt.WaitCursor)
             self.flags = self.getFlags(imgChanged)
@@ -1105,6 +1182,9 @@ class CPImageWindow(QMainWindow):
             self.updateUI()
 
     def create_circular_mask(self, h, w, center, radius):
+        """
+        Create a circular mask
+        """
         Y, X = np.ogrid[:h, :w]
         dist_from_center = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
 
@@ -1112,8 +1192,11 @@ class CPImageWindow(QMainWindow):
         return mask
 
     def addPixelDataToCsv(self, grid_lines):
+        """
+        Add pixel data to csv
+        """
         if self.pixelDataFile is None:
-            self.pixelDataFile = self.filePath + '/cp_results/BackgroundSummary.csv'
+            self.pixelDataFile = self.filePath + '/di_results/BackgroundSummary.csv'
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
                 f = open(self.pixelDataFile, 'a')
@@ -1148,9 +1231,10 @@ class CPImageWindow(QMainWindow):
             csvDF.loc[next_row_index] = [self.cirProj.filename, averagePixelValue, numberOfPixels]
         csvDF.to_csv(self.pixelDataFile, index=False)
 
-
-
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
+        """
+        Set the min and max intensity
+        """
         min_val = img.min()
         max_val = img.max()
         self.intensityRange = [min_val, max_val-1, min_val+1, max_val]
@@ -1179,6 +1263,9 @@ class CPImageWindow(QMainWindow):
             self.updatingUI = False
 
     def updateParams(self):
+        """
+        Update the parameters
+        """
         info = self.cirProj.info
         if 'fixed_hull' in info:
             self.fixed_hull_range = info['fixed_hull']
@@ -1193,16 +1280,21 @@ class CPImageWindow(QMainWindow):
             self.orientationModel = str(self.orientationCmbBx.currentText())
 
     def updateStatusBar(self, text):
+        """
+        Update the status bar
+        """
         QApplication.processEvents()
         self.imagePathLabel.setText(text)
         QApplication.processEvents()
 
     def updateUI(self):
+        """
+        Update the UI
+        """
         if self.cirProj is None:
             return
 
         selected_tab = self.tabWidget.currentIndex()
-
         if selected_tab == 0:
             self.updateImageTab()
         elif selected_tab == 1:
@@ -1213,6 +1305,9 @@ class CPImageWindow(QMainWindow):
             self.updateResultsTab()
 
     def partialRangeChanged(self):
+        """
+        Triggered when the partial range is changed
+        """
         if self.updatingUI or self.cirProj is None:
             return
         self.cirProj.info['partial_angle'] = self.partialRange.value()
@@ -1220,14 +1315,23 @@ class CPImageWindow(QMainWindow):
         self.processImage()
 
     def prevImage(self):
+        """
+        When previous image is clicked
+        """
         self.currentFileNumber = (self.currentFileNumber - 1) % self.numberOfFiles
         self.onImageChanged()
 
     def nextImage(self):
+        """
+        When next image is clicked
+        """
         self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
         self.onImageChanged()
 
     def fileNameChanged(self):
+        """
+        When the file name is changed, reprocess the image
+        """
         fileName = str(self.filenameLineEdit.text()).strip()
         if fileName not in self.imgList:
             return
@@ -1235,10 +1339,11 @@ class CPImageWindow(QMainWindow):
         self.onImageChanged()
 
     def zoomFigure(self, figure, canvas, direction, x, y):
+        """
+        Zoom on the figure
+        """
         if self.cirProj is None:
             return
-
-        #
         # display_size = figure.get_size_inches() * figure.dpi
         # display_height = display_size[0]
         # display_width = display_size[1]
@@ -1268,16 +1373,25 @@ class CPImageWindow(QMainWindow):
         # canvas.draw()
 
     def wheelOnImg(self, ev):
+        """
+        Triggered when using the mouse wheel over the image
+        """
         direction = ev.delta() / 120
         x = ev.pos().x()
         y = ev.pos().y()
         self.zoomFigure(self.displayImgFigure, self.displayImgCanvas, direction, x, y)
 
     def refreshMethod2Tab(self):
+        """
+        Refresh tab, method 2
+        """
         self.update_plot['m2_diff'] = True
         self.updateUI()
 
     def refreshAllTabs(self):
+        """
+        Refresh all tabs
+        """
         self.function = None
         for b in self.checkable_buttons:
             b.setChecked(False)
@@ -1285,27 +1399,42 @@ class CPImageWindow(QMainWindow):
             self.update_plot[k] = True
 
     def m1_update_plots(self):
+        """
+        Update plots, method 1
+        """
         self.update_plot['m1_partial_hist'] = True
         self.update_plot['m1_hist'] = True
         self.updateUI()
 
     def next_range_pushed(self):
+        """
+        Next range pushed
+        """
         self.m1_selected_range += 1
         self.update_plot['m1_partial_hist'] = True
         self.updateUI()
 
     def prev_range_pushed(self):
+        """
+        Previous range pushed
+        """
         self.m1_selected_range -= 1
         self.update_plot['m1_partial_hist'] = True
         self.updateUI()
 
     def getZoomedImage(self, img):
+        """
+        Give zoomed image
+        """
         if not any(self.img_zoom):
             h,w = img.shape[:2]
             self.img_zoom = [0,0,w,h]
         return img[ self.img_zoom[1]:self.img_zoom[3], self.img_zoom[0]:self.img_zoom[2]]
 
     def draw_angle_lines(self, img, center, angle, arange):
+        """
+        Draw angle line on the image
+        """
         scale = img.shape[1] / 2
         angle_line = [(int(center[0] - (scale * np.cos(angle))), int(center[1] - (scale * np.sin(angle)))),
                       (int(center[0] + (scale * np.cos(angle))), int(center[1] + (scale * np.sin(angle))))]
@@ -1319,6 +1448,9 @@ class CPImageWindow(QMainWindow):
         cv2.line(img, range2[0], range2[1], (0, 255, 255), 5)
 
     def updateImageTab(self):
+        """
+        Update the image tab
+        """
         img = copy.copy(self.cirProj.original_image)
         if self.blankChkBx.isChecked():
             blank, _ = getBlankImageAndMask(self.filePath)
@@ -1326,7 +1458,6 @@ class CPImageWindow(QMainWindow):
                 img = img - blank
 
         #img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
-
         ax = self.displayImgAxes
         ax.cla()
         if self.logScaleIntChkBx.isChecked():
@@ -1359,7 +1490,6 @@ class CPImageWindow(QMainWindow):
                     ax.add_patch(
                         patches.Circle(tuple(center), int(round(radius + h*sigmad)), linewidth=2, edgecolor=tuple(np.array(self.ring_colors[(i-1)%len(self.ring_colors)])/255.), facecolor='none'))
 
-
         if 'ring_models' in self.cirProj.info and 'ring_errors' in self.cirProj.info and len(self.cirProj.info['ring_errors']) > 0:
             models = self.cirProj.info['ring_models']
             errors = self.cirProj.info['ring_errors']
@@ -1376,11 +1506,9 @@ class CPImageWindow(QMainWindow):
                     angle_line = [
                         (int(round(center[0] - (scale * np.cos(angle)))), int(round(center[0] + (scale * np.cos(angle))))),
                          (int(round((center[1] - (scale * np.sin(angle))))), int(round((center[1] + (scale * np.sin(angle))))))]
-
                     range1 = [
                         (int(round(center[0] - (scale * np.cos(arange[0])))), int(round(center[0] + (scale * np.cos(arange[0]))))),
                         (int(round((center[1] - (scale * np.sin(arange[0]))))), int(round((center[1] + (scale * np.sin(arange[0]))))))]
-
                     range2 = [
                         (int(round(center[0] - (scale * np.cos(arange[1])))), int(round(center[0] + (scale * np.cos(arange[1]))))),
                         (int(round((center[1] - (scale * np.sin(arange[1]))))), int(round((center[1] + (scale * np.sin(arange[1]))))))]
@@ -1392,13 +1520,11 @@ class CPImageWindow(QMainWindow):
         if self.centerChkbx.isChecked():
             ax.add_patch(
                 patches.Circle(tuple(center), 3, linewidth=2, edgecolor='w', facecolor='r'))
-
         if self.rminmaxChkBx.isChecked():
             ax.add_patch(patches.Circle(tuple(center), self.cirProj.info['start_point'], linewidth=2, edgecolor='y',
                                         facecolor='none'))
             ax.add_patch(patches.Circle(tuple(center), self.cirProj.info['rmax'], linewidth=2, edgecolor='y',
                                         facecolor='none'))
-
         if self.roiChkBx.isChecked():
             roi = self.cirProj.info['ROI']
             ax.add_patch(patches.Wedge(tuple(center), roi[1], 0, 360, width=roi[1]-roi[0], fc='r', alpha=0.25))
@@ -1410,6 +1536,9 @@ class CPImageWindow(QMainWindow):
         self.displayImgCanvas.draw()
 
     def updateMethod1Tab(self):
+        """
+        Update tab, method 1
+        """
         if 'm1_partial_hists' in self.cirProj.info.keys() and 'partial_ranges' in self.cirProj.info.keys() and \
                 self.update_plot['m1_partial_hist']:
             partial_ranges = self.cirProj.info['partial_ranges']
@@ -1425,7 +1554,6 @@ class CPImageWindow(QMainWindow):
                 ax.plot(hist, color='b')
 
             ax.plot(hull, color='g')
-
             if 'm1_partial_peaks' in self.cirProj.info.keys():
                 peaks = self.cirProj.info['m1_partial_peaks'][self.m1_selected_range]
                 str_info += "   Peaks : "+str(peaks)
@@ -1435,7 +1563,6 @@ class CPImageWindow(QMainWindow):
             end_plot = len(hist)
             start_plot = 0
             if self.skipFirstPeakChkBx.isChecked() and 'start_point' in self.cirProj.info.keys():
-
                 if 'merged_peaks' in self.cirProj.info.keys() and len(self.cirProj.info['merged_peaks']) > 0:
                     merged_rings = self.cirProj.info['merged_peaks']
                     last_ring = max(merged_rings)
@@ -1457,7 +1584,6 @@ class CPImageWindow(QMainWindow):
             self.m1_partial_hist_canvas.draw()
 
             img = copy.copy(self.cirProj.original_image)
-
             if self.blankChkBx.isChecked():
                 blank, mask = getBlankImageAndMask(self.filePath)
                 if blank is not None:
@@ -1496,7 +1622,6 @@ class CPImageWindow(QMainWindow):
             ax.cla()
             for p in m1_rings:
                 ax.plot([p, p], [0, max(hist)], color='r')
-
             if self.m1OriginalHistChkbx.isChecked():
                 ax.plot(hist, color='b')
             else:
@@ -1507,7 +1632,6 @@ class CPImageWindow(QMainWindow):
             end_plot = len(hist)
             start_plot = 0
             if self.skipFirstPeakChkBx.isChecked() and 'start_point' in self.cirProj.info.keys():
-
                 if 'merged_peaks' in self.cirProj.info.keys() and len(self.cirProj.info['merged_peaks']) > 0:
                     merged_rings = self.cirProj.info['merged_peaks']
                     last_ring = max(merged_rings)
@@ -1530,6 +1654,9 @@ class CPImageWindow(QMainWindow):
             self.updatingUI = False
 
     def updateMethod2Tab(self):
+        """
+        Update tab, method 2
+        """
         if self.update_plot['m2_diff']:
             ax = self.m2_cent_diff_axes
             self.m2_cent_diff_fig.subplots_adjust(bottom=0.20)
@@ -1570,6 +1697,9 @@ class CPImageWindow(QMainWindow):
             self.update_plot['m2_diff'] = False
 
     def swapCheckBoxes(self):
+        """
+        Swap the checkboxes
+        """
         hide = (self.graph_cmbbx.currentIndex() != 0)
         self.dspacing_chkbx.setHidden(hide)
         self.skip_first_peak_chkbx.setHidden(hide)
@@ -1583,8 +1713,10 @@ class CPImageWindow(QMainWindow):
         self.g_model_chkbx.setHidden(not hide or not self.orientationModel.startswith('GMM'))
 
     def updateResultsTab(self):
+        """
+        Update the results tab
+        """
         self.swapCheckBoxes()
-
         if self.graph_cmbbx.currentIndex() == 0:
             if 'model_peaks' in self.cirProj.info.keys():
                 model_peaks = self.cirProj.info['model_peaks']
@@ -1604,32 +1736,27 @@ class CPImageWindow(QMainWindow):
             if len(model_peaks) > 0:
                 start_plot = int(min(model_peaks)*0.4)
                 end_plot = int(max(model_peaks) * 1.4)
-
             max_peak = 0
             if self.original_hist_chkbx.isChecked():
                 line, = ax.plot(original_hist, color='b')
                 # lines.append(line)
                 labels.append('Original')
                 max_peak = max(original_hist[start_plot:end_plot])
-
             if self.hull_hist_chkbx.isChecked():
                 hull_hist = self.cirProj.info['hull_hist']
                 line, = ax.plot(hull_hist, color='m')
                 # lines.append(line)
                 labels.append('No BG')
                 max_peak = max(max(hull_hist), max_peak)
-
             if self.fit_hist_chkbx.isChecked() and 'fitResult' in self.cirProj.info.keys():
                 fit_result = self.cirProj.info['fitResult']
                 x = np.array(range(start_point, len(original_hist)))
                 fit_hist = GMM_any(x = x, params=fit_result)
-
                 if fit_hist is not None:
                     line, = ax.plot(x, fit_hist, color='g')
                     # lines.append(line)
                     labels.append('Fit Model')
                     max_peak = max(max(fit_hist), max_peak)
-
             if self.skip_first_peak_chkbx.isChecked():
                 max_peak = max_peak * 1.1
             else:
@@ -1637,10 +1764,9 @@ class CPImageWindow(QMainWindow):
                 start_plot = 0
                 end_plot = len(original_hist)
             ax.set_ylim(0, max_peak)
-
             if self.rings_chkbx.isChecked() and len(model_peaks) > 0:
-                for i in range(len(model_peaks)):
-                    line = ax.axvline(model_peaks[i], color=tuple(np.array(self.ring_colors[i%len(self.ring_colors)])/255.))
+                for (i, model_p) in enumerate(model_peaks):
+                    line = ax.axvline(model_p, color=tuple(np.array(self.ring_colors[i%len(self.ring_colors)])/255.))
                     # lines.append(line)
                 labels.append('Merged Rings')
 
@@ -1654,8 +1780,6 @@ class CPImageWindow(QMainWindow):
                 ax.set_xlabel('Radial distance')
 
             ax.set_ylabel('Intensity')
-            # ax.legend(lines, labels)
-            # self.update_plot['image_result'] = False
 
         elif self.orientationModel.startswith('GMM'):
             model = self.orientationModel
@@ -1672,9 +1796,8 @@ class CPImageWindow(QMainWindow):
                 ring_hists = self.cirProj.info['ring_hists']
                 x = np.arange(0, 2 * np.pi, 2 * np.pi / 360)
                 if self.ring_hists_chkbx.isChecked():
-                    for i in range(len(ring_hists)):
-                        ax.plot(x, ring_hists[i], color = tuple(np.array(self.ring_colors[i%len(self.ring_colors)])/255.))
-
+                    for (i, r_hist) in enumerate(ring_hists):
+                        ax.plot(x, r_hist, color = tuple(np.array(self.ring_colors[i%len(self.ring_colors)])/255.))
                 if 'ring_models' in self.cirProj.info.keys() and self.g_model_chkbx.isChecked():
                     ring_models = self.cirProj.info['ring_models']
                     ring_errors = self.cirProj.info['ring_errors']
@@ -1686,7 +1809,6 @@ class CPImageWindow(QMainWindow):
                             u2 = u1 - np.pi if u1 >= np.pi else u1 + np.pi
                             ax.plot((u1, u1), (0, max(gauss)), color='y')
                             ax.plot((u2, u2), (0, max(gauss)), color='y')
-
                 if 'average_ring_model' in self.cirProj.info.keys() and self.average_ring_chkbx.isChecked():
                     mod = self.cirProj.info['average_ring_model']
                     gauss = (orientation_GMM2 if model == "GMM2" else orientation_GMM3)(x=x, **mod)
@@ -1740,7 +1862,6 @@ class CPImageWindow(QMainWindow):
                         u1 = ring_models[idx]['u']
                         ax.plot((u1, u1), (0, max(ring_hists[i])), color='y')
                         ax.plot((u1 + np.pi, u1 + np.pi), (0, max(ring_hists[i])), color='y')
-
                 if 'average_ring_model' in self.cirProj.info.keys() and self.average_ring_chkbx.isChecked():
                     mod = self.cirProj.info['average_ring_model']
                     ax.plot(x, mod['hist'], color='k')
@@ -1769,7 +1890,6 @@ class CPImageWindow(QMainWindow):
         if 'ring_models' in self.cirProj.info.keys() and len(self.cirProj.info['ring_models']) > 0:
             models = self.cirProj.info['ring_models']
             errors = self.cirProj.info['ring_errors']
-
             rings_info = "Rings Information : \n"
 
             for i in models.keys():
@@ -1806,9 +1926,10 @@ class CPImageWindow(QMainWindow):
 
         self.rings_results.setText(rings_info)
 
-            # self.update_plot['results_text'] = False
-
     def mousePressEvent(self, event):
+        """
+        Triggered on mouse press
+        """
         focused_widget = QApplication.focusWidget()
         if focused_widget is not None:
             focused_widget.clearFocus()

@@ -92,7 +92,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "tests/testResults/MARimages/cp_results/summary.csv" >> file2
+}' "tests/testResults/MARimages/di_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -104,7 +104,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < tests/testImages/MARimages/cp_results/summary.csv
+done < tests/testImages/MARimages/di_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -218,7 +218,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "tests/testResults/EIGERimages/cp_results/summary.csv" >> file2
+}' "tests/testResults/EIGERimages/di_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -230,7 +230,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < tests/testImages/EIGERimages/cp_results/summary.csv
+done < tests/testImages/EIGERimages/di_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -344,7 +344,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "tests/testResults/PILATUSimages/cp_results/summary.csv" >> file2
+}' "tests/testResults/PILATUSimages/di_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -356,7 +356,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < tests/testImages/PILATUSimages/cp_results/summary.csv
+done < tests/testImages/PILATUSimages/di_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -413,13 +413,13 @@ while true; do
 		[Yy]* ) echo "Deleting generated files...";
 		rm -r testImages/EIGERimages/eq_*;
 		rm -r testImages/EIGERimages/qf_*;
-		rm -r testImages/EIGERimages/cp_*;
+		rm -r testImages/EIGERimages/di_*;
 		rm -r testImages/MARimages/eq_*;
 		rm -r testImages/MARimages/qf_*;
-		rm -r testImages/MARimages/cp_*;
+		rm -r testImages/MARimages/di_*;
 		rm -r testImages/PILATUSimages/eq_*;
 		rm -r testImages/PILATUSimages/qf_*;
-		rm -r testImages/PILATUSimages/cp_*;
+		rm -r testImages/PILATUSimages/di_*;
 		 break;;
 		[Nn]* ) break;;
 		* ) echo "Please answer yes or no.";;
@@ -430,13 +430,13 @@ COMMENT
 echo "Deleting generated files..."
 rm -r tests/testImages/EIGERimages/eq_*
 rm -r tests/testImages/EIGERimages/qf_*
-rm -r tests/testImages/EIGERimages/cp_*
+rm -r tests/testImages/EIGERimages/di_*
 rm -r tests/testImages/MARimages/eq_*
 rm -r tests/testImages/MARimages/qf_*
-rm -r tests/testImages/MARimages/cp_*
+rm -r tests/testImages/MARimages/di_*
 rm -r tests/testImages/PILATUSimages/eq_*
 rm -r tests/testImages/PILATUSimages/qf_*
-rm -r tests/testImages/PILATUSimages/cp_*
+rm -r tests/testImages/PILATUSimages/di_*
 rm -r tests/testImages/EIGERimages/failedcases.txt
 rm -r tests/testImages/MARimages/failedcases.txt
 rm -r tests/testImages/PILATUSimages/failedcases.txt

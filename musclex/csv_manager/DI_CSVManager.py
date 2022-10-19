@@ -26,14 +26,17 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from ..modules.ScanningDiffraction import *
 import pandas as pd
+from ..modules.ScanningDiffraction import *
 
-class CP_CSVManager():
+class DI_CSVManager():
+    """
+    The CSV manager object is used to gather information and save them in results files.
+    """
     def __init__(self, dir_path):
         self.df_sum = None
         self.df_rings = None
-        result_path = fullPath(dir_path, 'cp_results')
+        result_path = fullPath(dir_path, 'di_results')
         createFolder(result_path)
         self.sum_file = fullPath(result_path, "summary.csv")
         self.rings_file = fullPath(result_path, "rings.csv")
@@ -120,7 +123,7 @@ class CP_CSVManager():
             try:
                 self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_datas])])
                 # self.df_rings = self.df_rings.append(new_datas, ignore_index=True) # Future warning deprecated
-            except:
+            except Exception:
                 pass
         else:
             for k in self.rings_header:

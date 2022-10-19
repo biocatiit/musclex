@@ -26,7 +26,6 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-
 from os import makedirs
 import csv
 from ..utils.file_manager import *
@@ -35,10 +34,10 @@ class DC_CSVManager():
     """
     A class taking care of writing summary file
     """
-    def __init__(self, dir_path, nFrames, fix_ranges = []):
+    def __init__(self, dir_path, nFrames, fix_ranges=[]):
         self.nFrames = nFrames # number of frames that average
 
-        sum_path = fullPath(dir_path, "dc_summary")
+        sum_path = fullPath(dir_path, "dc_results")
 
         if not exists(sum_path):
             makedirs(sum_path)
@@ -65,7 +64,9 @@ class DC_CSVManager():
         self.loadSummary() # load exist summary file before adding new data
 
     def getRow(self, key):
-        # return index of key in header
+        """
+        Return index of key in header.
+        """
         return self.headers.index(key)
 
     def loadSummary(self):
@@ -79,78 +80,6 @@ class DC_CSVManager():
         self.grp_to_key = {}
         currentGroup = -1
         header = []
-        # if self.nFrames == 0:
-        #     # Files are manually selected
-        #     if exists(self.filename):
-        #         with open(self.filename, "rb") as csvfile:
-        #             reader = csv.reader(csvfile)
-        #             peak_data = []
-        #             images = []
-        #             g_data = {}
-        #             off_mer = {}
-        #
-        #             for row in reader:
-        #                 if len(row) == 0 :
-        #                     continue
-        #
-        #                 if row[0] == "group":
-        #                     if len(images) > 0:
-        #                         k = "...".join([images[0], images[-1]])
-        #                         self.allpeaks_data[k] = peak_data
-        #                         self.offmer_data[k] = off_mer
-        #                         self.gen_data[k] = g_data
-        #                         self.keyToImages[k] = images
-        #                         self.grp_to_key[int(currentGroup)] = k
-        #
-        #                     header = copy.copy(row)
-        #                     peak_data = []
-        #                     off_mer = {}
-        #                     images = []
-        #                     g_data = {}
-        #                     continue
-        #
-        #                 elif row[0] != "":
-        #                     currentGroup = row[0]
-        #                     images.append(row[1])
-        #                     g_data["integration area width"] = row[2]
-        #                     for i in range(3, len(row) - 3):
-        #                         if "centroid" in header[i]:
-        #                             if "average" in header[i]:
-        #                                 continue
-        #                             head = header[i]
-        #                             head = head.split(" ")
-        #                             if "_" in head[0] and head[1] == "59":
-        #                                 quadrant = head[0]
-        #                                 off_mer[quadrant] = {
-        #                                     "centroid": [row[header.index(quadrant + " 59 " +"centroid")],
-        #                                                  row[header.index(quadrant + " 51 " +"centroid")]],
-        #                                     "baseline": [row[header.index(quadrant + " 59 " + "baseline")],
-        #                                                  row[header.index(quadrant + " 51 " + "baseline")]],
-        #                                     "intensity": [row[header.index(quadrant + " 59 " + "intensity")],
-        #                                                  row[header.index(quadrant + " 51 " + "intensity")]],
-        #                                 }
-        #                             else:
-        #                                 side = head[0]
-        #                                 name = head[1]
-        #                                 new_peak = {
-        #                                     "side" : side,
-        #                                     "name" : name,
-        #                                     "centroid" : row[i],
-        #                                     "baseline" : row[header.index(side + " " + name + " " + "baseline")],
-        #                                     "intensity" : row[header.index(side + " " + name + " " + "intensity")]
-        #                                 }
-        #                                 peak_data.append(new_peak)
-        #                 else:
-        #                     images.append(row[1])
-        #
-        #             if len(images) > 0:
-        #                 k = "...".join([images[0], images[-1]])
-        #                 self.allpeaks_data[k] = peak_data
-        #                 self.offmer_data[k] = off_mer
-        #                 self.gen_data[k] = g_data
-        #                 self.keyToImages[k] = images
-        #                 self.grp_to_key[int(currentGroup)] = k
-        # else:
         # Files are selected by auto-grouping
         if exists(self.filename):
             with open(self.filename, "r") as csvfile:
@@ -300,6 +229,9 @@ class DC_CSVManager():
         return header
 
     def toInt(self, s):
+        """
+        Convert to int.
+        """
         try:
             result = int(s)
         except Exception:
@@ -311,90 +243,11 @@ class DC_CSVManager():
         Re-write summary file from encapsulated data
         :return:
         """
-        # if self.nFrames == 0:
-        #     # If files are selected manually
-        #     with open(self.filename, "w") as csvfile:
-        #         writer = csv.writer(csvfile, delimiter = ",")
-        #         grpKey = sorted(self.grp_to_key.items(), key= lambda (g,k) : int(g))
-        #         for (g, k) in grpKey:
-        #             peak_data = self.allpeaks_data[k]
-        #             g_data = self.gen_data[k]
-        #             filelist = self.keyToImages[k]
-        #             off_mer = self.offmer_data[k]
-        #
-        #             ### write header for each group ###
-        #             header = ["group", "filename", "integration area width"]
-        #             top_peaks = sorted([d for d in peak_data if d["side"] == "top"], key=lambda d: self.toInt(d["name"]))
-        #             bottom_peaks = sorted([d for d in peak_data if d["side"] == "bottom"], key=lambda d: self.toInt(d["name"]))
-        #             nTop = len(top_peaks)
-        #             nBottom = len(bottom_peaks)
-        #             min_nPeaks = min(nTop, nBottom)
-        #
-        #             for i in range(min_nPeaks):
-        #                 peak_header = ["top " + top_peaks[i]["name"] + " centroid", "bottom " + bottom_peaks[i]["name"] + " centroid", "average " + bottom_peaks[i]["name"] + " centroid",
-        #                                "top " + top_peaks[i]["name"] + " baseline", "bottom " + bottom_peaks[i]["name"] + " baseline", "average " + bottom_peaks[i]["name"] + " baseline",
-        #                                "top " + top_peaks[i]["name"] + " intensity", "bottom " + bottom_peaks[i]["name"] + " intensity", "average " + bottom_peaks[i]["name"] + " intensity"]
-        #                 header.extend(peak_header)
-        #
-        #             if nTop > nBottom:
-        #                 extra = "top"
-        #                 extra_peaks = top_peaks
-        #             else:
-        #                 extra = "bottom"
-        #                 extra_peaks = bottom_peaks
-        #
-        #             for i in range(max(nTop, nBottom) - min_nPeaks):
-        #                 peak_header = [extra + " " +extra_peaks[min_nPeaks+i]["name"] + " centroid",
-        #                                extra + " " +extra_peaks[min_nPeaks+i]["name"] + " baseline",
-        #                                extra + " " +extra_peaks[min_nPeaks+i]["name"] + " intensity"]
-        #                 header.extend(peak_header)
-        #
-        #             if len(off_mer.keys()) > 0:
-        #                 header.extend(self.getOffMerHeaders())
-        #
-        #             writer.writerow(header)
-        #
-        #             ### Write data of each group ###
-        #             for i in range(len(filelist)):
-        #                 if i != 0:
-        #                     write_row = ["", str(filelist[i])]
-        #                 else:
-        #                     write_row = [str(g), str(filelist[i]), g_data["integration area width"]]
-        #                     for i in range(min_nPeaks):
-        #                         peak_detail = [top_peaks[i]["centroid"], bottom_peaks[i]["centroid"],
-        #                                        self.average(top_peaks[i]["centroid"], bottom_peaks[i]["centroid"]),
-        #                                        top_peaks[i]["baseline"], bottom_peaks[i]["baseline"],
-        #                                        self.average(top_peaks[i]["baseline"], bottom_peaks[i]["baseline"]),
-        #                                        top_peaks[i]["intensity"], bottom_peaks[i]["intensity"],
-        #                                        self.average(top_peaks[i]["intensity"], bottom_peaks[i]["intensity"])
-        #                                        ]
-        #                         write_row.extend(peak_detail)
-        #
-        #                     for i in range(max(nTop, nBottom) - min_nPeaks):
-        #                         ind = min_nPeaks + i
-        #                         peak_detail = [ extra_peaks[ind]["centroid"],
-        #                                         extra_peaks[ind]["baseline"],
-        #                                         extra_peaks[ind]["intensity"]]
-        #                         write_row.extend(peak_detail)
-        #
-        #                     if len(off_mer.keys()) > 0:
-        #                         for t in ["centroid", "baseline", "intensity"]:
-        #                             for p in [0,1]:
-        #                                 sum_val = 0.
-        #                                 for q in ["top_left", "top_right", "bottom_left", "bottom_right"]:
-        #                                     write_row.append(off_mer[q][t][p])
-        #                                     sum_val += float(off_mer[q][t][p])
-        #                                 write_row.append(sum_val/4.)
-        #
-        #                 writer.writerow(write_row)
-        #             writer.writerow([])
-        #             writer.writerow([])
-        # else:
         # Files are selected by auto-grouping
         with open(self.filename, "w") as csvfile:
             writer = csv.writer(csvfile, delimiter=",")
             grpKey = sorted(self.grp_to_key.items(), key=lambda gk: int(gk[0]))
-            g1, k1 = grpKey[0]
+            _, k1 = grpKey[0]
             peak_data = self.allpeaks_data[k1]
 
             ### write header for all group ###
@@ -435,13 +288,13 @@ class DC_CSVManager():
                         write_row = ["", str(filelist[i])]
                     else:
                         write_row = [str(g), str(filelist[i]), g_data["integration area width"]]
-                        for i in range(min_nPeaks):
-                            peak_detail = [top_peaks[i]["centroid"], bottom_peaks[i]["centroid"],
-                                           self.average(top_peaks[i]["centroid"], bottom_peaks[i]["centroid"]),
-                                           top_peaks[i]["baseline"], bottom_peaks[i]["baseline"],
-                                           self.average(top_peaks[i]["baseline"], bottom_peaks[i]["baseline"]),
-                                           top_peaks[i]["intensity"], bottom_peaks[i]["intensity"],
-                                           self.average(top_peaks[i]["intensity"], bottom_peaks[i]["intensity"])]
+                        for j in range(min_nPeaks):
+                            peak_detail = [top_peaks[j]["centroid"], bottom_peaks[j]["centroid"],
+                                           self.average(top_peaks[j]["centroid"], bottom_peaks[j]["centroid"]),
+                                           top_peaks[j]["baseline"], bottom_peaks[j]["baseline"],
+                                           self.average(top_peaks[j]["baseline"], bottom_peaks[j]["baseline"]),
+                                           top_peaks[j]["intensity"], bottom_peaks[j]["intensity"],
+                                           self.average(top_peaks[j]["intensity"], bottom_peaks[j]["intensity"])]
                             write_row.extend(peak_detail)
 
                         if len(off_mer.keys()) > 0:
@@ -456,7 +309,9 @@ class DC_CSVManager():
                     writer.writerow(write_row)
 
     def average(self, s1, s2):
-        # Find average between 2 float string. Remove '_' if necessary
+        """
+        Find average between 2 float string. Remove '_' if necessary.
+        """
         rejected = False
         if "_" in s1:
             rejected = True

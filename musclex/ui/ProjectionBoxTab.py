@@ -25,11 +25,12 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
 import matplotlib.pyplot as plt
-from .pyqt_utils import *
 import matplotlib.patches as patches
 import numpy as np
-from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground, meridianGauss
+from .pyqt_utils import *
+from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground
 from ..utils.image_processor import getNewZoom
 
 class ProjectionBoxTab(QWidget):
@@ -64,9 +65,7 @@ class ProjectionBoxTab(QWidget):
 
         info = self.parent.projProc.info
         name = self.name
-
         box = info['boxes'][name]
-
         if info['types'][name] == 'h':
             start_x = box[0][0]
             if self.parent.centerx is None:
@@ -225,7 +224,7 @@ class ProjectionBoxTab(QWidget):
         """
         Set Tooltips for widgets
         """
-        pass
+        return
 
     def setConnections(self):
         """
@@ -265,7 +264,6 @@ class ProjectionBoxTab(QWidget):
         self.graphFigure1.canvas.mpl_connect('figure_leave_event', self.graphReleased)
         self.graphFigure2.canvas.mpl_connect('figure_leave_event', self.graphReleased)
 
-
     def hullRangeChanged(self):
         """
         Trigger when convex hull range is changed
@@ -304,7 +302,7 @@ class ProjectionBoxTab(QWidget):
             xlim = self.graphMaxBound[0]
             ylim = self.graphMaxBound[1]
 
-            def increaseLimit(fig, canvas, ax, xlim, ylim):
+            def increaseLimit(canvas, ax, xlim, ylim):
                 old_xlim = ax.get_xlim()
                 old_ylim = ax.get_ylim()
                 xscale = abs(old_xlim[0]-old_xlim[1])*0.1
@@ -319,8 +317,8 @@ class ProjectionBoxTab(QWidget):
                 canvas.draw_idle()
                 return zoom
 
-            self.zoom1 = increaseLimit(self.graphFigure1, self.graphCanvas1, self.graphAxes1, xlim, ylim)
-            self.zoom2 = increaseLimit(self.graphFigure2, self.graphCanvas2, self.graphAxes2, xlim, ylim)
+            self.zoom1 = increaseLimit(self.graphCanvas1, self.graphAxes1, xlim, ylim)
+            self.zoom2 = increaseLimit(self.graphCanvas2, self.graphAxes2, xlim, ylim)
 
     def fullClicked(self):
         """
@@ -398,8 +396,8 @@ class ProjectionBoxTab(QWidget):
             return
 
         func = self.function
-        box = self.parent.allboxes[self.name]
-        type = self.parent.boxtypes[self.name]
+        # box = self.parent.allboxes[self.name]
+        # type = self.parent.boxtypes[self.name]
         center = self.getCenterX()
 
         distance = int(round(abs(center - x)))
@@ -445,7 +443,7 @@ class ProjectionBoxTab(QWidget):
             if len(func) == 3:
                 self.setZoomIn(func[1], func[2])
 
-    def drawRectangle(self, fig, canvas, ax, point1, point2):
+    def drawRectangle(self, canvas, ax, point1, point2):
         """
         Draw a rectangle
         :param fig:
@@ -493,9 +491,7 @@ class ProjectionBoxTab(QWidget):
                 elif self.function[0] == 'zoom' and len(self.function) == 2 and self.function[1][0] == 1:
                     # Draw rectangle
                     start_pt = self.function[1][1]
-                    self.drawRectangle(self.graphFigure1, self.graphCanvas1, self.graphAxes1, start_pt, (x, y))
-
-
+                    self.drawRectangle(self.graphCanvas1, self.graphAxes1, start_pt, (x, y))
 
     def graphOnMotion2(self, event):
         """
@@ -526,7 +522,7 @@ class ProjectionBoxTab(QWidget):
                 elif self.function[0] == 'zoom' and len(self.function) == 2 and self.function[1][0] == 2:
                     # Draw rectangle
                     start_pt = self.function[1][1]
-                    self.drawRectangle(self.graphFigure2, self.graphCanvas2, self.graphAxes2, start_pt, (x,y))
+                    self.drawRectangle(self.graphCanvas2, self.graphAxes2, start_pt, (x,y))
 
     def setManualHullRange(self):
         """
@@ -708,11 +704,9 @@ class ProjectionBoxTab(QWidget):
             ax.axvspan(0, centerX - hull_ranges[name][1], alpha=0.5, color='k')
             ax.axvspan(centerX + hull_ranges[name][1], len(hist), alpha=0.5, color='k')
 
-
             # Update spin box
             self.startHull.setValue(hull_ranges[name][0])
             self.endHull.setValue(hull_ranges[name][1])
-
 
         if self.zoom1 is not None:
             ax.set_xlim(self.zoom1[0])

@@ -1,3 +1,31 @@
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
 import os
 import json
 import h5py
@@ -5,8 +33,8 @@ import numpy as np
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
-from ..csv_manager import CP_CSVManager
-from .CPImageWindowh import CPImageWindowh
+from ..csv_manager import DI_CSVManager
+from .DIImageWindowh import DIImageWindowh
 
 matplotlib.rcParams.update({'font.size': 5})
 
@@ -76,10 +104,12 @@ class HDFBrowser():
         hf = h5py.File(self.hdf_file, 'w')
         data_grp = hf.create_group("data")
         data_grp.create_dataset("BL", data=data)
-
         hf.close()
 
-class CPBatchWindowh():
+class DIBatchWindowh():
+    """
+    A class to process Scanning diffraction on folders (headless)
+    """
     def __init__(self, dir_path="",inputsetting=False,delcache=False,settingspath=None):
         self.filePath = dir_path
         self.inputsetting=inputsetting
@@ -87,11 +117,14 @@ class CPBatchWindowh():
         self.settingspath=settingspath
         self.hdf_filename = ""
 
-        self.csvManager = CP_CSVManager(self.filePath)
+        self.csvManager = DI_CSVManager(self.filePath)
 
         self.processFolder(self.filePath)
 
     def browseHDF(self, dir_path, hdfList=[]):
+        """
+        Browse HDF files
+        """
         hdf_filename = ""
         path = join(dir_path, 'settings')
         createFolder(path)
@@ -108,18 +141,22 @@ class CPBatchWindowh():
                     dlg = HDFBrowser('No HDF file detected.\nPlease select an HDF file to process or create a new one.', path)
                 else:
                     dlg = HDFBrowser('There are more than one HDF file detected. \nPlease select an HDF file to process or create a new one.', path)
-
                 hdf_filename = dlg.hdf_file
 
         if hdf_filename != "":
             pickle.dump(hdf_filename, open(hdf_cache, "wb"))
             self.hdf_filename = str(hdf_filename)
-            # self.processBatchmodeResults()
 
     def convert_to_float(self, i):
+        """
+        Convert i to float
+        """
         return float(i) if i.replace('.', '', 1).replace('-', '').isdigit() else i
 
     def get_scan_data(self, filename):
+        """
+        Give the scanned data
+        """
         if h5py.is_hdf5(filename):
             hf = h5py.File(filename, 'r')
             return np.array(hf.get('data').get('BL'))
@@ -127,8 +164,12 @@ class CPBatchWindowh():
             return sorted(self.parse_logfiles_dir(filename), key=lambda x: (x[1], x[0]))
         elif filename.endswith('.log'):
             return self.parse_logfile(filename)
+        return None
 
     def parse_logfile(self, filename):
+        """
+        Parse the log file
+        """
         data_dir, fname = os.path.split(filename)
         count_filename = os.path.join(data_dir, fname)
 
@@ -153,6 +194,9 @@ class CPBatchWindowh():
         return scans
 
     def parse_logfiles_dir(self, dir_name):
+        """
+        Parse the directory log file
+        """
         files = os.listdir(dir_name)
         data = []
         for f in files:
@@ -162,6 +206,9 @@ class CPBatchWindowh():
         return data
 
     def processFolder(self, dir_path):
+        """
+        Process the folder selected
+        """
         hdf_path=fullPath(dir_path,'settings')
         if os.path.exists(hdf_path):
             if os.path.exists(fullPath(hdf_path,'file.hdf')):
@@ -178,10 +225,13 @@ class CPBatchWindowh():
             if os.path.isfile(file_name):
                 _, ext = os.path.splitext(str(file_name))
                 if ext in inpt_types:
-                    CPImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
+                    DIImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
 
         imgList, hdfList = getFilesAndHdf(dir_path)
         self.browseHDF(dir_path, hdfList)
 
 def convertRadtoDegreesEllipse(rad):
+    """
+    Convert radian to degrees
+    """
     return rad * 180. / np.pi

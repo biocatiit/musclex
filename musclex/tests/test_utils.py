@@ -14,7 +14,7 @@ from musclex.modules.QuadrantFolder import QuadrantFolder
 from musclex.modules.DiffractionCentroids import DiffractionCentroids
 from musclex.modules.ProjectionProcessor import ProjectionProcessor
 from musclex.modules.ScanningDiffraction import ScanningDiffraction
-from musclex.csv_manager.CP_CSVManager import CP_CSVManager
+from musclex.csv_manager.DI_CSVManager import DI_CSVManager
 
 
 def module_test(mode, settings, pickledir, inputpath, compdir=None,
@@ -115,8 +115,8 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
             pickle.dump(results[field], picklefile, protocol=2)
             picklefile.close()
             if mode == 'di':
-                cp_csvmgr = CP_CSVManager(dir_path=inputpath)
-                cp_csvmgr.write_new_data(test_object)
+                di_csvmgr = DI_CSVManager(dir_path=inputpath)
+                di_csvmgr.write_new_data(test_object)
 
             if not testrecord:
                 # If the version is present, get the pickle to test against
@@ -162,20 +162,20 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
     # Remove some cache folders for the two modules that don't have no cache options
     if os.path.exists(os.path.join(inputpath, "eq_cache")):
         shutil.rmtree(os.path.join(inputpath, "eq_cache"))
-    if os.path.exists(os.path.join(inputpath, "cp_cache")):
-        shutil.rmtree(os.path.join(inputpath, "cp_cache"))
+    if os.path.exists(os.path.join(inputpath, "di_cache")):
+        shutil.rmtree(os.path.join(inputpath, "di_cache"))
 
     # Print the results of the test over all files
     if not testrecord:
         if mode == 'di':
             print("\033[3;33mComparing Scanning Diffraction results...\033[0;3140m\n")
-            summ_compare = filecmp.cmp(os.path.join(inputpath, 'cp_results', 'summary.csv'),
-                            os.path.join(inputpath, 'cp_results', 'rcd_summary.csv'))
-            ring_compare = filecmp.cmp(os.path.join(inputpath, 'cp_results', 'rings.csv'),
-                            os.path.join(inputpath, 'cp_results', 'rcd_rings.csv'))
+            summ_compare = filecmp.cmp(os.path.join(inputpath, 'di_results', 'summary.csv'),
+                            os.path.join(inputpath, 'di_results', 'rcd_summary.csv'))
+            ring_compare = filecmp.cmp(os.path.join(inputpath, 'di_results', 'rings.csv'),
+                            os.path.join(inputpath, 'di_results', 'rcd_rings.csv'))
             pass_test = summ_compare and ring_compare
-            os.remove(os.path.join(inputpath, 'cp_results', 'summary.csv'))
-            os.remove(os.path.join(inputpath, 'cp_results', 'rings.csv'))
+            os.remove(os.path.join(inputpath, 'di_results', 'summary.csv'))
+            os.remove(os.path.join(inputpath, 'di_results', 'rings.csv'))
         if pass_test:
             print("\n\033[4;32m---- {} TEST SUCCESSFUL ----\033[0;3140m"
                   .format(test_name))
@@ -190,10 +190,10 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
     else:
         print("\033[4;32m ---- Test files written ---- \033[0;3140m")
         if mode == 'di':
-            os.rename(os.path.join(inputpath, 'cp_results', 'summary.csv'),
-                      os.path.join(inputpath, 'cp_results', 'rcd_summary.csv'))
-            os.rename(os.path.join(inputpath, 'cp_results', 'rings.csv'),
-                      os.path.join(inputpath, 'cp_results', 'rcd_rings.csv'))
+            os.rename(os.path.join(inputpath, 'di_results', 'summary.csv'),
+                      os.path.join(inputpath, 'di_results', 'rcd_summary.csv'))
+            os.rename(os.path.join(inputpath, 'di_results', 'rings.csv'),
+                      os.path.join(inputpath, 'di_results', 'rcd_rings.csv'))
         return
 
     return pass_test

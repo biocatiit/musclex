@@ -26,22 +26,22 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+import sys
+import copy
+import pickle
+import traceback
+from os.path import exists, splitext
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 import cv2
-import matplotlib.patches as patches
-from ..utils.file_manager import fullPath, getImgFiles, getStyleSheet, createFolder
+import musclex
+from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
-from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImage, rotateImageAboutPoint, rotatePoint, processImageForIntCenter
+from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter
 from ..CalibrationSettings import CalibrationSettings
-from ..csv_manager import PT_CVSManager
-import sys
-import traceback
-import musclex
-import copy
-from os.path import exists, splitext
-import pickle
+from ..csv_manager import PT_CSVManager
 from .pyqt_utils import *
 
 class BoxDetails(QDialog):
@@ -49,7 +49,7 @@ class BoxDetails(QDialog):
     This class is for Popup window when a box is added
     """
     def __init__(self, current_box_names, oriented=False):
-        super(BoxDetails, self).__init__(None)
+        super().__init__(None)
         self.setWindowTitle("Adding a Box")
         self.box_names = current_box_names
         self.oriented = oriented
@@ -88,6 +88,9 @@ class BoxDetails(QDialog):
             self.boxLayout.addWidget(self.bottons, 2, 0, 1, 2, Qt.AlignCenter)
 
     def okClicked(self):
+        """
+        Triggered when OK is clicked
+        """
         box_name = str(self.boxName.text())
         if len(box_name) == 0:
             errMsg = QMessageBox()
@@ -107,8 +110,11 @@ class BoxDetails(QDialog):
             self.accept()
 
     def getDetails(self):
+        """
+        Give details about the current status
+        """
         if self.oriented:
-            return str(self.boxName.text()), self.bgChoice.currentIndex()
+            return str(self.boxName.text()), self.bgChoice.currentIndex(), None
         else:
             return str(self.boxName.text()), self.bgChoice.currentIndex(), self.axisChoice.currentIndex()
 
@@ -140,6 +146,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.center_func = None
         self.rotated = False
         self.rotationAngle = 0
+        self.calSettingsDialog = None
+        self.numberOfFiles = 0
+        self.refit = False
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -184,23 +193,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.propLayout = QGridLayout(self.propGrp)
         self.calibrateButton = QPushButton("Calibration Settings")
         self.calSettingsDialog = None
-        # self.quadFoldButton = QPushButton("Quadrant Folding")
-        # self.setCenterButton = QPushButton("Set Rotation and Center")
-        # self.setCenterButton.setCheckable(True)
-        # self.checkableButtons.append(self.setCenterButton)
-        # self.setRotationButton = QPushButton("Set Rotation Angle")
-        # self.setRotationButton.setCheckable(True)
-        # self.checkableButtons.append(self.setRotationButton)
-        # self.lockAngleChkBx = QCheckBox("Lock Angle")
-        # self.lockAngleSpnBx = QSpinBox()
-        # self.lockAngleSpnBx.setEnabled(False)
-        # self.lockAngleSpnBx.setRange(-180, 180)
         self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 1)
-        # self.propLayout.addWidget(self.quadFoldButton, 1, 0, 1, 2)
-        # self.propLayout.addWidget(self.setCenterButton, 2, 0, 1, 2)
-        # self.propLayout.addWidget(self.setRotationButton, 3, 0, 1, 2)
-        # self.propLayout.addWidget(self.lockAngleChkBx, 4, 0, 1, 1)
-        # self.propLayout.addWidget(self.lockAngleSpnBx, 4, 1, 1, 1)
 
         # Box selection
         self.boxGrp = QGroupBox("3. Add boxes")
@@ -316,9 +309,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
         self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
 
-        #
         ### Status Bar ###
-        #
         self.statusBar = QStatusBar()
         self.left_status = QLabel()
         self.right_status = QLabel()
@@ -348,10 +339,6 @@ class ProjectionTracesGUI(QMainWindow):
         self.browseImageButton.clicked.connect(self.browseFile)
 
         # # Pattern Properties
-        # self.lockAngleChkBx.stateChanged.connect(self.lockAngle)
-        # self.quadFoldButton.clicked.connect(self.launchQF)
-        # self.setCenterButton.clicked.connect(self.setAngleAndCenterClicked)
-        # self.setRotationButton.clicked.connect(self.setAngleClicked)
         self.calibrateButton.clicked.connect(self.calibrationClicked)
 
         # Display options
@@ -417,6 +404,9 @@ class ProjectionTracesGUI(QMainWindow):
         return False
 
     def setAngleAndCenterClicked(self):
+        """
+        Triggered when the Set angle and center button is clicked
+        """
         if len(self.imgList) == 0:
             return
 
@@ -433,10 +423,13 @@ class ProjectionTracesGUI(QMainWindow):
             self.function = ["angle_center"]
 
     def clearImage(self):
+        """
+        Clear the image of all the plot on it
+        """
         ax = self.displayImgAxes
         del ax.lines
         ax.lines = []
-        for name, box in self.boxes_on_img.items():
+        for _, box in self.boxes_on_img.items():
             box['rect'].remove()
             box['text'].remove()
         self.displayImgCanvas.draw_idle()
@@ -468,6 +461,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.updateUI()
 
     def qfChkBxClicked(self):
+        """
+        Triggered when the quandrant fold button is clicked
+        """
         if self.qfChkBx.isChecked():
             self.center_func = 'quadrant_fold'
         elif self.center_func == 'init':
@@ -537,6 +533,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.processImage()
 
     def processFolder(self):
+        """
+        Process the folder selected
+        """
         self.numberOfFiles = len(self.imgList)
 
         errMsg = QMessageBox()
@@ -563,7 +562,7 @@ class ProjectionTracesGUI(QMainWindow):
             if bn in self.hull_ranges:
                 text += '\n     - Convex Hull Range : '+str(self.hull_ranges[bn])
 
-        if 'lambda_sdd' in settings.keys():
+        if 'lambda_sdd' in settings:
             text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
 
         text += '\n\nAre you sure you want to process ' + str(
@@ -583,6 +582,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.progressBar.setVisible(False)
 
     def clearBoxes(self):
+        """
+        Clear all boxes
+        """
         self.allboxes = {}
         self.boxtypes = {}
         self.boxes_on_img = {}
@@ -682,9 +684,11 @@ class ProjectionTracesGUI(QMainWindow):
             self.close()
 
     def mousePressEvent(self, event):
-        # Clear focus when mouse pressed
+        """
+        Clear focus when mouse pressed
+        """
         focused_widget = QApplication.focusWidget()
-        if focused_widget != None:
+        if focused_widget is not None:
             focused_widget.clearFocus()
 
     def prevClicked(self):
@@ -702,6 +706,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.onImageChanged()
 
     def removeTab(self, index):
+        """
+        Remove the tab selected by index
+        """
         if index != 0:
             widget = self.tabWidget.widget(index)
             if widget is not None:
@@ -748,7 +755,6 @@ class ProjectionTracesGUI(QMainWindow):
 
         x = event.xdata
         y = event.ydata
-
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
@@ -797,8 +803,6 @@ class ProjectionTracesGUI(QMainWindow):
                 if result == 1:
                     name, bgsub, axis = boxDialog.getDetails()
                     self.allboxes[name] = ((x1, x2), (y1, y2))
-                    w = abs(x1-x2)
-                    h = abs(y1-y2)
                     self.boxtypes[name] = 'h' if axis == 0 else 'v'
                     self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
                     self.bgsubs[name] = bgsub
@@ -911,7 +915,7 @@ class ProjectionTracesGUI(QMainWindow):
                         y2 = y1 + height*2
 
                         # add the oriented box
-                        name, bgsub = boxDialog.getDetails()
+                        name, bgsub, _ = boxDialog.getDetails()
                         self.allboxes[name] = ((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot, img)
                         self.boxtypes[name] = 'oriented'
                         self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
@@ -930,28 +934,28 @@ class ProjectionTracesGUI(QMainWindow):
                     box = self.allboxes[name]
                     boxx = box[0]
                     boxy = box[1]
-                    type = self.boxtypes[name]
+                    typ = self.boxtypes[name]
                     centerx = self.centerx
                     centery = self.centery
                     comp_x, comp_y = x, y # use a placeholder x,y for comparisons
 
                     # if oriented, then rotate x and y into the box
-                    if type == 'oriented':
+                    if typ == 'oriented':
                         # switch center to the box center
                         centerx, centery = box[6][0], box[6][1]
-                        d = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
+                        # d = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
                         comp_x, comp_y = rotatePoint((centerx, centery), (comp_x, comp_y), -np.radians(box[5]))
 
                     if boxx[0] <= comp_x <= boxx[1] and boxy[0] <= comp_y <= boxy[1]:
                         if name not in peaks:
                             peaks[name] = []
 
-                        if type == 'h':
+                        if typ == 'h':
                             distance = int(round(abs(centerx-comp_x)))
                             peaks[name].append(distance)
                             ax.plot((centerx-distance, centerx-distance), boxy, color='r')
                             ax.plot((centerx+distance, centerx+distance), boxy, color='r')
-                        elif type == 'oriented':
+                        elif typ == 'oriented':
                             distance = np.sqrt((centerx-comp_x)**2+(centery-comp_y)**2)
                             edge_1 = rotatePoint((centerx, centery), (centerx-distance, boxy[0]), np.radians(box[5]))
                             edge_2 = rotatePoint((centerx, centery), (centerx-distance, boxy[1]), np.radians(box[5]))
@@ -1029,7 +1033,7 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Generate aritists to represent a box on Axes.
         """
-        if btype == 'h' or btype == 'v':
+        if btype in ('h', 'v'):
             x, x2, y, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
             w, h = x2 - x, y2 - y
 
@@ -1063,9 +1067,7 @@ class ProjectionTracesGUI(QMainWindow):
 
         x = event.xdata
         y = event.ydata
-
         img = self.projProc.orig_img
-
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             x = int(round(x))
@@ -1325,11 +1327,19 @@ class ProjectionTracesGUI(QMainWindow):
         self.displayImgCanvas.draw_idle()
 
     def browseFile(self):
+        """
+        Popup an input file dialog. Users can select an image or .txt for failed cases list
+        """
         file_name = getAFile()
         if file_name != "":
             self.onImageSelect(file_name)
 
     def onImageSelect(self, fullfilename):
+        """
+        Triggered when a new image is selected
+        :param fullfilename: path for the image selected
+        :return:
+        """
         self.dir_path, self.imgList, self.current_file = getImgFiles(fullfilename)
         self.propGrp.setEnabled(True)
         self.boxGrp.setEnabled(True)
@@ -1348,7 +1358,7 @@ class ProjectionTracesGUI(QMainWindow):
         else:
             self.allboxes = {}
             self.peaks = {}
-        self.csvManager = PT_CVSManager(self.dir_path, self.allboxes, self.peaks)
+        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
         self.addBoxTabs()
         self.selectPeaksGrp.setEnabled(False)
         self.launchCalibrationSettings()
@@ -1400,6 +1410,10 @@ class ProjectionTracesGUI(QMainWindow):
         self.syncUI = False
 
     def updateCenter(self, refit=True):
+        """
+        Update the image center
+        :return:
+        """
         if self.center_func == 'automatic':
             self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img), self.projProc.img_type)
             self.centerx, self.centery = center
@@ -1433,7 +1447,7 @@ class ProjectionTracesGUI(QMainWindow):
         settings = self.getSettings()
         try:
             self.projProc.process(settings)
-        except Exception as e:
+        except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
             errMsg.setText('Unexpected error')
@@ -1446,7 +1460,6 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.csvManager.writeNewData(self.projProc)
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
@@ -1464,7 +1477,7 @@ class ProjectionTracesGUI(QMainWindow):
             path = fullPath(self.dir_path,'/pt_results/1d_projections')
             createFolder(path)
             fullname = str(self.projProc.filename)
-            filename, ext = splitext(fullname)
+            filename, _ = splitext(fullname)
             orig_hists = self.projProc.info['hists']
             subtr_hists = self.projProc.info['subtracted_hists']
 
@@ -1480,8 +1493,10 @@ class ProjectionTracesGUI(QMainWindow):
                     coords = zip(xs, sub_hist)
                     f.write("\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))))
 
-
     def cacheBoxesAndPeaks(self):
+        """
+        Save the boxes and peaks in the cache file
+        """
         cache = {
             'boxes' : self.allboxes,
             'peaks' : self.peaks,
@@ -1492,13 +1507,15 @@ class ProjectionTracesGUI(QMainWindow):
             'centery' : self.centery,
             'center_func' : self.center_func
         }
-
         cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)
         cache_file = fullPath(cache_dir, 'boxes_peaks.info')
         pickle.dump(cache, open(cache_file, "wb"))
 
     def loadBoxesAndPeaks(self):
+        """
+        Load the boxes and peaks stored in the cache file, if it exists
+        """
         cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_peaks.info')
         if exists(cache_file):
             cache = pickle.load(open(cache_file, "rb"))
@@ -1507,8 +1524,11 @@ class ProjectionTracesGUI(QMainWindow):
         return None
 
     def getSettings(self):
+        """
+        Give the current settings
+        :return: settings
+        """
         settings = {}
-
         # add boxes
         settings['boxes'] = self.allboxes
 
@@ -1571,9 +1591,6 @@ class ProjectionTracesGUI(QMainWindow):
         """
         self.left_status.setText(s)
         QApplication.processEvents()
-    #
-    # def lockAngle(self):
-    #     self.lockAngleSpnBx.setEnabled(self.lockAngleChkBx.isChecked())
 
     def resetUI(self):
         """
@@ -1589,7 +1606,7 @@ class ProjectionTracesGUI(QMainWindow):
 
         for b in self.checkableButtons:
             b.setChecked(False)
-        for k in self.update_plot.keys():
+        for k in self.update_plot:
             self.update_plot[k] = True
         for i in range(1, self.tabWidget.count()):
             tab = self.tabWidget.widget(i)
@@ -1598,6 +1615,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.updateUI()
 
     def updateUI(self):
+        """
+        Update the UI
+        """
         if self.projProc is not None and not self.syncUI:
             ind = self.tabWidget.currentIndex()
             if ind == 0:
@@ -1670,32 +1690,3 @@ class ProjectionTracesGUI(QMainWindow):
         ax.invert_yaxis()
         self.displayImgFigure.tight_layout()
         self.displayImgCanvas.draw()
-
-#     def launchQF(self):
-#         self.qf = QFExtend(self)
-#         self.qf.onNewFileSelected(fullPath(self.dir_path, self.imgList[self.current_file]))
-#
-#     def childWindowClosed(self, quadFold):
-#         fold = quadFold.info['avg_fold']
-#         self.projProc.orig_img = quadFold.imgCache['resultImg']
-#         self.projProc.info['center'] = (fold.shape[1], fold.shape[0])
-#         self.projProc.info['rotationAngle'] = 0
-#         self.qf = None
-#         self.img_zoom = None
-#         self.resetUI()
-#
-# class QFExtend(QuadrantFoldingGUI):
-#     def __init__(self, mainwin):
-#         QuadrantFoldingGUI.__init__(self)
-#         self.mainwin = mainwin
-#         self.nextButton.setEnabled(False)
-#         self.prevButton.setEnabled(False)
-#         self.nextButton2.setEnabled(False)
-#         self.prevButton2.setEnabled(False)
-#
-#     def closeEvent(self, ev):
-#         """
-#         Trigger when window is closed
-#         """
-#         # delete window object from main window
-#         self.mainwin.childWindowClosed(self.quadFold)

@@ -25,10 +25,10 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
 import copy
 import cv2
 import numpy as np
-# import cv2.cv as cv
 import fabio
 from skimage.morphology import white_tophat
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
@@ -56,8 +56,7 @@ def get16bitImage(img):
         dev = max_val - min_val
         return (np.round(img*65535./dev)).astype('uint16')
 
-
-def get8bitImage(img, min = None, max = None):
+def get8bitImage(img, min=None, max=None):
     """
     Convert a image to uint8 image
     :param img: input image
@@ -128,7 +127,7 @@ def thresholdImg(img, percent, convert_type =  cv2.THRESH_BINARY_INV):
     :return: threshold image
     """
     th = max(0, getThreshold(img, percent=percent)-1)
-    ret, thres = cv2.threshold(img, th, 255, convert_type, dst=img)
+    _, thres = cv2.threshold(img, th, 255, convert_type, dst=img)
     return thres
 
 def bkImg(img, percent=0.01, morph=25):
@@ -156,11 +155,17 @@ def getBGR(img):
     return cv2.cvtColor(copy_img, cv2.COLOR_GRAY2BGR)
 
 def getContours(img, n1=1, n2=2):
+    """
+    Give the contours for the image.
+    :param img, n1, n2:
+    :return: contours
+    """
     ret = cv2.findContours(img, n1, n2)
     if len(ret) == 3:
         return ret[1]
     if len(ret) == 2:
         return ret[0]
+    return None
 
 def getCenter(img):
     """
@@ -169,35 +174,25 @@ def getCenter(img):
     :return: center
     """
     img = get8bitImage(copy.copy(img))
-    # cv2.imwrite('original.jpg', img)
     img = cv2.GaussianBlur(img, (5, 5), 0)
-    # cv2.imwrite('blurred.jpg', img)
     init_center = None
 
     ##  Find init center by apply thresholding and fit ellipse to the contour which has the maximum size
     cimg = bkImg(copy.copy(img), 0.005, 50)
-    # cv2.imwrite('background.jpg', cimg)
-    # display_test(cimg, "threshold")
 
     contours = getContours(cimg)
-    cnt = max(contours, key=lambda c: len(c))
-    # print("Maximum contour: {}".format(cnt))
+    cnt = max(contours, key=len)
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)
         init_center = (ellipse[0][0], ellipse[0][1])
-        # im = getBGR(img)
-        # cv2.ellipse(im, ellipse, (0, 255, 0), 2)
-        # cv2.circle(im, init_center, 2, (0, 0, 255), thickness=-1)
-        # display_test(im, "img+ellipse")
 
     ## Find center by apply thresholding and fit ellipse to the contour of reflections and find the average center of reflections
     if init_center is not None:
         cimg = thresholdImg(copy.copy(img), 0.00015)
-        # cv2.imwrite('thresholded.jpg', cimg)
         contours = getContours(cimg)
 
         # Find 2 biggest contours (reflections)
-        cnts = sorted(contours, key=lambda c: len(c), reverse=True)[:6]
+        cnts = sorted(contours, key=len, reverse=True)[:6]
         reflections = []
         for i, cnt in enumerate(cnts):
             # Fit ellipse to 6 reflections if its size is bigger than 10
@@ -207,10 +202,6 @@ def getCenter(img):
                 axes = ellipse[1]
                 center = (center[0], center[1])
                 reflections.append((center, np.pi*axes[0]*axes[1]))
-                # im = getBGR(img)
-                # cv2.ellipse(im, ellipse, color=(0, 255, 0), thickness=2)
-                # cv2.circle(im, center, 2, (0, 0, 255), thickness=-1)
-                # display_test(im, "img+e"+str(i))
 
         inds = np.arange(0, len(reflections))
         if len(reflections) > 1:
@@ -243,7 +234,6 @@ def getCenter(img):
             # if init_center is not None and distance(init_center, (x,y)) < 7:
             #     # Return average center of reflections
             #     return (x, y)
-
         return init_center
 
     # Find cener by using opencv moments. See http://docs.opencv.org/trunk/dd/d49/tutorial_py_contour_features.html
@@ -259,7 +249,6 @@ def getCenter(img):
     cimg = bkImg(copy.copy(img), 0.0015, 50)
     circles = cv2.HoughCircles(cimg, 3 , 1, 100,
                                param1=60, param2=20, minRadius=0, maxRadius=0) # 3 = cv2.HOUGH_GRADIENT
-    # cv2.imwrite('circles.jpg', circles)
     if circles is not None:
         return (circles[0][0][0], circles[0][0][1])
 
@@ -276,7 +265,6 @@ def get_ring_model(hist):
     from .histogram_processor import smooth
     hist[1] = smooth(hist[1], 20)
 
-    n_hist = len(hist[1])
     index = np.argmax(hist[1])
     u = hist[0][index]
     if u < np.pi / 2:
@@ -308,10 +296,6 @@ def get_ring_model(hist):
     weights = errs / errs.mean() + 1
     weights[weights > 3.] = 0
     result = model.fit(data=hist[1], x=x, params=result.params, weights=weights)
-
-    '''import matplotlib.pyplot as plt
-    plt.plot(x, Model(orientation_GMM3, independent_vars='x').eval(x=x, params=result.params))
-    plt.show()'''
 
     return result.values
 
@@ -378,14 +362,13 @@ def getRotationAngle(img, center, method=0):
     :param center: center of the diffraction
     :return: rotation angle in degree
     """
-
     ## Find init angle by apply thresholding and fit ellipse to the contour which has the maximum size
     cimg = get8bitImage(copy.copy(img))
     cimg = cv2.GaussianBlur(cimg, (5, 5), 0)
     cimg = bkImg(copy.copy(cimg), 0.005, 50)
     init_angle = None
     contours = getContours(cimg)
-    cnt = max(contours, key=lambda c: len(c))
+    cnt = max(contours, key=len)
     if len(cnt) > 5:
         ellipse = cv2.fitEllipse(cnt)
         init_angle = (ellipse[2]+90.) % 180
@@ -401,19 +384,10 @@ def getRotationAngle(img, center, method=0):
     npt_rad = int(round(max([distance(center, c) for c in corners])))
     ai = AzimuthalIntegrator(detector=det)
     ai.setFit2D(200, center[0], center[1])
-    I2D, tth, chi = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method="csr")
+    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method="csr")
     I2D = I2D[:, :int(len(tth)/3.)]
     hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0
-
-    # import matplotlib.pyplot as plt
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
-    # ax.plot(hist)
-    # ax.set_xlabel("Angle (degree)")
-    # ax.set_ylabel("Intensity")
-    # ax.set_title("Azimuthal Integration Histogram")
-    # fig.show()
 
     # Find degree which has maximum intensity
     if method == 1: # gmm
@@ -435,7 +409,7 @@ def getRotationAngle(img, center, method=0):
     if max_degree > 90:
         return -1*(180-max_degree)
     if max_degree < -90:
-        return (180+max_degree)
+        return 180 + max_degree
 
     # otherwise, return max degree
     return max_degree
@@ -457,34 +431,34 @@ def getCenterRemovedImage(img, center, rmin):
     return img
 
 def getNewZoom(current, move, xmax, ymax, ymin=0):
-        """
-        Get new zoom location (x, and y ranges) by given current zoom, move vector and x,y maximum ranges
-        :param current: current zoom location
-        :param move: moving vector
-        :param xmax: maximum x
-        :param ymax: maximum y
-        :param ymin: minimum y
-        :return:
-        """
-        x1 = current[0][0] + move[0]
-        x2 = current[0][1] + move[0]
-        if x1 < 0:
-            x1 = 0
-            x2 = current[0][1] - current[0][0]
-        if x2 >= xmax:
-            x2 = xmax - 1
-            x1 = x2 - (current[0][1] - current[0][0])
+    """
+    Get new zoom location (x, and y ranges) by given current zoom, move vector and x,y maximum ranges
+    :param current: current zoom location
+    :param move: moving vector
+    :param xmax: maximum x
+    :param ymax: maximum y
+    :param ymin: minimum y
+    :return:
+    """
+    x1 = current[0][0] + move[0]
+    x2 = current[0][1] + move[0]
+    if x1 < 0:
+        x1 = 0
+        x2 = current[0][1] - current[0][0]
+    if x2 >= xmax:
+        x2 = xmax - 1
+        x1 = x2 - (current[0][1] - current[0][0])
 
-        y1 = current[1][0] + move[1]
-        y2 = current[1][1] + move[1]
-        if y1 < ymin:
-            y1 = ymin
-            y2 = y1 + (current[1][1] - current[1][0])
-        if y2 > ymax:
-            y2 = ymax
-            y1 = y2 - (current[1][1] - current[1][0])
+    y1 = current[1][0] + move[1]
+    y2 = current[1][1] + move[1]
+    if y1 < ymin:
+        y1 = ymin
+        y2 = y1 + (current[1][1] - current[1][0])
+    if y2 > ymax:
+        y2 = ymax
+        y1 = y2 - (current[1][1] - current[1][0])
 
-        return [(x1, x2), (y1, y2)]
+    return [(x1, x2), (y1, y2)]
 
 def rotateImage(img, center, angle, img_type, mask_thres = -999):
     """
@@ -498,7 +472,6 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
 
     # M = cv2.getRotationMatrix2D(tuple(center), angle, 1)
     # size = max(img.shape[0], img.shape[1])
-
     # used for expanding the rotated image
     # im_max_shape = max(img.shape[1], img.shape[0])
     # print("max image shape: {}".format(im_max_shape))
@@ -562,7 +535,6 @@ def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
 def rotatePoint(origin, point, angle):
     """
     Rotate a point counterclockwise by a given angle around a given origin.
-
     The angle should be given in radians.
     """
     ox, oy = origin
@@ -573,6 +545,11 @@ def rotatePoint(origin, point, angle):
     return qx, qy
 
 def getMaskThreshold(img, img_type):
+    """
+    Compute the mask threshold for the image given
+    :param img, img_type:
+    :return: mask threshold
+    """
     min_val = img.min()
     mask_thres = min_val - 1.
     if img_type == "PILATUS":
@@ -583,9 +560,15 @@ def getMaskThreshold(img, img_type):
 
 ###### White top hat image for Scanning Diffraction #########
 def gaussian(x, a, mean, sigma):
+    """
+    Find mean square error
+    """
     return a*np.exp((-1.*(x-mean)**2)/(2*(sigma**2)))
 
 def getImgAfterWhiteTopHat(img, sigma=5):
+    """
+    Give the image after apply white to hat to it
+    """
     tmpKernel = 1. / sigma ** 2 * np.ones((sigma, sigma))
     dst = copy.copy(img)
     dst = np.array(dst, np.float32)
@@ -594,12 +577,15 @@ def getImgAfterWhiteTopHat(img, sigma=5):
 
     sigma = sigma * 6
     x = np.array(range(-int(sigma + 1), int(sigma + 1) + 1, 1))
-    kernelX = gaussian(x, 1, 0, sigma)
-    kernelXY = np.outer(kernelX, np.transpose(kernelX))
-    tophat = white_tophat(dst, kernelXY)
+    kernX = gaussian(x, 1, 0, sigma)
+    kernXY = np.outer(kernX, np.transpose(kernX))
+    tophat = white_tophat(dst, kernXY)
     return tophat
 
 def kernelXY(sigma=5):
+    """
+    Give the kernel for XY
+    """
     a = sigma * 6
     x = np.array(range(-int(a + 1), int(a + 1) + 1, 1))
     kernelX = 1. / (np.sqrt(2. * np.pi) * a) * np.exp(-(x - 0) ** 2. / (2. * a ** 2))
@@ -637,7 +623,7 @@ def averageImages(file_list, rotate=False):
         else:
             img_type = "NORMAL"
         if rotate:
-            print("Rotating and centering {}".format(f))
+            print(f'Rotating and centering {f}')
             center = getCenter(img)
             angle = getRotationAngle(img, center, method=0)
             img, center, _ = rotateImage(img, center, angle, img_type, mask_thres = -999)
@@ -673,7 +659,7 @@ def expandAndAverageImages(file_list, max_dim, max_img_center, rotate):
         img = cv2.warpAffine(expanded_img, M, max_dim)
 
         if rotate:
-            print("Rotating and centering {}".format(f))
+            print(f'Rotating and centering {f}')
             angle = getRotationAngle(img, max_img_center, method=0)
             img, center, _ = rotateImage(img, max_img_center, angle, img_type, mask_thres = -999)
         all_imgs.append(img)
@@ -722,7 +708,7 @@ def processImageForIntCenter(img, center, img_type, mask_thres = -999):
         translated_Img[translated_mask > 0] = mask_thres
     else:
         translated_Img = cv2.warpAffine(img,M,(cols,rows))
-   
+
     return (translated_Img, int_Center)
 
 def rotateNonSquareImage(img, angle, center1):
@@ -737,7 +723,7 @@ def rotateNonSquareImage(img, angle, center1):
     rotation_mat = cv2.getRotationMatrix2D(center, angle, 1.)
 
     # rotation calculates the cos and sin, taking absolutes of those.
-    abs_cos = abs(rotation_mat[0,0]) 
+    abs_cos = abs(rotation_mat[0,0])
     abs_sin = abs(rotation_mat[0,1])
 
     # find the new width and height bounds
@@ -753,7 +739,16 @@ def rotateNonSquareImage(img, angle, center1):
     center1 = [center1[0], center1[1], 1]
     center1 = np.dot(rotation_mat, center1)
     center2 = (int(center1[0]), int(center1[1]))
-    
+
     # rotate image with the new bounds and translated rotation matrix
     rotated_img = cv2.warpAffine(img, rotation_mat, (maxB, maxB))
     return rotated_img, center2, rotation_mat
+
+def mean_square_error(y_predict, y):
+    """
+    Find mean square error
+    """
+    loss = (y_predict - y)
+    mse = np.dot(loss.transpose(), loss) / y.shape[0]
+    rmse = np.sqrt(mse)
+    return rmse/(max(y)-min(y))

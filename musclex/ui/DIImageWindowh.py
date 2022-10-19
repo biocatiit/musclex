@@ -1,3 +1,31 @@
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
 import logging
 import json
 from csv import writer
@@ -10,17 +38,21 @@ from numpy import ma
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
-from ..csv_manager import CP_CSVManager
-
+from ..csv_manager import DI_CSVManager
 
 class DSpacingScale(mscale.ScaleBase):
+    """
+    D Spacing scale class
+    """
     name = 'dspacing'
-
     def __init__(self, axis, **kwargs):
         mscale.ScaleBase.__init__(self)
         self.lambda_sdd = kwargs.pop('lambda_sdd', 1501.45)
 
     def get_transform(self):
+        """
+        Give the D Spacing tranform object
+        """
         return self.DSpacingTransform(self.lambda_sdd)
 
     def set_default_locators_and_formatters(self, axis):
@@ -37,12 +69,15 @@ class DSpacingScale(mscale.ScaleBase):
         value::
         """
         class DSpacingFormatter(Formatter):
+            """
+            D Spacing formatter
+            """
             def __init__(self, lambda_sdd):
                 Formatter.__init__(self)
                 self.lambda_sdd = lambda_sdd
             def __call__(self, x, pos=None):
                 if x == 0:
-                    return u"\u221E"
+                    return "\u221E"
                 else:
                     return "%.2f" % (self.lambda_sdd / x)
 
@@ -63,19 +98,20 @@ class DSpacingScale(mscale.ScaleBase):
         return max(vmin, 1), vmax
 
     class DSpacingTransform(mtransforms.Transform):
-        # There are two value members that must be defined.
-        # ``input_dims`` and ``output_dims`` specify number of input
-        # dimensions and output dimensions to the transformation.
-        # These are used by the transformation framework to do some
-        # error checking and prevent incompatible transformations from
-        # being connected together.  When defining transforms for a
-        # scale, which are, by definition, separable and have only one
-        # dimension, these members should always be set to 1.
+        """
+        There are two value members that must be defined.
+        ``input_dims`` and ``output_dims`` specify number of input
+        dimensions and output dimensions to the transformation.
+        These are used by the transformation framework to do some
+        error checking and prevent incompatible transformations from
+        being connected together.  When defining transforms for a
+        scale, which are, by definition, separable and have only one
+        dimension, these members should always be set to 1.
+        """
         input_dims = 1
         output_dims = 1
         is_separable = True
         has_inverse = True
-
         def __init__(self, lambda_sdd):
             mtransforms.Transform.__init__(self)
             self.lambda_sdd = lambda_sdd
@@ -107,16 +143,21 @@ class DSpacingScale(mscale.ScaleBase):
                 self.lambda_sdd)
 
     class InvertedDSpacingTransform(mtransforms.Transform):
+        """
+        Inverted of the previous class
+        """
         input_dims = 1
         output_dims = 1
         is_separable = True
         has_inverse = True
-
         def __init__(self, lambda_sdd):
             mtransforms.Transform.__init__(self)
             self.lambda_sdd = lambda_sdd
 
         def transform_non_affine(self, a):
+            """
+            See previous class
+            """
             masked = ma.masked_where(a <= 0, a)
             if masked.mask.any():
                 return np.flipud(self.lambda_sdd / masked)
@@ -124,22 +165,25 @@ class DSpacingScale(mscale.ScaleBase):
                 return np.flipud(self.lambda_sdd / a)
 
         def inverted(self):
+            """
+            See previous class
+            """
             return DSpacingScale.DSpacingTransform(self.lambda_sdd)
 
 mscale.register_scale(DSpacingScale)
 
-class CPImageWindowh():
+class DIImageWindowh():
+    """
+    A class to process Scanning diffraction on a file
+    """
     def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', process_folder=False,imgList = None):
-
-        # import pdb
-        # pdb.set_trace()
         self.fileName = image_name
         self.filePath = dir_path
         self.inputflag=inputflags
         self.delcache=delcache
         self.inputflagfile=inputflagpath
 
-        self.csvManager = CP_CSVManager(dir_path)
+        self.csvManager = DI_CSVManager(dir_path)
         self.imgList = []
         self.numberOfFiles = 0
         self.currentFileNumber = 0
@@ -168,13 +212,7 @@ class CPImageWindowh():
                             'image_result': True,
                             'results_text': True
                             }
-        #self.intesityRange = [0, 1, 1, 2]
-        #self.mainWin = None
         self.logger = None
-
-        # self.generateRingColors()
-        # self.setConnections()
-        # self.setCalibrationImage()
         self.onNewFileSelected(imgList)
         if process_folder and len(self.imgList) > 0:
             self.processFolder()
@@ -182,6 +220,9 @@ class CPImageWindowh():
             self.onImageChanged()
 
     def generateRingColors(self):
+        """
+        Generate colors for the rings
+        """
         possible_vals = [0, 255]
         self.ring_colors = []
         for b in possible_vals:
@@ -210,45 +251,45 @@ class CPImageWindowh():
             text += "\n - R-min & R-max : "+ str(flags['fixed_hull'])
         text += '\n\nAre you sure you want to process ' + str(nImg) + ' image(s) in this Folder? \nThis might take a long time.'
 
-        # If "yes" is pressed
-        if True:
+        log_path = fullPath(self.filePath, 'log')
+        if not exists(log_path):
+            os.makedirs(log_path)
 
-            log_path = fullPath(self.filePath, 'log')
-            if not exists(log_path):
-                os.makedirs(log_path)
+        current = time.localtime()
+        filename = "CirProj_""%02d" % current.tm_year + "%02d" % current.tm_mon + "%02d" % current.tm_mday + \
+                    "_" + "%02d" % current.tm_hour + "%02d" % current.tm_min + "%02d" % current.tm_sec + ".log"
+        filename = fullPath(log_path, filename)
+        self.logger = logging.getLogger('di')
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.propagate = False
 
-            current = time.localtime()
-            filename = "CirProj_""%02d" % current.tm_year + "%02d" % current.tm_mon + "%02d" % current.tm_mday + \
-                       "_" + "%02d" % current.tm_hour + "%02d" % current.tm_min + "%02d" % current.tm_sec + ".log"
-            filename = fullPath(log_path, filename)
-            self.logger = logging.getLogger('cp')
-            self.logger.setLevel(logging.DEBUG)
-            self.logger.propagate = False
+        # create a file handler
+        handler = logging.FileHandler(filename)
+        handler.setLevel(logging.DEBUG)
 
-            # create a file handler
-            handler = logging.FileHandler(filename)
-            handler.setLevel(logging.DEBUG)
+        # create a logging format
+        formatter = logging.Formatter('%(asctime)s: %(message)s')
+        handler.setFormatter(formatter)
 
-            # create a logging format
-            formatter = logging.Formatter('%(asctime)s: %(message)s')
-            handler.setFormatter(formatter)
+        # add the handlers to the self.logger
+        self.logger.addHandler(handler)
+        self.logger.addFilter(logging.Filter(name='di'))
 
-            # add the handlers to the self.logger
-            self.logger.addHandler(handler)
-            self.logger.addFilter(logging.Filter(name='cp'))
+        ## Process all images and update progress bar
+        self.in_batch_process = True
+        self.stop_process = False
+        for _ in range(nImg):
+            if self.stop_process:
+                break
+            self.nextImage()
 
-            ## Process all images and update progress bar
-            self.in_batch_process = True
-            self.stop_process = False
-            for _ in range(nImg):
-                if self.stop_process:
-                    break
-                self.nextImage()
-
-            self.in_batch_process = False
-            self.folder_processed = True
+        self.in_batch_process = False
+        self.folder_processed = True
 
     def getFlags(self, imgChanged=True):
+        """
+        Give the flags for the object associated
+        """
         if self.inputflag:
             try:
                 with open(self.inputflagfile) as f:
@@ -260,34 +301,12 @@ class CPImageWindowh():
         else:
             flags={"partial_angle": 90, "orientation_model": "GMM3", "90rotation": False}
 
-        # flags['partial_angle'] = self.partialRange.value()
-        # if self.merged_peaks is not None and self.persistRingsChkBx.isChecked():
-        #     print("Persisting rings at {}..".format(self.merged_peaks))
-        #     flags['merged_peaks'] = self.merged_peaks
-        #     flags['m1_rings'] = self.merged_peaks
-        #     flags['m2_rings'] = self.merged_peaks
-        #     flags['model_peaks'] = self.merged_peaks
-        #     flags['persist_rings'] = True
-        # if self.ROI is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
-        #     flags['ROI'] = self.ROI
-        # if self.orientationModel is not None:
-        #     flags['orientation_model'] = self.orientationModel
-        # flags['90rotation'] = self.rotation90ChkBx.isChecked()
-        # if self.calSettings is not None:
-        #     if self.calSettings["type"] == "img":
-        #         flags["center"] = self.calSettings["center"]
-        #         flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
-        #     else:
-        #         flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-        #         if "center" in self.calSettings:
-        #             flags["center"] = self.calSettings["center"]
-
-        # if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
-        #     flags['fixed_hull'] = self.fixed_hull_range
-
         return flags
 
     def onNewFileSelected(self, imgList):
+        """
+        Used when a new file is selected
+        """
         if imgList is not None:
             self.imgList = imgList
         else:
@@ -301,8 +320,11 @@ class CPImageWindowh():
             self.currentFileNumber = 0
 
     def onImageChanged(self):
+        """
+        When the image is changed, process the scanning diffraction again
+        """
         file=self.fileName+'.info'
-        cache_path = os.path.join(self.filePath, "cp_cache",file)
+        cache_path = os.path.join(self.filePath, "di_cache",file)
         cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
@@ -310,17 +332,7 @@ class CPImageWindowh():
                 os.remove(cache_path)
         fileName = self.imgList[self.currentFileNumber]
         print("current file is "+fileName)
-        # fileFullPath = fullPath(self.filePath, fileName)
-        self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
-        #self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
-        # Calculating grid lines to exclude in pixel data computation
-        #grid_lines = np.where(self.cirProj.original_image < 0)
-        # if self.rotation90ChkBx.isEnabled():
-        #     self.rotation90ChkBx.setChecked('90rotation' in self.cirProj.info and self.cirProj.info['90rotation'])
         self.processImage(True)
-        # self.updateStatusBar(fileFullPath + ' (' + str(self.currentFileNumber + 1) + '/' + str(
-        #     self.numberOfFiles) + ') is processed.')
-        # self.addPixelDataToCsv(grid_lines)
         print('---------------------------------------------------')
 
         if self.inputflag and cache_exist and not self.delcache:
@@ -336,17 +348,19 @@ class CPImageWindowh():
         print('---------------------------------------------------')
 
     def processImage(self, imgChanged=False):
+        """
+        Process the scanning diffraction
+        """
         if self.cirProj is not None:
-            # QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags(imgChanged)
             self.cirProj.process(flags)
-            # QApplication.restoreOverrideCursor()
             self.updateParams()
             self.csvManager.write_new_data(self.cirProj)
-            # self.refreshAllTabs()
-            # self.updateUI()
 
     def create_circular_mask(self, h, w, center, radius):
+        """
+        Create a circular mask
+        """
         Y, X = np.ogrid[:h, :w]
         dist_from_center = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
 
@@ -354,8 +368,11 @@ class CPImageWindowh():
         return mask
 
     def addPixelDataToCsv(self, grid_lines):
+        """
+        Add pixel data to csv
+        """
         if self.pixelDataFile is None:
-            self.pixelDataFile = self.filePath + '/cp_results/BackgroundSummary.csv'
+            self.pixelDataFile = self.filePath + '/di_results/BackgroundSummary.csv'
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
                 f = open(self.pixelDataFile, 'a')
@@ -391,6 +408,9 @@ class CPImageWindowh():
         csvDF.to_csv(self.pixelDataFile, index=False)
 
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
+        """
+        Set the min and max intensity
+        """
         min_val = img.min()
         max_val = img.max()
         self.intensityRange = [min_val, max_val-1, min_val+1, max_val]
@@ -419,6 +439,9 @@ class CPImageWindowh():
             self.updatingUI = False
 
     def updateParams(self):
+        """
+        Update the parameters
+        """
         info = self.cirProj.info
         if 'fixed_hull' in info:
             self.fixed_hull_range = info['fixed_hull']
@@ -426,19 +449,10 @@ class CPImageWindowh():
             self.merged_peaks = info['merged_peaks']
         if self.ROI is None and info['ROI'] != [info['start_point'], info['rmax']]:
             self.ROI = info['ROI']
-        # if self.orientationModel is None:
-        #     # if 'orientation_model' in info:
-        #     #     self.orientationCmbBx.setCurrentIndex(
-        #     #         self.orientationCmbBx.findText(info['orientation_model']))
-        #     self.orientationModel = str(self.orientationCmbBx.currentText())
 
     def nextImage(self):
+        """
+        When next image is clicked
+        """
         self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
         self.onImageChanged()
-
-    def refreshAllTabs(self):
-        self.function = None
-        for b in self.checkable_buttons:
-            b.setChecked(False)
-        for k in self.update_plot:
-            self.update_plot[k] = True

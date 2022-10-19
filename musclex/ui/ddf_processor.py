@@ -25,12 +25,17 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-from .pyqt_utils import *
-import os, sys
-import pandas as pd
+
+import os
+import sys
 import musclex
+import pandas as pd
+from .pyqt_utils import *
 
 class DDFWindow(QMainWindow):
+    """
+    DDF Processor is a program which is able to average data points for ddf file.
+    """
     def __init__(self):
         QWidget.__init__(self)
         self.setWindowTitle("Muscle X DDF-Processor v." + musclex.__version__)
@@ -41,6 +46,9 @@ class DDFWindow(QMainWindow):
         self.setConnections()
 
     def initUI(self):
+        """
+        Initialize the UI.
+        """
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -65,11 +73,9 @@ class DDFWindow(QMainWindow):
         self.freqLayout = QHBoxLayout()
         self.freqSpnBx = QSpinBox()
         self.freqSpnBx.setValue(1)
-        # self.freqSpnBx.setSuffix(" point(s)")
         self.freqLayout.addWidget(QLabel("3. Average every : "))
         self.freqLayout.addWidget(self.freqSpnBx)
         self.freqLayout.addWidget(QLabel("point(s)"))
-
 
         self.mainGrid = QGridLayout()
         self.mainGrid.addWidget(QLabel("1. Input file : "), 0, 0, 1, 1)
@@ -86,7 +92,7 @@ class DDFWindow(QMainWindow):
         self.generateButton = QPushButton("Generate")
         self.generateButton.setFixedWidth(150)
         self.generateButton.setEnabled(False)
-        
+
         ### Status Bar ###
         self.statusBar = QStatusBar()
         self.statusText = QLabel("Please browse a data file")
@@ -107,14 +113,20 @@ class DDFWindow(QMainWindow):
         self.resize(700, 50)
 
     def setConnections(self):
+        """
+        Connect the buttons to the functions.
+        """
         self.browseFileButton.clicked.connect(self.browseFile)
         self.generateButton.clicked.connect(self.generateFile)
 
     def browseFile(self):
+        """
+        Browse an image
+        """
         file_name = getAFile('')
         if file_name != "":
             _, ext = os.path.splitext(str(file_name))
-            if ext == ".txt" or ext == ".ddf":
+            if ext in (".txt", ".ddf"):
                 self.current_file = file_name
                 self.inputField.setText(file_name)
                 self.processFile()
@@ -129,6 +141,9 @@ class DDFWindow(QMainWindow):
                 self.browseFile()
 
     def processFile(self):
+        """
+        Process DDF on the file.
+        """
         self.data = None
         cols = None
         reading = "Please wait. Input file is being read ."
@@ -160,13 +175,15 @@ class DDFWindow(QMainWindow):
             d = dict(zip(cols,line))
             self.data = self.data.append(d, ignore_index=True)
 
-        # print self.data.head().to_string()
         QApplication.restoreOverrideCursor()
         self.generateButton.setEnabled(True)
         self.statusText.setText("Please select columns, adjust the average frequency, and click Generate")
         QApplication.processEvents()
 
     def updateUI(self):
+        """
+        Update the UI.
+        """
         if len(self.colChkBxs) > 0:
             for c in self.colChkBxs:
                 c.deleteLater()
@@ -174,7 +191,6 @@ class DDFWindow(QMainWindow):
 
         self.colChkBxs = []
         self.freqSpnBx.setRange(1, self.data.shape[0] - 1)
-
         if self.data is not None:
             cols = list(self.data.columns)
             cols.remove("Sample")
@@ -188,6 +204,9 @@ class DDFWindow(QMainWindow):
         self.resize(700, 50)
 
     def generateFile(self):
+        """
+        Generate the results
+        """
         cols = list(self.data.columns[:])
         cols.remove("Sample")
         selected_cols = []
@@ -216,8 +235,3 @@ class DDFWindow(QMainWindow):
             else:
                 genData.to_csv(output, index=False)
             self.statusText.setText(output+" has been saved.")
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    myapp = DDFWindow()
-    sys.exit(app.exec_())

@@ -26,20 +26,22 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import matplotlib.pyplot as plt
 import pickle
-import fabio
-from ..ui.pyqt_utils import *
-import matplotlib.patches as patches
 from os.path import isfile, exists
-from os import makedirs
-from ..utils.file_manager import fullPath, getStyleSheet, createFolder
-from ..utils.image_processor import *
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import fabio
 import musclex
+from ..ui.pyqt_utils import *
+from ..utils.file_manager import fullPath, createFolder
+from ..utils.image_processor import *
 
 class CalibrationSettings(QDialog):
+    """
+    The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
+    """
     def __init__(self, dir_path,center=None):
-        super(CalibrationSettings, self).__init__(None)
+        super().__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.editableVars = {}
         self.logMsgs = []
@@ -47,21 +49,22 @@ class CalibrationSettings(QDialog):
         self.manualCalPoints = None
         self.cal_img = None
         self.disp_img = None
+        self.ax = None
+        self.ax2 = None
         self.version = musclex.__version__
         self.uiUpdating = False
         cache = self.loadSettings()
-        
-        
+
         if cache is not None:
             self.calFile = cache["path"]
             self.calSettings = cache["settings"]
-            
+
             print('cache',cache)
             print('calsettings:',self.calSettings)
         else:
             self.calFile = fullPath(dir_path, "calibration.tif")
             self.calSettings = {}
-    
+
         if center is not None:
             self.calSettings["center"]=center
 
@@ -77,19 +80,22 @@ class CalibrationSettings(QDialog):
                 self.updateImage()
 
     def initUI(self):
+        """
+        Initialize the CalibrationSettings UI window.
+        """
         silverb = 5.83803
         init_lambda = .1033
         init_sdd = 2500
         init_pix_size = 0.172
-        type = None
+        typ = None
         center=None
         if self.calSettings is not None:
-            type = self.calSettings["type"] if "type" in self.calSettings else None
-            if type == "cont":
+            typ = self.calSettings["type"] if "type" in self.calSettings else None
+            if typ == "cont":
                 init_lambda = self.calSettings["lambda"]
                 init_sdd = self.calSettings["sdd"]
                 init_pix_size = self.calSettings["pixel_size"]
-            elif type == "img":
+            elif typ == "img":
                 silverb = self.calSettings["silverB"]
 
             if 'center' in self.calSettings:
@@ -138,11 +144,11 @@ class CalibrationSettings(QDialog):
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
         self.bottons.setFixedWidth(100)
-        grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
+        # grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
         self.calImageGrp = QGroupBox("Setting by Calibration Image")
         self.calImageGrp.setCheckable(True)
         # self.calImageGrp.setStyleSheet(grpbox_ss)
-        self.calImageGrp.setChecked(type == "img")
+        self.calImageGrp.setChecked(typ == "img")
         self.calImageLayout = QGridLayout(self.calImageGrp)
         self.calImageLayout.addWidget(QLabel("Calibration File :") , 0, 0, 1, 1)
         self.calImageLayout.addWidget(self.pathText, 0, 1, 1, 1)
@@ -162,7 +168,7 @@ class CalibrationSettings(QDialog):
         self.paramGrp = QGroupBox("Setting by Parameters")
         self.paramGrp.setCheckable(True)
         # self.paramGrp.setStyleSheet(grpbox_ss)
-        self.paramGrp.setChecked(type == "cont")
+        self.paramGrp.setChecked(typ == "cont")
         self.paramLayout = QGridLayout(self.paramGrp)
 
         self.lambdaSpnBx = QDoubleSpinBox()
@@ -237,6 +243,9 @@ class CalibrationSettings(QDialog):
         self.resize(5, 1)
 
     def setConnection(self):
+        """
+        Set the connections on the buttons.
+        """
         self.browseButton.clicked.connect(self.browseClicked)
         self.unsetButton.clicked.connect(self.unsetCalImg)
         self.paramGrp.clicked.connect(self.paramChecked)
@@ -253,28 +262,46 @@ class CalibrationSettings(QDialog):
         self.centerY.editingFinished.connect(lambda: self.settingChanged('centerY', self.centerY))
 
     def paramChecked(self):
+        """
+        Uncheck the other button and decalibrate when param is checked.
+        """
         self.calImageGrp.setChecked(not self.paramGrp.isChecked())
         self.decalibrate()
 
     def calImageChecked(self):
+        """
+        Uncheck the other button and decalibrate when calImage is checked.
+        """
         self.paramGrp.setChecked(not self.calImageGrp.isChecked())
         self.decalibrate()
 
     def settingChanged(self, name, obj):
+        """
+        Change the log when the settings are changed.
+        """
         self.log_changes(name, obj)
 
     def decalibrate(self):
+        """
+        Remove the calibration displayed in the window.
+        """
         self.calSettings = None
         QApplication.processEvents()
         if self.calImageGrp.isChecked() and exists(self.calFile):
             self.calibrate()
 
     def setAllToolTips(self):
+        """
+        Set the tool tips.
+        """
         self.manualCal.setToolTip(
             "Calibrate the image manually by clicking at least 5 points for circle fitting, and setting appropriate Silver Behenate."
             "\n The accuracy of fitting function will depend on number of points.")
 
     def manualCalClicked(self):
+        """
+        Run the manual calibration option, allowing the user to drop points on the image to calibrate.
+        """
         if self.manualCal.isChecked():
             self.manualCal.setText("Done")
             self.manualCalPoints = []
@@ -305,6 +332,9 @@ class CalibrationSettings(QDialog):
                 self.manualCalPoints = None
 
     def imgClicked(self, event):
+        """
+        Process the event of the image clicked.
+        """
         if event.xdata is None or event.ydata is None or self.manualCalPoints is None:
             return
         x = int(round(event.xdata))
@@ -318,6 +348,9 @@ class CalibrationSettings(QDialog):
         self.calImgCanvas.draw_idle()
 
     def imgOnMotion(self, event):
+        """
+        Process the event of the mouse moving over the image.
+        """
         if event.xdata is None or event.ydata is None or self.manualCalPoints is None:
             return
 
@@ -338,12 +371,18 @@ class CalibrationSettings(QDialog):
         self.calImgCanvas.draw_idle()
 
     def unsetCalImg(self):
+        """
+        Unset the calibration displayed in the window.
+        """
         self.pathText.setText("")
         self.calFile = ""
         self.calSettings = None
         self.updateImage()
 
     def browseClicked(self):
+        """
+        Opens a finder window to choose a file and process calibration on it once selected.
+        """
         file_name = getAFile()
         if file_name != "":
             self.cal_img = None
@@ -352,6 +391,9 @@ class CalibrationSettings(QDialog):
             self.calibrate()
 
     def loadSettings(self):
+        """
+        Load the 'settings' folder containing the previous calibration made.
+        """
         cache_path = fullPath(self.dir_path, "settings")
         cache_file = fullPath(cache_path, "calibration.info")
         if exists(cache_path) and isfile(cache_file):
@@ -362,7 +404,7 @@ class CalibrationSettings(QDialog):
 
     def keyPressEvent(self, event):
         """
-        Manage key press event on keyboard
+        Manage key press event on keyboard.
         """
         key = event.key()
 
@@ -370,6 +412,9 @@ class CalibrationSettings(QDialog):
             return
 
     def saveSettings(self):
+        """
+        Save the calibration settings made in the window in the 'settings' folder.
+        """
         cache_path = fullPath(self.dir_path, "settings")
         createFolder(cache_path)
         cache_file = fullPath(cache_path, "calibration.info")
@@ -389,17 +434,18 @@ class CalibrationSettings(QDialog):
 
         if self.fixedCenter.isChecked():
             self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
-            
 
         cache = {
             "path": self.pathText.text(),
             "settings": self.calSettings,
             "version": self.version
         }
-
         pickle.dump(cache, open(cache_file, "wb"))
 
     def getImage(self):
+        """
+        Get the image and returns a copy of the calibration image and the image displayed.
+        """
         if self.cal_img is None:
             self.cal_img = fabio.open(str(self.calFile)).data
 
@@ -418,26 +464,12 @@ class CalibrationSettings(QDialog):
 
         return copy.copy(self.cal_img), copy.copy(self.disp_img)
 
-    # def findEllipseCenter(l):
-    #     a, b, c, d, f, g = l[0], l[1] / 2, l[2], l[3] / 2, l[4] / 2, l[5]
-    #     num = b * b - a * c
-    #     x0 = (c * d - b * f) / num
-    #     y0 = (a * f - b * d) / num
-    #     return x0, y0
-    #
-    # def findEllipseradius(l):
-    #     a, b, c, d, f, g = l[0], l[1] / 2, l[2], l[3] / 2, l[4] / 2, l[5]
-    #     up = 2 * (a * f * f + c * d * d + g * b * b - 2 * b * d * f - a * c * g)
-    #     down1 = (b * b - a * c) * ((c - a) * np.sqrt(1 + 4 * b * b / ((a - c) * (a - c))) - (c + a))
-    #     down2 = (b * b - a * c) * ((a - c) * np.sqrt(1 + 4 * b * b / ((a - c) * (a - c))) - (c + a))
-    #
-    #     res1 = np.sqrt(up / down1)
-    #     res2 = np.sqrt(up / down2)
-    #     return res1, res2
-
     def calibrate(self):
+        """
+        Calibrate on the image selected.
+        """
         if self.manualCalPoints is not None:
-            (center, radius, angle) = cv2.fitEllipse(np.array(self.manualCalPoints))
+            center, radius, _ = cv2.fitEllipse(np.array(self.manualCalPoints))
             self.calSettings = {
                 "center": [round(center[0], 4), round(center[1],4)],
                 "radius": int(round((radius[0] + radius[1]) / 4.))
@@ -460,13 +492,13 @@ class CalibrationSettings(QDialog):
             cali_radius = 0.0
 
             if len(contours) > 1:
-                sorted_contours = sorted(contours, key=lambda c: cv2.contourArea(c), reverse=True)
+                sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
                 size_treshold = morph_size * 100
                 for i in range(len(sorted_contours) - 1):
                     cnt1 = sorted_contours[i]
                     cnt2 = sorted_contours[i + 1]
-                    (center1, radius1, angle1) = cv2.fitEllipse(cnt1)
-                    (center2, radius2, angle2) = cv2.fitEllipse(cnt2)
+                    center1, radius1, _ = cv2.fitEllipse(cnt1)
+                    center2, radius2, _ = cv2.fitEllipse(cnt2)
 
                     if abs(radius1[0] - radius2[0]) + abs(radius1[1] - radius2[1]) > size_treshold:
                         continue
@@ -478,8 +510,8 @@ class CalibrationSettings(QDialog):
 
             if cali_radius == 0.0:
                 if len(contours) > 0:
-                    largest_contour = max(contours, key=lambda c: cv2.contourArea(c))
-                    (center, radius, angle) = cv2.fitEllipse(largest_contour)
+                    largest_contour = max(contours, key=cv2.contourArea)
+                    center, radius, _ = cv2.fitEllipse(largest_contour)
                     fixcenter = (round(center[0], 4), round(center[1], 4))
                     cali_radius = np.mean([int(np.round(radius[0])), int(np.round(radius[1]))])
                 else:
@@ -493,10 +525,7 @@ class CalibrationSettings(QDialog):
                     return
 
             cali_radius = int(np.round(cali_radius / 2.))
-            # center=(fixcenter[0],fixcenter[1])
-            # rotate_matrix = cv2.getRotationMatrix2D(center=center, angle=-angle, scale=1)
-            # center=np.dot(np.array(center),rotate_matrix)
-            
+
             self.calSettings = {
                 "center": [fixcenter[0], fixcenter[1]],
                 "radius": cali_radius
@@ -505,6 +534,9 @@ class CalibrationSettings(QDialog):
         self.updateImage()
 
     def updateImage(self):
+        """
+        Update the image displayed with the calibration circle and center displayed on it.
+        """
         if self.uiUpdating:
             return
 
@@ -543,6 +575,9 @@ class CalibrationSettings(QDialog):
         self.calImgCanvas.draw()
 
     def centerFixed(self):
+        """
+        React to the fixed center button.
+        """
         if self.fixedCenter.isChecked():
             self.centerX.setEnabled(True)
             self.centerY.setEnabled(True)
@@ -550,23 +585,33 @@ class CalibrationSettings(QDialog):
             self.centerX.setEnabled(False)
             self.centerY.setEnabled(False)
 
-
     def okClicked(self):
+        """
+        React to the OK button.
+        """
         self.saveSettings()
         self.accept()
 
     def getValues(self):
+        """
+        Return the calibration values.
+        """
         return self.calSettings
 
     def init_logging(self):
+        """
+        Initialize the logging variables.
+        """
         for objName in self.editableVars:
             self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
-        #print(self.editableVars)
 
     def log_changes(self, name, obj):
+        """
+        Change the logging variables.
+        """
         newValue = obj.value()
         varName = obj.objectName()
         if self.editableVars[varName] == newValue:
             return
-        self.logMsgs.append('{0}Changed: {1} -> {2}'.format(name, self.editableVars[varName], newValue))
+        self.logMsgs.append(f'{name}Changed: {self.editableVars[varName]} -> {newValue}')
         self.editableVars[varName] = newValue

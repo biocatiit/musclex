@@ -5,13 +5,13 @@ mkdir -p tests/tmp/EIGERimages
 mkdir -p tests/tmp/MARimages
 mv -f tests/testImages/PILATUSimages/eq_* tests/tmp/PILATUSimages
 mv -f tests/testImages/PILATUSimages/qf_* tests/tmp/PILATUSimages
-mv -f tests/testImages/PILATUSimages/cp_* tests/tmp/PILATUSimages
+mv -f tests/testImages/PILATUSimages/di_* tests/tmp/PILATUSimages
 mv -f tests/testImages/EIGERimages/eq_* tests/tmp/EIGERimages
 mv -f tests/testImages/EIGERimages/qf_* tests/tmp/EIGERimages
-mv -f tests/testImages/EIGERimages/cp_* tests/tmp/EIGERimages
+mv -f tests/testImages/EIGERimages/di_* tests/tmp/EIGERimages
 mv -f tests/testImages/MARimages/eq_* tests/tmp/MARimages
 mv -f tests/testImages/MARimages/qf_* tests/tmp/MARimages
-mv -f tests/testImages/MARimages/cp_* tests/tmp/MARimages
+mv -f tests/testImages/MARimages/di_* tests/tmp/MARimages
 
 echo "Generating a second headless instance..."
 
@@ -90,7 +90,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "tests/tmp/MARimages/cp_results/summary.csv" >> file2
+}' "tests/tmp/MARimages/di_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -102,7 +102,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < tests/testImages/MARimages/cp_results/summary.csv
+done < tests/testImages/MARimages/di_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -216,7 +216,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "tests/tmp/EIGERimages/cp_results/summary.csv" >> file2
+}' "tests/tmp/EIGERimages/di_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -228,7 +228,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < tests/testImages/EIGERimages/cp_results/summary.csv
+done < tests/testImages/EIGERimages/di_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then
@@ -342,7 +342,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
   } 
-}' "tests/tmp/PILATUSimages/cp_results/summary.csv" >> file2
+}' "tests/tmp/PILATUSimages/di_results/summary.csv" >> file2
 	echo $line | awk -F',' -vOFS=',' '
 function foo(str) {
   if(match(str, /[0-9]+\.[0-9]+/)) {
@@ -354,7 +354,7 @@ function foo(str) {
     for (i=1; i<=NF; i++) 
     	printf "%s%s", foo($i),(i<NF?OFS:ORS)
 }' >> file22
-done < tests/testImages/PILATUSimages/cp_results/summary.csv
+done < tests/testImages/PILATUSimages/di_results/summary.csv
 diff -y --color file22 file2 > res
 if grep -e'-,-' -q res
 then

@@ -25,20 +25,21 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-import matplotlib.pyplot as plt
-import fabio
-from lmfit import Parameters
-from lmfit.models import VoigtModel
+
 from os import makedirs
 from os.path import isfile, exists
 import pickle
+import matplotlib.pyplot as plt
+from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+from lmfit import Parameters
+from lmfit.models import VoigtModel
+import fabio
+import musclex
 from ..utils.file_manager import fullPath
 from ..utils.image_processor import *
 from ..utils.histogram_processor import *
-import musclex
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
-class DiffractionCentroids():
+class DiffractionCentroids:
     """
     A class for Diffraction Centroids processing - go to process() to see all processing steps
     """
@@ -98,7 +99,7 @@ class DiffractionCentroids():
 
         if isfile(cachefile):
             cinfo = pickle.load(open(cachefile, "rb"))
-            if cinfo != None:
+            if cinfo is not None:
                 if cinfo['program_version'] == self.version:
                     info = cinfo
                 else:
@@ -149,6 +150,11 @@ class DiffractionCentroids():
             del self.info[k]
 
     def updateInfo(self, flags):
+        """
+        Update info dict using flags
+        :param flags: flags
+        :return: -
+        """
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
                 flags['orientation_model'] = 0
@@ -203,7 +209,7 @@ class DiffractionCentroids():
         npt_rad = int(round(max([distance(center, c) for c in corners])))
         ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
-        tth, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr")
+        _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr")
         self.info['rmin'] = getFirstVallay(I)
         print("R-min = "+str(self.info['rmin']))
         self.removeInfo('int_area')
@@ -261,13 +267,13 @@ class DiffractionCentroids():
             angle = self.info['rotationAngle']
         if '90rotation' in self.info and self.info['90rotation'] is True:
             angle = angle - 90 if angle > 90 else angle + 90
-            
+
         center = self.info["center"]
         if "orig_center" in self.info:
             center = self.info["orig_center"]
         else:
             self.info["orig_center"] = center
-        
+
         rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.mask_thres)
 
         return rotImg
@@ -414,11 +420,10 @@ class DiffractionCentroids():
 
                 if abs(p-new_peak) < 4:
                     break
-                else:
-                    left = min(p, new_peak)
-                    right = max(p, new_peak)
-                    if all(smooth_hist[left+1:right] > p):
-                        break
+                left = min(p, new_peak)
+                right = max(p, new_peak)
+                if all(smooth_hist[left+1:right] > p):
+                    break
                 dist = dist/2
             peakList.append(new_peak)
         return sorted(list(set(peakList)))
@@ -467,15 +472,16 @@ class DiffractionCentroids():
         print("Bottom centroids = " + str(self.info['bottom_centroids']))
 
     def fitModel(self, hist, peaks, baselines):
-        # JUST FOR TEST
-        # Fit Voigt model to histogram using peaks and baselines
-        # Currently, this function is not used by any process
+        """
+        JUST FOR TEST
+        Fit Voigt model to histogram using peaks and baselines
+        Currently, this function is not used by any process
+        """
         new_hist = np.zeros(len(hist))
         pars = Parameters()
         mean_margin = 3
 
-        for i in range(len(peaks)):
-            p = peaks[i]
+        for (i, p) in enumerate(peaks):
             baseline = baselines[i]
             width, _ = getWidth(hist, p, baseline)
             new_hist[p - width:p + width] = hist[p - width:p + width]
@@ -587,6 +593,9 @@ class DiffractionCentroids():
         return top_hist, top_ignore, bottom_hist, bottom_ignore
 
     def getOffMerRminmax(self):
+        """
+        Produce Rmin and Rmax of off-meridian ranges.
+        """
         if 'off_mer_rmin_rmax' not in self.info:
             if 'fixed_offmer_hull_range' in self.info:
                 self.info['off_mer_rmin_rmax'] = self.info['fixed_offmer_hull_range']
@@ -705,7 +714,6 @@ class DiffractionCentroids():
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
         :return: -
         """
-
         cache_path = fullPath(self.dir_path, 'dc_cache')
 
         if not exists(cache_path):

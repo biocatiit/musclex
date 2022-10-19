@@ -26,32 +26,38 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-__author__ = 'Miguel Menendez, Jiranun.J'
-
-from .pyqt_utils import *
 import sys
-from os.path import isfile, abspath
-import os
 import re
+import os
+from os.path import isfile, abspath
 import argparse
-import fabio
 import collections
+import fabio
+import musclex
+from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
-import musclex
-from .CPImageWindow import CPImageWindow
-from .CPBatchWindow2 import CPBatchWindow
+from .DIImageWindow import DIImageWindow
 
 class AddIntensities(QMainWindow):
+    """
+    Add Intensities is a program which is designed to be used with a series
+    of images placed across multiple folders. It takes the sum of the images
+    in each folder which have the same number (For example, F_001.tif in Folder A
+    will map to FP_001.tif in folder B). The matched images are then summed
+    together and the resultant sum image is stored in ai results folder
+    in the selected directory.
+    """
     resizeCompleted = pyqtSignal()
-
     def __init__(self):
         QWidget.__init__(self)
         self.widgetList = []
         self.initUI()
 
     def initUI(self):
-        # self.setStyleSheet(getStyleSheet())
+        """
+        Initialize the UI.
+        """
         self.setWindowTitle("Muscle X Add Intensities v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
@@ -75,22 +81,36 @@ class AddIntensities(QMainWindow):
         self.resize(400,150)
 
     def removeWidget(self, win):
+        """
+        Remove a widget from the current window.
+        :param win: the widget to remove
+        """
         if win in self.widgetList:
             idx = self.widgetList.index(win)
             del self.widgetList[idx]
 
     def onNewFileSelected(self, fullfilepath):
+        """
+        Triggered when a new file is selected.
+        :param fullfilepath: the path of the selected file
+        """
         filePath, fileName = os.path.split(fullfilepath)
-        new_image_window = CPImageWindow(self, str(fileName), str(filePath))
+        new_image_window = DIImageWindow(self, str(fileName), str(filePath))
         self.widgetList.append(new_image_window)
 
     def browseFile(self):
+        """
+        Open a window to browse files.
+        """
         file_name = getAFile()
         QApplication.processEvents()
         if file_name != "":
             self.onNewFileSelected(str(file_name))
 
     def resizeImage(self, img, res_size):
+        """
+        Resize the image.
+        """
         print("Size mismatched, resizing image")
         if img.shape == res_size:
             return img
@@ -105,31 +125,37 @@ class AddIntensities(QMainWindow):
         return res_img
 
     def addIntensities(self, numberToFilesMap, dir_path):
+        """
+        Add Intensities of the different files (main function).
+        :param numberToFilesMap, dir_path:
+        """
         createFolder(fullPath(dir_path, "ai_results"))
         for key in numberToFilesMap.keys():
             sum_img = 0
-            for filename in numberToFilesMap[key]:
-                img = fabio.open(filename).data
-                if type(sum_img) != int and img.shape[0]>sum_img.shape[0]:
+            for fname in numberToFilesMap[key]:
+                img = fabio.open(fname).data
+                if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
                     sum_img = self.resizeImage(sum_img, img.shape)
-                elif type(sum_img) != int:
+                elif not isinstance(sum_img, int):
                     img = self.resizeImage(img, sum_img.shape)
                 sum_img += img
             result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
-            # imsave(result_file, sum_img)
             fabio.tifimage.tifimage(data=sum_img).write(result_file)
             print('Saved ', result_file)
             print('Resulting image shape ', sum_img.shape)
 
     def browseFolder(self):
+        """
+        Same as browse files but allow the user to select a folder instead of a file.
+        """
         dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
         if dir_path != "":
             numberToFilesMap = collections.defaultdict(list)
-            for root, dirs, files in os.walk(dir_path):
-                for filename in files:
+            for root, _, files in os.walk(dir_path):
+                for fname in files:
                     if 'ai_results' not in root:
-                        number = int(re.sub(r'[^0-9]', '', filename))
-                        numberToFilesMap[number].append(os.path.join(root, filename))
+                        number = int(re.sub(r'[^0-9]', '', fname))
+                        numberToFilesMap[number].append(os.path.join(root, fname))
             print(numberToFilesMap)
             self.addIntensities(numberToFilesMap, dir_path)
             msg = QMessageBox()
@@ -141,7 +167,6 @@ class AddIntensities(QMainWindow):
             msg.exec_()
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', help='image file')
     parser.add_argument('-f', help="handle all images in the folder")
@@ -153,7 +178,7 @@ if __name__ == "__main__":
         if isfile(full_path):
             filepath, filename = os.path.split(full_path)
             app = QApplication(sys.argv)
-            myapp = CPImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
+            myapp = DIImageWindow(mainWin=None, image_name=filename, dir_path=filepath)
             sys.exit(app.exec_())
         else:
             print("ERROR: " + str(full_path) + " does not exist. Please select another image.")
@@ -161,7 +186,7 @@ if __name__ == "__main__":
         full_path = abspath(args.f)
         if exists(full_path) and not isfile(full_path):
             app = QApplication(sys.argv)
-            myapp = CPImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
+            myapp = DIImageWindow(mainWin=None, image_name="", dir_path=full_path, process_folder=True)
             sys.exit(app.exec_())
         else:
             print("ERROR: " + str(full_path)+ " is not a folder.")

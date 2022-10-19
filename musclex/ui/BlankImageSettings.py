@@ -26,12 +26,12 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+from os.path import join, exists
 import matplotlib.pyplot as plt
+import numpy as np
 import fabio
 from .pyqt_utils import *
-import numpy as np
-from os.path import join, exists
-from ..utils.file_manager import getStyleSheet, createFolder
+from ..utils.file_manager import createFolder
 from ..utils.image_processor import get8bitImage, getBGR, getMaskThreshold, averageImages
 
 try:
@@ -39,18 +39,20 @@ try:
 except ImportError:
     import PyMca5.PyMca.MaskImageWidget as PyMcaMaskImageWidget
 
-
 class MaskImageWidget(QDialog):
     """
     Dialog for mask image settings
     """
     def __init__(self, image, mask):
-        super(MaskImageWidget, self).__init__(None)
+        super().__init__(None)
         self.image = image
         self.mask = mask
         self.initUI()
 
     def initUI(self):
+        """
+        Initialize the UI.
+        """
         self.mainLayout = QVBoxLayout(self)
         self.maskImageWidget = PyMcaMaskImageWidget.MaskImageWidget()
         self.maskImageWidget.setImageData(self.image)
@@ -63,8 +65,10 @@ class MaskImageWidget(QDialog):
         self.mainLayout.addWidget(self.maskImageWidget)
         self.mainLayout.addWidget(self.bottons)
 
-
     def okClicked(self):
+        """
+        Triggered when OK button is clicked
+        """
         self.mask = self.maskImageWidget.getSelectionMask()
         self.accept()
 
@@ -73,7 +77,7 @@ class BlankImageSettings(QDialog):
     Dialog for blank image settings
     """
     def __init__(self, dir_path):
-        super(BlankImageSettings, self).__init__(None)
+        super().__init__(None)
         self.setWindowTitle("Blank Image and Mask")
         self.dir_path = dir_path
         self.additional_mask = None
@@ -85,6 +89,9 @@ class BlankImageSettings(QDialog):
         self.updateImage()
 
     def loadCurrentSettings(self):
+        """
+        Load the settings cached in the settings folder.
+        """
         path = join(self.dir_path, 'settings')
         blank = join(path, 'blank.tif')
         mask = join(path, 'mask.tif')
@@ -94,7 +101,9 @@ class BlankImageSettings(QDialog):
                 self.mask = fabio.open(mask).data
 
     def initUI(self):
-        # self.setStyleSheet(getStyleSheet())
+        """
+        Initialize the UI.
+        """
         self.mainLayout = QGridLayout(self)
         self.imageFigure = plt.figure()
         self.imageCanvas = FigureCanvas(self.imageFigure)
@@ -110,13 +119,10 @@ class BlankImageSettings(QDialog):
 
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
 
-        #
         ### Status Bar ###
-        #
         self.statusBar = QStatusBar()
         self.pixel_detail = QLabel()
         self.statusBar.addWidget(self.pixel_detail)
-        # self.statusBar.addPermanentWidget(self.pixel_detail)
 
         self.mainLayout.addWidget(self.imageCanvas, 0, 0, 1, 4)
         self.mainLayout.addWidget(self.selectImage, 1, 0, 1, 1)
@@ -138,7 +144,7 @@ class BlankImageSettings(QDialog):
         self.maskThres.valueChanged.connect(self.generateMask)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
-        
+
     def drawMaskOnlyImage(self):
         """
         Select a base image on which a mask is drawn
@@ -148,7 +154,7 @@ class BlankImageSettings(QDialog):
         print("mask image path " + str(mask_imgpath))
         self.selected = fabio.open(mask_imgpath).data
         self.drawMask.setEnabled(False)
-        
+
         draw_dialog = MaskImageWidget(self.selected, self.mask)
         result = draw_dialog.exec_()
         if result == 1:
@@ -158,12 +164,11 @@ class BlankImageSettings(QDialog):
             mask[self.selected <= thres] = 1
             if self.additional_mask is not None:
                 mask[self.additional_mask > 0] = 1
-        
+
                 path = join(self.dir_path, 'settings')
                 createFolder(path)
                 fabio.tifimage.tifimage(data=mask).write(join(path,'maskonly.tif'))
                 self.accept()
-        
 
     def browseImage(self):
         """
@@ -191,7 +196,6 @@ class BlankImageSettings(QDialog):
             if result == 1:
                 self.additional_mask = draw_dialog.mask
                 self.generateMask()
-
 
     def okClicked(self):
         """
@@ -234,8 +238,10 @@ class BlankImageSettings(QDialog):
             self.imageAxes.imshow(img)
             self.imageCanvas.draw()
 
-
     def onMotion(self, e):
+        """
+        Triggered when the mouse is on motion over the image
+        """
         x = e.xdata
         y = e.ydata
         if x is None or y is None or self.selected is None:
@@ -245,5 +251,3 @@ class BlankImageSettings(QDialog):
         int_x = int(round(x))
         int_y = int(round(y))
         self.pixel_detail.setText('x='+str(int_x)+', y='+str(int_y)+', val='+str(self.selected[int_y,int_x]))
-
-

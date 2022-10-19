@@ -25,16 +25,15 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
 import copy
 import math
 import time
 from os.path import exists
 import collections
 import pickle
-import cv2
 import numpy as np
 import fabio
-from skimage.morphology import white_tophat
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel
 from scipy.integrate import simps
@@ -64,20 +63,24 @@ class ScanningDiffraction:
         self.info = self.loadCache()
 
     def loadCache(self):
-        cache_path = fullPath(self.filepath, "cp_cache")
+        """
+        Load the cache and return it if it exists, else return an empty dict.
+        :return: cache info
+        """
+        cache_path = fullPath(self.filepath, "di_cache")
         cache_file = fullPath(cache_path, self.filename+'.info')
         if exists(cache_file):
             info = pickle.load(open(cache_file, "rb"))
             if info is not None:
-                # if info['program_version'] == self.version:
-                #     return info
-                # print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
-                # print("Invalidating cache and reprocessing the image")
                 return info
         return {}
 
     def cacheInfo(self):
-        cache_path = fullPath(self.filepath, 'cp_cache')
+        """
+        Save the cache info in a file named di_cache to help execute the prrgram
+        faster the next time a same image is processed.
+        """
+        cache_path = fullPath(self.filepath, 'di_cache')
         createFolder(cache_path)
         cache_file = fullPath(cache_path, self.filename + '.info')
         self.info['program_version'] = self.version
@@ -135,6 +138,11 @@ class ScanningDiffraction:
                 del self.info[k]
 
     def updateInfo(self, flags):
+        """
+        Update info dict using flags
+        :param flags: flags
+        :return: -
+        """
         depn_lists = {
             '2dintegration': ['fixed_hull', 'merged_peaks'],
             'ring_hists': ['ROI', 'orientation_model', '90rotation', 'merged_peaks'],
@@ -345,7 +353,6 @@ class ScanningDiffraction:
         :return:
         """
         sigmaList = []
-
         for p in peaks:
             peak_height = hist[p]
             r = 1
@@ -361,7 +368,9 @@ class ScanningDiffraction:
         return sigmaList
 
     def fitModel(self):
-        # Fit model to azimuthal integration
+        """
+        Fit model to azimuthal integration
+        """
         if 'fitResult' not in self.info.keys():
             self.log("=== Fitting model ...")
             self.removeInfo('ring_hists')
@@ -371,13 +380,8 @@ class ScanningDiffraction:
             merged_peaks = self.info['merged_peaks']
             hists_np = np.array(self.info['hull_hist'])
             sigmaList = self.getInitSigma(hists_np, merged_peaks)
-            # widthList = [selected_rings[p][1] - selected_rings[p][0] / 2 if p in selected_rings else 3 for p in merged_peaks]
-            # widthList = [w if w > 0 else 3 for w in widthList]
-
-            # x = np.array(range(len(hists_np)))
 
             # Fit several times and take the minimum error result
-            # limit_iterations = 1
             temp_model = []
             temp_error = []
             # methods = ['leastsq', 'lbfgsb', 'cg', 'tnc', 'slsqp']
@@ -466,7 +470,9 @@ class ScanningDiffraction:
         return ranges, histograms
 
     def get_central_difference(self, I2D, h):
-        # Compute central difference
+        """
+        Compute central difference
+        """
         central = I2D * 2
         right_shift = -1 * np.roll(I2D, -h, axis=1)
         left_shift = -1 * np.roll(I2D, h, axis=1)
@@ -480,7 +486,6 @@ class ScanningDiffraction:
         :param rmax:
         :return:
         """
-
         if 'fixed_hull' in self.info:
             start = self.info['fixed_hull'][0]
             end = self.info['fixed_hull'][1]
@@ -625,19 +630,15 @@ class ScanningDiffraction:
         h = 4
         min_di = 1
         errors = []
-        # weights = np.arange((1./(h+1)),1.,(1./(h+1)))
 
         for i in range(1, h + 1):
             d = peaks[0] / i
-            # w = weights[i-1]
             error = 0.
             for p in peaks:
                 mult = 1. * p / d
                 error += abs((p-d*round(mult)))/d
             print("distance: " + str(d) + " error: " +str(error))
             errors.append(error)
-            # if error < .20:
-            #     return d
             if error < errors[min_di-1]:
                 min_di = i
 
@@ -684,7 +685,7 @@ class ScanningDiffraction:
                 if limit * dist > image_lenght:
                     break
 
-        limit = min(10 ,limit) #### jiranun
+        limit = min(10 ,limit)
 
         for i in range(1, limit):
             location = dist * i
@@ -713,7 +714,6 @@ class ScanningDiffraction:
         angle_2 = 0
         x = 1
         y = 1
-        # print "Center", img_center
         ref_x = min(img_center[0], shape[0] - img_center[0])
         ref_y = min(img_center[1], shape[1] - img_center[1])
         if ref_x < img_center[0]:
@@ -726,19 +726,14 @@ class ScanningDiffraction:
         if ring_radius > ref_y:
             angle_2 = y * np.arcsin(ref_y / ring_radius)
         ring_range = abs(convertRadtoDegrees(angle_1) - convertRadtoDegrees(angle_2))
-        # msg = "Ring radius = "+str(ring_radius)+"  Angles = "+str(convertRadtoDegrees(angle_1))+","+str(convertRadtoDegrees(angle_2))+\
-        #       "  Range = "+str(ring_range)
-        # self.log(msg)
         return ring_range
 
-    def removeValleys2(self, deep_hist, orig_hist, name=""):
+    def removeValleys2(self, deep_hist, orig_hist):
         """
         Remove valley from ring hist (pilatus line)
         :param hists: radial histogram
-        :param name: -
         :return:
         """
-
         end_points = []
         start_points = []
 
@@ -751,31 +746,12 @@ class ScanningDiffraction:
             # Find start point of a valley by its slope
             if deep_hist[i] < 0:
 
-                # Find start point
-                start_ind = i
-                # for j in range(i, end_ind, -1):
-                #     if j == end_ind or \
-                #             ((deep_smooth_hist[j] - deep_smooth_hist[j + 1]) / deep_smooth_hist[j] < 0.0005
-                #              and deep_hist[j]>0):
-                #         start_ind = max(0, j-1)
-                #         break
-
                 # Move left for 2 to start before valley
-                start_ind = max(0, start_ind-2)
+                start_ind = max(0, i-2)
 
                 # Pass valley
                 while i < len(deep_hist)-1 and deep_hist[i] < 0:
                     i = i + 1
-
-                # Approximate distance from valley to end point
-                # remain = 10
-
-                # Find End point
-                # for j in range(i, i+remain):
-                #     end_ind = j
-                #     if j >= len(orig_hist)-1 or ((deep_smooth_hist[j] - deep_smooth_hist[j-1])/deep_smooth_hist[j] < 0.0005 and deep_hist[j] > 0):
-                #         end_ind = j
-                #         break
 
                 # Move right for 1 to end after valley
                 end_ind = min(i+2, len(orig_hist)-1)
@@ -798,22 +774,13 @@ class ScanningDiffraction:
 
             i = i + 1
 
-        # print "Gab size : ", [end_points[i]-start_points[i] for i in range(len(start_points))]
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.plot(deep_hist)
-        # ax.plot(start_points, deep_hist[start_points], "ro")
-        # ax.plot(end_points, deep_hist[end_points], "bo")
-        # fig.show()
-
         return orig_hist
 
 
-    def removeValleys(self, hists, name = ""):
+    def removeValleys(self, hists):
         """
         Remove valley from ring hist (pilatus line)
         :param hists: radial histogram
-        :param name: -
         :return:
         """
         hist2 = copy.copy(hists)
@@ -828,7 +795,6 @@ class ScanningDiffraction:
                     i = i + 1
 
                 while i < len(hist2) and ((1.*(hist2[start_ind] - hist2[i])/hist2[start_ind] > 0.1) or smooth_hist[i] - smooth_hist[i - 1] > 20. ):
-                    # print name,"---",i-1,",",i,"----",smooth_hist[i] - smooth_hist[i - 1]
                     i = i + 1
 
                 start_ind = max(0, start_ind - 3)
@@ -880,14 +846,9 @@ class ScanningDiffraction:
             rad_max = int(np.around(rads[i] + h * sigmas[i]))
 
             if rad_max < rad_min:
-                aux = rad_max
-                rad_max = rad_min
-                rad_min = aux
+                rad_max, rad_min = rad_min, rad_max
             rad_max = min(rad_max, len(histogram1D))
             rad_min = max(rad_min, 0)
-
-            # print "Radius:", rads[i]
-            # print "Integration range:", rad_max, rad_min
 
             # Added concern of partial rings -> divide by number of degrees
             if rads[i] > l:
@@ -908,7 +869,7 @@ class ScanningDiffraction:
 
             # Filled pilatus valleys
             if self.original_image.shape == (1043, 981):
-                hists2 = self.removeValleys(hists2, str(i))
+                hists2 = self.removeValleys(hists2)
 
             hists = hists - min(hists2)
             hists[hists < 0] = 0
@@ -929,7 +890,9 @@ class ScanningDiffraction:
         return result
 
     def find_nearest(self, array, value):
-        # Find index of array which has the nearest value
+        """
+        Find index of array which has the nearest value
+        """
         idx = (np.abs(array - value)).argmin()
         return idx
 
@@ -944,19 +907,6 @@ class ScanningDiffraction:
         ring_hist = smooth(hist[1], 20)
         hist = (hist[0], ring_hist)
 
-        # indexes = peakutils.indexes(np.array(hist[1]), thres=0.8, min_dist=(len(hist[1]) / 2 - 100))
-        # print "INDEXES FOUND:", indexes
-
-        # if len(indexes) == 0:
-        #     return None
-        #
-        # u1 = hist[0][indexes[0]]
-        # if len(indexes) > 2:
-        #     u2 = hist[0][indexes[1]]
-        #     d = indexes.sum() / 2 - indexes[0]
-        # else:
-        #     u2 = u1 + np.pi
-        #     d = 180
         index = np.argmax(hist[1])
         u1 = hist[0][index]
         u2 = (u1 + np.pi)%(2*np.pi)
@@ -995,10 +945,8 @@ class ScanningDiffraction:
         result = model.fit(hist[1], x=x, params = params, nan_policy='propagate')
 
         # Compute valley point and circular shift
-        # print "U: ", result.values['u'], convertRadtoDegrees(result.values['u'])
         v_value = result.values['u'] + np.pi / 2
         v_point = self.find_nearest(hist[0], v_value)
-        # print "Rotation point", v_point
 
         hist_shifted = np.roll(hist[1], -v_point)
 
@@ -1022,13 +970,7 @@ class ScanningDiffraction:
         # Correction over shifted peaks
         result['u'] = result['u'] + v_value - np.pi
 
-        # u2 = (u1 + np.pi) % (2 * np.pi)
-        # result['u1'] = min(u1, u2)
-        # result['u2'] = max(u1, u2)
-        # del result['u']
-
         return result
-
 
     def get_ring_model2(self, hist):
         """
@@ -1071,6 +1013,9 @@ class ScanningDiffraction:
         return result.values
 
     def getRingHistograms(self):
+        """
+        Give the histogram of the different rings on the image.
+        """
         histograms = []
         deep_valleys_hists = []
 
@@ -1086,13 +1031,6 @@ class ScanningDiffraction:
             # if the image is from pilatus, replace gaps with large minus value to make deep valley
             I2D2[I2D2 <= 0] = -99999
 
-        # from os.path import join
-        # fabio.tifimage.tifimage(data=I2D).write(join(os.getcwd(),"I2D.tif"))
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111)
-        # ax.imshow(I2D)
-        # fig.show()
-
         sigmas = [int(round(s)) for s in self.getInitSigma(self.info['hull_hist'], rings)]
         self.log("Peaks to check = "+ str(rings))
         for (i, _) in enumerate(rings):
@@ -1103,7 +1041,6 @@ class ScanningDiffraction:
             return [], [], []
 
         ring_hists, revised_hists = [], []
-
         for (i, _) in enumerate(histograms):
 
             # remove valleys and remove linear background
@@ -1145,21 +1082,6 @@ class ScanningDiffraction:
                 model_dict[i] = self.get_ring_model2([x, hist])
                 errors_dict[i] = 1 - r2_score(orientation_GMM3(x=x, **model_dict[i]), hist)
 
-            # orig = np.array(histograms[i])
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111)
-            # ax.plot(x, real_hist)
-            # ax.plot(x, hist)
-            # # ax.plot(x, orig)
-            # # ax.axhline(np.median(orig), label="median",color='r')
-            # # ax.axhline(np.mean(orig), label="mean",color='g')
-            # # ax.axhline(max(orig), label="max", color='b')
-            # # ax.axhline(min(orig), label="min", color='y')
-            # # ax.axhline((min(orig)+max(orig))/2., label="mid", color='m')
-            # ax.plot(x, orientation_GMM2(x=x, **model_dict[i]))
-            # ax.legend()
-            # fig.show()
-
         self.info['ring_hists'] = ring_hists
         self.info['ring_models'] = model_dict
         self.info['ring_errors'] = errors_dict
@@ -1191,77 +1113,6 @@ class ScanningDiffraction:
                 self.log("Average Ring Model : "+ str(average_result))
             else:
                 self.log("No average model detected")
-
-
-    # def processOrientation(self):
-    #     """
-    #     Find ring orientation
-    #     :return:
-    #     """
-    #     histograms = []
-    #
-    #     # Filter of rings taken into account (complete)
-    #     ring_peaks = self.info['model_peaks']
-    #     center = self.info['center']
-    #     completeness_threshold = int(min(self.original_image.shape[0] - center[1], self.original_image.shape[1] - center[0], center[0], center[1]))
-    #     self.log("Completeness threshold = "+str(completeness_threshold))
-    #     self.log("Peaks to check = "+ str(ring_peaks))
-    #     taken = []
-    #     for i in range(len(self.info['orientations'])):
-    #         if 0 < ring_peaks[i] <= completeness_threshold:
-    #             histograms.append(self.info['orientations'][i])
-    #             taken.append(i)
-    #     self.log("Rings to use = "+str([ring_peaks[t] for t in taken]))
-    #
-    #     if len(histograms) < 1:
-    #         return False
-    #
-    #     # Obtaining gaussian model of each ring histogram, means of gaussians and error over histogram
-    #     model_dict = {}
-    #     means_dict = {}
-    #     errors_dict = {}
-    #
-    #     for i in range(len(histograms)):
-    #
-    #         model_dict[i] = self.get_ring_model(histograms[i])
-    #         means_dict[i] = (model_dict[i]['u1'], model_dict[i]['u2'])
-    #         errors_dict[i] = mean_squared_error(orientation_GMM2_v1(x=histograms[i][0], **model_dict[i]), histograms[i][1])
-    #
-    #         # plt.clf()
-    #         # plt.plot(smooth(histograms[i][1], 20), color='r')
-    #         # plt.plot(orientation_GMM2_v1(x=histograms[i][0], **model_dict[i]), color='g')
-    #         # plt.plot(histograms[i][1], color='b')
-    #         # plt.savefig("ring_"+str(i)+".png")
-    #
-    #
-    #     # Implement the weight mechanism to decide
-    #     weights = []
-    #     area = self.info['rings_area']
-    #     area /= max(area)
-    #
-    #     # max_error = max(errors_dict.values())
-    #     for i in range(len(histograms)):
-    #         # weights.append(abs(means_dict[i][1] - means_dict[i][0] - np.pi) * 2 * np.pi / 360)
-    #         weights.append(abs(abs(means_dict[i][1] - means_dict[i][0])/np.pi-1.))
-    #         # print means_dict[i]
-    #         # print "First difference:", weights[i]
-    #         weights[i] += errors_dict[i]
-    #         # weights[i] -= area[i]
-    #         # print "Total weight:", weights[i]
-    #
-    #     self.log("Weights = " +str(weights))
-    #
-    #     # Found min and use it as result
-    #     min_index = np.argmin(weights)
-    #
-    #     hist = smooth(histograms[min_index][1], 20)
-    #     mean = np.mean(hist)
-    #
-    #     isUniform = 1.*abs(max(hist)-mean)/mean+ 1.*abs(mean-min(hist))/mean < 1.3
-    #
-    #     if not isUniform:
-    #         self.info['best_ring'] = taken[min_index]
-    #         self.info['model'] = model_dict[min_index]
 
     def HoF(self, hist, mode='f'):
         """
@@ -1351,6 +1202,10 @@ class ScanningDiffraction:
         self.log("Herman orientation reuslt : "+ str(roi_result['u']))
 
     def maxIntensityOrientation(self):
+        """
+        Calculate the max intensity orientation.
+        :return: -
+        """
         ROI = self.info['ROI']
         roi_hist = np.sum(self.info['2dintegration'][0][:, ROI[0]:ROI[1]], axis=1)
         ring_hists, revised_hists, idx_dict = self.getRingHistograms()
@@ -1373,74 +1228,82 @@ class ScanningDiffraction:
         self.info['average_ring_model'] = roi_result
         self.log("Max intensity orientation : "+ str(roi_result['u']))
 
-############################# Batch mode Results #########################################
+############################# Batch mode Results #############################
 
 def toFloat(value):
+    """
+    Convert to float.
+    :param value: the value that needs to be converted
+    :return: x
+    """
     try:
         x = float(value)
     except Exception:
         x = 0
-
     return x
 
 def convertRadtoDegrees(rad):
+    """
+    Convert radian to degrees.
+    :param rad: the value that needs to be converted
+    :return: deg value
+    """
     rad = toFloat(rad)
     return int(rad * 180 / np.pi)
 
-# def update_int(val):
-#     global intensity, int_displayi, fig, quad, ax1
-#     if sbluri.val > 2:
-#         b1 = int(sbluri.val)
-#         int_displayi = copy.copy(intensity)
-#         int_displayi = cv2.blur(int_displayi, (b1, b1))
-#     else:
-#         int_displayi = copy.copy(intensity)
-#     fig = plt.figure("Total intensity map")
-#     ax1 = plt.subplot(111)
-#     plt.subplots_adjust(left=0.15, bottom=0.25)
-#     quad = plt.pcolormesh(x_coor, y_coor, int_displayi)
+############################# Gaussian Models #############################
 
-##########################################################################################
-
-
-######### Gaussian Models #############
 def GM(x, u1, sigmad1, alpha1):
+    """
+    Gaussian model
+    """
     return alpha1 * np.exp(-1. * (x - u1) ** 2 / (2 * sigmad1 ** 2)) * (1. / (np.sqrt(2 * np.pi) * sigmad1))
 
 def GMM_any(x, params):
+    """
+    Gaussian model with params
+    """
     n = int(len(params.keys())/3)
     result = GM(x, params['u1'], params['sigmad1'], params['alpha1'])
     for i in range(2, n+1):
         result += GM(x, params['u'+str(i)], params['sigmad'+str(i)], params['alpha'+str(i)])
     return result
 
-
 def orientation_GMM2(x, u, sigma, alpha, bg):
+    """
+    Orientation Gaussian model
+    """
     mod = GaussianModel()
     return mod.eval(x=x, amplitude=alpha, center=u, sigma=sigma) + mod.eval(x=x, amplitude=alpha, center=u+np.pi, sigma=sigma) + bg
 
 def orientation_GMM2_v1(x, u1, u2, sigma, alpha):
+    """
+    Orientation Gaussian model
+    """
     mod = GaussianModel()
     return mod.eval(x=x, amplitude=alpha, center=u1, sigma=sigma) + mod.eval(x=x, amplitude=alpha, center=u2, sigma=sigma)
 
-
 def orientation_GMM3(x, u, sigma, alpha, bg):
+    """
+    Orientation Gaussian model
+    """
     mod = GaussianModel()
     return mod.eval(x=x, amplitude=alpha, center=u, sigma=sigma) + \
         mod.eval(x=x, amplitude=alpha, center=u-np.pi, sigma=sigma) + \
         mod.eval(x=x, amplitude=alpha, center=u+np.pi, sigma=sigma) + bg
 
 def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
+    """
+    Fit Gaussian model
+    """
     parameters = []
     indexes = copy.copy(indexes)
-
     for index, width in zip(indexes, widthList):
         sigmad = 1. / np.sqrt(8 * np.log(2)) * width
         alpha = sigmad * hists_np[index] * np.sqrt(2 * np.pi)
         parameters.append((sigmad, alpha))
 
     x = np.array(range(len(hists_np)))
-
     pars = Parameters()
     gaussians = []
     mean_margin = 15
@@ -1453,12 +1316,10 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
         pars[prefix + 'amplitude'].set(parameters[i][1], min=1, max=1000 * hists_np[indexes[i]])
         gaussians.append(gauss)
 
-
     model = gaussians[0]
     for i in range(1, len(gaussians)):
         model += gaussians[i]
     out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate').values
-    # print "Output Params:", pars
     result = {}
     for i in range(len(indexes)):
         prefix = 'g' + str(i + 1) + '_'
@@ -1467,93 +1328,4 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
         result['alpha' + str(i + 1)] = out[prefix + 'amplitude']
 
     error = r2_score(GMM_any(x = x, params = result), hists_np)
-
-    # if len(indexes) == 2:
-    #     error = mean_square_error(GMM2(x=x, **result), hists_np)
-    # if len(indexes) == 3:
-    #     error = mean_square_error(GMM3(x=x, **result), hists_np)
-    # if len(indexes) == 4:
-    #     error = mean_square_error(GMM4(x=x, **result), hists_np)
-    # if len(indexes) == 5:
-    #     error = mean_square_error(GMM5(x=x, **result), hists_np)
-    # if len(indexes) == 6:
-    #     error = mean_square_error(GMM6(x=x, **result), hists_np)
-    # if len(indexes) == 7:
-    #     error = mean_square_error(GMM7(x=x, **result), hists_np)
-    # if len(indexes) == 8:
-    #     error = mean_square_error(GMM8(x=x, **result), hists_np)
-    # if len(indexes) == 9:
-    #     error = mean_square_error(GMM9(x=x, **result), hists_np)
-    # if len(indexes) == 10:
-    #     error = mean_square_error(GMM10(x=x, **result), hists_np)
-
     return result, error
-
-def gaussian(x, a, mean, sigma):
-    return a*np.exp((-1.*(x-mean)**2)/(2*(sigma**2)))
-
-####################################
-
-def mean_square_error(y_predict, y):
-    """Find error"""
-    loss = (y_predict - y)
-    # nom = y - mean(y)
-    # print loss
-    mse = np.dot(loss.transpose(), loss) / y.shape[0]
-    rmse = np.sqrt(mse)
-    return rmse/(max(y)-min(y))
-
-
-###### White top hat image for Scanning Diffraction #########
-def getImgAfterWhiteTopHat(img, sigma=5):
-    tmpKernel = 1. / sigma ** 2 * np.ones((sigma, sigma))
-    dst = copy.copy(img)
-    dst = np.array(dst, np.float32)
-    for _ in range(2):
-        dst = cv2.filter2D(dst, cv2.CV_32F, tmpKernel, anchor=(-1, -1))
-
-    sigma = sigma * 6
-    x = np.array(range(-int(sigma + 1), int(sigma + 1) + 1, 1))
-    kernelX = gaussian(x, 1, 0, sigma)
-    kernelXY = np.outer(kernelX, np.transpose(kernelX))
-    # kernelXY = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(sigma), int(sigma)))
-    tophat = white_tophat(dst, kernelXY)
-    return tophat
-
-def kernelXY(sigma=5):
-    a = sigma * 6
-    x = np.array(range(-int(a + 1), int(a + 1) + 1, 1))
-    kernelX = 1. / (np.sqrt(2. * np.pi) * a) * np.exp(-(x - 0) ** 2. / (2. * a ** 2))
-    return np.outer(kernelX, np.transpose(kernelX))
-
-def whiteTopHat(img, sigma=5, first=True):
-    tmpKernel = 1. / sigma ** 2 * np.ones((sigma, sigma))
-    if first:
-        dst = copy.copy(img)
-        # print dst.max()
-        # low_values_indices = dst < 0
-        # dst[low_values_indices] = -1000
-        dst = np.array(dst, np.float32)
-        for _ in range(2):
-            dst = cv2.filter2D(dst, cv2.CV_32F, tmpKernel, anchor=(-1, -1))
-        kernelxy = kernelXY()
-        tophat = white_tophat(dst, kernelxy)
-        low_values_indices = tophat < 0
-        if True in low_values_indices:
-            print("There are negative indexes after tophat")
-        else:
-            print("There are NOT negative values after tophat")
-        return tophat
-    else:
-        dst = copy.copy(img)
-        for _ in range(2):
-            dst = cv2.filter2D(dst, -1, tmpKernel, anchor=(-1, -1))
-        kernelxy = kernelXY()
-        tophat = white_tophat(dst, kernelxy)
-        dst = copy.copy(tophat)
-        for _ in range(2):
-            dst = cv2.filter2D(dst, -1, tmpKernel, anchor=(-1, -1))
-        kernelxy = kernelXY(sigma)
-        tophat = white_tophat(dst, kernelxy)
-        return tophat
-############################################

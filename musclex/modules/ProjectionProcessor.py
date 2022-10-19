@@ -26,20 +26,23 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import musclex
-import fabio
-from os.path import exists, isfile
-from lmfit import Model, Parameters
-from lmfit.models import GaussianModel, SkewedGaussianModel, VoigtModel
-import pickle
-from ..utils.file_manager import fullPath, createFolder
-from ..utils.histogram_processor import smooth, movePeaks, getPeakInformations, convexHull
-from ..utils.image_processor import *
 import copy
+import pickle
+from os.path import exists, isfile
 import numpy as np
+from lmfit import Model, Parameters
+from lmfit.models import GaussianModel, VoigtModel
 from sklearn.metrics import r2_score
+import fabio
+import musclex
+from ..utils.file_manager import fullPath, createFolder
+from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
+from ..utils.image_processor import *
 
-class ProjectionProcessor():
+class ProjectionProcessor:
+    """
+    A class for Bio-Muscle processing - go to process() to see all processing steps
+    """
     def __init__(self, dir_path, file_name):
         self.dir_path = dir_path
         self.filename = file_name
@@ -83,26 +86,26 @@ class ProjectionProcessor():
         else:
             self.info = cache
 
-    def addBox(self, name, box, type, bgsub):
+    def addBox(self, name, box, typ, bgsub):
         """
         Add a box to info. If it exists and it changed, clear all old result
         :param name: box name
         :param box: box coordinates
-        :param type: box type 'v' ad vertical, 'h' as horizontal
+        :param typ: box typ 'v' ad vertical, 'h' as horizontal
         :param bgsub: background subtraction method 0 = fitting gaussians, 1 = convex hull
         :return:
         """
         box_names = self.info['box_names']
-        if name in box_names and type =='oriented' and self.info['boxes'][name][:-1] != box[-1]:
+        if name in box_names and typ =='oriented' and self.info['boxes'][name][:-1] != box[-1]:
             self.removeInfo(name)
-            self.addBox(name, box, type, bgsub)
+            self.addBox(name, box, typ, bgsub)
         elif name in box_names and self.info['boxes'][name] != box:
             self.removeInfo(name)
-            self.addBox(name, box, type, bgsub)
+            self.addBox(name, box, typ, bgsub)
         else:
             box_names.add(name)
             self.info['boxes'][name] = box
-            self.info['types'][name] = type
+            self.info['types'][name] = typ
             self.info['bgsubs'][name] = bgsub
 
     def addPeaks(self, name, peaks):
@@ -136,7 +139,7 @@ class ProjectionProcessor():
             if k not in skip_list:
                 self.removeInfo(name, k)
 
-    def process(self, settings = {}):
+    def process(self, settings={}):
         """
         All processing steps - all settings are provided by Projection Traces app as a dictionary
         """
@@ -152,6 +155,11 @@ class ProjectionProcessor():
             self.cacheInfo()
 
     def updateSettings(self, settings):
+        """
+        Update info dict using settings
+        :param settings: calibration settings
+        :return: -
+        """
         if 'boxes' in settings:
             new_boxes = settings['boxes']
             types = settings['types']
@@ -240,7 +248,7 @@ class ProjectionProcessor():
                     y2 = np.min((int(b[1][1]), img.shape[0]))
 
                     area = img[y1:y2+1, x1:x2+1]
-                    if t == 'h' or t == 'oriented':
+                    if t in ('h', 'oriented'):
                         hist = np.sum(area, axis=0)
                     else:
                         hist = np.sum(area, axis=1)
@@ -293,13 +301,6 @@ class ProjectionProcessor():
 
                     left_hull = convexHull(left_hist, start, end)[::-1]
                     right_hull = convexHull(right_hist, start, end)
-
-                    # import matplotlib.pyplot as plt
-                    # bg = right_hist-right_hull
-                    # fig = plt.figure()
-                    # ax = fig.add_subplot(111)
-                    # ax.plot(bg)
-                    # fig.show()
 
                     hists2[name] = np.append(left_hull, right_hull)
                 else:
@@ -400,14 +401,6 @@ class ProjectionProcessor():
             model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
             result = model.fit(hist, verbose=False, params=params, **int_vars)
             if result is not None:
-                #
-                # import matplotlib.pyplot as plt
-                # fig = plt.figure()
-                # ax = fig.add_subplot(111)
-                # ax.cla()
-                # ax.plot(hist, color='g')
-                # ax.plot(layerlineModel(x, **result.values), color='b')
-                # fig.show()
                 result_dict = result.values
                 int_vars.pop('x')
                 result_dict.update(int_vars)
@@ -450,7 +443,6 @@ class ProjectionProcessor():
         Get peaks' infomation including baseline and centroids
         :return:
         """
-
         box_names = self.info['box_names']
         all_hists = self.info['subtracted_hists']
         fit_results = self.info['fit_results']
@@ -460,14 +452,12 @@ class ProjectionProcessor():
         all_widths = self.info['widths']
 
         for name in box_names:
-
             if name not in all_hists:
                 continue
 
             ### Find real peak locations in the box (not distance from center)
             model = fit_results[name]
             hist = all_hists[name]
-
             if name not in moved_peaks:
                 peaks = self.info['peaks'][name]
                 moved = []
@@ -549,21 +539,19 @@ class ProjectionProcessor():
                 center = self.info["orig_center"]
             else:
                 self.info["orig_center"] = center
-            
+
             rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle, self.img_type)
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
 
         return self.rotated_img[3]
 
-    def removeInfo(self, name, k = None):
+    def removeInfo(self, name, k=None):
         """
         Remove information from info dictionary by k as a key. If k is None, remove all information in the dictionary
         :param name: box name
         :param k: key of dictionary
         :return: -
         """
-        # ignore_list = ['lambda_sdd', 'program_version', 'no_cache']
-
         if k is not None and k in self.info:
             d = self.info[k]
             if isinstance(d, dict) and name in d:
@@ -571,12 +559,12 @@ class ProjectionProcessor():
 
         if k is None:
             keys = list(self.info.keys())
-            for k in keys:
-                d = self.info[k]
-                if k == 'box_names':
+            for key in keys:
+                d = self.info[key]
+                if key == 'box_names':
                     d.remove(name)
                 else:
-                    self.removeInfo(name, k)
+                    self.removeInfo(name, key)
 
     def loadCache(self):
         """
@@ -587,7 +575,7 @@ class ProjectionProcessor():
         cache_file = fullPath(cache_path, self.filename + '.info')
         if exists(cache_path) and isfile(cache_file):
             cinfo = pickle.load(open(cache_file, "rb"))
-            if cinfo != None:
+            if cinfo is not None:
                 if cinfo['program_version'] == self.version:
                     return cinfo
                 print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
@@ -607,7 +595,8 @@ class ProjectionProcessor():
         pickle.dump(self.info, open(cache_file, "wb"))
 
 
-def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2, **kwargs):
+def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
+                    center_sigma2, center_amplitude2, **kwargs):
     """
     Model for fitting layer line pattern
     :param x: x axis
@@ -622,7 +611,6 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
     :param kwargs: other peaks properties
     :return:
     """
-
     #### Background and Meridian
     result = layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2,**kwargs)
     #### Other peaks
@@ -643,10 +631,10 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
             result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
 
         i += 1
-
     return result
 
-def layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1, center_sigma2, center_amplitude2,**kwargs):
+def layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
+                            center_sigma2, center_amplitude2,**kwargs):
     """
     Model for fitting layer line pattern
     :param x: x axis

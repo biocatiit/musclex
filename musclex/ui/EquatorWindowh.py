@@ -35,7 +35,7 @@ from .pyqt_utils import *
 from ..utils.file_manager import getImgFiles
 from ..modules.EquatorImage import EquatorImage
 from ..utils.image_processor import *
-from ..csv_manager import EQ_CVSManager, EQ_CSVManager2
+from ..csv_manager import EQ_CSVManager
 
 class EquatorWindowh:
     """
@@ -49,7 +49,6 @@ class EquatorWindowh:
         :param delcache: flag for deleting cache
         :param settingspath: setting file directory
         """
-
         self.version = musclex.__version__
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
@@ -66,8 +65,7 @@ class EquatorWindowh:
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.csvManager = EQ_CVSManager(self.dir_path)  # Create a CSV Manager object
-        self.csvManager2 = EQ_CSVManager2(self.dir_path)
+        self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
@@ -75,7 +73,9 @@ class EquatorWindowh:
         self.onImageChanged() # Toggle window to process current image
 
     def inputerror(self):
-        # Display input error to screen
+        """
+        Display input error to screen
+        """
         print('Invalid Input')
         print("Please select non empty failedcases.txt or an image\n\n")
 
@@ -84,7 +84,6 @@ class EquatorWindowh:
         This will create a new EquatorImage object for the new image
         Process the new image if there's no cache.
         """
-
         fileName = self.imgList[self.currentImg]
         file=fileName+'.info'
         cache_path = os.path.join(self.dir_path, "eq_cache", file)
@@ -95,7 +94,6 @@ class EquatorWindowh:
 
         #prevInfo = self.bioImg.info if self.bioImg is not None else None
         self.bioImg = EquatorImage(self.dir_path, fileName, self)
-
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
 
         settings = None
@@ -146,9 +144,12 @@ class EquatorWindowh:
 
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
-        self.csvManager2.writeNewData(self.bioImg)
+        self.csvManager.writeNewData2(self.bioImg)
 
     def updateParams(self):
+        """
+        Update the parameters
+        """
         info = self.bioImg.info
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
@@ -203,5 +204,10 @@ class EquatorWindowh:
         return False
 
     def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
         print(text)
    

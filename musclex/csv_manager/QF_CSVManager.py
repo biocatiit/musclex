@@ -26,8 +26,8 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from os.path import exists
 from os import makedirs
+from os.path import exists
 import hashlib
 import pandas as pd
 from ..utils.file_manager import fullPath
@@ -41,6 +41,7 @@ class QF_CSVManager:
         init with directory path
         :param dir_path:
         """
+        self.dataframe = None
         result_path = fullPath(dir_path, "qf_results")
         if not exists(result_path):
             makedirs(result_path)

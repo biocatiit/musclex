@@ -1,12 +1,28 @@
 
-*** Version tested on Python 3.8 - on Ubuntu 20.04 and 22.04, macOS 12.6, Windows 10 and Windows 11.
+*** Version 1.15.7 tested on Python 3.8.
 
-*** Tests passed on Linux: MuscleX Global Summary Tests, MuscleX Detailed Implementation Tests, Environment Test, GPU Test
+*** Windows Installer:
+- Window 10 Pro: tested without "Run tests"
+- Window 10 Home: not tested
+- Windows 11 Pro: tested without "Run tests"
+- Windows 11 Home: not tested
 
-*** Tests passed on Windows, macOS: Not available yet
+*** Mac installer:
+- Mac Intel (12.6): tested without "Run tests"
+- Mac M1 (12.6): tested without "Run tests"
 
-*** Pip versions detail:
+*** AppImage:
+- Ubuntu (22.04): tested without "Run tests"
+- Ubuntu (20.04): tested without "Run tests"
 
+*** Docker:
+- Ubuntu (22.04): fully tested
+
+*** Pip:
+- Ubuntu (22.04): fully tested
+- Ubuntu (20.04): fully tested
+
+--> Pip versions detail:
 scikit-image      0.19.3
 tifffile          2022.8.12
 numpy             1.23.3

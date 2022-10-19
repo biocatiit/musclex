@@ -26,15 +26,13 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import matplotlib
-matplotlib.use('qt5agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtGui
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-
-
+import matplotlib
+matplotlib.use('qt5agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from ..utils.file_manager import input_types
 
 print("Qt version:", QT_VERSION_STR)
@@ -44,37 +42,43 @@ for t in input_types:
     img_filter += ' *.' + str(t)
 img_filter += ')'
 
-def getAFile(filter=None, path = '', add_txt = False):
-    if filter is None:
-        filter = img_filter
-    if add_txt and filter != '':
-        filter += ';;Failed cases (*.txt)'
-    file_name = QFileDialog.getOpenFileName(None, 'Select a file', path, filter, None)
+def getAFile(filtr=None, path='', add_txt=False):
+    """
+    Open a file finder and return the name of the file selected
+    """
+    if filtr is None:
+        filtr = img_filter
+    if add_txt and filtr != '':
+        filtr += ';;Failed cases (*.txt)'
+    file_name = QFileDialog.getOpenFileName(None, 'Select a file', path, filtr, None)
     if isinstance(file_name, tuple):
         file_name = file_name[0]
     return str(file_name)
 
-def getFiles(path='', filter=None):
-    if filter is None:
-        filter = img_filter
-    fileList = QFileDialog.getOpenFileNames(None, "Select frame(s) to average", path, filter)
+def getFiles(path='', filtr=None):
+    """
+    Give the list of the files in a folder
+    """
+    if filtr is None:
+        filtr = img_filter
+    fileList = QFileDialog.getOpenFileNames(None, "Select frame(s) to average", path, filtr)
     if isinstance(fileList, tuple):
         fileList = fileList[0]
     return list(map(str, fileList))
 
 def getAFolder():
+    """
+    Open a folder finder and return the name of the folder selected
+    """
     dir_path = QFileDialog.getExistingDirectory(None, "Select a Folder")
     return str(dir_path)
 
-def getSaveFile(path='', filter='Images (*.png);;SVG (*.svg)'):
-    file_name = QFileDialog.getSaveFileName(None, "Save a file", path, filter)
+def getSaveFile(path='', filtr='Images (*.png);;SVG (*.svg)'):
+    """
+    Open a file finder and let the user save the file where he wants
+    and return the file path
+    """
+    file_name = QFileDialog.getSaveFileName(None, "Save a file", path, filtr)
     if isinstance(file_name, tuple):
         file_name = file_name[0]
     return str(file_name)
-
-def file_save(self):
-    name = QtGui.QFileDialog.getSaveFileName(self, 'Save File')
-    file = open(name,'w')
-    text = self.textEdit.toPlainText()
-    file.write(text)
-    file.close()

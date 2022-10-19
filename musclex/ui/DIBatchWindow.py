@@ -1,8 +1,37 @@
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
 import os
 import json
 from matplotlib.patches import Ellipse, Rectangle, FancyArrow
 from matplotlib.collections import PatchCollection
 from matplotlib.colors import LogNorm, Normalize
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from scipy.interpolate import Rbf
@@ -11,8 +40,8 @@ import musclex
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
-from ..csv_manager import CP_CSVManager
-from .CPImageWindow import CPImageWindow
+from ..csv_manager import DI_CSVManager
+from .DIImageWindow import DIImageWindow
 
 matplotlib.rcParams.update({'font.size': 5})
 
@@ -26,7 +55,7 @@ class HDFBrowser(QDialog):
         :param msg: message which appear in dialog
         :param setting_path: path that HDF file will be saved
         """
-        super(HDFBrowser, self).__init__(None)
+        super().__init__(None)
         self.msg = msg
         self.path = setting_path
         self.status = 0
@@ -35,6 +64,9 @@ class HDFBrowser(QDialog):
         self.setConnection()
 
     def initUI(self):
+        """
+        Initialize the UI
+        """
         self.mainLayout = QGridLayout(self)
         self.setWindowTitle("HDF Browser")
         self.label = QLabel(self.msg)
@@ -190,9 +222,11 @@ class HDFBrowser(QDialog):
             hf.close()
             self.accept()
 
-class CPBatchWindow(QMainWindow):
+class DIBatchWindow(QMainWindow):
+    """
+    A class to process Scanning diffraction on folders
+    """
     def __init__(self, mainWin=None, dir_path=""):
-        # QDialog.__init__(self, parent)
         QWidget.__init__(self)
         self.filePath = dir_path
         self.widgetList = []
@@ -207,7 +241,6 @@ class CPBatchWindow(QMainWindow):
         self.init_number = 0
         self.update_plot = {}
         self.intensityRange = []
-
 
         ##Batch Mode Params
         self.name_dict = {}
@@ -234,15 +267,17 @@ class CPBatchWindow(QMainWindow):
         self.vec_UV = []
         self.vec_quiver = None
 
-        self.csvManager = CP_CSVManager(self.filePath)
+        self.csvManager = DI_CSVManager(self.filePath)
         self.initUI()
         self.setConnections()
         self.processFolder(self.filePath)
         self.angle_sigma=1
 
     def initUI(self):
+        """
+        Initialize the UI
+        """
         self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
-        # self.setStyleSheet(getStyleSheet())
         self.centralWidget = QWidget(self)
         self.mainLayout = QGridLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -402,7 +437,6 @@ class CPBatchWindow(QMainWindow):
         self.mapLayout.addWidget(QLabel("Beam shape display: "), 4, 0, 1, 1)
         self.mapLayout.addWidget(self.BSDChoice, 4, 1, 1, 2)
         self.mapLayout.addWidget(self.orientationChkBx, 4, 3, 1, 1)
-        #self.mapLayout.addWidget(self.orientationTypeChkBx, 4, 4, 1, 1)
         self.mapLayout.addWidget(self.mapCanvas, 5, 0, 1, 4)
         self.mapLayout.addWidget(self.spacingFrame, 6, 0, 1, 4)
         self.mapLayout.addLayout(self.intensityLayout, 7, 0, 2, 4)
@@ -447,6 +481,9 @@ class CPBatchWindow(QMainWindow):
         self.resize(1200, 800)
 
     def setConnections(self):
+        """
+        Set the connections between the buttons and the functions
+        """
         self.refreshButton.clicked.connect(self.processBatchmodeResults)
         self.bestRadio.toggled.connect(self.ringChoiceChanged)
         self.flipX.clicked.connect(self.flipMapX)
@@ -476,6 +513,9 @@ class CPBatchWindow(QMainWindow):
         self.moreDetailsButton.clicked.connect(self.popupImageDetails)
 
     def ringChoiceChanged(self):
+        """
+        Change the ring choice
+        """
         self.distanceSpnBx.setEnabled(self.distanceRadio.isChecked())
         self.unitChoice.setEnabled(self.distanceRadio.isChecked())
         self.distanceLabel.setEnabled(self.distanceRadio.isChecked())
@@ -483,20 +523,32 @@ class CPBatchWindow(QMainWindow):
         self.bandwidthSpnBx.setEnabled(self.distanceRadio.isChecked())
 
     def maxMapValChanged(self):
+        """
+        Change the max map value
+        """
         if self.max_int is None:
             return
         self.maxMap.setValue(self.maxMapVal.value() * 100.0 / self.max_int)
 
     def minMapValChanged(self):
+        """
+        Change the min map value
+        """
         if self.max_int is None:
             return
         self.minMap.setValue(self.minMapVal.value() * 100.0 / self.max_int)
 
     def closeEvent(self, ev):
+        """
+        Close event
+        """
         if self.mainWin is not None:
             self.mainWin.removeWidget(self)
 
     def removeWidget(self, win):
+        """
+        Remove the specified widget
+        """
         if win in self.widgetList:
             idx = self.widgetList.index(win)
             del self.widgetList[idx]
@@ -515,6 +567,10 @@ class CPBatchWindow(QMainWindow):
             self.mapCanvas.draw()
 
     def flipMapY(self):
+        """
+        Flip map in Y direction
+        :return:
+        """
         self.isFlipY = not self.isFlipY
         if self.repChoice.currentText() == "Elliptical Map" or self.repChoice.currentText() == "Intensity and Rotation Map":
             self.updateUI()
@@ -523,7 +579,10 @@ class CPBatchWindow(QMainWindow):
             self.mapCanvas.draw()
 
     def saveClicked(self):
-        filename = getSaveFile(join(self.filePath, 'cp_results'))
+        """
+        Triggered when the save button is clicked
+        """
+        filename = getSaveFile(join(self.filePath, 'di_results'))
         _, extension = os.path.splitext(filename)
         if extension == 'svg':
             self.mapFigure.savefig(filename, format='svg')
@@ -534,8 +593,10 @@ class CPBatchWindow(QMainWindow):
         print(str(filename)+" has been saved.")
 
     def plotClicked(self, event):
+        """
+        Triggered when the plot button is clicked
+        """
         self.moreDetailsButton.setHidden(False)
-
         if len(self.xyIntensity) < 3 or event.xdata is None or event.ydata is None:
             return
 
@@ -555,9 +616,7 @@ class CPBatchWindow(QMainWindow):
         if x.min()-stepx/2 <= event.xdata <= x.max()+stepx/2 and y.min()-stepy/2 <= event.ydata <= y.max()+stepy/2:
             col = min(np.arange(len(x)), key=lambda i: abs(x[i] - event.xdata))
             row = min(np.arange(len(y)), key=lambda i: abs(y[i] - event.ydata))
-
             ind = row * x_max + col + self.init_number
-
             if ind in self.name_dict:
                 img_detail = "Total Intensity: " + str(self.intensity_dict[ind])
                 img_detail += "\nRing Intensity: " + str(self.peak_intensity_dict[ind])
@@ -571,7 +630,6 @@ class CPBatchWindow(QMainWindow):
                 self.updateRightStatusBar(filename)
 
                 if exists(full_filename):
-
                     img = fabio.open(full_filename).data
                     if img is not None:
                         self.batchmodeImg = img
@@ -587,10 +645,12 @@ class CPBatchWindow(QMainWindow):
                 self.batchmodeImgFilename = None
                 self.batchmodeImg = None
 
-
     def popupImageDetails(self):
+        """
+        Pop up the image details
+        """
         if self.batchmodeImg is not None:
-            new_image_window = CPImageWindow(self, str(self.batchmodeImgFilename), str(self.filePath))
+            new_image_window = DIImageWindow(self, str(self.batchmodeImgFilename), str(self.filePath))
             self.widgetList.append(new_image_window)
         else:
             if self.batchmodeImgFilename is None:
@@ -609,6 +669,9 @@ class CPBatchWindow(QMainWindow):
                 errMsg.exec_()
 
     def maxIntChanged(self):
+        """
+        Change the max int
+        """
         if self.updatingUI:
             return
 
@@ -618,15 +681,20 @@ class CPBatchWindow(QMainWindow):
             self.updateImage()
 
     def minIntChanged(self):
+        """
+        Change the min int
+        """
         if self.updatingUI:
             return
-
         if self.img_maxInt.value() < self.img_minInt.value():
             self.img_minInt.setValue(self.img_maxInt.value() - 1)
         else:
             self.updateImage()
 
     def updateImage(self):
+        """
+        Update the image plot and figures
+        """
         ax = self.imgAxes
         ax.cla()
         if self.batchmodeImgDetails is not None:
@@ -653,11 +721,17 @@ class CPBatchWindow(QMainWindow):
         self.imgCanvas.draw()
 
     def mousePressEvent(self, event):
+        """
+        Triggered on a mouse click over the image
+        """
         focused_widget = QApplication.focusWidget()
         if focused_widget is not None:
             focused_widget.clearFocus()
 
     def updateUI(self):
+        """
+        Update the UI
+        """
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.colormap = str(self.colorChoice.currentText())
         self.usingLogScale = self.logScale.isChecked()
@@ -676,8 +750,6 @@ class CPBatchWindow(QMainWindow):
             self.updateEllipticalMap()
         elif representation == 'D-Space Map':
             self.updateIntensityMap(typ='dspace')
-        # elif selected_tab == 1:
-        #     self.updateAngularRangeTab()
 
         if self.max_int is not None:
             self.minMapVal.setMaximum(self.max_int)
@@ -691,13 +763,15 @@ class CPBatchWindow(QMainWindow):
         QApplication.restoreOverrideCursor()
 
     def updateIntensityMap(self, typ='simple'):
+        """
+        Update the intensity map
+        """
         if len(self.xyIntensity) < 3:
             return
         rendering_mode = self.BSDChoice.currentIndex()
         self.orientationChkBx.setEnabled(True)
         self.orientationTypeChkBx.setEnabled(True)
         angle = self.orientationChkBx.isChecked()
-
         stepx, stepy = self.xylim[0], self.xylim[1]
         # if one or the other is 0, this is a 1D scan
         if stepx == 0:
@@ -720,7 +794,6 @@ class CPBatchWindow(QMainWindow):
             intensity = copy.copy(self.xyIntensity[5])
 
         x_coor, y_coor = np.meshgrid(x2, y2)
-
         max_val = intensity.max()
         self.max_int = max_val
         if self.maxMap.value() < 100:
@@ -747,7 +820,6 @@ class CPBatchWindow(QMainWindow):
 
         im = ax.pcolormesh(x_coor, y_coor, intensity, cmap=self.colormap, norm=norm)
 
-        # self.intensityMapFigure.colorbar(im)
         if rendering_mode == 1: # RBF Interpolation
             ax.cla()
             colorm = matplotlib.cm.ScalarMappable(cmap=self.colormap, norm=norm).to_rgba(intensity)
@@ -766,9 +838,9 @@ class CPBatchWindow(QMainWindow):
             ax.cla()
             if stepx >= beamx and stepy >= beamy:
                 patches, colors = [], []
-                for j in range(len(x)):
-                    for i in range(len(y)):
-                        rect = Rectangle(xy=(x[j]-beamx/2, y[i]-beamy/2), width=beamx, height=beamy)
+                for (j, xj) in enumerate(x):
+                    for (i, yi) in enumerate(y):
+                        rect = Rectangle(xy=(xj-beamx/2, yi-beamy/2), width=beamx, height=beamy)
                         patches.append(rect)
                         colors.append(-1 if intensity.mask[i, j] else intensity[i, j])
                 pc = PatchCollection(patches, cmap=self.colormap, norm=norm, antialiaseds=False)
@@ -777,9 +849,9 @@ class CPBatchWindow(QMainWindow):
             else:
                 patchesl = [[], [], [], []]
                 intensityl = [[], [], [], []]
-                for j in range(len(x)):
-                    for i in range(len(y)):
-                        rect = Rectangle(xy=(x[j]-beamx/2, y[i]-beamy/2), width=beamx, height=beamy)
+                for (j, xj) in enumerate(x):
+                    for (i, yi) in enumerate(y):
+                        rect = Rectangle(xy=(xj-beamx/2, yi-beamy/2), width=beamx, height=beamy)
                         grp = 2 * (i % 2) + (j % 2)
                         patchesl[grp].append(rect)
                         intensityl[grp].append(-1 if intensity.mask[i, j] else intensity[i, j])
@@ -787,8 +859,8 @@ class CPBatchWindow(QMainWindow):
                 tmpfig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
                 imgs = []
                 h, w = None, None
-                for i in range(len(patchesl)):
-                    p = PatchCollection(patchesl[i], cmap=self.colormap, norm=norm, antialiaseds=False)
+                for (i, patchl) in enumerate(patchesl):
+                    p = PatchCollection(patchl, cmap=self.colormap, norm=norm, antialiaseds=False)
                     p.set_array(np.ma.array(intensityl[i], mask=np.array(intensityl[i]) < 0))
                     tmpax.cla()
                     tmpax.add_collection(p)
@@ -862,7 +934,6 @@ class CPBatchWindow(QMainWindow):
                 patches.append(e)
                 c = max_val - self.intensity_dict[i + self.init_number] if i + self.init_number in self.intensity_dict else -1
                 colors.append(c)
-                # colors.append(0)
 
             colors = np.ma.array(colors, mask=np.array(colors) < 0)
             try:
@@ -870,10 +941,6 @@ class CPBatchWindow(QMainWindow):
             except ValueError:
                 min_val = -1
             norm = LogNorm(vmin=min_val, vmax=max_val) if self.usingLogScale else None
-            #p = PatchCollection(patches, cmap=self.colormap, norm=norm)
-            # p = PatchCollection(patches, cmap='gray', norm=norm)
-            #p.set_array(colors)
-            #ax.add_collection(p)
             for patch in patches:
                 patch.set_color('black')
                 ax.add_patch(patch)
@@ -899,51 +966,10 @@ class CPBatchWindow(QMainWindow):
         self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9,wspace=0, hspace=0)
         self.mapCanvas.draw()
 
-    # def updateAngularRangeTab(self):
-    #
-    #     if self.update_plot['arange_maps']:
-    #         if len(self.xyIntensity) < 3:
-    #             return
-    #
-    #         x = self.xyIntensity[0]
-    #         y = self.xyIntensity[1]
-    #         x_max = len(x)
-    #
-    #         if 'ar_' not in self.plots.keys():
-    #             ang_range = [
-    #                 convertRadtoDegrees(float(self.angrange_dict[i])) if i in self.angrange_dict and self.angrange_dict[
-    #                                                                                                      i] != '' else 0
-    #                 for
-    #                 i in range(self.init_number, len(self.hdf_data) + self.init_number)]
-    #             ang_range = [r if 0 < r <= 180 else 0 for r in ang_range]
-    #             ang_range = np.array([ang_range[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
-    #             self.plots['ar_'] = copy.copy(ang_range)
-    #         else:
-    #             ang_range = copy.copy(self.plots['ar_'])
-    #
-    #         # z = cv2.blur(z, (4,4))
-    #         x_coor, y_coor = np.meshgrid(x, y)
-    #
-    #         max_val = ang_range.max()
-    #         min_val = ang_range.min()
-    #         if self.ar_maxIntMap.value() < 100:
-    #             ang_range[ang_range > self.ar_maxIntMap.value() * max_val / 100.] = max_val
-    #         if self.ar_minIntMap.value() > 0:
-    #             ang_range[ang_range < self.ar_minIntMap.value() * max_val / 100.] = min_val
-    #
-    #         ax = self.angularMapAxes
-    #         ax.cla()
-    #         ax.set_title("Angular Range Map (Degrees)\n")
-    #         im = ax.pcolormesh(x_coor, y_coor, ang_range, cmap=self.color_maps)
-    #         ax.set_xlim(x.min() - self.xylim[0], x.max() + self.xylim[0])
-    #         ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
-    #         # self.angularMapFigure.colorbar(im)
-    #         self.angularMapFigure.tight_layout()
-    #         self.angularMapFigure.savefig(fullPath(self.filePath, 'cp_results/angular_range_map.png'))
-    #         self.angularMapCanvas.draw()
-    #         self.update_plot['arange_maps'] = False
-
     def updateVectorFieldMap(self, fixedsz=False):
+        """
+        Update the vector field map
+        """
         if len(self.xyIntensity) < 3:
             return
         self.orientationChkBx.setChecked(False)
@@ -961,7 +987,6 @@ class CPBatchWindow(QMainWindow):
              for i in
              range(self.init_number, len(self.hdf_data) + self.init_number)])
         orientation = [np.pi - ang for ang in orientation]
-        # orientation = [np.pi - ang if ang < np.pi else ang - np.pi for ang in orientation]
         orientation = np.array([orientation[i:i + x_max] for i in range(0, len(self.hdf_data), x_max)])
         if self.rotating90:
             orientation -= np.pi/2
@@ -1012,7 +1037,6 @@ class CPBatchWindow(QMainWindow):
             ax.set_ylim(y.min() - self.xylim[1], y.max() + self.xylim[1])
         else:
             ax.set_ylim(y.min() - self.xylim[0], y.max() + self.xylim[0])
-        # ax.set_aspect('auto')
         ax.set_facecolor('black')
 
         if self.isFlipX:
@@ -1020,7 +1044,6 @@ class CPBatchWindow(QMainWindow):
         if self.isFlipY:
             ax.invert_yaxis()
 
-        # self.vectorFieldMapFigure.colorbar(self.vec_quiver)
         if self.mapColorbar is None:
             self.mapColorbar = self.mapFigure.colorbar(self.vec_quiver, ax=ax, fraction=0.08, pad=0.01)
         else:
@@ -1029,10 +1052,10 @@ class CPBatchWindow(QMainWindow):
         self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
         self.mapCanvas.draw()
 
-        # if self.arrowLengthSlider.value() > 5:
-        #     self.updateVectorFieldArrow()
-
     def updateVectorFieldArrow(self):
+        """
+        Update the vector field arrow
+        """
         if len(self.xyIntensity) < 3 or len(self.vec_UV) < 2 or self.vec_quiver is None:
             return
         self.orientationChkBx.setChecked(False)
@@ -1059,9 +1082,12 @@ class CPBatchWindow(QMainWindow):
         VN = V * speed
         self.vec_quiver.set_UVC(UN, VN)
         self.vectorFieldMapCanvas.draw_idle()
-        self.vectorFieldMapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
+        self.vectorFieldMapFigure.savefig(fullPath(self.filePath, 'di_results/vector_field.png'))
 
     def updateEllipticalMap(self):
+        """
+        Update the elliptical map
+        """
         self.orientationChkBx.setChecked(False)
         self.orientationTypeChkBx.setChecked(False)
         self.orientationChkBx.setEnabled(False)
@@ -1072,7 +1098,6 @@ class CPBatchWindow(QMainWindow):
 
         x = self.xyIntensity[0]
         y = self.xyIntensity[1]
-
         centers = [(x[i], y[j]) for j in range(len(y)) for i in range(len(x))]
         ranges = [toFloat(self.angrange_dict[i]) if i in self.angrange_dict else 0. for i in
                   range(self.init_number, len(self.hdf_data) + self.init_number)]
@@ -1103,7 +1128,6 @@ class CPBatchWindow(QMainWindow):
         patches = []
         colors = []
         for i in range(len(self.hdf_data)):
-
             if ranges[i] == 0:
                 e = Ellipse(xy=centers[i], width=self.xylim[0]/5., height=self.xylim[0]/5.)
             else:
@@ -1112,7 +1136,6 @@ class CPBatchWindow(QMainWindow):
                 e = Ellipse(xy=centers[i], width= self.xylim[0] * widths[i], height=self.xylim[0],
                             angle=angle)
             patches.append(e)
-            # colors.append(self.intensity_dict[i + self.init_number])
 
             if i < len(int_display):
                 colors.append(int_display[i])
@@ -1147,10 +1170,13 @@ class CPBatchWindow(QMainWindow):
             self.mapFigure.axes[1].cla()
             self.mapFigure.colorbar(p, cax=self.mapColorbar.ax)
         self.mapFigure.subplots_adjust(left=0.125, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
-        # self.mapFigure.savefig(fullPath(self.filePath, 'cp_results/vector_field.png'))
+        # self.mapFigure.savefig(fullPath(self.filePath, 'di_results/vector_field.png'))
         self.mapCanvas.draw()
 
     def browseHDF(self, dir_path, hdfList=[]):
+        """
+        Browse HDF files
+        """
         hdf_filename = ""
         path = join(dir_path, 'settings')
         createFolder(path)
@@ -1183,6 +1209,9 @@ class CPBatchWindow(QMainWindow):
             self.close()
 
     def savecsvClicked(self):
+        """
+        Triggered when Save csv is clicked
+        """
         df_rings = self.csvManager.df_rings
         dist=self.distanceSpnBx.value()
         max_diff=self.bandwidthSpnBx.value()
@@ -1194,13 +1223,16 @@ class CPBatchWindow(QMainWindow):
         dir_path=self.filePath
         unit = str(self.unitChoice.currentText())
         csvname=f'rings_({minv}-{maxv}){unit}_anglesigma{self.angle_sigma}.csv'
-        csvfilepath=os.path.join(dir_path,'cp_results',csvname)
+        csvfilepath=os.path.join(dir_path,'di_results',csvname)
         print(df_rings.shape)
         filename=getSaveFile(csvfilepath,None)
         if filename!="":
             df_rings.to_csv(filename,index=False)
 
     def processBatchmodeResults(self):
+        """
+        Process the batch results
+        """
         QApplication.setOverrideCursor(Qt.WaitCursor)
         dir_path = self.filePath
         self.csvManager.load_all()
@@ -1213,10 +1245,6 @@ class CPBatchWindow(QMainWindow):
         self.angle_sigma=1
 
         self.angle_sigma=self.aSigmaSpnBx.value()
-        #df_rings=df_rings[df_rings['angle sigma']<self.angle_sigma]
-        #filelist=df_rings[df_rings['angle sigma']<self.angle_sigma]['filename'].tolist()
-
-        #df_sum=df_sum[df_sum['filename'].isin(filelist)]
 
         # Read intensity from csv to organize the info given
         self.name_dict = {}
@@ -1231,7 +1259,6 @@ class CPBatchWindow(QMainWindow):
 
         for i, row in df_sum.iterrows():
             filename = str(row['filename'])
-
             start_ind = filename.rfind('_')
             end_ind = filename.rfind('.')
             index = int(row['filename'][start_ind + 1:end_ind])
@@ -1240,10 +1267,8 @@ class CPBatchWindow(QMainWindow):
                     if 'total intensity (hull)' in row and not np.isnan(row['total intensity (hull)']) else \
                     row['total intensity']
             self.sim_inten_dict[index] = row['total intensity']
-            #print(np.isnan(row['total intensity (hull)']), self.intensity_dict[index], self.sim_inten_dict[index])
 
             # Add ring model if its error < 1. and sigma < 1. (prevent uniform ring)
-
             all_rings = df_rings[(df_rings['filename'] == filename) ]
 
             if len(all_rings) > 0:
@@ -1251,7 +1276,6 @@ class CPBatchWindow(QMainWindow):
                 if self.bestRadio.isChecked():
                     all_rings = all_rings.sort_values(['angle fitting error'], ascending=True)
                     best_ring = all_rings.iloc[0]
-
                 else:
                     dist = self.distanceSpnBx.value()
                     unit = str(self.unitChoice.currentText())
@@ -1265,7 +1289,7 @@ class CPBatchWindow(QMainWindow):
                         if abs(float(all_rings.iloc[min_ind][col])-dist) > max_dif:
                             distance_ok = False
                     except Exception:
-                        print("WARNING : Unable to find the closest ring to the specified d-spacing for image %s" % (row['filename']))
+                        print(f"WARNING : Unable to find the closest ring to the specified d-spacing for image {row['filename']}")
                         min_ind = 0
                         distance_ok = False
                     best_ring = all_rings.iloc[min_ind]
@@ -1299,7 +1323,6 @@ class CPBatchWindow(QMainWindow):
 
         # Read hdf5 file to get the coordinates and image shape
         self.hdf_data = self.get_scan_data(hdf_filename)
-
         self.coord_dict = {}
 
         for i in range(self.init_number, len(self.hdf_data) + self.init_number):
@@ -1359,9 +1382,15 @@ class CPBatchWindow(QMainWindow):
         QApplication.restoreOverrideCursor()
 
     def convert_to_float(self, i):
+        """
+        Convert i to float
+        """
         return float(i) if i.replace('.', '', 1).replace('-', '').isdigit() else i
 
     def get_scan_data(self, filename):
+        """
+        Give the scanned data
+        """
         if h5py.is_hdf5(filename):
             hf = h5py.File(filename, 'r')
             coordinates=np.array(hf.get('data').get('BL'))
@@ -1378,34 +1407,6 @@ class CPBatchWindow(QMainWindow):
                     ys=-1
                 else:
                     ys=1
-                # x_step=hf.get('header').get('Xstep')[0]
-                # y_step=hf.get('header').get('Ystep')[0]
-
-                # if x_initial>x_final:
-                #     x_step=-1*x_step
-                # if y_initial>y_final:
-                #     y_step=-1*y_step
-
-                # xnstep=math.ceil((x_final-x_initial)/x_step)
-                # ynstep=math.ceil((y_final-y_initial)/y_step)
-                # print(x_initial)
-                # print(x_final)
-                # print(xnstep)
-                # print(y_initial)
-                # print(y_final)
-                # print(ynstep)
-                # data=[]
-                # x_initial=x_final
-                # y_initial=y_final
-                # x_step=1
-                # y_step=1
-
-                # for j in range(0,ynstep):
-                #     y=y_initial+j*y_step
-                #     for i in range(0,xnstep):
-                #         x=x_initial+i*x_step
-                #         data.append((x,y))
-                # coordinates=np.array(data)
                 coordinates=np.array(hf.get('data').get('BL'))
 
                 l=len(coordinates)
@@ -1420,8 +1421,12 @@ class CPBatchWindow(QMainWindow):
             return sorted(self.parse_logfiles_dir(filename), key=lambda x: (x[1], x[0]))
         elif filename.endswith('.log'):
             return self.parse_logfile(filename)
+        return None
 
     def parse_logfile(self, filename):
+        """
+        Parse the log file
+        """
         data_dir, fname = os.path.split(filename)
         count_filename = os.path.join(data_dir, fname)
 
@@ -1446,6 +1451,9 @@ class CPBatchWindow(QMainWindow):
         return scans
 
     def parse_logfiles_dir(self, dir_name):
+        """
+        Parse the directory log file
+        """
         files = os.listdir(dir_name)
         data = []
         for f in files:
@@ -1455,7 +1463,9 @@ class CPBatchWindow(QMainWindow):
         return data
 
     def refreshAllTabs(self):
-        # Set all update flags to True
+        """
+        Set all update flags to True
+        """
         self.update_plot = {'intensity_maps': True,
                             'ds_maps': True,
                             'arange_maps': True,
@@ -1464,11 +1474,14 @@ class CPBatchWindow(QMainWindow):
                             }
 
     def processFolder(self, dir_path):
+        """
+        Process the folder selected
+        """
         imgList, hdfList = getFilesAndHdf(dir_path)
-        createFolder(fullPath(dir_path, 'cp_results'))
+        createFolder(fullPath(dir_path, 'di_results'))
 
         if len(imgList) == 0:
-            if exists(fullPath(dir_path, 'cp_results/summary.csv')):
+            if exists(fullPath(dir_path, 'di_results/summary.csv')):
                 self.browseHDF(dir_path, hdfList)
             else:
                 errMsg = QMessageBox()
@@ -1488,10 +1501,13 @@ class CPBatchWindow(QMainWindow):
             imgList = list(tmp_imlist - all_imgs)
             imgList.sort()
             if len(imgList) > 0:
-                CPImageWindow(self, "", dir_path, process_folder=True, imgList=imgList)
+                DIImageWindow(self, "", dir_path, process_folder=True, imgList=imgList)
             self.browseHDF(dir_path, hdfList)
 
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
+        """
+        Set the min and max intensity with parameters
+        """
         min_val = img.min()
         max_val = img.max()
         self.intensityRange = [min_val, max_val - 1, min_val + 1, max_val]
@@ -1520,12 +1536,18 @@ class CPBatchWindow(QMainWindow):
             self.updatingUI = False
 
     def updateRightStatusBar(self, text):
+        """
+        Update the right status bar
+        """
         QApplication.processEvents()
         self.statusLabel.setHidden(False)
         self.statusLabel.setText(text)
         QApplication.processEvents()
 
     def updateStatusBar(self, text, sbar=None):
+        """
+        Update status bar
+        """
         QApplication.processEvents()
         self.imagePathLabel.setText(text)
         if sbar is not None:
@@ -1533,4 +1555,7 @@ class CPBatchWindow(QMainWindow):
         QApplication.processEvents()
 
 def convertRadtoDegreesEllipse(rad):
+    """
+    Convert radian to degrees
+    """
     return rad * 180. / np.pi
