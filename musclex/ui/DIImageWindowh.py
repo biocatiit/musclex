@@ -332,6 +332,7 @@ class DIImageWindowh():
                 os.remove(cache_path)
         fileName = self.imgList[self.currentFileNumber]
         print("current file is "+fileName)
+        self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
         self.processImage(True)
         print('---------------------------------------------------')
 

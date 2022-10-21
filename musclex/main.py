@@ -96,9 +96,9 @@ def main(arguments=None):
             sys.exit(app.exec_())
         elif prog == 'test_global':
             if getattr(sys, 'frozen', False):
-                subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"musclex_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)).wait() # run the test program in a subprocess
+                subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "musclex_tester.py")]).wait() # run the test program in a subprocess
             elif __file__:
-                subprocess.Popen(os.path.join(os.path.dirname(__file__),"musclex_tester.sh"),  cwd=os.path.dirname(__file__)).wait() # run the test program in a subprocess
+                subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "musclex_tester.py")]).wait() # run the test program in a subprocess
             sys.exit()
         elif prog == 'test_impl':
             suite = unittest.TestSuite()
@@ -115,9 +115,9 @@ def main(arguments=None):
             sys.exit()
         elif prog == 'test_env':
             if getattr(sys, 'frozen', False):
-                subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"environment_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)).wait() # run the test program in a subprocess
+                subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "environment_tester.py")]).wait() # run the test program in a subprocess
             elif __file__:
-                subprocess.Popen(os.path.join(os.path.dirname(__file__),"environment_tester.sh"),  cwd=os.path.dirname(__file__)).wait() # run the test program in a subprocess
+                subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "environment_tester.py")]).wait() # run the test program in a subprocess
             sys.exit()
         elif prog == 'test_gpu':
             suite = unittest.TestSuite()
@@ -196,11 +196,11 @@ def main(arguments=None):
         if run:
             if not processFolder:
                 from musclex.ui.DIImageWindowh import DIImageWindowh
-                DIImageWindowh(str(fileName), str(filePath),inputsetting, delcache, settingspath)
+                DIImageWindowh(str(fileName), str(filePath), inputsetting, delcache, settingspath)
                 sys.exit()
             else:
                 from musclex.ui.DIBatchWindowh import DIBatchWindowh
-                DIBatchWindowh( str(filePath),inputsetting,delcache,settingspath)
+                DIBatchWindowh( str(filePath), inputsetting, delcache, settingspath)
                 sys.exit()
 
     elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':

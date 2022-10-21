@@ -4,24 +4,10 @@
 
 In order to install the program, you need to install Docker first.
 
-## Installing Docker
-To install Docker follow the [docker website](https://docs.docker.com/engine/install/) instructions and [post-install](https://docs.docker.com/engine/installation/linux/linux-postinstall/) instructions.
- 
-For Ubuntu:
-```
-sudo apt-get update
-sudo apt-get install curl
-sudo curl -sSL https://get.docker.com/ | sh
-```
-For Windows: follow the steps as described [here](https://github.com/biocatiit/musclex/issues/4)
+## Installing Docker (rootless mode)
 
-For Mac: follow the steps as described [here](https://docs.docker.com/docker-for-mac/install/)
-
-For Debian: follow the steps as described [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-10)
-
-## Installing Docker as a non-root user
 MuscleX is often creating folders during its use in order to store the results. With the normal version of Docker, you will need to be a root user to access those files.
-Since Docker 20.10, it is possible to use 'rootless' Docker. We recommend using this way to use Docker to facilitate the access to MuscleX's results.
+However, since Docker v20.10, it is possible to use 'rootless' Docker. We recommend using this version of Docker to facilitate the access to MuscleX's results.
 
 Follow the [rootless docker](https://docs.docker.com/engine/security/rootless/) instructions and [post-install](https://docs.docker.com/engine/installation/linux/linux-postinstall/) instructions.
 
@@ -93,45 +79,4 @@ To update musclex
 To see all options
 ```
 ./musclex.sh -h
-```
-
-
-
-## Running a Muscle X program by building Docker image
-Use this to build your own docker image and run musclex program on it. This would avoid any permission issues on the files created by the program. Download the following files and cd into the folder with these files.
-```
-musclex-uid.sh
-dockerfile-uid
-```
-Run the following command to build the docker image,
-```
-./musclex-uid.sh -b
-```
-After successfully building the image, run musclex using the following command
-```
-./musclex-uid.sh [program shortcut]
-```
-For example, run this command to run Equator
-```
-./musclex-uid.sh eq
-```
-If you are using ssh to log into a remote server to run musclex there use the following instead
-```
-./musclex-uid.sh -s eq
-```
-To see previous versions
-```
-./musclex-uid.sh -l
-```
-To run a specific version
-```
-./musclex-uid.sh -v 1-14.11 eq
-```
-To update musclex
-```
-./musclex-uid.sh -u
-```
-To see all options
-```
-./musclex-uid.sh -h
 ```

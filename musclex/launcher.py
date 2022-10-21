@@ -255,9 +255,11 @@ class TestDialog(QDialog):
         QApplication.processEvents()
 
         if getattr(sys, 'frozen', False):
-            subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"environment_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)) # run the test program in a subprocess
+            # run the test program in a subprocess
+            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "environment_tester.py")])
         elif __file__:
-            subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"environment_tester.sh"),  cwd=os.path.dirname(__file__)) # run the test program in a subprocess
+            # run the test program in a subprocess
+            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "environment_tester.py")])
 
         self.progressBar.setValue(0)
         QApplication.processEvents()
@@ -276,7 +278,7 @@ class TestDialog(QDialog):
 
         test_results = self.get_latest_test()
 
-        if test_results.find('WARNING') != -1:
+        if test_results.find('warning') != -1:
             self.detail.setTextColor(self.red)
             self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
         else:
@@ -375,11 +377,13 @@ class TestDialog(QDialog):
         from the log in the parent process.
         """
         self.progressBar.reset()
-        NTESTS = 19
+        NTESTS = 10
         if getattr(sys, 'frozen', False):
-            subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"musclex_tester.sh"), cwd=os.path.dirname(sys._MEIPASS)) # run the test program in a subprocess
+            # run the test program in a subprocess
+            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "musclex_tester.py")])
         elif __file__:
-            subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"musclex_tester.sh"),  cwd=os.path.dirname(__file__)) # run the test program in a subprocess
+            # run the test program in a subprocess
+            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "musclex_tester.py")])
 
         if os.path.exists(self.test_path):
             prev_data = open(self.test_path, 'r').readlines()
@@ -425,7 +429,7 @@ class TestDialog(QDialog):
         test_summary = test_results.split('Summary of Test Results')
 
         if len(test_summary) >= 2:
-            if test_summary[1].find('FAIL') != -1 or test_summary[1].find('ERROR') != -1:
+            if test_summary[1].find('fail') != -1:
                 self.detail.setTextColor(self.red)
                 self.detail.insertPlainText("\nSome tests failed -- see below for details.\n")
             else:
@@ -446,9 +450,11 @@ class TestDialog(QDialog):
         self.progressBar.reset()
         NTESTS = 8
         if getattr(sys, 'frozen', False):
-            subproc = subprocess.Popen(os.path.join(os.path.dirname(sys._MEIPASS),"run_tests.sh")) # run the test program in a subprocess
+             # run the test program in a subprocess
+            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "module_test.py")])
         elif __file__:
-            subproc = subprocess.Popen(os.path.join(os.path.dirname(__file__),"run_tests.sh")) # run the test program in a subprocess
+             # run the test program in a subprocess
+            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "module_test.py")])
 
         if os.path.exists(self.test_path):
             prev_data = open(self.test_path, 'r').readlines()

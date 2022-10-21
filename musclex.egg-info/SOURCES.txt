@@ -4,13 +4,8 @@ README.md
 setup.cfg
 setup.py
 musclex/__init__.py
-musclex/environment_tester.sh
 musclex/launcher.py
 musclex/main.py
-musclex/musclex_headless_compare.sh
-musclex/musclex_headless_generator.sh
-musclex/musclex_tester.sh
-musclex/run_tests.sh
 musclex.egg-info/PKG-INFO
 musclex.egg-info/SOURCES.txt
 musclex.egg-info/dependency_links.txt
@@ -37,7 +32,7 @@ musclex/modules/setup2.py
 musclex/tests/__init__.py
 musclex/tests/environment_tester.py
 musclex/tests/module_test.py
-musclex/tests/run_tests.py
+musclex/tests/musclex_tester.py
 musclex/tests/test_utils.py
 musclex/tests/dc/test_pickles_settingsDC/90rotation_record_dc_P40_1_3_00000v1.15.7.p
 musclex/tests/dc/test_pickles_settingsDC/90rotation_record_dc_P40_1_3_00001v1.15.7.p
