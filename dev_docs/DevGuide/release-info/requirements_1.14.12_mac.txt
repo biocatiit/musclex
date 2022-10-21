@@ -22,7 +22,7 @@ jdcal==1.4
 kiwisolver==1.0.1
 lmfit==0.9.11
 macholib==1.11
-Mako==1.0.7
+Mako==1.2.2
 MarkupSafe==1.0
 matplotlib==2.2.2
 # Editable install with no version control (musclex==1.13.4)
