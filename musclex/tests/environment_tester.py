@@ -84,9 +84,10 @@ class EnvironmentTester(unittest.TestCase):
             "matplotlib" : "3.6.0",
             "Cython" : "0.29.32",
             "opencv-python" : "4.2.0",
-            "pyFAI" : "0.21.3"
+            "pyFAI" : "0.21.3",
+            "distro" : "1.7.0"
             }
-        print(f"\033[3;33m\nVerifying that installed Python version {python_version} is equivalent to Python at the release v1.15.7\033[0;3140m")
+        print(f"\033[3;33m\nVerifying that installed Python version {python_version} is equivalent to Python at the release {musclex.__version__}\033[0;3140m")
         if platform.python_version() == python_version["python"]:
             print("Testing Python version ..... \033[0;32mPASSED\033[0;3140m")
             python_test = True
@@ -114,7 +115,7 @@ def env_test(pip, pip_details):
     """
     Function importing the package pip and comparing the version to the package version at the release
     """
-    print(f"\033[3;33m\nVerifying that installed package {pip} is equivalent to package at the release v1.15.7\033[0;3140m")
+    print(f"\033[3;33m\nVerifying that installed package {pip} is equivalent to package at the release {musclex.__version__}\033[0;3140m")
     if pip == "scikit-image":
         module = __import__("skimage")
     elif pip == "scikit-learn":

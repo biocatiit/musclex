@@ -16,4 +16,5 @@ Cython
 opencv-python
 pyFAI
 distro
+dload
 PyMca5

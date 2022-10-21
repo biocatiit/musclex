@@ -37,6 +37,7 @@ sys.path.append('..')
 from musclex.ui.ui_launcherform import *
 from musclex import __version__
 from musclex.utils.exception_handler import handlers
+from musclex.utils.zip_download import download_zip_pickles
 from musclex.tests.module_test import *
 
 if sys.platform in handlers:
@@ -179,6 +180,7 @@ class TestDialog(QDialog):
         Initialize the UI
         """
         self.testDialogLayout = QVBoxLayout()
+        self.downloadButton = QPushButton('Download Test Files')
         self.runSummaryTestsButton = QPushButton('Run MuscleX Global Summary Tests')
         self.runDetailedTestsButton = QPushButton('Run MuscleX Detailed Implementation Tests')
         self.runEnvironmentTestButton = QPushButton('Run Environment Test')
@@ -191,6 +193,7 @@ class TestDialog(QDialog):
         self.progressBar.setGeometry(0, 0, 300, 25)
         self.progressBar.setMaximum(100)
 
+        self.testDialogLayout.addWidget(self.downloadButton)
         self.testDialogLayout.addWidget(self.runSummaryTestsButton)
         self.testDialogLayout.addWidget(self.runDetailedTestsButton)
         self.testDialogLayout.addWidget(self.runEnvironmentTestButton)
@@ -200,6 +203,7 @@ class TestDialog(QDialog):
         self.testDialogLayout.addWidget(self.cancelButton)
         self.testDialogLayout.addWidget(self.progressBar)
 
+        self.downloadButton.clicked.connect(self.downloadButtonClicked)
         self.runSummaryTestsButton.clicked.connect(self.runSummaryTestsButtonClicked)
         self.runDetailedTestsButton.clicked.connect(self.runDetailedTestsButtonClicked)
         self.runEnvironmentTestButton.clicked.connect(self.runEnvTestButtonClicked)
@@ -232,6 +236,12 @@ class TestDialog(QDialog):
         """
         self.close()
 
+    def downloadButtonClicked(self):
+        """
+        Triggered when Detailed implementation test button is clicked
+        """
+        download_zip_pickles(os.path.dirname(__file__))
+
     def runSummaryTestsButtonClicked(self):
         """
         Triggered when Global summary test button is clicked
@@ -242,6 +252,7 @@ class TestDialog(QDialog):
         """
         Triggered when Detailed implementation test button is clicked
         """
+        download_zip_pickles(os.path.dirname(__file__))
         self.run_detailed_test()
 
     def runEnvTestButtonClicked(self):

@@ -15,6 +15,7 @@ sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-
 
 pip3 install --upgrade pip
 pip3 install --upgrade distro
+pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
@@ -85,14 +86,15 @@ python3 -m venv musclex
 source musclex/bin/activate
 which python3
 pip install --upgrade pip
-pip3 install distro
-pip3 install pyopencl
-pip3 install cython
-pip3 install numpy
-pip3 install opencv-python
-pip3 install pyfai
-pip3 install PyQt5
-pip3 install musclex
+pip3 install --upgrade distro
+pip3 install --upgrade dload
+pip3 install --upgrade pyopencl
+pip3 install --upgrade cython
+pip3 install --upgrade numpy
+pip3 install --upgrade opencv-python
+pip3 install --upgrade pyfai
+pip3 install --upgrade PyQt5
+pip3 install --upgrade musclex
 #pip3 install git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
 musclex eq
 ```

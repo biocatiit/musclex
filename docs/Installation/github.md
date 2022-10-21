@@ -18,6 +18,7 @@ sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-
 
 pip3 install --upgrade pip
 pip3 install --upgrade distro
+pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
@@ -44,6 +45,7 @@ source musclex/bin/activate
 which python3
 pip3 install --upgrade pip
 pip3 install --upgrade distro
+pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
@@ -109,6 +111,6 @@ pip install -U pandas
 ```
 If you get "Could not load the Qt platform plugin" install an older version of opencv by
 ```
-pip3 install opencv-python==4.1.2.30
+pip3 install opencv-python==4.2.0.32
 ```
 
