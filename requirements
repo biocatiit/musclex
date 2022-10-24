@@ -9,6 +9,7 @@ pillow
 fabio
 peakutils
 h5py
+hdf5plugin
 scipy
 matplotlib
 musclex_ccp13

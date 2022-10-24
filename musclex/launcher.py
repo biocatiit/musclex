@@ -240,7 +240,7 @@ class TestDialog(QDialog):
         """
         Triggered when Detailed implementation test button is clicked
         """
-        download_zip_pickles(os.path.dirname(__file__))
+        self.run_download_pickles()
 
     def runSummaryTestsButtonClicked(self):
         """
@@ -252,7 +252,7 @@ class TestDialog(QDialog):
         """
         Triggered when Detailed implementation test button is clicked
         """
-        download_zip_pickles(os.path.dirname(__file__))
+        self.run_download_pickles()
         self.run_detailed_test()
 
     def runEnvTestButtonClicked(self):
@@ -380,6 +380,25 @@ class TestDialog(QDialog):
 
         self.detail.setFontWeight(50)
         self.detail.insertPlainText(f"{'-'*80}{self.get_release_results()}{'-'*80}")
+        QApplication.processEvents()
+
+    def run_download_pickles(self):
+        """
+        Run the downloading for pickle files.
+        """
+        self.progressBar.reset()
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.setFontWeight(100)
+        self.detail.insertPlainText("\nDownloading and unzipping pickle files for testing.\nThis could take a few minutes...")
+        QApplication.processEvents()
+
+        download_zip_pickles(os.path.dirname(__file__))
+
+        self.progressBar.setValue(100)
+        QApplication.processEvents()
+
+        self.detail.moveCursor(QTextCursor.End)
+        self.detail.insertPlainText("\nDone.\n")
         QApplication.processEvents()
 
     def run_summary_test(self):

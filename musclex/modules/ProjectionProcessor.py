@@ -35,7 +35,7 @@ from lmfit.models import GaussianModel, VoigtModel
 from sklearn.metrics import r2_score
 import fabio
 import musclex
-from ..utils.file_manager import fullPath, createFolder
+from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
 from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
 from ..utils.image_processor import *
 
@@ -53,6 +53,7 @@ class ProjectionProcessor:
         #     img = cv2.copyMakeBorder(img, top=0, bottom=0, left=int((img.shape[0]-img.shape[1])/2), right=int((img.shape[0]-img.shape[1])/2), borderType=cv2.BORDER_CONSTANT)
         # img -= img.min()
         self.orig_img = img
+        self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
         if self.orig_img.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:

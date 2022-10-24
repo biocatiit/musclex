@@ -134,6 +134,7 @@ class AddIntensities(QMainWindow):
             sum_img = 0
             for fname in numberToFilesMap[key]:
                 img = fabio.open(fname).data
+                img = ifHdfReadConvertless(fname, img)
                 if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
                     sum_img = self.resizeImage(sum_img, img.shape)
                 elif not isinstance(sum_img, int):

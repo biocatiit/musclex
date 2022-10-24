@@ -40,7 +40,7 @@ from scipy.integrate import simps
 from sklearn.metrics import r2_score
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import musclex
-from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask
+from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, ifHdfReadConvertless
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 
@@ -50,6 +50,7 @@ class ScanningDiffraction:
     """
     def __init__(self, filepath, filename, logger = None):
         original_image = fabio.open(fullPath(filepath, filename)).data
+        original_image = ifHdfReadConvertless(filename, original_image)
         self.original_image = original_image.astype("float32")
         if self.original_image.shape == (1043, 981):
             self.img_type = "PILATUS"

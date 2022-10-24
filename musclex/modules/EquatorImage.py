@@ -38,7 +38,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import fabio
 import musclex
-from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly
+from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless, isHdf5
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 
@@ -56,7 +56,8 @@ class EquatorImage:
         self.dir_path = dir_path
         self.filename = filename
         self.orig_img = fabio.open(fullPath(dir_path, filename)).data
-        self.orig_img=self.orig_img.astype("float32")
+        self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
+        self.orig_img = self.orig_img.astype("float32")
         self.image = None
         self.skeletalVarsNotSet = False
         if self.orig_img.shape == (1043, 981):

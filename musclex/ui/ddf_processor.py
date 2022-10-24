@@ -27,7 +27,6 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
-import sys
 import musclex
 import pandas as pd
 from .pyqt_utils import *

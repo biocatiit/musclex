@@ -33,7 +33,7 @@ import matplotlib.patches as patches
 import fabio
 import musclex
 from ..ui.pyqt_utils import *
-from ..utils.file_manager import fullPath, createFolder
+from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
 from ..utils.image_processor import *
 
 class CalibrationSettings(QDialog):
@@ -448,6 +448,7 @@ class CalibrationSettings(QDialog):
         """
         if self.cal_img is None:
             self.cal_img = fabio.open(str(self.calFile)).data
+            self.cal_img = ifHdfReadConvertless(str(self.calFile), self.cal_img)
 
         if self.minInt.value() == 0 and self.maxInt.value() == 0:
             self.uiUpdating = True

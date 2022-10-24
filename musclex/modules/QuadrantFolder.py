@@ -37,7 +37,7 @@ import ccp13
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import musclex
 import musclex.modules.QF_utilities as qfu
-from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
+from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 
@@ -56,6 +56,7 @@ class QuadrantFolder:
         :param img_name: image file name
         """
         self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+        self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
         self.orig_img = self.orig_img.astype("float32")
         self.orig_image_center = None
         self.dl, self.db = 0, 0

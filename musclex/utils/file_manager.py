@@ -28,9 +28,10 @@ authorization from Illinois Institute of Technology.
 
 import os
 from os.path import split, exists, join
+import numpy as np
 import fabio
 
-input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'pilatus', 'tif', 'hdf5', 'smv']
+input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd','hdf5', 'h5', 'pilatus', 'tif', 'smv']
 
 def getFilesAndHdf(dir_path):
     """
@@ -135,6 +136,27 @@ def isImg(fileName):
     """
     nameList = fileName.split('.')
     return nameList[-1] in input_types
+
+def isHdf5(fileName):
+    """
+    Check if a file name is an hdf5 file
+    :param fileName: (str)
+    :return: True or False
+    """
+    nameList = fileName.split('.')
+    return nameList[-1] in ('hdf5', 'h5')
+
+def ifHdfReadConvertless(fileName, img):
+    """
+    Check if a file name is an hdf5 file
+    and convert it to be directly readable without converting to tiff
+    :param fileName, img: (str), (array)
+    :return: img converted
+    """
+    if isHdf5(fileName):
+        img = img.astype(np.int32)
+        img[img==4294967295] = -1
+    return img
 
 def createFolder(path):
     """

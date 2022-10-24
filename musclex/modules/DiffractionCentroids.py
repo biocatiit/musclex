@@ -35,7 +35,7 @@ from lmfit import Parameters
 from lmfit.models import VoigtModel
 import fabio
 import musclex
-from ..utils.file_manager import fullPath
+from ..utils.file_manager import fullPath, ifHdfReadConvertless
 from ..utils.image_processor import *
 from ..utils.histogram_processor import *
 
@@ -82,6 +82,7 @@ class DiffractionCentroids:
         for fname in imgList:
             fullname = fullPath(dir_path, fname)
             img = fabio.open(fullname).data
+            img = ifHdfReadConvertless(fname, img)
             imgList2.append(img)
         return np.mean(imgList2, axis=0)
 
