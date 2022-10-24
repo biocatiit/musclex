@@ -43,7 +43,7 @@ def log_progress(progress, total):
     if per >= 100:
         print(' [DONE]')
 
-def generate_tiff_files(fn, metadata, path, prefix):
+def generate_tiff_files(fn, path, prefix, compress):
     """
     Generate tiff files from a hdf file.
     :param fn, metadata, path, prefix:
@@ -52,28 +52,34 @@ def generate_tiff_files(fn, metadata, path, prefix):
     print('Generating TIFF Files...')
     with fabio.open(fn) as fabio_img:
         # create_tiff(fabio_img.data, metadata, path, prefix, 1)
-        create_tiff(fabio_img, metadata, path, prefix, 1)
+        create_tiff(fabio_img, path, prefix, 1, compress)
         if fabio_img.nframes > 1:
             for i in range(2, fabio_img.nframes + 1):
                 fabio_img = fabio_img.next()
                 # create_tiff(fabio_img.data, metadata, path, prefix, i)
-                create_tiff(fabio_img, metadata, path, prefix, i)
+                create_tiff(fabio_img, path, prefix, i, compress)
                 log_progress(i, fabio_img.nframes)
     print('Completed')
 
-def create_tiff(img_data, metadata, path, prefix, serial):
+def create_tiff(img_data, path, prefix, serial, compress):
     """
     Create a tiff file from a hdf file.
     :param img_data, metadata, path, prefix, serial:
     :return: -
     """
     tif_file_name = path + os.sep + prefix + '_{:04d}'.format(serial) + '.tif'
+    zip_tif_file_name = path + os.sep + prefix + '_{:04d}'.format(serial) + '_zip' + '.tif'
     # extra_tags = [("ImageDescription", 's', 0, metadata, True)]
     # tifffile.imsave(tif_file_name, img_data, extratags=extra_tags)
     data = img_data.data.astype(np.int32)
     data[data==4294967295] = -1
-    tif_img = fabio.pilatusimage.pilatusimage(data=data, header=img_data.getheader())
-    tif_img.write(tif_file_name)
+    if compress:
+        from PIL import Image
+        tif_img = Image.fromarray(data)
+        tif_img.save(zip_tif_file_name, compression='tiff_lzw', exif=img_data.getheader())
+    else:
+        tif_img = fabio.pilatusimage.pilatusimage(data=data, header=img_data.getheader())
+        tif_img.write(tif_file_name)
 
 def read_meta_data(meta_fn):
     """
@@ -86,12 +92,14 @@ def read_meta_data(meta_fn):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='The script will generate the tiff files from the given hdf5 file. Metadata will be read from the '
-                    'given metadata file and added as an ImageDescription tag in all the tiff files.')
+        description='The script will generate the tiff files from the given hdf5 file. Metadata will be read from the given metadata file and added as an ImageDescription tag in all the tiff files.')
     parser.add_argument('-h5', metavar='hdf5', help='Path to the Hdf5 file')
     parser.add_argument('-m', metavar='metadata', help='Path to the metadata text file')
+    parser.add_argument('-z', action='store_true', help='Generate a compressed version of the TIF images')
+
     args = parser.parse_args()
 
+    compress = args.z
     h5_filename = args.h5
     if not h5_filename:
         print(parser.format_help())
@@ -101,8 +109,8 @@ if __name__ == '__main__':
             print(f)
             path = os.path.dirname(os.path.abspath(f))
             prefix = os.path.basename(f).rsplit('.', 1)[0]
-            metadata = ''
-            if args.m:
-                metadata = read_meta_data(args.m)
-
-            generate_tiff_files(f, metadata, path, prefix)
+            # metadata = ''
+            # if args.m:
+            #     metadata = read_meta_data(args.m)
+            
+            generate_tiff_files(f, path, prefix, compress)

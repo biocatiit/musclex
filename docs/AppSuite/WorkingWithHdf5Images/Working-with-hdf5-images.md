@@ -1,5 +1,5 @@
 ### Convert HDF5 file to TIFF files
-The script will generate the tiff files from the hdf5 file. The Metadata are read from the metadata file and added as an ImageDescription tag in all the tiff files.
+The script will generate the tiff files from the hdf5 file. The Metadata are read from the metadata file and added as an ImageDescription tag in all the tiff files. It is possible to generate a compressed version of the file to save space.
 
 - Source Code: https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py
 
