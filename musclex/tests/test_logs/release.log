@@ -23,16 +23,20 @@
 - Ubuntu (20.04): fully tested
 
 --> Pip versions detail:
-scikit-image      0.19.3
-tifffile          2022.8.12
-numpy             1.23.3
-pandas            1.5.0rc0
-scikit-learn      1.1.2
-lmfit             1.0.3
-fabio             0.14.0
-h5py              3.7.0
-scipy             1.9.1
-matplotlib        3.6.0
-Cython            0.29.32
-opencv-python     4.2.0.32
-pyFAI             0.21.3
+Cython                 0.29.32
+distro                 1.7.0
+dload                  0.6
+fabio                  0.14.0
+h5py                   3.7.0
+hdf5plugin             3.3.1
+lmfit                  1.0.3
+matplotlib             3.6.0
+numpy                  1.23.3
+opencv-python-headless 4.6.0.66
+pandas                 1.5.0rc0
+pyFAI                  0.21.3
+PyMca5                 5.7.5
+scikit-image           0.19.3
+scikit-learn           1.1.2
+scipy                  1.9.1
+tifffile               2022.8.12

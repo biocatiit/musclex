@@ -31,7 +31,7 @@ from os.path import split, exists, join
 import numpy as np
 import fabio
 
-input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd','hdf5', 'h5', 'pilatus', 'tif', 'smv']
+input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd','hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 
 def getFilesAndHdf(dir_path):
     """

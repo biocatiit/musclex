@@ -19,7 +19,7 @@ pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
-pip3 install --upgrade opencv-python
+pip3 install --upgrade opencv-python-headless
 pip3 install --upgrade pyfai
 pip3 install --upgrade PyQt5
 pip3 install --upgrade musclexflibs
@@ -58,13 +58,13 @@ The default MSVC chosen by Python 2.7 is MSVC 9.0. We recommend forcing the use 
 
 Then install dependencies:
 ```
-pip install numpy cython python-qt5 opencv-python pyfai
+pip install numpy cython python-qt5 opencv-python-headless pyfai
 ```
 
 #### Python 3.6 on Windows
 The default MSVC chosen by Python 3.6 is MSVC 14.0. The minimal customized installation of [Microsoft Build Tools 2015 Update 3][2] is enough. Then install dependencies: 
 ```
-pip install cython numpy pyqt5 opencv-python pyfai
+pip install cython numpy pyqt5 opencv-python-headless pyfai
 ```
 
 ## Installing
@@ -92,7 +92,7 @@ pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
-pip3 install --upgrade opencv-python
+pip3 install --upgrade opencv-python-headless
 pip3 install --upgrade pyfai
 pip3 install --upgrade hdf5plugin
 pip3 install --upgrade PyQt5

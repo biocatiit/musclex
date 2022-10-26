@@ -73,7 +73,7 @@ class EnvironmentTester(unittest.TestCase):
         python_version = { "python" : "3.8.15" }
         pip_details = {
             "scikit-image" : "0.19.3",
-            "tifffile" : "2022.8.12",
+            "tifffile" : "2022.10.10",
             "numpy" : "1.23.3",
             "pandas" : "1.5.0rc0",
             "scikit-learn" : "1.1.2",
@@ -83,9 +83,11 @@ class EnvironmentTester(unittest.TestCase):
             "scipy" : "1.9.1",
             "matplotlib" : "3.6.0",
             "Cython" : "0.29.32",
-            "opencv-python" : "4.2.0",
+            "opencv-python-headless" : "4.6.0",
             "pyFAI" : "0.21.3",
-            "distro" : "1.7.0"
+            "distro" : "1.7.0",
+            "hdf5plugin" : "3.3.1",
+            "PyMca5" : "5.7.5"
             }
         print(f"\033[3;33m\nVerifying that installed Python version {python_version} is equivalent to Python at the release {musclex.__version__}\033[0;3140m")
         if platform.python_version() == python_version["python"]:
@@ -120,11 +122,11 @@ def env_test(pip, pip_details):
         module = __import__("skimage")
     elif pip == "scikit-learn":
         module = __import__("sklearn")
-    elif pip == "opencv-python":
+    elif pip == "opencv-python-headless":
         module = __import__("cv2")
     else:
         module = __import__(pip)
-    if pip in ("fabio", "pyFAI"):
+    if pip in ("fabio", "pyFAI", "hdf5plugin"):
         vfy_pip = module.version
     else:
         vfy_pip = module.__version__

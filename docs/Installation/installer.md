@@ -20,5 +20,5 @@ Download the [pkg file](https://sourceforge.net/projects/musclex/files/) built f
 Download the [AppImage file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
 
 1. Open a terminal and change to the directory where the AppImage file is located
-2. Execute in the terminal `chmod u+x MuscleX-1.15.1-x86_64.AppImage`
-3. Execute in the terminal `./MuscleX-1.15.1-x86_64.AppImage` to run the application
+2. Execute in the terminal `chmod u+x musclex-1.15.7-x86_64.AppImage`
+3. Execute in the terminal `./musclex-1.15.7-x86_64.AppImage` to run the application
