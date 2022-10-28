@@ -67,7 +67,7 @@ class QuadrantFoldingh:
         self.modeOrientation = None
         self.newImgDimension = None
 
-        self.dir_path, self.imgList, self.currentFileNumber = getImgFiles(str(filename))
+        self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename))
         self.numberOfFiles = 0
         if len(self.imgList) == 0:
             self.inputerror()
@@ -77,7 +77,7 @@ class QuadrantFoldingh:
         self.settingspath=settingspath
         fileName = self.imgList[self.currentFileNumber]
         self.csvManager = QF_CSVManager(self.dir_path)
-        self.quadFold = QuadrantFolder(self.dir_path, fileName, self)
+        self.quadFold = QuadrantFolder(self.dir_path, fileName, self, self.fileList, self.ext)
 
         if self.inputsettings:
             self.setCalibrationImage()

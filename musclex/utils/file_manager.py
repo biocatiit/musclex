@@ -30,6 +30,7 @@ import os
 from os.path import split, exists, join
 import numpy as np
 import fabio
+from .hdf5_manager import loadFile
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd','hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 
@@ -99,22 +100,28 @@ def getImgFiles(fullname):
     else:
         failedcases = None
 
-    fileList = os.listdir(dir_path)
-    imgList = []
-
-    for f in fileList:
-        if failedcases is not None and f not in failedcases:
-            continue
-        full_file_name = fullPath(dir_path, f)
-        if isImg(full_file_name) and f != "calibration.tif":
+    if ext in ('.hdf5', '.h5'):
+        fileList = loadFile(fullname)
+        imgList = []
+        for f in fileList[0]:
             imgList.append(f)
-
-    imgList.sort()
+    else:
+        fileList = os.listdir(dir_path)
+        imgList = []
+        for f in fileList:
+            if failedcases is not None and f not in failedcases:
+                continue
+            full_file_name = fullPath(dir_path, f)
+            if isImg(full_file_name) and f != "calibration.tif":
+                imgList.append(f)
+        imgList.sort()
 
     if failedcases is None:
-        current = imgList.index(filename)
-
-    return dir_path, imgList, current
+        if ext in ('.hdf5', '.h5'):
+            current = 0
+        else:
+            current = imgList.index(filename)
+    return dir_path, imgList, current, fileList, ext
 
 def fullPath(filePath, fileName):
     """

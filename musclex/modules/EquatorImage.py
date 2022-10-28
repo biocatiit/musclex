@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 import os
 from os import makedirs
 from os.path import isfile, exists
+import numpy as np
 import json
 import pickle
 import tifffile
@@ -38,7 +39,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import fabio
 import musclex
-from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless, isHdf5
+from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
 from ..utils.histogram_processor import *
 from ..utils.image_processor import *
 
@@ -46,7 +47,7 @@ class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, filename, parent):
+    def __init__(self, dir_path, filename, parent, file_list=None, extension=''):
         """
         Initial value for EquatorImage object
         :param dir_path: directory path of input image
@@ -55,7 +56,11 @@ class EquatorImage:
         self.sigmaS = 0.0001
         self.dir_path = dir_path
         self.filename = filename
-        self.orig_img = fabio.open(fullPath(dir_path, filename)).data
+        if extension in ('.hdf5', '.h5'):
+            index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
+            self.orig_img = np.flip(file_list[1][index], axis=1)
+        else:
+            self.orig_img = fabio.open(fullPath(dir_path, filename)).data
         self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
         self.orig_img = self.orig_img.astype("float32")
         self.image = None

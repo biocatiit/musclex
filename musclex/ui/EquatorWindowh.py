@@ -61,7 +61,7 @@ class EquatorWindowh:
         self.fixedIntArea = None
         self.orientationModel = None
         self.modeOrientation = None
-        self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
+        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
         if len(self.imgList) == 0:
             self.inputerror()
             return
@@ -93,7 +93,7 @@ class EquatorWindowh:
                 os.remove(cache_path)
 
         #prevInfo = self.bioImg.info if self.bioImg is not None else None
-        self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
 
         settings = None

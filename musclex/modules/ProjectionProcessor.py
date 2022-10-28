@@ -43,10 +43,14 @@ class ProjectionProcessor:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, file_name):
+    def __init__(self, dir_path, file_name, file_list=None, extension=''):
         self.dir_path = dir_path
         self.filename = file_name
-        img = fabio.open(fullPath(dir_path, file_name)).data
+        if extension in ('.hdf5', '.h5'):
+            index = next((i for i, item in enumerate(file_list[0]) if item == file_name), 0)
+            img = np.flip(file_list[1][index], axis=1)
+        else:
+            img = fabio.open(fullPath(dir_path, file_name)).data
         # if img.shape[1] > img.shape[0]: # image is longer than it is wide
         #     img = cv2.copyMakeBorder(img, top=int((img.shape[1]-img.shape[0])/2), bottom=int((img.shape[1]-img.shape[0])/2), left=0, right=0, borderType=cv2.BORDER_CONSTANT)
         # else:

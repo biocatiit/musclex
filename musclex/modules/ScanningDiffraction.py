@@ -48,8 +48,12 @@ class ScanningDiffraction:
     """
     A class for Scanning Diffraction processing - go to process() to see all processing steps
     """
-    def __init__(self, filepath, filename, logger = None):
-        original_image = fabio.open(fullPath(filepath, filename)).data
+    def __init__(self, filepath, filename, file_list=None, extension='', logger = None):
+        if extension in ('.hdf5', '.h5'):
+            index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
+            original_image = np.flip(file_list[1][index], axis=1)
+        else:
+            original_image = fabio.open(fullPath(filepath, filename)).data
         original_image = ifHdfReadConvertless(filename, original_image)
         self.original_image = original_image.astype("float32")
         if self.original_image.shape == (1043, 981):

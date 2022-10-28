@@ -704,7 +704,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and not self.uiUpdating:
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
-            self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.masked = False
             self.processImage()
 
@@ -730,7 +730,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if result == 1 and self.quadFold is not None:
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
-            self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.masked = False
             self.processImage()
 
@@ -2043,7 +2043,7 @@ class QuadrantFoldingGUI(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            quadFold = QuadrantFolder(self.filePath, f, self)
+            quadFold = QuadrantFolder(self.filePath, f, self, self.fileList, self.ext)
             print(f'Getting angle {f}')
 
             if 'rotationAngle' not in quadFold.info:
@@ -2201,7 +2201,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
-        self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2576,11 +2576,11 @@ class QuadrantFoldingGUI(QMainWindow):
         Preprocess folder of the file and process current image
         :param newFile: full name of selected file
         """
-        self.filePath, self.imgList, self.currentFileNumber = getImgFiles(str(newFile))
+        self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
         self.csvManager = QF_CSVManager(self.filePath)
         self.numberOfFiles = len(self.imgList)
         fileName = self.imgList[self.currentFileNumber]
-        self.quadFold = QuadrantFolder(self.filePath, fileName, self)
+        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
         self.ignoreFolds = set()
         self.selectImageButton.setHidden(True)
         self.selectFolder.setHidden(True)

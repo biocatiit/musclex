@@ -187,6 +187,7 @@ class DIImageWindow(QMainWindow):
         self.setWindowTitle(image_name)
         self.fileName = image_name
         self.filePath = dir_path
+        self.fullPath = os.path.join(dir_path, image_name)
         self.csvManager = DI_CSVManager(dir_path)
         self.imgList = []
         self.numberOfFiles = 0
@@ -1134,18 +1135,19 @@ class DIImageWindow(QMainWindow):
         Used when a new file is selected
         """
         self.resize(600, 600)
-
         if imgList is not None:
             self.imgList = imgList
         else:
-            self.imgList, _ = getFilesAndHdf(self.filePath)
+            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
+            # self.imgList, _ = getFilesAndHdf(self.filePath)
 
-        self.imgList.sort()
+        # self.imgList.sort()
         self.numberOfFiles = len(self.imgList)
-        if len(self.fileName) > 0:
-            self.currentFileNumber = self.imgList.index(self.fileName)
-        else:
-            self.currentFileNumber = 0
+        # if len(self.fileName) > 0:
+        #     self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
+        #     self.currentFileNumber = self.imgList.index(self.fileName)
+        # else:
+        #     self.currentFileNumber = 0
 
     def onImageChanged(self):
         """
@@ -1155,7 +1157,7 @@ class DIImageWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
-        self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
+        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger)
 
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         # Calculating grid lines to exclude in pixel data computation

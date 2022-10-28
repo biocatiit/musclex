@@ -90,7 +90,7 @@ class EquatorWindow(QMainWindow):
         self.chordLines = []
         self.quadFold = None
 
-        self.dir_path, self.imgList, self.currentImg = getImgFiles(str(filename))
+        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
         if len(self.imgList) == 0:
             self.inputerror()
             return
@@ -105,7 +105,7 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.calSettings=None
         settings=self.getSettings()
@@ -1601,7 +1601,7 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image
@@ -2061,7 +2061,7 @@ class EquatorWindow(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            bioImg = EquatorImage(self.dir_path, f, self)
+            bioImg = EquatorImage(self.dir_path, f, self, self.fileList, self.ext)
             print(f'Getting angle {f}')
 
             if 'rotationAngle' not in bioImg.info:
@@ -2743,7 +2743,7 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         prevInfo = self.bioImg.info if self.bioImg is not None else None
-        self.bioImg = EquatorImage(self.dir_path, fileName, self)
+        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
         #if len(self.bioImg.info) < 2: # use settings of the previous image

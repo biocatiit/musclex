@@ -52,7 +52,7 @@ class DiffractionCentroids:
         :param fixRanges: fixed peak ranges configured my users
         :param off_mer: configuration of off-meridian peaks configured my users
         """
-        self.avgImg = self.mergeImages(dir_path, imgList) # avarage all image in a group
+        self.avgImg = self.mergeImages(dir_path, imgList) # average all image in a group
         if self.avgImg.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:

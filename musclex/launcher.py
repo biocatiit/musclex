@@ -180,37 +180,31 @@ class TestDialog(QDialog):
         Initialize the UI
         """
         self.testDialogLayout = QVBoxLayout()
-        self.downloadButton = QPushButton('Download Test Files')
         self.runSummaryTestsButton = QPushButton('Run MuscleX Global Summary Tests')
         self.runDetailedTestsButton = QPushButton('Run MuscleX Detailed Implementation Tests')
         self.runEnvironmentTestButton = QPushButton('Run Environment Test')
         self.runGPUTestButton = QPushButton('Run GPU Test')
         self.showLatestTestButton = QPushButton('Show Latest Test Results')
         self.showReleaseButton = QPushButton('Show Release Results')
-        self.cancelButton = QPushButton('Cancel')
 
         self.progressBar = QProgressBar(self)
         self.progressBar.setGeometry(0, 0, 300, 25)
         self.progressBar.setMaximum(100)
 
-        self.testDialogLayout.addWidget(self.downloadButton)
         self.testDialogLayout.addWidget(self.runSummaryTestsButton)
         self.testDialogLayout.addWidget(self.runDetailedTestsButton)
         self.testDialogLayout.addWidget(self.runEnvironmentTestButton)
         self.testDialogLayout.addWidget(self.runGPUTestButton)
         self.testDialogLayout.addWidget(self.showLatestTestButton)
         self.testDialogLayout.addWidget(self.showReleaseButton)
-        self.testDialogLayout.addWidget(self.cancelButton)
         self.testDialogLayout.addWidget(self.progressBar)
 
-        self.downloadButton.clicked.connect(self.downloadButtonClicked)
         self.runSummaryTestsButton.clicked.connect(self.runSummaryTestsButtonClicked)
         self.runDetailedTestsButton.clicked.connect(self.runDetailedTestsButtonClicked)
         self.runEnvironmentTestButton.clicked.connect(self.runEnvTestButtonClicked)
         self.runGPUTestButton.clicked.connect(self.runGPUTestButtonClicked)
         self.showLatestTestButton.clicked.connect(self.showLatestTestButtonClicked)
         self.showReleaseButton.clicked.connect(self.showReleaseButtonClicked)
-        self.cancelButton.clicked.connect(self.cancelButtonClicked)
 
         self.setLayout(self.testDialogLayout)
         self.resize(700,500)
@@ -229,18 +223,6 @@ class TestDialog(QDialog):
         self.detail.setFontWeight(50)
         self.detail.moveCursor(QTextCursor.Start)
         QApplication.processEvents()
-
-    def cancelButtonClicked(self):
-        """
-        Triggered when Cancel button is clicked
-        """
-        self.close()
-
-    def downloadButtonClicked(self):
-        """
-        Triggered when Detailed implementation test button is clicked
-        """
-        self.run_download_pickles()
 
     def runSummaryTestsButtonClicked(self):
         """

@@ -21,7 +21,7 @@ RUN pip3.8 install --upgrade distro
 RUN pip3.8 install --upgrade pyopencl
 RUN pip3.8 install --upgrade cython
 RUN pip3.8 install --upgrade numpy
-RUN pip3.8 install --upgrade opencv-python==4.2.0.32
+RUN pip3.8 install --upgrade opencv-python-headless
 RUN pip3.8 install --upgrade pyfai
 RUN pip3.8 install --upgrade PyQt5
 RUN pip3.8 install --upgrade musclexflibs

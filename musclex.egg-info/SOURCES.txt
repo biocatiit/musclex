@@ -106,6 +106,7 @@ musclex/ui/ui_launcherform.py
 musclex/utils/__init__.py
 musclex/utils/exception_handler.py
 musclex/utils/file_manager.py
+musclex/utils/hdf5_manager.py
 musclex/utils/hdf5_to_tiffs.py
 musclex/utils/histogram_processor.py
 musclex/utils/image_processor.py

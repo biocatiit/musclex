@@ -179,6 +179,7 @@ class DIImageWindowh():
     def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', process_folder=False,imgList = None):
         self.fileName = image_name
         self.filePath = dir_path
+        self.fullPath = os.path.join(dir_path, image_name)
         self.inputflag=inputflags
         self.delcache=delcache
         self.inputflagfile=inputflagpath
@@ -310,14 +311,16 @@ class DIImageWindowh():
         if imgList is not None:
             self.imgList = imgList
         else:
-            self.imgList, _ = getFilesAndHdf(self.filePath)
+            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
+            # self.imgList, _ = getFilesAndHdf(self.filePath)
 
-        self.imgList.sort()
+        # self.imgList.sort()
         self.numberOfFiles = len(self.imgList)
-        if len(self.fileName) > 0:
-            self.currentFileNumber = self.imgList.index(self.fileName)
-        else:
-            self.currentFileNumber = 0
+        # if len(self.fileName) > 0:
+        #     self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
+        #     self.currentFileNumber = self.imgList.index(self.fileName)
+        # else:
+        #     self.currentFileNumber = 0
 
     def onImageChanged(self):
         """
@@ -332,7 +335,7 @@ class DIImageWindowh():
                 os.remove(cache_path)
         fileName = self.imgList[self.currentFileNumber]
         print("current file is "+fileName)
-        self.cirProj = ScanningDiffraction(self.filePath, fileName, logger=self.logger)
+        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger)
         self.processImage(True)
         print('---------------------------------------------------')
 

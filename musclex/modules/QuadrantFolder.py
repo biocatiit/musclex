@@ -49,13 +49,17 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img_path, img_name, parent):
+    def __init__(self, img_path, img_name, parent, file_list, extension):
         """
         Initial value for QuadrantFolder object
         :param img_path: directory path of input image
         :param img_name: image file name
         """
-        self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+        if extension in ('.hdf5', '.h5'):
+            index = next((i for i, item in enumerate(file_list[0]) if item == img_name), 0)
+            self.orig_img = np.flip(file_list[1][index], axis=1)
+        else:
+            self.orig_img = fabio.open(fullPath(img_path, img_name)).data
         self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
         self.orig_img = self.orig_img.astype("float32")
         self.orig_image_center = None
