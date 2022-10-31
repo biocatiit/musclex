@@ -68,7 +68,7 @@ def create_tiff(img_data, path, prefix, serial, compress):
     :return: -
     """
     tif_file_name = path + os.sep + prefix + '_{:04d}'.format(serial) + '.tif'
-    zip_tif_file_name = path + os.sep + prefix + '_{:04d}'.format(serial) + '_zip' + '.tif'
+    cmp_tif_file_name = path + os.sep + prefix + '_{:04d}'.format(serial) + '_cmp' + '.tif'
     # extra_tags = [("ImageDescription", 's', 0, metadata, True)]
     # tifffile.imsave(tif_file_name, img_data, extratags=extra_tags)
     data = img_data.data.astype(np.int32)
@@ -76,7 +76,7 @@ def create_tiff(img_data, path, prefix, serial, compress):
     if compress:
         from PIL import Image
         tif_img = Image.fromarray(data)
-        tif_img.save(zip_tif_file_name, compression='tiff_lzw', exif=img_data.getheader())
+        tif_img.save(cmp_tif_file_name, compression='tiff_lzw', exif=img_data.getheader())
     else:
         tif_img = fabio.pilatusimage.pilatusimage(data=data, header=img_data.getheader())
         tif_img.write(tif_file_name)

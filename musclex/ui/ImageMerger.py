@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 from os.path import join
+from PIL import Image
 import fabio
 import musclex
 from musclex.utils.image_processor import averageImages
@@ -44,6 +45,7 @@ class ImageMergerGUI(QMainWindow):
         QWidget.__init__(self)
         self.img_list = []
         self.img_grps = []
+        self.stop_process = False
         self.initUI()
         self.setConnections()
 
@@ -62,7 +64,7 @@ class ImageMergerGUI(QMainWindow):
         self.out_directory = QLineEdit()
         self.select_out_folder = QPushButton("Browse")
 
-        self.frame_number = QSpinBox()
+        self.frame_number = QSpinBox(self)
         self.frame_number.setRange(1, 30000)
         self.frame_number.setValue(3)
 
@@ -76,9 +78,13 @@ class ImageMergerGUI(QMainWindow):
         self.detailLayout.addWidget(self.progressbar)
 
         self.start_button = QPushButton("Start")
+        self.start_button.setCheckable(True)
 
-        self.rotateChkBx = QCheckBox("Rotate and Center Images?")
+        self.rotateChkBx = QCheckBox("Rotate and Center Images")
         self.rotateChkBx.setChecked(False)
+
+        self.compressChkBx = QCheckBox("Compress the Resulting Images")
+        self.compressChkBx.setChecked(False)
 
         self.mainLayout.addWidget(QLabel("Input Directory : "), 0, 0, 1, 1)
         self.mainLayout.addWidget(self.in_directory, 0, 1, 1, 1)
@@ -90,14 +96,15 @@ class ImageMergerGUI(QMainWindow):
 
         self.mainLayout.addWidget(QLabel("Number of frames to average : "), 2, 0, 1, 2, Qt.AlignRight)
         self.mainLayout.addWidget(self.frame_number, 2, 2, 1, 1)
-        self.mainLayout.addWidget(self.detailGrp, 3, 0, 1, 3)
-        self.mainLayout.addWidget(self.start_button, 4, 0, 1, 3, Qt.AlignCenter)
+        self.mainLayout.addWidget(self.detailGrp, 4, 0, 1, 3)
+        self.mainLayout.addWidget(self.start_button, 5, 0, 1, 3, Qt.AlignCenter)
 
         self.mainLayout.addWidget(self.rotateChkBx, 2, 0, 1, 3)
+        self.mainLayout.addWidget(self.compressChkBx, 3, 0, 1, 3)
 
         self.mainLayout.columnStretch(1)
         self.mainLayout.rowStretch(3)
-        self.resize(800, 300)
+        self.resize(800, 400)
         self.show()
 
     def setConnections(self):
@@ -107,7 +114,7 @@ class ImageMergerGUI(QMainWindow):
         self.select_in_folder.clicked.connect(self.browse_input)
         self.select_out_folder.clicked.connect(self.browse_output)
         self.frame_number.valueChanged.connect(self.updateImageGroups)
-        self.start_button.clicked.connect(self.start_clicked)
+        self.start_button.toggled.connect(self.start_clicked)
 
     def browse_input(self):
         """
@@ -151,6 +158,7 @@ class ImageMergerGUI(QMainWindow):
 
         self.detail.insertPlainText(detail)
         self.detail.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
 
     def splitImages(self):
         """
@@ -170,17 +178,20 @@ class ImageMergerGUI(QMainWindow):
         handle when Start is clicked
         :return:
         """
-        if len(self.img_grps) > 0:
-            if self.start_button.text() == 'Start':
-                createFolder(str(self.out_directory.text()))
-                self.processFolder()
+        if self.start_button.isChecked():
+            if len(self.img_grps) > 0:
+                if self.start_button.text() == 'Start':
+                    createFolder(str(self.out_directory.text()))
+                    self.processFolder()
+            else:
+                errMsg = QMessageBox()
+                errMsg.setText('Number of images : 0')
+                errMsg.setInformativeText('Please select another folder')
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Abort)
+                errMsg.exec_()
         else:
-            errMsg = QMessageBox()
-            errMsg.setText('Number of images : 0')
-            errMsg.setInformativeText('Please select another folder')
-            errMsg.setStandardButtons(QMessageBox.Ok)
-            errMsg.setIcon(QMessageBox.Abort)
-            errMsg.exec_()
+            self.stop_process = True
 
     def processFolder(self):
         """
@@ -189,12 +200,14 @@ class ImageMergerGUI(QMainWindow):
         """
         inpt = str(self.in_directory.text())
         output = str(self.out_directory.text())
+        self.stop_process = False
+        self.start_button.setText('Stop')
         self.progressbar.setHidden(False)
         self.progressbar.setRange(0, len(self.img_grps))
         self.detail.insertPlainText("\n\n--------------- Start ----------------\n\n")
 
         for i, imgs in enumerate(self.img_grps):
-            if len(imgs) > 0:
+            if len(imgs) > 0 and not self.stop_process:
                 self.progressbar.setValue(i)
                 first = imgs[0]
                 last = imgs[-1]
@@ -224,9 +237,15 @@ class ImageMergerGUI(QMainWindow):
                 full_imgs = list(map(lambda f: join(inpt, f), imgs))
                 # forimg in full_imgs, rotate and center them
                 avg = averageImages(full_imgs, rotate=self.rotateChkBx.isChecked())
-                fabio.tifimage.tifimage(data=avg).write(join(output, filename))
+                if self.compressChkBx.isChecked():
+                    tif_img = Image.fromarray(avg)
+                    tif_img.save(join(output, filename), compression='tiff_lzw')
+                else:
+                    fabio.tifimage.tifimage(data=avg).write(join(output, filename))
             else:
                 break
 
         self.detail.insertPlainText("Done. All result images have been saved to "+output)
+        self.start_button.setChecked(False)
+        self.start_button.setText('Start')
         self.progressbar.setHidden(True)

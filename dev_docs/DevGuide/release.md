@@ -16,7 +16,7 @@
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
-1. Generate pickle testing files (see "Installation -> Testing" documentation, section 'testrecord') for the release version, update `environment_tester.sh` and `tests/test_logs/release.log`.
+1. Generate pickle testing files, update test files.
 2. Test release (GUI == Headless, Current == Previous) using the testing module.
 3. Create release tag and enter release notes on Github.
 4. Update DOI on Zenodo (if it was not done automatically).
@@ -27,6 +27,33 @@
 9. Test release on each distribution.
 
 ## Prepare a Release
+### Generate pickle testing files
+Generate the testing files with the right version number (if you release 1.15.7, change the version number in `__init__.py` first).
+Go to the `test_utils.py` directory in the `tests` folder and run:
+```
+python test_utils.py testrecord
+```
+(see "Installation -> Testing" documentation, section 'testrecord' for more details about this funtion)
+Once all the files have been generated, build the app and test to see if it is working. 
+
+Then take all the folders (di, eq, qf, pt, dc...) and put them in a bigger file named `pickle_tests_v1.15.7` with your version. The name format is very important to be downloaded after.
+
+Compress the folder using zip.
+
+Upload it on SourceForge.
+
+### Update the test files
+Update `environment_tester.sh` and `tests/test_logs/release.log`
+To know the pip packages necessary, run for example:
+```
+pip list | grep -f requirements
+```
+Copy and paste this list in `tests/release.log` in "Pip versions detail".
+
+Go to `tests/environment_tester.py` and modify the "python_version" and "pip_details" variables accordingly.
+
+Once all the different distributions have been tested, update again release.log before creating the packages for the release.
+
 ### Create a source distribution
 Change the version string and any other things related in to this
 release in `setup.py` and run

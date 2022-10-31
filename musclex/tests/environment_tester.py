@@ -26,6 +26,26 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+python_version = { "python" : "3.8.15" }
+pip_details = {
+    "scikit-image" : "0.19.3",
+    "tifffile" : "2022.10.10",
+    "numpy" : "1.23.3",
+    "pandas" : "1.5.0rc0",
+    "scikit-learn" : "1.1.2",
+    "lmfit" : "1.0.3",
+    "fabio" : "0.14.0",
+    "h5py" : "3.7.0",
+    "scipy" : "1.9.1",
+    "matplotlib" : "3.6.0",
+    "Cython" : "0.29.32",
+    "opencv-python-headless" : "4.6.0",
+    "pyFAI" : "0.21.3",
+    "distro" : "1.7.0",
+    "hdf5plugin" : "3.3.1",
+    "PyMca5" : "5.7.5"
+    }
+
 import os
 import sys
 import unittest
@@ -70,26 +90,7 @@ class EnvironmentTester(unittest.TestCase):
         """
         Runs a test of Environment given the current versions.
         """
-        python_version = { "python" : "3.8.15" }
-        pip_details = {
-            "scikit-image" : "0.19.3",
-            "tifffile" : "2022.10.10",
-            "numpy" : "1.23.3",
-            "pandas" : "1.5.0rc0",
-            "scikit-learn" : "1.1.2",
-            "lmfit" : "1.0.3",
-            "fabio" : "0.14.0",
-            "h5py" : "3.7.0",
-            "scipy" : "1.9.1",
-            "matplotlib" : "3.6.0",
-            "Cython" : "0.29.32",
-            "opencv-python-headless" : "4.6.0",
-            "pyFAI" : "0.21.3",
-            "distro" : "1.7.0",
-            "hdf5plugin" : "3.3.1",
-            "PyMca5" : "5.7.5"
-            }
-        print(f"\033[3;33m\nVerifying that installed Python version {python_version} is equivalent to Python at the release {musclex.__version__}\033[0;3140m")
+        print(f"\033[3;33m\nVerifying that installed Python version {python_version['python']} is equivalent to Python at the release {musclex.__version__}\033[0;3140m")
         if platform.python_version() == python_version["python"]:
             print("Testing Python version ..... \033[0;32mPASSED\033[0;3140m")
             python_test = True

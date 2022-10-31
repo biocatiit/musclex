@@ -34,6 +34,7 @@ import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pyplot as plt
 import pandas as pd
+from PIL import Image
 import musclex
 import fabio
 from ..utils.file_manager import *
@@ -215,6 +216,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx = QCheckBox("Mode orientation")
         self.modeAngleChkBx.setChecked(False)
 
+        self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
+        self.compressFoldedImageChkBx.setChecked(False)
+
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
 
@@ -232,8 +236,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 7, 0, 1, 2)
         self.settingsLayout.addWidget(self.orientationCmbBx, 8, 0, 1, 2)
         self.settingsLayout.addWidget(self.modeAngleChkBx, 9, 0, 1, 2)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 10, 0, 1, 2)
-        self.settingsLayout.addWidget(self.doubleZoom, 11, 0, 1, 2)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 10, 0, 1, 2)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 11, 0, 1, 2)
+        self.settingsLayout.addWidget(self.doubleZoom, 12, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -2453,10 +2458,18 @@ class QuadrantFoldingGUI(QMainWindow):
                     img = img[max(yl,0):yh, max(xl,0):xh]
                     print("After cropping, ", img.shape)
                     result_file += '_folded_cropped.tif'
-                    fabio.tifimage.tifimage(data=img).write(result_file)
+                    if self.compressFoldedImageChkBx.isChecked():
+                        tif_img = Image.fromarray(img)
+                        tif_img.save(result_file, compression='tiff_lzw')
+                    else:
+                        fabio.tifimage.tifimage(data=img).write(result_file)
                 else:
                     result_file += '_folded.tif'
-                    fabio.tifimage.tifimage(data=img).write(result_file)
+                    if self.compressFoldedImageChkBx.isChecked():
+                        tif_img = Image.fromarray(img)
+                        tif_img.save(result_file, compression='tiff_lzw')
+                    else:
+                        fabio.tifimage.tifimage(data=img).write(result_file)
                 # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
                 self.saveBackground()

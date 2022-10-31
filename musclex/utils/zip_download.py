@@ -29,36 +29,37 @@ authorization from Illinois Institute of Technology.
 import dload
 import shutil
 import os
+from musclex import __version__
 
 def download_zip_pickles(dirpath):
     """
     Download the pickle files from SourceForge, unzip them and put them in the right folder for testing
     """
+    url = "https://sourceforge.net/projects/musclex/files/pickle_tests_v" + __version__ + ".zip/download"
     if os.path.exists(os.path.join(dirpath, "tests", "di")):
         print("Pickle files have already been downloaded.")
     else:
         print("Downloading and unzipping pickle files for testing...")
         try:
-            dload.save_unzip("https://sourceforge.net/projects/musclex/files/pickle_tests.zip/download", 
-                            os.path.join(dirpath, "tests"))
+            dload.save_unzip(url, os.path.join(dirpath, "tests"))
         except Exception:
             print("Error during downloading or unzipping, check your internet connection and retry.")
 
         print("Moving files to testing folder...")
-        shutil.move(os.path.join(dirpath, "tests", "pickle_tests", "di"),
+        shutil.move(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__, "di"),
                     os.path.join(dirpath, "tests", "di"))
-        shutil.move(os.path.join(dirpath, "tests", "pickle_tests", "dc"),
+        shutil.move(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__, "dc"),
                     os.path.join(dirpath, "tests", "dc"))
-        shutil.move(os.path.join(dirpath, "tests", "pickle_tests", "eq"),
+        shutil.move(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__, "eq"),
                     os.path.join(dirpath, "tests", "eq"))
-        shutil.move(os.path.join(dirpath, "tests", "pickle_tests", "qf"),
+        shutil.move(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__, "qf"),
                     os.path.join(dirpath, "tests", "qf"))
-        shutil.move(os.path.join(dirpath, "tests", "pickle_tests", "pt"),
+        shutil.move(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__, "pt"),
                     os.path.join(dirpath, "tests", "pt"))
 
         print("Cleaning download files...")
-        if os.path.exists(os.path.join(dirpath, "tests", "pickle_tests")):
-            shutil.rmtree(os.path.join(dirpath, "tests", "pickle_tests"))
+        if os.path.exists(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__)):
+            shutil.rmtree(os.path.join(dirpath, "tests", "pickle_tests_v" + __version__))
         if os.path.exists(os.path.join(dirpath, "tests", "download")):
             os.remove(os.path.join(dirpath, "tests", "download"))
         print("Done.")

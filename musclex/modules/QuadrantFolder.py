@@ -49,7 +49,7 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img_path, img_name, parent, file_list, extension):
+    def __init__(self, img_path, img_name, parent, file_list=None, extension=''):
         """
         Initial value for QuadrantFolder object
         :param img_path: directory path of input image
