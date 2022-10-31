@@ -51,7 +51,7 @@ class ScanningDiffraction:
     def __init__(self, filepath, filename, file_list=None, extension='', logger = None):
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
-            original_image = np.flip(file_list[1][index], axis=1)
+            original_image = file_list[1][index]
         else:
             original_image = fabio.open(fullPath(filepath, filename)).data
         original_image = ifHdfReadConvertless(filename, original_image)

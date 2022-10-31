@@ -707,8 +707,6 @@ def loadImage(filename, hdf5_file=None, next_image=None):
     ''' returns the loaded image based on the image filename
     and image type. '''
     image_type = 'Pilatus'
-    fliplr = True
-    flipud = False
 
     num_frames = 1
 
@@ -734,14 +732,6 @@ def loadImage(filename, hdf5_file=None, next_image=None):
                 if isinstance(key, str) else key: hdr[key] for key in hdr}
             # hdr = { key : str(hdr[key], errors='ignore') if isinstance(hdr[key], str)
             #     else hdr[key] for key in hdr}
-
-
-    if image_type != 'SAXSLab300':
-        for i in range(len(img)):
-            if fliplr:
-                img[i] = np.fliplr(img[i])
-            if flipud:
-                img[i] = np.flipud(img[i])
 
     return img, imghdr, num_frames
 

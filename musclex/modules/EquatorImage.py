@@ -58,7 +58,7 @@ class EquatorImage:
         self.filename = filename
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
-            self.orig_img = np.flip(file_list[1][index], axis=1)
+            self.orig_img = file_list[1][index]
         else:
             self.orig_img = fabio.open(fullPath(dir_path, filename)).data
         self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)

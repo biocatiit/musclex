@@ -57,7 +57,7 @@ class QuadrantFolder:
         """
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == img_name), 0)
-            self.orig_img = np.flip(file_list[1][index], axis=1)
+            self.orig_img = file_list[1][index]
         else:
             self.orig_img = fabio.open(fullPath(img_path, img_name)).data
         self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)

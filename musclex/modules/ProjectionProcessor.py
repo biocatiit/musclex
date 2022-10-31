@@ -48,7 +48,7 @@ class ProjectionProcessor:
         self.filename = file_name
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == file_name), 0)
-            img = np.flip(file_list[1][index], axis=1)
+            img = file_list[1][index]
         else:
             img = fabio.open(fullPath(dir_path, file_name)).data
         # if img.shape[1] > img.shape[0]: # image is longer than it is wide
