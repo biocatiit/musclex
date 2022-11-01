@@ -30,7 +30,7 @@ import configparser
 import unittest
 import time
 import sys
-from multiprocessing import Process
+from threading import Thread
 import os
 import os.path
 sys.path.append('..')
@@ -260,7 +260,7 @@ class TestDialog(QDialog):
         suite = unittest.TestSuite()
         suite.addTest(EnvironmentTester("testEnvironment"))
         runner = unittest.TextTestRunner()
-        proc = Process(target=runner.run, args=(suite,))
+        proc = Thread(target=runner.run, args=(suite,))
         proc.start()
 
         self.progressBar.setValue(0)
@@ -412,7 +412,7 @@ class TestDialog(QDialog):
         suite.addTest(MuscleXGlobalTester("testHeadlessEigerDiffraction"))
         suite.addTest(MuscleXGlobalTester("testHeadlessPilatusDiffraction"))
         runner = unittest.TextTestRunner()
-        proc = Process(target=runner.run, args=(suite,))
+        proc = Thread(target=runner.run, args=(suite,))
         proc.start()
 
         if os.path.exists(self.test_path):
@@ -491,7 +491,7 @@ class TestDialog(QDialog):
         suite.addTest(MuscleXTest("testOpenCLDevice"))
         # suite.addTest(MuscleXTest("testGPUIntegratePyFAI")) # not working with pyinstaller
         runner = unittest.TextTestRunner()
-        proc = Process(target=runner.run, args=(suite,))
+        proc = Thread(target=runner.run, args=(suite,))
         proc.start()
 
         if os.path.exists(self.test_path):
