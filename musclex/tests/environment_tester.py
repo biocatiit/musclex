@@ -38,7 +38,6 @@ pip_details = {
     "h5py" : "3.7.0",
     "scipy" : "1.9.1",
     "matplotlib" : "3.6.0",
-    "Cython" : "0.29.32",
     "opencv-python-headless" : "4.6.0",
     "pyFAI" : "0.21.3",
     "distro" : "1.7.0",
@@ -60,7 +59,7 @@ class EnvironmentTester(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if getattr(sys, 'frozen', False):
-            cls.currdir = os.path.dirname(sys._MEIPASS)
+            cls.currdir = os.path.join(os.path.dirname(sys._MEIPASS), "musclex")
         else:
             cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")

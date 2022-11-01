@@ -30,7 +30,7 @@ import configparser
 import unittest
 import time
 import sys
-import subprocess
+from multiprocessing import Process
 import os
 import os.path
 sys.path.append('..')
@@ -39,6 +39,8 @@ from musclex import __version__
 from musclex.utils.exception_handler import handlers
 from musclex.utils.zip_download import download_zip_pickles
 from musclex.tests.module_test import *
+from musclex.tests.musclex_tester import MuscleXGlobalTester
+from musclex.tests.environment_tester import EnvironmentTester
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -94,9 +96,13 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
             open(ininame, 'a').close()
         self.config = config
         self.ininame = ininame
-        self.test_path = os.path.join(os.path.dirname(__file__),
-                                       "tests", "test_logs", "test.log")
-        self.release_path = os.path.join(os.path.dirname(__file__),
+        if getattr(sys, 'frozen', False):
+            self.test_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "test.log")
+            self.release_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "release.log")
+        elif __file__:
+            self.test_path = os.path.join(os.path.dirname(__file__),
+                                        "tests", "test_logs", "test.log")
+            self.release_path = os.path.join(os.path.dirname(__file__),
                                        "tests", "test_logs", "release.log")
         QApplication.processEvents()
 
@@ -168,8 +174,12 @@ class TestDialog(QDialog):
         super(QWidget, self).__init__()
         # self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
-        self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
-        self.release_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "release.log")
+        if getattr(sys, 'frozen', False):
+            self.test_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "test.log")
+            self.release_path = os.path.join(os.path.dirname(sys._MEIPASS), "musclex", "test_logs", "release.log")
+        elif __file__:
+            self.test_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "test.log")
+            self.release_path = os.path.join(os.path.dirname(__file__), "tests", "test_logs", "release.log")
         self.green = QColor(0,150,0)
         self.red = QColor(150,0,0)
         self.black = QColor(0,0,0)
@@ -247,16 +257,15 @@ class TestDialog(QDialog):
         self.detail.insertPlainText("\nRunning environment tests of MuscleX modules.\nThis will take a few seconds...")
         QApplication.processEvents()
 
-        if getattr(sys, 'frozen', False):
-            # run the test program in a subprocess
-            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "environment_tester.py")])
-        elif __file__:
-            # run the test program in a subprocess
-            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "environment_tester.py")])
+        suite = unittest.TestSuite()
+        suite.addTest(EnvironmentTester("testEnvironment"))
+        runner = unittest.TextTestRunner()
+        proc = Process(target=runner.run, args=(suite,))
+        proc.start()
 
         self.progressBar.setValue(0)
         QApplication.processEvents()
-        while subproc.poll() is None:
+        while proc.is_alive():
             time.sleep(0.5)
             self.detail.moveCursor(QTextCursor.End)
             self.detail.insertPlainText(".")
@@ -283,6 +292,7 @@ class TestDialog(QDialog):
         self.detail.setFontWeight(50)
         self.detail.insertPlainText(f"Test results:\n{'-'*80}{test_results}{'-'*80}")
         QApplication.processEvents()
+        proc.join()
 
     def runGPUTestButtonClicked(self):
         """
@@ -390,12 +400,20 @@ class TestDialog(QDialog):
         """
         self.progressBar.reset()
         NTESTS = 10
-        if getattr(sys, 'frozen', False):
-            # run the test program in a subprocess
-            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "musclex_tester.py")])
-        elif __file__:
-            # run the test program in a subprocess
-            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "musclex_tester.py")])
+
+        suite = unittest.TestSuite()
+        suite.addTest(MuscleXGlobalTester("testHeadlessMarEquator"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessEigerEquator"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessPilatusEquator"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessMarQuadrantFolder"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessEigerQuadrantFolder"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessPilatusQuadrantFolder"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessMarDiffraction"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessEigerDiffraction"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessPilatusDiffraction"))
+        runner = unittest.TextTestRunner()
+        proc = Process(target=runner.run, args=(suite,))
+        proc.start()
 
         if os.path.exists(self.test_path):
             prev_data = open(self.test_path, 'r').readlines()
@@ -409,7 +427,7 @@ class TestDialog(QDialog):
 
         progress = 0
         test_number = 0
-        while progress < 100 and subproc.poll() is None:
+        while progress < 100 and proc.is_alive():
             time.sleep(0.5)
             self.detail.moveCursor(QTextCursor.End)
             self.detail.insertPlainText(".")
@@ -453,6 +471,7 @@ class TestDialog(QDialog):
         self.detail.setFontWeight(50)
         self.detail.insertPlainText(f"\nTest results:\n{'-'*80}{test_summary[1]}{'-'*80}\nSee the log at {self.test_path} for more info.")
         QApplication.processEvents()
+        proc.join()
 
     def run_detailed_test(self):
         """
@@ -461,12 +480,19 @@ class TestDialog(QDialog):
         """
         self.progressBar.reset()
         NTESTS = 8
-        if getattr(sys, 'frozen', False):
-             # run the test program in a subprocess
-            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "module_test.py")])
-        elif __file__:
-             # run the test program in a subprocess
-            subproc = subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "module_test.py")])
+
+        suite = unittest.TestSuite()
+        suite.addTest(MuscleXTest("testEquatorImage"))
+        suite.addTest(MuscleXTest("testQuadrantFolder"))
+        suite.addTest(MuscleXTest("testDiffractionCentroids"))
+        suite.addTest(MuscleXTest("testProjectionTraces"))
+        suite.addTest(MuscleXTest("testScanningDiffraction"))
+        suite.addTest(MuscleXTest("testHDFRead"))
+        suite.addTest(MuscleXTest("testOpenCLDevice"))
+        # suite.addTest(MuscleXTest("testGPUIntegratePyFAI")) # not working with pyinstaller
+        runner = unittest.TextTestRunner()
+        proc = Process(target=runner.run, args=(suite,))
+        proc.start()
 
         if os.path.exists(self.test_path):
             prev_data = open(self.test_path, 'r').readlines()
@@ -480,7 +506,7 @@ class TestDialog(QDialog):
 
         progress = 0
         test_number = 0
-        while progress < 100 and subproc.poll() is None:
+        while progress < 100 and proc.is_alive():
             time.sleep(0.5)
             self.detail.moveCursor(QTextCursor.End)
             self.detail.insertPlainText(".")
@@ -524,6 +550,7 @@ class TestDialog(QDialog):
         self.detail.setFontWeight(50)
         self.detail.insertPlainText(f"\nTest results:\n{'-'*80}{test_results}{'-'*80}\nSee the log at {self.test_path} for more info.")
         QApplication.processEvents()
+        proc.join()
 
     def get_latest_test(self):
         """

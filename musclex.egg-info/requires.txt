@@ -16,5 +16,5 @@ musclex_ccp13
 PyMca5
 pandas
 Cython
-opencv-python
+opencv-python-headless
 pyFAI

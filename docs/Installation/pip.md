@@ -15,7 +15,6 @@ sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-
 
 pip3 install --upgrade pip
 pip3 install --upgrade distro
-pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy
@@ -88,7 +87,6 @@ source musclex/bin/activate
 which python3
 pip install --upgrade pip
 pip3 install --upgrade distro
-pip3 install --upgrade dload
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
 pip3 install --upgrade numpy

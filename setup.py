@@ -75,7 +75,7 @@ setup(
                       'PyMca5',
                       'pandas',
                       'Cython',
-                      'opencv-python',
+                      'opencv-python-headless',
                       'pyFAI'],
     entry_points={
         'console_scripts': [

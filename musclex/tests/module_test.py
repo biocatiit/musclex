@@ -39,7 +39,7 @@ class MuscleXTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if getattr(sys, 'frozen', False):
-            cls.currdir = os.path.dirname(sys._MEIPASS)
+            cls.currdir = os.path.join(os.path.dirname(sys._MEIPASS), "musclex")
         else:
             cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")

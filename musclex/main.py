@@ -30,12 +30,13 @@ authorization from Illinois Institute of Technology.
 
 import os
 import sys
-import subprocess
 import unittest
 from musclex import __version__
 from musclex.ui.pyqt_utils import *
 from musclex.utils.exception_handler import handlers
 from musclex.tests.module_test import MuscleXTest
+from musclex.tests.musclex_tester import MuscleXGlobalTester
+from musclex.tests.environment_tester import EnvironmentTester
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -95,10 +96,18 @@ def main(arguments=None):
             myapp = LauncherForm.main()
             sys.exit(app.exec_())
         elif prog == 'test_global':
-            if getattr(sys, 'frozen', False):
-                subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "musclex_tester.py")]).wait() # run the test program in a subprocess
-            elif __file__:
-                subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "musclex_tester.py")]).wait() # run the test program in a subprocess
+            suite = unittest.TestSuite()
+            suite.addTest(MuscleXGlobalTester("testHeadlessMarEquator"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessEigerEquator"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessPilatusEquator"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessMarQuadrantFolder"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessEigerQuadrantFolder"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessPilatusQuadrantFolder"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessMarDiffraction"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessEigerDiffraction"))
+            suite.addTest(MuscleXGlobalTester("testHeadlessPilatusDiffraction"))
+            runner = unittest.TextTestRunner()
+            runner.run(suite)
             sys.exit()
         elif prog == 'test_impl':
             suite = unittest.TestSuite()
@@ -114,10 +123,10 @@ def main(arguments=None):
             runner.run(suite)
             sys.exit()
         elif prog == 'test_env':
-            if getattr(sys, 'frozen', False):
-                subprocess.Popen(["python3", os.path.join(os.path.dirname(sys._MEIPASS), "tests", "environment_tester.py")]).wait() # run the test program in a subprocess
-            elif __file__:
-                subprocess.Popen(["python3", os.path.join(os.path.dirname(__file__), "tests", "environment_tester.py")]).wait() # run the test program in a subprocess
+            suite = unittest.TestSuite()
+            suite.addTest(EnvironmentTester("testEnvironment"))
+            runner = unittest.TextTestRunner()
+            runner.run(suite)
             sys.exit()
         elif prog == 'test_gpu':
             suite = unittest.TestSuite()
