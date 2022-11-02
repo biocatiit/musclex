@@ -1,5 +1,5 @@
 
-*** Version 1.15.7 tested on Python 3.8.
+*** Version 1.20 tested on Python 3.8.
 
 *** Windows Installer:
 - Window 10 Pro: tested without "Run tests"
@@ -10,6 +10,10 @@
 *** Mac installer:
 - Mac Intel (12.6): tested without "Run tests"
 - Mac M1 (12.6): tested without "Run tests"
+
+*** Deb installer:
+- Ubuntu (22.04): tested without "Run tests"
+- Ubuntu (20.04): tested without "Run tests"
 
 *** AppImage:
 - Ubuntu (22.04): tested without "Run tests"

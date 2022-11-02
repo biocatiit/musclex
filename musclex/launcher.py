@@ -30,6 +30,7 @@ import configparser
 import unittest
 import time
 import sys
+import subprocess
 from threading import Thread
 import os
 import os.path
@@ -438,7 +439,7 @@ class TestDialog(QDialog):
                 if curr_data != prev_data:
                     test_number += 1
                     progress += 100 / NTESTS
-                    self.progressBar.setValue(progress)
+                    self.progressBar.setValue(int(progress))
                     QApplication.processEvents()
 
                     self.detail.moveCursor(QTextCursor.End)
@@ -517,7 +518,7 @@ class TestDialog(QDialog):
                 if curr_data != prev_data:
                     test_number += 1
                     progress += 100 / NTESTS
-                    self.progressBar.setValue(progress)
+                    self.progressBar.setValue(int(progress))
                     QApplication.processEvents()
 
                     self.detail.moveCursor(QTextCursor.End)
