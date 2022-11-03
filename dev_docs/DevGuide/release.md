@@ -23,7 +23,7 @@
 5. Create pip distribution and upload to PyPI.
 6. Create docker distribution.
 7. Update documentation on Readthedocs.
-8. Create AppImage, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only).
+8. Create AppImage, Deb, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only).
 9. Test release on each distribution.
 
 ## Prepare a Release
@@ -80,6 +80,36 @@ New mac os installation no longer being produced, please use the docker version
 
 > If any changes are made to the source code in the source distribution
   during these steps, check if they work in any previous sections.
+
+### Create a Deb package
+
+Making the .deb installer uses pyinstaller (tested on 5.6.1).
+
+1. Install fakeroot, lintian: sudo apt-get install fakeroot lintian
+2. [Build the standalone program using pyinstaller][1]
+3.  In the dev_docs/linux directory run `python make_deb_installer.py`
+9)  Rename the package appropriate (e.g. RAW-2.0.0-linux-amd64.deb)
+
+Current build notes:
+- Using Ubuntu 14.04 LTS
+- On linux requires wxpython 4.0.4 (later versions don't package right with pyinstaller)
+- With conda on linux, 4.0.4 requires python 3.7
+- Requires pyinstaller 4.1 or earlier?
+- Using raw_build environment on the virtualbox machine.
+
+Note: If installer is built on Ubuntu 14.04 LTS it works on Debian 8-10 and Ubuntu 14-18.
+If installer is built on Debian 8 it works on Debian 8-10 and Ubuntu 16-18.
+
+Need wxpython < 4.1 on Ubuntu 16.04?
+
+Useful resources for building .deb package:
+https://plashless.wordpress.com/2013/08/25/a-short-debian-packaging-case-gui-apps-gpl-pyinstaller/
+https://plashless.wordpress.com/2013/08/31/app-icons/
+https://plashless.wordpress.com/2013/08/29/creating-new-mime-types-in-a-shortcut-debian-packaging/
+https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-description
+https://linuxconfig.org/easy-way-to-create-a-debian-package-and-local-package-repository
+https://martin.hoppenheit.info/blog/2016/where-to-put-application-icons-on-linux/
+https://www.howtoforge.com/tutorial/how-to-convert-packages-between-deb-and-rpm/
 
 ### Create a Docker distribution
 1. Copy 'Dockerfile' and 'musclex.sh' to an empty folder from  biocatiit/musclex  

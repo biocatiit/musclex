@@ -1,0 +1,9 @@
+Source: musclex
+Package: musclex
+Version: 1.20
+Priority: optional
+Architecture: amd64
+Homepage: https://musclex.readthedocs.io
+Maintainer: BioCAT Laboratory <biocat@lethocerus.biol.iit.edu>
+Description: Muscle X Application
+ The Muscle X Application Suite is a collection of programs intended to assist with analyzing diffraction X-ray images.

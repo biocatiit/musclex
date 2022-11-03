@@ -2,7 +2,7 @@
 
 # Installation by Pip
 
-In order to install the program, you need to install [python 2.7 or 3.6](https://www.python.org/).
+In order to install the program, you need to install [python 3.8](https://www.python.org/).
 
 ## Preparing
 There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
@@ -38,6 +38,9 @@ sudo pip install pyfai
 sudo pip install cython
 ```
 
+```eval_rst
+.. note:: If the "Run tests" functionalities are not working, try to go in `Applications > Python 3.8 folder` and double click on `Install Certificates.command`.
+```
 
 ### Windows
 For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and **Microsoft Visual C++** (MSVC) is recommended.

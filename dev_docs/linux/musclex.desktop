@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MuscleX
+GenericName=MuscleX
+Exec=musclex-launcher
+Terminal=false
+Type=Application
+Icon=AppIcon
+Encoding=UTF-8
+Categories=Education;Science;Biology;Physics
+Version=1.20

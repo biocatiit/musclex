@@ -82,7 +82,6 @@ from PyInstaller.utils.hooks import collect_data_files, logger
 datas = collect_data_files('PyMca5.PyMcaData')
 ```
 
-
 #### Special hooks
 `__init__.py` of a module is free to extend its `__path__` to 
 include other directories. (See [Extending a Package’s \_\_path__][4].)
@@ -134,7 +133,7 @@ Environment for 1.15.7: Python 3.8.10 on darwin
 ### Additional Issues
 1. OpenCV library dependency  
   **Description**: Error occurs when importing *cv2* module. (Opencv is
-  installed by "brew install".)  
+  installed by "brew install".)
   **Solution**: Replace *libpng* with newer version
 ```
 cp /usr/local/Cellar/libpng/1.6.34/lib/libpng16.16.dylib dist/musclex/libpng16.16.dylib
@@ -147,6 +146,11 @@ cp /usr/local/Cellar/libpng/1.6.34/lib/libpng16.16.dylib dist/musclex/libpng16.1
 ```
 mkdir dist/musclex/pyFAI/utils
 ```
+
+3. Gfortran library dependency  
+  **Description**: Error occurs when launching the app. (the terminal prints an error message 
+  when launching musclex-launcher)
+  **Solution**: Replace *libgfortran.5.dylib* with an older version (choose an older version on the Mac used to create the packages)
 
 ### Building App Bundle
 PyInstaller will do this only when both flag `-w` and `-F` are set. (See
