@@ -192,6 +192,8 @@ class DIImageWindow(QMainWindow):
         self.imgList = []
         self.numberOfFiles = 0
         self.currentFileNumber = 0
+        self.fileList = None
+        self.ext = ''
         self.img_zoom = [0, 0, 0, 0]
         self.currentImgSize = (0, 0)
         self.cirProj = None

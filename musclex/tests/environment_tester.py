@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-python_version = { "python" : "3.8.15" }
+python_version = { "python" : "3.8.10" }
 pip_details = {
     "scikit-image" : "0.19.3",
     "tifffile" : "2022.10.10",

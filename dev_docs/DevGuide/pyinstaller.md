@@ -26,7 +26,7 @@ pyi-makespec -n musclex musclex/main.py
 `excludes` list lib packages not necessarily needed here.
 
 The `.spec` file should include a `musclex-launcher` and a `musclex-main` script.
-See `musclex_mac.spec` and `musclex_win32.spec` in the root of this project 
+See `musclex_linux.spec`, `musclex_mac.spec` and `musclex_win32.spec` in the root of this project 
 for examples.
 
 ### Build the application and run

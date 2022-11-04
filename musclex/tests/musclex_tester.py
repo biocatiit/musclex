@@ -83,8 +83,8 @@ class MuscleXGlobalTester(unittest.TestCase):
         generated_results = os.path.join(mar_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "MARimages", "eq_results", "summary2.csv")
         pass_test = True
-        file1 = pd.read_csv(generated_results).round(4) # Rounds up to 4 decimals to avoid computer errors
-        file2 = pd.read_csv(release_results).round(4)
+        file1 = pd.read_csv(generated_results).round(3) # Rounds up to 3 decimals to avoid computer errors
+        file2 = pd.read_csv(release_results).round(3)
         res = pd.merge(file1, file2)
         if len(res.index) != len(file1.index):
             pass_test = False
@@ -114,8 +114,8 @@ class MuscleXGlobalTester(unittest.TestCase):
         generated_results = os.path.join(eiger_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "eq_results", "summary2.csv")
         pass_test = True
-        file1 = pd.read_csv(generated_results).round(4)
-        file2 = pd.read_csv(release_results).round(4)
+        file1 = pd.read_csv(generated_results).round(3)
+        file2 = pd.read_csv(release_results).round(3)
         res = pd.merge(file1, file2)
         if len(res.index) != len(file1.index):
             pass_test = False
@@ -145,8 +145,8 @@ class MuscleXGlobalTester(unittest.TestCase):
         generated_results = os.path.join(pilatus_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "eq_results", "summary2.csv")
         pass_test = True
-        file1 = pd.read_csv(generated_results).round(4)
-        file2 = pd.read_csv(release_results).round(4)
+        file1 = pd.read_csv(generated_results).round(3)
+        file2 = pd.read_csv(release_results).round(3)
         res = pd.merge(file1, file2)
         if len(res.index) != len(file1.index):
             pass_test = False

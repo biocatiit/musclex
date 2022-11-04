@@ -646,6 +646,7 @@ class EquatorImage:
 
             # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
             for method in ['leastsq']:
+                # WARNING this fit function might give different results depending on the operating system
                 result = model.fit(histNdarray, verbose = False, method=method, params=params, **int_vars)
                 if result is not None:
                     res = result.values

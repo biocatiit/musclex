@@ -121,7 +121,7 @@ class DI_CSVManager():
                     new_data['d'] = '-'
                 new_datas.append(new_data)
             try:
-                self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_datas])])
+                self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records(new_datas)])
                 # self.df_rings = self.df_rings.append(new_datas, ignore_index=True) # Future warning deprecated
             except Exception:
                 pass
@@ -132,7 +132,7 @@ class DI_CSVManager():
                     new_data[k] = file_name
                 else:
                     new_data[k] = '-'
-            self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_datas])])
+            self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_data])])
             # self.df_rings = self.df_rings.append(new_data, ignore_index = True) # Future warning deprecated
 
         self.df_rings.reset_index()

@@ -66,6 +66,10 @@ if it can be properly installed with *pip* on different platforms.
 pip install dist/musclex-<version>.tar.gz
 ```
 
+### Create a Linux installer (Deb package)
+1. [Create Stand-alone Program for Linux with PyInstaller][1]
+2. Make a Deb package go to `dev_docs/linux` and run `python make_deb_installer.py` (requires fakeroot, dpkg-deb and lintian)
+
 ### Create a Windows installer
 1. [Create Stand-alone Program for Windows with PyInstaller][1]
 2. [Make a Windows installer (MSI)][2]
@@ -142,7 +146,7 @@ Create a copy of the current docs version in docs_archive and rename it as docs_
 
 ## Publish a Release
 ### Upload packages to SourceForge
-Upload the installers for Windows and Mac OS X to the SourceForge repo.
+Upload the installers for Windows, Linux and Mac OS X to the SourceForge repo.
 See our [SourceForge repository][5]. Or use other tools for uploading
 (see details [here][6]).
 
