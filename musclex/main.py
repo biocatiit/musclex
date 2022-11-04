@@ -110,6 +110,8 @@ def main(arguments=None):
             runner.run(suite)
             sys.exit()
         elif prog == 'test_impl':
+            from musclex.utils.zip_download import download_zip_pickles
+            download_zip_pickles(os.path.dirname(__file__))
             suite = unittest.TestSuite()
             suite.addTest(MuscleXTest("testEquatorImage"))
             suite.addTest(MuscleXTest("testQuadrantFolder"))

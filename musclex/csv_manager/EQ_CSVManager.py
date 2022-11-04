@@ -238,9 +238,9 @@ class EQ_CSVManager:
                             data[f'{side} peak {i}'] = all_S[i]
 
                         data.update({
-                            side+" Sigma C": round(abs(fit_results[side+'_sigmac']), 2),
-                            side+" Sigma D": round(abs(fit_results[side+'_sigmad']), 2),
-                            side+" Sigma S": round(abs(fit_results[side+'_sigmas']), 2),
+                            side+" Sigma C": fit_results[side+'_sigmac'],
+                            side+" Sigma D": fit_results[side+'_sigmad'],
+                            side+" Sigma S": fit_results[side+'_sigmas'],
                             side+" I11/I10": fit_results[side+'_ratio'],
                         })
                         if fit_results["model"] == 'Voigt':
@@ -261,7 +261,7 @@ class EQ_CSVManager:
                     data['Average I11/I10 per fiber'] = fit_results['avg_ratio']
                     data['Model'] = fit_results['model']
                     data['Fitting error'] = fit_results['fiterror']
-                    data['CenterX'] = round(fit_results['centerX'], 2)
+                    data['CenterX'] = fit_results['centerX']
 
                     if 'd10' in fit_results.keys():
                         data['d10'] = fit_results['d10']
