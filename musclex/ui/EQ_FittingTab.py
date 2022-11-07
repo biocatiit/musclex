@@ -75,6 +75,7 @@ class EQ_FittingTab(QWidget):
         self.sigmaDSpinBx.setObjectName('sigmaDSpinBx')
         self.editableVars[self.sigmaDSpinBx.objectName()] = None
         self.fixSigmaS = QCheckBox("Fixed Sigma S :")
+        self.fixSigmaS.setChecked(True)
         self.sigmaSSpinBx = QDoubleSpinBox()
         self.sigmaSSpinBx.setEnabled(False)
         self.sigmaSSpinBx.setMinimum(-100)
@@ -167,7 +168,7 @@ class EQ_FittingTab(QWidget):
         self.sigmaSSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('sigmaS', self.sigmaSSpinBx))
         self.fixSigmaC.stateChanged.connect(self.fixSigmaCChecked)
         self.fixSigmaD.stateChanged.connect(self.fixedParamChecked)
-        self.fixSigmaS.stateChanged.connect(self.fixedParamChecked)
+        self.fixSigmaS.stateChanged.connect(self.fixSigmaSChecked)
         self.fixGamma.stateChanged.connect(self.fixedParamChecked)
         self.gammaSpinBx.editingFinished.connect(lambda: self.fixedFittingParams('gamma', self.gammaSpinBx))
 
@@ -288,6 +289,19 @@ class EQ_FittingTab(QWidget):
         else:
             if side+'_fix_sigmac' in parent.bioImg.info:
                 del parent.bioImg.info[side+'_fix_sigmac']
+    
+    def fixSigmaSChecked(self):
+        """
+        Triggered when fix sigma S is checked
+        """
+        side = self.side
+        parent = self.parent
+        if self.fixSigmaS.isChecked():
+            if side+'_sigmas' in parent.bioImg.info:
+                del parent.bioImg.info[side+'_sigmas']
+        else:
+            if side+'_fix_sigmas' in parent.bioImg.info:
+                del parent.bioImg.info[side+'_fix_sigmas']
 
     def fixedParamChecked(self):
         """

@@ -144,9 +144,9 @@ class EQ_CSVManager:
 
                         # Write data to the first row of each side
                         first_row.update({
-                            "Sigma C": fit_results[side+'_sigmac'],
-                            "Sigma D": fit_results[side+'_sigmad'],
-                            "Sigma S": fit_results[side+'_sigmas'],
+                            "Sigma C": abs(fit_results[side+'_sigmac']),
+                            "Sigma D": abs(fit_results[side+'_sigmad']),
+                            "Sigma S": abs(fit_results[side+'_sigmas']),
                             "I11/I10": fit_results[side+'_ratio'],
                         })
                         if fit_results["model"] == 'Voigt':
@@ -238,9 +238,9 @@ class EQ_CSVManager:
                             data[f'{side} peak {i}'] = all_S[i]
 
                         data.update({
-                            side+" Sigma C": fit_results[side+'_sigmac'],
-                            side+" Sigma D": fit_results[side+'_sigmad'],
-                            side+" Sigma S": fit_results[side+'_sigmas'],
+                            side+" Sigma C": abs(fit_results[side+'_sigmac']),
+                            side+" Sigma D": abs(fit_results[side+'_sigmad']),
+                            side+" Sigma S": abs(fit_results[side+'_sigmas']),
                             side+" I11/I10": fit_results[side+'_ratio'],
                         })
                         if fit_results["model"] == 'Voigt':

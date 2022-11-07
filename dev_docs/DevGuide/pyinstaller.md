@@ -120,8 +120,9 @@ pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api
    when MuscleX 1.14.12 was built for Mac. Install this environment using 
    `pip install -r requirements_1.14.12_mac.txt`.  
 4. Errors such as "symbol not found: PyString_Type" on MacOS are due to python version miss match. Find the file given in the error message and manually recompiled it with current python version would solve the problem. To build, run python setup.py build_ext --inplace.  
-5. Anothe way to solve the import error is to manually find the file and paste it in the dist folder. For example, in the error message, ".libs/vcomp140.dll" is missing in the sklearn folder. Finder vcomp140.dll under sklearn installation directory and paste it in /dist/musclex/sklearn/.libs.  
+5. Another way to solve the import error is to manually find the file and paste it in the dist folder. For example, in the error message, ".libs/vcomp140.dll" is missing in the sklearn folder. Finder vcomp140.dll under sklearn installation directory and paste it in /dist/musclex/sklearn/.libs.  
 6. If encounter error "OSError: /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/PyMca5/PyMcaData directory not found", find the installed PyMca5 in the system, copy PyMcaData and PyMcaDataDir.py to musclex/dist. Modify the path to current folder in PyMcaDataDir.py if necessary.
+7. If Error during pyinstaller or launching the app related to `QF_utilities`, go in `musclex/modules` and run `python setup2.py build_ext --inplace` before running pyinstaller again>
 
 ## Building Mac OS X App Bundle
 Above parts describe the process in Windows. For building Mac App, baisc
