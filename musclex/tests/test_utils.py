@@ -110,7 +110,14 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
         print("\n\033[3;33m---- Processing file {f} ----\033[0;3140m\n".format(f=filename))
         test_object.process(settings.copy())
         print(test_object.info.keys())
-        results = flatten(test_object.info)
+        res = flatten(test_object.info)
+        results = {}
+        for key in res:
+            if isinstance(res[key], float):
+                # rounding to 2 using round()
+                results[key] = round(res[key], 2)
+            else:
+                results[key] = res[key]
 
         prefix = "_record" if testrecord else "_verify"
         imgname = filename.split('.')[0]

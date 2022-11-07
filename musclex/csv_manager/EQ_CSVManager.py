@@ -171,7 +171,7 @@ class EQ_CSVManager:
                     first_row['Average I11/I10 per fiber'] = fit_results['avg_ratio']
                     first_row['Model'] = fit_results['model']
                     first_row['Fitting error'] = fit_results['fiterror']
-                    first_row['CenterX'] = fit_results['centerX']
+                    first_row['CenterX'] = round(fit_results['centerX'], 2)
 
                     if 'd10' in fit_results.keys():
                         first_row['d10'] = fit_results['d10']
@@ -261,7 +261,7 @@ class EQ_CSVManager:
                     data['Average I11/I10 per fiber'] = fit_results['avg_ratio']
                     data['Model'] = fit_results['model']
                     data['Fitting error'] = fit_results['fiterror']
-                    data['CenterX'] = fit_results['centerX']
+                    data['CenterX'] = round(fit_results['centerX'], 2)
 
                     if 'd10' in fit_results.keys():
                         data['d10'] = fit_results['d10']
