@@ -24,7 +24,7 @@ os.makedirs(png_path, exist_ok=True)
 shutil.copy('control', deb_path)
 shutil.copytree(os.path.join('..', '..', 'dist', 'musclex'), exc_path)
 shutil.copy('musclex.desktop', app_path)
-shutil.copy('AppIcon.icns', os.path.join(png_path, 'AppIcon.icns'))
+shutil.copy('AppIcon.icns', os.path.join(png_path, 'AppIconMusclex.icns'))
 
 with open(os.path.join(deb_path, 'control'), 'r') as f:
     control_lines = f.readlines()

@@ -5,7 +5,7 @@ GenericName=MuscleX
 Exec=/usr/bin/musclex/musclex-launcher
 Terminal=false
 Type=Application
-Icon=/usr/share/icons/AppIcon.icns
+Icon=/usr/share/icons/AppIconMusclex.icns
 Encoding=UTF-8
 Categories=Science;Biology;Physics
 

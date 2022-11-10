@@ -2,17 +2,17 @@
 *** Version 1.20 tested on Python 3.8.
 
 *** Windows Installer:
-- Window 10 Pro: tested without "Run tests"
+- Window 10 Pro: fully tested
 - Window 10 Home: not tested
-- Windows 11 Pro: tested without "Run tests"
+- Windows 11 Pro: fully tested
 - Windows 11 Home: not tested
 
 *** Mac installer:
-- Mac Intel (12.6): tested without "Run tests"
-- Mac M1 (12.6): tested without "Run tests"
+- Mac Intel (12.6): fully tested
+- Mac M1 (12.6): not tested
 
 *** Deb installer:
-- Ubuntu (22.04): tested without "Run tests"
+- Ubuntu (22.04): fully tested
 - Ubuntu (20.04): fully tested
 
 *** AppImage:

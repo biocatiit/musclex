@@ -114,8 +114,8 @@ class MuscleXGlobalTester(unittest.TestCase):
         generated_results = os.path.join(eiger_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "eq_results", "summary2.csv")
         pass_test = True
-        file1 = pd.read_csv(generated_results).round(3)
-        file2 = pd.read_csv(release_results).round(3)
+        file1 = pd.read_csv(generated_results).round(1)
+        file2 = pd.read_csv(release_results).round(1)
         res = pd.merge(file1, file2)
         if len(res.index) != len(file1.index):
             pass_test = False

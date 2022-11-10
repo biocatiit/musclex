@@ -26,3 +26,4 @@ Release Notes
    Version-1.14.11
    Version-1.15.2
    Version-1.15.7
+   Version-1.20
