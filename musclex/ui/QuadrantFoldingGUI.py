@@ -206,6 +206,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setMinimum(-999)
         self.maskThresSpnBx.setMaximum(999)
         self.maskThresSpnBx.setValue(-999)
+        self.maskThresSpnBx.setKeyboardTracking(False)
 
         self.orientationCmbBx = QComboBox()
         self.orientationCmbBx.addItem("Max Intensity")
@@ -2178,7 +2179,7 @@ class QuadrantFoldingGUI(QMainWindow):
             if img.shape == (1043, 981):  # Pilatus
                 self.maskThresSpnBx.setValue(getMaskThreshold(img, img_type="PILATUS"))
             else:
-                self.maskThresSpnBx.setValue(img.min())
+                self.maskThresSpnBx.setValue(getMaskThreshold(img, img_type="NORMAL"))
         self.maskThresSpnBx.setRange(min_val, max_val)
 
         self.spResultmaxInt.setRange(min_val + 1, max_val)

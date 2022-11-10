@@ -289,6 +289,7 @@ class EQ_FittingTab(QWidget):
         else:
             if side+'_fix_sigmac' in parent.bioImg.info:
                 del parent.bioImg.info[side+'_fix_sigmac']
+        self.sigmaCSpinBx.setEnabled(self.fixSigmaC.isChecked())
     
     def fixSigmaSChecked(self):
         """
@@ -302,6 +303,7 @@ class EQ_FittingTab(QWidget):
         else:
             if side+'_fix_sigmas' in parent.bioImg.info:
                 del parent.bioImg.info[side+'_fix_sigmas']
+        self.sigmaSSpinBx.setEnabled(self.fixSigmaS.isChecked())
 
     def fixedParamChecked(self):
         """

@@ -422,12 +422,14 @@ class EquatorWindow(QMainWindow):
         self.fittingTabWidget.setStyleSheet("QTabBar::tab { width: 100px; }")
 
         self.k_chkbx = QCheckBox("Background K : ")
+        self.k_chkbx.setChecked(True)
         self.k_spnbx = QDoubleSpinBox()
         self.k_spnbx.setObjectName('k_spnbx')
         self.editableVars[self.k_spnbx.objectName()] = None
         self.k_spnbx.setDecimals(4)
         self.k_spnbx.setRange(0, 99999999)
-        self.k_spnbx.setEnabled(False)
+        # self.k_spnbx.setEnabled(False)
+        self.k_spnbx.setValue(0)
         self.k_layout = QHBoxLayout()
         self.use_previous_fit_chkbx = QCheckBox("Use Previous Fit")
         self.k_layout.addWidget(self.k_chkbx)

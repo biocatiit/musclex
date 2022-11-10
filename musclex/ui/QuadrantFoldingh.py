@@ -291,10 +291,7 @@ class QuadrantFoldingh:
         flags['tension'] = 1.0
         flags["tophat1"] = 5
         flags['tophat2'] = 20
-        if self.quadFold.img_type == "PILATUS":
-            flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img, self.quadFold.img_type)
-        else:
-            flags['mask_thres'] = self.quadFold.orig_img.min()
+        flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img, self.quadFold.img_type)
         flags['sigmoid'] = 0.1
         flags['fwhm'] = 10
         flags['boxcar_x'] = 10

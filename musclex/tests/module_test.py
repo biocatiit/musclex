@@ -131,8 +131,8 @@ Linux ID: {}\n
         Runs a test of EquatorImage using the given settings.
         """
         settingsA = {
-            "left_sigmac" : 1.0, "right_sigmac" : 1.0,
-            "left_sigmas" : 0.0001, "right_sigmas" : 0.0001, "orientation_model" : 0,
+            "left_fix_sigmac" : 1.0, "right_fix_sigmac" : 1.0, "fix_k" : 0,
+            "left_fix_sigmas" : 0.0001, "right_fix_sigmas" : 0.0001, "orientation_model" : 0,
             "nPeaks" : 2, "model" : "Gaussian", "isSkeletal" : True,
             "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : False,
             "no_cache" : True

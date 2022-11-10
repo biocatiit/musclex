@@ -366,7 +366,13 @@ class EquatorImage:
             hist = copy.copy(self.info['hist'])
             int_area = self.info['int_area']
             img_area = self.getRotatedImage()[int_area[0]:int_area[1], :]
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
+            min_val = self.orig_img.min()
+            if self.img_type == "PILATUS":
+                histo = np.histogram(self.orig_img, 3, (min_val, min_val+3))
+                max_ind = np.argmax(histo[0])
+                self.info['mask_thres'] = histo[1][max_ind]
+            else:
+                self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
             if any(ignore):
                 left_ignore = ignore[:int(center[0])]

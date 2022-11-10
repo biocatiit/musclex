@@ -551,7 +551,10 @@ def getMaskThreshold(img, img_type):
     :return: mask threshold
     """
     min_val = img.min()
-    mask_thres = min_val - 1.
+    if min_val < 0:
+        mask_thres = -0.01
+    else:
+        mask_thres = min_val
     if img_type == "PILATUS":
         hist = np.histogram(img, 3, (min_val, min_val+3))
         max_ind = np.argmax(hist[0])
