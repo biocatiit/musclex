@@ -203,7 +203,7 @@ class TestDialog(QDialog):
         self.progressBar.setMaximum(100)
 
         self.testDialogLayout.addWidget(self.runSummaryTestsButton)
-        self.testDialogLayout.addWidget(self.runDetailedTestsButton)
+        # self.testDialogLayout.addWidget(self.runDetailedTestsButton)
         self.testDialogLayout.addWidget(self.runEnvironmentTestButton)
         self.testDialogLayout.addWidget(self.runGPUTestButton)
         self.testDialogLayout.addWidget(self.showLatestTestButton)
