@@ -136,6 +136,9 @@ Edit [here][9]. **Authors** are generated according to contributors of
 the GitHub repo. Change them properly according to [Project Credits][10].
 
 ### Create App Image using App Image Installer
+
+Note: AppImage created on the Muscle computer. The compilation might fail on Lethocerus.
+
 - Place musclex/requirements.txt, musclex/musclex and musclex/musclex/main.py in musclex/AppImageBuilder Folder.
 - Open terminal and run the following command
 ```
