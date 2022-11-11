@@ -31,11 +31,18 @@ Important - If you see an error message (damaged disk or damaged program) follow
 
 1. Open the .dmg file and copy the program on your computer (for example on the Desktop).
 2. With a terminal opened at the root of the program (for example `cd Desktop`), run the following command: `xattr -cr musclex.app`
-3. Now this program should work (you can eject the dmg file and delete it).
+3. You can now eject the dmg file and delete it.
 
 ## Linux
+
+### AppImage
 Download the [AppImage file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
 
 1. Open a terminal and change to the directory where the AppImage file is located
 2. Execute in the terminal `chmod u+x musclex-1.15.7-x86_64.AppImage`
 3. Execute in the terminal `./musclex-1.15.7-x86_64.AppImage` to run the application
+
+### Deb package
+Download the [deb file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
+
+1. Open a terminal and run `sudo dpkg --install musclex-1.20_amd64(linux).deb`
