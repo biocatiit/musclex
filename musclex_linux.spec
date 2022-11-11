@@ -15,49 +15,21 @@ a = Analysis(['musclex/main.py'],
              win_private_assemblies=False,
              cipher=block_cipher)
 
-# analysis for launcher
-la = Analysis(['musclex/launcher.py'],
-               pathex=['.'],
-               binaries=[],
-               datas=[],
-               hiddenimports=['PyMca5'],
-               hookspath=['hooks'],
-               runtime_hooks=[],
-               excludes=['tcl', 'zmq', 'IPython'],
-               win_no_prefer_redirects=False,
-               win_private_assemblies=False,
-               cipher=block_cipher)
-
-MERGE((a, 'main', 'musclex'),
-      (la, 'launcher', 'musclex-launcher'))
-
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
-
 exe = EXE(pyz,
           a.scripts,
-          exclude_binaries=True,
-          name='musclex-main',
+          a.binaries,
+          a.zipfiles,
+          a.datas,
+          name='musclex',
           debug=False,
           strip=False,
           upx=True,
           console=True )
 
-lpyz = PYZ(la.pure, la.zipped_data,
-             cipher=block_cipher)
-lexe = EXE(lpyz,
-           la.scripts,
-           exclude_binaries=True,
-           name='musclex-launcher',
-           debug=False,
-           strip=False,
-           upx=True,
-           console=False )
-
-coll = COLLECT(exe, lexe,
-               a.binaries, la.binaries,
-               a.zipfiles, la.zipfiles,
-               a.datas, la.datas,
-               strip=False,
-               upx=True,
-               name='musclex')
+# if you want the deb package to be able to launch from the Application finder (on click), you need to add in main.py, in the else after run = False (line 262):
+# from musclex.launcher import LauncherForm
+# app = QApplication(sys.argv)
+# myapp = LauncherForm.main()
+# sys.exit(app.exec_())

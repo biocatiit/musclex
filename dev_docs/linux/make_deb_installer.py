@@ -10,19 +10,19 @@ os.sys.path.append(os.path.abspath(os.path.join('..', '..')))
 deb_path = os.path.join('.', 'musclex-{}_amd64(linux)'.format(__version__),
     'DEBIAN')
 exc_path = os.path.join('.', 'musclex-{}_amd64(linux)'.format(__version__),
-    'usr', 'bin', 'musclex')
+    'usr', 'bin')
 app_path = os.path.join('.', 'musclex-{}_amd64(linux)'.format(__version__),
     'usr', 'share', 'applications')
 png_path = os.path.join('.', 'musclex-{}_amd64(linux)'.format(__version__),
     'usr', 'share', 'icons')
 
 os.makedirs(deb_path, exist_ok=True)
-# os.makedirs(exc_path, exist_ok=True)
+os.makedirs(exc_path, exist_ok=True)
 os.makedirs(app_path, exist_ok=True)
 os.makedirs(png_path, exist_ok=True)
 
 shutil.copy('control', deb_path)
-shutil.copytree(os.path.join('..', '..', 'dist', 'musclex'), exc_path)
+shutil.copy(os.path.join('..', '..', 'dist', 'musclex'), exc_path)
 shutil.copy('musclex.desktop', app_path)
 shutil.copy('AppIcon.icns', os.path.join(png_path, 'AppIconMusclex.icns'))
 
