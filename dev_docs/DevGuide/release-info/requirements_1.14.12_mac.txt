@@ -38,7 +38,7 @@ pandas==0.24.2
 PeakUtils==1.1.1
 pefile==2017.11.5
 #Pillow==5.2.0
-Pillow==7.1.0 # updated to resolve security concern
+Pillow==9.3.0 # updated to resolve security concern
 pybind11==2.2.4
 pyFAI==0.15.0
 #PyInstaller==3.4
