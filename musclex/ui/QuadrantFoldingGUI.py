@@ -104,7 +104,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.mainHLayout = QHBoxLayout(self.centralWidget)
 
         self.tabWidget = QTabWidget()
-        self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
