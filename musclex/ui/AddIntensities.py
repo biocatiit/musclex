@@ -27,17 +27,18 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import copy
+import collections
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
-import collections
 import fabio
 import cv2
 import musclex
 from .pyqt_utils import *
-from ..utils.file_manager import *
-from ..utils.image_processor import *
-from ..modules.ScanningDiffraction import *
+from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder
+from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage
 from ..CalibrationSettings import CalibrationSettings
 
 class AddIntensities(QMainWindow):
@@ -56,7 +57,9 @@ class AddIntensities(QMainWindow):
         self.numberToFilesMap = None
         self.orig_imgs = []
         self.initImg = None
+        self.img_type = None
         self.currentFileNumber = 1
+        self.center_before_rotation = None
         self.updated = False
         self.uiUpdating = False # update ui status flag (prevent recursive)
         self.calSettings = None
@@ -65,6 +68,8 @@ class AddIntensities(QMainWindow):
         self.default_img_zoom = None # default zoom calculated after processing image
         self.dir_path = ""
         self.newImgDimension = None
+        self.stop_process = False
+        self.nbOfExposures = 0
         self.function = None
         self.imageAxes = None
         self.imageAxes2 = None
@@ -75,9 +80,10 @@ class AddIntensities(QMainWindow):
         self.imageAxes7 = None
         self.imageAxes8 = None
         self.axClicked = None
-        self.centImgTransMat = None
+        self.chordpoints = []
+        self.chordLines = []
         self.info = {'manual_rotationAngle': [None] * 8,
-                    'rotationAngle': [0] * 8}
+                     'rotationAngle': [0] * 8}
         self.orig_image_center = None
         self.initUI()
         self.setConnections()
@@ -144,12 +150,14 @@ class AddIntensities(QMainWindow):
         self.dispOptLayout = QGridLayout()
 
         self.spminInt = QDoubleSpinBox()
-        self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
+        self.spminInt.setToolTip("Reduction in the maximal intensity shown \
+            to allow for more details in the image.")
         self.spminInt.setKeyboardTracking(False)
         self.spminInt.setSingleStep(5)
         self.spminInt.setDecimals(0)
         self.spmaxInt = QDoubleSpinBox()
-        self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
+        self.spmaxInt.setToolTip("Increase in the minimal intensity shown \
+            to allow for more details in the image.")
         self.spmaxInt.setKeyboardTracking(False)
         self.spmaxInt.setSingleStep(5)
         self.spmaxInt.setDecimals(0)
@@ -229,11 +237,11 @@ class AddIntensities(QMainWindow):
         self.filenameLineEdit.setMinimum(0)
         self.filenameLineEdit.setKeyboardTracking(False)
         self.buttonsLayout = QGridLayout()
-        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
-        self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
-        self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
-        self.buttonsLayout.addWidget(QLabel('Images #'),2,0,1,1)
-        self.buttonsLayout.addWidget(self.filenameLineEdit,2,1,1,1)
+        self.buttonsLayout.addWidget(self.processFolderButton, 0, 0, 1, 2)
+        self.buttonsLayout.addWidget(self.prevButton, 1, 0, 1, 1)
+        self.buttonsLayout.addWidget(self.nextButton, 1, 1, 1, 1)
+        self.buttonsLayout.addWidget(QLabel('Images #'), 2, 0, 1, 1)
+        self.buttonsLayout.addWidget(self.filenameLineEdit, 2, 1, 1, 1)
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
@@ -292,7 +300,7 @@ class AddIntensities(QMainWindow):
         """
         Going to the previous image
         """
-        self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
+        addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
         if len(self.numberToFilesMap) > 0:
             if self.currentFileNumber == 1:
                 self.currentFileNumber = len(self.numberToFilesMap)
@@ -305,7 +313,7 @@ class AddIntensities(QMainWindow):
         """
         Going to the next image
         """
-        self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
+        addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
         if len(self.numberToFilesMap) > 0:
             if self.currentFileNumber == len(self.numberToFilesMap) - 1:
                 self.currentFileNumber += 1
@@ -381,12 +389,11 @@ class AddIntensities(QMainWindow):
         """
         errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
-        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
-
+        text = 'The current folder will be processed using current settings. \
+            Make sure to adjust them before processing the folder. \n\n'
         text += "\nCurrent Settings"
         if self.orig_image_center is not None:
-            text += "\n  - Center : " + str(self.orig_image_center)
-
+            text += "\n - Center : " + str(self.orig_image_center)
         text += '\n\nAre you sure you want to process ' + str(len(self.numberToFilesMap)) + ' exposures in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
@@ -417,7 +424,7 @@ class AddIntensities(QMainWindow):
         self.axClicked = None
         self.updateUI()
         self.resetStatusbar()
-    
+
     def resetStatusbar(self):
         """
         Reset the status bar
@@ -482,7 +489,7 @@ class AddIntensities(QMainWindow):
             ylim = ax.get_ylim()
             mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
             cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
+            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])
             cy = ylim[1] - bounds[1][1] * my
             x = event.x * mx + cx
             y = event.y * my + cy
@@ -538,18 +545,16 @@ class AddIntensities(QMainWindow):
                     new_img[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)] = croppedImage
                     print("Cropped Image shape ", croppedImage.shape)
                     print("New Image shape ", new_img.shape)
-                    self.orig_img = new_img
                     self.initImg = None
                     self.newImgDimension = None
                     # self.deleteInfo(['center', 'rotationAngle', 'manual_center', 'manual_rotationAngle'])
                     self.setFitRegion.setChecked(False)
-                    self.centImgTransMat = None
                     self.onImageChanged()
 
             elif func[0] == "chords_center":
                 if self.axClicked is None:
                     self.imgPathOnStatusBar.setText(
-                    "Click to place a point (need 3 points), then click on the button to process (ESC to cancel)")
+                        "Click to place a point (need 3 points), then click on the button to process (ESC to cancel)")
                 else:
                     axis_size = 1
                     self.chordpoints.append([x, y])
@@ -667,7 +672,7 @@ class AddIntensities(QMainWindow):
             ylim = ax.get_ylim()
             mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
             cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
+            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])
             cy = ylim[1] - bounds[1][1] * my
             x = event.x * mx + cx
             y = event.y * my + cy
@@ -713,23 +718,23 @@ class AddIntensities(QMainWindow):
             if len(func) == 2:
                 # width selected, change height as cursor moves
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,-1,-1):
+                    for i in range(len(ax.patches) - 1, -1, -1):
                         ax.patches.pop(i)
                 hei = 2*abs(y-center[1])
                 wei = 2*abs(func[1] - center[0])
-                sq = self.getRectanglePatch(center, wei, hei)
+                sq = getRectanglePatch(center, wei, hei)
                 ax.add_patch(sq)
             else:
                 # nothing is selected, start by changing width
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,-1,-1):
+                    for i in range(len(ax.patches) - 1, -1, -1):
                         ax.patches.pop(i)
                 if self.calSettings is None or 'center' not in self.calSettings:
                     self.calSettings = {}
                     _, self.calSettings['center'] = self.getExtentAndCenter(self.orig_imgs[0])
                 center = self.calSettings['center']
                 wei = 2 * abs(x - center[0])
-                sq = self.getRectanglePatch(center, wei, 50)
+                sq = getRectanglePatch(center, wei, 50)
                 ax.add_patch(sq)
             self.imageCanvas.draw_idle()
 
@@ -739,7 +744,7 @@ class AddIntensities(QMainWindow):
             axis_size = 5
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
+                    for i in range(len(ax.lines) - 1, -1, -1):
                         ax.lines.pop(i)
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -747,10 +752,8 @@ class AddIntensities(QMainWindow):
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
+                    for i in range(len(ax.lines) - 1, 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
@@ -759,12 +762,11 @@ class AddIntensities(QMainWindow):
         elif func[0] == "perp_center" and self.axClicked is not None:
             self.imgPathOnStatusBar.setText("Click to create a point (2 points for a line), then click on the button to process (ESC to cancel)")
             # draw X on points and a line between points
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
 
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
+                    for i in range(len(ax.lines) - 1, -1, -1):
                         ax.lines.pop(i)
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -772,10 +774,8 @@ class AddIntensities(QMainWindow):
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
+                    for i in range(len(ax.lines) - 1, 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
@@ -783,10 +783,8 @@ class AddIntensities(QMainWindow):
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
-                    # first_cross = ax.lines[:n]
-                    for i in range(len(ax.lines)-1,n-1,-1):
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -794,10 +792,8 @@ class AddIntensities(QMainWindow):
                 start_pt = func[-1]
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
-                    # first_cross = ax.lines[:n]
-                    for i in range(len(ax.lines)-1,n-1,-1):
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
@@ -815,7 +811,7 @@ class AddIntensities(QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            for i in range(len(ax.lines)-1,-1,-1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 ax.lines.pop(i)
             ax.plot((x, x2), (y, y2), color='g')
             self.imageCanvas.draw_idle()
@@ -895,9 +891,9 @@ class AddIntensities(QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
             ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 ax.lines.pop(i)
-            for i in range(len(ax.patches)-1,-1,-1):
+            for i in range(len(ax.patches) - 1, -1, -1):
                 ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ["im_zoomin"]
@@ -910,9 +906,7 @@ class AddIntensities(QMainWindow):
         Trigger when set zoom out button is pressed (image tab)
         """
         self.imgZoomInB.setChecked(False)
-        self.zoomOutClicked = True
         self.default_img_zoom = None
-        self.default_result_img_zoom = None
         self.img_zoom = None
         self.refreshImageTab()
 
@@ -928,14 +922,6 @@ class AddIntensities(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshImageTab()
-
-    def getRectanglePatch(self, center, w, h):
-        """
-        Give the rectangle patch
-        """
-        leftTopCorner = (center[0] - w//2, center[1] - h//2)
-        sq = patches.Rectangle(leftTopCorner, w, h, linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted')
-        return sq
 
     def setCalibrationActive(self):
         """
@@ -965,9 +951,9 @@ class AddIntensities(QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
             ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
+            for i in range(len(ax.lines) - 1, -1, -1):
                 ax.lines.pop(i)
-            for i in range(len(ax.patches)-1,-1,-1):
+            for i in range(len(ax.patches) - 1, -1, -1):
                 ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ['fit_region']
@@ -994,14 +980,14 @@ class AddIntensities(QMainWindow):
             verticalLines = []
             intersections = []
             for i in range(1, len(func) - 1, 2):
-                slope = self.calcSlope(func[i], func[i + 1])
+                slope = calcSlope(func[i], func[i + 1])
                 if abs(slope) > 1:
                     verticalLines.append((func[i], func[i + 1]))
                 else:
                     horizontalLines.append((func[i], func[i + 1]))
             for line1 in verticalLines:
                 for line2 in horizontalLines:
-                    cx, cy = self.getIntersectionOfTwoLines(line2, line1)
+                    cx, cy = getIntersectionOfTwoLines(line2, line1)
                     print("Intersection ", (cx, cy))
                     intersections.append((cx, cy))
             cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
@@ -1014,20 +1000,10 @@ class AddIntensities(QMainWindow):
             # Set new center and rotaion angle , re-calculate R-min
             print("New Center ", new_center)
             self.info['manual_center'] = (
-            int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
+                int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
             print("New center after extent ", self.info['manual_center'])
             self.setCentByPerp.setChecked(False)
             self.onImageChanged()
-
-    def calcSlope(self, pt1, pt2):
-        """
-        Compute the slope using 2 points.
-        :param pt1, pt2: 2 points
-        :return: slope
-        """
-        if pt1[0] == pt2[0]:
-            return float('inf')
-        return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
 
     def setCenterByChordsClicked(self):
         """
@@ -1037,7 +1013,7 @@ class AddIntensities(QMainWindow):
             self.axClicked = None
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
-            self.chordpoints=[]
+            self.chordpoints = []
             self.chordLines = []
             self.imageCanvas.draw_idle()
             self.function = ["chords_center"]  # set current active function
@@ -1084,7 +1060,7 @@ class AddIntensities(QMainWindow):
         self.chordLines = []
         for i, p1 in enumerate(points):
             for p2 in points[i + 1:]:
-                slope, cent = self.getPerpendicularLineHomogenous(p1, p2)
+                slope, cent = getPerpendicularLineHomogenous(p1, p2)
                 if slope == float('inf'):
                     y_vals = np.array(ax.get_ylim())
                     x_vals = cent[0] + np.zeros(y_vals.shape)
@@ -1095,40 +1071,6 @@ class AddIntensities(QMainWindow):
                     self.chordLines.append([slope, cent[1] - slope * cent[0]])
                 ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
 
-    def getPerpendicularLineHomogenous(self, p1, p2):
-        """
-        Give the perpendicular line homogeneous
-        """
-        b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
-        chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
-        print("Chord_cent1 ", chord_cent)
-        if b1 == 0:
-            return float('inf'), chord_cent
-        if b1 == float('inf'):
-            return 0, chord_cent
-        return -1 / b1, chord_cent
-
-    def getIntersectionOfTwoLines(self, line1, line2):
-        """
-        Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
-        :param line1:
-        :param line2:
-        :return:
-        """
-        p1,p2 = line1
-        p3,p4 = line2
-        slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
-        if p4[0] != p3[0]:
-            slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
-            x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
-            y = slope1*(x - p1[0]) + p1[1]
-        else:
-            # Slope2 is inf
-            x = p4[0]
-            y = slope1 * (x - p1[0]) + p1[1]
-
-        return (int(x), int(y))
-
     def setRotation(self):
         """
         Trigger when set center and rotation angle button is pressed
@@ -1138,11 +1080,6 @@ class AddIntensities(QMainWindow):
             # clear plot
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
-            # ax = self.imageAxes
-            # for i in range(len(ax.lines)-1,-1,-1):
-            #     ax.lines.pop(i)
-            # for i in range(len(ax.patches)-1,-1,-1):
-            #     ax.patches.pop(i)
             _, center = self.getExtentAndCenter(self.orig_imgs[0])
             self.info['center'] = center
             self.imageCanvas.draw_idle()
@@ -1167,19 +1104,7 @@ class AddIntensities(QMainWindow):
         """
         self.statusPrint("Centererizing image...")
         center = self.orig_image_center
-        """
-        if self.centImgTransMat is not None and 'calib_center' not in self.info:
-            # convert center in initial img coordinate system
-            M = self.centImgTransMat
-            M[0,2] = -1*M[0,2]
-            M[1,2] = -1*M[1,2]
-            center = [center[0], center[1], 1]
-            center = np.dot(M, center)
-            if 'manual_center' in self.info:
-                self.info['manual_center'] = (int(center[0]), int(center[1]))
-            if 'calib_center' in self.info:
-                self.info['calib_center'] = (int(center[0]), int(center[1]))
-        """
+
         center = (int(center[0]), int(center[1]))
 
         print("Dimension of image before centerize ", img.shape)
@@ -1190,17 +1115,15 @@ class AddIntensities(QMainWindow):
             self.newImgDimension = dim
         else:
             dim = self.newImgDimension
-        new_img = np.zeros((dim,dim)).astype("float32")
-        new_img[0:b,0:l] = img
+        new_img = np.zeros((dim, dim)).astype("float32")
+        new_img[0:b, 0:l] = img
 
         #Translate image to appropriate position
         transx = int(((dim/2) - center[0]))
         transy = int(((dim/2) - center[1]))
-        M = np.float32([[1,0,transx],[0,1,transy]])
-        self.centImgTransMat = M
-        rows,cols = new_img.shape
+        M = np.float32([[1, 0, transx], [0, 1, transy]])
+        rows, cols = new_img.shape
         mask_thres = -1
-        print(center)
 
         if self.img_type == "PILATUS":
             mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
@@ -1212,7 +1135,7 @@ class AddIntensities(QMainWindow):
             translated_Img[translated_mask > 0] = mask_thres
         else:
             cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-            translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
+            translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
 
         self.orig_imgs[index] = translated_Img
         self.info['center'] = (int(dim / 2), int(dim / 2))
@@ -1225,7 +1148,7 @@ class AddIntensities(QMainWindow):
         Give the extent and the center of the image
         """
         if self.orig_imgs == []:
-            return [0,0], (0,0)
+            return [0, 0], (0, 0)
         if self.orig_image_center is None:
             self.findCenter(orig_img)
             self.statusPrint("Done.")
@@ -1296,11 +1219,6 @@ class AddIntensities(QMainWindow):
             # clear plot
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
-            # ax = self.imageAxes
-            # for i in range(len(ax.lines)-1,-1,-1):
-            #     ax.lines.pop(i)
-            # for i in range(len(ax.patches)-1,-1,-1):
-            #     ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ["im_center_rotate"]
         else:
@@ -1318,62 +1236,6 @@ class AddIntensities(QMainWindow):
         self.filenameLineEdit.setMaximum(len(self.numberToFilesMap))
         self.exposureNbChanged()
         # self.onImageChanged()
-
-    def resizeImage(self, img, res_size):
-        """
-        Resize the image.
-        """
-        print("Size mismatched, resizing image")
-        if img.shape == res_size:
-            return img
-        h,b = img.shape
-        resH, resB = res_size
-        dH = resH - h
-        dB = resB - b
-        extraH = dH//2
-        extraB = dB//2
-        res_img = np.zeros((res_size))
-        res_img[extraH:extraH+h, extraB:extraB+b] = img
-        return res_img
-
-    def addIntensity(self, imgs, dir_path, key):
-        """
-        Add Intensity of one set of files (main function).
-        :param imgs, dir_path, key:
-        """
-        createFolder(fullPath(dir_path, "ai_results"))
-        sum_img = 0
-        for img in imgs:
-            if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
-                sum_img = self.resizeImage(sum_img, img.shape)
-            elif not isinstance(sum_img, int):
-                img = self.resizeImage(img, sum_img.shape)
-            sum_img += img
-        result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
-        fabio.tifimage.tifimage(data=sum_img).write(result_file)
-        print('Saved ', result_file)
-        print('Resulting image shape ', sum_img.shape)
-
-    def addIntensities(self, numberToFilesMap, dir_path):
-        """
-        Add Intensities of the different files (main function).
-        :param numberToFilesMap, dir_path:
-        """
-        createFolder(fullPath(dir_path, "ai_results"))
-        for key in numberToFilesMap:
-            sum_img = 0
-            for fname in numberToFilesMap[key]:
-                img = fabio.open(fname).data
-                img = ifHdfReadConvertless(fname, img)
-                if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
-                    sum_img = self.resizeImage(sum_img, img.shape)
-                elif not isinstance(sum_img, int):
-                    img = self.resizeImage(img, sum_img.shape)
-                sum_img += img
-            result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
-            fabio.tifimage.tifimage(data=sum_img).write(result_file)
-            print('Saved ', result_file)
-            print('Resulting image shape ', sum_img.shape)
 
     def browseFolder(self):
         """
@@ -1395,17 +1257,15 @@ class AddIntensities(QMainWindow):
                     self.numberToFilesMap[int(number)].append(f)
                     self.numberToFilesMap[int(number)].sort()
             self.onNewFileSelected()
-            # self.onImageChanged()
-            """
-            self.addIntensities(self.numberToFilesMap, dir_path)
-            msg = QMessageBox()
-            msg.setInformativeText(
-                "Completed Adding intensities, results saved in folder ai_results")
-            msg.setStandardButtons(QMessageBox.Ok)
-            msg.setWindowTitle("Finished Adding Intensities")
-            msg.setStyleSheet("QLabel{min-width: 500px;}")
-            msg.exec_()
-            """
+
+            # addIntensities(self.numberToFilesMap, dir_path)
+            # msg = QMessageBox()
+            # msg.setInformativeText(
+            #     "Completed Adding intensities, results saved in folder ai_results")
+            # msg.setStandardButtons(QMessageBox.Ok)
+            # msg.setWindowTitle("Finished Adding Intensities")
+            # msg.setStyleSheet("QLabel{min-width: 500px;}")
+            # msg.exec_()
 
     def onImageChanged(self):
         """
@@ -1417,7 +1277,6 @@ class AddIntensities(QMainWindow):
         self.orig_imgs = []
         for i in range(self.exposureNb.value()):
             self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
-        # self.orig_image_center = None
         if self.orig_imgs[0].shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -1559,16 +1418,15 @@ class AddIntensities(QMainWindow):
             center = self.info["manual_center"]
         if self.center_before_rotation is not None:
             center = self.center_before_rotation
-        
+
         b, l = img.shape
-        rotImg, newCenter, self.rotMat = rotateImage(img, center, self.info["rotationAngle"][index], self.img_type, -1)
+        rotImg, newCenter, _ = rotateImage(img, center, self.info["rotationAngle"][index], self.img_type, -1)
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape
         db, dl = (bnew - b)//2, (lnew-l)//2
         final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
         self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
-        self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
         return final_rotImg
 
@@ -1603,3 +1461,111 @@ class AddIntensities(QMainWindow):
         """
         self.statusReport.setText(text)
         QApplication.processEvents()
+
+def addIntensity(imgs, dir_path, key):
+    """
+    Add Intensity of one set of files (main function).
+    :param imgs, dir_path, key:
+    """
+    createFolder(fullPath(dir_path, "ai_results"))
+    sum_img = 0
+    for img in imgs:
+        if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+            sum_img = resizeImage(sum_img, img.shape)
+        elif not isinstance(sum_img, int):
+            img = resizeImage(img, sum_img.shape)
+        sum_img += img
+    result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
+    fabio.tifimage.tifimage(data=sum_img).write(result_file)
+    print('Saved ', result_file)
+    print('Resulting image shape ', sum_img.shape)
+
+def addIntensities(numberToFilesMap, dir_path):
+    """
+    Add Intensities of the different files (main function).
+    :param numberToFilesMap, dir_path:
+    """
+    createFolder(fullPath(dir_path, "ai_results"))
+    for key in numberToFilesMap:
+        sum_img = 0
+        for fname in numberToFilesMap[key]:
+            img = fabio.open(fname).data
+            img = ifHdfReadConvertless(fname, img)
+            if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+                sum_img = resizeImage(sum_img, img.shape)
+            elif not isinstance(sum_img, int):
+                img = resizeImage(img, sum_img.shape)
+            sum_img += img
+        result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
+        fabio.tifimage.tifimage(data=sum_img).write(result_file)
+        print('Saved ', result_file)
+        print('Resulting image shape ', sum_img.shape)
+
+def getRectanglePatch(center, w, h):
+    """
+    Give the rectangle patch
+    """
+    leftTopCorner = (center[0] - w//2, center[1] - h//2)
+    sq = patches.Rectangle(leftTopCorner, w, h, linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted')
+    return sq
+
+def calcSlope(pt1, pt2):
+    """
+    Compute the slope using 2 points.
+    :param pt1, pt2: 2 points
+    :return: slope
+    """
+    if pt1[0] == pt2[0]:
+        return float('inf')
+    return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
+
+def getPerpendicularLineHomogenous(p1, p2):
+    """
+    Give the perpendicular line homogeneous
+    """
+    b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
+    chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
+    print("Chord_cent1 ", chord_cent)
+    if b1 == 0:
+        return float('inf'), chord_cent
+    if b1 == float('inf'):
+        return 0, chord_cent
+    return -1 / b1, chord_cent
+
+def getIntersectionOfTwoLines(line1, line2):
+    """
+    Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
+    :param line1:
+    :param line2:
+    :return:
+    """
+    p1, p2 = line1
+    p3, p4 = line2
+    slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+    if p4[0] != p3[0]:
+        slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
+        x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
+        y = slope1*(x - p1[0]) + p1[1]
+    else:
+        # Slope2 is inf
+        x = p4[0]
+        y = slope1 * (x - p1[0]) + p1[1]
+
+    return (int(x), int(y))
+
+def resizeImage(img, res_size):
+    """
+    Resize the image.
+    """
+    print("Size mismatched, resizing image")
+    if img.shape == res_size:
+        return img
+    h, b = img.shape
+    resH, resB = res_size
+    dH = resH - h
+    dB = resB - b
+    extraH = dH//2
+    extraB = dB//2
+    res_img = np.zeros((res_size))
+    res_img[extraH:extraH+h, extraB:extraB+b] = img
+    return res_img
