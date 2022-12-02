@@ -106,7 +106,8 @@ Note: The first push is to save a tagged version, and the second push is to upda
 
 5. Record pip package versions:
 > pip freeze > pipversions_1-14.4.txt
-Copy this file into Documents/DevGuide/release-info
+
+Copy this file into dev_docs/DevGuide/release-info
 
 ### Update documents in docs_archive
 Create a copy of the current docs version in docs_archive and rename it as docs_versionNumber.

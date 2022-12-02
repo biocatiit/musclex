@@ -24,7 +24,7 @@ musclex/csv_manager/__init__.py
 musclex/modules/DiffractionCentroids.py
 musclex/modules/EquatorImage.py
 musclex/modules/ProjectionProcessor.py
-musclex/modules/QF_utilities.pyx
+musclex/modules/QF_utilities.py
 musclex/modules/QuadrantFolder.py
 musclex/modules/ScanningDiffraction.py
 musclex/modules/__init__.py

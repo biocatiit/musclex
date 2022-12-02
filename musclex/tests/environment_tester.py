@@ -42,7 +42,8 @@ pip_details = {
     "pyFAI" : "0.21.3",
     "distro" : "1.7.0",
     "hdf5plugin" : "3.3.1",
-    "PyMca5" : "5.7.5"
+    "PyMca5" : "5.7.5",
+    "numba" : "0.56.4"
     }
 
 import os

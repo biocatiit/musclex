@@ -83,11 +83,6 @@ setup(
             'musclex-launcher=musclex.launcher:LauncherForm.main'
         ],
     },
-    ext_modules = [Extension("musclex.modules.QF_utilities",
-                 sources=['musclex/modules/QF_utilities.pyx'],
-                 libraries=([] if sys.platform == 'win32' else ["m"]),
-                 extra_compile_args=["-ffast-math"],
-                 )],
     cmdclass = {'build_ext': build_ext},
     include_dirs=[numpy.get_include()],
     include_package_data=True,

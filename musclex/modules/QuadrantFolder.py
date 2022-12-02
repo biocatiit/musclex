@@ -528,7 +528,8 @@ class QuadrantFolder:
                       index_bn=index_bn,
                       iprint=0,
                       ilog=6,
-                      )
+                      maxbin=max_bin,
+                      maxnum=max_num)
 
         background = copy.copy(b)
         background[np.isnan(background)] = 0.
@@ -610,7 +611,8 @@ class QuadrantFolder:
                         wrk=wrk,
                         iflag=iflag,
                         ilog=ilog,
-                        nrast=nrast)
+                        nrast=nrast,
+                        npix=npix)
 
         background = copy.copy(b)
         background[np.isnan(background)] = 0.
@@ -671,8 +673,7 @@ class QuadrantFolder:
                       bw=np.zeros(maxwin, 'f'),
                       index_bn=np.zeros(maxwin, 'i'),
                       iprint=0,
-                      ilog=6,
-                      )
+                      ilog=6)
 
         background = copy.copy(b)
         background[np.isnan(background)] = 0.
@@ -826,7 +827,6 @@ class QuadrantFolder:
 
         self.info['bgimg1'] = result
 
-
     def calculateAvgFold(self):
         """
         Calculate an average fold for 1-4 quadrants. Quadrants are splitted by center and rotation
@@ -914,7 +914,7 @@ class QuadrantFolder:
                 # self.applyCircularlySymBGSub()
             elif method == 'White-top-hats':
                 self.info["bgimg1"] = white_tophat(avg_fold, disk(self.info["tophat1"]))
-            elif self.info['bgsub'] == 'Roving Window':
+            elif method == 'Roving Window':
                 self.applyRovingWindowBGSub()
             elif method == 'Smoothed-Gaussian':
                 self.applySmoothedBGSub('gauss')

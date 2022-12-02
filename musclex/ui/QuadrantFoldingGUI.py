@@ -347,7 +347,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgChoice = QComboBox()
         self.bgChoice.setCurrentIndex(0)
         # self.bgChoice.setFixedHeight(40)
-        self.allBGChoices = ['None','2D Convexhull','Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar']
+        self.allBGChoices = ['None','Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar'] # '2D Convexhull',
         for c in self.allBGChoices:
             self.bgChoice.addItem(c)
 

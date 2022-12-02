@@ -18,3 +18,4 @@ opencv-python-headless
 pyFAI
 distro
 PyMca5
+numba
