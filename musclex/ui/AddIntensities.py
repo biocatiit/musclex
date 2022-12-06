@@ -39,6 +39,7 @@ import musclex
 from .pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder
 from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage
+from ..utils.hdf5_manager import loadFile
 from ..CalibrationSettings import CalibrationSettings
 
 class AddIntensities(QMainWindow):
@@ -80,6 +81,8 @@ class AddIntensities(QMainWindow):
         self.imageAxes7 = None
         self.imageAxes8 = None
         self.axClicked = None
+        self.isHdf5 = False
+        self.fileList = None
         self.chordpoints = []
         self.chordLines = []
         self.info = {'manual_rotationAngle': [None] * 8,
@@ -1244,18 +1247,32 @@ class AddIntensities(QMainWindow):
         self.dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
         if self.dir_path != "":
             self.numberToFilesMap = collections.defaultdict(list)
+            self.isHdf5 = False
             for fname in os.listdir(self.dir_path):
+                isDataFile = True
                 f = os.path.join(self.dir_path, fname)
                 if os.path.isfile(f):
                     i = -1
                     name = fname.split('.')[0]
                     number = name.split('_')[i]
+                    if fname.split('.')[1] in ['h5', 'hdf5']:
+                        self.isHdf5 = True
+                        isDataFile = False
                     while not number.isnumeric():
                         i -= 1
                         number = name.split('_')[i]
-                    # number = int(re.sub(r'[^0-9]', '', fname))
-                    self.numberToFilesMap[int(number)].append(f)
-                    self.numberToFilesMap[int(number)].sort()
+                    if self.isHdf5:
+                        for n in name.split('_'):
+                            if n == 'data':
+                                isDataFile = True
+                    if isDataFile:
+                        if self.isHdf5:
+                            self.fileList = loadFile(f)
+                            for k, l in enumerate(self.fileList[0]):
+                                self.numberToFilesMap[k].append(l)
+                        else:
+                            self.numberToFilesMap[int(number)].append(f)
+                        self.numberToFilesMap[int(number)].sort()
             self.onNewFileSelected()
 
             # addIntensities(self.numberToFilesMap, dir_path)
@@ -1276,7 +1293,11 @@ class AddIntensities(QMainWindow):
         self.filenameLineEdit.setValue(self.currentFileNumber)
         self.orig_imgs = []
         for i in range(self.exposureNb.value()):
-            self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
+            if self.isHdf5:
+                index = next((k for k, item in enumerate(self.fileList[0]) if item == self.numberToFilesMap[self.currentFileNumber][i]), 0)
+                self.orig_imgs.append(ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], self.fileList[1][index]))
+            else:
+                self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
         if self.orig_imgs[0].shape == (1043, 981):
             self.img_type = "PILATUS"
         else:

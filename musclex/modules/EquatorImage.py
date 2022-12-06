@@ -275,7 +275,7 @@ class EquatorImage:
             center = self.info["center"]
             if "orig_center" in self.info:
                 center = self.info["orig_center"]
-                print("orig_center",self.info['orig_center'])
+                # print("orig_center",self.info['orig_center'])
             else:
                 self.info["orig_center"] = center
 
