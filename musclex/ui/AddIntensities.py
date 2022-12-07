@@ -37,7 +37,7 @@ import fabio
 import cv2
 import musclex
 from .pyqt_utils import *
-from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder
+from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, input_types
 from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage
 from ..utils.hdf5_manager import loadFile
 from ..CalibrationSettings import CalibrationSettings
@@ -58,10 +58,12 @@ class AddIntensities(QMainWindow):
         self.numberToFilesMap = None
         self.orig_imgs = []
         self.initImg = None
+        self.sum_img = None
         self.img_type = None
         self.currentFileNumber = 1
         self.center_before_rotation = None
-        self.updated = False
+        self.extent = None
+        self.updated = {'img' : False, 'res': False}
         self.uiUpdating = False # update ui status flag (prevent recursive)
         self.calSettings = None
         self.calSettingsDialog = None
@@ -95,10 +97,24 @@ class AddIntensities(QMainWindow):
         """
         Initialize the UI.
         """
+        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.setWindowTitle("Muscle X Add Intensities v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.mainLayout = QHBoxLayout(self.centralWidget)
+
+        self.tabWidget = QTabWidget()
+        self.tabWidget.setTabPosition(QTabWidget.North)
+        self.tabWidget.setDocumentMode(False)
+        self.tabWidget.setTabsClosable(False)
+        self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
+        self.mainLayout.addWidget(self.tabWidget)
+
+        ##### Image Tab #####
+        self.imageTab = QWidget()
+        self.imageTab.setContentsMargins(0, 0, 0, 0)
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
+        self.tabWidget.addTab(self.imageTab, "Original Images")
 
         ## display browse folder buttons when program started
         self.verImgLayout = QVBoxLayout()
@@ -109,43 +125,14 @@ class AddIntensities(QMainWindow):
         self.verImgLayout.addWidget(self.browseFolderButton)
         self.browseFolderButton.setFixedHeight(100)
         self.browseFolderButton.setFixedWidth(300)
-        self.mainLayout.addLayout(self.verImgLayout)
-
-        #### Status bar #####
-        self.statusBar = QStatusBar()
-        self.progressBar = QProgressBar()
-        self.progressBar.setMaximum(100)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        self.statusReport = QLabel()
-        self.imgDetailOnStatusBar = QLabel()
-        self.imgCoordOnStatusBar = QLabel()
-        self.imgPathOnStatusBar = QLabel()
-        self.imgPathOnStatusBar.setText("  Please select a folder to process")
-        self.statusBar.addPermanentWidget(self.statusReport)
-        self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
-        self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
-        self.statusBar.addPermanentWidget(self.progressBar)
-        self.statusBar.addWidget(QLabel("    "))
-        self.statusBar.addWidget(self.imgPathOnStatusBar)
-        self.setStatusBar(self.statusBar)
-
-        # Menubar
-        selectFolderAction = QAction('Select a Folder...', self)
-        selectFolderAction.setShortcut('Ctrl+F')
-        selectFolderAction.triggered.connect(self.browseFolder)
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(selectFolderAction)
 
         self.verImgLayout.addWidget(self.browseFolderButton)
         self.imageFigure = plt.figure()
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
         self.imageCanvas.setHidden(True)
-        self.mainLayout.addWidget(self.imageCanvas)
+        self.imageTabLayout.addLayout(self.verImgLayout)
+        self.imageTabLayout.addWidget(self.imageCanvas)
 
         self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
@@ -210,6 +197,13 @@ class AddIntensities(QMainWindow):
         self.setFitRegion = QPushButton("Set Region of Interest")
         self.setFitRegion.setCheckable(True)
 
+        self.showSeparator = QCheckBox()
+        self.showSeparator.setText("Show Quadrant Separator")
+
+        self.centerWoRotateChkBx = QCheckBox()
+        self.centerWoRotateChkBx.setText("Calibrate Center Without Rotation")
+        self.centerWoRotateChkBx.setChecked(True)
+
         self.settingsLayout.addWidget(QLabel('Exposures'), 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.exposureNb, 0, 1, 1, 2)
         self.settingsLayout.addWidget(self.calibrationChkBx, 1, 0, 1, 2)
@@ -219,6 +213,8 @@ class AddIntensities(QMainWindow):
         self.settingsLayout.addWidget(self.setCentByChords, 5, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCentByPerp, 6, 0, 1, 2)
         self.settingsLayout.addWidget(self.setFitRegion, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 8, 0, 1, 2)
+        self.settingsLayout.addWidget(self.showSeparator, 9, 0, 1, 2)
 
         self.calibrationButton.setEnabled(False)
         self.setCenterRotationButton.setEnabled(False)
@@ -226,8 +222,9 @@ class AddIntensities(QMainWindow):
         self.setCentByChords.setEnabled(False)
         self.setCentByPerp.setEnabled(False)
         self.setFitRegion.setEnabled(False)
+        self.showSeparator.setEnabled(False)
+        self.centerWoRotateChkBx.setEnabled(False)
 
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
@@ -255,7 +252,115 @@ class AddIntensities(QMainWindow):
         self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(350)
         self.frameOfKeys.setLayout(self.optionsLayout)
-        self.mainLayout.addWidget(self.frameOfKeys)
+        self.imageTabLayout.addWidget(self.frameOfKeys)
+
+        ##### Result Tab #####
+        self.resultTab = QWidget()
+        self.resultTab.setContentsMargins(0, 0, 0, 0)
+        self.resultTabLayout = QHBoxLayout(self.resultTab)
+        self.tabWidget.addTab(self.resultTab, "Results")
+
+        self.resultFigure = plt.figure()
+        self.resultAxes = self.resultFigure.add_subplot(111)
+        self.resultVLayout = QVBoxLayout()
+        self.resultCanvas = FigureCanvas(self.resultFigure)
+        self.resultTabLayout.addWidget(self.resultCanvas)
+
+        self.leftLayout = QVBoxLayout()
+        self.leftFrame = QFrame()
+        self.leftFrame.setFixedWidth(300)
+        self.leftFrame.setLayout(self.leftLayout)
+        self.resultTabLayout.addWidget(self.leftFrame)
+
+        # Display Options
+        self.resultDispOptGrp = QGroupBox()
+        self.resultDispOptGrp.setTitle("Display Options")
+        self.resultDispOptGrp.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.resultDispOptLayout = QGridLayout()
+
+        self.spResultmaxInt = QDoubleSpinBox()
+        self.spResultmaxInt.setToolTip(
+            "Reduction in the maximal intensity shown to allow for more details in the image.")
+        self.spResultmaxInt.setKeyboardTracking(False)
+        self.spResultmaxInt.setSingleStep(5)
+        self.spResultmaxInt.setDecimals(0)
+
+        self.spResultminInt = QDoubleSpinBox()
+        self.spResultminInt.setToolTip(
+            "Increase in the minimal intensity shown to allow for more details in the image.")
+        self.spResultminInt.setKeyboardTracking(False)
+        self.spResultminInt.setSingleStep(5)
+        self.spResultminInt.setDecimals(0)
+
+        self.resultZoomInB = QPushButton("Zoom In")
+        self.resultZoomInB.setCheckable(True)
+        self.resultZoomOutB = QPushButton("Full")
+
+        self.resultminIntLabel = QLabel("Min intensity : ")
+        self.resultmaxIntLabel = QLabel("Max intensity : ")
+        self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
+        self.resPersistMaxIntensity = QCheckBox("Persist Max intensity")
+
+        self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 1)
+        self.resultDispOptLayout.addWidget(self.spResultminInt, 1, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 2, 0, 1, 1)
+        self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resultZoomInB, 3, 0, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resultZoomOutB, 3, 1, 1, 1)
+        self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 4, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resPersistMaxIntensity, 5, 0, 1, 2)
+
+        self.resultDispOptGrp.setLayout(self.resultDispOptLayout)
+
+        self.leftLayout.addWidget(self.resultDispOptGrp)
+        self.leftLayout.addStretch()
+
+        self.processFolderButton2 = QPushButton("Process Current Folder")
+        self.processFolderButton2.setStyleSheet(pfss)
+        self.processFolderButton2.setCheckable(True)
+        self.nextButton2 = QPushButton()
+        self.nextButton2.setText(">>>")
+        self.prevButton2 = QPushButton()
+        self.prevButton2.setText("<<<")
+        self.filenameLineEdit2 = QSpinBox()
+        self.filenameLineEdit2.setMinimum(0)
+        self.filenameLineEdit2.setKeyboardTracking(False)
+        self.buttonsLayout2 = QGridLayout()
+        self.buttonsLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
+        self.buttonsLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
+        self.buttonsLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
+        self.buttonsLayout2.addWidget(QLabel('Images #'), 2, 0, 1, 1)
+        self.buttonsLayout2.addWidget(self.filenameLineEdit2, 2, 1, 1, 1)
+        self.leftLayout.addLayout(self.buttonsLayout2)
+
+        #### Status bar #####
+        self.statusBar = QStatusBar()
+        self.progressBar = QProgressBar()
+        self.progressBar.setMaximum(100)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setFixedWidth(300)
+        self.progressBar.setTextVisible(True)
+        self.progressBar.setVisible(False)
+        self.statusReport = QLabel()
+        self.imgDetailOnStatusBar = QLabel()
+        self.imgCoordOnStatusBar = QLabel()
+        self.imgPathOnStatusBar = QLabel()
+        self.imgPathOnStatusBar.setText("  Please select a folder to process")
+        self.statusBar.addPermanentWidget(self.statusReport)
+        self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
+        self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
+        self.statusBar.addPermanentWidget(self.progressBar)
+        self.statusBar.addWidget(QLabel("    "))
+        self.statusBar.addWidget(self.imgPathOnStatusBar)
+        self.setStatusBar(self.statusBar)
+
+        # Menubar
+        selectFolderAction = QAction('Select a Folder...', self)
+        selectFolderAction.setShortcut('Ctrl+F')
+        selectFolderAction.triggered.connect(self.browseFolder)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(selectFolderAction)
 
         self.show()
         self.setMinimumHeight(800)
@@ -266,17 +371,19 @@ class AddIntensities(QMainWindow):
         Set all triggered functions for widgets
         """
         self.browseFolderButton.clicked.connect(self.browseFolder)
+        self.imgZoomInB.clicked.connect(self.imageZoomIn)
+        self.imgZoomOutB.clicked.connect(self.imageZoomOut)
         self.spminInt.valueChanged.connect(self.refreshImageTab)
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
+        self.showSeparator.stateChanged.connect(self.refreshImageTab)
+        self.centerWoRotateChkBx.stateChanged.connect(self.centerWoRotateChanged)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.nextButton.clicked.connect(self.nextClicked)
         self.prevButton.clicked.connect(self.prevClicked)
         self.filenameLineEdit.valueChanged.connect(self.fileNameChanged)
 
         self.exposureNb.valueChanged.connect(self.exposureNbChanged)
-        self.imgZoomInB.clicked.connect(self.imageZoomIn)
-        self.imgZoomOutB.clicked.connect(self.imageZoomOut)
         self.calibrationChkBx.stateChanged.connect(self.setCalibrationActive)
         self.calibrationButton.clicked.connect(self.calibrationClicked)
         self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
@@ -289,11 +396,52 @@ class AddIntensities(QMainWindow):
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
         self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
 
+        self.resultZoomInB.clicked.connect(self.resultZoomIn)
+        self.resultZoomOutB.clicked.connect(self.imageZoomOut)
+        self.spResultminInt.valueChanged.connect(self.refreshResultTab)
+        self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
+        self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
+        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
+        self.nextButton2.clicked.connect(self.nextClicked)
+        self.prevButton2.clicked.connect(self.prevClicked)
+        self.filenameLineEdit2.valueChanged.connect(self.fileName2Changed)
+
+        self.resultFigure.canvas.mpl_connect('button_press_event', self.resultClicked)
+        self.resultFigure.canvas.mpl_connect('motion_notify_event', self.resultOnMotion)
+        self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
+        self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
+
+    def centerWoRotateChanged(self):
+        """
+        Triggered when the button is clicked
+        """
+        if self.centerWoRotateChkBx.isChecked():
+            self.info['manual_rotationAngle'] = [None] * 8
+            self.info['rotationAngle'] = [0] * 8
+        self.deleteInfo(['center'])
+        self.onImageChanged()
+
     def fileNameChanged(self):
         """
         Triggered when the name of the current file is changed
         """
         fileName = self.filenameLineEdit.value()
+        self.filenameLineEdit2.blockSignals(True)
+        self.filenameLineEdit2.setValue(fileName)
+        self.filenameLineEdit2.blockSignals(False)
+        if self.numberToFilesMap[fileName] == []:
+            return
+        self.currentFileNumber = fileName
+        self.onImageChanged()
+
+    def fileName2Changed(self):
+        """
+        Triggered when the name of the current file is changed
+        """
+        fileName = self.filenameLineEdit2.value()
+        self.filenameLineEdit.blockSignals(True)
+        self.filenameLineEdit.setValue(fileName)
+        self.filenameLineEdit.blockSignals(False)
         if self.numberToFilesMap[fileName] == []:
             return
         self.currentFileNumber = fileName
@@ -303,7 +451,6 @@ class AddIntensities(QMainWindow):
         """
         Going to the previous image
         """
-        addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
         if len(self.numberToFilesMap) > 0:
             if self.currentFileNumber == 1:
                 self.currentFileNumber = len(self.numberToFilesMap)
@@ -316,7 +463,6 @@ class AddIntensities(QMainWindow):
         """
         Going to the next image
         """
-        addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
         if len(self.numberToFilesMap) > 0:
             if self.currentFileNumber == len(self.numberToFilesMap) - 1:
                 self.currentFileNumber += 1
@@ -418,13 +564,30 @@ class AddIntensities(QMainWindow):
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Process Current Folder")
 
+    def refreshAllTab(self):
+        """
+        Set all tab update status to be not update, and Refresh (Redraw) all tab
+        """
+        self.updated['img'] = False
+        self.updated['res'] = False
+        self.function = None
+        self.axClicked = None
+        self.updateUI()
+        self.resetStatusbar()
+
     def refreshImageTab(self):
         """
         Refresh (Redraw) image tab
         """
-        self.updated = False
-        self.function = None
-        self.axClicked = None
+        self.updated['img'] = False
+        self.updateUI()
+        self.resetStatusbar()
+
+    def refreshResultTab(self):
+        """
+        Refresh (Redraw) image tab
+        """
+        self.updated['res'] = False
         self.updateUI()
         self.resetStatusbar()
 
@@ -447,6 +610,7 @@ class AddIntensities(QMainWindow):
         """
         if self.ableToProcess():
             self.updateImageTab()
+            self.updateResultTab()
 
     def imageClicked(self, event):
         """
@@ -517,7 +681,7 @@ class AddIntensities(QMainWindow):
                     self.img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
                     self.function = None
                     self.imgZoomInB.setChecked(False)
-                    self.refreshImageTab()
+                    self.refreshAllTab()
             elif func[0] == "fit_region" and self.axClicked is not None:
                 if len(func) == 1:
                     # width selected
@@ -893,13 +1057,21 @@ class AddIntensities(QMainWindow):
         if self.imgZoomInB.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.imageAxes
-            for i in range(len(ax.lines) - 1, -1, -1):
-                ax.lines.pop(i)
-            for i in range(len(ax.patches) - 1, -1, -1):
-                ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ["im_zoomin"]
+        else:
+            self.function = None
+            self.resetStatusbar()
+
+    def resultZoomIn(self):
+        """
+        Trigger when set zoom in button is pressed (result tab)
+        """
+        if self.resultZoomInB.isChecked():
+            self.imgPathOnStatusBar.setText(
+                "Draw a rectangle on the image to zoom in (ESC to cancel)")
+            self.resultCanvas.draw_idle()
+            self.function = ["r_zoomin"]
         else:
             self.function = None
             self.resetStatusbar()
@@ -909,9 +1081,10 @@ class AddIntensities(QMainWindow):
         Trigger when set zoom out button is pressed (image tab)
         """
         self.imgZoomInB.setChecked(False)
+        self.resultZoomInB.setChecked(False)
         self.default_img_zoom = None
         self.img_zoom = None
-        self.refreshImageTab()
+        self.refreshAllTab()
 
     def keyPressEvent(self, event):
         """
@@ -924,7 +1097,184 @@ class AddIntensities(QMainWindow):
         elif key == Qt.Key_Left:
             self.prevClicked()
         elif key == Qt.Key_Escape:
-            self.refreshImageTab()
+            self.refreshAllTab()
+
+    def resultClicked(self, event):
+        """
+        Triggered when mouse presses on image in result tab
+        """
+        if not self.ableToProcess():
+            return
+
+        x = event.xdata
+        y = event.ydata
+        # Calculate new x,y if cursor is outside figure
+        if x is None or y is None:
+            self.imgCoordOnStatusBar.setText("")
+            ax = self.resultAxes
+            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
+            cx = xlim[0] - bounds[0][0] * mx
+            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
+            cy = ylim[1] - bounds[1][1] * my
+            x = event.x * mx + cx
+            y = event.y * my + cy
+            x = max(x, 0)
+            x = min(x, xlim[1])
+            y = max(y, 0)
+            y = min(y, ylim[0])
+            x = int(round(x))
+            y = int(round(y))
+
+        # Provide different behavior depending on current active function
+        if self.function is None:
+            self.function = ["r_move", (x, y)]
+        else:
+            func = self.function
+            if func[0] == "r_zoomin":
+                # Set new zoom in location
+                func.append((x, y))
+                if len(func) == 3:
+                    p1 = func[1]
+                    p2 = func[2]
+                    self.img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
+                    self.function = None
+                    self.resultZoomInB.setChecked(False)
+                    self.refreshAllTab()
+
+    def resultOnMotion(self, event):
+        """
+        Triggered when mouse hovers on image in image tab
+        """
+        if not self.ableToProcess():
+            return
+
+        x = event.xdata
+        y = event.ydata
+        img = self.sum_img
+        # Display pixel information if the cursor is on image
+        if x is not None and y is not None:
+            x = int(round(x))
+            y = int(round(y))
+            if x < img.shape[1] and y < img.shape[0]:
+                self.imgCoordOnStatusBar.setText(
+                    "x=" + str(x) + ', y=' + str(y) + ", value=" + str(np.round(img[y][x], 2)))
+
+        # Calculate new x,y if cursor is outside figure
+        if x is None or y is None:
+            self.imgCoordOnStatusBar.setText("")
+            ax = self.resultAxes
+            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
+            cx = xlim[0] - bounds[0][0] * mx
+            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
+            cy = ylim[1] - bounds[1][1] * my
+            x = event.x * mx + cx
+            y = event.y * my + cy
+            x = max(x, 0)
+            x = min(x, xlim[1])
+            y = max(y, 0)
+            y = min(y, ylim[0])
+            x = int(round(x))
+            y = int(round(y))
+
+        if self.function is None:
+            return
+
+        func = self.function
+
+        if func[0] == "r_zoomin" and len(self.function) == 2:
+            # draw rectangle
+            ax = self.resultAxes
+            if len(ax.patches) > 0:
+                ax.patches.pop(0)
+            start_pt = func[1]
+            w = abs(start_pt[0] - x)
+            h = abs(start_pt[1] - y)
+            x = min(start_pt[0], x)
+            y = min(start_pt[1], y)
+            ax.add_patch(patches.Rectangle((x, y), w, h,
+                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+            self.resultCanvas.draw_idle()
+        elif func[0] == "r_move":
+            # move zoom in location when image dragged
+            if self.img_zoom is not None:
+                ax = self.resultAxes
+                move = (func[1][0] - x, func[1][1] - y)
+                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
+                ax.set_xlim(self.img_zoom[0])
+                ax.set_ylim(self.img_zoom[1])
+                ax.invert_yaxis()
+                self.resultCanvas.draw_idle()
+
+    def resultReleased(self, event):
+        """
+        Triggered when mouse released from image in result tab
+        """
+        if self.function is not None and self.function[0] == "r_move":
+            self.function = None
+
+    def resultScrolled(self, event):
+        """
+        This function is called when a mouse scrolled on the image in result tab. This will affect zoom-in and zoom-out
+        """
+        if event.xdata is None or event.ydata is None:
+            return
+
+        direction = event.button
+        x = event.xdata
+        y = event.ydata
+        img = self.sum_img
+        img_size = img.shape
+
+        if self.img_zoom is None:
+            self.img_zoom = [(0, img_size[1]), (0, img_size[0])]
+
+        zoom_height = self.img_zoom[1][1] - self.img_zoom[1][0]
+        zoom_width = self.img_zoom[0][1] - self.img_zoom[0][0]
+
+        clicked_x_percentage = 1. * (x - self.img_zoom[0][0]) / zoom_width
+        clicked_y_percentage = 1. * (y - self.img_zoom[1][0]) / zoom_height
+
+        step_x = .1 * zoom_width
+        step_y = .1 * zoom_height
+        if direction == 'up':  # zoom in
+            step_x *= -1
+            step_y *= -1
+        zoom_width = min(img_size[1], max(zoom_width + step_x, 50))
+        zoom_height = min(img_size[0], max(zoom_height + step_y, 50))
+
+        x1 = x - clicked_x_percentage * zoom_width
+        x2 = x1 + zoom_width
+        y1 = y - clicked_y_percentage * zoom_height
+        y2 = y1 + zoom_height
+
+        if x1 < 0:
+            x1 = 0
+            x2 = zoom_width
+
+        if y1 < 0:
+            y1 = 0
+            y2 = zoom_height
+
+        if x2 > img_size[1]:
+            x2 = img_size[1]
+            x1 = img_size[1] - zoom_width
+
+        if y2 > img_size[0]:
+            y2 = img_size[0]
+            y1 = img_size[0] - zoom_height
+
+        self.img_zoom = [(x1, x2), (y1, y2)]
+        ax = self.resultAxes
+        ax.set_xlim(self.img_zoom[0])
+        ax.set_ylim(self.img_zoom[1])
+        ax.invert_yaxis()
+        self.resultCanvas.draw_idle()
 
     def setCalibrationActive(self):
         """
@@ -937,6 +1287,10 @@ class AddIntensities(QMainWindow):
             self.setCentByChords.setEnabled(True)
             self.setCentByPerp.setEnabled(True)
             self.setFitRegion.setEnabled(True)
+            self.showSeparator.setEnabled(True)
+            self.centerWoRotateChkBx.setEnabled(True)
+            self.extent, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
+            self.showSeparator.setChecked(True)
         else:
             self.calibrationButton.setEnabled(False)
             self.setCenterRotationButton.setEnabled(False)
@@ -944,6 +1298,9 @@ class AddIntensities(QMainWindow):
             self.setCentByChords.setEnabled(False)
             self.setCentByPerp.setEnabled(False)
             self.setFitRegion.setEnabled(False)
+            self.showSeparator.setEnabled(False)
+            self.showSeparator.setChecked(False)
+            self.centerWoRotateChkBx.setEnabled(False)
 
     def setFitRegionClicked(self):
         """
@@ -1099,7 +1456,7 @@ class AddIntensities(QMainWindow):
         sucess = self.setCalibrationImage(force=True)
         if sucess:
             self.onImageChanged()
-            self.refreshImageTab()
+            self.refreshAllTab()
 
     def centerizeImage(self, img, index):
         """
@@ -1161,6 +1518,8 @@ class AddIntensities(QMainWindow):
             center = self.info['manual_center']
         else:
             center = self.orig_image_center
+        if 'center' not in self.info:
+            self.info['center'] = self.orig_image_center
         extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
         return extent, center
 
@@ -1235,8 +1594,9 @@ class AddIntensities(QMainWindow):
         """
         self.browseFolderButton.setHidden(True)
         self.imageCanvas.setHidden(False)
-        self.exposureNb.setMaximum(len(self.numberToFilesMap[1]))
+        self.exposureNb.setMaximum(len(self.numberToFilesMap[1]) if len(self.numberToFilesMap[1]) <= 8 else 8)
         self.filenameLineEdit.setMaximum(len(self.numberToFilesMap))
+        self.filenameLineEdit2.setMaximum(len(self.numberToFilesMap))
         self.exposureNbChanged()
         # self.onImageChanged()
 
@@ -1251,7 +1611,7 @@ class AddIntensities(QMainWindow):
             for fname in os.listdir(self.dir_path):
                 isDataFile = True
                 f = os.path.join(self.dir_path, fname)
-                if os.path.isfile(f):
+                if os.path.isfile(f) and fname.split('.')[1] in input_types:
                     i = -1
                     name = fname.split('.')[0]
                     number = name.split('_')[i]
@@ -1290,6 +1650,7 @@ class AddIntensities(QMainWindow):
         This will create a new QuadrantFolder object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
+        self.statusPrint("Processing...")
         self.filenameLineEdit.setValue(self.currentFileNumber)
         self.orig_imgs = []
         for i in range(self.exposureNb.value()):
@@ -1304,10 +1665,11 @@ class AddIntensities(QMainWindow):
             self.img_type = "NORMAL"
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))
-        self.initialWidgets(self.orig_imgs[0])
         self.processImage()
+        self.initialWidgets(self.orig_imgs[0], self.sum_img)
+        self.statusPrint("")
 
-    def initialWidgets(self, img):
+    def initialWidgets(self, img, result):
         """
         Initial some widgets values which depends on current image
         :param img: selected image
@@ -1326,12 +1688,29 @@ class AddIntensities(QMainWindow):
         self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
         self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
 
+        min_val = result.min()
+        max_val = result.max()
+        self.spResultmaxInt.setRange(min_val, max_val)
+        if not self.resPersistMaxIntensity.isChecked():
+            self.spResultmaxInt.setValue(max_val * .5)
+        self.spResultmaxInt.setSingleStep(max_val * .05)
+        self.spResultminInt.setRange(min_val, max_val)
+        self.spResultminInt.setValue(min_val)
+        self.spResultminInt.setSingleStep(max_val * .05)
+
+        self.resultminIntLabel.setText("Min Intensity ("+str(min_val)+")")
+        self.resultmaxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
+
         if 'float' in str(img.dtype):
             self.spmaxInt.setDecimals(2)
             self.spminInt.setDecimals(2)
+            self.spResultmaxInt.setDecimals(2)
+            self.spResultminInt.setDecimals(2)
         else:
             self.spmaxInt.setDecimals(2)
             self.spminInt.setDecimals(2)
+            self.spResultmaxInt.setDecimals(2)
+            self.spResultminInt.setDecimals(2)
 
         self.uiUpdating = False
 
@@ -1339,7 +1718,7 @@ class AddIntensities(QMainWindow):
         """
         Display image in image tab, and draw lines
         """
-        if not self.updated:
+        if not self.updated['img']:
             self.uiUpdating = True
 
             if self.calibrationChkBx.isChecked():
@@ -1370,7 +1749,49 @@ class AddIntensities(QMainWindow):
             self.imageFigure.tight_layout()
             self.imageCanvas.draw()
 
-            self.updated = True
+            self.updated['img'] = True
+            self.uiUpdating = False
+    
+    def updateResultTab(self):
+        """
+        Display image in image tab, and draw lines
+        """
+        if not self.updated['res']:
+            self.uiUpdating = True
+
+            if self.calibrationChkBx.isChecked():
+                extent, _ = self.getExtentAndCenter(self.orig_imgs[0])
+            else:
+                extent, _ = [0, 0], (0, 0)
+
+            ax = self.resultAxes
+            img = self.sum_img
+            ax.cla()
+
+            if self.resLogScaleIntChkBx.isChecked():
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spResultminInt.value()), vmax=self.spResultmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+            else:
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spResultminInt.value(), vmax=self.spResultmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+            ax.set_facecolor('black')
+
+            # Set Zoom in location
+            if self.img_zoom is not None and len(self.img_zoom) == 2:
+                ax.set_xlim(self.img_zoom[0])
+                ax.set_ylim(self.img_zoom[1])
+            elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+                ax.set_xlim(self.default_img_zoom[0])
+                ax.set_ylim(self.default_img_zoom[1])
+            else:
+                ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
+                ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
+
+            self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
+            ax.invert_yaxis()
+
+            self.resultFigure.tight_layout()
+            self.resultCanvas.draw()
+
+            self.updated['res'] = True
             self.uiUpdating = False
 
     def plotImages(self, imageAxes, img, extent):
@@ -1385,6 +1806,11 @@ class AddIntensities(QMainWindow):
         else:
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
         ax.set_facecolor('black')
+
+        if self.showSeparator.isChecked() and self.orig_image_center is not None:
+            # Draw quadrant separator
+            ax.axvline(self.orig_image_center[0], color='y')
+            ax.axhline(self.orig_image_center[1], color='y')
 
         # Set Zoom in location
         if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -1459,11 +1885,13 @@ class AddIntensities(QMainWindow):
         if self.ableToProcess():
             if self.calibrationChkBx.isChecked():
                 _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
-                for i in range(self.exposureNb.value()):
-                    self.rotateImg(i)
-                    self.centerizeImage(self.orig_imgs[i], i)
-                    self.orig_imgs[i] = self.getRotatedImage(i)
-            self.refreshImageTab()
+                if not self.centerWoRotateChkBx.isChecked():
+                    for i in range(self.exposureNb.value()):
+                        self.rotateImg(i)
+                        self.centerizeImage(self.orig_imgs[i], i)
+                        self.orig_imgs[i] = self.getRotatedImage(i)
+            self.sum_img = addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
+            self.refreshAllTab()
 
     def removeWidget(self, win):
         """
@@ -1500,6 +1928,7 @@ def addIntensity(imgs, dir_path, key):
     fabio.tifimage.tifimage(data=sum_img).write(result_file)
     print('Saved ', result_file)
     print('Resulting image shape ', sum_img.shape)
+    return sum_img
 
 def addIntensities(numberToFilesMap, dir_path):
     """

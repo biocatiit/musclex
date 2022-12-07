@@ -19,7 +19,7 @@ assist with analyzing diffraction X-ray images.
 
 .. rubric:: Get the software
 
-- Current stable version: 1.15.7
+- Current stable version: 1.20
 - :ref:`Get muscleX <install>`
 
 .. rubric:: Support
