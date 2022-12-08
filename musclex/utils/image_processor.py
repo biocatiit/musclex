@@ -609,18 +609,22 @@ def display_test(img, name = "test", max_int = 100):
     img = cv2.resize(img, size)
     cv2.imshow(name, img)
 
-def averageImages(file_list, rotate=False):
+def averageImages(file_list, rotate=False, preprocessed=False):
     """
     open images and average them all
+    WARNING: file_list is a list of string without preprocessed but it is a list of images with prepocessed
     :param file_list: list of image path (str)
     :return:
     """
     all_imgs = []
-    dims_match, max_dim, max_img_center = checkDimensionsMatch(file_list)
+    dims_match, max_dim, max_img_center = checkDimensionsMatch(file_list, preprocessed=preprocessed)
     if not dims_match:
-        return expandAndAverageImages(file_list, max_dim, max_img_center, rotate)
+        return expandAndAverageImages(file_list, max_dim, max_img_center, rotate, preprocessed=preprocessed)
     for f in file_list:
-        img = fabio.open(f).data
+        if preprocessed:
+            img = f
+        else:
+            img = fabio.open(f).data
         if img.shape == (1043, 981):
             img_type = "PILATUS"
         else:
@@ -634,7 +638,7 @@ def averageImages(file_list, rotate=False):
 
     return np.mean(all_imgs, axis=0)
 
-def expandAndAverageImages(file_list, max_dim, max_img_center, rotate):
+def expandAndAverageImages(file_list, max_dim, max_img_center, rotate, preprocessed=False):
     """
     open images, expand to largest size and average them all
     :param file_list: list of image path (str)
@@ -644,7 +648,10 @@ def expandAndAverageImages(file_list, max_dim, max_img_center, rotate):
     """
     all_imgs=[]
     for f in file_list:
-        img = fabio.open(f).data
+        if preprocessed:
+            img = f
+        else:
+            img = fabio.open(f).data
 
         if img.shape == (1043, 981):
             img_type = "PILATUS"
@@ -669,7 +676,7 @@ def expandAndAverageImages(file_list, max_dim, max_img_center, rotate):
 
     return np.mean(all_imgs, axis=0)
 
-def checkDimensionsMatch(file_list):
+def checkDimensionsMatch(file_list, preprocessed=False):
     """
     Check whether dimensions of all the images match
     :param file_list: list of image path (str)
@@ -677,11 +684,17 @@ def checkDimensionsMatch(file_list):
     """
     dims = []
     for f in file_list:
-        img = fabio.open(f).data
+        if preprocessed:
+            img = f
+        else:
+            img = fabio.open(f).data
         dims.append(img.shape)
     max_dim = max(dims)
     index = dims.index(max_dim)
-    max_img = fabio.open(file_list[index]).data
+    if preprocessed:
+        max_img = file_list[index]
+    else:
+        max_img = fabio.open(file_list[index]).data
     center = getCenter(max_img)
 
     return dims.count(dims[0]) == len(dims), max_dim, center

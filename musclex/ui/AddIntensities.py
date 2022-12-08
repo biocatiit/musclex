@@ -37,7 +37,7 @@ import fabio
 import cv2
 import musclex
 from .pyqt_utils import *
-from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, input_types
+from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, isImg
 from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage
 from ..utils.hdf5_manager import loadFile
 from ..CalibrationSettings import CalibrationSettings
@@ -51,10 +51,8 @@ class AddIntensities(QMainWindow):
     together and the resultant sum image is stored in ai results folder
     in the selected directory.
     """
-    resizeCompleted = pyqtSignal()
     def __init__(self):
         QWidget.__init__(self)
-        self.widgetList = []
         self.numberToFilesMap = None
         self.orig_imgs = []
         self.initImg = None
@@ -62,7 +60,6 @@ class AddIntensities(QMainWindow):
         self.img_type = None
         self.currentFileNumber = 1
         self.center_before_rotation = None
-        self.extent = None
         self.updated = {'img' : False, 'res': False}
         self.uiUpdating = False # update ui status flag (prevent recursive)
         self.calSettings = None
@@ -74,6 +71,7 @@ class AddIntensities(QMainWindow):
         self.stop_process = False
         self.nbOfExposures = 0
         self.function = None
+        self.resultAxes = None
         self.imageAxes = None
         self.imageAxes2 = None
         self.imageAxes3 = None
@@ -126,7 +124,6 @@ class AddIntensities(QMainWindow):
         self.browseFolderButton.setFixedHeight(100)
         self.browseFolderButton.setFixedWidth(300)
 
-        self.verImgLayout.addWidget(self.browseFolderButton)
         self.imageFigure = plt.figure()
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
@@ -197,11 +194,9 @@ class AddIntensities(QMainWindow):
         self.setFitRegion = QPushButton("Set Region of Interest")
         self.setFitRegion.setCheckable(True)
 
-        self.showSeparator = QCheckBox()
-        self.showSeparator.setText("Show Quadrant Separator")
+        self.showSeparator = QCheckBox("Show Quadrant Separator")
 
-        self.centerWoRotateChkBx = QCheckBox()
-        self.centerWoRotateChkBx.setText("Calibrate Center Without Rotation")
+        self.centerWoRotateChkBx = QCheckBox("Calibrate Center Without Rotation")
         self.centerWoRotateChkBx.setChecked(True)
 
         self.settingsLayout.addWidget(QLabel('Exposures'), 0, 0, 1, 2)
@@ -229,10 +224,8 @@ class AddIntensities(QMainWindow):
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
 
-        self.nextButton = QPushButton()
-        self.nextButton.setText(">>>")
-        self.prevButton = QPushButton()
-        self.prevButton.setText("<<<")
+        self.nextButton = QPushButton(">>>")
+        self.prevButton = QPushButton("<<<")
         self.filenameLineEdit = QSpinBox()
         self.filenameLineEdit.setMinimum(0)
         self.filenameLineEdit.setKeyboardTracking(False)
@@ -318,10 +311,8 @@ class AddIntensities(QMainWindow):
         self.processFolderButton2 = QPushButton("Process Current Folder")
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
-        self.nextButton2 = QPushButton()
-        self.nextButton2.setText(">>>")
-        self.prevButton2 = QPushButton()
-        self.prevButton2.setText("<<<")
+        self.nextButton2 = QPushButton(">>>")
+        self.prevButton2 = QPushButton("<<<")
         self.filenameLineEdit2 = QSpinBox()
         self.filenameLineEdit2.setMinimum(0)
         self.filenameLineEdit2.setKeyboardTracking(False)
@@ -344,8 +335,7 @@ class AddIntensities(QMainWindow):
         self.statusReport = QLabel()
         self.imgDetailOnStatusBar = QLabel()
         self.imgCoordOnStatusBar = QLabel()
-        self.imgPathOnStatusBar = QLabel()
-        self.imgPathOnStatusBar.setText("  Please select a folder to process")
+        self.imgPathOnStatusBar = QLabel("  Please select a folder to process")
         self.statusBar.addPermanentWidget(self.statusReport)
         self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
         self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
@@ -1289,7 +1279,7 @@ class AddIntensities(QMainWindow):
             self.setFitRegion.setEnabled(True)
             self.showSeparator.setEnabled(True)
             self.centerWoRotateChkBx.setEnabled(True)
-            self.extent, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
+            _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
             self.showSeparator.setChecked(True)
         else:
             self.calibrationButton.setEnabled(False)
@@ -1310,11 +1300,6 @@ class AddIntensities(QMainWindow):
             self.axClicked = None
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
-            ax = self.imageAxes
-            for i in range(len(ax.lines) - 1, -1, -1):
-                ax.lines.pop(i)
-            for i in range(len(ax.patches) - 1, -1, -1):
-                ax.patches.pop(i)
             self.imageCanvas.draw_idle()
             self.function = ['fit_region']
         else:
@@ -1347,7 +1332,7 @@ class AddIntensities(QMainWindow):
                     horizontalLines.append((func[i], func[i + 1]))
             for line1 in verticalLines:
                 for line2 in horizontalLines:
-                    cx, cy = getIntersectionOfTwoLines(line2, line1)
+                    cx, cy = getIntersectionOfTwoLines(line1, line2)
                     print("Intersection ", (cx, cy))
                     intersections.append((cx, cy))
             cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
@@ -1604,14 +1589,14 @@ class AddIntensities(QMainWindow):
         """
         Same as browse files but allow the user to select a folder instead of a file.
         """
-        self.dir_path = QFileDialog.getExistingDirectory(self, "Select a Folder")
+        self.dir_path = getAFolder()
         if self.dir_path != "":
             self.numberToFilesMap = collections.defaultdict(list)
             self.isHdf5 = False
             for fname in os.listdir(self.dir_path):
                 isDataFile = True
                 f = os.path.join(self.dir_path, fname)
-                if os.path.isfile(f) and fname.split('.')[1] in input_types:
+                if isImg(f):
                     i = -1
                     name = fname.split('.')[0]
                     number = name.split('_')[i]
@@ -1751,7 +1736,7 @@ class AddIntensities(QMainWindow):
 
             self.updated['img'] = True
             self.uiUpdating = False
-    
+
     def updateResultTab(self):
         """
         Display image in image tab, and draw lines
@@ -1892,15 +1877,6 @@ class AddIntensities(QMainWindow):
                         self.orig_imgs[i] = self.getRotatedImage(i)
             self.sum_img = addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
             self.refreshAllTab()
-
-    def removeWidget(self, win):
-        """
-        Remove a widget from the current window.
-        :param win: the widget to remove
-        """
-        if win in self.widgetList:
-            idx = self.widgetList.index(win)
-            del self.widgetList[idx]
 
     def statusPrint(self, text):
         """
