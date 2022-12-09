@@ -217,7 +217,7 @@ class ImageMergerGUI(QMainWindow):
         self.showSeparator.setEnabled(False)
         self.centerWoRotateChkBx.setEnabled(False)
 
-        self.processFolderButton = QPushButton("Start")
+        self.processFolderButton = QPushButton("Process All Groups")
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
 
@@ -309,7 +309,7 @@ class ImageMergerGUI(QMainWindow):
         self.leftLayout.addWidget(self.resultDispOptGrp)
         self.leftLayout.addStretch()
 
-        self.processFolderButton2 = QPushButton("Start")
+        self.processFolderButton2 = QPushButton("Process All Groups")
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
         self.nextGrpButton2 = QPushButton("Group >>>")
@@ -543,9 +543,8 @@ class ImageMergerGUI(QMainWindow):
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
-            self.progressBar.setRange(0, self.nbOfGroups + 1)
+            self.progressBar.setRange(0, self.nbOfGroups)
             self.stop_process = False
-            inpt = self.dir_path
             output = os.path.join(self.dir_path, 'im_results')
             print('Start merging...')
             for i, imgs in enumerate(self.img_grps):
@@ -574,21 +573,25 @@ class ImageMergerGUI(QMainWindow):
                     details += "To : " + filename +'\n\n'
 
                     print(details)
-                    full_imgs = list(map(lambda f: os.path.join(inpt, f), imgs))
-                    # for img in full_imgs, rotate and center them
-                    avg = averageImages(full_imgs, rotate=self.rotateChkBx.isChecked())
+                    self.statusPrint('Merging...')
+                    # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+                    self.avg_img = averageImages(self.orig_imgs, preprocessed=True) ##todo homogenize
+                    print('Saving merged image...')
+                    self.statusPrint('Saving merged image...')
                     if self.compressChkBx.isChecked():
-                        tif_img = Image.fromarray(avg)
+                        tif_img = Image.fromarray(self.avg_img)
                         tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
                     else:
-                        fabio.tifimage.tifimage(data=avg).write(os.path.join(output, filename))
+                        fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
                 else:
                     break
+            self.progressBar.setValue(self.nbOfGroups)
             self.progressBar.setVisible(False)
+            self.statusPrint("")
             print("Done. All result images have been saved to "+output)
 
         self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Start")
+        self.processFolderButton.setText("Process All Groups")
 
     def processGroup(self):
         """
