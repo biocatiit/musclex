@@ -14,7 +14,6 @@ This is a small program used to display TIFF and HDF5 files and able to play ima
 
 ```eval_rst
 .. note:: Only available on Linux (Deb package and pip install).
-command`.
 ```
 
 ## Chiplot Analyze
@@ -37,8 +36,3 @@ Simple program to convert HDF5 files to TIFF images.
 
 * Also available inside the MuscleX code. Click [here](AppSuite/WorkingWithHdf5Images/Working-with-hdf5-images.md) to learn more.
 
-## BioXTAS RAW
-
-BioXTAS RAW is a GUI based, free, open-source Python program for reduction and analysis of small-angle X-ray solution scattering (SAXS) data. The software is designed for biological SAXS data. It is available on windows, macOS (and OS X), and Linux. It provides an alternative to closed source programs such as Primus and Scatter for primary data analysis. Because it can calibrate, mask, and integrate images it also provides an alternative to synchrotron beamline pipelines that scientists can install on their own computers and use both at home and at the beamline.
-
-[Learn more about BioXTAS RAW](https://bioxtas-raw.readthedocs.io/en/latest/)

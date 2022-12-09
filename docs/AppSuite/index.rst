@@ -8,10 +8,10 @@ Application Suite
    QuadrantFolding/index
    ProjectionTraces/index
    ScanningDiffraction/index
-   ImageMerger/index
+   AddIntensitiesSE/index
+   AddIntensitiesME/index
    DiffractionCentroids/index
    DDFProcessor/index
-   AddIntensities/index
    Calibration-Settings
    Image-Processing-Functions
    WorkingWithHdf5Images/index  

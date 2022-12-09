@@ -80,15 +80,15 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
-        elif prog == 'im':
-            from musclex.ui.ImageMerger import ImageMergerGUI
+        elif prog == 'aise':
+            from musclex.ui.AddIntensitiesSingleExp import AddIntensitiesSingleExp
             app = QApplication(sys.argv)
-            myapp = ImageMergerGUI()
+            myapp = AddIntensitiesSingleExp()
             sys.exit(app.exec_())
-        elif prog == 'ai':
-            from musclex.ui.AddIntensities import AddIntensities
+        elif prog == 'aime':
+            from musclex.ui.AddIntensitiesMultExp import AddIntensitiesMultExp
             app = QApplication(sys.argv)
-            myapp = AddIntensities()
+            myapp = AddIntensitiesMultExp()
             sys.exit(app.exec_())
         elif prog == 'gui':
             from musclex.launcher import LauncherForm
@@ -271,10 +271,10 @@ def main(arguments=None):
         print("          di [<-h>] - Scanning Diffraction (-h for headless version)")
         print("          qf [<-h>] - Quadrant Folding (-h for headless version)")
         print("          pt - Projection Traces")
-        print("          im - Image Merger")
         print("          dc - Diffraction Centroids")
         print("          ddf - DDF Processor")
-        print("          ai - Add Intensities")
+        print("          aise - Add Intensities Single Experiment")
+        print("          aime - Add Intensities Multiple Experiments")
         print("")
         print("          gui - GUI Launcher")
         print("          test_global - Run Global Tests")

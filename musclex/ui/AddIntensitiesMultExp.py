@@ -38,11 +38,11 @@ import cv2
 import musclex
 from .pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, isImg
-from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage
+from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
 from ..utils.hdf5_manager import loadFile
 from ..CalibrationSettings import CalibrationSettings
 
-class AddIntensities(QMainWindow):
+class AddIntensitiesMultExp(QMainWindow):
     """
     Add Intensities is a program which is designed to be used with a series
     of images placed across multiple folders. It takes the sum of the images
@@ -96,7 +96,7 @@ class AddIntensities(QMainWindow):
         Initialize the UI.
         """
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.setWindowTitle("Muscle X Add Intensities v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Add Intensities Multiple Experiments v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.mainLayout = QHBoxLayout(self.centralWidget)
@@ -181,6 +181,8 @@ class AddIntensities(QMainWindow):
         self.exposureNb.setMaximum(8)
         self.exposureNb.setMinimum(2)
 
+        self.avgInsteadOfSum = QCheckBox("Compute Average Instead of Sum")
+
         self.calibrationChkBx = QCheckBox("Calibrate images")
         self.calibrationButton = QPushButton("Calibration Settings")
         self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
@@ -201,15 +203,16 @@ class AddIntensities(QMainWindow):
 
         self.settingsLayout.addWidget(QLabel('Exposures'), 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.exposureNb, 0, 1, 1, 2)
-        self.settingsLayout.addWidget(self.calibrationChkBx, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.calibrationButton, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCenterRotationButton, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setRotationButton, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByChords, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByPerp, 6, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setFitRegion, 7, 0, 1, 2)
-        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 8, 0, 1, 2)
-        self.settingsLayout.addWidget(self.showSeparator, 9, 0, 1, 2)
+        self.settingsLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.calibrationChkBx, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.calibrationButton, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCenterRotationButton, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setRotationButton, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByChords, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByPerp, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setFitRegion, 8, 0, 1, 2)
+        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 9, 0, 1, 2)
+        self.settingsLayout.addWidget(self.showSeparator, 10, 0, 1, 2)
 
         self.calibrationButton.setEnabled(False)
         self.setCenterRotationButton.setEnabled(False)
@@ -353,7 +356,7 @@ class AddIntensities(QMainWindow):
         fileMenu.addAction(selectFolderAction)
 
         self.show()
-        self.setMinimumHeight(800)
+        self.setMinimumHeight(900)
         self.setMinimumWidth(1500)
 
     def setConnections(self):
@@ -374,6 +377,7 @@ class AddIntensities(QMainWindow):
         self.filenameLineEdit.valueChanged.connect(self.fileNameChanged)
 
         self.exposureNb.valueChanged.connect(self.exposureNbChanged)
+        self.avgInsteadOfSum.stateChanged.connect(self.avgInsteadOfSumChanged)
         self.calibrationChkBx.stateChanged.connect(self.setCalibrationActive)
         self.calibrationButton.clicked.connect(self.calibrationClicked)
         self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
@@ -509,6 +513,12 @@ class AddIntensities(QMainWindow):
             self.imageAxes6 = self.imageFigure.add_subplot(246)
             self.imageAxes7 = self.imageFigure.add_subplot(247)
             self.imageAxes8 = self.imageFigure.add_subplot(248)
+        self.onImageChanged()
+
+    def avgInsteadOfSumChanged(self):
+        """
+        Change the resulting image from sum if unchecked to avg if checked
+        """
         self.onImageChanged()
 
     def batchProcBtnToggled(self):
@@ -1623,7 +1633,7 @@ class AddIntensities(QMainWindow):
             # addIntensities(self.numberToFilesMap, dir_path)
             # msg = QMessageBox()
             # msg.setInformativeText(
-            #     "Completed Adding intensities, results saved in folder ai_results")
+            #     "Completed Adding intensities, results saved in folder aime_results")
             # msg.setStandardButtons(QMessageBox.Ok)
             # msg.setWindowTitle("Finished Adding Intensities")
             # msg.setStyleSheet("QLabel{min-width: 500px;}")
@@ -1875,7 +1885,7 @@ class AddIntensities(QMainWindow):
                         self.rotateImg(i)
                         self.centerizeImage(self.orig_imgs[i], i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
-            self.sum_img = addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
+            self.sum_img = self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
             self.refreshAllTab()
 
     def statusPrint(self, text):
@@ -1887,31 +1897,35 @@ class AddIntensities(QMainWindow):
         self.statusReport.setText(text)
         QApplication.processEvents()
 
-def addIntensity(imgs, dir_path, key):
-    """
-    Add Intensity of one set of files (main function).
-    :param imgs, dir_path, key:
-    """
-    createFolder(fullPath(dir_path, "ai_results"))
-    sum_img = 0
-    for img in imgs:
-        if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
-            sum_img = resizeImage(sum_img, img.shape)
-        elif not isinstance(sum_img, int):
-            img = resizeImage(img, sum_img.shape)
-        sum_img += img
-    result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
-    fabio.tifimage.tifimage(data=sum_img).write(result_file)
-    print('Saved ', result_file)
-    print('Resulting image shape ', sum_img.shape)
-    return sum_img
+    def addIntensity(self, imgs, dir_path, key):
+        """
+        Add Intensity of one set of files (main function).
+        :param imgs, dir_path, key:
+        """
+        createFolder(fullPath(dir_path, "aime_results"))
+        if self.avgInsteadOfSum.isChecked():
+            # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+            sum_img = averageImages(imgs, preprocessed=True) ##todo homogenize
+        else:
+            sum_img = 0
+            for img in imgs:
+                if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+                    sum_img = resizeImage(sum_img, img.shape)
+                elif not isinstance(sum_img, int):
+                    img = resizeImage(img, sum_img.shape)
+                sum_img += img
+        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key) + '.tif')
+        fabio.tifimage.tifimage(data=sum_img).write(result_file)
+        print('Saved ', result_file)
+        print('Resulting image shape ', sum_img.shape)
+        return sum_img
 
 def addIntensities(numberToFilesMap, dir_path):
     """
     Add Intensities of the different files (main function).
     :param numberToFilesMap, dir_path:
     """
-    createFolder(fullPath(dir_path, "ai_results"))
+    createFolder(fullPath(dir_path, "aime_results"))
     for key in numberToFilesMap:
         sum_img = 0
         for fname in numberToFilesMap[key]:
@@ -1922,7 +1936,7 @@ def addIntensities(numberToFilesMap, dir_path):
             elif not isinstance(sum_img, int):
                 img = resizeImage(img, sum_img.shape)
             sum_img += img
-        result_file = os.path.join(dir_path, 'ai_results/res_' + str(key) + '.tif')
+        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key) + '.tif')
         fabio.tifimage.tifimage(data=sum_img).write(result_file)
         print('Saved ', result_file)
         print('Resulting image shape ', sum_img.shape)

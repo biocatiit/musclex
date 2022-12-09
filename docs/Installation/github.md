@@ -26,6 +26,7 @@ pip3 install --upgrade pyfai
 pip3 install --upgrade PyQt5
 pip3 install --upgrade musclexflibs
 pip3 install --upgrade hdf5plugin
+pip3 install --upgrade numba
 pip3 install --upgrade fisx
 pip3 install --upgrade future
 
@@ -53,6 +54,7 @@ pip3 install --upgrade pyfai
 pip3 install --upgrade PyQt5
 pip3 install --upgrade musclexflibs
 pip3 install --upgrade hdf5plugin
+pip3 install --upgrade numba
 pip3 install --upgrade fisx
 pip3 install --upgrade future
 ```

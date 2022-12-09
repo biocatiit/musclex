@@ -10,7 +10,7 @@ A testing module is provided in the launcher GUI. If no log is found, this proce
 
 1.  Launch the MuscleX GUI  
 2.  Click Run Tests in the bottom right corner
-3.  Click Run Tests again at the top of the window to run all module tests
+3.  Click Run Global Tests again at the top of the window to run all module tests
 4.  If you'd only like to run the GPU tests, click run GPU Test and the test will determine if `pyopencl` is installed properly and if MuscleX can access a GPU
 
 #### Command Line testing

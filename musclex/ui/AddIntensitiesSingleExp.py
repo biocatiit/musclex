@@ -42,7 +42,7 @@ from ..utils.image_processor import processImageForIntCenter, getRotationAngle, 
 from ..utils.hdf5_manager import loadFile
 from ..CalibrationSettings import CalibrationSettings
 
-class ImageMergerGUI(QMainWindow):
+class AddIntensitiesSingleExp(QMainWindow):
     """
     A class for GUI of Image Merger
     """
@@ -85,7 +85,7 @@ class ImageMergerGUI(QMainWindow):
         Initialize the UI.
         """
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.setWindowTitle("Muscle X Image Merger v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Add Intensities Single Experiment v." + musclex.__version__)
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.mainLayout = QHBoxLayout(self.centralWidget)
@@ -175,6 +175,8 @@ class ImageMergerGUI(QMainWindow):
         self.frameNb.setValue(3)
         self.frameNb.setMinimum(2)
 
+        self.avgInsteadOfSum = QCheckBox("Compute Average Instead of Sum")
+
         self.calibrationChkBx = QCheckBox("Calibrate images")
         self.calibrationButton = QPushButton("Calibration Settings")
         self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
@@ -197,16 +199,17 @@ class ImageMergerGUI(QMainWindow):
 
         self.settingsLayout.addWidget(QLabel('Frames/Group'), 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.frameNb, 0, 1, 1, 2)
-        self.settingsLayout.addWidget(self.compressChkBx, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.calibrationChkBx, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.calibrationButton, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCenterRotationButton, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setRotationButton, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByChords, 6, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByPerp, 7, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setFitRegion, 8, 0, 1, 2)
-        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 9, 0, 1, 2)
-        self.settingsLayout.addWidget(self.showSeparator, 10, 0, 1, 2)
+        self.settingsLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.compressChkBx, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.calibrationChkBx, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.calibrationButton, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCenterRotationButton, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setRotationButton, 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByChords, 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByPerp, 8, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setFitRegion, 9, 0, 1, 2)
+        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 10, 0, 1, 2)
+        self.settingsLayout.addWidget(self.showSeparator, 11, 0, 1, 2)
 
         self.calibrationButton.setEnabled(False)
         self.setCenterRotationButton.setEnabled(False)
@@ -379,6 +382,7 @@ class ImageMergerGUI(QMainWindow):
         self.filenameLineEdit.valueChanged.connect(self.fileNameChanged)
 
         self.frameNb.valueChanged.connect(self.frameNbChanged)
+        self.avgInsteadOfSum.stateChanged.connect(self.avgInsteadOfSumChanged)
         self.compressChkBx.stateChanged.connect(self.compressChanged)
         self.calibrationChkBx.stateChanged.connect(self.setCalibrationActive)
         self.calibrationButton.clicked.connect(self.calibrationClicked)
@@ -410,6 +414,12 @@ class ImageMergerGUI(QMainWindow):
     def compressChanged(self):
         """
         Triggered when the button is clicked
+        """
+        self.onGroupChanged()
+    
+    def avgInsteadOfSumChanged(self):
+        """
+        Change the resulting image from sum if unchecked to avg if checked
         """
         self.onGroupChanged()
 
@@ -574,8 +584,18 @@ class ImageMergerGUI(QMainWindow):
 
                     print(details)
                     self.statusPrint('Merging...')
-                    # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-                    self.avg_img = averageImages(self.orig_imgs, preprocessed=True) ##todo homogenize
+                    if self.avgInsteadOfSum.isChecked():
+                        # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+                        self.avg_img = averageImages(self.orig_imgs, preprocessed=True) ##todo homogenize
+                    else:
+                        sum_img = 0
+                        for img in self.orig_imgs:
+                            if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+                                sum_img = resizeImage(sum_img, img.shape)
+                            elif not isinstance(sum_img, int):
+                                img = resizeImage(img, sum_img.shape)
+                            sum_img += img
+                        self.avg_img = sum_img
                     print('Saving merged image...')
                     self.statusPrint('Saving merged image...')
                     if self.compressChkBx.isChecked():
@@ -614,7 +634,7 @@ class ImageMergerGUI(QMainWindow):
                         self.orig_imgs[i] = self.getRotatedImage(i)
 
             self.progressBar.setValue(self.nbOfFrames)
-            output = os.path.join(self.dir_path, 'im_results')
+            output = os.path.join(self.dir_path, 'aise_results')
             imgs = self.img_grps[self.currentGroupNumber - 1]
             if len(imgs) > 0:
                 first = imgs[0]
@@ -641,8 +661,18 @@ class ImageMergerGUI(QMainWindow):
 
                 print(details)
                 self.statusPrint('Merging...')
-                # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-                self.avg_img = averageImages(self.orig_imgs, preprocessed=True) ##todo homogenize
+                if self.avgInsteadOfSum.isChecked():
+                    # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+                    self.avg_img = averageImages(self.orig_imgs, preprocessed=True) ##todo homogenize
+                else:
+                    sum_img = 0
+                    for img in self.orig_imgs:
+                        if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+                            sum_img = resizeImage(sum_img, img.shape)
+                        elif not isinstance(sum_img, int):
+                            img = resizeImage(img, sum_img.shape)
+                        sum_img += img
+                    self.avg_img = sum_img
                 print('Saving merged image...')
                 self.statusPrint('Saving merged image...')
                 if self.compressChkBx.isChecked():
@@ -1620,7 +1650,7 @@ class ImageMergerGUI(QMainWindow):
         Preprocess folder of the file and process current image
         :param newFile: full name of selected file
         """
-        createFolder(os.path.join(self.dir_path, 'im_results'))
+        createFolder(os.path.join(self.dir_path, 'aise_results'))
         self.browseFolderButton.setHidden(True)
         self.browseFileButton.setHidden(True)
         self.imageCanvas.setHidden(False)
@@ -1981,3 +2011,20 @@ def getIntersectionOfTwoLines(line1, line2):
         y = slope1 * (x - p1[0]) + p1[1]
 
     return (int(x), int(y))
+
+def resizeImage(img, res_size):
+    """
+    Resize the image.
+    """
+    print("Size mismatched, resizing image")
+    if img.shape == res_size:
+        return img
+    h, b = img.shape
+    resH, resB = res_size
+    dH = resH - h
+    dB = resB - b
+    extraH = dH//2
+    extraB = dB//2
+    res_img = np.zeros((res_size))
+    res_img[extraH:extraH+h, extraB:extraB+b] = img
+    return res_img

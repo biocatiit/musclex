@@ -81,7 +81,8 @@ musclex/tests/test_images/di_test_data/di_results/rcd_rings.csv
 musclex/tests/test_images/di_test_data/di_results/rcd_summary.csv
 musclex/tests/test_images/hdf_record/hdfdata_record.p
 musclex/tests/test_logs/release.log
-musclex/ui/AddIntensities.py
+musclex/ui/AddIntensitiesMultExp.py
+musclex/ui/AddIntensitiesSingleExp.py
 musclex/ui/BlankImageSettings.py
 musclex/ui/DIBatchWindow.py
 musclex/ui/DIBatchWindowh.py
@@ -92,7 +93,6 @@ musclex/ui/EQStartWindowh.py
 musclex/ui/EQ_FittingTab.py
 musclex/ui/EquatorWindow.py
 musclex/ui/EquatorWindowh.py
-musclex/ui/ImageMerger.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py

@@ -142,13 +142,13 @@ class Ui_LauncherForm(object):
         item = self.listWidget.item(3)
         item.setText(_translate("LauncherForm", "Scanning Diffraction"))
         item = self.listWidget.item(4)
-        item.setText(_translate("LauncherForm", "Image Merger"))
+        item.setText(_translate("LauncherForm", "Add Intensities Single Experiment"))
         item = self.listWidget.item(5)
         item.setText(_translate("LauncherForm", "Diffraction Centroids"))
         item = self.listWidget.item(6)
         item.setText(_translate("LauncherForm", "DDF Processor"))
         item = self.listWidget.item(7)
-        item.setText(_translate("LauncherForm", "Add Intensities"))
+        item.setText(_translate("LauncherForm", "Add Intensities Multiple Experiments"))
         self.listWidget.setSortingEnabled(__sortingEnabled)
         self.textBrowser.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"

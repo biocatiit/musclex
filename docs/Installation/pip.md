@@ -23,6 +23,7 @@ pip3 install --upgrade pyfai
 pip3 install --upgrade PyQt5
 pip3 install --upgrade musclexflibs
 pip3 install --upgrade hdf5plugin
+pip3 install --upgrade numba
 pip3 install --upgrade fisx
 pip3 install --upgrade future
 ```
@@ -95,10 +96,14 @@ pip3 install --upgrade cython
 pip3 install --upgrade numpy
 pip3 install --upgrade opencv-python-headless
 pip3 install --upgrade pyfai
-pip3 install --upgrade hdf5plugin
 pip3 install --upgrade PyQt5
+pip3 install --upgrade musclexflibs
+pip3 install --upgrade hdf5plugin
+pip3 install --upgrade numba
+pip3 install --upgrade fisx
+pip3 install --upgrade future
 pip3 install --upgrade musclex
-#pip3 install git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
+#pip3 install git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
 musclex eq
 ```
 To exit the virtual environment use:
