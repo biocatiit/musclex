@@ -125,6 +125,13 @@ class XRayViewerGUI(QMainWindow):
         self.spmaxInt.setKeyboardTracking(False)
         self.spmaxInt.setSingleStep(5)
         self.spmaxInt.setDecimals(0)
+
+        self.colorMapChoice = QComboBox()
+        self.colorMapChoice.setCurrentIndex(0)
+        self.allColorChoices = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
+        for c in self.allColorChoices:
+            self.colorMapChoice.addItem(c)
+        
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.persistMaxIntensity = QCheckBox("Persist Max intensity")
 
@@ -141,8 +148,10 @@ class XRayViewerGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistMaxIntensity, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(QLabel("Color Map:"), 4, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.colorMapChoice, 4, 1, 1, 2)
+        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.persistMaxIntensity, 6, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
         self.optionsLayout = QVBoxLayout()
@@ -261,6 +270,7 @@ class XRayViewerGUI(QMainWindow):
         ##### Image Tab #####
         self.spminInt.valueChanged.connect(self.refreshImageTab)
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
+        self.colorMapChoice.currentIndexChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.nextButton.clicked.connect(self.nextClicked)
@@ -1003,9 +1013,9 @@ class XRayViewerGUI(QMainWindow):
             ax.cla()
             img = self.xrayViewer.orig_img
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
+                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
             else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
+                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
             ax.set_facecolor('black')
 
             # Set Zoom in location
