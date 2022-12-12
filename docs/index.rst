@@ -6,14 +6,15 @@ assist with analyzing diffraction X-ray images.
 
 .. rubric:: Features
 
+- :ref:`X-Ray Viewer (xv) <X-Ray Viewer>`
 - :ref:`Equator (eq) <Equator>`
 - :ref:`Quadrant Folding (qf) <Quadrant Folding>`
 - :ref:`Projection Traces (pt) <Projection Traces>`
 - :ref:`Scanning Diffraction (di) <Scanning Diffraction>`
-- :ref:`Image Merger (im) <Image Merger>`
 - :ref:`Diffraction Centroids (dc) <Diffraction Centroids>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
-- :ref:`Add Intensities (ai) <Add Intensities>`
+- :ref:`Add Intensities Single Experiment (aise) <Add Intensities Single Experiment>`
+- :ref:`Add Intensities Multiple Experiments (aime) <Add Intensities Multiple Experiments>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
 
 

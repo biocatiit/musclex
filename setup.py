@@ -62,6 +62,7 @@ setup(
                       'tifffile',
                       'numpy',
                       'distro',
+                      'numba',
                       'scikit-learn',
                       'lmfit',
                       'ConfigParser',
