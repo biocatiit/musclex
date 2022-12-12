@@ -31,3 +31,4 @@ from .EquatorImage import EquatorImage
 from .ProjectionProcessor import ProjectionProcessor
 from .QuadrantFolder import QuadrantFolder
 from .ScanningDiffraction import ScanningDiffraction
+from .XRayViewer import XRayViewer

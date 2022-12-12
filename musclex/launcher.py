@@ -50,7 +50,7 @@ class LauncherForm(QWidget):
     """
     Qt class definition for the GUI launcher
     """
-    programs = ['eq', 'qf', 'pt', 'di', 'im', 'dc', 'ddf', 'ai']
+    programs = ['xv', 'eq', 'qf', 'pt', 'di', 'dc', 'ddf', 'aise', 'aime']
 
     def __init__(self):
         super(QWidget, self).__init__()

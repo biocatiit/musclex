@@ -1,20 +1,6 @@
 # Utilities
 
-This section regroups the programs maintained by BioCAT and useful for X-ray images' users.
-
-## EIGER Viewer
-
-This is a small program used to display TIFF and HDF5 files and able to play images in a folder (or h5 file) as a video. A second tab shows a selected slice (or integrated slice) of the image as a graph.
-
-* [Github code]()
-
-* Deb package installer: [EIGER Viewer on SourceForge](https://sourceforge.net/projects/eiger-viewer/)
-
-* Pip install: `pip install eiger-viewer`
-
-```eval_rst
-.. note:: Only available on Linux (Deb package and pip install).
-```
+This section regroups the programs maintained by BioCAT and useful for X-ray images users.
 
 ## Chiplot Analyze
 

@@ -9,7 +9,7 @@ The image you see on the screen is the first of the group. The result image of t
 * Select an input directory by pressing "Select Folder" or an hdf5 file by pressing "Select an H5 file"
 
 * What is displayed has been processed and is accessible in the `aise_results` folder. You can see the result in the 'Result' tab.
-![-](../../images/AISE/aise_result.png)
+![-](../../images/AISE/aise_results.png)
 
 * You can change the display options in order to have visually better images (won't affect the true result).
 

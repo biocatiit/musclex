@@ -31,3 +31,4 @@ from .PT_CSVManager import PT_CSVManager
 from .DI_CSVManager import DI_CSVManager
 from .DC_CSVManager import DC_CSVManager
 from .QF_CSVManager import QF_CSVManager
+from .XV_CSVManager import XV_CSVManager

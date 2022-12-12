@@ -20,6 +20,7 @@ musclex/csv_manager/DI_CSVManager.py
 musclex/csv_manager/EQ_CSVManager.py
 musclex/csv_manager/PT_CSVManager.py
 musclex/csv_manager/QF_CSVManager.py
+musclex/csv_manager/XV_CSVManager.py
 musclex/csv_manager/__init__.py
 musclex/modules/DiffractionCentroids.py
 musclex/modules/EquatorImage.py
@@ -27,6 +28,7 @@ musclex/modules/ProjectionProcessor.py
 musclex/modules/QF_utilities.py
 musclex/modules/QuadrantFolder.py
 musclex/modules/ScanningDiffraction.py
+musclex/modules/XRayViewer.py
 musclex/modules/__init__.py
 musclex/modules/setup2.py
 musclex/tests/__init__.py
@@ -98,6 +100,7 @@ musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py
 musclex/ui/QuadrantFoldingh.py
 musclex/ui/ScanningDiffractionGUI.py
+musclex/ui/XRayViewerGUI.py
 musclex/ui/__init__.py
 musclex/ui/ddf_processor.py
 musclex/ui/diffraction_centroids.py

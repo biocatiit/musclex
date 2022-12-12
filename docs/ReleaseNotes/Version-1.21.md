@@ -5,7 +5,9 @@ Release Date : 10/31/2022
 ### Updates
 
 - Bug fixes (background substraction, installers...)
-- New version of Add Intensities, easier to understand and use
+- New version of Add Intensities Multiple Experiments (former Add Intensities), easier to understand and use
+- New version of Add Intensities Single Experiment (former Image Merger), easier to understand and use
+- New module added to MuscleX: X-Ray Viewer, able to view images and h5 files easily, display a slice, a box, and play the file
 - Documentation update
 
 ```eval_rst

@@ -90,6 +90,11 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = AddIntensitiesMultExp()
             sys.exit(app.exec_())
+        elif prog == 'xv':
+            from musclex.ui.XRayViewerGUI import XRayViewerGUI
+            app = QApplication(sys.argv)
+            myapp = XRayViewerGUI()
+            sys.exit(app.exec_())
         elif prog == 'gui':
             from musclex.launcher import LauncherForm
             app = QApplication(sys.argv)
@@ -267,6 +272,7 @@ def main(arguments=None):
         print("")
         print("  $ musclex [program]")
         print("")
+        print("          xv - X-Ray Viewer")
         print("          eq [<-h>] - Equator (-h for headless version)")
         print("          di [<-h>] - Scanning Diffraction (-h for headless version)")
         print("          qf [<-h>] - Quadrant Folding (-h for headless version)")
