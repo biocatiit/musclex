@@ -559,6 +559,7 @@ class DIImageWindow(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
         self.mainLayout.addWidget(self.statusBar)
 
+        self.setMinimumWidth(1400)
         self.show()
 
     def setConnections(self):

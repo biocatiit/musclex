@@ -167,7 +167,6 @@ class EquatorWindow(QMainWindow):
         self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
         self.imageVLayout.addWidget(self.displayImgCanvas)
-        self.doubleZoomAxes = None
 
         self.imgDispOptionGrp = QGroupBox('Display Options')
         self.imgDispOptLayout = QGridLayout()
@@ -931,13 +930,11 @@ class EquatorWindow(QMainWindow):
             img = self.bioImg.getRotatedImage()
             ax1 = self.doubleZoomAxes
             x,y = self.bioImg.info['center']
-            imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                 imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
                 self.doubleZoomPt = (x, y)
                 ax1.imshow(imgScaled)
-                y, x = imgScaled.shape
-                # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
                         ax1.lines.pop(i)
@@ -2439,7 +2436,7 @@ class EquatorWindow(QMainWindow):
                 self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x > 5 and x < img.shape[1]-5 and y > 5 and y < img.shape[0]-5:
                     ax1 = self.doubleZoomAxes
-                    imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+                    imgCropped = img[y - 10:y + 10, x - 10:x + 10]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                         imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
                         self.doubleZoomPt = (x,y)

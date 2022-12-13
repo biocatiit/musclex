@@ -1327,7 +1327,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     # print("double zoom mode ", self.doubleZoomMode)
 
                     ax1 = self.doubleZoomAxes
-                    imgCropped = img[int(y - 5):int(y + 5), int(x - 5):int(x + 5)]
+                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                         imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
                         self.doubleZoomPt = (x,y)
@@ -1995,7 +1995,7 @@ class QuadrantFoldingGUI(QMainWindow):
             img = self.quadFold.getRotatedImage()
             ax1 = self.doubleZoomAxes
             x,y = self.quadFold.info['center']
-            imgCropped = img[y - 5:y + 5, x - 5:x + 5]
+            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                 imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
                 self.doubleZoomPt = (x, y)

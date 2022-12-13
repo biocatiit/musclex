@@ -127,6 +127,8 @@ class HDFBrowser(QDialog):
         self.mainLayout.addWidget(self.createGroup, 3, 0, 1, 2)
         self.mainLayout.addWidget(self.bottons,4, 0, 1, 2)
 
+        self.setMinimumWidth(1400)
+
     def setConnection(self):
         """
         Set handler for widgets

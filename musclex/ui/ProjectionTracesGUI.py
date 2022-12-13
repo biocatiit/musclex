@@ -149,6 +149,10 @@ class ProjectionTracesGUI(QMainWindow):
         self.calSettingsDialog = None
         self.numberOfFiles = 0
         self.refit = False
+        self.doubleZoomMode = False
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.doubleZoomPt = (0, 0)
+        self.doubleZoomAxes = None
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -256,6 +260,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.setRotAndCentB.setFixedHeight(45)
         self.checkableButtons.append(self.imgZoomInB)
 
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+
         self.minIntLabel = QLabel("Min Intensity")
         self.minIntSpnBx = QDoubleSpinBox()
         self.minIntSpnBx.setKeyboardTracking(False)
@@ -272,12 +279,13 @@ class ProjectionTracesGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.qfChkBx, 2, 0, 1, 2)
         self.dispOptLayout.addWidget(self.centerChkBx, 3, 0, 1, 2)
         self.dispOptLayout.addWidget(self.setRotAndCentB, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 5, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 5, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntLabel, 6, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.doubleZoom, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomInB, 6, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.imgZoomOutB, 6, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.minIntLabel, 7, 0, 1, 1)
         self.dispOptLayout.addWidget(self.minIntSpnBx, 7, 1, 1, 1)
         self.dispOptLayout.addWidget(self.maxIntLabel, 8, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntSpnBx, 9, 1, 1, 1)
+        self.dispOptLayout.addWidget(self.maxIntSpnBx, 8, 1, 1, 1)
 
         # Process Folder Button
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
@@ -349,6 +357,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.centerChkBx.stateChanged.connect(self.updateImage)
         self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
+        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
@@ -421,6 +430,37 @@ class ProjectionTracesGUI(QMainWindow):
                 ax.patches.pop(i)
             self.displayImgCanvas.draw_idle()
             self.function = ["angle_center"]
+
+    def doubleZoomChecked(self):
+        """
+        Triggered when double zoom is checked
+        """
+        if self.doubleZoom.isChecked():
+            print("Double zoom checked")
+            self.doubleZoomAxes = self.displayImgFigure.add_subplot(333)
+            self.doubleZoomAxes.axes.xaxis.set_visible(False)
+            self.doubleZoomAxes.axes.yaxis.set_visible(False)
+            self.doubleZoomMode = True
+
+            img = self.projProc.getRotatedImage()
+            ax1 = self.doubleZoomAxes
+            x,y = (0, 0)
+            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
+            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                self.doubleZoomPt = (x, y)
+                ax1.imshow(imgScaled)
+                y, x = imgScaled.shape
+                # cy, cx = y // 2, x // 2
+                if len(ax1.lines) > 0:
+                    for i in range(len(ax1.lines)-1,-1,-1):
+                        ax1.lines.pop(i)
+                for i in range(len(ax1.patches)-1,-1,-1):
+                    ax1.patches.pop(i)
+        else:
+            self.displayImgFigure.delaxes(self.doubleZoomAxes)
+            self.doubleZoomMode = False
+        self.displayImgCanvas.draw_idle()
 
     def clearImage(self):
         """
@@ -772,6 +812,22 @@ class ProjectionTracesGUI(QMainWindow):
             x = min(x, xlim[1])
             y = max(y, 0)
             y = min(y, ylim[0])
+        elif self.doubleZoomMode:
+            # If x, y is inside figure and image is clicked for first time in double zoom mode
+            print(x,y)
+            if not self.dontShowAgainDoubleZoomMessageResult:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Please click on zoomed window on the top right")
+                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Double Zoom Guide")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
+                msg.exec_()
+                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
+            self.doubleZoomMode = False
+            return
 
         func = self.function
 
@@ -979,6 +1035,9 @@ class ProjectionTracesGUI(QMainWindow):
         elif func[0] == "angle_center":
             ax = self.displayImgAxes
             axis_size = 5
+            if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                x, y = self.doubleZoomToOrigCoord(x, y)
+                self.doubleZoomMode = True
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
@@ -1076,6 +1135,21 @@ class ProjectionTracesGUI(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>5 and x<img.shape[1]-5 and y>5 and y<img.shape[0]-5:
+                    ax1 = self.doubleZoomAxes
+                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
+                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                        imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                        self.doubleZoomPt = (x,y)
+                        ax1.imshow(imgScaled)
+                        y, x = imgScaled.shape
+                        cy, cx = y//2, x//2
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        for i in range(len(ax1.patches)-1,-1,-1):
+                            ax1.patches.pop(i)
+                        self.displayImgCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -1233,8 +1307,18 @@ class ProjectionTracesGUI(QMainWindow):
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
@@ -1243,9 +1327,19 @@ class ProjectionTracesGUI(QMainWindow):
                     for i in range(len(ax.lines)-1,1,-1):
                         ax.lines.pop(i)
                     # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             self.displayImgCanvas.draw_idle()
 
@@ -1697,3 +1791,14 @@ class ProjectionTracesGUI(QMainWindow):
         ax.invert_yaxis()
         self.displayImgFigure.tight_layout()
         self.displayImgCanvas.draw()
+
+    def doubleZoomToOrigCoord(self, x, y):
+        """
+        Compute the new x and y for double zoom to orig coord
+        """
+        M = [[1/5, 0, 0], [0, 1/5, 0],[0, 0, 1]]
+        dzx, dzy = self.doubleZoomPt
+        x, y, _ = np.dot(M, [x, y, 1])
+        newX = dzx -5 + x
+        newY = dzy - 5 + y
+        return (newX, newY)
