@@ -46,7 +46,7 @@ class QF_CSVManager:
         if not exists(result_path):
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
-        self.colnames = ['Filename', 'hash', 'comment']
+        self.colnames = ['Filename', 'centerX', 'centerY', 'rotationAngle', 'hash', 'comment']
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
@@ -92,8 +92,17 @@ class QF_CSVManager:
             data['comment'] = "REJECTED"
         else:
             failed = False
+            if 'calib_center' in quadFold.info:
+                center = quadFold.info['calib_center']
+            elif 'manual_center' in quadFold.info:
+                center = quadFold.info['manual_center']
+            else:
+                center = quadFold.orig_image_center
             # Get all needed infos
             data['Filename'] = img_name
+            data['centerX'] = center[0]
+            data['centerY'] = center[1]
+            data['rotationAngle'] = quadFold.info['rotationAngle']
             data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
 
             if failed:

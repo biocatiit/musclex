@@ -46,3 +46,31 @@ Download the [AppImage file](https://sourceforge.net/projects/musclex/files/) bu
 Download the [deb file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
 
 1. Open a terminal and run `sudo dpkg --install musclex-1.20_amd64(linux).deb`
+
+### Troubleshooting
+
+If the application crashes with the following error: `Gtk:ERROR:gtkiconhelper.c:494:ensure_surface_for_gicon: assertion failed (error == NULL): Failed to load /org/gtk/libgtk/icons/16x16/status/image-missing.png.`, it is probably due to environment variables that are set on your computer and are conflicting with the program. Two solutions:
+
+* Creating a new clean user and installing Muscle X on this new user (the environment variables should be cleaner).
+
+OR
+
+* Opening a terminal and typing `printenv` to display all the environment variables. Then you need to unset the conflicting ones (save the previous values in a separate document in case you need to set them back, and unset them one by one). Here is a non-exhaustive list of the variables that might be conflicting:
+```
+unset QT_ACCESSIBILITY
+unset GNOME_DESKTOP_SESSION_ID
+unset XDG_CONFIG_DIR
+unset XDG_CONFIG_DIRS
+unset XDG_MENU_PREFIX
+unset GNOME_SHELL_SESSION_MODE
+unset XMODIFIERS
+unset XAUTHORITY
+unset WINDOWPATH
+unset XDG_CURRENT_DESKTOP
+unset GNOME_TERMINAL_SCREEN
+unset GNOME_TERMINAL_SERVICE
+unset QT_IM_MODULE
+unset GDMSESSION
+unset XDG_SESSION_DESKTOP
+```
+
