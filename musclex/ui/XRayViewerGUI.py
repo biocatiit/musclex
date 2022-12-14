@@ -37,18 +37,22 @@ from ..utils.image_processor import *
 from ..modules.XRayViewer import XRayViewer
 from ..csv_manager.XV_CSVManager import XV_CSVManager
 from .pyqt_utils import *
+from .LogTraceViewer import LogTraceViewer
 
 class XRayViewerGUI(QMainWindow):
     """
     A class for window displaying all information of a selected image.
     This window contains 2 tabs : image, and graph
     """
+    currSaved = pyqtSignal(int)
     def __init__(self):
         """
         Initial window
         """
         QWidget.__init__(self)
         self.imgList = [] # all images name in current directory
+        self.windowList = []
+        self.counter = 0
         self.filePath = "" # current directory
         self.numberOfFiles = 0
         self.currentFileNumber = 0
@@ -160,6 +164,9 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout = QGridLayout()
         self.settingsGroup.setLayout(self.settingsLayout)
 
+        self.openTrace = QPushButton("Open Trace Window")
+        self.measureDist = QPushButton("Measure a Distance")
+        self.measureDist.setCheckable(True)
         self.setSlice = QPushButton("Set Graph Slice")
         self.setSlice.setCheckable(True)
         self.setSliceBox = QPushButton("Set Graph Box")
@@ -167,9 +174,11 @@ class XRayViewerGUI(QMainWindow):
         self.saveGraphSlice = QCheckBox("Save Graph Profile")
         self.saveGraphSlice.setEnabled(False)
 
-        self.settingsLayout.addWidget(self.setSlice, 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSliceBox, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.saveGraphSlice, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.openTrace, 0, 0, 1, 2)
+        self.settingsLayout.addWidget(self.measureDist, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSlice, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSliceBox, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.saveGraphSlice, 4, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Play")
@@ -280,6 +289,8 @@ class XRayViewerGUI(QMainWindow):
         self.prevButton2.clicked.connect(self.prevClicked)
         self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
+        self.openTrace.clicked.connect(self.openTraceClicked)
+        self.measureDist.clicked.connect(self.measureDistChecked)
         self.setSlice.clicked.connect(self.setSliceChecked)
         self.setSliceBox.clicked.connect(self.setSliceBoxChecked)
 
@@ -298,7 +309,6 @@ class XRayViewerGUI(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('figure_leave_event', self.leavePlot)
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
 
-
     def keyPressEvent(self, event):
         """
         Manage key press event on keyboard
@@ -311,6 +321,24 @@ class XRayViewerGUI(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
+
+    def openTraceClicked(self):
+        """
+        Triggered when the Open Trace button is clicked
+        """
+        newWindows = LogTraceViewer(self, self.currentFileNumber)
+        if len(self.windowList) >= 1:
+            self.windowList = []
+            self.counter = 0
+        self.windowList.append(newWindows)
+
+    def send_signal(self):
+        if self.windowList != []:
+            signal=self.currentFileNumber
+            if self.counter == 0:
+                self.currSaved.connect(self.windowList[0].showLine)
+                self.counter = 1
+            self.currSaved.emit(signal)
 
     def plotClicked(self, event):
         """
@@ -510,6 +538,38 @@ class XRayViewerGUI(QMainWindow):
         self.img_zoom = None
         self.refreshImageTab()
 
+    def measureDistChecked(self):
+        """
+        Prepare for measure distance
+        :return:
+        """
+        if self.xrayViewer is None:
+            return
+        QApplication.restoreOverrideCursor()
+        ax = self.imageAxes
+        for i in range(len(ax.lines)-1,-1,-1):
+            ax.lines.pop(i)
+        for i in range(len(ax.patches)-1,-1,-1):
+            ax.patches.pop(i)
+            self.imageCanvas.draw_idle()
+        if self.measureDist.isChecked():
+            self.imgPathOnStatusBar.setText(
+                "Draw a line on the image to measure a distance (ESC to cancel)")
+            self.function = ["dist"]  # set current active function
+        else:
+            if self.function is not None and self.function[0] == "dist":
+                func = self.function
+                for i in range(1, len(func) - 1, 2):
+                    dist = math.dist(func[i], func[i+1])
+                print("Distance:", dist)
+                msg = QMessageBox()
+                msg.setInformativeText("Distance: " + str(dist))
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Measure a Distance")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.exec_()
+            self.refreshAllTabs()
+
     def setSliceChecked(self):
         """
         Prepare for slice selection
@@ -642,7 +702,7 @@ class XRayViewerGUI(QMainWindow):
                     self.function = None
                     self.imgZoomInB.setChecked(False)
                     self.refreshAllTabs()
-            elif func[0] == "slice":
+            elif func[0] in ["slice", "dist"]:
                 ax = self.imageAxes
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -743,7 +803,7 @@ class XRayViewerGUI(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
-        elif func[0] == "slice":
+        elif func[0] in ["slice", "dist"]:
             # draw X on points and a line between points
             ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
@@ -771,8 +831,12 @@ class XRayViewerGUI(QMainWindow):
                 for i in range(len(ax.patches)-1,-1,-1):
                     ax.patches.pop(i)
                 self.imageCanvas.draw_idle()
-                self.setSlice.setChecked(False)
-                self.setSliceChecked()
+                if func[0] == "slice":
+                    self.setSlice.setChecked(False)
+                    self.setSliceChecked()
+                elif func[0] == "dist":
+                    self.measureDist.setChecked(False)
+                    self.measureDistChecked()
             self.imageCanvas.draw_idle()
         elif func[0] == "slice_box":
             # draw X on points and a line between points
@@ -967,7 +1031,8 @@ class XRayViewerGUI(QMainWindow):
                 self.setSliceBoxChecked()
             self.csv_manager.writeNewData(self.xrayViewer)
         else:
-            self.refreshAllTabs()            
+            self.refreshAllTabs()
+        self.send_signal()
 
     def closeEvent(self, ev):
         """
@@ -1099,10 +1164,11 @@ class XRayViewerGUI(QMainWindow):
         """
         self.stop_process = False
         self.progressBar.setVisible(True)
+        self.progressBar.setRange(0, self.numberOfFiles)
         for i in range(self.currentFileNumber, self.numberOfFiles):
             if self.stop_process:
                 break
-            self.progressBar.setValue(100 // self.numberOfFiles * i)
+            self.progressBar.setValue(i)
             QApplication.processEvents()
             self.nextClicked()
         self.progressBar.setVisible(False)

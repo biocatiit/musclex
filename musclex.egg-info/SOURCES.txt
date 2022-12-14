@@ -95,6 +95,7 @@ musclex/ui/EQStartWindowh.py
 musclex/ui/EQ_FittingTab.py
 musclex/ui/EquatorWindow.py
 musclex/ui/EquatorWindowh.py
+musclex/ui/LogTraceViewer.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py

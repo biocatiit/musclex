@@ -55,6 +55,7 @@ class AddIntensitiesMultExp(QMainWindow):
         QWidget.__init__(self)
         self.numberToFilesMap = None
         self.orig_imgs = []
+        self.orig_img_names = []
         self.initImg = None
         self.sum_img = None
         self.img_type = None
@@ -1624,7 +1625,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         if self.isHdf5:
                             self.fileList = loadFile(f)
                             for k, l in enumerate(self.fileList[0]):
-                                self.numberToFilesMap[k].append(l)
+                                self.numberToFilesMap[k+1].append(l)
                         else:
                             self.numberToFilesMap[int(number)].append(f)
                         self.numberToFilesMap[int(number)].sort()
@@ -1648,12 +1649,14 @@ class AddIntensitiesMultExp(QMainWindow):
         self.statusPrint("Processing...")
         self.filenameLineEdit.setValue(self.currentFileNumber)
         self.orig_imgs = []
+        self.orig_img_names = []
         for i in range(self.exposureNb.value()):
             if self.isHdf5:
                 index = next((k for k, item in enumerate(self.fileList[0]) if item == self.numberToFilesMap[self.currentFileNumber][i]), 0)
                 self.orig_imgs.append(ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], self.fileList[1][index]))
             else:
                 self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
+            self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
         if self.orig_imgs[0].shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -1721,21 +1724,21 @@ class AddIntensitiesMultExp(QMainWindow):
             else:
                 extent, center = [0, 0], (0, 0)
 
-            self.plotImages(self.imageAxes, self.orig_imgs[0], extent)
-            self.plotImages(self.imageAxes2, self.orig_imgs[1], extent)
+            self.plotImages(self.imageAxes, self.orig_imgs[0], extent, self.orig_img_names[0])
+            self.plotImages(self.imageAxes2, self.orig_imgs[1], extent, self.orig_img_names[1])
 
             if self.nbOfExposures >= 3:
-                self.plotImages(self.imageAxes3, self.orig_imgs[2], extent)
+                self.plotImages(self.imageAxes3, self.orig_imgs[2], extent, self.orig_img_names[2])
             if self.nbOfExposures >= 4:
-                self.plotImages(self.imageAxes4, self.orig_imgs[3], extent)
+                self.plotImages(self.imageAxes4, self.orig_imgs[3], extent, self.orig_img_names[3])
             if self.nbOfExposures >= 5:
-                self.plotImages(self.imageAxes5, self.orig_imgs[4], extent)
+                self.plotImages(self.imageAxes5, self.orig_imgs[4], extent, self.orig_img_names[4])
             if self.nbOfExposures >= 6:
-                self.plotImages(self.imageAxes6, self.orig_imgs[5], extent)
+                self.plotImages(self.imageAxes6, self.orig_imgs[5], extent, self.orig_img_names[5])
             if self.nbOfExposures >= 7:
-                self.plotImages(self.imageAxes7, self.orig_imgs[6], extent)
+                self.plotImages(self.imageAxes7, self.orig_imgs[6], extent, self.orig_img_names[6])
             if self.nbOfExposures >= 8:
-                self.plotImages(self.imageAxes8, self.orig_imgs[7], extent)
+                self.plotImages(self.imageAxes8, self.orig_imgs[7], extent, self.orig_img_names[7])
 
             if self.calSettingsDialog is not None:
                 self.calSettingsDialog.centerX.setValue(center[0])
@@ -1789,7 +1792,7 @@ class AddIntensitiesMultExp(QMainWindow):
             self.updated['res'] = True
             self.uiUpdating = False
 
-    def plotImages(self, imageAxes, img, extent):
+    def plotImages(self, imageAxes, img, extent, name):
         """
         Displays the image for each exposure
         """
@@ -1801,6 +1804,7 @@ class AddIntensitiesMultExp(QMainWindow):
         else:
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
         ax.set_facecolor('black')
+        ax.set_xlabel(name)
 
         if self.showSeparator.isChecked() and self.orig_image_center is not None:
             # Draw quadrant separator
@@ -1914,7 +1918,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 elif not isinstance(sum_img, int):
                     img = resizeImage(img, sum_img.shape)
                 sum_img += img
-        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key) + '.tif')
+        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key).zfill(5) + '.tif')
         fabio.tifimage.tifimage(data=sum_img).write(result_file)
         print('Saved ', result_file)
         print('Resulting image shape ', sum_img.shape)
@@ -1936,7 +1940,7 @@ def addIntensities(numberToFilesMap, dir_path):
             elif not isinstance(sum_img, int):
                 img = resizeImage(img, sum_img.shape)
             sum_img += img
-        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key) + '.tif')
+        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key).zfill(5) + '.tif')
         fabio.tifimage.tifimage(data=sum_img).write(result_file)
         print('Saved ', result_file)
         print('Resulting image shape ', sum_img.shape)
