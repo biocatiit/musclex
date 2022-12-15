@@ -62,7 +62,6 @@ class XRayViewerGUI(QMainWindow):
         self.graph_zoom = None # zoom location of result image (x,y range)
         self.function = None # current active function
         self.uiUpdating = False # update ui status flag (prevent recursive)
-        self.checkableButtons = [] # list of checkable buttons
         self.updated = {'img': False} # update state of 2 tabs
         self.plot_min = None
         self.first_slice = False
@@ -142,7 +141,6 @@ class XRayViewerGUI(QMainWindow):
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
         self.imgZoomOutB = QPushButton("Full")
-        self.checkableButtons.append(self.imgZoomInB)
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
@@ -1063,9 +1061,6 @@ class XRayViewerGUI(QMainWindow):
         if self.ableToProcess():
             if self.tabWidget.currentIndex() == 0:
                 self.updateImageTab()
-
-            for b in self.checkableButtons:
-                b.setChecked(False)
 
     def updateImageTab(self):
         """

@@ -186,9 +186,8 @@ class OffMeridianTab(QWidget):
         if self.function[0] == 'se':
             for q in self.quadrants:
                 ax = self.allFiguresCanvas[q][2]
-                hist = ax.lines[0:len(self.function)]
-                del ax.lines
-                ax.lines = hist
+                for i in range(len(ax.lines)-1, len(self.function) - 1,-1):
+                    ax.lines.pop(i)
                 ax.axvline(x, color = 'r')
                 canvas = self.allFiguresCanvas[q][1]
                 canvas.draw()
@@ -965,6 +964,10 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.stop_process = None
         self.minInt = None
         self.minIntLabel = None
+        self.doubleZoomMode = False
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.doubleZoomPt = (0, 0)
+        self.doubleZoomAxes = None
 
         if 'fix_ranges' in settings:
             self.fixRanges = settings['fix_ranges']
@@ -1128,6 +1131,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.setCenterAngleB.setCheckable(True)
         self.setAngleB = QPushButton('Set Rotation Angle')
         self.setAngleB.setCheckable(True)
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
         self.selectIntArea = QPushButton('Set Meridian Area')
         self.selectIntArea.setCheckable(True)
         self.setX1X2 = QPushButton('Set Left\nOff-Meridian Area')
@@ -1149,10 +1154,11 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.calSetttingsLayout.addWidget(self.selectIntArea, 2, 0, 1, 2)
         self.calSetttingsLayout.addWidget(self.setX1X2, 3, 0, 1, 1)
         self.calSetttingsLayout.addWidget(self.setX3X4, 3, 1, 1, 1)
-        self.calSetttingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
-        self.calSetttingsLayout.addWidget(self.orientationCmbBx, 5, 0, 1, 2)
-        self.calSetttingsLayout.addWidget(self.rotation90ChkBx, 6, 0, 1, 1)
-        self.calSetttingsLayout.addWidget(self.forceRot90ChkBx, 6, 1, 1, 1)
+        self.calSetttingsLayout.addWidget(self.doubleZoom, 4, 0, 1, 2)
+        self.calSetttingsLayout.addWidget(QLabel("Orientation Finding: "), 5, 0, 1, 2)
+        self.calSetttingsLayout.addWidget(self.orientationCmbBx, 6, 0, 1, 2)
+        self.calSetttingsLayout.addWidget(self.rotation90ChkBx, 7, 0, 1, 1)
+        self.calSetttingsLayout.addWidget(self.forceRot90ChkBx, 7, 1, 1, 1)
 
         self.checkableButtons = [self.zoomInB, self.zoomOutB, self.setCenterAngleB, self.setAngleB, self.selectIntArea, self.setX3X4, self.setX1X2]
 
@@ -1215,6 +1221,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.selectIntArea.clicked.connect(self.selectIntAreaClicked)
         self.setCenterAngleB.clicked.connect(self.setCenterAngleClicked)
+        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.setAngleB.clicked.connect(self.setAngleClicked)
         self.setX1X2.clicked.connect(self.setX1X2Clicked)
         self.setX3X4.clicked.connect(self.setX3X4Clicked)
@@ -1260,6 +1267,38 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         self.updated = False
         self.mainwin.redrawPlots()
         self.updateUI()
+
+    def doubleZoomChecked(self):
+        """
+        Triggered when double zoom is checked
+        """
+        if self.doubleZoom.isChecked():
+            print("Double zoom checked")
+            self.doubleZoomAxes = self.displayImgFigure.add_subplot(333)
+            self.doubleZoomAxes.axes.xaxis.set_visible(False)
+            self.doubleZoomAxes.axes.yaxis.set_visible(False)
+            self.doubleZoomMode = True
+
+            img = self.difCent.getRotatedImage()
+            ax1 = self.doubleZoomAxes
+            x,y = (0, 0)
+            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
+            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+                self.doubleZoomPt = (x, y)
+                ax1.imshow(imgScaled)
+                y, x = imgScaled.shape
+                # cy, cx = y // 2, x // 2
+                if len(ax1.lines) > 0:
+                    for i in range(len(ax1.lines)-1,-1,-1):
+                        ax1.lines.pop(i)
+                for i in range(len(ax1.patches)-1,-1,-1):
+                    ax1.patches.pop(i)
+        else:
+            self.displayImgFigure.delaxes(self.doubleZoomAxes)
+            self.doubleZoomMode = False
+        self.displayImgCanvas.draw_idle()
+
 
     def imgZoomOutClicked(self):
         """
@@ -1387,6 +1426,23 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         x = event.xdata
         y = event.ydata
 
+        if self.doubleZoomMode:
+            # If x, y is inside figure and image is clicked for first time in double zoom mode
+            print(x,y)
+            if not self.dontShowAgainDoubleZoomMessageResult:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Please click on zoomed window on the top right")
+                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Double Zoom Guide")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
+                msg.exec_()
+                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
+            self.doubleZoomMode = False
+            return
+
         if self.function is None:
             self.function = ["move", (x,y)]
         else:
@@ -1461,6 +1517,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                 # set new center and rotation angle
                 ax = self.displayImgAxes
                 axis_size = 5
+                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                    x, y = self.doubleZoomToOrigCoord(x, y)
+                    self.doubleZoomMode = True
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.displayImgCanvas.draw_idle()
@@ -1514,6 +1573,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             return
         x = int(round(event.xdata))
         y = int(round(event.ydata))
+        img = self.difCent.getRotatedImage()
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
@@ -1521,6 +1581,21 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             y = int(round(y))
             if x < self.rotatedImg.shape[1] and y < self.rotatedImg.shape[0]:
                 self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(self.rotatedImg[y][x]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
+                    ax1 = self.doubleZoomAxes
+                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
+                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+                        self.doubleZoomPt = (x,y)
+                        ax1.imshow(imgScaled)
+                        y, x = imgScaled.shape
+                        cy, cx = y//2, x//2
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        for i in range(len(ax1.patches)-1,-1,-1):
+                            ax1.patches.pop(i)
+                        self.displayImgCanvas.draw_idle()
 
         ax = self.displayImgAxes
 
@@ -1552,25 +1627,22 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         if func[0] == "int_area":
             # Draw verical lines
             if len(ax.lines) > len(func) - 1:
-                line = ax.lines[:len(func)-1]
-                del ax.lines
-                ax.lines = line
+                for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                    ax.lines.pop(i)
             ax.axvline(x, color='r')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "x1x2":
             # Draw vertical lines
             if len(ax.lines) > len(func) - 1:
-                line = ax.lines[:len(func) - 1]
-                del ax.lines
-                ax.lines = line
+                for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                    ax.lines.pop(i)
             ax.axvline(x, color='g')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "x3x4":
             # Draw vertical lines
             if len(ax.lines) > len(func) - 1:
-                line = ax.lines[:len(func) - 1]
-                del ax.lines
-                ax.lines = line
+                for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                    ax.lines.pop(i)
             ax.axvline(x, color='r')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "angle":
@@ -1580,8 +1652,8 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            del ax.lines
-            ax.lines = []
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines.pop(i)
             ax.plot([x,x2],[y,y2], color = "g")
             self.displayImgCanvas.draw_idle()
         elif func[0] == "center_angle":
@@ -1589,23 +1661,42 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             if len(func) == 1:
                 # draw X
                 if len(ax.lines) > 0:
-                    del ax.lines
-                    ax.lines = []
-                # while len(ax.lines) > 0:
-                    # ax.lines.pop(len(ax.lines) - 1)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 # draw X and a line between points
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    first_cross = ax.lines[:2]
-                    del ax.lines
-                    ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                    # first_cross = ax.lines[:2]
+                    for i in range(len(ax.lines)-1,1,-1):
+                        ax.lines.pop(i)
+                    # ax.lines = first_cross
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             self.displayImgCanvas.draw_idle()
 
@@ -1696,6 +1787,17 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
         self.displayImgCanvas.draw_idle()
+
+    def doubleZoomToOrigCoord(self, x, y):
+        """
+        Compute the new x and y for double zoom to orig coord
+        """
+        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
+        dzx, dzy = self.doubleZoomPt
+        x, y, _ = np.dot(M, [x, y, 1])
+        newX = dzx -10 + x
+        newY = dzy - 10 + y
+        return (newX, newY)
 
     def prevClicked(self):
         """

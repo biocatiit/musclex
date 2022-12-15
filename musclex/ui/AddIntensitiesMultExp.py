@@ -86,6 +86,11 @@ class AddIntensitiesMultExp(QMainWindow):
         self.fileList = None
         self.chordpoints = []
         self.chordLines = []
+        self.index = 0
+        self.doubleZoomMode = False
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.doubleZoomPt = (0, 0)
+        self.doubleZoomAxes = None
         self.info = {'manual_rotationAngle': [None] * 8,
                      'rotationAngle': [0] * 8}
         self.orig_image_center = None
@@ -197,6 +202,9 @@ class AddIntensitiesMultExp(QMainWindow):
         self.setFitRegion = QPushButton("Set Region of Interest")
         self.setFitRegion.setCheckable(True)
 
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+
         self.showSeparator = QCheckBox("Show Quadrant Separator")
 
         self.centerWoRotateChkBx = QCheckBox("Calibrate Center Without Rotation")
@@ -212,8 +220,9 @@ class AddIntensitiesMultExp(QMainWindow):
         self.settingsLayout.addWidget(self.setCentByChords, 6, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCentByPerp, 7, 0, 1, 2)
         self.settingsLayout.addWidget(self.setFitRegion, 8, 0, 1, 2)
-        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 9, 0, 1, 2)
-        self.settingsLayout.addWidget(self.showSeparator, 10, 0, 1, 2)
+        self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 2)
+        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 10, 0, 1, 2)
+        self.settingsLayout.addWidget(self.showSeparator, 11, 0, 1, 2)
 
         self.calibrationButton.setEnabled(False)
         self.setCenterRotationButton.setEnabled(False)
@@ -221,6 +230,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.setCentByChords.setEnabled(False)
         self.setCentByPerp.setEnabled(False)
         self.setFitRegion.setEnabled(False)
+        self.doubleZoom.setEnabled(False)
         self.showSeparator.setEnabled(False)
         self.centerWoRotateChkBx.setEnabled(False)
 
@@ -386,6 +396,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
         self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.setFitRegion.clicked.connect(self.setFitRegionClicked)
+        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
@@ -415,6 +426,37 @@ class AddIntensitiesMultExp(QMainWindow):
             self.info['rotationAngle'] = [0] * 8
         self.deleteInfo(['center'])
         self.onImageChanged()
+
+    def doubleZoomChecked(self):
+        """
+        Triggered when double zoom is checked
+        """
+        if self.doubleZoom.isChecked():
+            print("Double zoom checked")
+            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
+            self.doubleZoomAxes.axes.xaxis.set_visible(False)
+            self.doubleZoomAxes.axes.yaxis.set_visible(False)
+            self.doubleZoomMode = True
+
+            img = self.orig_imgs[self.currentFileNumber]
+            ax1 = self.doubleZoomAxes
+            x,y = (0, 0)
+            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
+            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+                self.doubleZoomPt = (x, y)
+                ax1.imshow(imgScaled)
+                y, x = imgScaled.shape
+                # cy, cx = y // 2, x // 2
+                if len(ax1.lines) > 0:
+                    for i in range(len(ax1.lines)-1,-1,-1):
+                        ax1.lines.pop(i)
+                for i in range(len(ax1.patches)-1,-1,-1):
+                    ax1.patches.pop(i)
+        else:
+            self.imageFigure.delaxes(self.doubleZoomAxes)
+            self.doubleZoomMode = False
+        self.imageCanvas.draw_idle()
 
     def fileNameChanged(self):
         """
@@ -597,7 +639,7 @@ class AddIntensitiesMultExp(QMainWindow):
         Reset the status bar
         """
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(self.currentFileNumber) + '/' + str(len(self.numberToFilesMap)) + ') : ' + self.dir_path)
+            'Current Set (' + str(self.currentFileNumber) + '/' + str(len(self.numberToFilesMap)) + ') : ' + self.dir_path)
 
     def ableToProcess(self):
         """
@@ -624,30 +666,30 @@ class AddIntensitiesMultExp(QMainWindow):
 
         if event.inaxes == self.imageAxes.axes:
             ax = self.imageAxes
-            index = 0
+            self.index = 0
         elif event.inaxes == self.imageAxes2.axes:
             ax = self.imageAxes2
-            index = 1
+            self.index = 1
         elif self.imageAxes3 is not None and event.inaxes == self.imageAxes3.axes:
             ax = self.imageAxes3
-            index = 2
+            self.index = 2
         elif self.imageAxes4 is not None and event.inaxes == self.imageAxes4.axes:
             ax = self.imageAxes4
-            index = 3
+            self.index = 3
         elif self.imageAxes5 is not None and event.inaxes == self.imageAxes5.axes:
             ax = self.imageAxes5
-            index = 4
+            self.index = 4
         elif self.imageAxes6 is not None and event.inaxes == self.imageAxes6.axes:
             ax = self.imageAxes6
-            index = 5
+            self.index = 5
         elif self.imageAxes7 is not None and event.inaxes == self.imageAxes7.axes:
             ax = self.imageAxes7
-            index = 6
+            self.index = 6
         elif self.imageAxes8 is not None and event.inaxes == self.imageAxes8.axes:
             ax = self.imageAxes8
-            index = 7
-        else:
-            return
+            self.index = 7
+        elif self.axClicked is not None:
+            ax = self.axClicked
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -667,6 +709,22 @@ class AddIntensitiesMultExp(QMainWindow):
             y = min(y, ylim[0])
             x = int(round(x))
             y = int(round(y))
+        elif self.doubleZoomMode and self.axClicked is not None:
+            # If x, y is inside figure and image is clicked for first time in double zoom mode
+            print(x,y)
+            if not self.dontShowAgainDoubleZoomMessageResult:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Please click on zoomed window on the top right")
+                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Double Zoom Guide")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
+                msg.exec_()
+                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
+            self.doubleZoomMode = False
+            return
 
         # Provide different behavior depending on current active function
         if self.function is None:
@@ -696,7 +754,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     half_width = abs(abs(int(y)) - center[1])
                     print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
 
-                    initImg = self.orig_imgs[index]
+                    initImg = self.orig_imgs[self.index]
                     b, l = initImg.shape
                     if self.newImgDimension is None:
                         dim = int(2.8*max(l, b))
@@ -740,6 +798,13 @@ class AddIntensitiesMultExp(QMainWindow):
             elif func[0] == "im_center_rotate" and self.axClicked is not None:
                 # set center and rotation angle
                 axis_size = 5
+                print('coucouco')
+                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                    print('coucou')
+                    print(x, y)
+                    x, y = self.doubleZoomToOrigCoord(x, y)
+                    print(x, y)
+                    self.doubleZoomMode = True
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
@@ -766,7 +831,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     cy = int(round(new_center[1]))
                     self.info['manual_center'] = (cx, cy)
                     #self.orig_image_center = self.info['manual_center']
-                    self.info['manual_rotationAngle'][index] = self.info['rotationAngle'][index] + new_angle
+                    self.info['manual_rotationAngle'][self.index] = self.info['rotationAngle'][self.index] + new_angle
                     self.setCenterRotationButton.setChecked(False)
                     self.onImageChanged()
             elif func[0] == "im_rotate" and self.axClicked is not None:
@@ -788,7 +853,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     new_angle = -90
                 else:
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                self.info['manual_rotationAngle'][index] = self.info['rotationAngle'][index] + new_angle
+                self.info['manual_rotationAngle'][self.index] = self.info['rotationAngle'][self.index] + new_angle
                 self.setRotationButton.setChecked(False)
                 self.onImageChanged()
         self.axClicked = ax
@@ -801,7 +866,6 @@ class AddIntensitiesMultExp(QMainWindow):
             return
         x = event.xdata
         y = event.ydata
-        img = self.orig_imgs[0]
 
         if self.axClicked is not None:
             ax = self.axClicked
@@ -823,7 +887,9 @@ class AddIntensitiesMultExp(QMainWindow):
             elif self.imageAxes8 is not None and event.inaxes == self.imageAxes8.axes:
                 ax = self.imageAxes8
             else:
-                return
+                ax = self.imageAxes
+
+        img = self.orig_imgs[self.index]
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
@@ -831,6 +897,21 @@ class AddIntensitiesMultExp(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
+                    ax1 = self.doubleZoomAxes
+                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
+                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+                        self.doubleZoomPt = (x,y)
+                        ax1.imshow(imgScaled)
+                        y, x = imgScaled.shape
+                        cy, cx = y//2, x//2
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        for i in range(len(ax1.patches)-1,-1,-1):
+                            ax1.patches.pop(i)
+                        self.imageCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -914,17 +995,38 @@ class AddIntensitiesMultExp(QMainWindow):
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines) - 1, -1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     for i in range(len(ax.lines) - 1, 1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
             self.imageCanvas.draw_idle()
 
         elif func[0] == "perp_center" and self.axClicked is not None:
@@ -1288,6 +1390,7 @@ class AddIntensitiesMultExp(QMainWindow):
             self.setCentByChords.setEnabled(True)
             self.setCentByPerp.setEnabled(True)
             self.setFitRegion.setEnabled(True)
+            self.doubleZoom.setEnabled(True)
             self.showSeparator.setEnabled(True)
             self.centerWoRotateChkBx.setEnabled(True)
             _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
@@ -1299,6 +1402,8 @@ class AddIntensitiesMultExp(QMainWindow):
             self.setCentByChords.setEnabled(False)
             self.setCentByPerp.setEnabled(False)
             self.setFitRegion.setEnabled(False)
+            self.doubleZoom.setEnabled(False)
+            self.doubleZoom.setChecked(False)
             self.showSeparator.setEnabled(False)
             self.showSeparator.setChecked(False)
             self.centerWoRotateChkBx.setEnabled(False)
@@ -1654,9 +1759,10 @@ class AddIntensitiesMultExp(QMainWindow):
             if self.isHdf5:
                 index = next((k for k, item in enumerate(self.fileList[0]) if item == self.numberToFilesMap[self.currentFileNumber][i]), 0)
                 self.orig_imgs.append(ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], self.fileList[1][index]))
+                self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
             else:
                 self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
-            self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
+                self.orig_img_names.append(os.path.split(self.numberToFilesMap[self.currentFileNumber][i])[1])
         if self.orig_imgs[0].shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -1900,6 +2006,17 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         self.statusReport.setText(text)
         QApplication.processEvents()
+    
+    def doubleZoomToOrigCoord(self, x, y):
+        """
+        Compute the new x and y for double zoom to orig coord
+        """
+        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
+        dzx, dzy = self.doubleZoomPt
+        x, y, _ = np.dot(M, [x, y, 1])
+        newX = dzx -10 + x
+        newY = dzy - 10 + y
+        return (newX, newY)
 
     def addIntensity(self, imgs, dir_path, key):
         """

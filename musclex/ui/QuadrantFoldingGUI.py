@@ -1085,11 +1085,11 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Compute the new x and y for double zoom to orig coord
         """
-        M = [[1/5, 0, 0], [0, 1/5, 0],[0, 0, 1]]
+        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
         dzx, dzy = self.doubleZoomPt
         x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx -5 + x
-        newY = dzy - 5 + y
+        newX = dzx -10 + x
+        newY = dzy - 10 + y
         return (newX, newY)
 
     def imageClicked(self, event):
@@ -1320,7 +1320,7 @@ class QuadrantFoldingGUI(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>5 and x<img.shape[1]-5 and y>5 and y<img.shape[0]-5:
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     extent, _ = self.getExtentAndCenter()
                     x = x + extent[0]
                     y = y + extent[1]
@@ -1329,7 +1329,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                        imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
                         y, x = imgScaled.shape
@@ -1997,7 +1997,7 @@ class QuadrantFoldingGUI(QMainWindow):
             x,y = self.quadFold.info['center']
             imgCropped = img[y - 10:y + 10, x - 10:x + 10]
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped, (0, 0), fx=5, fy=5)
+                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 self.doubleZoomPt = (x, y)
                 ax1.imshow(imgScaled)
                 y, x = imgScaled.shape
