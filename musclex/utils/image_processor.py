@@ -118,7 +118,7 @@ def getThreshold(img, percent):
             break
     return thrhold
 
-def thresholdImg(img, percent, convert_type =  cv2.THRESH_BINARY_INV):
+def thresholdImg(img, percent, convert_type=cv2.THRESH_BINARY_INV):
     """
     Apply thresholding by percent
     :param img: input image

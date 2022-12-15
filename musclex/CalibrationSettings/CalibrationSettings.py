@@ -47,6 +47,10 @@ class CalibrationSettings(QDialog):
         self.logMsgs = []
         self.dir_path = str(dir_path)
         self.manualCalPoints = None
+        self.doubleZoomMode = False
+        self.dontShowAgainDoubleZoomMessageResult = False
+        self.doubleZoomPt = (0, 0)
+        self.doubleZoomAxes = None
         self.cal_img = None
         self.disp_img = None
         self.ax = None
@@ -305,6 +309,7 @@ class CalibrationSettings(QDialog):
         if self.manualCal.isChecked():
             self.manualCal.setText("Done")
             self.manualCalPoints = []
+            self.doubleZoomMode = True
             self.ax = self.calImgFigure.add_subplot(111)
             self.ax.cla()
             _, img = self.getImage()
@@ -339,13 +344,31 @@ class CalibrationSettings(QDialog):
             return
         x = int(round(event.xdata))
         y = int(round(event.ydata))
-        self.manualCalPoints.append((x, y))
-        self.ax.plot(x,y,'ro')
-        _, disp_img = self.getImage()
-        self.ax.set_xlim((0, disp_img.shape[1]))
-        self.ax.set_ylim((0, disp_img.shape[0]))
-        self.ax.invert_yaxis()
-        self.calImgCanvas.draw_idle()
+        if self.doubleZoomMode:
+            # If x, y is inside figure and image is clicked for first time in double zoom mode
+            print(x,y)
+            self.doubleZoomPt = (x, y)
+            if not self.dontShowAgainDoubleZoomMessageResult:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Please click on zoomed window on the bottom left")
+                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Double Zoom Guide")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
+                msg.exec_()
+                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
+            self.doubleZoomMode = False
+        else:
+            self.doubleZoomMode = True
+            self.manualCalPoints.append((x, y))
+            self.ax.plot(x, y,'ro')
+            _, disp_img = self.getImage()
+            self.ax.set_xlim((0, disp_img.shape[1]))
+            self.ax.set_ylim((0, disp_img.shape[0]))
+            self.ax.invert_yaxis()
+            self.calImgCanvas.draw_idle()
 
     def imgOnMotion(self, event):
         """
@@ -356,18 +379,19 @@ class CalibrationSettings(QDialog):
 
         x = event.xdata
         y = event.ydata
-        # ax = self.calImgFigure.add_subplot(337)
-        # del self.ax2.lines
-        # self.ax2.lines = []
-        for i in range(len(self.ax2.lines)-1,-1,-1):
-            self.ax2.lines.pop(i)
+
         axis_size = 2
-        self.ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        self.ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
         zoom_size = 40
-        self.ax2.set_xlim((x - zoom_size, x + zoom_size))
-        self.ax2.set_ylim((y - zoom_size, y + zoom_size))
-        self.ax2.invert_yaxis()
+        if not self.doubleZoomMode:
+            if len(self.ax2.lines) > 0:
+                for i in range(len(self.ax2.lines)-1,-1,-1):
+                    self.ax2.lines.pop(i)
+            self.ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            self.ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+        else:
+            self.ax2.set_xlim((x - zoom_size, x + zoom_size))
+            self.ax2.set_ylim((y - zoom_size, y + zoom_size))
+            self.ax2.invert_yaxis()
         self.calImgCanvas.draw_idle()
 
     def unsetCalImg(self):
