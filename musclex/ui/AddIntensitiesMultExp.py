@@ -83,7 +83,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.imageAxes8 = None
         self.axClicked = None
         self.isHdf5 = False
-        self.fileList = None
+        self.fileList = [[], []]
         self.chordpoints = []
         self.chordLines = []
         self.index = 0
@@ -467,6 +467,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.filenameLineEdit2.setValue(fileName)
         self.filenameLineEdit2.blockSignals(False)
         if self.numberToFilesMap[fileName] == []:
+            print('Error in the number entered')
             return
         self.currentFileNumber = fileName
         self.onImageChanged()
@@ -480,6 +481,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.filenameLineEdit.setValue(fileName)
         self.filenameLineEdit.blockSignals(False)
         if self.numberToFilesMap[fileName] == []:
+            print('Error in the number entered')
             return
         self.currentFileNumber = fileName
         self.onImageChanged()
@@ -556,7 +558,8 @@ class AddIntensitiesMultExp(QMainWindow):
             self.imageAxes6 = self.imageFigure.add_subplot(246)
             self.imageAxes7 = self.imageFigure.add_subplot(247)
             self.imageAxes8 = self.imageFigure.add_subplot(248)
-        self.onImageChanged()
+        if self.numberToFilesMap is not None:
+            self.onImageChanged()
 
     def avgInsteadOfSumChanged(self):
         """
@@ -798,12 +801,8 @@ class AddIntensitiesMultExp(QMainWindow):
             elif func[0] == "im_center_rotate" and self.axClicked is not None:
                 # set center and rotation angle
                 axis_size = 5
-                print('coucouco')
                 if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-                    print('coucou')
-                    print(x, y)
                     x, y = self.doubleZoomToOrigCoord(x, y)
-                    print(x, y)
                     self.doubleZoomMode = True
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1706,6 +1705,7 @@ class AddIntensitiesMultExp(QMainWindow):
         Same as browse files but allow the user to select a folder instead of a file.
         """
         self.dir_path = getAFolder()
+        self.fileList = [[], []]
         if self.dir_path != "":
             self.numberToFilesMap = collections.defaultdict(list)
             self.isHdf5 = False
@@ -1728,8 +1728,10 @@ class AddIntensitiesMultExp(QMainWindow):
                                 isDataFile = True
                     if isDataFile:
                         if self.isHdf5:
-                            self.fileList = loadFile(f)
-                            for k, l in enumerate(self.fileList[0]):
+                            new_files = loadFile(f)
+                            for k, l in enumerate(new_files[0]):
+                                self.fileList[0].append(l)
+                                self.fileList[1].append(new_files[1][k])
                                 self.numberToFilesMap[k+1].append(l)
                         else:
                             self.numberToFilesMap[int(number)].append(f)
@@ -1748,17 +1750,18 @@ class AddIntensitiesMultExp(QMainWindow):
     def onImageChanged(self):
         """
         Need to be called when image is change i.e. to the next image.
-        This will create a new QuadrantFolder object for the new image and syncUI if cache is available
-        Process the new image if there's no cache.
+        This will create a new object for the new image
+        Process the new image.
         """
         self.statusPrint("Processing...")
         self.filenameLineEdit.setValue(self.currentFileNumber)
         self.orig_imgs = []
         self.orig_img_names = []
-        for i in range(self.exposureNb.value()):
+        for i in range(self.nbOfExposures):
             if self.isHdf5:
                 index = next((k for k, item in enumerate(self.fileList[0]) if item == self.numberToFilesMap[self.currentFileNumber][i]), 0)
-                self.orig_imgs.append(ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], self.fileList[1][index]))
+                image = ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], self.fileList[1][index])
+                self.orig_imgs.append(image)
                 self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
             else:
                 self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
@@ -1991,7 +1994,7 @@ class AddIntensitiesMultExp(QMainWindow):
             if self.calibrationChkBx.isChecked():
                 _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
                 if not self.centerWoRotateChkBx.isChecked():
-                    for i in range(self.exposureNb.value()):
+                    for i in range(self.nbOfExposures):
                         self.rotateImg(i)
                         self.centerizeImage(self.orig_imgs[i], i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
