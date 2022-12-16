@@ -4,7 +4,7 @@ When the calibration image selected, the program will try to fit a circle to the
 
 ![Calibration Settings](../images/calibration.png)
 
-However, if the circle cannot be fit or the circle is in the wrong position, you can also fit the circle manually by clicking on “Set manual calibration by point selections” button. After the button clicked you will see another image at the bottom left which is the zoom area of your cursor.
+However, if the circle cannot be fit or the circle is in the wrong position, you can also fit the circle manually by clicking on “Set manual calibration by point selections” button. After the button clicked you will see another image at the bottom left which is the zoom area of your cursor. To select a point on the ring, you need to click a first time on the image (approximate click), then a second time on the zoom area (precise click).
 
 ![manual calibration](../images/manual_cali.png)
 

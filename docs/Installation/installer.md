@@ -27,11 +27,13 @@ Download the [dmg file](https://sourceforge.net/projects/musclex/files/) built f
 
 1. Open the .dmg file and run the program inside.
 
-Important - If you see an error message (damaged disk or damaged program) follow these steps:
+```eval_rst
+.. note:: IMPORTANT - If you see an error message (damaged disk or damaged program) follow these steps:
 
 1. Open the .dmg file and copy the program on your computer (for example on the Desktop).
 2. With a terminal opened at the root of the program (for example `cd Desktop`), run the following command: `xattr -cr musclex.app`
 3. You can now eject the dmg file and delete it.
+```
 
 ## Linux
 

@@ -47,7 +47,6 @@ class LogTraceViewer(QMainWindow):
         self.filePath = "" # current directory
         self.parentSig = parent.currSaved
         self.numberOfFiles = 0
-        self.currentFileNumber = 0
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
         self.graph_zoom = None # zoom location of result image (x,y range)
@@ -147,9 +146,11 @@ class LogTraceViewer(QMainWindow):
             self.refreshAllTabs()
 
     def showLine(self, signal):
+        self.currentFileNumber = signal
         self.imageAxes.lines.pop()
         self.imageAxes.axvline(x=signal, color='r')
         self.imageCanvas.draw()
+        self.resetStatusbar()
 
     def plotClicked(self, event):
         """
@@ -219,7 +220,7 @@ class LogTraceViewer(QMainWindow):
                 l_in = '%.4E' % Decimal(str(self.length_in[round(x)]))
                 l_out = '%.4E' % Decimal(str(self.length_out[round(x)]))
                 force = '%.4E' % Decimal(str(self.force[round(x)]))
-                self.imgDetailOnStatusBar.setText("L_in=" + l_in + ', L_out=' + l_out + ', F=' + force + ', t=' + str(round(x)))
+                self.imgDetailOnStatusBar.setText("L_in=" + l_in + ', L_out=' + l_out + ', F=' + force + ', t=' + str(round(x) + 1))
 
         if self.function is None or len(self.function) < 2:
             return
@@ -333,7 +334,7 @@ class LogTraceViewer(QMainWindow):
         Reset the status bar
         """
         self.imgPathOnStatusBar.setText(
-            'Current File: ' + self.filePath)
+            'Current File (' + str(self.currentFileNumber + 1) + '/' + str(len(self.force)) + ') : ' + self.filePath)
 
     def onNewFileSelected(self, newFile):
         """
