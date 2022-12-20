@@ -1306,7 +1306,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 extent = self.extent
                 sx = x + extent[0]
                 sy = y + extent[1]
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[sy][sx]))
+                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]))
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and sx>10 and sx<img.shape[1]-10 and sy>10 and sy<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(sy - 10):int(sy + 10), int(sx - 10):int(sx + 10)]
