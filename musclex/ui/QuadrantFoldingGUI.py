@@ -57,6 +57,8 @@ class QuadrantFoldingGUI(QMainWindow):
         QWidget.__init__(self)
         self.imgList = [] # all images name in current directory
         self.filePath = "" # current directory
+        self.extent = None
+        self.img = None
         self.numberOfFiles = 0
         self.currentFileNumber = 0
         self.quadFold = None # QuadrantFolder object
@@ -776,8 +778,6 @@ class QuadrantFoldingGUI(QMainWindow):
             return
         if self.setCentByPerp.isChecked():
             ax = self.imageAxes
-            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
-            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines.pop(i)
             for i in range(len(ax.patches)-1,-1,-1):
@@ -1139,6 +1139,10 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
 
+        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+            x, y = self.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomMode = True
+
         # Provide different behavior depending on current active function
         if self.function is None:
             if event.button == 3:
@@ -1205,7 +1209,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
             elif func[0] == "chords_center":
                 ax = self.imageAxes
-                axis_size = 1
+                axis_size = 5
                 self.chordpoints.append([x, y])
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1217,18 +1221,15 @@ class QuadrantFoldingGUI(QMainWindow):
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
+                    start_pt = func[len(func) - 1]
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 self.imageCanvas.draw_idle()
                 func.append((x, y))
             elif func[0] == "im_center_rotate":
                 # set center and rotation angle
                 ax = self.imageAxes
                 axis_size = 5
-                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-                    extent, _ = self.getExtentAndCenter()
-                    x, y = self.doubleZoomToOrigCoord(x, y)
-                    x = x - extent[0]
-                    y = y - extent[1]
-                    self.doubleZoomMode = True
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
@@ -1292,48 +1293,27 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if not self.ableToProcess():
             return
-        # if self.setCenterRotationButton.isChecked():
-        #     if event.xdata is not None or event.ydata is not None:
-        #         x = event.xdata
-        #         y = event.ydata
-        #         ax2 = self.imageFigure.add_subplot(337)
-        #         if len(ax2.lines) > 0:
-        #             for i in range(len(ax2.lines)-1,-1,-1):
-        #                 ax2.lines.pop(i)
-        #         for i in range(len(ax2.lines)-1,-1,-1):
-        #             ax2.lines.pop(i)
-        #         axis_size = 2
-        #         ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-        #         ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-        #         zoom_size = 40
-        #         ax2.set_xlim((x - zoom_size, x + zoom_size))
-        #         ax2.set_ylim((y - zoom_size, y + zoom_size))
-        #         ax2.invert_yaxis()
-        #         self.imageCanvas.draw_idle()
+
         x = event.xdata
         y = event.ydata
-        img = self.quadFold.getRotatedImage()
+        img = self.img
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
-                    extent, _ = self.getExtentAndCenter()
-                    x = x + extent[0]
-                    y = y + extent[1]
-                    # print("double zoom mode ", self.doubleZoomMode)
-
+                extent = self.extent
+                sx = x + extent[0]
+                sy = y + extent[1]
+                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[sy][sx]))
+                if self.doubleZoom.isChecked() and self.doubleZoomMode and sx>10 and sx<img.shape[1]-10 and sy>10 and sy<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
-                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
+                    imgCropped = img[int(sy - 10):int(sy + 10), int(sx - 10):int(sx + 10)]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
-                        y, x = imgScaled.shape
-                        cy, cx = y//2, x//2
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
@@ -1393,25 +1373,56 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.calSettings['center']
             if len(func) == 2:
                 # width selected, change height as cursor moves
-                if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,-1,-1):
-                        ax.patches.pop(i)
-                hei = 2*abs(y-center[1])
-                wei = 2*abs(func[1] - center[0])
-                sq = self.getRectanglePatch(center, wei, hei)
-                ax.add_patch(sq)
+                if not self.doubleZoom.isChecked():
+                    if len(ax.patches) > 0:
+                        for i in range(len(ax.patches) - 1, -1, -1):
+                            ax.patches.pop(i)
+                    hei = 2*abs(y-center[1])
+                    wei = 2*abs(func[1] - center[0])
+                    sq = self.getRectanglePatch(center, wei, hei)
+                    ax.add_patch(sq)
+                else: 
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    elif self.doubleZoomMode:
+                        if len(ax.patches) > 0:
+                            for i in range(len(ax.patches) - 1, -1, -1):
+                                ax.patches.pop(i)
+                        hei = 2*abs(y-center[1])
+                        wei = 2*abs(func[1] - center[0])
+                        sq = self.getRectanglePatch(center, wei, hei)
+                        ax.add_patch(sq)
             else:
                 # nothing is selected, start by changing width
-                if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,-1,-1):
-                        ax.patches.pop(i)
-                if self.calSettings is None or 'center' not in self.calSettings:
-                    self.calSettings = {}
-                    extent, self.calSettings['center'] = self.getExtentAndCenter()
-                center = self.calSettings['center']
-                wei = 2 * abs(x - center[0])
-                sq = self.getRectanglePatch(center, wei, 50)
-                ax.add_patch(sq)
+                if not self.doubleZoom.isChecked():
+                    if len(ax.patches) > 0:
+                        for i in range(len(ax.patches) - 1, -1, -1):
+                            ax.patches.pop(i)
+                    wei = 2 * abs(x - center[0])
+                    sq = self.getRectanglePatch(center, wei, 50)
+                    ax.add_patch(sq)
+                else: 
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    elif self.doubleZoomMode:
+                        if len(ax.patches) > 0:
+                            for i in range(len(ax.patches) - 1, -1, -1):
+                                ax.patches.pop(i)
+                        wei = 2 * abs(x - center[0])
+                        sq = self.getRectanglePatch(center, wei, 50)
+                        ax.add_patch(sq)
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate":
@@ -1425,7 +1436,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -1446,7 +1457,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -1464,43 +1475,89 @@ class QuadrantFoldingGUI(QMainWindow):
 
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
+                    for i in range(len(ax.lines) - 1, -1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
+                    for i in range(len(ax.lines) - 1, 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
-                    # first_cross = ax.lines[:n]
-                    for i in range(len(ax.lines)-1,n-1,-1):
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) % 2 == 0:
                 start_pt = func[-1]
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
-                    # first_cross = ax.lines[:n]
-                    for i in range(len(ax.lines)-1,n-1,-1):
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
                         ax.lines.pop(i)
-                    # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.imageCanvas.draw_idle()
+
+        elif func[0] == "chords_center":
+            if self.doubleZoom.isChecked():
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_rotate":
@@ -1513,9 +1570,23 @@ class QuadrantFoldingGUI(QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
-            ax.plot((x, x2), (y, y2), color='g')
+            if not self.doubleZoom.isChecked():
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines.pop(i)
+                ax.plot([x, x2], [y, y2], color="g")
+            else:
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
+                    ax.plot([x, x2], [y, y2], color="g")
             self.imageCanvas.draw_idle()
 
     def imageReleased(self, event):
@@ -2287,6 +2358,8 @@ class QuadrantFoldingGUI(QMainWindow):
             ax.cla()
             img = self.quadFold.getRotatedImage()
             extent, center = self.getExtentAndCenter()
+            self.img = img
+            self.extent = extent
             # img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
             if self.logScaleIntChkBx.isChecked():
                 ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
