@@ -1142,8 +1142,6 @@ class ProjectionTracesGUI(QMainWindow):
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
-                        y, x = imgScaled.shape
-                        cy, cx = y//2, x//2
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
@@ -1311,7 +1309,7 @@ class ProjectionTracesGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -1332,7 +1330,7 @@ class ProjectionTracesGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:

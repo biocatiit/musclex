@@ -729,6 +729,10 @@ class AddIntensitiesMultExp(QMainWindow):
             self.doubleZoomMode = False
             return
 
+        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+            x, y = self.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomMode = True
+
         # Provide different behavior depending on current active function
         if self.function is None:
             self.function = ["im_move", (x, y)]
@@ -785,7 +789,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     self.imgPathOnStatusBar.setText(
                         "Click to place a point (need 3 points), then click on the button to process (ESC to cancel)")
                 else:
-                    axis_size = 1
+                    axis_size = 5
                     self.chordpoints.append([x, y])
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -796,14 +800,14 @@ class AddIntensitiesMultExp(QMainWindow):
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
+                    start_pt = func[len(func) - 1]
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 self.imageCanvas.draw_idle()
                 func.append((x, y))
             elif func[0] == "im_center_rotate" and self.axClicked is not None:
                 # set center and rotation angle
                 axis_size = 5
-                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-                    x, y = self.doubleZoomToOrigCoord(x, y)
-                    self.doubleZoomMode = True
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
@@ -903,8 +907,6 @@ class AddIntensitiesMultExp(QMainWindow):
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
-                        y, x = imgScaled.shape
-                        cy, cx = y//2, x//2
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
@@ -965,25 +967,56 @@ class AddIntensitiesMultExp(QMainWindow):
             center = self.calSettings['center']
             if len(func) == 2:
                 # width selected, change height as cursor moves
-                if len(ax.patches) > 0:
-                    for i in range(len(ax.patches) - 1, -1, -1):
-                        ax.patches.pop(i)
-                hei = 2*abs(y-center[1])
-                wei = 2*abs(func[1] - center[0])
-                sq = getRectanglePatch(center, wei, hei)
-                ax.add_patch(sq)
+                if not self.doubleZoom.isChecked():
+                    if len(ax.patches) > 0:
+                        for i in range(len(ax.patches) - 1, -1, -1):
+                            ax.patches.pop(i)
+                    hei = 2*abs(y-center[1])
+                    wei = 2*abs(func[1] - center[0])
+                    sq = getRectanglePatch(center, wei, hei)
+                    ax.add_patch(sq)
+                else: 
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    elif self.doubleZoomMode:
+                        if len(ax.patches) > 0:
+                            for i in range(len(ax.patches) - 1, -1, -1):
+                                ax.patches.pop(i)
+                        hei = 2*abs(y-center[1])
+                        wei = 2*abs(func[1] - center[0])
+                        sq = getRectanglePatch(center, wei, hei)
+                        ax.add_patch(sq)
             else:
                 # nothing is selected, start by changing width
-                if len(ax.patches) > 0:
-                    for i in range(len(ax.patches) - 1, -1, -1):
-                        ax.patches.pop(i)
-                if self.calSettings is None or 'center' not in self.calSettings:
-                    self.calSettings = {}
-                    _, self.calSettings['center'] = self.getExtentAndCenter(self.orig_imgs[0])
-                center = self.calSettings['center']
-                wei = 2 * abs(x - center[0])
-                sq = getRectanglePatch(center, wei, 50)
-                ax.add_patch(sq)
+                if not self.doubleZoom.isChecked():
+                    if len(ax.patches) > 0:
+                        for i in range(len(ax.patches) - 1, -1, -1):
+                            ax.patches.pop(i)
+                    wei = 2 * abs(x - center[0])
+                    sq = getRectanglePatch(center, wei, 50)
+                    ax.add_patch(sq)
+                else: 
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    elif self.doubleZoomMode:
+                        if len(ax.patches) > 0:
+                            for i in range(len(ax.patches) - 1, -1, -1):
+                                ax.patches.pop(i)
+                        wei = 2 * abs(x - center[0])
+                        sq = getRectanglePatch(center, wei, 50)
+                        ax.add_patch(sq)
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate" and self.axClicked is not None:
@@ -998,7 +1031,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -1017,7 +1050,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -1037,25 +1070,55 @@ class AddIntensitiesMultExp(QMainWindow):
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines) - 1, -1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     for i in range(len(ax.lines) - 1, 1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
                     for i in range(len(ax.lines) - 1, n - 1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) % 2 == 0:
                 start_pt = func[-1]
@@ -1063,9 +1126,31 @@ class AddIntensitiesMultExp(QMainWindow):
                     n = len(func) * 5 // 2 - 1
                     for i in range(len(ax.lines) - 1, n - 1, -1):
                         ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.imageCanvas.draw_idle()
+
+        elif func[0] == "chords_center":
+            if self.doubleZoom.isChecked():
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_rotate" and self.axClicked is not None:
@@ -1080,9 +1165,23 @@ class AddIntensitiesMultExp(QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            for i in range(len(ax.lines) - 1, -1, -1):
-                ax.lines.pop(i)
-            ax.plot((x, x2), (y, y2), color='g')
+            if not self.doubleZoom.isChecked():
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines.pop(i)
+                ax.plot([x, x2], [y, y2], color="g")
+            else:
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
+                    ax.plot([x, x2], [y, y2], color="g")
             self.imageCanvas.draw_idle()
 
     def imageReleased(self, event):
@@ -1499,16 +1598,18 @@ class AddIntensitiesMultExp(QMainWindow):
 
                     centers.append(center)
 
-            extent, center = self.getExtentAndCenter(self.orig_imgs[0])
-
             cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
             cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            new_center = [cx, cy] #np.dot(invM, homo_coords)
+            if self.info['rotationAngle'][self.currentFrameNumber-1] is None:
+                M = cv2.getRotationMatrix2D(tuple(self.info['center']), 0, 1)
+            else:
+                M = cv2.getRotationMatrix2D(tuple(self.info['center']), self.info['rotationAngle'][self.currentFrameNumber-1], 1)
+            invM = cv2.invertAffineTransform(M)
+            homo_coords = [cx, cy, 1.]
+            new_center = np.dot(invM, homo_coords)
             print("New center ", new_center)
-            # Set new center and rotaion angle , re-calculate R-min
-            self.info['manual_center'] = (int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
-
-            print("New center after extent ", self.info['manual_center'])
+            # Set new center
+            self.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
             self.setCentByChords.setChecked(False)
             self.onImageChanged()
 

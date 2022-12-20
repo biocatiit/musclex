@@ -2243,13 +2243,17 @@ class EquatorWindow(QMainWindow):
             self.doubleZoomMode = False
             return
 
+        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+            x, y = self.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomMode = True
+
         func = self.function
         # Provide different behavior depending on current active function
         if func is None:
             self.function = ["im_move", (x, y)]
         elif func[0] == "chords_center":
             ax = self.displayImgAxes
-            axis_size = 1
+            axis_size = 5
             self.chordpoints.append([x, y])
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -2261,6 +2265,9 @@ class EquatorWindow(QMainWindow):
             axis_size = 5
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
+                start_pt = func[len(func) - 1]
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
             self.displayImgCanvas.draw_idle()
             func.append((x, y))
 
@@ -2268,9 +2275,6 @@ class EquatorWindow(QMainWindow):
             # draw X at points and a line between points
             ax = self.displayImgAxes
             axis_size = 5
-            if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-                x,y = self.doubleZoomToOrigCoord(x,y)
-                self.doubleZoomMode = True
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
@@ -2441,8 +2445,6 @@ class EquatorWindow(QMainWindow):
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
-                        y, x = imgScaled.shape
-                        cy, cx = y//2, x//2
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
@@ -2497,30 +2499,75 @@ class EquatorWindow(QMainWindow):
             x2 = center[0] - deltax
             y2 = center[1] - deltay
             ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
-            ax.plot([x, x2], [y, y2], color="g")
+            if not self.doubleZoom.isChecked():
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines.pop(i)
+                ax.plot([x, x2], [y, y2], color="g")
+            else:
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
+                    ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
-
         elif func[0] == "int_area":
             # draw horizontal lines
             ax = self.displayImgAxes
-            if len(ax.lines) > len(func) - 1:
-                line = ax.lines[:len(func) - 1]
-                for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
-                ax.lines = line
-            ax.axhline(y, color='g')
+            if not self.doubleZoom.isChecked():
+                if len(ax.lines) > len(func) - 1:
+                    # line = ax.lines[:len(func) - 1]
+                    for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                        ax.lines.pop(i)
+                    # ax.lines = line
+                ax.axhline(y, color='g')
+            else: 
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    if len(ax.lines) > len(func) - 1:
+                        # line = ax.lines[:len(func) - 1]
+                        for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                            ax.lines.pop(i)
+                        # ax.lines = line
+                    ax.axhline(y, color='g')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "rmin":
             # draw R-min circle
             center = self.bioImg.info['center']
             dis = int(np.round(distance(center, (x, y))))
             ax = self.displayImgAxes
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
-            ax.add_patch(
-                patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
+            if not self.doubleZoom.isChecked():
+                for i in range(len(ax.patches)-1,-1,-1):
+                    ax.patches.pop(i)
+                ax.add_patch(
+                    patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
+            else: 
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    for i in range(len(ax.patches)-1,-1,-1):
+                        ax.patches.pop(i)
+                    ax.add_patch(
+                        patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
         elif func[0] == "angle_center":
             # draw X on points and a line between points
@@ -2536,7 +2583,51 @@ class EquatorWindow(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    # first_cross = ax.lines[:2]
+                    for i in range(len(ax.lines)-1,1,-1):
+                        ax.lines.pop(i)
+                    # ax.lines = first_cross
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            self.displayImgCanvas.draw_idle()
+            # self.displayImgCanvas.flush_events()
+        elif func[0] == "perp_center":
+            # draw X on points and a line between points
+            ax = self.displayImgAxes
+            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
+            axis_size = 5
+            if len(func) == 1:
+                if len(ax.lines) > 0:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -2557,7 +2648,7 @@ class EquatorWindow(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -2566,32 +2657,6 @@ class EquatorWindow(QMainWindow):
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
-            self.displayImgCanvas.draw_idle()
-            # self.displayImgCanvas.flush_events()
-        elif func[0] == "perp_center":
-            # draw X on points and a line between points
-            ax = self.displayImgAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines.pop(i)
-                    # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
@@ -2599,8 +2664,18 @@ class EquatorWindow(QMainWindow):
                     for i in range(len(ax.lines)-1,n-1,-1):
                         ax.lines.pop(i)
                     # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
             elif len(func) % 2 == 0:
                 start_pt = func[-1]
@@ -2610,9 +2685,31 @@ class EquatorWindow(QMainWindow):
                     for i in range(len(ax.lines)-1,n-1,-1):
                         ax.lines.pop(i)
                     # ax.lines = first_cross
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines.pop(i)
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.displayImgCanvas.draw_idle()
+
+        elif func[0] == "chords_center":
+            if self.doubleZoom.isChecked():
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "im_move":

@@ -1449,6 +1449,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             func = self.function
             if func[0] == "int_area":
                 # Set inegrated area (meridian)
+                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                    x, y = self.doubleZoomToOrigCoord(x, y)
+                    self.doubleZoomMode = True
                 func.append(x)
                 ax = self.displayImgAxes
                 ax.axvline(x, color='r')
@@ -1490,6 +1493,9 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                     self.processImage()
             elif func[0] == "angle":
                 # set rotation angle
+                if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+                    x, y = self.doubleZoomToOrigCoord(x, y)
+                    self.doubleZoomMode = True
                 center = self.difCent.info['center']
                 if center[0] < x:
                     x1 = center[0]
@@ -1588,8 +1594,6 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                         self.doubleZoomPt = (x,y)
                         ax1.imshow(imgScaled)
-                        y, x = imgScaled.shape
-                        cy, cx = y//2, x//2
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines.pop(i)
@@ -1626,10 +1630,25 @@ class DiffractionCentroidProcessWindow(QMainWindow):
 
         if func[0] == "int_area":
             # Draw verical lines
-            if len(ax.lines) > len(func) - 1:
-                for i in range(len(ax.lines)-1, len(func) - 2,-1):
-                    ax.lines.pop(i)
-            ax.axvline(x, color='r')
+            if not self.doubleZoom.isChecked():
+                if len(ax.lines) > len(func) - 1:
+                    for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                        ax.lines.pop(i)
+                ax.axvline(x, color='r')
+            else:
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    if len(ax.lines) > len(func) - 1:
+                        for i in range(len(ax.lines)-1, len(func) - 2,-1):
+                            ax.lines.pop(i)
+                    ax.axvline(x, color='r')
             self.displayImgCanvas.draw_idle()
         elif func[0] == "x1x2":
             # Draw vertical lines
@@ -1652,9 +1671,23 @@ class DiffractionCentroidProcessWindow(QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
-            ax.plot([x,x2],[y,y2], color = "g")
+            if not self.doubleZoom.isChecked():
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines.pop(i)
+                ax.plot([x, x2], [y, y2], color="g")
+            else:
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines.pop(i)
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines.pop(i)
+                    ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
         elif func[0] == "center_angle":
             axis_size = 5
@@ -1667,7 +1700,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
@@ -1689,7 +1722,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 50 and y < 50:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
