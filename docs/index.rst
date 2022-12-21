@@ -37,10 +37,10 @@ Submit feedback at https://github.com/biocatiit/musclex/issues.
 
 Click the following badge.
 
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7154163.svg
-   :target: https://doi.org/10.5281/zenodo.7154163
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7468634.svg
+   :target: https://doi.org/10.5281/zenodo.7468634
 
-`J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, J. Nabon, Weikang Ma. G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.15.7), doi:10.5281/zenodo.7154163, October 2022. <https://doi.org/10.5281/zenodo.7154163>`_
+`J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, J. Nabon, Weikang Ma. G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.21.0), doi:10.5281/zenodo.7468634, December 2022. <https://doi.org/10.5281/zenodo.7468634>`_
 
 .. rubric:: License
 
