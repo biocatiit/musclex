@@ -218,8 +218,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx = QCheckBox("Mode orientation")
         self.modeAngleChkBx.setChecked(False)
 
+        self.expandImage = QCheckBox("Expand the Image")
+        self.expandImage.setChecked(False)
+        self.expandImage.setToolTip("Expand the size of the image, for images with an offset center")
+
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
         self.compressFoldedImageChkBx.setChecked(False)
+        self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
 
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
@@ -238,9 +243,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 7, 0, 1, 2)
         self.settingsLayout.addWidget(self.orientationCmbBx, 8, 0, 1, 2)
         self.settingsLayout.addWidget(self.modeAngleChkBx, 9, 0, 1, 2)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 10, 0, 1, 2)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 11, 0, 1, 2)
-        self.settingsLayout.addWidget(self.doubleZoom, 12, 0, 1, 2)
+        self.settingsLayout.addWidget(self.expandImage, 10, 0, 1, 2)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 11, 0, 1, 2)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 12, 0, 1, 2)
+        self.settingsLayout.addWidget(self.doubleZoom, 13, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -664,6 +670,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
+        self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
         self.imgZoomInB.clicked.connect(self.imageZoomIn)
@@ -727,6 +734,14 @@ class QuadrantFoldingGUI(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
+
+    def expandImageChecked(self):
+        """
+        Triggered when the expand image checkbox is changed
+        """
+        if self.ableToProcess():
+            self.newImgDimension = None
+            self.onImageChanged()
 
     def blankSettingClicked(self):
         """
@@ -2484,6 +2499,10 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags()
+            if self.expandImage.isChecked():
+                self.quadFold.expandImg = 2.8
+            else:
+                self.quadFold.expandImg = 1
             try:
                 self.quadFold.process(flags)
             except Exception:

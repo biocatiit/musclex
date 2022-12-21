@@ -81,6 +81,7 @@ class QuadrantFolder:
         self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
+        self.expandImg = 1
         if parent is not None:
             self.parent = parent
         else:
@@ -320,7 +321,7 @@ class QuadrantFolder:
 
         b, l = img.shape
         if self.parent.newImgDimension is None:
-            dim = int(2.8*max(l, b))
+            dim = int(self.expandImg*max(l, b))
             self.parent.newImgDimension = dim
         else:
             dim = self.parent.newImgDimension

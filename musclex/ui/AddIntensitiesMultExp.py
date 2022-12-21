@@ -1659,51 +1659,6 @@ class AddIntensitiesMultExp(QMainWindow):
             self.onImageChanged()
             self.refreshAllTab()
 
-    def centerizeImage(self, img, index):
-        """
-        Create an enlarged image such that image center is at the center of new image
-        """
-        self.statusPrint("Centererizing image...")
-        center = self.orig_image_center
-
-        center = (int(center[0]), int(center[1]))
-
-        print("Dimension of image before centerize ", img.shape)
-
-        b, l = img.shape
-        if self.newImgDimension is None:
-            dim = int(2.8*max(l, b))
-            self.newImgDimension = dim
-        else:
-            dim = self.newImgDimension
-        new_img = np.zeros((dim, dim)).astype("float32")
-        new_img[0:b, 0:l] = img
-
-        #Translate image to appropriate position
-        transx = int(((dim/2) - center[0]))
-        transy = int(((dim/2) - center[1]))
-        M = np.float32([[1, 0, transx], [0, 1, transy]])
-        rows, cols = new_img.shape
-        mask_thres = -1
-
-        if self.img_type == "PILATUS":
-            mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
-            mask[new_img <= mask_thres] = 255
-            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-            translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
-            translated_mask = cv2.warpAffine(mask, M, (cols, rows))
-            translated_mask[translated_mask > 0.] = 255
-            translated_Img[translated_mask > 0] = mask_thres
-        else:
-            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-            translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
-
-        self.orig_imgs[index] = translated_Img
-        self.info['center'] = (int(dim / 2), int(dim / 2))
-        self.center_before_rotation = (int(dim / 2), int(dim / 2))
-        print("Dimension of image after centerize ", self.orig_imgs[index].shape)
-        self.statusPrint("")
-
     def getExtentAndCenter(self, orig_img):
         """
         Give the extent and the center of the image
@@ -2097,7 +2052,6 @@ class AddIntensitiesMultExp(QMainWindow):
                 if not self.centerWoRotateChkBx.isChecked():
                     for i in range(self.nbOfExposures):
                         self.rotateImg(i)
-                        self.centerizeImage(self.orig_imgs[i], i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
             self.sum_img = self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
             self.refreshAllTab()

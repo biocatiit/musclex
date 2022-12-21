@@ -8,7 +8,7 @@
     <key>CFBundleIdentifier</key>
     <string>musclex</string>
     <key>CFBundleExecutable</key>
-    <string>MacOS/musclex-launcher</string>
+    <string>MacOS/musclex/musclex-launcher</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleInfoDictionaryVersion</key>

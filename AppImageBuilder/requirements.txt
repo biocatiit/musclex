@@ -15,7 +15,8 @@ matplotlib
 musclex_ccp13
 Cython
 opencv-python-headless
-PyQt5==5.12.2
+PyQt5
 pyFAI
 distro
 PyMca5
+numba

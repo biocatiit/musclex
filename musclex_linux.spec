@@ -28,7 +28,7 @@ exe = EXE(pyz,
           upx=True,
           console=True )
 
-# if you want the deb package to be able to launch from the Application finder (on click), you need to add in main.py, in the else after run = False (line 262):
+# if you want the deb package to be able to launch from the Application finder (on click), you need to add in main.py, in the "if not run" after all the prints (line 306):
 # from musclex.launcher import LauncherForm
 # app = QApplication(sys.argv)
 # myapp = LauncherForm.main()
