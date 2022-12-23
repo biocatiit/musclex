@@ -97,7 +97,7 @@ class QF_CSVManager:
             elif 'manual_center' in quadFold.info:
                 center = quadFold.info['manual_center']
             else:
-                center = quadFold.orig_image_center
+                center = (round(quadFold.orig_image_center[0], 2), round(quadFold.orig_image_center[1], 2))
             # Get all needed infos
             data['Filename'] = img_name
             data['centerX'] = center[0]

@@ -1313,6 +1313,9 @@ class QuadrantFoldingGUI(QMainWindow):
         y = event.ydata
         img = self.img
 
+        if img is None:
+            return
+
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             x = int(round(x))

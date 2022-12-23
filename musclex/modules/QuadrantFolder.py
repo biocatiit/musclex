@@ -242,8 +242,8 @@ class QuadrantFolder:
             self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
-        self.orig_img, self.orig_image_center = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info['mask_thres'])
-        self.info['center'] = self.orig_image_center
+        self.orig_image_center = getCenter(self.orig_img)
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center, self.img_type, self.info['mask_thres'])
         print("Done. Center = "+str(self.info['center']))
 
 

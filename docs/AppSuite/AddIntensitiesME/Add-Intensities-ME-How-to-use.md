@@ -21,6 +21,12 @@ Auto grouping is performed automatically and the images you see on the screen ar
 
 * Use the arrows to go from one group of exposure to the other and process the results groups by groups, use the spinbox `Images #` to jump to a specific group of exposures, or click on `Process Current Folder` to process everything.
 
+## File Format
+
+When you want to add the intensities of different experiments grouped as h5 files you need to make sure that the files are in a same folder and that they have a name containing a number and the word data, each element being separated by the character `_`. An example is `P2_F5_849_1_094_data_000001.h5`.
+
+For folders with tiff images, it will take the last number as the file number within an experiment, and the rest of the name corresponds to an experiment.
+
 ## Calibration options
 
 #### Set Rotation and Center
