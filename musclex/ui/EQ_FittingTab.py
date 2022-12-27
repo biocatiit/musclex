@@ -112,6 +112,7 @@ class EQ_FittingTab(QWidget):
         self.fixedZline = QCheckBox("Fixed Center : ")
         self.zlineSpnBx = QDoubleSpinBox()
         self.zlineSpnBx.setObjectName('zlineSpnBx')
+        self.zlineSpnBx.setEnabled(False)
         self.editableVars[self.zlineSpnBx.objectName()] = None
         self.zlineSpnBx.setDecimals(0)
         self.zlineSpnBx.setRange(0, 500)
@@ -119,6 +120,7 @@ class EQ_FittingTab(QWidget):
         self.fixedIntZ = QCheckBox("Fixed Intensity : ")
         self.intZSpnBx = QDoubleSpinBox()
         self.intZSpnBx.setObjectName('intZSpnBx')
+        self.intZSpnBx.setEnabled(False)
         self.editableVars[self.intZSpnBx.objectName()] = None
         self.intZSpnBx.setDecimals(3)
         self.intZSpnBx.setRange(0, 10000000)
@@ -126,6 +128,7 @@ class EQ_FittingTab(QWidget):
         self.fixedSigZ = QCheckBox("Fixed Sigma : ")
         self.sigZSpnBx = QDoubleSpinBox()
         self.sigZSpnBx.setObjectName('sigZSpnBx')
+        self.sigZSpnBx.setEnabled(False)
         self.editableVars[self.sigZSpnBx.objectName()] = None
         self.sigZSpnBx.setDecimals(6)
         self.sigZSpnBx.setRange(-100, 100)
@@ -147,10 +150,56 @@ class EQ_FittingTab(QWidget):
         self.skeletalLayout.addWidget(self.fixedGammaZ, 3, 0, 1, 1)
         self.skeletalLayout.addWidget(self.gammaZSpnBx, 3, 1, 1, 1)
 
+        self.extraPeakGrp = QGroupBox("Extra Peak (Z line)")
+        self.extraPeakGrp.setEnabled(False)
+        self.extraPeakLayout = QGridLayout(self.extraPeakGrp)
+        self.fixedZlineEP = QCheckBox("Fixed Center : ")
+        self.zlineSpnBxEP = QDoubleSpinBox()
+        self.zlineSpnBxEP.setObjectName('zlineSpnBx')
+        self.zlineSpnBxEP.setEnabled(False)
+        self.editableVars[self.zlineSpnBxEP.objectName()] = None
+        self.zlineSpnBxEP.setDecimals(0)
+        self.zlineSpnBxEP.setRange(0, 500)
+        self.zlineSpnBxEP.setKeyboardTracking(False)
+        self.fixedIntZEP = QCheckBox("Fixed Intensity : ")
+        self.intZSpnBxEP = QDoubleSpinBox()
+        self.intZSpnBxEP.setObjectName('intZSpnBx')
+        self.intZSpnBxEP.setEnabled(False)
+        self.editableVars[self.intZSpnBxEP.objectName()] = None
+        self.intZSpnBxEP.setDecimals(3)
+        self.intZSpnBxEP.setRange(0, 10000000)
+        self.intZSpnBxEP.setKeyboardTracking(False)
+        self.fixedSigZEP = QCheckBox("Fixed Sigma : ")
+        self.sigZSpnBxEP = QDoubleSpinBox()
+        self.sigZSpnBxEP.setObjectName('sigZSpnBx')
+        self.sigZSpnBxEP.setEnabled(False)
+        self.editableVars[self.sigZSpnBxEP.objectName()] = None
+        self.sigZSpnBxEP.setDecimals(6)
+        self.sigZSpnBxEP.setRange(-100, 100)
+        self.sigZSpnBxEP.setKeyboardTracking(False)
+        self.fixedGammaZEP = QCheckBox("Fixed Gamma : ")
+        self.gammaZSpnBxEP = QDoubleSpinBox()
+        self.gammaZSpnBxEP.setObjectName('gammaZSpnBx')
+        self.editableVars[self.gammaZSpnBxEP.objectName()] = None
+        self.gammaZSpnBxEP.setDecimals(6)
+        self.gammaZSpnBxEP.setRange(-100, 100)
+        self.gammaZSpnBxEP.setKeyboardTracking(False)
+
+        self.extraPeakLayout.addWidget(self.fixedZlineEP, 0, 0, 1, 1)
+        self.extraPeakLayout.addWidget(self.zlineSpnBxEP, 0, 1, 1, 1)
+        self.extraPeakLayout.addWidget(self.fixedIntZEP, 1, 0, 1, 1)
+        self.extraPeakLayout.addWidget(self.intZSpnBxEP, 1, 1, 1, 1)
+        self.extraPeakLayout.addWidget(self.fixedSigZEP, 2, 0, 1, 1)
+        self.extraPeakLayout.addWidget(self.sigZSpnBxEP, 2, 1, 1, 1)
+        self.extraPeakLayout.addWidget(self.fixedGammaZEP, 3, 0, 1, 1)
+        self.extraPeakLayout.addWidget(self.gammaZSpnBxEP, 3, 1, 1, 1)
+
         # self.fittingTabLayout.addSpacing(10)
         self.fittingTabLayout.addWidget(self.fitSettingsGrp, 0, 0)
         # self.fittingTabLayout.addSpacing()
         self.fittingTabLayout.addWidget(self.skeletalGrp, 1, 0)
+        # self.fittingTabLayout.addSpacing()
+        self.fittingTabLayout.addWidget(self.extraPeakGrp, 2, 0)
 
     def setAllToolTips(self):
         """
@@ -181,6 +230,15 @@ class EQ_FittingTab(QWidget):
         self.zlineSpnBx.editingFinished.connect(lambda: self.skeletalChanged('zline', self.zlineSpnBx))
         self.gammaZSpnBx.editingFinished.connect(lambda: self.skeletalChanged('gammaZ', self.gammaZSpnBx))
 
+        self.fixedIntZEP.stateChanged.connect(self.skeletalChecked)
+        self.fixedZlineEP.stateChanged.connect(self.skeletalChecked)
+        self.fixedSigZEP.stateChanged.connect(self.skeletalChecked)
+        self.fixedGammaZEP.stateChanged.connect(self.skeletalChecked)
+        self.sigZSpnBxEP.editingFinished.connect(lambda: self.skeletalChanged('sigZ_EP', self.sigZSpnBxEP))
+        self.intZSpnBxEP.editingFinished.connect(lambda: self.skeletalChanged('intZ_EP', self.intZSpnBxEP))
+        self.zlineSpnBxEP.editingFinished.connect(lambda: self.skeletalChanged('zline_EP', self.zlineSpnBxEP))
+        self.gammaZSpnBxEP.editingFinished.connect(lambda: self.skeletalChanged('gammaZ_EP', self.gammaZSpnBxEP))
+
     def syncSpinBoxes(self, info):
         """
         Synchronize spin boxes
@@ -207,6 +265,12 @@ class EQ_FittingTab(QWidget):
                 self.sigZSpnBx.setValue(fit_result[side+'_sigmaz'])
                 self.intZSpnBx.setValue(fit_result[side+'_intz'])
                 self.gammaZSpnBx.setValue(fit_result[side+'_gammaz'])
+                if self.parent.extraPeakChkBx.isChecked():
+                    self.extraPeakGrp.setEnabled(True)
+                    self.zlineSpnBxEP.setValue(fit_result[side+'_zline_EP'])
+                    self.sigZSpnBxEP.setValue(fit_result[side+'_sigmaz_EP'])
+                    self.intZSpnBxEP.setValue(fit_result[side+'_intz_EP'])
+                    self.gammaZSpnBxEP.setValue(fit_result[side+'_gammaz_EP'])
 
         self.syncUI = False
 
@@ -229,11 +293,18 @@ class EQ_FittingTab(QWidget):
                 self.zlineSpnBx.setValue(fit_result[side+'_zline'])
                 self.sigZSpnBx.setValue(fit_result[side+'_sigmaz'])
                 self.intZSpnBx.setValue(fit_result[side+'_intz'])
+                if self.parent.extraPeakChkBx.isChecked():
+                    self.extraPeakGrp.setEnabled(True)
+                    self.zlineSpnBxEP.setValue(fit_result[side+'_zline_EP'])
+                    self.sigZSpnBxEP.setValue(fit_result[side+'_sigmaz_EP'])
+                    self.intZSpnBxEP.setValue(fit_result[side+'_intz_EP'])
 
             self.gammaSpinBx.setHidden(fit_result['model'] != 'Voigt')
             self.fixGamma.setHidden(fit_result['model'] != 'Voigt')
             self.fixedGammaZ.setHidden(fit_result['model'] != 'Voigt')
             self.gammaZSpnBx.setHidden(fit_result['model'] != 'Voigt')
+            self.fixedGammaZEP.setHidden(fit_result['model'] != 'Voigt')
+            self.gammaZSpnBxEP.setHidden(fit_result['model'] != 'Voigt')
 
         if side+'_fix_sigmac' in info:
             self.fixSigmaC.setChecked(True)
@@ -274,6 +345,26 @@ class EQ_FittingTab(QWidget):
             self.fixedSigZ.setChecked(True)
             self.sigZSpnBx.setEnabled(True)
             self.sigZSpnBx.setValue(info[side+'_fix_sigz'])
+
+        if side+'_fix_zline_EP' in info:
+            self.fixedZlineEP.setChecked(True)
+            self.zlineSpnBxEP.setEnabled(True)
+            self.zlineSpnBxEP.setValue(info[side + '_fix_zline_EP'])
+
+        if side+'_fix_intz_EP' in info:
+            self.fixedIntZEP.setChecked(True)
+            self.intZSpnBxEP.setEnabled(True)
+            self.intZSpnBxEP.setValue(info[side + '_fix_intz_EP'])
+
+        if side+'_fix_gammaz_EP' in info:
+            self.fixedGammaZEP.setChecked(True)
+            self.gammaZSpnBxEP.setEnabled(True)
+            self.gammaZSpinBxEP.setValue(info[side + '_fix_gammaz_EP'])
+
+        if side+'_fix_sigz_EP' in info:
+            self.fixedSigZEP.setChecked(True)
+            self.sigZSpnBxEP.setEnabled(True)
+            self.sigZSpnBxEP.setValue(info[side+'_fix_sigz_EP'])
 
         self.syncUI = False
 
@@ -335,6 +426,11 @@ class EQ_FittingTab(QWidget):
         self.sigZSpnBx.setEnabled(self.fixedSigZ.isChecked())
         self.intZSpnBx.setEnabled(self.fixedIntZ.isChecked())
         self.gammaZSpnBx.setEnabled(self.fixedGammaZ.isChecked())
+        if self.parent.extraPeakChkBx.isChecked():
+            self.zlineSpnBxEP.setEnabled(self.fixedZlineEP.isChecked())
+            self.sigZSpnBxEP.setEnabled(self.fixedSigZEP.isChecked())
+            self.intZSpnBxEP.setEnabled(self.fixedIntZEP.isChecked())
+            self.gammaZSpnBxEP.setEnabled(self.fixedGammaZEP.isChecked())
 
     def skeletalChanged(self, name, elem):
         """
@@ -353,6 +449,8 @@ class EQ_FittingTab(QWidget):
         self.fixGamma.setHidden(flag)
         self.gammaZSpnBx.setHidden(flag)
         self.fixedGammaZ.setHidden(flag)
+        self.gammaZSpnBxEP.setHidden(flag)
+        self.fixedGammaZEP.setHidden(flag)
 
     def getFittingSettings(self):
         """
@@ -386,6 +484,15 @@ class EQ_FittingTab(QWidget):
                 settings[side+'_fix_zline'] = self.zlineSpnBx.value()
             if self.fixedGammaZ.isChecked():
                 settings[side + '_fix_gammaz'] = self.gammaZSpnBx.value()
+            if self.parent.extraPeakChkBx.isChecked():
+                if self.fixedIntZEP.isChecked():
+                    settings[side+'_fix_intz_EP'] = self.intZSpnBxEP.value()
+                if self.fixedSigZEP.isChecked():
+                    settings[side+'_fix_sigz_EP'] = self.sigZSpnBxEP.value()
+                if self.fixedZlineEP.isChecked():
+                    settings[side+'_fix_zline_EP'] = self.zlineSpnBxEP.value()
+                if self.fixedGammaZEP.isChecked():
+                    settings[side + '_fix_gammaz_EP'] = self.gammaZSpnBxEP.value()
 
         return settings
 

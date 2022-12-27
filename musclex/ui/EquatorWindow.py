@@ -357,6 +357,8 @@ class EquatorWindow(QMainWindow):
         self.genLayout = QGridLayout(self.generalGrp)
         self.skeletalChkBx = QCheckBox("Skeletal Muscle (Z line)")
         self.skeletalChkBx.setFixedWidth(200)
+        self.extraPeakChkBx = QCheckBox("Extra Peak (Z line)")
+        self.extraPeakChkBx.setFixedWidth(200)       
         self.nPeakSpnBx = QSpinBox()
         self.nPeakSpnBx.setObjectName('nPeakSpnBx')
         self.editableVars[self.nPeakSpnBx.objectName()] = None
@@ -374,11 +376,12 @@ class EquatorWindow(QMainWindow):
         self.checkableButtons.append(self.setPeaksB)
 
         self.genLayout.addWidget(self.skeletalChkBx, 0, 0, 1, 2)
-        self.genLayout.addWidget(QLabel("Number of peaks: <br/>on each side"), 1, 0, 1, 1)
-        self.genLayout.addWidget(self.nPeakSpnBx, 1, 1, 1, 1)
-        self.genLayout.addWidget(QLabel("Model : "), 2, 0, 1, 1)
-        self.genLayout.addWidget(self.modelSelect, 2, 1, 1, 1)
-        self.genLayout.addWidget(self.setPeaksB, 3, 0, 1, 2)
+        self.genLayout.addWidget(self.extraPeakChkBx, 1, 0, 1, 2)
+        self.genLayout.addWidget(QLabel("Number of peaks: <br/>on each side"), 2, 0, 1, 1)
+        self.genLayout.addWidget(self.nPeakSpnBx, 2, 1, 1, 1)
+        self.genLayout.addWidget(QLabel("Model : "), 3, 0, 1, 1)
+        self.genLayout.addWidget(self.modelSelect, 3, 1, 1, 1)
+        self.genLayout.addWidget(self.setPeaksB, 4, 0, 1, 2)
 
         self.fitDispOptionGrp = QGroupBox('Display Options')
         self.fitDispOptLayout = QGridLayout()
@@ -581,7 +584,7 @@ class EquatorWindow(QMainWindow):
         self.mainLayout.addWidget(self.tabWidget)
         self.mainLayout.addWidget(self.statusBar)
 
-        self.setMinimumHeight(900)
+        self.setMinimumHeight(1000)
 
     def setAllToolTips(self):
         """
@@ -694,7 +697,7 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx.stateChanged.connect(self.rejectClicked)
 
         #### Fitting Tab
-        # self.skeletalChkBx.stateChanged.connect(self.refreshAllFittingParams)
+        self.skeletalChkBx.stateChanged.connect(self.skeletalChecked)
         self.nPeakSpnBx.editingFinished.connect(self.nPeakChanged)
         # self.modelSelect.currentIndexChanged.connect(self.refreshAllFittingParams)
         self.setPeaksB.clicked.connect(self.setManualPeaks)
@@ -728,6 +731,14 @@ class EquatorWindow(QMainWindow):
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
         self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+
+    def skeletalChecked(self):
+        """
+        Handlewhen skeletal z line is checked or unchecked
+        """
+        self.extraPeakChkBx.setEnabled(self.skeletalChkBx.isChecked())
+        if not self.skeletalChkBx.isChecked():
+            self.extraPeakChkBx.setChecked(False)
 
     def k_checked(self):
         """
@@ -790,6 +801,10 @@ class EquatorWindow(QMainWindow):
             self.updateParamInfo('sigz', side, fitparams)
             self.updateParamInfo('zline', side, fitparams)
             self.updateParamInfo('gammaz', side, fitparams)
+            self.updateParamInfo('intz_EP', side, fitparams)
+            self.updateParamInfo('sigz_EP', side, fitparams)
+            self.updateParamInfo('zline_EP', side, fitparams)
+            self.updateParamInfo('gammaz_EP', side, fitparams)
         return 0
 
     def updateParamInfo(self, param, side, fitparams):
@@ -859,6 +874,14 @@ class EquatorWindow(QMainWindow):
                 text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
             if side+'_fix_gammaz' in settings:
                 text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
+            if side+'_fix_zline_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Center: " + str(settings[side+'_fix_zline_EP'])
+            if side+'_fix_intz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Intensity : " + str(settings[side+'_fix_intz_EP'])
+            if side+'_fix_sigz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Sigma : " + str(settings[side+'_fix_sigz_EP'])
+            if side+'_fix_gammaz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
 
         if self.calSettings is not None:
             if "center" in self.calSettings:
@@ -1424,6 +1447,14 @@ class EquatorWindow(QMainWindow):
                 text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
             if side+'_fix_gammaz' in settings:
                 text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
+            if side+'_fix_zline_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Center: " + str(settings[side+'_fix_zline_EP'])
+            if side+'_fix_intz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Intensity : " + str(settings[side+'_fix_intz_EP'])
+            if side+'_fix_sigz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Sigma : " + str(settings[side+'_fix_sigz_EP'])
+            if side+'_fix_gammaz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
 
         if self.calSettings is not None and len(self.calSettings) > 0:
             if "center" in self.calSettings:
@@ -2782,6 +2813,7 @@ class EquatorWindow(QMainWindow):
         # Initial UI for general settings
         if 'isSkeletal' in info:
             self.skeletalChkBx.setChecked(info['isSkeletal'])
+            self.extraPeakChkBx.setEnabled(info['isSkeletal'])
 
         self.maskThresSpnBx.setValue(info['mask_thres'])
 
@@ -2949,8 +2981,17 @@ class EquatorWindow(QMainWindow):
                     return True
                 if fitting_tab.fixedZline.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_zline'):
                     return True
-                if fitting_tab.fixedGammaZ.isChecked() and self.paramChanged(prevInfo, currentInfo,
-                                                                             side + '_fix_gammaz'):
+                if fitting_tab.fixedGammaZ.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_gammaz'):
+                    return True
+            
+            if fitting_tab.parent.extraPeakChkBx.isChecked():
+                if fitting_tab.fixedIntZEP.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_intz_EP'):
+                    return True
+                if fitting_tab.fixedSigZEP.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_sigz_EP'):
+                    return True
+                if fitting_tab.fixedZlineEP.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_zline_EP'):
+                    return True
+                if fitting_tab.fixedGammaZEP.isChecked() and self.paramChanged(prevInfo, currentInfo, side + '_fix_gammaz_EP'):
                     return True
         return False
 
@@ -3422,6 +3463,9 @@ class EquatorWindow(QMainWindow):
                 # Draw z line
                 ax.axvline(fit_result['centerX'] + fit_result['right_zline'], color='y', alpha=0.5)
                 ax.axvline(fit_result['centerX'] - fit_result['left_zline'], color='y', alpha=0.5)
+                if self.extraPeakChkBx.isChecked():
+                    ax.axvline(fit_result['centerX'] + fit_result['right_zline_EP'], color='y', alpha=0.5)
+                    ax.axvline(fit_result['centerX'] - fit_result['left_zline_EP'], color='y', alpha=0.5)
 
             if self.centerXChkBx.isChecked():
                 ax.axvline(fit_result['centerX'], color='m', alpha=0.5)
@@ -3573,6 +3617,25 @@ class EquatorWindow(QMainWindow):
                 self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_intz'])))
                 ind += 1
 
+                if self.extraPeakChkBx.isChecked():
+                    # Display Z line center in table
+                    self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Z line Extra Peak"))
+                    self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_zline_EP'])))
+                    self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_zline_EP'])))
+                    ind += 1
+
+                    # Display Z line sigma in table
+                    self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Sigma Z Extra Peak"))
+                    self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_sigmaz_EP'])))
+                    self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_sigmaz_EP'])))
+                    ind += 1
+
+                    # Display Z line intensity in table
+                    self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Iz Extra Peak"))
+                    self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_intz_EP'])))
+                    self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_intz_EP'])))
+                    ind += 1
+
                 if fit_results['model'] == 'Voigt':
 
                     # Display gamma in table if model is Voigt
@@ -3586,6 +3649,13 @@ class EquatorWindow(QMainWindow):
                     self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gammaz'])))
                     self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gammaz'])))
                     ind += 1
+
+                    if self.extraPeakChkBx.isChecked():
+                        # Display gamma in table if model is Voigt
+                        self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Gamma Z Extra Peak"))
+                        self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gammaz_EP'])))
+                        self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gammaz_EP'])))
+                        ind += 1
 
         self.fiberResultTable.setRowCount(ind)
         QApplication.processEvents()

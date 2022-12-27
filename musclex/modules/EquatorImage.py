@@ -631,6 +631,35 @@ class EquatorImage:
                         int_vars[side+'_gammaz'] = self.info[side+'_fix_gammaz']
                     else:
                         params.add(side+'_gammaz', 8., min=-5., max=30.)
+                    
+                    if self.parent.extraPeakChkBx.isChecked():
+                        if side+'_fix_zline_EP' in self.info:
+                            int_vars[side+'_zline_EP'] = self.info[side+'_fix_zline_EP']
+                        else:
+                            init_z_ep = 2.3
+                            params.add(side+'_zline_EP', S[0] * init_z_ep, min=S[0] * init_z - 10, max=S[0] * init_z_ep + 10)
+
+                        if side+'_fix_sigz_EP' in self.info:
+                            int_vars[side+'_sigmaz_EP'] = self.info[side+'_fix_sigz_EP']
+                        else:
+                            params.add(side+'_sigmaz_EP', 8., min=0., max=20.)
+
+                        if side+'_fix_intz_EP' in self.info:
+                            int_vars[side+'_intz_EP'] = self.info[side+'_fix_intz_EP']
+                        else:
+                            init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
+                            params.add(side+'_intz_EP', init_intz, min=0, max=init_intz*4.+1.)
+
+                        if side+'_fix_gammaz_EP' in self.info:
+                            int_vars[side+'_gammaz_EP'] = self.info[side+'_fix_gammaz_EP']
+                        else:
+                            params.add(side+'_gammaz_EP', 8., min=-5., max=30.)
+                    else:
+                        int_vars[side+'_zline_EP'] = 0
+                        int_vars[side+'_sigmaz_EP'] = 0
+                        int_vars[side+'_intz_EP'] = 0
+                        int_vars[side+'_gammaz_EP'] = 0
+
                 else:
                     # set all z line variables as independent
                     self.skeletalVarsNotSet = True
@@ -638,6 +667,10 @@ class EquatorImage:
                     int_vars[side+'_sigmaz'] = 0
                     int_vars[side+'_intz'] = 0
                     int_vars[side+'_gammaz'] = 0
+                    int_vars[side+'_zline_EP'] = 0
+                    int_vars[side+'_sigmaz_EP'] = 0
+                    int_vars[side+'_intz_EP'] = 0
+                    int_vars[side+'_gammaz_EP'] = 0
 
             # Bias K
             if 'fix_k' in self.info:
@@ -787,6 +820,13 @@ class EquatorImage:
                 init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
                 params.add(side + '_intz', init_intz, min=0, max=init_intz * 4. + 1.)
                 params.add(side + '_gammaz', 8., min=-5., max=30.)
+                if self.parent.extraPeakChkBx.isChecked():
+                    init_z_ep = 2.3
+                    params.add(side + '_zline_EP', S[0] * init_z_ep, min=S[0] * init_z_ep - 10, max=S[0] * init_z_ep + 10)
+                    params.add(side + '_sigmaz_EP', 8., min=0., max=20.)
+                    init_intz_ep = max(left_areas[0] / 5., right_areas[0] / 5.)
+                    params.add(side + '_intz_EP', init_intz_ep, min=0, max=init_intz_ep * 4. + 1.)
+                    params.add(side + '_gammaz_EP', 8., min=-5., max=30.)
 
         int_vars['x'] = x
 
@@ -938,8 +978,10 @@ class EquatorImage:
 
 def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k,
                 left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
-                right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline,
-                right_gammaz, extraGaussCenter, extraGaussSig, extraGaussArea, **kwargs):
+                left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
+                right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
+                right_zline_EP, right_sigmaz_EP, right_intz_EP, right_gammaz_EP,
+                extraGaussCenter, extraGaussSig, extraGaussArea, **kwargs):
     """
     Using for fitting model by lmfit
     :param x: x range (list)
@@ -1137,6 +1179,10 @@ def getCardiacGraph(x, fit_results):
         'left_sigmaz': fit_results['left_sigmaz'],
         'left_intz': fit_results['left_intz'],
         'left_gammaz': fit_results['left_gammaz'],
+        'left_zline_EP': fit_results['left_zline_EP'],
+        'left_sigmaz_EP': fit_results['left_sigmaz_EP'],
+        'left_intz_EP': fit_results['left_intz_EP'],
+        'left_gammaz_EP': fit_results['left_gammaz_EP'],
 
         'right_sigmac': fit_results['right_sigmac'],
         'right_sigmad': fit_results['right_sigmad'],
@@ -1146,6 +1192,11 @@ def getCardiacGraph(x, fit_results):
         'right_sigmaz': fit_results['right_sigmaz'],
         'right_intz': fit_results['right_intz'],
         'right_gammaz': fit_results['right_gammaz'],
+        'right_zline_EP': fit_results['right_zline_EP'],
+        'right_sigmaz_EP': fit_results['right_sigmaz_EP'],
+        'right_intz_EP': fit_results['right_intz_EP'],
+        'right_gammaz_EP': fit_results['right_gammaz_EP'],
+
         'k': fit_results['k'],
         'extraGaussCenter': fit_results['extraGaussCenter'],
         'extraGaussSig': fit_results['extraGaussSig'],

@@ -87,6 +87,18 @@ This feature is used to zoom into subpixel level accuracy. On checking this box,
 ##### Mode Orientation
 This checkbox can be used after fitting all the images in the folder. When checked, the rotation angle used would be the mode of the rotation angles of all the images in the folder. This is persisted when we move to the next image.
 
+##### Expand the image
+
+By default images are processed the way they are originally. If you check this checkbox, the image will be expanded so that the center of the beamline is at the center of the image. This can be useful for sensors like EIGER where the center is sometimes offset in order to avoid the gaps. The downside is that it makes the images bigger and thus heavier. If your computer has limited resources, checking this box might make the processing slow (bigger image to process).
+
+##### Save Compressed Image
+
+When this box is checked, the image saved is a compressed TIFF image. Its size is smaller but some other software might not be able to open them: fit2d will not accept this format, but imagej will.
+
+##### Save Cropped Image (Original Size)
+
+This checkbox is similar to "Expand the image", the only difference is that the image can be processed as an expanded image, and only saved as a cropped image.
+
 ### Fitting
 In this tab, you will see the graph produced from the intensity histogram in the integrated area, and fitting information. 
 ![-](../../images/BM/fitting_tab.png)
