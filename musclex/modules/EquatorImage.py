@@ -577,6 +577,7 @@ class EquatorImage:
                 'x': x,
                 'model': self.info["model"],
                 'isSkeletal': self.info['isSkeletal'],
+                'isExtraPeak': self.info['isExtraPeak'],
                 # 'gamma': 1.0
                 'extraGaussCenter': None,
                 'extraGaussSig': None,
@@ -632,7 +633,7 @@ class EquatorImage:
                     else:
                         params.add(side+'_gammaz', 8., min=-5., max=30.)
                     
-                    if self.parent.extraPeakChkBx.isChecked():
+                    if self.info['isExtraPeak']:
                         if side+'_fix_zline_EP' in self.info:
                             int_vars[side+'_zline_EP'] = self.info[side+'_fix_zline_EP']
                         else:
@@ -820,7 +821,7 @@ class EquatorImage:
                 init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
                 params.add(side + '_intz', init_intz, min=0, max=init_intz * 4. + 1.)
                 params.add(side + '_gammaz', 8., min=-5., max=30.)
-                if self.parent.extraPeakChkBx.isChecked():
+                if self.info['isExtraPeak']:
                     init_z_ep = 2.3
                     params.add(side + '_zline_EP', S[0] * init_z_ep, min=S[0] * init_z_ep - 10, max=S[0] * init_z_ep + 10)
                     params.add(side + '_sigmaz_EP', 8., min=0., max=20.)
@@ -976,7 +977,7 @@ class EquatorImage:
         """
         print(text)
 
-def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k,
+def cardiacFit(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
                 left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
                 left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
                 right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
@@ -1041,12 +1042,22 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, k,
                                    sigma=left_sigmaz)
                 result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 + right_zline,
                                    sigma=right_sigmaz)
+                if isExtraPeak:
+                    result += mod.eval(x=x, amplitude=left_intz_EP, center=centerX + S0 - left_zline_EP,
+                                   sigma=left_sigmaz_EP)
+                    result += mod.eval(x=x, amplitude=right_intz_EP, center=centerX + S0 + right_zline_EP,
+                                   sigma=right_sigmaz_EP)
             elif model == "Voigt":
                 mod = VoigtModel()
                 result += mod.eval(x=x, amplitude=left_intz, center=centerX + S0 + left_zline,
                                    sigma=left_sigmaz, gamma=left_gammaz)
                 result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 - right_zline,
                                    sigma=right_sigmaz, gamma=right_gammaz)
+                if isExtraPeak:
+                    result += mod.eval(x=x, amplitude=left_intz_EP, center=centerX + S0 + left_zline_EP,
+                                   sigma=left_sigmaz_EP, gamma=left_gammaz_EP)
+                    result += mod.eval(x=x, amplitude=right_intz_EP, center=centerX + S0 - right_zline_EP,
+                                   sigma=right_sigmaz_EP, gamma=right_gammaz_EP)
         return result + k
     return 0
 
@@ -1168,6 +1179,7 @@ def getCardiacGraph(x, fit_results):
         'S10': fit_results['S10'],
         'model': fit_results['model'],
         'isSkeletal': fit_results['isSkeletal'],
+        'isExtraPeak': fit_results['isExtraPeak'],
         'left_areas': fit_results['left_areas'],
         'right_areas': fit_results['right_areas'],
 

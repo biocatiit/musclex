@@ -178,13 +178,13 @@ class EquatorWindowh:
                 settings={"left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0, \
                     "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k":0, \
                     "orientation_model": 0, "model": "Gaussian", "isSkeletal": False, \
-                    "mask_thres": 0.0,  "90rotation": False,\
+                    "isExtraPeak": False, "mask_thres": 0.0,  "90rotation": False,\
                         "blank_mask": False}
         else:
             settings={"left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0, \
                     "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k":0, \
                     "orientation_model": 0, "model": "Gaussian", "isSkeletal": False, \
-                    "mask_thres": 0.0,  "90rotation": False,\
+                    "isExtraPeak": False, "mask_thres": 0.0,  "90rotation": False,\
                         "blank_mask": False}
 
         for k in settings.keys():

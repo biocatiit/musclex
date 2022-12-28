@@ -257,6 +257,7 @@ class EQ_FittingTab(QWidget):
             self.sigmaDSpinBx.setValue(fit_result[side+'_sigmad'])
             self.sigmaSSpinBx.setValue(fit_result[side+'_sigmas'])
             self.skeletalGrp.setEnabled(fit_result['isSkeletal'])
+            self.extraPeakGrp.setEnabled(fit_result['isExtraPeak'])
             self.sigmaCSpinBx.setValue(fit_result[side+'_sigmac'])
             self.gammaSpinBx.setValue(fit_result[side+'_gamma'])
 
@@ -265,8 +266,7 @@ class EQ_FittingTab(QWidget):
                 self.sigZSpnBx.setValue(fit_result[side+'_sigmaz'])
                 self.intZSpnBx.setValue(fit_result[side+'_intz'])
                 self.gammaZSpnBx.setValue(fit_result[side+'_gammaz'])
-                if self.parent.extraPeakChkBx.isChecked():
-                    self.extraPeakGrp.setEnabled(True)
+                if fit_result['isExtraPeak']:
                     self.zlineSpnBxEP.setValue(fit_result[side+'_zline_EP'])
                     self.sigZSpnBxEP.setValue(fit_result[side+'_sigmaz_EP'])
                     self.intZSpnBxEP.setValue(fit_result[side+'_intz_EP'])
@@ -289,12 +289,12 @@ class EQ_FittingTab(QWidget):
             # self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_result["model"]))
             self.sigmaCSpinBx.setValue(fit_result[side+'_sigmac'])
             self.skeletalGrp.setEnabled(fit_result['isSkeletal'])
+            self.extraPeakGrp.setEnabled(fit_result['isExtraPeak'])
             if fit_result['isSkeletal']:
                 self.zlineSpnBx.setValue(fit_result[side+'_zline'])
                 self.sigZSpnBx.setValue(fit_result[side+'_sigmaz'])
                 self.intZSpnBx.setValue(fit_result[side+'_intz'])
-                if self.parent.extraPeakChkBx.isChecked():
-                    self.extraPeakGrp.setEnabled(True)
+                if fit_result['isExtraPeak']:
                     self.zlineSpnBxEP.setValue(fit_result[side+'_zline_EP'])
                     self.sigZSpnBxEP.setValue(fit_result[side+'_sigmaz_EP'])
                     self.intZSpnBxEP.setValue(fit_result[side+'_intz_EP'])

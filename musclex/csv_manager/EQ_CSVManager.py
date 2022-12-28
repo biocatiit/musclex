@@ -48,14 +48,17 @@ class EQ_CSVManager:
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
         self.colnames = ["Filename","Side","Distance From Center","Area","Sigma D","Sigma S","Sigma C",
-                        "gamma","Z line","Sigma Z","Iz","gamma Z", "Model", "CenterX", "S10", "d10",
+                        "gamma","Z line","Sigma Z","Iz","gamma Z", "Extra peak","Sigma Z EP","Iz EP","gamma Z EP",
+                        "Model", "CenterX", "S10", "d10",
                         "I11/I10", "Average I11/I10 per fiber", "Fitting error","comment"]
         self.filename2 = fullPath(result_path, 'summary2.csv')
         self.colnames2 = ['Filename', 'left peak 0', 'right peak 0', 'left peak 1', 'right peak 1',
                          'left Sigma D', 'right Sigma D', 'left Sigma S', 'right Sigma S', 'left Sigma C',
                          'right Sigma C', 'left gamma', 'right gamma', 'left Z line', 'right Z line',
                          'left Sigma Z', 'right Sigma Z', 'left Iz', 'right Iz', 'left gamma Z',
-                         'right gamma Z', 'Model', 'CenterX', 'S10', 'd10', 'left I11/I10', 'right I11/I10',
+                         'right gamma Z', 'left Extra peak', 'right Extra peak',
+                         'left Sigma Z EP', 'right Sigma Z EP', 'left Iz EP', 'right Iz EP', 'left gamma Z EP',
+                         'right gamma Z EP', 'Model', 'CenterX', 'S10', 'd10', 'left I11/I10', 'right I11/I10',
                          'Average I11/I10 per fiber', 'Fitting error', 'comment']
         self.loadFailedCases(dir_path)
         self.loadSummary()
@@ -157,6 +160,12 @@ class EQ_CSVManager:
                             first_row["Iz"] = fit_results[side+'_intz']
                             if fit_results["model"] == 'Voigt':
                                 first_row["gamma Z"] = fit_results[side+'_gammaz']
+                            if fit_results["isExtraPeak"]:
+                                first_row["Extra peak"] = fit_results[side+'_zline_EP']
+                                first_row["Sigma Z EP"] = fit_results[side+'_sigmaz_EP']
+                                first_row["Iz EP"] = fit_results[side+'_intz_EP']
+                                if fit_results["model"] == 'Voigt':
+                                    first_row["gamma Z EP"] = fit_results[side+'_gammaz_EP']
 
 
                     # Write general information to the first row of image
@@ -251,6 +260,12 @@ class EQ_CSVManager:
                             data[side+" Iz"] = fit_results[side+'_intz']
                             if fit_results["model"] == 'Voigt':
                                 data[side+" gamma Z"] = fit_results[side+'_gammaz']
+                            if fit_results["isExtraPeak"]:
+                                data[side+" Extra peak"] = fit_results[side+'_zline_EP']
+                                data[side+" Sigma Z EP"] = fit_results[side+'_sigmaz_EP']
+                                data[side+" Iz EP"] = fit_results[side+'_intz_EP']
+                                if fit_results["model"] == 'Voigt':
+                                    data[side+" gamma Z EP"] = fit_results[side+'_gammaz_EP']
 
                     if fit_results["fiterror"] > 0.2:
                         data['comment'] = 'High Fitting Error'

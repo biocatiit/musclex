@@ -311,13 +311,13 @@ if __name__=="__main__":
     inpath = os.path.abspath(os.path.join(os.path.dirname(__file__),"test_images"))
     settingsA = {
         "left_sigmac" : 1.0, "right_sigmac" : 1.0, "orientation_model" : 0,
-        "nPeaks" : 2, "model" : "Gaussian", "isSkeletal" : True,
+        "nPeaks" : 2, "model" : "Gaussian", "isSkeletal" : True, "isExtraPeak": False,
         "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : False,
         "no_cache" : True
         }
     settingsB = {
         "left_sigmac" : 1.0, "right_sigmac" : 1.0, "orientation_model" : 0,
-        "nPeaks" : 5, "model" : "Voigt", "isSkeletal" : True,
+        "nPeaks" : 5, "model" : "Voigt", "isSkeletal" : True, "isExtraPeak": False,
         "mask_thres" : -1.0, "90rotation" : False, "blank_mask" : True,
         "no_cache" : True
         }

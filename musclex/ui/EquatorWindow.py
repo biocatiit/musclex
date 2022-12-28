@@ -782,6 +782,7 @@ class EquatorWindow(QMainWindow):
         paramInfo = self.bioImg.info['paramInfo']
         settings = self.getSettings()
         paramInfo['isSkeletal']['val'] = settings['isSkeletal']
+        paramInfo['isExtraPeak']['val'] = settings['isExtraPeak']
 
         if 'fix_k' in settings:
             paramInfo['k']['fixed'] = True
@@ -854,6 +855,7 @@ class EquatorWindow(QMainWindow):
 
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
+        text += "\n  - Extra Peak : " + str(settings["isExtraPeak"])
         text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
         text += "\n  - Model : " + str(settings["model"])
 
@@ -1427,6 +1429,7 @@ class EquatorWindow(QMainWindow):
 
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
+        text += "\n  - Extra Peak : " + str(settings["isExtraPeak"])
         text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
         text += "\n  - Model : " + str(settings["model"])
 
@@ -1638,12 +1641,15 @@ class EquatorWindow(QMainWindow):
         settings = self.getSettings()
         nPeaks = settings['nPeaks'] if 'nPeaks' in settings else None
         isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
+        isExtraPeak = settings['isExtraPeak'] if 'isExtraPeak' in settings else None
         # settings.update(self.bioImg.info)
 
         if nPeaks is not None:
             settings['nPeaks'] = nPeaks
         if isSkeletal is not None:
             settings['isSkeletal'] = isSkeletal
+        if isExtraPeak is not None:
+            settings['isExtraPeak'] = isExtraPeak
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
@@ -2815,6 +2821,9 @@ class EquatorWindow(QMainWindow):
             self.skeletalChkBx.setChecked(info['isSkeletal'])
             self.extraPeakChkBx.setEnabled(info['isSkeletal'])
 
+        if 'isExtraPeak' in info:
+            self.extraPeakChkBx.setChecked(info['isExtraPeak'])
+
         self.maskThresSpnBx.setValue(info['mask_thres'])
 
         if 'fit_results' in info:
@@ -2957,6 +2966,9 @@ class EquatorWindow(QMainWindow):
 
         #Check if skeletal z line is checked
         if self.paramChanged(prevInfo, currentInfo, 'isSkeletal'):
+            return True
+
+        if self.paramChanged(prevInfo, currentInfo, 'isExtraPeak'):
             return True
 
         for side in ['left', 'right']:
@@ -3171,6 +3183,7 @@ class EquatorWindow(QMainWindow):
         settings['nPeaks'] = self.nPeakSpnBx.value()
         settings['model'] = str(self.modelSelect.currentText())
         settings['isSkeletal'] = self.skeletalChkBx.isChecked()
+        settings['isExtraPeak'] = self.extraPeakChkBx.isChecked()
         settings['mask_thres'] = self.maskThresSpnBx.value()
         settings['90rotation'] = self.rotation90ChkBx.isChecked()
 
@@ -3463,7 +3476,7 @@ class EquatorWindow(QMainWindow):
                 # Draw z line
                 ax.axvline(fit_result['centerX'] + fit_result['right_zline'], color='y', alpha=0.5)
                 ax.axvline(fit_result['centerX'] - fit_result['left_zline'], color='y', alpha=0.5)
-                if self.extraPeakChkBx.isChecked():
+                if fit_result['isExtraPeak']:
                     ax.axvline(fit_result['centerX'] + fit_result['right_zline_EP'], color='y', alpha=0.5)
                     ax.axvline(fit_result['centerX'] - fit_result['left_zline_EP'], color='y', alpha=0.5)
 
@@ -3617,7 +3630,7 @@ class EquatorWindow(QMainWindow):
                 self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_intz'])))
                 ind += 1
 
-                if self.extraPeakChkBx.isChecked():
+                if fit_results['isExtraPeak']:
                     # Display Z line center in table
                     self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Z line Extra Peak"))
                     self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_zline_EP'])))
@@ -3650,7 +3663,7 @@ class EquatorWindow(QMainWindow):
                     self.fiberResultTable.setItem(ind, 2, QTableWidgetItem(str(fit_results['right_gammaz'])))
                     ind += 1
 
-                    if self.extraPeakChkBx.isChecked():
+                    if fit_results['isExtraPeak']:
                         # Display gamma in table if model is Voigt
                         self.fiberResultTable.setItem(ind, 0, QTableWidgetItem("Gamma Z Extra Peak"))
                         self.fiberResultTable.setItem(ind, 1, QTableWidgetItem(str(fit_results['left_gammaz_EP'])))
