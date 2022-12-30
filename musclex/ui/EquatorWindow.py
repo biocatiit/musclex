@@ -357,7 +357,7 @@ class EquatorWindow(QMainWindow):
         self.genLayout = QGridLayout(self.generalGrp)
         self.skeletalChkBx = QCheckBox("Skeletal Muscle (Z line)")
         self.skeletalChkBx.setFixedWidth(200)
-        self.extraPeakChkBx = QCheckBox("Extra Peak (Z line)")
+        self.extraPeakChkBx = QCheckBox("Extra Peak")
         self.extraPeakChkBx.setFixedWidth(200)       
         self.nPeakSpnBx = QSpinBox()
         self.nPeakSpnBx.setObjectName('nPeakSpnBx')

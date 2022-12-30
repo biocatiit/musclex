@@ -150,7 +150,7 @@ class EQ_FittingTab(QWidget):
         self.skeletalLayout.addWidget(self.fixedGammaZ, 3, 0, 1, 1)
         self.skeletalLayout.addWidget(self.gammaZSpnBx, 3, 1, 1, 1)
 
-        self.extraPeakGrp = QGroupBox("Extra Peak (Z line)")
+        self.extraPeakGrp = QGroupBox("Extra Peak")
         self.extraPeakGrp.setEnabled(False)
         self.extraPeakLayout = QGridLayout(self.extraPeakGrp)
         self.fixedZlineEP = QCheckBox("Fixed Center : ")

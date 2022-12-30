@@ -177,6 +177,7 @@ class BlankImageSettings(QDialog):
         img_list = getFiles(path=self.dir_path)
         if len(img_list) > 0:
             self.selected = averageImages(img_list)
+            self.selected[self.selected>=4294967294] = -1
             self.drawMask.setEnabled(True)
             self.maskThres.setRange(self.selected.min()-1, self.selected.max())
             if self.selected.shape == (1043, 981):
