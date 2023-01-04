@@ -29,7 +29,10 @@ authorization from Illinois Institute of Technology.
 import sys
 import os
 from os.path import split
-from ..ui.EquatorWindowh import EquatorWindowh
+try:
+    from ..ui.EquatorWindowh import EquatorWindowh
+except: # for coverage
+    from ui.EquatorWindowh import EquatorWindowh
 
 class EQStartWindowh:
     """

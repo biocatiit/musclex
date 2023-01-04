@@ -28,7 +28,10 @@ authorization from Illinois Institute of Technology.
 
 from os import makedirs
 import csv
-from ..utils.file_manager import *
+try:
+    from ..utils.file_manager import *
+except: # for coverage
+    from utils.file_manager import *
 
 class DC_CSVManager():
     """

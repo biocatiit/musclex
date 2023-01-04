@@ -38,10 +38,15 @@ from lmfit.models import VoigtModel, GaussianModel
 from sklearn.metrics import r2_score, mean_squared_error
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import fabio
-import musclex
-from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
-from ..utils.histogram_processor import *
-from ..utils.image_processor import *
+from musclex import __version__
+try:
+    from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from ..utils.histogram_processor import *
+    from ..utils.image_processor import *
+except: # for coverage
+    from utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from utils.histogram_processor import *
+    from utils.image_processor import *
 
 class EquatorImage:
     """
@@ -81,7 +86,7 @@ class EquatorImage:
                 print(filename, " file is not quadrant folded")
 
         self.rotated_img = None
-        self.version = musclex.__version__
+        self.version = __version__
         cache = self.loadCache()
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:

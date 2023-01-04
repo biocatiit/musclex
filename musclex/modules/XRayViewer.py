@@ -28,8 +28,12 @@ authorization from Illinois Institute of Technology.
 
 import fabio
 import numpy as np
-from ..utils.file_manager import fullPath, ifHdfReadConvertless
-from ..utils.image_processor import *
+try:
+    from ..utils.file_manager import fullPath, ifHdfReadConvertless
+    from ..utils.image_processor import *
+except: # for coverage
+    from utils.file_manager import fullPath, ifHdfReadConvertless
+    from utils.image_processor import *
 
 class XRayViewer:
     """

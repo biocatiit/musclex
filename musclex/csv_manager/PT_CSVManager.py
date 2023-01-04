@@ -28,7 +28,10 @@ authorization from Illinois Institute of Technology.
 
 from os.path import exists
 import pandas as pd
-from ..utils.file_manager import fullPath, createFolder
+try:
+    from ..utils.file_manager import fullPath, createFolder
+except: # for coverage
+    from utils.file_manager import fullPath, createFolder
 
 class PT_CSVManager:
     """

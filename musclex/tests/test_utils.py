@@ -38,12 +38,12 @@ from pyFAI import detector_factory
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import numpy as np
 from musclex import __version__
-from musclex.modules.EquatorImage import EquatorImage
-from musclex.modules.QuadrantFolder import QuadrantFolder
-from musclex.modules.DiffractionCentroids import DiffractionCentroids
-from musclex.modules.ProjectionProcessor import ProjectionProcessor
-from musclex.modules.ScanningDiffraction import ScanningDiffraction
-from musclex.csv_manager.DI_CSVManager import DI_CSVManager
+from ..modules.EquatorImage import EquatorImage
+from ..modules.QuadrantFolder import QuadrantFolder
+from ..modules.DiffractionCentroids import DiffractionCentroids
+from ..modules.ProjectionProcessor import ProjectionProcessor
+from ..modules.ScanningDiffraction import ScanningDiffraction
+from ..csv_manager.DI_CSVManager import DI_CSVManager
 
 
 def module_test(mode, settings, pickledir, inputpath, compdir=None,

@@ -32,8 +32,8 @@ import sys
 import platform
 from time import gmtime, strftime
 import distro
-import musclex
-from musclex.tests.test_utils import module_test, hdf_read_test, gpu_device_test, pyfai_gpu_integrate_test
+from musclex import __version__
+from .test_utils import module_test, hdf_read_test, gpu_device_test, pyfai_gpu_integrate_test
 
 class MuscleXTest(unittest.TestCase):
     @classmethod
@@ -46,7 +46,7 @@ class MuscleXTest(unittest.TestCase):
         cls.dipath = os.path.join(cls.inpath, "di_test_data")
         cls.hdfpath = os.path.join(cls.dipath, "test.hdf")
         cls.hdfpickle = os.path.join(cls.inpath, "hdf_record", "hdfdata_record.p")
-        cls.testversion = musclex.__version__ # change this to test against a different version
+        cls.testversion = __version__ # change this to test against a different version
 
         system = platform.system()
         node = platform.node()
@@ -91,7 +91,7 @@ Linux ID: {}\n
         with open(cls.logname, append_write) as lf:
             lf.write("\n{}\n".format("-"*80))
             lf.write("Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-            lf.write("Testing MuscleX version: {}\n".format(musclex.__version__))
+            lf.write("Testing MuscleX version: {}\n".format(__version__))
             lf.write(sysinfo)
             lf.write("Package Information\n")
             try:

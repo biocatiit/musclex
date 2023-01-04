@@ -33,7 +33,10 @@ from PyQt5.QtGui import *
 import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from ..utils.file_manager import input_types
+try:
+    from ..utils.file_manager import input_types
+except: # for coverage
+    from utils.file_manager import input_types
 
 print("Qt version:", QT_VERSION_STR)
 

@@ -30,7 +30,10 @@ from os import makedirs
 from os.path import exists
 import hashlib
 import pandas as pd
-from ..utils.file_manager import fullPath
+try:
+    from ..utils.file_manager import fullPath
+except: # for coverage
+    from utils.file_manager import fullPath
 
 class QF_CSVManager:
     """

@@ -35,7 +35,7 @@ import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 import fabio
 import cv2
-import musclex
+from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, isImg
 from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
@@ -102,7 +102,7 @@ class AddIntensitiesMultExp(QMainWindow):
         Initialize the UI.
         """
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.setWindowTitle("Muscle X Add Intensities Multiple Experiments v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Add Intensities Multiple Experiments v." + __version__)
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.mainLayout = QHBoxLayout(self.centralWidget)

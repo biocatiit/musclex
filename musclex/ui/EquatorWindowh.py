@@ -30,12 +30,19 @@ import sys
 import json
 import os
 import traceback
-import musclex
-from .pyqt_utils import *
-from ..utils.file_manager import getImgFiles
-from ..modules.EquatorImage import EquatorImage
-from ..utils.image_processor import *
-from ..csv_manager import EQ_CSVManager
+from musclex import __version__
+try:
+    from .pyqt_utils import *
+    from ..utils.file_manager import getImgFiles
+    from ..modules.EquatorImage import EquatorImage
+    from ..utils.image_processor import *
+    from ..csv_manager import EQ_CSVManager
+except: # for coverage
+    from ui.pyqt_utils import *
+    from utils.file_manager import getImgFiles
+    from modules.EquatorImage import EquatorImage
+    from utils.image_processor import *
+    from csv_manager import EQ_CSVManager
 
 class EquatorWindowh:
     """
@@ -49,7 +56,7 @@ class EquatorWindowh:
         :param delcache: flag for deleting cache
         :param settingspath: setting file directory
         """
-        self.version = musclex.__version__
+        self.version = __version__
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
         self.default_img_zoom = None  # default zoom calculated after processing image

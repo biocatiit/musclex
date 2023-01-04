@@ -34,10 +34,15 @@ from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from lmfit import Parameters
 from lmfit.models import VoigtModel
 import fabio
-import musclex
-from ..utils.file_manager import fullPath, ifHdfReadConvertless
-from ..utils.image_processor import *
-from ..utils.histogram_processor import *
+from musclex import __version__
+try:
+    from ..utils.file_manager import fullPath, ifHdfReadConvertless
+    from ..utils.image_processor import *
+    from ..utils.histogram_processor import *
+except: # for coverage
+    from utils.file_manager import fullPath, ifHdfReadConvertless
+    from utils.image_processor import *
+    from utils.histogram_processor import *
 
 class DiffractionCentroids:
     """
@@ -59,7 +64,7 @@ class DiffractionCentroids:
             self.img_type = "NORMAL"
         self.mask_thres = getMaskThreshold(self.avgImg, self.img_type)
         self.dir_path = dir_path
-        self.version = musclex.__version__
+        self.version = __version__
         self.info = {
             "reject" : {"top":[], "bottom": [] }
         }

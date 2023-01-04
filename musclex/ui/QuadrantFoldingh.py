@@ -32,12 +32,19 @@ from os.path import splitext
 import traceback
 import fabio
 import pandas as pd
-import musclex
-from ..utils.file_manager import *
-from ..utils.image_processor import *
-from ..modules.QuadrantFolder import QuadrantFolder
-from ..csv_manager.QF_CSVManager import QF_CSVManager
-from .pyqt_utils import *
+from musclex import __version__
+try:
+    from ..utils.file_manager import *
+    from ..utils.image_processor import *
+    from ..modules.QuadrantFolder import QuadrantFolder
+    from ..csv_manager.QF_CSVManager import QF_CSVManager
+    from .pyqt_utils import *
+except: # for coverage
+    from utils.file_manager import *
+    from utils.image_processor import *
+    from modules.QuadrantFolder import QuadrantFolder
+    from csv_manager.QF_CSVManager import QF_CSVManager
+    from ui.pyqt_utils import *
 
 class QuadrantFoldingh:
     """
@@ -51,7 +58,7 @@ class QuadrantFoldingh:
         :param delcache: flag for deleting cache
         :param settingspath: setting file directory
         """
-        self.version = musclex.__version__
+        self.version = __version__
         self.quadFold = None # QuadrantFolder object
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image

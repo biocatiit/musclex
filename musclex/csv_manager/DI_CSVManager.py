@@ -27,7 +27,10 @@ authorization from Illinois Institute of Technology.
 """
 
 import pandas as pd
-from ..modules.ScanningDiffraction import *
+try:
+    from ..modules.ScanningDiffraction import *
+except: # for coverage
+    from modules.ScanningDiffraction import *
 
 class DI_CSVManager():
     """

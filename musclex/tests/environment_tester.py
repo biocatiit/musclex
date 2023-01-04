@@ -51,7 +51,7 @@ import sys
 import unittest
 from time import gmtime, strftime
 import platform
-import musclex
+from musclex import __version__
 
 class EnvironmentTester(unittest.TestCase):
     """
@@ -64,7 +64,7 @@ class EnvironmentTester(unittest.TestCase):
         else:
             cls.currdir = os.path.dirname(__file__)
         cls.inpath = os.path.join(cls.currdir, "test_images")
-        cls.testversion = musclex.__version__ # change this to test against a different version
+        cls.testversion = __version__ # change this to test against a different version
 
         cls.logname = os.path.join(cls.currdir,"test_logs", "test.log")
         if not os.path.isdir(os.path.dirname(cls.logname)):
@@ -77,7 +77,7 @@ class EnvironmentTester(unittest.TestCase):
         with open(cls.logname, append_write) as lf:
             lf.write(f'\n{"-"*80}\n')
             lf.write("Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-            lf.write("Testing MuscleX version: {}\n".format(musclex.__version__))
+            lf.write("Testing MuscleX version: {}\n".format(__version__))
             lf.write("\nSummary of Test Results\n")
 
     @classmethod
@@ -90,7 +90,7 @@ class EnvironmentTester(unittest.TestCase):
         """
         Runs a test of Environment given the current versions.
         """
-        print(f"\033[3;33m\nVerifying that installed Python version {python_version['python']} is equivalent to Python at the release {musclex.__version__}\033[0;3140m")
+        print(f"\033[3;33m\nVerifying that installed Python version {python_version['python']} is equivalent to Python at the release {__version__}\033[0;3140m")
         if platform.python_version() == python_version["python"]:
             print("Testing Python version ..... \033[0;32mPASSED\033[0;3140m")
             python_test = True
@@ -118,7 +118,7 @@ def env_test(pip, pip_details):
     """
     Function importing the package pip and comparing the version to the package version at the release
     """
-    print(f"\033[3;33m\nVerifying that installed package {pip} is equivalent to package at the release {musclex.__version__}\033[0;3140m")
+    print(f"\033[3;33m\nVerifying that installed package {pip} is equivalent to package at the release {__version__}\033[0;3140m")
     if pip == "scikit-image":
         module = __import__("skimage")
     elif pip == "scikit-learn":

@@ -29,11 +29,19 @@ authorization from Illinois Institute of Technology.
 import os
 import sys
 import unittest
-import subprocess
+# import subprocess
 import shutil
 from time import gmtime, strftime
 import pandas as pd
-import musclex
+from musclex import __version__
+try:
+    from ..ui.EQStartWindowh import EQStartWindowh
+    from ..ui.QuadrantFoldingh import QuadrantFoldingh
+    from ..ui.DIImageWindowh import DIImageWindowh
+except: # for coverage
+    from ui.EQStartWindowh import EQStartWindowh
+    from ui.QuadrantFoldingh import QuadrantFoldingh
+    from ui.DIImageWindowh import DIImageWindowh
 
 class MuscleXGlobalTester(unittest.TestCase):
     """
@@ -48,7 +56,7 @@ class MuscleXGlobalTester(unittest.TestCase):
             cls.currdir = os.path.dirname(__file__)
             cls.run_cmd = "musclex"
         cls.inpath = os.path.join(cls.currdir, "test_images")
-        cls.testversion = musclex.__version__ # change this to test against a different version
+        cls.testversion = __version__ # change this to test against a different version
         cls.input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
         cls.logname = os.path.join(cls.currdir,"test_logs", "test.log")
         if not os.path.isdir(os.path.dirname(cls.logname)):
@@ -61,7 +69,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         with open(cls.logname, append_write) as lf:
             lf.write("\n{}\n".format("-"*80))
             lf.write("Beginning test at {}\n".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-            lf.write(f"Testing MuscleX version: {musclex.__version__}\n")
+            lf.write(f"Testing MuscleX version: {__version__}\n")
             lf.write("\nSummary of Test Results\n")
 
     @classmethod
@@ -77,7 +85,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(mar_dir, filename)
-                subprocess.Popen([self.run_cmd, "eq", "-h", "-i", f, "-s", os.path.join(mar_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
+                EQStartWindowh(f, True, True, os.path.join(mar_dir, "eqsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "eq", "-h", "-i", f, "-s", os.path.join(mar_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(mar_dir, "eq_results", "summary2.csv")
@@ -108,7 +117,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(eiger_dir, filename)
-                subprocess.Popen([self.run_cmd, "eq", "-h", "-i", f, "-s", os.path.join(eiger_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
+                EQStartWindowh(f, True, True, os.path.join(eiger_dir, "eqsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "eq", "-h", "-i", f, "-s", os.path.join(eiger_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "eq_results", "summary2.csv")
@@ -139,7 +149,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pilatus_dir, filename)
-                subprocess.Popen([self.run_cmd, "eq", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
+                EQStartWindowh(f, True, True, os.path.join(pilatus_dir, "eqsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "eq", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "eqsettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "eq_results", "summary2.csv")
@@ -171,7 +182,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(mar_dir, filename)
-                subprocess.Popen([self.run_cmd, "qf", "-h", "-i", f, "-s", os.path.join(mar_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
+                QuadrantFoldingh(f, True, True, os.path.join(mar_dir, "qfsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "qf", "-h", "-i", f, "-s", os.path.join(mar_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(mar_dir, "qf_results", "summary.csv")
@@ -202,7 +214,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(eiger_dir, filename)
-                subprocess.Popen([self.run_cmd, "qf", "-h", "-i", f, "-s", os.path.join(eiger_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
+                QuadrantFoldingh(f, True, True, os.path.join(eiger_dir, "qfsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "qf", "-h", "-i", f, "-s", os.path.join(eiger_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "qf_results", "summary.csv")
@@ -233,7 +246,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pilatus_dir, filename)
-                subprocess.Popen([self.run_cmd, "qf", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
+                QuadrantFoldingh(f, True, True, os.path.join(pilatus_dir, "qfsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "qf", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "qfsettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "qf_results", "summary.csv")
@@ -265,7 +279,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(mar_dir, filename)
-                subprocess.Popen([self.run_cmd, "di", "-h", "-i", f, "-s", os.path.join(mar_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
+                DIImageWindowh(filename, mar_dir, True, True, os.path.join(mar_dir, "disettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "di", "-h", "-i", f, "-s", os.path.join(mar_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(mar_dir, "di_results", "summary.csv")
@@ -296,7 +311,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(eiger_dir, filename)
-                subprocess.Popen([self.run_cmd, "di", "-h", "-i", f, "-s", os.path.join(eiger_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
+                DIImageWindowh(filename, eiger_dir, True, True, os.path.join(eiger_dir, "disettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "di", "-h", "-i", f, "-s", os.path.join(eiger_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "di_results", "summary.csv")
@@ -327,7 +343,8 @@ class MuscleXGlobalTester(unittest.TestCase):
             _, ext = os.path.splitext(str(filename))
             if ext in self.input_types:
                 f = os.path.join(pilatus_dir, filename)
-                subprocess.Popen([self.run_cmd, "di", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
+                DIImageWindowh(filename, pilatus_dir, True, True, os.path.join(pilatus_dir, "disettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "di", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "disettings.json"), "-d"], cwd=self.currdir).wait()
 
         print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "di_results", "summary.csv")

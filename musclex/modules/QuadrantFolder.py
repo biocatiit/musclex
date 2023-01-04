@@ -35,11 +35,17 @@ from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
 import ccp13
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
-import musclex
-import musclex.modules.QF_utilities as qfu
-from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
-from ..utils.histogram_processor import *
-from ..utils.image_processor import *
+from musclex import __version__
+try:
+    from . import QF_utilities as qfu
+    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from ..utils.histogram_processor import *
+    from ..utils.image_processor import *
+except: # for coverage
+    from modules import QF_utilities as qfu
+    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from utils.histogram_processor import *
+    from utils.image_processor import *
 
 # Make sure the cython part is compiled
 # from subprocess import call
@@ -73,7 +79,7 @@ class QuadrantFolder:
         self.img_name = img_name
         self.imgCache = {} # displayed images will be saved in this param
         self.ignoreFolds = set()
-        self.version = musclex.__version__
+        self.version = __version__
         cache = self.loadCache() # load from cache if it's available
 
         self.initImg = None

@@ -34,8 +34,10 @@ Run the program:
 
 ## Coverage reports
 
-To use coverage.py:
-    coverage run -m main test_global
+In most files, the imports are written in 2 different ways to satisfy how coverage work. This is why there are "try" and "except" on the imports of most of the files.
+
+To use coverage.py, go at the root of the code, where "main.py" is, and run:
+    coverage run -m unittest tests/musclex_tester.py
 
 
 To generate the file:

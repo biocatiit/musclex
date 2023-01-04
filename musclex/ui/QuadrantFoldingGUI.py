@@ -35,7 +35,7 @@ from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
-import musclex
+from musclex import __version__
 import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
@@ -99,7 +99,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Open a file finder and return the name of the file selected
         """
-        self.setWindowTitle("Muscle X Quadrant Folding v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Quadrant Folding v." + __version__)
 
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)

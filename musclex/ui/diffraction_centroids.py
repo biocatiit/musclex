@@ -33,7 +33,7 @@ import traceback
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
-import musclex
+from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..utils.image_processor import *
@@ -996,7 +996,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :param pnEnable:
         :return:
         """
-        self.setWindowTitle("Muscle X Diffraction Centroids v."+musclex.__version__)
+        self.setWindowTitle("Muscle X Diffraction Centroids v."+__version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
@@ -2126,7 +2126,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
         self.imgList = []
         self.selectedImages = []
         self.dir_path = ""
-        self.setWindowTitle("Muscle X Diffraction Centroids v."+musclex.__version__)
+        self.setWindowTitle("Muscle X Diffraction Centroids v."+__version__)
         self.fixRanges = []
         self.fixRangeNames = []
         self.initUI()

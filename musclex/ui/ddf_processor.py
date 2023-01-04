@@ -27,7 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
-import musclex
+from musclex import __version__
 import pandas as pd
 from .pyqt_utils import *
 
@@ -37,7 +37,7 @@ class DDFWindow(QMainWindow):
     """
     def __init__(self):
         QWidget.__init__(self)
-        self.setWindowTitle("Muscle X DDF-Processor v." + musclex.__version__)
+        self.setWindowTitle("Muscle X DDF-Processor v." + __version__)
         self.current_file = ""
         self.data = None
         self.colChkBxs = []

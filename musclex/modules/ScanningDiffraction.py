@@ -39,10 +39,15 @@ from lmfit.models import GaussianModel
 from scipy.integrate import simps
 from sklearn.metrics import r2_score
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
-import musclex
-from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, ifHdfReadConvertless
-from ..utils.histogram_processor import *
-from ..utils.image_processor import *
+from musclex import __version__
+try:
+    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, ifHdfReadConvertless
+    from ..utils.histogram_processor import *
+    from ..utils.image_processor import *
+except: # for coverage
+    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, ifHdfReadConvertless
+    from utils.histogram_processor import *
+    from utils.image_processor import *
 
 class ScanningDiffraction:
     """
@@ -63,7 +68,7 @@ class ScanningDiffraction:
         self.filepath = filepath
         self.filename = filename
         self.logger = logger
-        self.version = musclex.__version__
+        self.version = __version__
         self.noBGImg = getImgAfterWhiteTopHat(self.original_image)
         self.info = self.loadCache()
 
@@ -1324,7 +1329,7 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     model = gaussians[0]
     for i in range(1, len(gaussians)):
         model += gaussians[i]
-    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate').values
+    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate', max_nfev=100).values
     result = {}
     for i in range(len(indexes)):
         prefix = 'g' + str(i + 1) + '_'

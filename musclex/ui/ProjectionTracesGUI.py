@@ -35,7 +35,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import cv2
-import musclex
+from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
@@ -124,7 +124,7 @@ class ProjectionTracesGUI(QMainWindow):
     """
     def __init__(self):
         QWidget.__init__(self)
-        self.setWindowTitle("Muscle X Projection Traces v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Projection Traces v." + __version__)
         self.current_file = 0
         self.dir_path = ""
         self.calSettings = None

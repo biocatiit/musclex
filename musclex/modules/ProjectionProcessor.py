@@ -34,10 +34,15 @@ from lmfit import Model, Parameters
 from lmfit.models import GaussianModel, VoigtModel
 from sklearn.metrics import r2_score
 import fabio
-import musclex
-from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
-from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
-from ..utils.image_processor import *
+from musclex import __version__
+try:
+    from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+    from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
+    from ..utils.image_processor import *
+except: # for coverage
+    from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+    from utils.histogram_processor import movePeaks, getPeakInformations, convexHull
+    from utils.image_processor import *
 
 class ProjectionProcessor:
     """
@@ -64,7 +69,7 @@ class ProjectionProcessor:
             self.img_type = "NORMAL"
         self.rotated_img = None
         self.rotated = False
-        self.version = musclex.__version__
+        self.version = __version__
         cache = self.loadCache()
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:

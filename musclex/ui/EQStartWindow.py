@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 import sys
 import os
 from os.path import split
-import musclex
+from musclex import __version__
 from .pyqt_utils import *
 from ..ui.EquatorWindow import EquatorWindow
 
@@ -40,7 +40,7 @@ class EQStartWindow(QMainWindow):
     def __init__(self):
         QWidget.__init__(self)
         self.dir_path = ""
-        self.setWindowTitle("Bio-Muscle v."+musclex.__version__)
+        self.setWindowTitle("Bio-Muscle v."+__version__)
         self.windowList = [] # use this list to keep EquatorWindow objects to prevent python delete it
         self.browseFile() # start program by browse a file
 

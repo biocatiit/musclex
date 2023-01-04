@@ -38,7 +38,7 @@ from matplotlib.ticker import Formatter, AutoLocator
 import pandas as pd
 import numpy as np
 from numpy import ma
-import musclex
+from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -249,7 +249,7 @@ class DIImageWindow(QMainWindow):
         """
         Initialize the UI
         """
-        self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Scanning Diffraction v." + __version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)

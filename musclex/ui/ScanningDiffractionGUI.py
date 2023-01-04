@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import musclex
+from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
@@ -47,7 +47,7 @@ class ScanningDiffractionGUI(QMainWindow):
         """
         Initialize the UI
         """
-        self.setWindowTitle("Muscle X Scanning Diffraction v." + musclex.__version__)
+        self.setWindowTitle("Muscle X Scanning Diffraction v." + __version__)
         self.centralWidget = QWidget(self)
         self.mainLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.centralWidget)
