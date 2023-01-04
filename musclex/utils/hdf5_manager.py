@@ -31,8 +31,6 @@ authorization from Illinois Institute of Technology.
 import os
 import re
 import traceback
-
-import numpy as np
 import fabio
 
 ############################

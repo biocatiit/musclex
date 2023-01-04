@@ -1617,6 +1617,10 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo(side + '_fix_intz')
             self.bioImg.removeInfo(side + '_fix_zline')
             self.bioImg.removeInfo(side + '_fix_gammaz')
+            self.bioImg.removeInfo(side + '_fix_sigz_EP')
+            self.bioImg.removeInfo(side + '_fix_intz_EP')
+            self.bioImg.removeInfo(side + '_fix_zline_EP')
+            self.bioImg.removeInfo(side + '_fix_gammaz_EP')
             self.bioImg.removeInfo('fix_k')
 
     def prevClicked(self):
