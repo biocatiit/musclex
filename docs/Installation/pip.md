@@ -103,7 +103,7 @@ pip3 install --upgrade numba
 pip3 install --upgrade fisx
 pip3 install --upgrade future
 pip3 install --upgrade musclex
-#pip3 install git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
+#pip3 install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
 musclex eq
 ```
 To exit the virtual environment use:

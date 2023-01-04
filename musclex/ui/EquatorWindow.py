@@ -813,7 +813,12 @@ class EquatorWindow(QMainWindow):
         Update param info with the parameters given to the function
         """
         paramInfo = self.bioImg.info['paramInfo']
-        p = param if param != 'sigz' else 'sigmaz' #Handling sigz and sigmaz discrepancy, side_fix_sigz vs side_sigmaz
+        #Handling sigz and sigmaz discrepancy, side_fix_sigz vs side_sigmaz
+        p = param
+        if param == 'sigz':
+            p = 'sigmaz'
+        if param == 'sigz_EP':
+            p = 'sigmaz_EP'
         pInfo = paramInfo[side + '_' + p]
         if side+'_fix_' + param in fitparams:
             pInfo['fixed'] = True
