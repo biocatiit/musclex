@@ -893,13 +893,14 @@ class EquatorWindow(QMainWindow):
         if self.calSettings is not None:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
-            if self.calSettings["type"] == "img":
-                text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
-                text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
-            else:
-                text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
-                text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
-                text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+                else:
+                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
+                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
 
         text += '\n\nAre you sure you want to process ' + str(
             nImg) + ' image(s) in this Folder? \nThis might take a long time.'
@@ -1467,13 +1468,14 @@ class EquatorWindow(QMainWindow):
         if self.calSettings is not None and len(self.calSettings) > 0:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
-            if self.calSettings["type"] == "img":
-                text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
-                text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
-            else:
-                text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
-                text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
-                text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+                else:
+                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
+                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
 
         text += '\n\nAre you sure you want to process ' + str(
             nImg) + ' image(s) in this Folder? \nThis might take a long time.'
@@ -3508,9 +3510,9 @@ class EquatorWindow(QMainWindow):
         if self.graph_zoom is not None and len(self.graph_zoom) == 2:
             ax.set_xlim(self.graph_zoom[0])
             ax.set_ylim(self.graph_zoom[1])
-        elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
-            ax.set_xlim(self.default_img_zoom[0])
-            ax.set_ylim(self.default_img_zoom[1])
+        # elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+        #    ax.set_xlim(self.default_img_zoom[0])
+        #    ax.set_ylim(self.default_img_zoom[1])
         else:
             self.plot_min = ax.get_ylim()[0]
             ax.set_xlim(0, len(hull))
@@ -3550,14 +3552,14 @@ class EquatorWindow(QMainWindow):
             genResults += "<h2>Calibration Settings</h2>"
             if "center" in self.calSettings:
                 genResults += "<b>Calibration Center : </b>" + str(self.calSettings["center"]) + '<br/><br/>'
-
-            if self.calSettings["type"] == "img":
-                genResults += "<b>S<sub>dd</sub> (in pixel) : </b>" + str(self.calSettings["radius"]) + '<br/><br/>'
-                genResults += "<b>Calibrant ring d-spacing : </b>" + str(self.calSettings["silverB"]) + '<br/><br/>'
-            else:
-                genResults += "<b>Lambda : </b>" + str(self.calSettings["lambda"]) + '<br/><br/>'
-                genResults += "<b>S<sub>dd</sub> : </b>" + str(self.calSettings["sdd"]) + '<br/><br/>'
-                genResults += "<b>Pixel Size : </b>" + str(self.calSettings["pixel_size"]) + '<br/><br/>'
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    genResults += "<b>S<sub>dd</sub> (in pixel) : </b>" + str(self.calSettings["radius"]) + '<br/><br/>'
+                    genResults += "<b>Calibrant ring d-spacing : </b>" + str(self.calSettings["silverB"]) + '<br/><br/>'
+                else:
+                    genResults += "<b>Lambda : </b>" + str(self.calSettings["lambda"]) + '<br/><br/>'
+                    genResults += "<b>S<sub>dd</sub> : </b>" + str(self.calSettings["sdd"]) + '<br/><br/>'
+                    genResults += "<b>Pixel Size : </b>" + str(self.calSettings["pixel_size"]) + '<br/><br/>'
 
         if len(genResults) > 0:
             self.generalResults.setText(genResults)
