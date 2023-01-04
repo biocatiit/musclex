@@ -296,7 +296,7 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 7, 0, 1, 2)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 7, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedAngleChkBx, 8, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 8, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRminChkBx, 9, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmin, 9, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 10, 0, 1, 4)
@@ -2001,7 +2001,7 @@ class EquatorWindow(QMainWindow):
             self.bioImg.info['rotationAngle'] =angle
 
             self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-            self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+            self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
             self.log_changes('rotationAngle', obj=self.fixedAngle)
             self.brightSpot.setChecked(False)
             self.processImage()
@@ -2344,7 +2344,7 @@ class EquatorWindow(QMainWindow):
                 self.bioImg.info['center'] = (int(round(new_center[1])), int(round(new_center[0])))
                 self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
                 self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
-                self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+                self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
                 self.log_changes('rotationAngle', obj=self.fixedAngle)
                 self.bioImg.removeInfo('rmin')
                 self.setRotAndCentB.setChecked(False)
@@ -2360,7 +2360,7 @@ class EquatorWindow(QMainWindow):
 
             # Set new rotaion angle , re-calculate from R-min calculation process
             self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] - new_angle
-            self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+            self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
             self.log_changes('rotationAngle', obj=self.fixedAngle)
             self.bioImg.removeInfo('rmin')
             self.setAngleB.setChecked(False)
@@ -2415,7 +2415,7 @@ class EquatorWindow(QMainWindow):
             #     new_angle=math.degrees(math.atan(m))
             #     self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
             #     self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-            #     self.fixedAngle.setValue(self.bioImg.info['rotationAngle'])
+            #     self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
             #     self.log_changes('rotationAngle', obj=self.fixedAngle)
             #     self.brightSpot.setChecked(False)
             #     self.processImage()
