@@ -232,7 +232,7 @@ class EquatorWindow(QMainWindow):
         # self.setRminB.setFixedHeight(45)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
-        self.brightSpot=QCheckBox("Find Oritation with Brightest Spots")
+        self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
@@ -288,7 +288,7 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setAngleB, 2, 2, 1, 2)
         self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setIntAreaB, 3, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.brightSpot,4,0,1,2)
+        self.imgProcLayout.addWidget(self.brightSpot,4, 0, 1, 2)
         self.imgProcLayout.addWidget(self.applyBlank, 5, 0, 1, 3)
         self.imgProcLayout.addWidget(self.blankSettings, 5, 3, 1, 1)
         self.imgProcLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
@@ -327,7 +327,7 @@ class EquatorWindow(QMainWindow):
         self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
         self.imageOptionsFrame = QFrame()
-        self.imageOptionsFrame.setFixedWidth(500)
+        self.imageOptionsFrame.setFixedWidth(550)
         self.imageOptionsLayout = QVBoxLayout()
 
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
@@ -335,7 +335,7 @@ class EquatorWindow(QMainWindow):
         self.imageOptionsLayout.addWidget(self.imgDispOptionGrp)
         # self.imageOptionsLayout.addSpacing(10)
         self.imageOptionsLayout.addWidget(self.imgProcGrp)
-        # self.imageOptionsLayout.addStretch()
+        self.imageOptionsLayout.addStretch()
         self.imageOptionsLayout.addLayout(self.bottomLayout)
         self.imageOptionsFrame.setLayout(self.imageOptionsLayout)
 
@@ -358,7 +358,7 @@ class EquatorWindow(QMainWindow):
         self.skeletalChkBx = QCheckBox("Skeletal Muscle (Z line)")
         self.skeletalChkBx.setFixedWidth(200)
         self.extraPeakChkBx = QCheckBox("Extra Peak")
-        self.extraPeakChkBx.setFixedWidth(200)       
+        self.extraPeakChkBx.setFixedWidth(200)
         self.nPeakSpnBx = QSpinBox()
         self.nPeakSpnBx.setObjectName('nPeakSpnBx')
         self.editableVars[self.nPeakSpnBx.objectName()] = None
@@ -585,6 +585,7 @@ class EquatorWindow(QMainWindow):
         self.mainLayout.addWidget(self.statusBar)
 
         self.setMinimumHeight(1000)
+        self.setMinimumWidth(1400)
 
     def setAllToolTips(self):
         """
@@ -612,7 +613,7 @@ class EquatorWindow(QMainWindow):
         self.setRminB.setToolTip("Activate R-min adjustment.\n To adjust, please click location of R-min on the image")
         self.setIntAreaB.setToolTip(
             "Activate Integrated Area adjustment.\n To adjust, please click start and end position of the Integrated area on the image")
-        self.brightSpot.setToolTip("Use The Brightest Spots to Find The Oritation\n")
+        self.brightSpot.setToolTip("Use The Brightest Spots to Find The Orientation\n")
         self.maskThresSpnBx.setToolTip("Pixel values to discard")
         self.resetAllB.setToolTip("Reset all manual settings, and process image again with default detection")
         self.rejectChkBx.setToolTip(
@@ -2348,7 +2349,7 @@ class EquatorWindow(QMainWindow):
                 # M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
                 new_center = [cx, cy]
                 # Set new center and rotaion angle , re-calculate R-min
-                self.bioImg.info['center'] = (int(round(new_center[1])), int(round(new_center[0])))
+                self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
                 self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
                 self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
                 self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
