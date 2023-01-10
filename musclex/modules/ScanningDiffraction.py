@@ -34,7 +34,7 @@ import collections
 import pickle
 import numpy as np
 import fabio
-import pygpufit.gpufit as gf
+# import pygpufit.gpufit as gf
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel
 from scipy.integrate import simps
@@ -1345,6 +1345,7 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     error = r2_score(GMM_any(x = x, params = result), hists_np)
     return result, error
 
+'''
 def fitGMMv2_gpu(hists_np, indexes, widthList, method='leastsq'):
     """
     Fit Gaussian model using gpufit on GPU
@@ -1388,3 +1389,4 @@ def fitGMMv2_gpu(hists_np, indexes, widthList, method='leastsq'):
 
     error = r2_score(GMM_any(x = x, params = result), hists_np)
     return result, error
+'''
