@@ -1,0 +1,65 @@
+musclex qf -h -i ~/data/EIGERtestdatacardiac/P2_F5_849_1_094_data_000001_0001.tif -d
+
+
+AT THE END OF THE PROGRAM
+[ Top 10 ]
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:995: size=81.2 MiB, count=3, average=27.1 MiB
+<frozen importlib._bootstrap_external>:640: size=52.9 MiB, count=444369, average=125 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:357: size=40.6 MiB, count=2, average=20.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/utils/image_processor.py:726: size=38.7 MiB, count=2, average=19.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:895: size=20.3 MiB, count=5, average=4157 KiB
+<frozen importlib._bootstrap>:219: size=11.4 MiB, count=105715, average=113 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:962: size=10.1 MiB, count=7, average=1485 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:936: size=10.1 MiB, count=2, average=5196 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:914: size=10.1 MiB, count=2, average=5196 KiB
+/usr/lib/python3.8/abc.py:85: size=3909 KiB, count=15787, average=254 B
+
+
+DURING ROTATION ANGLE IN IMAGE PROCESSOR (after integrate2d)
+[ Top 10 ]
+<frozen importlib._bootstrap_external>:640: size=50.6 MiB, count=418353, average=127 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:357: size=40.6 MiB, count=2, average=20.3 MiB
+/usr/lib/python3.8/copy.py:84: size=38.7 MiB, count=2, average=19.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/utils/image_processor.py:733: size=38.7 MiB, count=2, average=19.3 MiB
+<frozen importlib._bootstrap>:219: size=11.4 MiB, count=105729, average=113 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/utils/image_processor.py:94: size=9901 KiB, count=4, average=2475 KiB
+/usr/lib/python3.8/abc.py:85: size=1955 KiB, count=8440, average=237 B
+/usr/lib/python3.8/linecache.py:137: size=1002 KiB, count=9897, average=104 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/scipy/_lib/doccer.py:69: size=703 KiB, count=225, average=3202 B
+<frozen importlib._bootstrap_external>:123: size=593 KiB, count=3780, average=161 B
+
+
+DURING ROTATION ANGLE IN IMAGE PROCESSOR (after integrate2d)
+[ Top 10 ]
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/geometry.py:764: size=309 MiB, count=11, average=28.1 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/azimuthalIntegrator.py:556: size=195 MiB, count=103, average=1941 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/geometry.py:980: size=77.4 MiB, count=15, average=5280 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/geometry.py:1166: size=77.4 MiB, count=11, average=7201 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/geometry.py:612: size=77.4 MiB, count=12, average=6601 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/geometry.py:477: size=77.4 MiB, count=10, average=7921 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/numpy/core/_methods.py:40: size=77.3 MiB, count=3, average=25.8 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/pyFAI/geometry.py:1212: size=77.3 MiB, count=2, average=38.7 MiB
+<frozen importlib._bootstrap_external>:640: size=50.7 MiB, count=419352, average=127 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:357: size=40.6 MiB, count=2, average=20.3 MiB
+
+AFTER CALCULATE AVG FOLD
+[ Top 10 ]
+<frozen importlib._bootstrap_external>:640: size=52.9 MiB, count=444147, average=125 B
+/usr/lib/python3.8/copy.py:84: size=40.6 MiB, count=2, average=20.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:873: size=40.6 MiB, count=2, average=20.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:357: size=40.6 MiB, count=2, average=20.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/utils/image_processor.py:726: size=38.7 MiB, count=2, average=19.3 MiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:902: size=20.3 MiB, count=12, average=1732 KiB
+<frozen importlib._bootstrap>:219: size=11.4 MiB, count=105719, average=113 B
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:865: size=10.1 MiB, count=2, average=5196 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:862: size=10.1 MiB, count=2, average=5196 KiB
+/home/jules/Documents/venv/mmusclex_git/lib/python3.8/site-packages/musclex-1.21.0-py3.8.egg/musclex/modules/QuadrantFolder.py:860: size=10.1 MiB, count=2, average=5196 KiB
+
+Before integrate2d:
+current_size=245671032, top_peak=326773204
+
+After integrate2d:
+current_size=348519788, top_peak=1940453916
+
+
+SO THE PEAK IS INSIDE PYFAI INTEGRATE2D

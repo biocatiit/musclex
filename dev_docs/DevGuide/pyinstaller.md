@@ -7,6 +7,9 @@
 ## Basic steps
 Environment: Python 3.6.4 [MSC v.1900 64 bit (AMD64)] on win32
 Environment for 1.15.7: Python 3.8.10 [MSC v.1900 64 bit (AMD64)] on win32
+
+If you are using a new computer, you first need to create an environment with all the pip libraries needed for the program.
+
 ### Build a spec file
 Build a [spec (specification) file][1]. (Work in the root directory
 of musclex project.)
@@ -123,6 +126,7 @@ pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api
 5. Another way to solve the import error is to manually find the file and paste it in the dist folder. For example, in the error message, ".libs/vcomp140.dll" is missing in the sklearn folder. Finder vcomp140.dll under sklearn installation directory and paste it in /dist/musclex/sklearn/.libs.  
 6. If encounter error "OSError: /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/PyMca5/PyMcaData directory not found", find the installed PyMca5 in the system, copy PyMcaData and PyMcaDataDir.py to musclex/dist. Modify the path to current folder in PyMcaDataDir.py if necessary.
 7. If Error during pyinstaller or launching the app related to `QF_utilities`, go in `musclex/modules` and run `python setup2.py build_ext --inplace` before running pyinstaller again>
+8. If you have troubles installing musclex-ccp13 on Windows (compilation error/legacy install failure), you might need to install a gfortran compiler. To do so, you can use [the first link for Windows here](https://fortran-lang.org/en/learn/os_setup/install_gfortran/). To verify, run `gfortran -v`.
 
 ## Building Mac OS X App Bundle
 Above parts describe the process in Windows. For building Mac App, baisc

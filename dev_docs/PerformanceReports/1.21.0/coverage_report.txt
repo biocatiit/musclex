@@ -1,3 +1,5 @@
+See htmlcov for full coverage report
+
 Name                              Stmts   Miss  Cover
 -----------------------------------------------------
 csv_manager/DC_CSVManager.py        201    186     7%

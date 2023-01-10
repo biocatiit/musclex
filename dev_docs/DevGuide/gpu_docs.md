@@ -44,3 +44,16 @@ To access the GPU settings:
 	nvidia-settings
 ```
 
+# Cuda
+
+## Installation
+
+Follow this link to install Cuda:
+
+[https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads)
+
+## Testing
+
+Follow this link to test Cuda:
+
+[https://xcat-docs.readthedocs.io/en/stable/advanced/gpu/nvidia/verify_cuda_install.html](https://xcat-docs.readthedocs.io/en/stable/advanced/gpu/nvidia/verify_cuda_install.html)
