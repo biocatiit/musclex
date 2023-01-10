@@ -8,24 +8,15 @@ In order to install the program, you need to install [python 3.8](https://www.py
 There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
 
 ### Linux
+
+It is recommended to install Python3.8 on Linux to use MuscleX as it is the Python version we use and test. You can still use another one, newer or older, but MuscleX has not been tested on other Python versions. Whichever version you plan on using, you will need the associated pip, dev, and distutils packages. 
+
+Here is the recommended setup to run:
 ```
 sudo apt-get update
-sudo apt-get install python3 python3-pip python3-dev gfortran
-sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
-
-pip3 install --upgrade pip
-pip3 install --upgrade distro
-pip3 install --upgrade pyopencl
-pip3 install --upgrade cython
-pip3 install --upgrade numpy
-pip3 install --upgrade opencv-python-headless
-pip3 install --upgrade pyfai
-pip3 install --upgrade PyQt5
-pip3 install --upgrade musclexflibs
-pip3 install --upgrade hdf5plugin
-pip3 install --upgrade numba
-pip3 install --upgrade fisx
-pip3 install --upgrade future
+sudo apt-get install python3.8 python3-pip python3.8-dev python3.8-distutils 
+sudo apt-get install gfortran
+#sudo apt-get install git # run this if you are going to use the most up-to-date version
 ```
 
 ### Mac OS
@@ -72,24 +63,50 @@ pip install cython numpy pyqt5 opencv-python-headless pyfai
 
 ## Installing
 
+### Virtual environment install (Recommended)
+
+A virtual environment allows you to have a clean environment that is independent of other software installations. Use the following to create a virtual environment and install musclex inside of it:
+```
+python3.8 -m pip install --user virtualenv
+python3.8 -m venv musclex
+source musclex/bin/activate
+which python
+
+pip install --upgrade pip
+pip install --upgrade distro
+pip install --upgrade pyopencl
+pip install --upgrade cython
+pip install --upgrade numpy
+pip install --upgrade opencv-python-headless
+pip install --upgrade pyfai
+pip install --upgrade PyQt5
+pip install --upgrade musclexflibs
+pip install --upgrade hdf5plugin
+pip install --upgrade numba
+pip install --upgrade fisx
+pip install --upgrade future
+
+pip install --upgrade musclex
+#pip install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
+```
+Note: if you use a different Python version, don't forget to replace `python3.8` by your version.
+
+To exit the virtual environment use:
+```
+deactivate
+```
+To re-enter the virtual environment use:
+```
+source musclex/bin/activate
+musclex eq
+```
+
 ### System install
 
-Run this command to install Muscle X programs
+Instead of a virtual environment install you may install the program directly on the system. It is not recommended as it may create conflicts with other libraries on your computer, or other versions of MuscleX already installed.
+First install the libraries needed for MuscleX. 
 ```
-pip install musclex
-```
-Note: If you are upgrading, add --upgrade at the end.  
-
-### Virtual environment install
-
-Instead of a system install you may install inside a virtual environment. A virtual environment allows you to have a clean environment that is independent of othe software installations. Use the following to create a virtual environment and install musclex inside it:
-
-```
-python3 -m pip install --user virtualenv
-python3 -m venv musclex
-source musclex/bin/activate
-which python3
-pip install --upgrade pip
+pip3 install --upgrade pip
 pip3 install --upgrade distro
 pip3 install --upgrade pyopencl
 pip3 install --upgrade cython
@@ -102,19 +119,13 @@ pip3 install --upgrade hdf5plugin
 pip3 install --upgrade numba
 pip3 install --upgrade fisx
 pip3 install --upgrade future
-pip3 install --upgrade musclex
-#pip3 install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
-musclex eq
 ```
-To exit the virtual environment use:
+
+Run this command to install Muscle X programs
 ```
-deactivate
+pip3 install musclex
 ```
-To re-enter the virtual environment use:
-```
-source musclex/bin/activate
-musclex eq
-```
+Note: If you are upgrading, add --upgrade at the end.  
 
 ## Running a program
 Simply run
