@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import gc
 import copy
 import numpy as np
 import cv2
@@ -51,12 +52,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.orig_imgs = []
         self.img_list = []
         self.img_grps = []
+        self.file_name = ''
         self.initImg = None
         self.avg_img = None
         self.img_type = None
-        self.currentFileNumber = 1
-        self.currentFrameNumber = 1
-        self.currentGroupNumber = 1
+        self.currentFileNumber = 0
+        self.currentFrameNumber = 0
+        self.currentGroupNumber = 0
         self.center_before_rotation = None
         self.updated = {'img' : False, 'res': False}
         self.uiUpdating = False # update ui status flag (prevent recursive)
@@ -450,7 +452,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.filenameLineEdit2.blockSignals(True)
         self.filenameLineEdit2.setValue(fileName)
         self.filenameLineEdit2.blockSignals(False)
-        self.currentGroupNumber = fileName
+        self.currentGroupNumber = fileName - 1
         self.onGroupChanged()
 
     def fileName2Changed(self):
@@ -461,7 +463,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.filenameLineEdit.blockSignals(True)
         self.filenameLineEdit.setValue(fileName)
         self.filenameLineEdit.blockSignals(False)
-        self.currentGroupNumber = fileName
+        self.currentGroupNumber = fileName - 1
         self.onGroupChanged()
 
     def prevClicked(self):
@@ -469,11 +471,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         Going to the previous image
         """
         if len(self.orig_imgs) > 0:
-            if self.currentFrameNumber == 1:
-                self.currentFrameNumber = self.nbOfFrames
+            if self.img_list != [] and self.currentGroupNumber + 1 == self.nbOfGroups and len(self.img_list)%self.nbOfFrames != 0:
+                max_frame = len(self.img_list)%self.nbOfFrames
             else:
-                self.currentFrameNumber = (self.currentFrameNumber - 1) % self.nbOfFrames
-            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber - 1) * self.nbOfFrames
+                max_frame = self.nbOfFrames
+            self.currentFrameNumber = (self.currentFrameNumber - 1) % max_frame
+            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber) * self.nbOfFrames
             self.refreshImageTab()
 
     def nextClicked(self):
@@ -481,11 +484,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         Going to the next image
         """
         if len(self.orig_imgs) > 0:
-            if self.currentFrameNumber == self.nbOfFrames - 1:
-                self.currentFrameNumber += 1
+            if self.img_list != [] and self.currentGroupNumber + 1 == self.nbOfGroups and len(self.img_list)%self.nbOfFrames != 0:
+                max_frame = len(self.img_list)%self.nbOfFrames
             else:
-                self.currentFrameNumber = (self.currentFrameNumber + 1) % self.nbOfFrames
-            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber - 1) * self.nbOfFrames
+                max_frame = self.nbOfFrames
+            self.currentFrameNumber = (self.currentFrameNumber + 1) % max_frame
+            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber) * self.nbOfFrames
             self.refreshImageTab()
 
     def prevGrpClicked(self):
@@ -493,26 +497,20 @@ class AddIntensitiesSingleExp(QMainWindow):
         Going to the previous image
         """
         if len(self.img_grps) > 0:
-            if self.currentGroupNumber == 1:
-                self.currentGroupNumber = self.nbOfGroups
-            else:
-                self.currentGroupNumber = (self.currentGroupNumber - 1) % self.nbOfGroups
-            self.currentFrameNumber = 1
-            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber - 1) * self.nbOfFrames
-            self.filenameLineEdit.setValue(self.currentGroupNumber)
+            self.currentGroupNumber = (self.currentGroupNumber - 1) % self.nbOfGroups
+            self.currentFrameNumber = 0
+            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber) * self.nbOfFrames
+            self.filenameLineEdit.setValue(self.currentGroupNumber + 1)
 
     def nextGrpClicked(self):
         """
         Going to the next image
         """
         if len(self.img_grps) > 0:
-            if self.currentGroupNumber == self.nbOfGroups - 1:
-                self.currentGroupNumber += 1
-            else:
-                self.currentGroupNumber = (self.currentGroupNumber + 1) % self.nbOfGroups
-            self.currentFrameNumber = 1
-            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber - 1) * self.nbOfFrames
-            self.filenameLineEdit.setValue(self.currentGroupNumber)
+            self.currentGroupNumber = (self.currentGroupNumber + 1) % self.nbOfGroups
+            self.currentFrameNumber = 0
+            self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber) * self.nbOfFrames
+            self.filenameLineEdit.setValue(self.currentGroupNumber + 1)
 
     def doubleZoomChecked(self):
         """
@@ -533,7 +531,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 self.doubleZoomPt = (x, y)
                 ax1.imshow(imgScaled)
-                y, x = imgScaled.shape
+                # y, x = imgScaled.shape
                 # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
@@ -550,9 +548,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         Change the number of images to add. Will also change the display consequently
         """
         self.nbOfFrames = self.frameNb.value()
-        self.currentFrameNumber = 1
-        self.currentGroupNumber = 1
-        self.currentFileNumber = 1
+        self.currentFrameNumber = 0
+        self.currentGroupNumber = 0
+        self.currentFileNumber = 0
         self.updateImageGroups()
         self.nbOfGroups = len(self.img_grps)
         self.filenameLineEdit.setMaximum(self.nbOfGroups)
@@ -566,9 +564,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processFolderButton.isChecked():
+        if (self.processFolderButton.isChecked() or self.processFolderButton2.isChecked()) and self.processFolderButton.text() == "Process All Groups":
             if not self.progressBar.isVisible():
                 self.processFolderButton.setText("Stop")
+                self.processFolderButton.setChecked(True)
+                self.processFolderButton2.setText("Stop")
+                self.processFolderButton2.setChecked(True)
                 self.processFolder()
         else:
             self.stop_process = True
@@ -595,54 +596,12 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.progressBar.setVisible(True)
             self.progressBar.setRange(0, self.nbOfGroups)
             self.stop_process = False
-            output = os.path.join(self.dir_path, 'im_results')
+            output = os.path.join(self.dir_path, 'aise_results')
             print('Start merging...')
             for i, imgs in enumerate(self.img_grps):
                 if len(imgs) > 0 and not self.stop_process:
                     self.progressBar.setValue(i)
-                    first = imgs[0]
-                    last = imgs[-1]
-                    f_ind1 = first.rfind('_')
-                    f_ind2 = first.rfind('.')
-                    l_ind1 = last.rfind('_')
-                    l_ind2 = last.rfind('.')
-
-                    if f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1 or first[:f_ind1] != last[:l_ind1]:
-                        filename = "Group"+str(i+1)+'.tif'
-                    else:
-                        filename = first[:f_ind1] + "_"
-                        filename += first[f_ind1 + 1:f_ind2]
-                        filename += "_"
-                        filename += last[l_ind1 + 1:l_ind2]
-                        filename += '.tif'
-
-                    # Update details
-                    details = "- Merging Group "+ str(i+1)+" : \n"
-                    for (j, img) in enumerate(imgs):
-                        details += str(j+1)+". "+img+"\n"
-                    details += "To : " + filename +'\n\n'
-
-                    print(details)
-                    self.statusPrint('Merging...')
-                    if self.avgInsteadOfSum.isChecked():
-                        # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-                        self.avg_img = averageImages(self.orig_imgs, preprocessed=True) ##todo homogenize
-                    else:
-                        sum_img = 0
-                        for img in self.orig_imgs:
-                            if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
-                                sum_img = resizeImage(sum_img, img.shape)
-                            elif not isinstance(sum_img, int):
-                                img = resizeImage(img, sum_img.shape)
-                            sum_img += img
-                        self.avg_img = sum_img
-                    print('Saving merged image...')
-                    self.statusPrint('Saving merged image...')
-                    if self.compressChkBx.isChecked():
-                        tif_img = Image.fromarray(self.avg_img)
-                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
-                    else:
-                        fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
+                    self.nextGrpClicked()
                 else:
                     break
             self.progressBar.setValue(self.nbOfGroups)
@@ -652,6 +611,8 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Process All Groups")
+        self.processFolderButton2.setChecked(False)
+        self.processFolderButton2.setText("Process All Groups")
 
     def processGroup(self):
         """
@@ -659,22 +620,17 @@ class AddIntensitiesSingleExp(QMainWindow):
         Then, write data and update UI
         """
         if self.ableToProcess():
-            self.progressBar.setVisible(True)
-            self.progressBar.setRange(0, self.nbOfFrames + 1)
-            self.progressBar.setValue(0)
             print('Processing...')
             self.statusPrint('Processing...')
             if self.calibrationChkBx.isChecked():
                 _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
                 if not self.centerWoRotateChkBx.isChecked():
                     for i in range(self.nbOfFrames):
-                        self.progressBar.setValue(i)
                         self.rotateImg(i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
 
-            self.progressBar.setValue(self.nbOfFrames)
             output = os.path.join(self.dir_path, 'aise_results')
-            imgs = self.img_grps[self.currentGroupNumber - 1]
+            imgs = self.img_grps[self.currentGroupNumber]
             if len(imgs) > 0:
                 first = imgs[0]
                 last = imgs[-1]
@@ -684,7 +640,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 l_ind2 = last.rfind('.')
 
                 if f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1 or first[:f_ind1] != last[:l_ind1]:
-                    filename = "Group"+str(self.currentGroupNumber)+'.tif'
+                    filename = "Group"+str(self.currentGroupNumber + 1)+'.tif'
                 else:
                     filename = first[:f_ind1] + "_"
                     filename += first[f_ind1 + 1:f_ind2]
@@ -693,7 +649,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     filename += '.tif'
 
                 # Update details
-                details = "- Merging Group "+ str(self.currentGroupNumber)+" : \n"
+                details = "- Merging Group "+ str(self.currentGroupNumber + 1)+" : \n"
                 for (j, img) in enumerate(imgs):
                     details += str(j+1)+". "+img+"\n"
                 details += "To : " + filename +'\n\n'
@@ -720,10 +676,8 @@ class AddIntensitiesSingleExp(QMainWindow):
                 else:
                     fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
 
-            self.progressBar.setValue(self.nbOfFrames + 1)
             self.refreshAllTab()
             print("Done. Result image have been saved to "+output)
-            self.progressBar.setVisible(False)
 
     def refreshAllTab(self):
         """
@@ -755,9 +709,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Reset the status bar
         """
+        if self.img_list != [] and self.currentGroupNumber + 1 == self.nbOfGroups and len(self.img_list)%self.nbOfFrames != 0:
+            max_frame = len(self.img_list)%self.nbOfFrames
+        else:
+            max_frame = self.nbOfFrames
         self.imgPathOnStatusBar.setText(
-            'Current Frame (' + str(self.currentFrameNumber) + '/' + str(self.nbOfFrames) + '), Current Group ('
-            + str(self.currentGroupNumber) + '/' + str(self.nbOfGroups) + ') : ' + self.img_list[self.currentFileNumber - 1])
+            'Current Frame (' + str(self.currentFrameNumber + 1) + '/' + str(max_frame) + '), Current Group ('
+            + str(self.currentGroupNumber + 1) + '/' + str(self.nbOfGroups) + ') : ' + self.img_list[self.currentFileNumber])
 
     def ableToProcess(self):
         """
@@ -851,7 +809,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     half_width = abs(abs(int(y)) - center[1])
                     print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
 
-                    initImg = self.orig_imgs[self.currentFrameNumber - 1]
+                    initImg = self.orig_imgs[self.currentFrameNumber]
                     b, l = initImg.shape
                     if self.newImgDimension is None:
                         dim = int(2.8*max(l, b))
@@ -922,7 +880,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     cy = int(round(new_center[1]))
                     self.info['manual_center'] = (cx, cy)
                     #self.orig_image_center = self.info['manual_center']
-                    self.info['manual_rotationAngle'][self.currentFrameNumber - 1] = self.info['rotationAngle'][self.currentFrameNumber - 1] + new_angle
+                    self.info['manual_rotationAngle'][self.currentFrameNumber] = self.info['rotationAngle'][self.currentFrameNumber] + new_angle
                     self.setCenterRotationButton.setChecked(False)
                     self.onGroupChanged()
             elif func[0] == "im_rotate":
@@ -944,7 +902,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     new_angle = -90
                 else:
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                self.info['manual_rotationAngle'][self.currentFrameNumber - 1] = self.info['rotationAngle'][self.currentFrameNumber - 1] + new_angle
+                self.info['manual_rotationAngle'][self.currentFrameNumber] = self.info['rotationAngle'][self.currentFrameNumber] + new_angle
                 self.setRotationButton.setChecked(False)
                 self.onGroupChanged()
 
@@ -956,7 +914,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         x = event.xdata
         y = event.ydata
-        img = self.orig_imgs[self.currentFrameNumber-1]
+        img = self.orig_imgs[self.currentFrameNumber]
         ax = self.imageAxes
 
         # Display pixel information if the cursor is on image
@@ -1671,10 +1629,10 @@ class AddIntensitiesSingleExp(QMainWindow):
 
             cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
             cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            if self.info['rotationAngle'][self.currentFrameNumber-1] is None:
+            if self.info['rotationAngle'][self.currentFrameNumber] is None:
                 M = cv2.getRotationMatrix2D(tuple(self.info['center']), 0, 1)
             else:
-                M = cv2.getRotationMatrix2D(tuple(self.info['center']), self.info['rotationAngle'][self.currentFrameNumber-1], 1)
+                M = cv2.getRotationMatrix2D(tuple(self.info['center']), self.info['rotationAngle'][self.currentFrameNumber], 1)
             invM = cv2.invertAffineTransform(M)
             homo_coords = [cx, cy, 1.]
             new_center = np.dot(invM, homo_coords)
@@ -1829,13 +1787,19 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Popup input dialog and set file selection
         """
+        self.img_list = []
         file_name = getAFile(filtr='Pattern ( *.h5 *.hdf5)')
         if file_name != "":
             if file_name.split('.')[1] in ['h5', 'hdf5']:
                 self.isHdf5 = True
                 self.dir_path, _ = os.path.split(str(file_name))
-                self.fileList = loadFile(file_name)
-                self.img_list = sorted(self.fileList[0])
+                self.file_name = file_name
+                with fabio.open(file_name) as series:
+                    for frame in series.frames():
+                        namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                        temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                        self.img_list.append(temp_filename)
+                self.img_list.sort()
                 self.updateImageGroups()
                 self.onNewFileSelected()
             else:
@@ -1902,15 +1866,17 @@ class AddIntensitiesSingleExp(QMainWindow):
         Process the new image if there's no cache.
         """
         self.statusPrint("Processing...")
-        self.filenameLineEdit.setValue(self.currentGroupNumber)
+        self.filenameLineEdit.setValue(self.currentGroupNumber + 1)
         self.orig_imgs = []
-        start = self.nbOfFrames*(self.currentGroupNumber - 1)
-        for i in range(start, start + self.nbOfFrames):
+        start = self.nbOfFrames*(self.currentGroupNumber)
+        end = min(len(self.img_list), start + self.nbOfFrames)
+        for i in range(start, end):
             if self.isHdf5:
-                index = next((k for k, item in enumerate(self.fileList[0]) if item == self.img_list[i]), 0)
-                self.orig_imgs.append(ifHdfReadConvertless(self.img_list[i], self.fileList[1][index]))
+                with fabio.open(self.file_name) as series:
+                    frame = series.get_frame(i).data
+                self.orig_imgs.append(ifHdfReadConvertless(self.img_list[i], frame).astype(np.float32))
             else:
-                self.orig_imgs.append(fabio.open(os.path.join(self.dir_path, self.img_list[i])).data)
+                self.orig_imgs.append(fabio.open(os.path.join(self.dir_path, self.img_list[i])).data.astype(np.float32))
         if self.orig_imgs[0].shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -1920,6 +1886,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.processGroup()
         self.initialWidgets(self.orig_imgs[0], self.avg_img)
         self.statusPrint("")
+        gc.collect()
 
     def initialWidgets(self, img, result):
         """
@@ -1978,7 +1945,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             else:
                 extent, center = [0, 0], (0, 0)
 
-            self.plotImages(self.imageAxes, self.orig_imgs[self.currentFrameNumber - 1], extent)
+            self.plotImages(self.imageAxes, self.orig_imgs[self.currentFrameNumber], extent)
 
             if self.calSettingsDialog is not None:
                 self.calSettingsDialog.centerX.setValue(center[0])

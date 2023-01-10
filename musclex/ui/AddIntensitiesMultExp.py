@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import gc
 import copy
 import collections
 import numpy as np
@@ -59,7 +60,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.initImg = None
         self.sum_img = None
         self.img_type = None
-        self.currentFileNumber = 1
+        self.currentFileNumber = 0
         self.center_before_rotation = None
         self.updated = {'img' : False, 'res': False}
         self.uiUpdating = False # update ui status flag (prevent recursive)
@@ -83,7 +84,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.imageAxes8 = None
         self.axClicked = None
         self.isHdf5 = False
-        self.fileList = [[], []]
+        self.fileList = []
         self.chordpoints = []
         self.chordLines = []
         self.index = 0
@@ -466,10 +467,10 @@ class AddIntensitiesMultExp(QMainWindow):
         self.filenameLineEdit2.blockSignals(True)
         self.filenameLineEdit2.setValue(fileName)
         self.filenameLineEdit2.blockSignals(False)
-        if self.numberToFilesMap[fileName] == []:
+        if self.numberToFilesMap[fileName - 1] == []:
             print('Error in the number entered')
             return
-        self.currentFileNumber = fileName
+        self.currentFileNumber = fileName - 1
         self.onImageChanged()
 
     def fileName2Changed(self):
@@ -480,10 +481,10 @@ class AddIntensitiesMultExp(QMainWindow):
         self.filenameLineEdit.blockSignals(True)
         self.filenameLineEdit.setValue(fileName)
         self.filenameLineEdit.blockSignals(False)
-        if self.numberToFilesMap[fileName] == []:
+        if self.numberToFilesMap[fileName - 1] == []:
             print('Error in the number entered')
             return
-        self.currentFileNumber = fileName
+        self.currentFileNumber = fileName - 1
         self.onImageChanged()
 
     def prevClicked(self):
@@ -491,11 +492,8 @@ class AddIntensitiesMultExp(QMainWindow):
         Going to the previous image
         """
         if len(self.numberToFilesMap) > 0:
-            if self.currentFileNumber == 1:
-                self.currentFileNumber = len(self.numberToFilesMap)
-            else:
-                self.currentFileNumber = (self.currentFileNumber - 1) % len(self.numberToFilesMap)
-            self.filenameLineEdit.setValue(self.currentFileNumber)
+            self.currentFileNumber = (self.currentFileNumber - 1) % len(self.numberToFilesMap)
+            self.filenameLineEdit.setValue(self.currentFileNumber + 1)
             # self.onImageChanged()
 
     def nextClicked(self):
@@ -503,11 +501,8 @@ class AddIntensitiesMultExp(QMainWindow):
         Going to the next image
         """
         if len(self.numberToFilesMap) > 0:
-            if self.currentFileNumber == len(self.numberToFilesMap) - 1:
-                self.currentFileNumber += 1
-            else:
-                self.currentFileNumber = (self.currentFileNumber + 1) % len(self.numberToFilesMap)
-            self.filenameLineEdit.setValue(self.currentFileNumber)
+            self.currentFileNumber = (self.currentFileNumber + 1) % len(self.numberToFilesMap)
+            self.filenameLineEdit.setValue(self.currentFileNumber + 1)
             # self.onImageChanged()
 
     def exposureNbChanged(self):
@@ -571,9 +566,12 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processFolderButton.isChecked():
+        if (self.processFolderButton.isChecked() or self.processFolderButton2.isChecked()) and self.processFolderButton.text() == "Process Current Folder":
             if not self.progressBar.isVisible():
                 self.processFolderButton.setText("Stop")
+                self.processFolderButton.setChecked(True)
+                self.processFolderButton2.setText("Stop")
+                self.processFolderButton2.setChecked(True)
                 self.processFolder()
         else:
             self.stop_process = True
@@ -609,6 +607,8 @@ class AddIntensitiesMultExp(QMainWindow):
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Process Current Folder")
+        self.processFolderButton2.setChecked(False)
+        self.processFolderButton2.setText("Process Current Folder")
 
     def refreshAllTab(self):
         """
@@ -642,7 +642,7 @@ class AddIntensitiesMultExp(QMainWindow):
         Reset the status bar
         """
         self.imgPathOnStatusBar.setText(
-            'Current Set (' + str(self.currentFileNumber) + '/' + str(len(self.numberToFilesMap)) + ') : ' + self.dir_path)
+            'Current Set (' + str(self.currentFileNumber + 1) + '/' + str(len(self.numberToFilesMap)) + ') : ' + self.dir_path)
 
     def ableToProcess(self):
         """
@@ -1761,7 +1761,7 @@ class AddIntensitiesMultExp(QMainWindow):
         Same as browse files but allow the user to select a folder instead of a file.
         """
         self.dir_path = getAFolder()
-        self.fileList = [[], []]
+        self.fileList = []
         if self.dir_path != "":
             self.numberToFilesMap = collections.defaultdict(list)
             self.isHdf5 = False
@@ -1784,14 +1784,15 @@ class AddIntensitiesMultExp(QMainWindow):
                                 isDataFile = True
                     if isDataFile:
                         if self.isHdf5:
-                            new_files = loadFile(f)
-                            for k, l in enumerate(new_files[0]):
-                                self.fileList[0].append(l)
-                                self.fileList[1].append(new_files[1][k])
-                                self.numberToFilesMap[k+1].append(l)
+                            self.fileList.append(f)
+                            with fabio.open(f) as series:
+                                for frame in series.frames():
+                                    namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                                    temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                                    self.numberToFilesMap[frame.index].append(temp_filename)
                         else:
-                            self.numberToFilesMap[int(number)].append(f)
-                        self.numberToFilesMap[int(number)].sort()
+                            self.numberToFilesMap[int(number) - 1].append(f)
+                        self.numberToFilesMap[int(number) - 1].sort()
             self.onNewFileSelected()
 
             # addIntensities(self.numberToFilesMap, dir_path)
@@ -1810,17 +1811,18 @@ class AddIntensitiesMultExp(QMainWindow):
         Process the new image.
         """
         self.statusPrint("Processing...")
-        self.filenameLineEdit.setValue(self.currentFileNumber)
+        self.filenameLineEdit.setValue(self.currentFileNumber + 1)
         self.orig_imgs = []
         self.orig_img_names = []
         for i in range(self.nbOfExposures):
             if self.isHdf5:
-                index = next((k for k, item in enumerate(self.fileList[0]) if item == self.numberToFilesMap[self.currentFileNumber][i]), 0)
-                image = ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], self.fileList[1][index])
-                self.orig_imgs.append(image)
+                with fabio.open(self.fileList[i]) as series:
+                    frame = series.get_frame(self.currentFileNumber).data
+                image = ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], frame)
+                self.orig_imgs.append(image.astype(np.float32))
                 self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
             else:
-                self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data)
+                self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data.astype(np.float32))
                 self.orig_img_names.append(os.path.split(self.numberToFilesMap[self.currentFileNumber][i])[1])
         if self.orig_imgs[0].shape == (1043, 981):
             self.img_type = "PILATUS"
@@ -1831,6 +1833,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.processImage()
         self.initialWidgets(self.orig_imgs[0], self.sum_img)
         self.statusPrint("")
+        gc.collect()
 
     def initialWidgets(self, img, result):
         """
@@ -2053,7 +2056,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     for i in range(self.nbOfExposures):
                         self.rotateImg(i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
-            self.sum_img = self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber)
+            self.sum_img = self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber + 1)
             self.refreshAllTab()
 
     def statusPrint(self, text):
