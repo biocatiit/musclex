@@ -34,12 +34,11 @@ import shutil
 import json
 import math
 import traceback
-import webbrowser
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 from skimage.feature import peak_local_max
-import musclex
+from musclex import __version__
 from .pyqt_utils import *
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.file_manager import fullPath, getImgFiles
@@ -64,7 +63,6 @@ class EquatorWindow(QMainWindow):
         """
         QWidget.__init__(self)
         self.mainWindow = mainWin
-        self.version = musclex.__version__
         self.logger = None
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
@@ -95,7 +93,7 @@ class EquatorWindow(QMainWindow):
             self.inputerror()
             return
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
-        self.setWindowTitle("Muscle X Equator v." + self.version)
+        self.setWindowTitle("Muscle X Equator v." + __version__)
         # self.setStyleSheet(getStyleSheet())
         self.initUI()  # Initial all UI
         self.setAllToolTips()  # Set tooltips for widgets
@@ -550,9 +548,6 @@ class EquatorWindow(QMainWindow):
         fileMenu.addAction(clearCacheAction)
         fileMenu.addAction(saveSettingsAction)
 
-        launchManualAct = QAction('User Manual', self)
-        # launchManualAct.setShortcut('Ctrl+M')
-        launchManualAct.triggered.connect(self.launchManual)
         shortcutKeysAct = QAction('Shortcut keys', self)
         # shortcutKeysAct.setShortcut('Ctrl+K')
         shortcutKeysAct.triggered.connect(self.showKeysHelpDialog)
@@ -561,9 +556,7 @@ class EquatorWindow(QMainWindow):
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
-        helpMenu.addAction(launchManualAct)
         helpMenu.addAction(shortcutKeysAct)
-        # helpMenu.addAction(aboutAct)
 
         ### Status Bar ###
         self.statusBar = QStatusBar()
@@ -1259,7 +1252,6 @@ class EquatorWindow(QMainWindow):
                                       'D : Go to the right tab\n'
                                       'N / O : Open a new image\n'
                                       'F : Process current folder\n'
-                                      'M : See User Manual\n'
                                       'Q : close window\n')
         keysDialog.setStandardButtons(QMessageBox.Ok)
         keysDialog.exec_()
@@ -1272,25 +1264,20 @@ class EquatorWindow(QMainWindow):
         msgBox.setWindowTitle("About")
         msgBox.setTextFormat(Qt.RichText)
         msgBox.setText("<br><br><br>" +
-                       "This Bio-Muscle is running under" +
+                       "Equator is running under" +
                        "<h2>Muscle X v" +
-                       self.version +
+                       __version__ +
                        "</h2><br><br>" +
-                       "&copy;2017 BioCAT <br>" +
-                       "<a href='{0}'>{0}</a><br><br>".format("http://www.bio.aps.anl.gov/") +
-                       "Wiki Page : <br>" +
-                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/wiki") +
+                       "&copy;2023 BioCAT <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://www.bio.aps.anl.gov/") +
+                       "Documentation : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://musclex.readthedocs.io/en/latest/") +
+                       "GitHub : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex") +
                        "Send Feedback or Issues : <br>" +
                        "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec_()
-
-    def launchManual(self):
-        """
-        Launch manual document in an internet browser
-        """
-        webbrowser.open_new(
-            'https://docs.google.com/document/d/1G_5d4Zpk9HifMAk-D3UHMS-9fSKo7ZpnVWmAXGoaQUE/edit?usp=sharing')
 
     def imgScrolled(self, event):
         """
@@ -1717,8 +1704,6 @@ class EquatorWindow(QMainWindow):
             self.processFolder()
         elif key == Qt.Key_O:
             self.browseFile()
-        elif key == Qt.Key_M:
-            self.launchManual()
 
     def calibrationClicked(self):
         """

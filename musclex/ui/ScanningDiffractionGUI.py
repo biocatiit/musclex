@@ -73,6 +73,10 @@ class ScanningDiffractionGUI(QMainWindow):
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(selectFolderAction)
+        aboutAct = QAction('About', self)
+        aboutAct.triggered.connect(self.showAbout)
+        helpMenu = menubar.addMenu('&Help')
+        helpMenu.addAction(aboutAct)
 
         self.show()
         self.resize(400,150)
@@ -112,3 +116,26 @@ class ScanningDiffractionGUI(QMainWindow):
         if dir_path != "":
             new_batch_window = DIBatchWindow(self, str(dir_path))
             self.widgetList.append(new_batch_window)
+
+    def showAbout(self):
+        """
+        Display About Dialog
+        """
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("About")
+        msgBox.setTextFormat(Qt.RichText)
+        msgBox.setText("<br><br><br>" +
+                       "Scanning Diffraction is running under" +
+                       "<h2>Muscle X v" +
+                       __version__ +
+                       "</h2><br><br>" +
+                       "&copy;2023 BioCAT <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://www.bio.aps.anl.gov/") +
+                       "Documentation : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://musclex.readthedocs.io/en/latest/") +
+                       "GitHub : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex") +
+                       "Send Feedback or Issues : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.exec_()

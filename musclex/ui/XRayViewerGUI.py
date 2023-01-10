@@ -265,6 +265,10 @@ class XRayViewerGUI(QMainWindow):
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
+        aboutAct = QAction('About', self)
+        aboutAct.triggered.connect(self.showAbout)
+        helpMenu = menubar.addMenu('&Help')
+        helpMenu.addAction(aboutAct)
 
         self.show()
 
@@ -1211,3 +1215,26 @@ class XRayViewerGUI(QMainWindow):
             return
         self.currentFileNumber = self.imgList.index(fileName)
         self.onImageChanged()
+
+    def showAbout(self):
+        """
+        Display About Dialog
+        """
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("About")
+        msgBox.setTextFormat(Qt.RichText)
+        msgBox.setText("<br><br><br>" +
+                       "X-Ray Viewer is running under" +
+                       "<h2>Muscle X v" +
+                       __version__ +
+                       "</h2><br><br>" +
+                       "&copy;2023 BioCAT <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://www.bio.aps.anl.gov/") +
+                       "Documentation : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://musclex.readthedocs.io/en/latest/") +
+                       "GitHub : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex") +
+                       "Send Feedback or Issues : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.exec_()

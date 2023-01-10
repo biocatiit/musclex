@@ -21,7 +21,7 @@ import os
 # -- Project information -----------------------------------------------------
 
 project = 'MuscleX'
-copyright = '2022, BioCAT'
+copyright = '2023, BioCAT'
 author = 'BioCAT'
 
 # The short X.Y version
