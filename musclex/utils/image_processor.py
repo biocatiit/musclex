@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 import fabio
 from skimage.morphology import white_tophat
+from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 
 def distance(pt1, pt2):
@@ -384,7 +385,8 @@ def getRotationAngle(img, center, method=0):
     npt_rad = int(round(max([distance(center, c) for c in corners])))
     ai = AzimuthalIntegrator(detector=det)
     ai.setFit2D(200, center[0], center[1])
-    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method="csr")
+    integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method=integration_method)
     I2D = I2D[:, :int(len(tth)/3.)]
     hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0

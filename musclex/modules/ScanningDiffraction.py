@@ -34,10 +34,12 @@ import collections
 import pickle
 import numpy as np
 import fabio
+import pygpufit.gpufit as gf
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel
 from scipy.integrate import simps
 from sklearn.metrics import r2_score
+from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
 try:
@@ -215,11 +217,13 @@ class ScanningDiffraction:
             ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
 
-            I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method="csr", mask=mask)
-            I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method="csr", mask=mask)
-
-            _, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method="csr", mask=mask)
-            _, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", mask=mask)
+            integration_method_2d = IntegrationMethod.select_one_available("csr_ocl", dim=2, default="csr", degradable=True)
+            I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method=integration_method_2d, mask=mask)
+            I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method=integration_method_2d, mask=mask)
+            
+            integration_method_1d = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+            _, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method=integration_method_1d, mask=mask)
+            _, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method_1d, mask=mask)
 
             self.info['2dintegration'] = [I2D, tth, chi]
             self.info['tophat_2dintegration'] = [I2D2, tth2, chi2]
@@ -473,8 +477,9 @@ class ScanningDiffraction:
         ai.setFit2D(100, center[0], center[1])
 
         # Compute histograms for each range
+        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
         for a_range in ranges:
-            _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr", azimuth_range=a_range, mask=mask)
+            _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=a_range, mask=mask)
             histograms.append(I)
 
         return ranges, histograms
@@ -1304,7 +1309,7 @@ def orientation_GMM3(x, u, sigma, alpha, bg):
 
 def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     """
-    Fit Gaussian model
+    Fit Gaussian model using lmfit on CPU
     """
     parameters = []
     indexes = copy.copy(indexes)
@@ -1317,25 +1322,69 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     pars = Parameters()
     gaussians = []
     mean_margin = 15
-    for (i, _) in enumerate(indexes):
+    for (i, e) in enumerate(indexes):
         prefix = 'g' + str(i + 1) + '_'
         gauss = GaussianModel(prefix=prefix)
         pars.update(gauss.make_params())
-        pars[prefix + 'center'].set(indexes[i], min=indexes[i] - mean_margin, max=indexes[i] + mean_margin)
+        pars[prefix + 'center'].set(e, min=e - mean_margin, max=e + mean_margin)
         pars[prefix + 'sigma'].set(parameters[i][0], min=1., max=1000.)
-        pars[prefix + 'amplitude'].set(parameters[i][1], min=1, max=1000 * hists_np[indexes[i]])
+        pars[prefix + 'amplitude'].set(parameters[i][1], min=1, max=1000 * hists_np[e])
         gaussians.append(gauss)
 
     model = gaussians[0]
     for i in range(1, len(gaussians)):
         model += gaussians[i]
-    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate', max_nfev=100).values
+    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate').values
     result = {}
     for i in range(len(indexes)):
         prefix = 'g' + str(i + 1) + '_'
         result['u' + str(i + 1)] = out[prefix + 'center']
         result['sigmad' + str(i + 1)] = out[prefix + 'sigma']
         result['alpha' + str(i + 1)] = out[prefix + 'amplitude']
+
+    error = r2_score(GMM_any(x = x, params = result), hists_np)
+    return result, error
+
+def fitGMMv2_gpu(hists_np, indexes, widthList, method='leastsq'):
+    """
+    Fit Gaussian model using gpufit on GPU
+    """
+    parameters = []
+    indexes = copy.copy(indexes)
+    for index, width in zip(indexes, widthList):
+        sigmad = 1. / np.sqrt(8 * np.log(2)) * width
+        alpha = sigmad * hists_np[index] * np.sqrt(2 * np.pi)
+        parameters.append((sigmad, alpha))
+
+    pars = np.tile((0,0,0), (len(indexes), 1)).astype(np.float32)
+    constraints = np.zeros((len(indexes), 2*3), dtype=np.float32)
+    constraint_types = np.array([gf.ConstraintType.LOWER_UPPER, gf.ConstraintType.LOWER_UPPER, gf.ConstraintType.LOWER_UPPER], dtype=np.int32)
+    mean_margin = 15
+    for (i, e) in enumerate(indexes):
+        pars[i, 0] = e #center
+        constraints[i, 0] = e - mean_margin
+        constraints[i, 1] = e + mean_margin
+        pars[i, 1] = parameters[i][0] #sigma
+        constraints[i, 2] = 1.
+        constraints[i, 3] = 1000.
+        pars[i, 2] = parameters[i][1] #amplitude
+        constraints[i, 4] = 1
+        constraints[i, 5] = 1000 * hists_np[e]
+
+    if method == 'leastsq':
+        gfmethod = gf.EstimatorID.LSE
+    else:
+        gfmethod = gf.EstimatorID.MLE
+    x = np.array(range(len(hists_np)))
+    hists_np_2d = np.tile(hists_np.astype(np.float32), (len(indexes), 1))
+    pars, states, chi_squares, number_iterations, execution_time = gf.fit_constrained(hists_np_2d, None, gf.ModelID.GAUSS_2D, pars, 
+                                                                                    constraints, constraint_types, None, 10000, None, gfmethod, None)
+    print(pars, states, chi_squares, number_iterations, execution_time)
+    result = {}
+    for (i, _) in enumerate(indexes):
+        result['u' + str(i + 1)] = pars[i, 0]
+        result['sigmad' + str(i + 1)] = pars[i, 1]
+        result['alpha' + str(i + 1)] = pars[i, 2]
 
     error = r2_score(GMM_any(x = x, params = result), hists_np)
     return result, error

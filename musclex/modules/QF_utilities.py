@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from numba import jit
+from numba import jit, cuda
 from math import exp, sqrt, floor, ceil, atan
 import numpy as np
 

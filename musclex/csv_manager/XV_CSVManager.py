@@ -44,7 +44,7 @@ class XV_CSVManager:
         :param dir_path:
         """
         self.dataframe = None
-        result_path = fullPath(dir_path, "viewer_csv")
+        result_path = fullPath(dir_path, "xv_results")
         if not exists(result_path):
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')

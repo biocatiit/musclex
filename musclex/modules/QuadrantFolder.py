@@ -29,11 +29,11 @@ authorization from Illinois Institute of Technology.
 import os
 import pickle
 import fabio
-import pyFAI
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
 import ccp13
+from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
 try:
@@ -426,8 +426,9 @@ class QuadrantFolder:
         nBins = 90/theta_size
 
         I2D = []
+        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
         for deg in range(180, 271):
-            _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method="csr", azimuth_range=(deg, deg+1))
+            _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method=integration_method, azimuth_range=(deg, deg+1))
             I2D.append(I)
 
         I2D = np.array(I2D)
@@ -772,7 +773,7 @@ class QuadrantFolder:
             # Get 1D azimuthal integration histogram
             ai = AzimuthalIntegrator(detector="agilent_titan")
             ai.setFit2D(100, center[0], center[1])
-            integration_method = pyFAI.method_registry.IntegrationMethod.select_one_available("csr", 1)
+            integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
             self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
@@ -800,13 +801,14 @@ class QuadrantFolder:
         ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
 
+        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
         for deg in np.arange(180, 271, 1):
             if deg == 180 :
-                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(180, 180.5))
+                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 180.5))
             elif deg == 270:
-                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(269.5, 270))
+                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(269.5, 270))
             else:
-                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method="csr", azimuth_range=(deg-0.5, deg+0.5))
+                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(deg-0.5, deg+0.5))
 
             hist_y = I[int(rmin):int(rmax+1)]
             hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
