@@ -299,11 +299,14 @@ class EQ_FittingTab(QWidget):
                     self.sigZSpnBxEP.setValue(fit_result[side+'_sigmaz_EP'])
                     self.intZSpnBxEP.setValue(fit_result[side+'_intz_EP'])
 
+            self.gammaSpinBx.setEnabled(self.fixGamma.isChecked())
             self.gammaSpinBx.setHidden(fit_result['model'] != 'Voigt')
             self.fixGamma.setHidden(fit_result['model'] != 'Voigt')
             self.fixedGammaZ.setHidden(fit_result['model'] != 'Voigt')
+            self.gammaZSpnBx.setEnabled(self.fixedGammaZ.isChecked())
             self.gammaZSpnBx.setHidden(fit_result['model'] != 'Voigt')
             self.fixedGammaZEP.setHidden(fit_result['model'] != 'Voigt')
+            self.gammaZSpnBxEP.setEnabled(self.fixedGammaZEP.isChecked())
             self.gammaZSpnBxEP.setHidden(fit_result['model'] != 'Voigt')
 
         if side+'_fix_sigmac' in info:

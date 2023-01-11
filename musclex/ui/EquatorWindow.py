@@ -107,6 +107,7 @@ class EquatorWindow(QMainWindow):
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.calSettings=None
         settings=self.getSettings()
+        settings.update(self.bioImg.info)
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
@@ -693,7 +694,7 @@ class EquatorWindow(QMainWindow):
         #### Fitting Tab
         self.skeletalChkBx.stateChanged.connect(self.skeletalChecked)
         self.nPeakSpnBx.editingFinished.connect(self.nPeakChanged)
-        # self.modelSelect.currentIndexChanged.connect(self.refreshAllFittingParams)
+        self.modelSelect.currentIndexChanged.connect(self.modelChanged)
         self.setPeaksB.clicked.connect(self.setManualPeaks)
         self.origHistChkBx.stateChanged.connect(self.refreshGraph)
         self.hullChkBx.stateChanged.connect(self.refreshGraph)
@@ -728,11 +729,20 @@ class EquatorWindow(QMainWindow):
 
     def skeletalChecked(self):
         """
-        Handlewhen skeletal z line is checked or unchecked
+        Handle when skeletal z line is checked or unchecked
         """
         self.extraPeakChkBx.setEnabled(self.skeletalChkBx.isChecked())
+        self.bioImg.info["isSkeletal"] = self.skeletalChkBx.isChecked()
+        self.bioImg.saveCache()
         if not self.skeletalChkBx.isChecked():
             self.extraPeakChkBx.setChecked(False)
+
+    def modelChanged(self):
+        """
+        Handle when model is changed
+        """
+        self.bioImg.info["model"] = str(self.modelSelect.currentText())
+        self.bioImg.saveCache()
 
     def k_checked(self):
         """
@@ -759,7 +769,8 @@ class EquatorWindow(QMainWindow):
                 return
             self.processImage(self.bioImg.info['paramInfo'])
             return
-        self.processImage()
+        else:
+            self.processImage()
 
     def updateFittingParamsInParamInfo(self):
         """
@@ -922,7 +933,7 @@ class EquatorWindow(QMainWindow):
                     break
                 self.progressBar.setValue(i)
                 QApplication.processEvents()
-                self.nextImageFitting()
+                self.nextImageFitting(False)
             self.in_batch_process = False
 
         self.progressBar.setVisible(False)
@@ -1385,6 +1396,8 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is not None and not self.syncUI:
             self.bioImg.removeInfo("peaks")  # Remove peaks info before re-processing
+            self.bioImg.info["nPeaks"] = self.skeletalChkBx.isChecked()
+            self.bioImg.saveCache()
             self.log_changes('nPeaks', self.nPeakSpnBx)
 
     def batchProcBtnToggled(self):
@@ -1488,7 +1501,7 @@ class EquatorWindow(QMainWindow):
                     break
                 self.progressBar.setValue(i)
                 QApplication.processEvents()
-                self.nextClicked()
+                self.nextImageFitting(True)
             self.in_batch_process = False
 
         self.progressBar.setVisible(False)
@@ -1533,10 +1546,10 @@ class EquatorWindow(QMainWindow):
                     self.bioImg.removeInfo('center')
                 # Unchecking use previous fit
                 if self.use_previous_fit_chkbx.isChecked():
-                    print("Caliberation setting changed, unchecking use previous fit")
+                    print("Calibration setting changed, unchecking use previous fit")
                     msg = QMessageBox()
                     msg.setInformativeText(
-                        "Caliberation setting changed, unchecking use previous fit")
+                        "Calibration setting changed, unchecking use previous fit")
                     msg.setStandardButtons(QMessageBox.Ok)
                     msg.setWindowTitle("Unchecking Use Previous fit")
                     msg.setStyleSheet("QLabel{min-width: 500px;}")
@@ -1625,30 +1638,36 @@ class EquatorWindow(QMainWindow):
         self.currentImg = (self.currentImg - 1) % len(self.imgList)
         self.onImageChanged()
 
-    def nextImageFitting(self):
+    def nextImageFitting(self, reprocess):
         """
         Used for processing of a folder to process the next image
+        :param reprocess (bool): boolean telling if we need to reprocess the image or not
         """
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
+        file=fileName+'.info'
+        cache_path = os.path.join(self.dir_path, "eq_cache", file)
+        if reprocess:
+            if os.path.isfile(cache_path):
+                os.remove(cache_path)
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
-        #if len(self.bioImg.info) < 2: # use settings of the previous image
+        # if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
-        nPeaks = settings['nPeaks'] if 'nPeaks' in settings else None
-        isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
-        isExtraPeak = settings['isExtraPeak'] if 'isExtraPeak' in settings else None
+        # nPeaks = settings['nPeaks'] if 'nPeaks' in settings else None
+        # isSkeletal = settings['isSkeletal'] if 'isSkeletal' in settings else None
+        # isExtraPeak = settings['isExtraPeak'] if 'isExtraPeak' in settings else None
         # settings.update(self.bioImg.info)
 
-        if nPeaks is not None:
-            settings['nPeaks'] = nPeaks
-        if isSkeletal is not None:
-            settings['isSkeletal'] = isSkeletal
-        if isExtraPeak is not None:
-            settings['isExtraPeak'] = isExtraPeak
+        # if nPeaks is not None:
+        #     settings['nPeaks'] = nPeaks
+        # if isSkeletal is not None:
+        #     settings['isSkeletal'] = isSkeletal
+        # if isExtraPeak is not None:
+        #     settings['isExtraPeak'] = isExtraPeak
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
@@ -2880,19 +2899,21 @@ class EquatorWindow(QMainWindow):
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
-        #if len(self.bioImg.info) < 2: # use settings of the previous image
-        settings = self.getSettings()
-        print("Settings in onImageChange before update")
-        print(settings)
-        # settings.update(self.bioImg.info)
+        if len(self.bioImg.info) < 2: # use settings of the previous image
+            settings = self.getSettings()
+            print("Settings in onImageChange before update")
+            print(settings)
+            settings.update(self.bioImg.info)
+        else:
+            settings = self.bioImg.info
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
 
-        if self.fixedParamChanged(prevInfo):
-            print("Refitting next image")
-            self.refreshAllFittingParams()
+        # if self.fixedParamChanged(prevInfo):
+        #     print("Refitting next image")
+        #     self.refreshAllFittingParams()
 
         if self.use_previous_fit_chkbx.isChecked():
             print("Using previous fit")
@@ -2900,9 +2921,9 @@ class EquatorWindow(QMainWindow):
             if ret == -1:
                 return
             self.processImage(self.bioImg.info['paramInfo'])
-
-        # Process new image
-        self.processImage()
+        else:
+            # Process new image
+            self.processImage()
 
     def fixedParamChanged(self, prevInfo):
         '''

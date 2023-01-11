@@ -28,19 +28,19 @@
 
 --> Pip versions detail:
 Cython                 0.29.32
-distro                 1.7.0
-fabio                  0.14.0
+distro                 1.8.0
+fabio                  2022.12.1
 h5py                   3.7.0
-hdf5plugin             3.3.1
-lmfit                  1.0.3
-matplotlib             3.6.0
-numpy                  1.23.3
-opencv-python-headless 4.6.0.66
-pandas                 1.5.0rc0
-pyFAI                  0.21.3
-PyMca5                 5.7.5
-scikit-image           0.19.3
-scikit-learn           1.1.2
-scipy                  1.9.1
-tifffile               2022.8.12
+hdf5plugin             4.0.1
+lmfit                  1.1.0
+matplotlib             3.6.2
 numba                  0.56.4
+numpy                  1.23.5
+opencv-python-headless 4.7.0.68
+pandas                 1.5.2
+pyFAI                  0.21.3
+PyMca5                 5.8.0
+scikit-image           0.19.3
+scikit-learn           1.2.0
+scipy                  1.10.0
+tifffile               2022.10.10
