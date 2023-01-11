@@ -1001,10 +1001,11 @@ class QuadrantFoldingGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        _, center = self.getExtentAndCenter()
         if self.calSettingsDialog is None:
-            self.calSettingsDialog = CalibrationSettings(self.filePath) if self.quadFold is None else \
-                CalibrationSettings(self.filePath, center=center)
+            if self.quadFold is None or self.quadFold.orig_image_center is None:
+                self.calSettingsDialog = CalibrationSettings(self.filePath)
+            else:
+                self.calSettingsDialog =  CalibrationSettings(self.filePath, center=self.quadFold.orig_image_center)
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
