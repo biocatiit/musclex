@@ -106,7 +106,11 @@ class QF_CSVManager:
             data['centerX'] = center[0]
             data['centerY'] = center[1]
             data['rotationAngle'] = quadFold.info['rotationAngle']
-            data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
+            try:
+                data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
+            except:
+                print('Hash not generated, array not C-contiguous')
+                data['hash'] = '-'
 
             if failed:
                 self.failedcases.add(img_name)

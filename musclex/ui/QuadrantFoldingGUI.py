@@ -91,7 +91,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
-        self.setMinimumHeight(800)
+        self.setMinimumHeight(850)
         self.newImgDimension = None
         self.browseFile()
 
@@ -119,7 +119,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tabWidget.addTab(self.imageTab, "Original Image")
 
         self.verImgLayout = QVBoxLayout()
-        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
+        # self.verImgLayout.setContentsMargins(0, 0, 0, 0)
         self.verImgLayout.setAlignment(Qt.AlignCenter)
         self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
@@ -141,7 +141,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
-        self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        # self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.dispOptLayout = QGridLayout()
 
         self.spminInt = QDoubleSpinBox()
@@ -168,26 +168,26 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
-        self.dispOptLayout.addWidget(self.showSeparator, 0, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.spminInt, 1, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 2, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistMaxIntensity, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.showSeparator, 0, 0, 1, 4)
+        self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.spminInt, 2, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.maxIntLabel, 1, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.spmaxInt, 2, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 3, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.persistMaxIntensity, 3, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomInB, 4, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomOutB, 4, 2, 1, 2)
 
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
         self.optionsLayout = QVBoxLayout()
-        self.optionsLayout.setAlignment(Qt.AlignCenter)
+        # self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsLayout = QGridLayout()
         self.settingsGroup.setLayout(self.settingsLayout)
 
         self.calibrationButton = QPushButton("Calibration Settings")
-        self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
+        self.setCenterRotationButton = QPushButton("Set Rotation Angle and Center")
         self.setCenterRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setCenterRotationButton)
         self.setCentByChords = QPushButton("Set Center by Chords")
@@ -196,7 +196,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
         self.setCentByPerp.setCheckable(True)
         self.checkableButtons.append(self.setCentByPerp)
-        self.setRotationButton = QPushButton("Set Manual Rotation")
+        self.setRotationButton = QPushButton("Set Rotation Angle")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
         self.setFitRegion = QPushButton("Set Region of Interest")
@@ -232,112 +232,21 @@ class QuadrantFoldingGUI(QMainWindow):
         self.doubleZoom = QCheckBox("Double Zoom")
         self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
-        self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByChords, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByPerp, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setFitRegion, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 6, 0, 1, 1)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 6, 1, 1, 1)
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 7, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, 8, 0, 1, 2)
-        self.settingsLayout.addWidget(self.modeAngleChkBx, 9, 0, 1, 2)
-        self.settingsLayout.addWidget(self.expandImage, 10, 0, 1, 2)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 11, 0, 1, 2)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 12, 0, 1, 2)
-        self.settingsLayout.addWidget(self.doubleZoom, 13, 0, 1, 2)
-
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Process Current Folder")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-
-        self.nextButton = QPushButton()
-        self.nextButton.setText(">>>")
-        self.prevButton = QPushButton()
-        self.prevButton.setText("<<<")
-        self.filenameLineEdit = QLineEdit()
-        self.buttonsLayout = QGridLayout()
-        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
-        self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
-        self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
-        self.buttonsLayout.addWidget(self.filenameLineEdit,2,0,1,2)
-
-        self.optionsLayout.addWidget(self.displayOptGrpBx)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.settingsGroup)
-
-        self.optionsLayout.addStretch()
-        self.optionsLayout.addLayout(self.buttonsLayout)
-        self.frameOfKeys = QFrame()
-        self.frameOfKeys.setFixedWidth(350)
-        self.frameOfKeys.setLayout(self.optionsLayout)
-        self.imageTabLayout.addWidget(self.frameOfKeys)
-
-        ##### Result Tab #####
-        self.resultTab = QWidget()
-        self.resultTab.setContentsMargins(0, 0, 0, 0)
-        self.resultTabLayout = QHBoxLayout(self.resultTab)
-        self.tabWidget.addTab(self.resultTab, "Results")
-
-        self.leftLayout = QVBoxLayout()
-        self.leftFrame = QFrame()
-        self.leftFrame.setFixedWidth(300)
-        self.leftFrame.setLayout(self.leftLayout)
-        self.resultTabLayout.addWidget(self.leftFrame)
-
-        self.resultFigure = plt.figure()
-        self.resultAxes = self.resultFigure.add_subplot(111)
-        self.resultVLayout = QVBoxLayout()
-        self.resultCanvas = FigureCanvas(self.resultFigure)
-        self.resultTabLayout.addWidget(self.resultCanvas)
-
-        self.rightLayout = QVBoxLayout()
-        self.rightFrame = QFrame()
-        self.rightFrame.setFixedWidth(350)
-        self.rightFrame.setLayout(self.rightLayout)
-        self.resultTabLayout.addWidget(self.rightFrame)
-
-        # Display Options
-        self.resultDispOptGrp = QGroupBox("Display Options")
-        self.resultDispOptLayout = QGridLayout(self.resultDispOptGrp)
-
-        self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
-
-        self.spResultmaxInt = QDoubleSpinBox()
-        self.spResultmaxInt.setToolTip(
-            "Reduction in the maximal intensity shown to allow for more details in the image.")
-        self.spResultmaxInt.setKeyboardTracking(False)
-        self.spResultmaxInt.setSingleStep(5)
-        self.spResultmaxInt.setDecimals(0)
-
-        self.spResultminInt = QDoubleSpinBox()
-        self.spResultminInt.setToolTip(
-            "Increase in the minimal intensity shown to allow for more details in the image.")
-        self.spResultminInt.setKeyboardTracking(False)
-        self.spResultminInt.setSingleStep(5)
-        self.spResultminInt.setDecimals(0)
-
-        self.resultZoomInB = QPushButton("Zoom In")
-        self.resultZoomInB.setCheckable(True)
-        self.resultZoomOutB = QPushButton("Full")
-        self.checkableButtons.append(self.resultZoomInB)
-
-        self.resultminIntLabel = QLabel("Min intensity : ")
-        self.resultmaxIntLabel = QLabel("Max intensity : ")
-        self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.resPersistMaxIntensity = QCheckBox("Persist Max intensity")
-
-        self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 1)
-        self.resultDispOptLayout.addWidget(self.spResultminInt, 1, 1, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 2, 0, 1, 1)
-        self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 1, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resultZoomInB, 3, 0, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resultZoomOutB, 3, 1, 1, 1)
-        self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 4, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resPersistMaxIntensity, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 4)
+        self.settingsLayout.addWidget(self.setCentByChords, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
+        self.settingsLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setRotationButton, 2, 2, 1, 2)
+        self.settingsLayout.addWidget(self.setFitRegion, 3, 0, 1, 4)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 2, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 4)
+        self.settingsLayout.addWidget(self.expandImage, 7, 0, 1, 4)
+        # self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 11, 0, 1, 2)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 8, 0, 1, 4)
+        self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -577,11 +486,106 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.bgSubGrpBx.setLayout(self.bgLayout)
 
-        self.leftLayout.addWidget(self.resultDispOptGrp)
-        self.leftLayout.addSpacing(10)
-        self.leftLayout.addWidget(self.blankImageGrp)
-        self.leftLayout.addStretch()
+        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
+        self.processFolderButton = QPushButton("Process Current Folder")
+        self.processFolderButton.setStyleSheet(pfss)
+        self.processFolderButton.setCheckable(True)
 
+        self.nextButton = QPushButton()
+        self.nextButton.setText(">>>")
+        self.prevButton = QPushButton()
+        self.prevButton.setText("<<<")
+        self.filenameLineEdit = QLineEdit()
+        self.buttonsLayout = QGridLayout()
+        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,4)
+        self.buttonsLayout.addWidget(self.prevButton,1,0,1,2)
+        self.buttonsLayout.addWidget(self.nextButton,1,2,1,2)
+        self.buttonsLayout.addWidget(self.filenameLineEdit,2,0,1,4)
+
+        self.optionsLayout.addWidget(self.displayOptGrpBx)
+        self.optionsLayout.addSpacing(10)
+        self.optionsLayout.addWidget(self.blankImageGrp)
+        self.optionsLayout.addSpacing(10)
+        self.optionsLayout.addWidget(self.settingsGroup)
+
+        self.optionsLayout.addStretch()
+        self.optionsLayout.addLayout(self.buttonsLayout)
+        self.frameOfKeys = QFrame()
+        self.frameOfKeys.setFixedWidth(500)
+        self.frameOfKeys.setLayout(self.optionsLayout)
+        self.imageTabLayout.addWidget(self.frameOfKeys)
+
+        ##### Result Tab #####
+        self.resultTab = QWidget()
+        self.resultTab.setContentsMargins(0, 0, 0, 0)
+        self.resultTabLayout = QHBoxLayout(self.resultTab)
+        self.tabWidget.addTab(self.resultTab, "Results")
+
+        # self.leftLayout = QVBoxLayout()
+        # self.leftFrame = QFrame()
+        # self.leftFrame.setFixedWidth(300)
+        # self.leftFrame.setLayout(self.leftLayout)
+        # self.resultTabLayout.addWidget(self.leftFrame)
+
+        self.resultFigure = plt.figure()
+        self.resultAxes = self.resultFigure.add_subplot(111)
+        self.resultVLayout = QVBoxLayout()
+        self.resultCanvas = FigureCanvas(self.resultFigure)
+        self.resultTabLayout.addWidget(self.resultCanvas)
+
+        self.rightLayout = QVBoxLayout()
+        self.rightFrame = QFrame()
+        self.rightFrame.setFixedWidth(500)
+        self.rightFrame.setLayout(self.rightLayout)
+        self.resultTabLayout.addWidget(self.rightFrame)
+
+        # Display Options
+        self.resultDispOptGrp = QGroupBox("Display Options")
+        self.resultDispOptLayout = QGridLayout(self.resultDispOptGrp)
+
+        self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
+
+        self.spResultmaxInt = QDoubleSpinBox()
+        self.spResultmaxInt.setToolTip(
+            "Reduction in the maximal intensity shown to allow for more details in the image.")
+        self.spResultmaxInt.setKeyboardTracking(False)
+        self.spResultmaxInt.setSingleStep(5)
+        self.spResultmaxInt.setDecimals(0)
+
+        self.spResultminInt = QDoubleSpinBox()
+        self.spResultminInt.setToolTip(
+            "Increase in the minimal intensity shown to allow for more details in the image.")
+        self.spResultminInt.setKeyboardTracking(False)
+        self.spResultminInt.setSingleStep(5)
+        self.spResultminInt.setDecimals(0)
+
+        self.resultZoomInB = QPushButton("Zoom In")
+        self.resultZoomInB.setCheckable(True)
+        self.resultZoomOutB = QPushButton("Full")
+        self.checkableButtons.append(self.resultZoomInB)
+
+        self.resultminIntLabel = QLabel("Min intensity : ")
+        self.resultmaxIntLabel = QLabel("Max intensity : ")
+        self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
+        self.resPersistMaxIntensity = QCheckBox("Persist Max intensity")
+
+        self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.spResultminInt, 2, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 1, 2, 1, 2)
+        self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 2, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 3, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resPersistMaxIntensity, 3, 2, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resultZoomInB, 4, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resultZoomOutB, 4, 2, 1, 2)
+
+        # self.leftLayout.addWidget(self.resultDispOptGrp)
+        # self.leftLayout.addSpacing(10)
+        # self.leftLayout.addWidget(self.blankImageGrp)
+        # self.leftLayout.addStretch()
+
+        self.rightLayout.addWidget(self.resultDispOptGrp)
+        self.rightLayout.addSpacing(10)
         self.rightLayout.addWidget(self.bgSubGrpBx)
         self.rightLayout.addStretch()
 
@@ -594,10 +598,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.prevButton2.setText("<<<")
         self.filenameLineEdit2 = QLineEdit()
         self.buttonsLayout2 = QGridLayout()
-        self.buttonsLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
-        self.buttonsLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
-        self.buttonsLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
-        self.buttonsLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
+        self.buttonsLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 4)
+        self.buttonsLayout2.addWidget(self.prevButton2, 1, 0, 1, 2)
+        self.buttonsLayout2.addWidget(self.nextButton2, 1, 2, 1, 2)
+        self.buttonsLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 4)
         self.rightLayout.addLayout(self.buttonsLayout2)
 
         #### Status bar #####
@@ -2508,10 +2512,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags()
-            if self.expandImage.isChecked():
-                self.quadFold.expandImg = 2.8
-            else:
-                self.quadFold.expandImg = 1
+            self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             try:
                 self.quadFold.process(flags)
             except Exception:
