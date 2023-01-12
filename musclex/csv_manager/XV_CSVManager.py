@@ -44,10 +44,8 @@ class XV_CSVManager:
         :param dir_path:
         """
         self.dataframe = None
-        result_path = fullPath(dir_path, "xv_results")
-        if not exists(result_path):
-            makedirs(result_path)
-        self.filename = fullPath(result_path, 'summary.csv')
+        self.result_path = fullPath(dir_path, "xv_results")
+        self.filename = fullPath(self.result_path, 'summary.csv')
         self.colnames = ['Filename', 'Histogram', 'Comment']
         self.loadSummary()
 
@@ -67,6 +65,8 @@ class XV_CSVManager:
         :param xrayViewer: QuadrantFolder object with results in its info dict
         :return: -
         """
+        if not exists(self.result_path):
+            makedirs(self.result_path)
         img_name = xrayViewer.img_name
         self.removeData(img_name)
         data = {}

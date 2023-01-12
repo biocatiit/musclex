@@ -171,12 +171,14 @@ class XRayViewerGUI(QMainWindow):
         self.setSliceBox.setCheckable(True)
         self.saveGraphSlice = QCheckBox("Save Graph Profile")
         self.saveGraphSlice.setEnabled(False)
+        self.inpaintChkBx = QCheckBox("Inpainting")
 
         self.settingsLayout.addWidget(self.openTrace, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.measureDist, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setSlice, 2, 0, 1, 2)
         self.settingsLayout.addWidget(self.setSliceBox, 3, 0, 1, 2)
         self.settingsLayout.addWidget(self.saveGraphSlice, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.inpaintChkBx, 5, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Play")
@@ -295,6 +297,8 @@ class XRayViewerGUI(QMainWindow):
         self.measureDist.clicked.connect(self.measureDistChecked)
         self.setSlice.clicked.connect(self.setSliceChecked)
         self.setSliceBox.clicked.connect(self.setSliceBoxChecked)
+        self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
+        self.inpaintChkBx.stateChanged.connect(self.onImageChanged)
 
         self.selectImageButton.clicked.connect(self.browseFile)
         self.imgZoomInB.clicked.connect(self.imageZoomIn)
@@ -341,6 +345,13 @@ class XRayViewerGUI(QMainWindow):
                 self.currSaved.connect(self.windowList[0].showLine)
                 self.counter = 1
             self.currSaved.emit(signal)
+
+    def saveGraphSliceChecked(self):
+        """
+        Saves the first slice in xv_results
+        """
+        if self.saveGraphSlice.isChecked():
+            self.csv_manager.writeNewData(self.xrayViewer)
 
     def plotClicked(self, event):
         """
@@ -1022,6 +1033,11 @@ class XRayViewerGUI(QMainWindow):
 
         self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
 
+        if self.inpaintChkBx.isChecked():
+            self.statusPrint("Inpainting...")
+            self.xrayViewer.orig_img = inpaint_img(self.xrayViewer.orig_img)
+            self.statusPrint("")
+
         original_image = self.xrayViewer.orig_img
         self.imgDetailOnStatusBar.setText(
             str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
@@ -1031,7 +1047,8 @@ class XRayViewerGUI(QMainWindow):
                 self.setSliceChecked()
             elif self.first_box:
                 self.setSliceBoxChecked()
-            self.csv_manager.writeNewData(self.xrayViewer)
+            if self.saveGraphSlice.isChecked():
+                self.csv_manager.writeNewData(self.xrayViewer)
         else:
             self.refreshAllTabs()
         self.send_signal()
@@ -1238,3 +1255,12 @@ class XRayViewerGUI(QMainWindow):
                        "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec_()
+
+    def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
+        self.statusReport.setText(text)
+        QApplication.processEvents()

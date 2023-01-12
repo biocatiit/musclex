@@ -33,6 +33,8 @@ import fabio
 from skimage.morphology import white_tophat
 from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+from pyFAI.detectors import Detector
+from pyFAI import detector_factory
 
 def distance(pt1, pt2):
     """
@@ -770,3 +772,43 @@ def mean_square_error(y_predict, y):
     mse = np.dot(loss.transpose(), loss) / y.shape[0]
     rmse = np.sqrt(mse)
     return rmse/(max(y)-min(y))
+
+def inpaint_img(img, center=None, mask=None):
+    """
+    Function to inpaint an image 
+    Warning: This function should not be used for any data processing or results, 
+    it is only for visualization and faster processing purpose.
+    """
+    print("Inpainting...")
+    detector = find_detector(img)
+    if center is not None:
+        corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
+        npt_rad = int(round(max([distance(center, c) for c in corners])))
+    else:
+        npt_rad=4096
+    if mask is None:
+        mask = np.zeros_like(img)
+        mask[img < 0] = 1
+    ai = AzimuthalIntegrator(detector=detector)
+    # ai.setFit2D(100, center[0], center[1])
+    integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+    image = ai.inpainting(img, mask=mask, poissonian=True, method=integration_method, npt_rad=npt_rad)
+    print("Done.")
+    return image
+
+def find_detector(img):
+    """
+    Finds the detector used based on the size on the image used. 
+    If not found, use the default agilent_titan
+    """
+    print("Finding detector...")
+    detector = None
+    for detect in Detector.registry:
+        if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
+            detector = detector_factory(detect)
+            print(detector)
+            break
+    if detector is None:
+        print("No corresponding detector found, using agilent_titan by default...")
+        detector = detector_factory('agilent_titan')
+    return detector
