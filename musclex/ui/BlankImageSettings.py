@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 from os.path import join, exists
 import matplotlib.pyplot as plt
+import copy
 import numpy as np
 import fabio
 from .pyqt_utils import *
@@ -82,6 +83,7 @@ class BlankImageSettings(QDialog):
         self.dir_path = dir_path
         self.additional_mask = None
         self.selected = None
+        self.orig = None
         self.mask = None
         self.loadCurrentSettings()
         self.initUI()
@@ -93,10 +95,11 @@ class BlankImageSettings(QDialog):
         Load the settings cached in the settings folder.
         """
         path = join(self.dir_path, 'settings')
-        blank = join(path, 'blank.tif')
+        blank = join(path, 'blank_before_scaling.tif')
         mask = join(path, 'mask.tif')
         if exists(blank):
             self.selected = fabio.open(blank).data
+            self.orig = copy.copy(self.selected)
             if exists(mask):
                 self.mask = fabio.open(mask).data
 
@@ -113,9 +116,13 @@ class BlankImageSettings(QDialog):
         self.drawMask = QPushButton("Draw Additional Mask")
         self.drawMaskOnly = QPushButton("Draw Mask using Base image")
         self.drawMask.setEnabled(self.selected is not None)
-        self.maskThres = QSpinBox()
+        self.maskThres = QDoubleSpinBox()
         self.maskThres.setRange(-10, 10)
         self.maskThres.setKeyboardTracking(False)
+        self.scaleFactor = QSpinBox()
+        self.scaleFactor.setRange(1, 200)
+        self.scaleFactor.setValue(100)
+        self.scaleFactor.setKeyboardTracking(True)
 
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
 
@@ -130,8 +137,10 @@ class BlankImageSettings(QDialog):
         self.mainLayout.addWidget(self.drawMask, 1, 1, 1, 1)
         self.mainLayout.addWidget(QLabel("Mask Threshold:"), 1, 2, 1, 1, Qt.AlignRight)
         self.mainLayout.addWidget(self.maskThres, 1, 3, 1, 1)
-        self.mainLayout.addWidget(self.bottons, 2, 0, 1, 4,  Qt.AlignCenter)
-        self.mainLayout.addWidget(self.statusBar, 3, 0, 1, 4, Qt.AlignCenter)
+        self.mainLayout.addWidget(QLabel("Scale Factor (%):"), 2, 2, 1, 1, Qt.AlignRight)
+        self.mainLayout.addWidget(self.scaleFactor, 2, 3, 1, 1)
+        self.mainLayout.addWidget(self.bottons, 3, 0, 1, 4,  Qt.AlignCenter)
+        self.mainLayout.addWidget(self.statusBar, 4, 0, 1, 4, Qt.AlignCenter)
 
     def setConnections(self):
         """
@@ -142,6 +151,7 @@ class BlankImageSettings(QDialog):
         self.drawMask.clicked.connect(self.launchDrawMask)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.onMotion)
         self.maskThres.valueChanged.connect(self.generateMask)
+        self.scaleFactor.valueChanged.connect(self.applyScaleFactor)
         self.bottons.accepted.connect(self.okClicked)
         self.bottons.rejected.connect(self.reject)
 
@@ -153,6 +163,7 @@ class BlankImageSettings(QDialog):
         mask_imgpath = getFiles(path=self.dir_path)[0]
         print("mask image path " + str(mask_imgpath))
         self.selected = fabio.open(mask_imgpath).data
+        self.orig = copy.copy(self.selected)
         self.drawMask.setEnabled(False)
 
         draw_dialog = MaskImageWidget(self.selected, self.mask)
@@ -185,6 +196,7 @@ class BlankImageSettings(QDialog):
             else:
                 img_type = "NORMAL"
             self.maskThres.setValue(getMaskThreshold(self.selected, img_type))
+            self.orig = copy.copy(self.selected)
             self.generateMask()
 
     def launchDrawMask(self):
@@ -203,11 +215,13 @@ class BlankImageSettings(QDialog):
         Save blank image and mask to tif files
         """
         if self.selected is not None:
+            self.applyScaleFactor()
             path = join(self.dir_path, 'settings')
             createFolder(path)
             fabio.tifimage.tifimage(data=self.mask).write(join(path,'mask.tif'))
             if self.mask is not None:
                 fabio.tifimage.tifimage(data=self.selected).write(join(path, 'blank.tif'))
+                fabio.tifimage.tifimage(data=self.orig).write(join(path, 'blank_before_scaling.tif'))
             self.accept()
         else:
             self.reject()
@@ -224,6 +238,15 @@ class BlankImageSettings(QDialog):
                 mask[self.additional_mask > 0] = 1
             self.mask = mask
             self.updateImage()
+
+    def applyScaleFactor(self):
+        """
+        Changes the scale factor of the mask. The default is 100%, 
+        making it lower will divide the intensity of the mask to avoid oversubtracting
+        """
+        if self.selected is not None:
+            scaleFactor = self.scaleFactor.value()
+            self.selected = self.orig * (scaleFactor / 100) 
 
     def updateImage(self):
         """

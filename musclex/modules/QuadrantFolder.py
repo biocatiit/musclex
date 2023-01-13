@@ -213,7 +213,6 @@ class QuadrantFolder:
             img = np.array(self.orig_img, 'float32')
             blank, mask = getBlankImageAndMask(self.img_path)
             maskOnly = getMaskOnly(self.img_path)
-            # blank = None
             if blank is not None:
                 img = img - blank
             if mask is not None:
