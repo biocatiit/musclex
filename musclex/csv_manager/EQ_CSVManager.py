@@ -55,7 +55,7 @@ class EQ_CSVManager:
                         "Model", "CenterX", "S10", "d10",
                         "I11/I10", "Average I11/I10 per fiber", "Fitting error","comment"]
         self.filename2 = fullPath(result_path, 'summary2.csv')
-        self.colnames2 = ['Filename', 'left peak 0', 'right peak 0', 'left peak 1', 'right peak 1',
+        self.colnames2 = ['Filename', 'left peak 0 ', 'right peak 0 ', 'left peak 1 ', 'right peak 1 ',
                          'left Sigma D', 'right Sigma D', 'left Sigma S', 'right Sigma S', 'left Sigma C',
                          'right Sigma C', 'left gamma', 'right gamma', 'left Z line', 'right Z line',
                          'left Sigma Z', 'right Sigma Z', 'left Iz', 'right Iz', 'left gamma Z',
@@ -63,6 +63,9 @@ class EQ_CSVManager:
                          'left Sigma Z EP', 'right Sigma Z EP', 'left Iz EP', 'right Iz EP', 'left gamma Z EP',
                          'right gamma Z EP', 'Model', 'CenterX', 'S10', 'd10', 'left I11/I10', 'right I11/I10',
                          'Average I11/I10 per fiber', 'Fitting error', 'comment']
+        for k in range(40):
+            self.colnames2.append(f'left peak {k}')
+            self.colnames2.append(f'right peak {k}')
         self.loadFailedCases(dir_path)
         self.loadSummary()
         self.loadSummary2()
@@ -247,6 +250,8 @@ class EQ_CSVManager:
                     for side in ['left', 'right']:
                         areas = fit_results[side+'_areas']
                         for i in range(len(areas)):
+                            if i < 2:
+                                data[f'{side} peak {i} '] = all_S[i]
                             data[f'{side} peak {i}'] = all_S[i]
 
                         data.update({
