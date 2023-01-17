@@ -5,6 +5,8 @@ There 2 settings you can set here, blank image and mask
 ## Blank Image
 Once the window launches, you will see "Select Blank Image(s)" at the bottom. Then, you can select a blank image or multiple images. The program will average them all if you select multiple images. If the image is from Pilatus detector. The program will initial mask threshold, and paint the mask as orange color. You can change it in order to make correct mask.
 
+It is also possible to change the scale factor (in percent) of the blank image. Indeed, a blank image can sometimes be more (or less) intense than the main image, so this scale factor helps to change the intensity of the blank image to avoid oversubtracting (or undersubtracting).
+
 ![-](../../images/BM/blank_img1.png)  ![-](../../images/BM/blank_img2.png)
 
 ## Additional Mask
