@@ -71,6 +71,7 @@ class EquatorImage:
         self.orig_img = self.orig_img.astype("float32")
         self.image = None
         self.skeletalVarsNotSet = False
+        self.extraPeakVarsNotSet = False
         if self.orig_img.shape == (1043, 981):
             self.img_type = "PILATUS"
         else:
@@ -641,6 +642,7 @@ class EquatorImage:
                         params.add(side+'_gammaz', 8., min=-5., max=30.)
                     
                     if self.info['isExtraPeak']:
+                        self.extraPeakVarsNotSet = False
                         if side+'_fix_zline_EP' in self.info:
                             int_vars[side+'_zline_EP'] = self.info[side+'_fix_zline_EP']
                         else:
@@ -655,14 +657,15 @@ class EquatorImage:
                         if side+'_fix_intz_EP' in self.info:
                             int_vars[side+'_intz_EP'] = self.info[side+'_fix_intz_EP']
                         else:
-                            init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
-                            params.add(side+'_intz_EP', init_intz, min=0, max=init_intz*4.+1.)
+                            init_intz_ep = max(left_areas[0] / 5., right_areas[0] / 5.)
+                            params.add(side+'_intz_EP', init_intz_ep, min=0, max=init_intz_ep*4.+1.)
 
                         if side+'_fix_gammaz_EP' in self.info:
                             int_vars[side+'_gammaz_EP'] = self.info[side+'_fix_gammaz_EP']
                         else:
                             params.add(side+'_gammaz_EP', 8., min=-5., max=30.)
                     else:
+                        self.extraPeakVarsNotSet = True
                         int_vars[side+'_zline_EP'] = 0
                         int_vars[side+'_sigmaz_EP'] = 0
                         int_vars[side+'_intz_EP'] = 0
@@ -671,6 +674,7 @@ class EquatorImage:
                 else:
                     # set all z line variables as independent
                     self.skeletalVarsNotSet = True
+                    self.extraPeakVarsNotSet = True
                     int_vars[side+'_zline'] = 0
                     int_vars[side+'_sigmaz'] = 0
                     int_vars[side+'_intz'] = 0
@@ -828,13 +832,15 @@ class EquatorImage:
                 init_intz = max(left_areas[0] / 5., right_areas[0] / 5.)
                 params.add(side + '_intz', init_intz, min=0, max=init_intz * 4. + 1.)
                 params.add(side + '_gammaz', 8., min=-5., max=30.)
-                if self.info['isExtraPeak']:
-                    init_z_ep = 2.3
-                    params.add(side + '_zline_EP', S[0] * init_z_ep, min=S[0] * init_z_ep - 10, max=S[0] * init_z_ep + 10)
-                    params.add(side + '_sigmaz_EP', 8., min=0., max=20.)
-                    init_intz_ep = max(left_areas[0] / 5., right_areas[0] / 5.)
-                    params.add(side + '_intz_EP', init_intz_ep, min=0, max=init_intz_ep * 4. + 1.)
-                    params.add(side + '_gammaz_EP', 8., min=-5., max=30.)
+        if self.info['isExtraPeak'] and self.extraPeakVarsNotSet:
+            # If EP is checked and use previous fit used, initialize the zline parameters if not set previously
+            for side in ['left', 'right']:
+                init_z_ep = 2.3
+                params.add(side + '_zline_EP', S[0] * init_z_ep, min=S[0] * init_z_ep - 10, max=S[0] * init_z_ep + 10)
+                params.add(side + '_sigmaz_EP', 8., min=0., max=20.)
+                init_intz_ep = max(left_areas[0] / 5., right_areas[0] / 5.)
+                params.add(side + '_intz_EP', init_intz_ep, min=0, max=init_intz_ep * 4. + 1.)
+                params.add(side + '_gammaz_EP', 8., min=-5., max=30.)
 
         int_vars['x'] = x
 
@@ -1096,7 +1102,7 @@ def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas,
             else:
                 result += mod.eval(x=x, amplitude=areas[i], center=p, sigma=sigmahk, gamma=gamma)
 
-    if extraGaussSig is not None and extraGaussCenter is not None and extraGaussCenter != 'None' and extraGaussCenter != 'None':
+    if extraGaussSig is not None and extraGaussCenter is not None and extraGaussCenter != 'None':
         mod = GaussianModel()
         result += mod.eval(x=x, amplitude=extraGaussArea, center=extraGaussCenter, sigma=extraGaussSig)
 

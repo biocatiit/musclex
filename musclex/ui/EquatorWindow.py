@@ -105,6 +105,7 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
+        self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         self.calSettings=None
         settings=self.getSettings()
         settings.update(self.bioImg.info)
@@ -1663,6 +1664,7 @@ class EquatorWindow(QMainWindow):
         if reprocess:
             self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
+        self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         settings = None
         # if len(self.bioImg.info) < 2: # use settings of the previous image
         settings = self.getSettings()
@@ -2904,9 +2906,10 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        prevInfo = self.bioImg.info if self.bioImg is not None else None
+        # prevInfo = self.bioImg.info if self.bioImg is not None else None
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
+        self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         settings = None
         if len(self.bioImg.info) < 2: # use settings of the previous image
             settings = self.getSettings()

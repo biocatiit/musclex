@@ -102,6 +102,7 @@ class EquatorWindowh:
         #prevInfo = self.bioImg.info if self.bioImg is not None else None
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
+        self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
 
         settings = None
         settings = self.getSettings()
