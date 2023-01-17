@@ -16,7 +16,7 @@ Chiplot-analyze is a utility program designed to take as input 1D traces of the 
 
 Simple program to convert HDF5 files to TIFF images.
 
-* [Github code]()
+* [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py)
 
 * Windows installer: [HDF5 to TIFF Converter on SourceForge](https://sourceforge.net/projects/hdf5-to-tiff-converter/)
 
