@@ -1631,6 +1631,18 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo(side + '_fix_gammaz_EP')
             self.bioImg.removeInfo('fix_k')
 
+    def refreshProcessingParams(self):
+        """
+        Refresh the processing parameters by cleaning the old information
+        """
+        if self.bioImg is not None:
+            self.bioImg.removeInfo('center')
+            self.bioImg.removeInfo('rmin')
+            self.bioImg.removeInfo('int_area')
+            self.bioImg.removeInfo('hist')
+            self.bioImg.removeInfo('hulls')
+            self.bioImg.removeInfo('fit_results')
+
     def prevClicked(self):
         """
         Going to the previous image
@@ -1647,12 +1659,9 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        file=fileName+'.info'
-        cache_path = os.path.join(self.dir_path, "eq_cache", file)
-        if reprocess:
-            if os.path.isfile(cache_path):
-                os.remove(cache_path)
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+        if reprocess:
+            self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         settings = None
         # if len(self.bioImg.info) < 2: # use settings of the previous image
