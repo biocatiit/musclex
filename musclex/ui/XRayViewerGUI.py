@@ -150,8 +150,8 @@ class XRayViewerGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(QLabel("Color Map:"), 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.colorMapChoice, 4, 1, 1, 2)
+        self.dispOptLayout.addWidget(QLabel("Color Map:"), 4, 0, 1, 1)
+        self.dispOptLayout.addWidget(self.colorMapChoice, 4, 1, 1, 1)
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 5, 0, 1, 2)
         self.dispOptLayout.addWidget(self.persistMaxIntensity, 6, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
@@ -1106,6 +1106,9 @@ class XRayViewerGUI(QMainWindow):
             elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
                 ax.set_xlim(self.default_img_zoom[0])
                 ax.set_ylim(self.default_img_zoom[1])
+            else:
+                ax.set_xlim((0, img.shape[1]))
+                ax.set_ylim((0, img.shape[0]))
 
             self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
             ax.invert_yaxis()
