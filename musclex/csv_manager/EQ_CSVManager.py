@@ -245,14 +245,14 @@ class EQ_CSVManager:
             else:
                 if 'fit_results' in info:
                     fit_results = info['fit_results']
-                    all_S = fit_results['all_S']
+                    # all_S = fit_results['all_S']
                     data['Filename'] = file_name
                     for side in ['left', 'right']:
                         areas = fit_results[side+'_areas']
                         for i in range(len(areas)):
                             if i < 2:
-                                data[f'{side} peak {i} '] = all_S[i]
-                            data[f'{side} peak {i}'] = all_S[i]
+                                data[f'{side} peak {i} '] = areas[i]
+                            data[f'{side} peak {i}'] = areas[i]
 
                         data.update({
                             side+" Sigma C": abs(fit_results[side+'_sigmac']),
