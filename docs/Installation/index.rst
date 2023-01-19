@@ -2,7 +2,7 @@ Installation
 ============
 .. _install:
 
-We provide three ways to install Muscle X. See the following parts for details.
+We provide five ways to install Muscle X. See the following parts for details.
 
 .. rubric:: Instructions
 

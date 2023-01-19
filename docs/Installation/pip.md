@@ -9,9 +9,16 @@ There are some modules need to be installed before installing Muscle X. They are
 
 ### Linux
 
-It is recommended to install Python3.8 on Linux to use MuscleX as it is the Python version we use and test. You can still use another one, newer or older, but MuscleX has not been tested on other Python versions. Whichever version you plan on using, you will need the associated pip, dev, and distutils packages. 
+It is recommended to install Python 3.8 on Linux to use MuscleX as it is the Python version we use and test. You can still use another one, newer or older, but MuscleX has not been tested on other Python versions. Whichever version you plan on using, you will need the associated pip, dev, and distutils packages. 
 
-Here is the recommended setup to run:
+To access Python 3.8 repository:
+```
+sudo apt update
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:deadsnakes/ppa
+```
+
+Then here is the recommended setup to run:
 ```
 sudo apt-get update
 sudo apt-get install python3.8 python3-pip python3.8-dev python3.8-distutils 
