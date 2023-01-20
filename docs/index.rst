@@ -11,11 +11,11 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Quadrant Folding (qf) <Quadrant Folding>`
 - :ref:`Projection Traces (pt) <Projection Traces>`
 - :ref:`Scanning Diffraction (di) <Scanning Diffraction>`
-- :ref:`Diffraction Centroids (dc) <Diffraction Centroids>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
 - :ref:`Add Intensities Single Experiment (aise) <Add Intensities Single Experiment>`
 - :ref:`Add Intensities Multiple Experiments (aime) <Add Intensities Multiple Experiments>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
+- :ref:`Deprecated: Diffraction Centroids (dc) <Diffraction Centroids>`
 
 
 .. rubric:: Get the software

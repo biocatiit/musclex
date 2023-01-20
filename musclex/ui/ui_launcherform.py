@@ -36,9 +36,9 @@ class Ui_LauncherForm(object):
         item = QListWidgetItem()
         item.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
         self.listWidget.addItem(item)
-        item = QListWidgetItem()
-        item.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
-        self.listWidget.addItem(item)
+        # item = QListWidgetItem()
+        # item.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
+        # self.listWidget.addItem(item)
         item = QListWidgetItem()
         item.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
         self.listWidget.addItem(item)
@@ -86,13 +86,13 @@ class Ui_LauncherForm(object):
         self.textBrowser_4.setOpenExternalLinks(True)
         self.textBrowser_4.setObjectName("textBrowser_4")
         self.stackedWidget.addWidget(self.page_4)
-        self.page_5 = QWidget()
-        self.page_5.setObjectName("page_5")
-        self.textBrowser_5 = QTextBrowser(self.page_5)
-        self.textBrowser_5.setGeometry(QRect(0, 0, 521, 541))
-        self.textBrowser_5.setOpenExternalLinks(True)
-        self.textBrowser_5.setObjectName("textBrowser_5")
-        self.stackedWidget.addWidget(self.page_5)
+        # self.page_5 = QWidget()
+        # self.page_5.setObjectName("page_5")
+        # self.textBrowser_5 = QTextBrowser(self.page_5)
+        # self.textBrowser_5.setGeometry(QRect(0, 0, 521, 541))
+        # self.textBrowser_5.setOpenExternalLinks(True)
+        # self.textBrowser_5.setObjectName("textBrowser_5")
+        # self.stackedWidget.addWidget(self.page_5)
         self.page_6 = QWidget()
         self.page_6.setObjectName("page_6")
         self.textBrowser_6 = QTextBrowser(self.page_6)
@@ -154,13 +154,13 @@ class Ui_LauncherForm(object):
         item.setText(_translate("LauncherForm", "Projection Traces"))
         item = self.listWidget.item(4)
         item.setText(_translate("LauncherForm", "Scanning Diffraction"))
+        # item = self.listWidget.item(5)
+        # item.setText(_translate("LauncherForm", "Diffraction Centroids"))
         item = self.listWidget.item(5)
-        item.setText(_translate("LauncherForm", "Diffraction Centroids"))
-        item = self.listWidget.item(6)
         item.setText(_translate("LauncherForm", "DDF Processor"))
-        item = self.listWidget.item(7)
+        item = self.listWidget.item(6)
         item.setText(_translate("LauncherForm", "Add Intensities Single Experiment"))
-        item = self.listWidget.item(8)
+        item = self.listWidget.item(7)
         item.setText(_translate("LauncherForm", "Add Intensities Multiple Experiments"))
         self.listWidget.setSortingEnabled(__sortingEnabled)
         self.textBrowser_0.setMarkdown(_translate("LauncherForm", "**X-Ray Viewer** is a small program used to display tif and h5 files and able to\n"
@@ -205,15 +205,15 @@ class Ui_LauncherForm(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Scanning diffraction</span> imaging experiments attempt to determine the distribution of diffracting materials such as collagen, myelin, and amyloid structures as a function of position in a sample that is raster scanned in a microbeam.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/ScanningDiffraction\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/ScanningDiffraction</span></a> for details.</p></body></html>"))
-        self.textBrowser_5.setMarkdown(_translate("LauncherForm", "**Diffraction Centroids** is designed to rapidly and accurately measure the\n"
-"spacings of user specified meridional reflections as well as the 5.9 and 5.1\n"
-"actin layer lines in a series of diffraction images, such as those generated in\n"
-"a time resolved experiment. "))
-        self.textBrowser_5.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Diffraction Centroids</span> is designed to rapidly and accurately measure the spacings of user specified meridional reflections as well as the 5.9 and 5.1 actin layer lines in a series of diffraction images, such as those generated in a time resolved experiment.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/DiffractionCentroids\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/DiffractionCentroids</span></a> for details.</p></body></html>"))
+        # self.textBrowser_5.setMarkdown(_translate("LauncherForm", "**Diffraction Centroids** is designed to rapidly and accurately measure the\n"
+# "spacings of user specified meridional reflections as well as the 5.9 and 5.1\n"
+# "actin layer lines in a series of diffraction images, such as those generated in\n"
+# "a time resolved experiment. "))
+#         self.textBrowser_5.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+# "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+# "p, li { white-space: pre-wrap; }\n"
+# "</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
+# "<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Diffraction Centroids</span> is designed to rapidly and accurately measure the spacings of user specified meridional reflections as well as the 5.9 and 5.1 actin layer lines in a series of diffraction images, such as those generated in a time resolved experiment.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/DiffractionCentroids\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/DiffractionCentroids</span></a> for details.</p></body></html>"))
         self.textBrowser_6.setMarkdown(_translate("LauncherForm", "**DDF Processor** is a program which is able to average data points for ddf file."))
         self.textBrowser_6.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"

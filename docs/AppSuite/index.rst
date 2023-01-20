@@ -9,7 +9,6 @@ Application Suite
    QuadrantFolding/index
    ProjectionTraces/index
    ScanningDiffraction/index
-   DiffractionCentroids/index
    DDFProcessor/index
    AddIntensitiesSE/index
    AddIntensitiesME/index
@@ -17,4 +16,5 @@ Application Suite
    Image-Processing-Functions
    WorkingWithHdf5Images/index  
    ConvertRectangleImagetoSquareImages/index
+   DiffractionCentroids/index
    
