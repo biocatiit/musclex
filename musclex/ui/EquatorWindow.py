@@ -236,9 +236,9 @@ class EquatorWindow(QMainWindow):
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
         self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
-        self.fixedAngleChkBx = QCheckBox("Fixed Angle")
+        self.fixedAngleChkBx = QCheckBox("Fixed Angle:")
         self.fixedAngleChkBx.setChecked(False)
-        self.fixedRminChkBx = QCheckBox("Fixed R-min")
+        self.fixedRminChkBx = QCheckBox("Fixed R-min:")
         self.fixedRminChkBx.setChecked(False)
         self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
@@ -270,7 +270,7 @@ class EquatorWindow(QMainWindow):
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setObjectName('maskThresSpnBx')
         self.editableVars[self.maskThresSpnBx.objectName()] = None
-        self.maskThresSpnBx.setRange(-10,10)
+        self.maskThresSpnBx.setRange(-10000,100000)
         self.maskThresSpnBx.setKeyboardTracking(False)
         self.orientationCmbBx = QComboBox()
         self.orientationCmbBx.addItem("Max Intensity")
@@ -293,7 +293,7 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.blankSettings, 5, 3, 1, 1)
         self.imgProcLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
         # self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 5, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold"), 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 7, 0, 1, 2)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 7, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedAngleChkBx, 8, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedAngle, 8, 2, 1, 2)
@@ -1969,6 +1969,7 @@ class EquatorWindow(QMainWindow):
             self.function = ["rmin"]  # set current active function
         else:
             self.resetUI()
+
     def brightSpotClicked(self):
         """
         find the oritation along the brightest spots

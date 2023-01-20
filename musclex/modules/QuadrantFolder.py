@@ -341,19 +341,19 @@ class QuadrantFolder:
         rows,cols = new_img.shape
         mask_thres = self.info["mask_thres"]
 
-        if self.img_type == "PILATUS":
-            if mask_thres == -999:
-                mask_thres = getMaskThreshold(img, self.img_type)
-            mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
-            mask[new_img <= mask_thres] = 255
-            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-            translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
-            translated_mask = cv2.warpAffine(mask, M, (cols, rows))
-            translated_mask[translated_mask > 0.] = 255
-            translated_Img[translated_mask > 0] = mask_thres
-        else:
-            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-            translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
+        # if self.img_type == "PILATUS":
+        #     if mask_thres == -999:
+        #         mask_thres = getMaskThreshold(img, self.img_type)
+        #     mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
+        #     mask[new_img <= mask_thres] = 255
+        #     cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
+        #     translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
+        #     translated_mask = cv2.warpAffine(mask, M, (cols, rows))
+        #     translated_mask[translated_mask > 0.] = 255
+        #     translated_Img[translated_mask > 0] = mask_thres
+        # else:
+        cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
+        translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
 
         self.orig_img = translated_Img
         self.info['center'] = (int(dim / 2), int(dim / 2))

@@ -378,17 +378,18 @@ def getRotationAngle(img, center, method=0):
         init_angle = init_angle if init_angle <= 90. else 180. - init_angle
 
     # Find angle with maximum intensity from Azimuthal integration
-    if img.shape == (1043, 981):
-        det = "pilatus1m"
-    else:
-        det = "agilent_titan"
+    # if img.shape == (1043, 981):
+    #     det = "pilatus1m"
+    # else:
+    #     det = "agilent_titan"
+    det = find_detector(img)
 
     corners = [(0, 0), (0, img.shape[1]), (img.shape[0], 0), (img.shape[0], img.shape[1])]
     npt_rad = int(round(max([distance(center, c) for c in corners])))
     ai = AzimuthalIntegrator(detector=det)
     ai.setFit2D(200, center[0], center[1])
-    integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
-    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method=integration_method)
+    integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=2, default="csr", degradable=True)
+    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method="csr")
     I2D = I2D[:, :int(len(tth)/3.)]
     hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0
@@ -495,19 +496,19 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
     # M1 = M3[0:2,:]
     # print("M1: {}".format(M1))
 
-    if img_type == "PILATUS":
-        img = img.astype('float32')
-        if mask_thres == -999:
-            mask_thres = getMaskThreshold(img, img_type)
-        mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
-        mask[img <= mask_thres] = 255
-        rotated_img, center, rotMat = rotateNonSquareImage(img, angle, center)
-        rotated_mask, _, _ = rotateNonSquareImage(mask, angle, center)
-        rotated_mask[rotated_mask > 0.] = 255
-        rotated_img[rotated_mask > 0] = mask_thres
-        return rotated_img, center, rotMat
-    else:
-        return rotateNonSquareImage(img, angle, center)
+    # if img_type == "PILATUS":
+    #     img = img.astype('float32')
+    #     if mask_thres == -999:
+    #         mask_thres = getMaskThreshold(img, img_type)
+    #     mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+    #     mask[img <= mask_thres] = 255
+    #     rotated_img, center, rotMat = rotateNonSquareImage(img, angle, center)
+    #     rotated_mask, _, _ = rotateNonSquareImage(mask, angle, center)
+    #     rotated_mask[rotated_mask > 0.] = 255
+    #     rotated_img[rotated_mask > 0] = mask_thres
+    #     return rotated_img, center, rotMat
+    # else:
+    return rotateNonSquareImage(img, angle, center)
 
 def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
     """
@@ -522,18 +523,18 @@ def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
 
     M = cv2.getRotationMatrix2D(tuple(point), angle, 1)
 
-    if img_type == "PILATUS":
-        img = img.astype('float32')
-        if mask_thres == -999:
-            mask_thres = getMaskThreshold(img, img_type)
-        mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
-        mask[img <= mask_thres] = 255
-        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
-        rotated_mask = cv2.warpAffine(mask, M, (img.shape[1],  img.shape[0]))
-        rotated_mask[rotated_mask > 0.] = 255
-        rotated_img[rotated_mask > 0] = mask_thres
-    else:
-        rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
+    # if img_type == "PILATUS":
+    #     img = img.astype('float32')
+    #     if mask_thres == -999:
+    #         mask_thres = getMaskThreshold(img, img_type)
+    #     mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+    #     mask[img <= mask_thres] = 255
+    #     rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
+    #     rotated_mask = cv2.warpAffine(mask, M, (img.shape[1],  img.shape[0]))
+    #     rotated_mask[rotated_mask > 0.] = 255
+    #     rotated_img[rotated_mask > 0] = mask_thres
+    # else:
+    rotated_img = cv2.warpAffine(img, M, (img.shape[1],  img.shape[0]))
     return rotated_img
 
 def rotatePoint(origin, point, angle):
@@ -717,17 +718,17 @@ def processImageForIntCenter(img, center, img_type, mask_thres = -999):
     print("In process Image int center, translating original image by tx = " + str(tx) + " and ty = " + str(ty))
     rows,cols = img.shape
 
-    if img_type == "PILATUS":
-        if mask_thres == -999:
-            mask_thres = getMaskThreshold(img, img_type)
-        mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
-        mask[img <= mask_thres] = 255
-        translated_Img = cv2.warpAffine(img, M, (cols,rows))
-        translated_mask = cv2.warpAffine(mask, M, (cols,rows))
-        translated_mask[translated_mask > 0.] = 255
-        translated_Img[translated_mask > 0] = mask_thres
-    else:
-        translated_Img = cv2.warpAffine(img,M,(cols,rows))
+    # if img_type == "PILATUS":
+    #     if mask_thres == -999:
+    #         mask_thres = getMaskThreshold(img, img_type)
+    #     mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
+    #     mask[img <= mask_thres] = 255
+    #     translated_Img = cv2.warpAffine(img, M, (cols,rows))
+    #     translated_mask = cv2.warpAffine(mask, M, (cols,rows))
+    #     translated_mask[translated_mask > 0.] = 255
+    #     translated_Img[translated_mask > 0] = mask_thres
+    # else:
+    translated_Img = cv2.warpAffine(img,M,(cols,rows))
 
     return (translated_Img, int_Center)
 

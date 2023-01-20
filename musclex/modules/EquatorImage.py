@@ -94,7 +94,7 @@ class EquatorImage:
         if cache is None:
             # info dictionary will save all results
             self.info = {
-                "mask_thres" : 0 #getMaskThreshold(self.orig_img, self.img_type)
+                "mask_thres" : -0.01 #getMaskThreshold(self.orig_img, self.img_type)
             }
         else:
             self.info = cache
@@ -245,17 +245,18 @@ class EquatorImage:
             img = copy.copy(self.orig_img)
             center = self.info['center']
 
-            if img.shape == (1043, 981):
-                det = "pilatus1m"
-            else:
-                det = "agilent_titan"
+            # if img.shape == (1043, 981):
+            #     det = "pilatus1m"
+            # else:
+            #     det = "agilent_titan"
+            det = find_detector(img)
 
             corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
             npt_rad = int(round(max([distance(center, c) for c in corners])))
             ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
             integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
-            _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method) # Get 1D Azimuthal integrated histogram
+            _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method="csr") # Get 1D Azimuthal integrated histogram
             self.info['rmin'] = getFirstVallay(I) # R-min is value before the first valley
             self.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
 
@@ -373,14 +374,25 @@ class EquatorImage:
             rmin = self.info['rmin']
             hist = copy.copy(self.info['hist'])
             int_area = self.info['int_area']
-            img_area = self.getRotatedImage()[int_area[0]:int_area[1], :]
-            min_val = self.orig_img.min()
-            if self.img_type == "PILATUS":
-                histo = np.histogram(self.orig_img, 3, (min_val, min_val+3))
-                max_ind = np.argmax(histo[0])
-                self.info['mask_thres'] = histo[1][max_ind]
-            else:
-                self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
+            img = self.getRotatedImage()
+            # remove lines in the box width that are under the -1 value (on the gap)
+            k, l = 0, 0
+            while np.sum(img[int_area[0] + k, :]) <= -1:
+                k += 1
+            while np.sum(img[int_area[1] - l, :]) <= -1:
+                l += 1
+            if int_area[0] + k >= int_area[1] - l:
+                # cancel it and compute hull anyway 
+                k, l = 0, 0
+            img_area = self.getRotatedImage()[int_area[0] + k:int_area[1] - l, :]
+            # min_val = self.orig_img.min()
+            # if self.img_type == "PILATUS":
+            #     histo = np.histogram(self.orig_img, 3, (min_val, min_val+3))
+            #     max_ind = np.argmax(histo[0])
+            #     self.info['mask_thres'] = histo[1][max_ind]
+            # else:
+            #self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
+            print(self.info['mask_thres'])
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
             if any(ignore):
                 left_ignore = ignore[:int(center[0])]
