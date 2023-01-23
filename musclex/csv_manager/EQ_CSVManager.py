@@ -109,6 +109,7 @@ class EQ_CSVManager:
         :param bioImg: EquatorImage object with results in its info dict
         :return: -
         """
+        self.loadSummary()
         file_name = bioImg.filename
         info = bioImg.info
         self.removeData(file_name)
@@ -222,6 +223,7 @@ class EQ_CSVManager:
         :param bioImg: EquatorImage object with results in its info dict
         :return: -
         """
+        self.loadSummary2()
         file_name = bioImg.filename
         info = bioImg.info
         self.removeData2(file_name)

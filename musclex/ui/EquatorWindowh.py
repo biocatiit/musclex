@@ -49,7 +49,7 @@ class EquatorWindowh:
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/eqsettings.json'):
+    def __init__(self, filename, inputsettings, delcache, lock=None, settingspath='musclex/settings/eqsettings.json'):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -76,6 +76,7 @@ class EquatorWindowh:
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
+        self.lock = lock
 
         self.onImageChanged() # Toggle window to process current image
 
@@ -83,8 +84,8 @@ class EquatorWindowh:
         """
         Display input error to screen
         """
-        print('Invalid Input')
-        print("Please select non empty failedcases.txt or an image\n\n")
+        self.statusPrint('Invalid Input')
+        self.statusPrint("Please select non empty failedcases.txt or an image\n\n")
 
     def onImageChanged(self):
         """
@@ -106,8 +107,8 @@ class EquatorWindowh:
 
         settings = None
         settings = self.getSettings()
-        print("Settings in onImageChange before update")
-        print(settings)
+        self.statusPrint("Settings in onImageChange before update")
+        self.statusPrint(settings)
 
         # Process new image
         if 'paramInfo' in settings:
@@ -117,18 +118,18 @@ class EquatorWindowh:
         else:
             self.processImage()
 
-        print('---------------------------------------------------')
+        self.statusPrint('---------------------------------------------------')
 
         if self.inputsettings and cache_exist and not self.delcache:
-            print('cache exists, provided setting file was not used ')
+            self.statusPrint('cache exists, provided setting file was not used ')
         elif self.inputsettings and (not cache_exist or self.delcache):
-            print('setting file provided and used for fitting')
+            self.statusPrint('setting file provided and used for fitting')
         elif not self.inputsettings and cache_exist and not self.delcache:
-            print('cache exist, no fitting was performed')
+            self.statusPrint('cache exist, no fitting was performed')
         elif not self.inputsettings and (self.delcache or not cache_exist):
-            print('fitting with default settings')
+            self.statusPrint('fitting with default settings')
 
-        print('---------------------------------------------------')
+        self.statusPrint('---------------------------------------------------')
 
     def processImage(self, paramInfo=None):
         """
@@ -139,20 +140,26 @@ class EquatorWindowh:
             return
 
         settings = self.getSettings()
-        print("Settings in processImage:")
-        print(settings)
+        self.statusPrint("Settings in processImage:")
+        self.statusPrint(settings)
         try:
             self.bioImg.process(settings, paramInfo)
         except Exception:
-            print('Unexpected error')
+            self.statusPrint('Unexpected error')
             msg = 'Please report the problem with error message below and the input image\n\n'
             msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
-            print(msg)
+            self.statusPrint(msg)
             raise
 
         self.updateParams()
+        # acquire the lock
+        if self.lock is not None:
+            self.lock.acquire()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager.writeNewData2(self.bioImg)
+        # release the lock
+        if self.lock is not None:
+            self.lock.release()
 
     def updateParams(self):
         """
@@ -181,7 +188,7 @@ class EquatorWindowh:
                 with open(settingspath) as f:
                     settings=json.load(f)
             except Exception:
-                print("Can't load setting file")
+                self.statusPrint("Can't load setting file")
                 self.inputsettings=False
                 settings={"left_fix_sigmac": 1.0, "right_fix_sigmac": 1.0, \
                     "left_fix_sigmas": 0.0001, "right_fix_sigmas": 0.0001, "fix_k":0, \
@@ -219,5 +226,10 @@ class EquatorWindowh:
         :param text: text to print
         :return: -
         """
-        print(text)
+        if text != "":
+            pid = os.getpid()
+            ptext = "[Process "+str(pid)+"] "+str(text)
+            print(ptext)
+        else:
+            print(text)
    

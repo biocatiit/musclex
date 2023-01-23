@@ -57,7 +57,9 @@ class EQStartWindowh:
         Popup an input folder dialog. Users can select a folder
         """
         input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
-
+        from multiprocessing import Lock, Process, cpu_count
+        lock = Lock()
+        procs = []
         if self.dir_path != "":
             imgList = os.listdir(self.dir_path)
         for image in imgList:
@@ -66,7 +68,19 @@ class EQStartWindowh:
                 _, ext = os.path.splitext(str(file_name))
                 if ext in input_types:
                     print("filename is", file_name)
-                    self.runBioMuscle(file_name)
+                    if self.settingspath is None:
+                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock,))
+                    else:
+                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, self.settingspath,))
+                    procs.append(proc)
+                    proc.start()
+            if len(procs) % cpu_count() == 0:
+                for proc in procs:
+                    proc.join()
+                procs = []
+        for proc in procs:
+            proc.join()
+        #self.runBioMuscle(file_name)
 
     def browseFile(self):
         """
@@ -95,5 +109,5 @@ class EQStartWindowh:
         if settingspath is None:
             EquatorWindowh(filename, self.inputFlag, self.delcache)
         else:
-            EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath)
+            EquatorWindowh(filename, self.inputFlag, self.delcache, settingspath=settingspath)
        

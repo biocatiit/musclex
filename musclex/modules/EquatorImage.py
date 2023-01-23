@@ -167,7 +167,7 @@ class EquatorImage:
         if self.info['blank_mask']:
             blank, mask = getBlankImageAndMask(self.dir_path)
             maskOnly = getMaskOnly(self.dir_path)
-            print(maskOnly)
+            # print(maskOnly)
             if blank is not None:
                 img = img - blank
             if mask is not None:
@@ -392,7 +392,6 @@ class EquatorImage:
             #     self.info['mask_thres'] = histo[1][max_ind]
             # else:
             #self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
-            print(self.info['mask_thres'])
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
             if any(ignore):
                 left_ignore = ignore[:int(center[0])]
