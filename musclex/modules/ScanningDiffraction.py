@@ -200,15 +200,15 @@ class ScanningDiffraction:
                 noBGImg = getImgAfterWhiteTopHat(img)
 
             center = self.info['center']
-
+            det = find_detector(img)
             if img.shape == (1043, 981):
-                det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
+                # det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
                 # rmax = max(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1])
                 rmax = max(img.shape[0] / 2, img.shape[1] / 2)
                 min_endpoint = int(round(min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1]) *.75))
                 # img = self.getFilledImage(img)
             else:
-                det = "agilent_titan"  # This detector has the same size (2048,2048)
+                # det = "agilent_titan"  # This detector has the same size (2048,2048)
                 rmax = int(round(min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1]) *.75))
                 min_endpoint = rmax
 
@@ -381,7 +381,7 @@ class ScanningDiffraction:
 
         return sigmaList
 
-    def fitModel(self):
+    def fitModel(self, max_nfev=8000):
         """
         Fit model to azimuthal integration
         """
@@ -401,13 +401,13 @@ class ScanningDiffraction:
             # methods = ['leastsq', 'lbfgsb', 'cg', 'tnc', 'slsqp']
             methods = ['leastsq']
 
-            for (i, _) in enumerate(methods):
+            for (i, e) in enumerate(methods):
                 start = time.time()
-                t_m, error = fitGMMv2(hists_np, merged_peaks, sigmaList, methods[i])
+                t_m, error = fitGMMv2(hists_np, merged_peaks, sigmaList, methods[i], max_nfev=max_nfev)
                 temp_model.append(t_m)
                 self.log("Fitting Results = " + str(t_m))
-                self.log("Error for method "+ str(methods[i])+ " = "+ str(error))
-                self.log("Time for method "+ str(methods[i])+ " = "+str(time.time() - start))
+                self.log("Error for method "+ str(e)+ " = "+ str(error))
+                self.log("Time for method "+ str(e)+ " = "+str(time.time() - start))
                 temp_error.append(error)
                 if error < 0.05:
                     break
@@ -465,10 +465,11 @@ class ScanningDiffraction:
         if blank is not None:
             img = img - blank
 
-        if img.shape == (1043, 981):
-            det = "pilatus1m"  # This detector has the size (1043, 981)
-        else:
-            det = "agilent_titan"
+        # if img.shape == (1043, 981):
+        #     det = "pilatus1m"  # This detector has the size (1043, 981)
+        # else:
+        #     det = "agilent_titan"
+        det = find_detector(img)
 
         center = self.info['center']
         corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
@@ -791,7 +792,6 @@ class ScanningDiffraction:
 
         return orig_hist
 
-
     def removeValleys(self, hists):
         """
         Remove valley from ring hist (pilatus line)
@@ -911,7 +911,7 @@ class ScanningDiffraction:
         idx = (np.abs(array - value)).argmin()
         return idx
 
-    def get_ring_model(self, hist):
+    def get_ring_model(self, hist, max_nfev=8000):
         """
         Fit gaussian model to rings
         :param hist:
@@ -957,7 +957,7 @@ class ScanningDiffraction:
         params.add("alpha", alpha1, min=0, max=alpha1*5+0.0000001)
         params.add("bg", 0, min = -1, max = max_height+1)
 
-        result = model.fit(hist[1], x=x, params = params, nan_policy='propagate')
+        result = model.fit(hist[1], x=x, params = params, nan_policy='propagate', max_nfev=max_nfev)
 
         # Compute valley point and circular shift
         v_value = result.values['u'] + np.pi / 2
@@ -979,7 +979,7 @@ class ScanningDiffraction:
         params.add("bg", bg, min = -1, max = max_height)
 
         model = Model(orientation_GMM2, independent_vars='x')
-        result = model.fit(hist_shifted, x=x, params=params, nan_policy='propagate')
+        result = model.fit(hist_shifted, x=x, params=params, nan_policy='propagate', max_nfev=max_nfev)
         result = result.values
 
         # Correction over shifted peaks
@@ -987,7 +987,7 @@ class ScanningDiffraction:
 
         return result
 
-    def get_ring_model2(self, hist):
+    def get_ring_model2(self, hist, max_nfev=8000):
         """
         Fit gaussian model to rings
         :param hist:
@@ -1016,14 +1016,14 @@ class ScanningDiffraction:
         model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
         model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
 
-        result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='propagate')
+        result = model.fit(data=hist[1], x=x, params=model.make_params(), nan_policy='propagate', max_nfev=max_nfev)
         errs = abs(result.best_fit - result.data)
         if errs.mean() != 0:
             weights = errs / errs.mean() + 1
         else:
             weights=np.ones_like(errs)
         weights[weights > 3.] = 0
-        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, nan_policy='propagate')
+        result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, nan_policy='propagate', max_nfev=max_nfev)
 
         return result.values
 
@@ -1307,7 +1307,7 @@ def orientation_GMM3(x, u, sigma, alpha, bg):
         mod.eval(x=x, amplitude=alpha, center=u-np.pi, sigma=sigma) + \
         mod.eval(x=x, amplitude=alpha, center=u+np.pi, sigma=sigma) + bg
 
-def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
+def fitGMMv2(hists_np, indexes, widthList, method='leastsq', max_nfev=8000):
     """
     Fit Gaussian model using lmfit on CPU
     """
@@ -1334,7 +1334,7 @@ def fitGMMv2(hists_np, indexes, widthList, method='leastsq'):
     model = gaussians[0]
     for i in range(1, len(gaussians)):
         model += gaussians[i]
-    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate').values
+    out = model.fit(hists_np, pars, x=x, method=method, nan_policy='propagate', max_nfev=max_nfev).values
     result = {}
     for i in range(len(indexes)):
         prefix = 'g' + str(i + 1) + '_'

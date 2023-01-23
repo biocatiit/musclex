@@ -258,7 +258,7 @@ def getCenter(img):
     # If there's no method working return center of the image
     return (img.shape[1] / 2, img.shape[0] / 2)
 
-def get_ring_model(hist):
+def get_ring_model(hist, max_nfev=8000):
     """
     Fit gaussian model to histogram
     :param hist:
@@ -294,11 +294,11 @@ def get_ring_model(hist):
     model.set_param_hint('alpha', value=max_height*0.1/0.3989423, min=0)
     model.set_param_hint('bg', value=0, min=-1, max=max_height+1)
 
-    result = model.fit(data=hist[1], x=x, params=model.make_params())
+    result = model.fit(data=hist[1], x=x, params=model.make_params(), max_nfev=max_nfev)
     errs = abs(result.best_fit - result.data)
     weights = errs / errs.mean() + 1
     weights[weights > 3.] = 0
-    result = model.fit(data=hist[1], x=x, params=result.params, weights=weights)
+    result = model.fit(data=hist[1], x=x, params=result.params, weights=weights, max_nfev=max_nfev)
 
     return result.values
 
