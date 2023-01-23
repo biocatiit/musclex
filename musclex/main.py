@@ -216,7 +216,7 @@ def main(arguments=None):
                 sys.exit()
             else:
                 from musclex.ui.DIBatchWindowh import DIBatchWindowh
-                DIBatchWindowh( str(filePath), inputsetting, delcache, settingspath)
+                DIBatchWindowh(str(filePath), inputsetting, delcache, settingspath)
                 sys.exit()
 
     elif len(arguments) >= 5 and arguments[1]=='qf' and arguments[2]=='-h':

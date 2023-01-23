@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import logging
 import json
+import os
 from csv import writer
 from matplotlib import scale as mscale
 from matplotlib import transforms as mtransforms
@@ -182,13 +183,14 @@ class DIImageWindowh():
     """
     A class to process Scanning diffraction on a file
     """
-    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', process_folder=False,imgList = None):
+    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', process_folder=False, imgList=None, lock=None):
         self.fileName = image_name
         self.filePath = dir_path
         self.fullPath = os.path.join(dir_path, image_name)
         self.inputflag=inputflags
         self.delcache=delcache
         self.inputflagfile=inputflagpath
+        self.lock = lock
 
         self.csvManager = DI_CSVManager(dir_path)
         self.imgList = []
@@ -245,7 +247,7 @@ class DIImageWindowh():
         """
         ## Popup confirm dialog with settings
         nImg = len(self.imgList)
-        print('Process Current Folder')
+        self.statusPrint('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         flags = self.getFlags()
         text += "\nCurrent Settings"
@@ -302,7 +304,7 @@ class DIImageWindowh():
                 with open(self.inputflagfile) as f:
                     flags=json.load(f)
             except Exception:
-                print("Can't load setting file")
+                self.statusPrint("Can't load setting file")
                 self.inputflag=False
                 flags={"partial_angle": 90, "orientation_model": "GMM3", "90rotation": False}
         else:
@@ -337,25 +339,25 @@ class DIImageWindowh():
         cache_exist=os.path.isfile(cache_path)
         if self.delcache:
             if os.path.isfile(cache_path):
-                print('cache is deleted')
+                self.statusPrint('cache is deleted')
                 os.remove(cache_path)
         fileName = self.imgList[self.currentFileNumber]
-        print("current file is "+fileName)
-        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger)
+        self.statusPrint("current file is "+fileName)
+        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger, parent=self)
         self.processImage(True)
-        print('---------------------------------------------------')
+        self.statusPrint('---------------------------------------------------')
 
         if self.inputflag and cache_exist and not self.delcache:
-            print('cache exists, provided setting file was not used ')
+            self.statusPrint('cache exists, provided setting file was not used ')
         elif self.inputflag and (not cache_exist or self.delcache):
-            print('setting file provided and used for fitting')
+            self.statusPrint('setting file provided and used for fitting')
         elif not self.inputflag and cache_exist and not self.delcache:
-            print('cache exist, no fitting was performed')
+            self.statusPrint('cache exist, no fitting was performed')
         elif not self.inputflag and (self.delcache or not cache_exist):
-            print('fitting with default settings')
-            print('default settings are "partial_angle": 90, "orientation_model": "GMM3", "90rotation": False')
+            self.statusPrint('fitting with default settings')
+            self.statusPrint('default settings are "partial_angle": 90, "orientation_model": "GMM3", "90rotation": False')
 
-        print('---------------------------------------------------')
+        self.statusPrint('---------------------------------------------------')
 
     def processImage(self, imgChanged=False):
         """
@@ -365,7 +367,13 @@ class DIImageWindowh():
             flags = self.getFlags(imgChanged)
             self.cirProj.process(flags)
             self.updateParams()
+            # acquire the lock
+            if self.lock is not None:
+                self.lock.acquire()
             self.csvManager.write_new_data(self.cirProj)
+            # release the lock
+            if self.lock is not None:
+                self.lock.release()
 
     def create_circular_mask(self, h, w, center, radius):
         """
@@ -404,7 +412,7 @@ class DIImageWindowh():
             rmin = self.cirProj.info['start_point']
             cir_mask = self.create_circular_mask(h,w,center=self.cirProj.info['center'], radius=rmin)
             # Exclude grid lines in computation
-            print("Gird Lines Coordinates ", grid_lines)
+            self.statusPrint("Gird Lines Coordinates ", grid_lines)
             cir_mask[grid_lines] = 0
             numberOfPixels = np.count_nonzero(cir_mask)
             averagePixelValue = np.average(img[cir_mask])
@@ -466,3 +474,16 @@ class DIImageWindowh():
         """
         self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
         self.onImageChanged()
+
+    def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
+        if text != "":
+            pid = os.getpid()
+            ptext = "[Process "+str(pid)+"] "+str(text)
+            print(ptext)
+        else:
+            print(text)

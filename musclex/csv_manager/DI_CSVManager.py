@@ -76,7 +76,7 @@ class DI_CSVManager():
         :param cir_proj: ScanningDiffraction object with results in its info dict
         :return: -
         """
-
+        self.load_all()
         file_name = cir_proj.filename
         info = cir_proj.info
         self.remove_data(file_name)

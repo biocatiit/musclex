@@ -220,12 +220,24 @@ class DIBatchWindowh():
         if dir_path != "":
             imgList = os.listdir(dir_path)
             imgList.sort()
+        from multiprocessing import Lock, Process, cpu_count
+        lock = Lock()
+        procs = []
         for image in imgList:
             file_name=os.path.join(dir_path,image)
             if os.path.isfile(file_name):
                 _, ext = os.path.splitext(str(file_name))
                 if ext in inpt_types:
-                    DIImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
+                    # DIImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
+                    proc = Process(target=DIImageWindowh, args=(image, dir_path, self.inputsetting, self.delcache, self.settingspath, lock,))
+                    procs.append(proc)
+                    proc.start()
+            if len(procs) % cpu_count() == 0:
+                for proc in procs:
+                    proc.join()
+                procs = []
+        for proc in procs:
+            proc.join()
 
         imgList, hdfList = getFilesAndHdf(dir_path)
         self.browseHDF(dir_path, hdfList)

@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 import copy
 import math
 import time
+import os
 from os.path import exists
 import collections
 import pickle
@@ -55,7 +56,7 @@ class ScanningDiffraction:
     """
     A class for Scanning Diffraction processing - go to process() to see all processing steps
     """
-    def __init__(self, filepath, filename, file_list=None, extension='', logger = None):
+    def __init__(self, filepath, filename, file_list=None, extension='', logger=None, parent=None):
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
             original_image = file_list[1][index]
@@ -67,6 +68,10 @@ class ScanningDiffraction:
             self.img_type = "PILATUS"
         else:
             self.img_type = "NORMAL"
+        if parent is not None:
+            self.parent = parent
+        else:
+            self.parent = self
         self.filepath = filepath
         self.filename = filename
         self.logger = logger
@@ -104,9 +109,17 @@ class ScanningDiffraction:
         :param msg: logged msg
         :return:
         """
-        print(str(msg))
+        self.parent.statusPrint(str(msg))
         if self.logger is not None:
             self.logger.debug(msg)
+    
+    def statusPrint(self, text):
+        """
+        Print the text in the window or in the terminal depending on if we are using GUI or headless.
+        :param text: text to print
+        :return: -
+        """
+        print(text)
 
     def process(self, flags={}):
         """
@@ -217,11 +230,11 @@ class ScanningDiffraction:
             ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
 
-            integration_method_2d = IntegrationMethod.select_one_available("csr_ocl", dim=2, default="csr", degradable=True)
+            integration_method_2d = IntegrationMethod.select_one_available("csr", dim=2, default="csr", degradable=True)
             I2D, tth, chi = ai.integrate2d(copy.copy(self.original_image), npt_rad, 360, unit="r_mm", method=integration_method_2d, mask=mask)
             I2D2, tth2, chi2 = ai.integrate2d(noBGImg, npt_rad, 360, unit="r_mm", method=integration_method_2d, mask=mask)
             
-            integration_method_1d = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+            integration_method_1d = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
             _, I = ai.integrate1d(copy.copy(self.original_image), npt_rad, unit="r_mm", method=integration_method_1d, mask=mask)
             _, I2 = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method_1d, mask=mask)
 
@@ -478,7 +491,7 @@ class ScanningDiffraction:
         ai.setFit2D(100, center[0], center[1])
 
         # Compute histograms for each range
-        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
         for a_range in ranges:
             _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=a_range, mask=mask)
             histograms.append(I)
@@ -653,7 +666,7 @@ class ScanningDiffraction:
             for p in peaks:
                 mult = 1. * p / d
                 error += abs((p-d*round(mult)))/d
-            print("distance: " + str(d) + " error: " +str(error))
+            self.parent.statusPrint("distance: " + str(d) + " error: " +str(error))
             errors.append(error)
             if error < errors[min_di-1]:
                 min_di = i
