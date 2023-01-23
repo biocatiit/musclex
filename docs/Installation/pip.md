@@ -2,26 +2,19 @@
 
 # Installation by Pip
 
-In order to install the program, you need to install [python 3.8](https://www.python.org/).
+In order to install the program, you need to install [Python 3](https://www.python.org/).
 
 ## Preparing
 There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
 
 ### Linux
 
-It is recommended to install Python 3.8 on Linux to use MuscleX as it is the Python version we use and test. You can still use another one, newer or older, but MuscleX has not been tested on other Python versions. Whichever version you plan on using, you will need the associated pip, dev, and distutils packages. 
-
-To access Python 3.8 repository:
-```
-sudo apt update
-sudo apt install software-properties-common
-sudo add-apt-repository ppa:deadsnakes/ppa
-```
+It is recommended to install Python 3.10 on Linux to use MuscleX as it is the Python version we use and test. You can still use another one, newer or older, but MuscleX has not been tested on other Python versions. Whichever version you plan on using, you will need the associated pip, dev, and distutils packages. 
 
 Then here is the recommended setup to run:
 ```
 sudo apt-get update
-sudo apt-get install python3.8 python3-pip python3.8-dev python3.8-distutils 
+sudo apt-get install python3 python3-pip python3-dev python3-distutils 
 sudo apt-get install gfortran
 #sudo apt-get install git # run this if you are going to use the most up-to-date version
 ```
@@ -38,7 +31,7 @@ sudo pip install cython
 ```
 
 ```eval_rst
-.. note:: If the "Run tests" functionalities are not working, try to go in `Applications > Python 3.8 folder` and double click on `Install Certificates.command`.
+.. note:: If the "Run tests" functionalities are not working, try to go in `Applications > Python 3.x folder` and double click on `Install Certificates.command`.
 ```
 
 ### Windows
@@ -74,8 +67,8 @@ pip install cython numpy pyqt5 opencv-python-headless pyfai
 
 A virtual environment allows you to have a clean environment that is independent of other software installations. Use the following to create a virtual environment and install musclex inside of it:
 ```
-python3.8 -m pip install --user virtualenv
-python3.8 -m venv musclex
+python3 -m pip install --user virtualenv
+python3 -m venv musclex
 source musclex/bin/activate
 which python
 
@@ -96,7 +89,6 @@ pip install --upgrade future
 pip install --upgrade musclex
 #pip install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
 ```
-Note: if you use a different Python version, don't forget to replace `python3.8` by your version.
 
 To exit the virtual environment use:
 ```
@@ -147,9 +139,14 @@ If you get _ImportError: C extension: iNaT not built. If you want to import pand
 ```
 pip install -U pandas
 ```
-If you get "Could not load the Qt platform plugin" install an older version of opencv by
+If you get "Could not load the Qt platform plugin", it might be because you have the normal version of OpenCV already installed. Try to remove it with:
 ```
-pip3 install opencv-python==4.2.0.32
+pip uninstall opencv-python
+pip install --upgrade opencv-python-headless
+```
+If this change does not work, install an older version of OpenCV by
+```
+pip install opencv-python==4.2.0.32
 ```
 
 ## Updating

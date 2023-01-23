@@ -1,5 +1,5 @@
 
-*** Version 1.21.0 tested on Python 3.8.
+*** Version 1.21.0 tested on Python 3.10.
 
 *** Windows Installer:
 - Window 10 Pro: fully tested
@@ -30,17 +30,17 @@
 Cython                 0.29.32
 distro                 1.8.0
 fabio                  2022.12.1
-h5py                   3.7.0
-hdf5plugin             4.0.1
+h5py                   3.8.0
+hdf5plugin             4.1.1
 lmfit                  1.1.0
-matplotlib             3.6.2
+matplotlib             3.6.3
 numba                  0.56.4
 numpy                  1.23.5
 opencv-python-headless 4.7.0.68
-pandas                 1.5.2
-pyFAI                  0.21.3
+pandas                 1.5.3
+pyFAI                  2023.1.0
 PyMca5                 5.8.0
 scikit-image           0.19.3
 scikit-learn           1.2.0
 scipy                  1.10.0
-tifffile               2022.10.10
+tifffile               2023.1.23

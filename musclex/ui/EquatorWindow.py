@@ -3371,7 +3371,7 @@ class EquatorWindow(QMainWindow):
         info = self.bioImg.info
         self.left_fitting_tab.syncSpinBoxes(info)
         self.right_fitting_tab.syncSpinBoxes(info)
-        self.fixedAngle.setValue(info["rotationAngle"])
+        self.fixedAngle.setValue(round(info["rotationAngle"]))
         self.fixedRmin.setValue(info['rmin'])
 
         if 'fit_results' in info:

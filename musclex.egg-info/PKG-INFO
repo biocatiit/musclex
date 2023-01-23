@@ -5,9 +5,7 @@ Summary: Muscle X
 Home-page: https://github.com/biocatiit/musclex
 Author: BioCAT
 Author-email: biocat@lethocerus.biol.iit.edu
-License: UNKNOWN
 Keywords: musclex,biomuscle,diffraction,biocat
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: X11 Applications :: Qt
 Classifier: Intended Audience :: Science/Research
@@ -17,6 +15,3 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 License-File: LICENSE.txt
-
-UNKNOWN
-

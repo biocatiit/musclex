@@ -13,5 +13,5 @@ Release Date : 1/20/2023
 - Documentation update and performance reports on MuscleX
 
 ```eval_rst
-.. note:: Version tested on Python 3.8 - on Ubuntu 20.04 and 22.04, macOS 12.6, Windows 10 and Windows 11.
+.. note:: Version tested on Python 3.10 - on Ubuntu 20.04 and 22.04, macOS 12.6, Windows 10 and Windows 11.
 ```

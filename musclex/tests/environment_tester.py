@@ -26,22 +26,22 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-python_version = { "python" : "3.8.16" }
+python_version = { "python" : "3.10.6" }
 pip_details = {
     "scikit-image" : "0.19.3",
-    "tifffile" : "2022.10.10",
+    "tifffile" : "2023.1.23",
     "numpy" : "1.23.5",
-    "pandas" : "1.5.2",
+    "pandas" : "1.5.3",
     "scikit-learn" : "1.2.0",
     "lmfit" : "1.1.0",
     "fabio" : "2022.12.1",
-    "h5py" : "3.7.0",
+    "h5py" : "3.8.0",
     "scipy" : "1.10.0",
-    "matplotlib" : "3.6.2",
+    "matplotlib" : "3.6.3",
     "opencv-python-headless" : "4.7.0",
-    "pyFAI" : "0.21.3",
+    "pyFAI" : "2023.1.0",
     "distro" : "1.8.0",
-    "hdf5plugin" : "4.0.1",
+    "hdf5plugin" : "4.1.1",
     "PyMca5" : "5.8.0",
     "numba" : "0.56.4"
     }
