@@ -12,6 +12,9 @@ Aruments:
 -s (optional) \<input setting file>  
 Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. This will create the necessary setting file. If a setting file is not provided, default settings will be used
 
+### Multiprocessing on folders
+In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
+
 ## Interaction Mode   
 
 

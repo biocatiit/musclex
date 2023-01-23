@@ -1,15 +1,33 @@
 # How to use
 
+Quadrant Folder (QF) provides two modes for users: Headless mode and Interactive mode  
+
+## Headless Mode  
+Under headless mode, all the image processing are performed throught command lines.  
+If user input musclex qf -h -i|-f <file.tif|testfolder> [-s config.json] [-d], program will enter headless mode.  
+For example: musclex qf -h -i test.tif -s config.json  
+Image test.tif will be processed according to the settings in config.json.  
+Arguments:  
+-f \<foldername> or -i \<filename>  
+-d (optional) delete existing cache   
+-s (optional) \<input setting file>   
+Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. This will create the necessary setting file. If a setting file is not provided, default settings will be used.  
+
+### Multiprocessing on folders
+In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
+
+## Interactive Mode 
+
 After the program is opened, users will be able to select a file or a folder to process by pressing the button or select an option on the menu bar. 
 
 ![-](../../images/QF/start.png)
 
 When an image is selected, the program will automatically process the image if it has not been processed before. There are 2 tabs in the program, [Original image](#original-image), and [Results](#results).
 
-## Original Image
+### Original Image
 In this tab, the original image will be shown along with various options displayed on the right, Display Options, Image Processing, and Fix Center. 
 
-### Display Options
+#### Display Options
 
 ![-](../../images/QF/disp_options1.png)
 
@@ -17,14 +35,14 @@ All options in Display Options will not affect any processing. These options all
 
 ![-](../../images/QF/image_tab.png)
 
-### Image Processing
+#### Image Processing
 
 ![-](../../images/QF/image_processing.png)
 
-### Mode Orientation Checkbox
+#### Mode Orientation Checkbox
 This checkox uses the mode of the orientation angles in calculated from all the images in the folder as the rotation angle for fitting the images. All the images in the folder must be processed first before using this checkbox.
 
-### Save Cropped Image Checkbox
+#### Save Cropped Image Checkbox
 As discussed in the working of Quadrant Folding, we enlarge the image such that the diffraction center is at the center of the resulting image.
 On selecting this option the resulting quadrant folded image (which is saved in qf_results) is cropped such that the size of the image is same as the original input image size.
 
@@ -49,7 +67,7 @@ The Mask Threshold is used for excluding certain pixel values when calculating t
 
 To fix the center position to a user supplied value, you can check Fix Center check box, specify the coordinates of the beam center (before rotation). The image will be reprocessed when x, or y is changed. This will affect the next image if it’s still checked.
 
-##### Double Zoom
+#### Double Zoom
 This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
 ![-](../../images/BM/DoubleZoom.png)
 
@@ -57,7 +75,7 @@ This feature is used to zoom into subpixel level accuracy. On checking this box,
 This feature is used to select part of the image and perform Quadrant folding on that part. For example, we would want to ignore the artefacts on the edges of the image. On clicking this button, a default rectangle appears around the center of diffraction. As you move the mouse pointer into the image area, the vertical edges of the rectangle move to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current width of the region. Next, as you move the pointer, the horizontal edges of the rectangle start moving to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current height of the fitting region. Once the width and height is fixed, the resultant image will be cropped to the region selected by the rectangle following which we process quadrant folding on the resultant image. Therefore, any artefacts present outside the selected region are ignored while quadrant folding. One can only select the region of interest about the center of diffraction.
 ![-](../../images/QF/SetRegionOfInterest.png)
 
-## Results
+### Results
 In this tab, the resulting image will be displayed along with options on the right. Display Options will provide the same options as in Original Image tab. Users can specify min and max display intensity, and zooming.  
 
 ![-](../../images/QF/results.png)
@@ -83,7 +101,7 @@ For each method, users can select R-min and R-max manually by pressing the butto
 
 You can change the parameters and click Apply to make the program re-process the background subtraction
 
-### Merging
+#### Merging
 For the merging settings, they will be under the white line in the Background Subtraction section. There is the ability to set also another top hat parameter for regions of the image outside the R-max so the top hat parameter can be different inside and outside the merge radius if desired. 
 
 To set the merge gradient, simply change the value in the Merge Gradient spinbox
