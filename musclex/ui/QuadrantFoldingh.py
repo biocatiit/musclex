@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import sys
 import json
+import os
 from os.path import splitext
 import traceback
 import fabio
@@ -51,7 +52,7 @@ class QuadrantFoldingh:
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/qfsettings.json'):
+    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/qfsettings.json', lock=None):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -73,6 +74,7 @@ class QuadrantFoldingh:
         self.orientationModel = None
         self.modeOrientation = None
         self.newImgDimension = None
+        self.lock = lock
 
         self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename))
         self.numberOfFiles = 0
@@ -96,8 +98,8 @@ class QuadrantFoldingh:
         """
         Display input error to screen
         """
-        print('Invalid Input')
-        print("Please select non empty failedcases.txt or an image\n\n")
+        self.statusPrint('Invalid Input')
+        self.statusPrint("Please select non empty failedcases.txt or an image\n\n")
 
     def ableToProcess(self):
         """
@@ -134,24 +136,24 @@ class QuadrantFoldingh:
 
         # self.updateParams()
         self.markFixedInfo(self.quadFold.info)
-        print("Settings in onImageChange before update")
-        print(self.calSettings)
+        self.statusPrint("Settings in onImageChange before update")
+        self.statusPrint(self.calSettings)
 
         # Process new image
         self.processImage()
 
-        print('---------------------------------------------------')
+        self.statusPrint('---------------------------------------------------')
 
         if self.inputsettings and cache_exist and not self.delcache:
-            print('cache exists, provided setting file was not used ')
+            self.statusPrint('cache exists, provided setting file was not used ')
         elif self.inputsettings and (not cache_exist or self.delcache):
-            print('setting file provided and used for fitting')
+            self.statusPrint('setting file provided and used for fitting')
         elif not self.inputsettings and cache_exist and not self.delcache:
-            print('cache exist, no fitting was performed')
+            self.statusPrint('cache exist, no fitting was performed')
         elif not self.inputsettings and (self.delcache or not cache_exist):
-            print('fitting with default settings')
+            self.statusPrint('fitting with default settings')
 
-        print('---------------------------------------------------')
+        self.statusPrint('---------------------------------------------------')
 
     def markFixedInfo(self, currentInfo):
         """
@@ -189,19 +191,25 @@ class QuadrantFoldingh:
         """
         if self.ableToProcess():
             flags = self.getFlags()
-            print("Flags in processImage:")
-            print(flags)
+            self.statusPrint("Flags in processImage:")
+            self.statusPrint(flags)
             try:
                 self.quadFold.process(flags)
             except Exception:
-                print('Unexpected error')
+                self.statusPrint('Unexpected error')
                 msg = 'Please report the problem with error message below and the input image\n\n'
                 msg += "Error : " + str(sys.exc_info()[0]) + '\n\n' + str(traceback.format_exc())
-                print(msg)
+                self.statusPrint(msg)
                 raise
 
             self.updateParams()
+            # acquire the lock
+            if self.lock is not None:
+                self.lock.acquire()
             self.csvManager.writeNewData(self.quadFold)
+            # release the lock
+            if self.lock is not None:
+                self.lock.release()
 
             # Save result to folder qf_results
             if 'resultImg' in self.quadFold.imgCache:
@@ -312,60 +320,18 @@ class QuadrantFoldingh:
 
         return flags
 
-    def processFolder(self):
-        """
-        Process the folder selected
-        """
-        fileList = os.listdir(self.dir_path)
-        self.imgList = []
-        for f in fileList:
-            if isImg(fullPath(self.dir_path, f)):
-                self.imgList.append(f)
-
-        self.imgList.sort()
-        self.numberOfFiles = len(self.imgList)
-
-        flags = self.getFlags()
-        print("\nCurrent Settings")
-        if 'center' in flags:
-            print("\n  - Center : " + str(flags["center"]))
-        if len(self.ignoreFolds) > 0:
-            print("\n  - Ignore Folds : " + str(list(self.ignoreFolds)))
-        print("\n  - Mask Threshold : " + str(flags["mask_thres"]))
-
-        if flags['bgsub'] != 'None':
-            if 'fixed_rmin' in flags:
-                print("\n  - R-min : " + str(flags["fixed_rmin"]))
-                print("\n  - R-max : " + str(flags["fixed_rmax"]))
-
-            if flags['bgsub'] in ['Circularly-symmetric', 'Roving Window']:
-                print("\n  - Pixel Range (Percentage) : " + str(flags["cirmin"]) + "% - "+str(flags["cirmax"])+"%")
-
-            if flags['bgsub'] == 'Circularly-symmetric':
-                print("\n  - Radial Bin : " + str(flags["radial_bin"]))
-                print("\n  - Smooth : " + str(flags["smooth"]))
-            elif flags['bgsub'] == 'White-top-hats':
-                print("\n  - Tophat (inside R-max) : " + str(flags["tophat1"]))
-            elif flags['bgsub'] == 'Smoothed-Gaussian':
-                print("\n  - FWHM : " + str(flags["fwhm"]))
-                print("\n  - Number of cycle : " + str(flags["cycles"]))
-            elif flags['bgsub'] == 'Smoothed-BoxCar':
-                print("\n  - Box car width : " + str(flags["boxcar_x"]))
-                print("\n  - Box car height : " + str(flags["boxcar_y"]))
-                print("\n  - Number of cycle : " + str(flags["cycles"]))
-
-            print("\n  - Tophat (outside R-max) : " + str(flags["tophat2"]))
-            print("\n  - Merge Gradient : " + str(flags["sigmoid"]))
-
-        print('\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.')
-
     def statusPrint(self, text):
         """
         Print the text in the window or in the terminal depending on if we are using GUI or headless.
         :param text: text to print
         :return: -
         """
-        print(text)
+        if text != "":
+            pid = os.getpid()
+            ptext = "[Process "+str(pid)+"] "+str(text)
+            print(ptext)
+        else:
+            print(text)
 
     def setCalibrationImage(self):
         """
@@ -379,7 +345,7 @@ class QuadrantFoldingh:
                 with open(settingspath, 'r') as f:
                     self.calSettings = json.load(f)
             except Exception:
-                print("Can't load setting file")
+                self.statusPrint("Can't load setting file")
                 self.inputsettings=False
                 self.calSettings = {"center": [1030.22, 1015.58], "radius": 686, "silverB": 5.83803, "type": "img"}
             self.quadFold.info['calib_center'] = self.calSettings['center']

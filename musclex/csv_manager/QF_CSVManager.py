@@ -82,6 +82,7 @@ class QF_CSVManager:
         :param quadFold: QuadrantFolder object with results in its info dict
         :return: -
         """
+        self.loadSummary()
         img_name = quadFold.img_name
         cache = quadFold.imgCache
         self.removeData(img_name)

@@ -251,6 +251,9 @@ def main(arguments=None):
             if is_file:
                 QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
             else:
+                from multiprocessing import Lock, Process, cpu_count
+                lock = Lock()
+                procs = []
                 in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
                 imgList = os.listdir(filename)
                 imgList.sort()
@@ -260,8 +263,17 @@ def main(arguments=None):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
                             print("filename is", file_name)
-                            QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
-            sys.exit()
+                            # QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
+                            proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock,))
+                            procs.append(proc)
+                            proc.start()
+                    if len(procs) % cpu_count() == 0:
+                        for proc in procs:
+                            proc.join()
+                        procs = []
+                for proc in procs:
+                    proc.join()
+                    sys.exit()
 
     else:
         run = False

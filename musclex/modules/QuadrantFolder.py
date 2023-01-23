@@ -425,7 +425,7 @@ class QuadrantFolder:
         nBins = 90/theta_size
 
         I2D = []
-        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
         for deg in range(180, 271):
             _, I = ai.integrate1d(copy_img, npt_rad, mask=mask, unit="r_mm", method=integration_method, azimuth_range=(deg, deg+1))
             I2D.append(I)
@@ -772,7 +772,7 @@ class QuadrantFolder:
             # Get 1D azimuthal integration histogram
             ai = AzimuthalIntegrator(detector="agilent_titan")
             ai.setFit2D(100, center[0], center[1])
-            integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+            integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
             self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
@@ -800,7 +800,7 @@ class QuadrantFolder:
         ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
 
-        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
         for deg in np.arange(180, 271, 1):
             if deg == 180 :
                 _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 180.5))
