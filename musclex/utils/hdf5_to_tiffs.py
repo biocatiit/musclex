@@ -93,7 +93,7 @@ def read_meta_data(meta_fn):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='The script will generate the tiff files from the given hdf5 file. Metadata will be read from the given metadata file and added as an ImageDescription tag in all the tiff files.')
-    parser.add_argument('-h5', metavar='hdf5', help='Path to the Hdf5 file')
+    parser.add_argument('-h5', metavar='hdf5', help='Path to the Hdf5 file', nargs='*')
     parser.add_argument('-m', metavar='metadata', help='Path to the metadata text file')
     parser.add_argument('-z', action='store_true', help='Generate a compressed version of the TIF images')
 
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     if not h5_filename:
         print(parser.format_help())
     else:
-        files = glob.glob(h5_filename)
-        for f in files:
+        #files = glob.glob(h5_filename)
+        for f in h5_filename:
             print(f)
             path = os.path.dirname(os.path.abspath(f))
             prefix = os.path.basename(f).rsplit('.', 1)[0]
