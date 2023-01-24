@@ -93,6 +93,7 @@ def getImgFiles(fullname):
     _, ext = os.path.splitext(str(filename))
     current = 0
     failedcases = []
+    filename_index = None
 
     if ext == ".txt":
         for line in open(fullname, "r"):
@@ -104,7 +105,28 @@ def getImgFiles(fullname):
         fileList = loadFile(fullname)
         imgList = []
         for f in fileList[0]:
+            if failedcases is not None and f not in failedcases:
+                continue
             imgList.append(f)
+        if len(imgList) == 1:
+            # if only one image in the h5 file, take all the images in the folder
+            list_h5_files = os.listdir(dir_path)
+            imgList = []
+            fileList = [[],[]]
+            for f in list_h5_files:
+                _, ext2 = os.path.splitext(str(f))
+                full_file_name = fullPath(dir_path, f)
+                if ext2 in ('.hdf5', '.h5'):
+                    file_loader = loadFile(full_file_name)
+                    if len(file_loader[0]) == 1:
+                        if failedcases is not None and file_loader[0][0] not in failedcases:
+                            continue
+                        imgList.append(file_loader[0][0])
+                        fileList[0].append(file_loader[0][0])
+                        fileList[1].append(file_loader[1][0])
+                        if full_file_name == fullname:
+                            filename_index = file_loader[0][0]
+            imgList.sort()
     else:
         fileList = os.listdir(dir_path)
         imgList = []
@@ -112,13 +134,17 @@ def getImgFiles(fullname):
             if failedcases is not None and f not in failedcases:
                 continue
             full_file_name = fullPath(dir_path, f)
-            if isImg(full_file_name) and f != "calibration.tif":
+            _, ext2 = os.path.splitext(str(f))
+            if isImg(full_file_name) and f != "calibration.tif" and ext2 not in ('.hdf5', '.h5'):
                 imgList.append(f)
         imgList.sort()
 
     if failedcases is None:
         if ext in ('.hdf5', '.h5'):
-            current = 0
+            if filename_index is None:
+                current = 0
+            else:
+                current = imgList.index(filename_index)
         else:
             current = imgList.index(filename)
     return dir_path, imgList, current, fileList, ext
