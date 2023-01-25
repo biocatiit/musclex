@@ -8,3 +8,4 @@ Projection Traces
    Projection-Traces-(pt)
    Projection-Traces--How-it-works
    Projection-Traces--How-to-use
+   Blank-Image-and-Mask
