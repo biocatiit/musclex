@@ -2392,7 +2392,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
             self.fixRangesTable.setItem(len(self.fixRanges) - 1, 2, QTableWidgetItem(str(end)))
 
         self.setNameFocus()
-        col_width = self.fixRangesTable.width()/3
+        col_width = self.fixRangesTable.width()//3
         self.fixRangesTable.setColumnWidth(0, col_width)
         self.fixRangesTable.setColumnWidth(1, col_width)
 

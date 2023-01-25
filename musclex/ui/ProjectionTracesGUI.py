@@ -37,11 +37,12 @@ import numpy as np
 import cv2
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
+from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
-from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CSVManager
+from .BlankImageSettings import BlankImageSettings
 from .pyqt_utils import *
 
 class BoxDetails(QDialog):
@@ -133,6 +134,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.projProc = None
         self.syncUI = False
         self.csvManager = None
+        self.masked = False
         self.img_zoom = None
         self.function = None
         self.allboxes = {}
@@ -227,9 +229,22 @@ class ProjectionTracesGUI(QMainWindow):
         self.checkableButtons.append(self.selectPeaksButton)
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
 
+        # Mask threshold selection
+        self.maskThresGrp = QGroupBox("Mask Threshold")
+        self.maskThresGrp.setEnabled(False)
+        self.maskThresLayout = QVBoxLayout(self.maskThresGrp)
+        self.maskThresSpnBx = QDoubleSpinBox()
+        self.maskThresSpnBx.setMinimum(-10000)
+        self.maskThresSpnBx.setMaximum(10000)
+        self.maskThresSpnBx.setValue(-999)
+        self.maskThresSpnBx.setKeyboardTracking(False)
+        self.maskThresLayout.addWidget(self.maskThresSpnBx)
+
         self.leftFrameLayout.addWidget(self.selectImageGrp)
         self.leftFrameLayout.addSpacing(10)
         self.leftFrameLayout.addWidget(self.propGrp)
+        self.leftFrameLayout.addSpacing(10)
+        self.leftFrameLayout.addWidget(self.maskThresGrp)
         self.leftFrameLayout.addSpacing(10)
         self.leftFrameLayout.addWidget(self.boxGrp)
         self.leftFrameLayout.addSpacing(10)
@@ -287,6 +302,14 @@ class ProjectionTracesGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.maxIntLabel, 8, 0, 1, 1)
         self.dispOptLayout.addWidget(self.maxIntSpnBx, 8, 1, 1, 1)
 
+        # Blank Image Settings
+        self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
+        self.blankImageGrp.setCheckable(True)
+        self.blankImageGrp.setChecked(False)
+        self.blankImageLayout = QVBoxLayout(self.blankImageGrp)
+        self.blankSettingButton = QPushButton("Set Blank Image and Mask")
+        self.blankImageLayout.addWidget(self.blankSettingButton)
+
         # Process Folder Button
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -306,6 +329,8 @@ class ProjectionTracesGUI(QMainWindow):
         self.bottomLayout.addWidget(self.nextButton, 2, 1, 1, 1)
 
         self.rightFrameLayout.addWidget(self.dispOptGrp)
+        self.rightFrameLayout.addSpacing(10)
+        self.rightFrameLayout.addWidget(self.blankImageGrp)
         self.rightFrameLayout.addStretch()
         self.rightFrameLayout.addLayout(self.bottomLayout)
 
@@ -361,6 +386,13 @@ class ProjectionTracesGUI(QMainWindow):
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
 
+        # Blank Image
+        self.blankImageGrp.clicked.connect(self.blankChecked)
+        self.blankSettingButton.clicked.connect(self.blankSettingClicked)
+
+        # Mask
+        self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
+
         # select boxes
         self.addBoxButton.clicked.connect(self.addABox)
         self.addOrientedBoxButton.clicked.connect(self.addOrientedBox)
@@ -384,6 +416,34 @@ class ProjectionTracesGUI(QMainWindow):
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
         self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
         self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
+
+    def blankChecked(self):
+        """
+        Handle when the Blank image and mask is checked or unchecked
+        """
+        if self.projProc is not None and not self.syncUI:
+            self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
+            self.projProc.info['hists'] = {}
+            self.masked = False
+            self.processImage()
+
+    def blankSettingClicked(self):
+        """
+        Trigger when Set Blank Image and Mask clicked
+        """
+        dlg = BlankImageSettings(self.dir_path)
+        result = dlg.exec_()
+        if result == 1 and self.projProc is not None:
+            self.masked = False
+            self.processImage()
+
+    def maskThresChanged(self):
+        """
+        Trigger when Mask threshold is changed
+        """
+        if self.projProc is not None:
+            self.projProc.info['hists'] = {}
+            self.processImage()
 
     def calibrationClicked(self):
         """
@@ -1442,6 +1502,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
         self.propGrp.setEnabled(True)
         self.boxGrp.setEnabled(True)
+        self.maskThresGrp.setEnabled(True)
         cache = self.loadBoxesAndPeaks()
         if cache is not None:
             self.allboxes = cache['boxes']
@@ -1506,6 +1567,14 @@ class ProjectionTracesGUI(QMainWindow):
             if self.maxIntSpnBx.value() == 0:
                 self.minIntSpnBx.setValue(0)  # init min intensity as min value
                 self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
+
+        if 'mask_thres' in self.projProc.info:
+            self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
+        elif self.maskThresSpnBx.value() == -999:
+            self.maskThresSpnBx.setValue(getMaskThreshold(img, img_type="NORMAL"))
+        # self.maskThresSpnBx.setRange(img.min(), img.max())
+        if 'blank_mask' in self.projProc.info:
+            self.blankImageGrp.setChecked(self.projProc.info['blank_mask'])
         self.syncUI = False
 
     def updateCenter(self, refit=True):
@@ -1642,6 +1711,11 @@ class ProjectionTracesGUI(QMainWindow):
 
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
+
+        # add blank image and mask
+        settings['blank_mask'] = self.blankImageGrp.isChecked()
+
+        settings['mask_thres'] = self.maskThresSpnBx.value()
 
         if self.refit:
             settings['refit'] = self.refit

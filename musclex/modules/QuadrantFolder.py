@@ -339,7 +339,7 @@ class QuadrantFolder:
         M = np.float32([[1,0,transx],[0,1,transy]])
         self.centImgTransMat = M
         rows,cols = new_img.shape
-        mask_thres = self.info["mask_thres"]
+        # mask_thres = self.info["mask_thres"]
 
         # if self.img_type == "PILATUS":
         #     if mask_thres == -999:

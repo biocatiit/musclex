@@ -477,7 +477,8 @@ class ProjectionBoxTab(QWidget):
             centerX = self.getCenterX() # this should be the center in the box?
             distance = x - centerX
             hist = self.parent.projProc.info['hists'][self.name]
-            self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3))+", Intensity = "+str(hist[int(round(x))]))
+            if int(round(x)) < len(hist):
+                self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3))+", Intensity = "+str(hist[int(round(x))]))
             if self.function is not None:
                 if self.function[0] == 'move1' and self.graphMaxBound is not None and self.zoom1 is not None:
                     # change zoom-in location to move around plot
@@ -505,8 +506,9 @@ class ProjectionBoxTab(QWidget):
             all_hists =  self.parent.projProc.info['subtracted_hists']
             if self.name in all_hists:
                 hist = all_hists[self.name]
-                self.parent.pixel_detail.setText(
-                    "Distance = " + str(round(distance, 3)) + ", Intensity = " + str(hist[int(round(x))]))
+                if int(round(x)) < len(hist):
+                    self.parent.pixel_detail.setText(
+                        "Distance = " + str(round(distance, 3)) + ", Intensity = " + str(hist[int(round(x))]))
             else:
                 self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3)))
             if self.function is not None:

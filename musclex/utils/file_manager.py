@@ -30,6 +30,7 @@ import os
 from os.path import split, exists, join
 import numpy as np
 import fabio
+from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
@@ -109,7 +110,13 @@ def getImgFiles(fullname):
                 continue
             imgList.append(f)
         if len(imgList) == 1:
-            # if only one image in the h5 file, take all the images in the folder
+            # if only one image in the h5 file, take all the single h5 images in the folder
+            infMsg = QMessageBox()
+            infMsg.setText('Single Image H5 File')
+            infMsg.setInformativeText("The H5 file selected contains only one image. All the H5 files in the current folder containing only one image will be regrouped the same way as a folder containing TIF files.\n")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
             list_h5_files = os.listdir(dir_path)
             imgList = []
             fileList = [[],[]]

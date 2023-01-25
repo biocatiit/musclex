@@ -36,11 +36,11 @@ from sklearn.metrics import r2_score
 import fabio
 from musclex import __version__
 try:
-    from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+    from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
     from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
     from ..utils.image_processor import *
 except: # for coverage
-    from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
+    from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
     from utils.histogram_processor import movePeaks, getPeakInformations, convexHull
     from utils.image_processor import *
 
@@ -70,6 +70,7 @@ class ProjectionProcessor:
         self.rotated_img = None
         self.rotated = False
         self.version = __version__
+        self.masked = False
         cache = self.loadCache()
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:
@@ -106,7 +107,7 @@ class ProjectionProcessor:
         :return:
         """
         box_names = self.info['box_names']
-        if name in box_names and typ =='oriented' and self.info['boxes'][name][:-1] != box[-1]:
+        if name in box_names and typ == 'oriented' and self.info['boxes'][name][:-1] != box[-1]:
             self.removeInfo(name)
             self.addBox(name, box, typ, bgsub)
         elif name in box_names and self.info['boxes'][name] != box:
@@ -154,6 +155,7 @@ class ProjectionProcessor:
         All processing steps - all settings are provided by Projection Traces app as a dictionary
         """
         self.updateSettings(settings)
+        self.applyBlankImageAndMask()
         self.getHistograms()
         self.applyConvexhull()
         self.updateRotationAngle()
@@ -163,6 +165,27 @@ class ProjectionProcessor:
         self.getPeakInfos()
         if 'no_cache' not in settings:
             self.cacheInfo()
+
+    def applyBlankImageAndMask(self):
+        """
+        Apply the blank image and mask threshold on the orig_img
+        :return: -
+        """
+        if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
+            img = np.array(self.orig_img, 'float32')
+            blank, mask = getBlankImageAndMask(self.dir_path)
+            maskOnly = getMaskOnly(self.dir_path)
+            if blank is not None:
+                img = img - blank
+            if mask is not None:
+                img[mask > 0] = self.info['mask_thres'] - 1.
+            if maskOnly is not None:
+                print("Applying mask only image")
+                img[maskOnly > 0] = self.info['mask_thres'] - 1
+            
+            self.info['hists'] = {}
+            self.orig_img = img
+            self.masked = True
 
     def updateSettings(self, settings):
         """
@@ -224,6 +247,14 @@ class ProjectionProcessor:
         else:
             self.info['centerx'] = self.orig_img.shape[0] / 2 - 0.5
             self.info['centery'] = self.orig_img.shape[1] / 2 - 0.5
+        
+        if 'mask_thres' not in self.info:
+            if 'mask_thres' in settings:
+                self.info['mask_thres'] = settings['mask_thres']
+            else:
+                self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
+        if 'blank_mask' in settings:
+            self.info['blank_mask'] = settings['blank_mask']
 
     def getHistograms(self):
         """
@@ -264,6 +295,7 @@ class ProjectionProcessor:
                         hist = np.sum(area, axis=1)
 
                     hists[name] = hist
+                    self.removeInfo(name, 'hists2')
 
     def applyConvexhull(self):
         """
@@ -309,13 +341,20 @@ class ProjectionProcessor:
                     # find start and end points
                     (start, end) = hull_ranges[name]
 
-                    left_hull = convexHull(left_hist, start, end)[::-1]
-                    right_hull = convexHull(right_hist, start, end)
+                    left_ignore = np.array([(i <= self.info['mask_thres']) for i in left_hist])
+                    right_ignore = np.array([(i <= self.info['mask_thres']) for i in right_hist])
+                    if not any(left_ignore) and not any(right_ignore):
+                        left_ignore = None
+                        right_ignore = None
+
+                    left_hull = convexHull(left_hist, start, end, ignore=left_ignore)[::-1]
+                    right_hull = convexHull(right_hist, start, end, ignore=right_ignore)
 
                     hists2[name] = np.append(left_hull, right_hull)
                 else:
-                    # use original histogram
+                    # use original histogram without threshold
                     hists2[name] = copy.copy(hists[name])
+                    hists2[name][hists2[name] <= self.info['mask_thres']] = self.info['mask_thres']
 
                 self.removeInfo(name, 'fit_results')
 
@@ -550,7 +589,7 @@ class ProjectionProcessor:
             else:
                 self.info["orig_center"] = center
 
-            rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle, self.img_type)
+            rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
 
         return self.rotated_img[3]
