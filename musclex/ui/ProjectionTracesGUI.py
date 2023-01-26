@@ -184,7 +184,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.imageVLayout.addWidget(self.displayImgCanvas)
 
         self.imageLeftFrame = QFrame()
-        self.imageLeftFrame.setFixedWidth(250)
+        self.imageLeftFrame.setFixedWidth(300)
         self.leftFrameLayout = QVBoxLayout(self.imageLeftFrame)
 
         # Image selection

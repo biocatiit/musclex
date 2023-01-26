@@ -6,7 +6,7 @@ It usually better to analyze this “quadrant folded” image than the original 
 
 The program also can estimate and remove the diffuse background scattering from an image using a number of different algorithms, alone or in combination. It includes all the background subtraction routines from the CCP13 suite (https://github.com/scattering-central/CCP13) plus one based on a two dimensional convex hull and another on white top hat filtering. It is possible to merge different background estimates to apply one algorithm at low scattering angles and a different one at high scattering angles.
 
-Once set up, the program can process an entire directory of images without user intervention
+Once set up, the program can process an entire directory of images without user intervention.
 
 ![-](../../images/QF/image_tab.png)
 

@@ -37,26 +37,8 @@ sudo pip install cython
 ### Windows
 For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and **Microsoft Visual C++** (MSVC) is recommended.
 
-#### Python 2.7 on Windows
-The default MSVC chosen by Python 2.7 is MSVC 9.0. We recommend forcing the use of MSVC 14.0 instead. Follow the steps below.
-
-1. Uninstall **Microsoft Visual C++ Compiler for Python 2.7** (MSVC 9.0)
-   If [Microsoft Visual C++ Compiler for Python 2.7][1] is installed, uninstall it (See [Repair or remove programs in Windows 10][3]).
-
-2. Install **Microsoft Build Tools 2015 Update 3** (MSVC 14.0)
-   The minimal customized installation of [Microsoft Build Tools 2015 Update 3][2] is not enough. Make sure Windows SDK (8.1 or 10) is included.
-
-3. Temporarily set environment variable `VS90COMNTOOLS`
-   Type the following command in your current cmd prompt:
-   `set VS90COMNTOOLS=%VS140COMNTOOLS%`
-
-Then install dependencies:
-```
-pip install numpy cython python-qt5 opencv-python-headless pyfai
-```
-
-#### Python 3.6 on Windows
-The default MSVC chosen by Python 3.6 is MSVC 14.0. The minimal customized installation of [Microsoft Build Tools 2015 Update 3][2] is enough. Then install dependencies: 
+#### Python 3.8 or later on Windows
+The default MSVC chosen by Python 3.8 or later is MSVC 14.0. The minimal customized installation of [Microsoft Build Tools 2022](https://visualstudio.microsoft.com/vs/) is enough. Then install dependencies: 
 ```
 pip install cython numpy pyqt5 opencv-python-headless pyfai
 ```
@@ -166,6 +148,3 @@ if you need to install a previous version (e.g. v1.15.2) directly from github, y
 pip install git+https://github.com/biocatiit/musclex.git@v1.15.2
 ```
 
-[1]: http://aka.ms/vcpython27
-[2]: https://www.visualstudio.com/vs/older-downloads/
-[3]: https://support.microsoft.com/en-us/help/4028054/windows-repair-or-remove-programs-in-windows-10

@@ -3,16 +3,15 @@
 Scanning Diffraction (DI) provides two modes for users: Headless mode and Interactive mode  
 
 ## Headless Mode  
-Under headless mode, all the image processing are performed throught command lines.  
-If user input musclex di -h -i|-f <file.tif|testfolder> [-s config.json] [-d], program will enter headless mode.  
-For example: musclex di -h -i test.tif -s config.json  
-Image test.tif will be processed according to the settings in config.json.  
-Arguments:  
--f \<foldername> or -i \<filename>  
--d (optional) delete existing cache   
--s (optional) \<input setting file>   
-Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. This will create the necessary setting file. If a setting file is not provided, default settings will be used.  
-Note: If a hdf file does not exist, the program will use the default file. You can generate a hdf step size file using the interactive version (set step size, click ok, the file will be automaticly saved)  
+Image processing performed in the terminal.
+In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
+For example: `musclex eq -h -i test.tif -s config.json`
+Arguments:
+-f \<foldername> or -i \<filename>
+-d (optional) delete existing cache
+-s (optional) \<input setting file>
+
+Note: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
 
 ### Multiprocessing on folders
 In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.

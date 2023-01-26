@@ -71,15 +71,16 @@ In each box tab, you will see multiple check boxes in the section. You can check
 
 #### Set Rotation and Center
 Before setting manual rotation and center, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.<br/>
-![-](../../images/QF/center.png)
+![-](../../images/PT/center.png)
 
 #### Double Zoom
 This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
-![-](../../images/BM/DoubleZoom.png)
+![-](../../images/PT/DoubleZoom.png)
 
 ## Blank Image and Mask
+See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more information on how to use this option.
 
-See the [Blank Image and Mask](Blank-Image-and-Mask.md) documentation for more information on how to use this option.
+![-](../../images/PT/blank_img_mask.png)
 
 ## Other Options
 There're several options on the bottom left in image tab.

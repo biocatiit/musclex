@@ -1,4 +1,4 @@
-![docker logo](https://www.docker.com/sites/default/files/mono_horizontal_large.png)
+![docker logo](https://www.docker.com/wp-content/uploads/2022/03/horizontal-logo-monochromatic-white.png)
 
 # Installation on Docker
 

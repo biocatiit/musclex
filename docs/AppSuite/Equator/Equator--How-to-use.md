@@ -3,14 +3,15 @@
 Equater has 2 modes: headless mode and interaction mode. User could choose either mode at their own convenience.  
   
 ## Headless Mode   
-Image processing performed in the terminal.  
-In the terminal, if user types in musclex eq -h -i|-f <file.tif|testfolder> [-s config.json] [-d]. MuscleX will run under headless mode.  
-For example: musclex eq -h -i test.tif -s config.json  
-Aruments:  
--f \<foldername> or -i \<filename>  
--d (optional) delete existing cache  
--s (optional) \<input setting file>  
-Note: To generate the setting file, use the interactive muclex, set parameter in it, then select save the current settings. This will create the necessary setting file. If a setting file is not provided, default settings will be used
+Image processing performed in the terminal.
+In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
+For example: `musclex eq -h -i test.tif -s config.json`
+Arguments:
+-f \<foldername> or -i \<filename>
+-d (optional) delete existing cache
+-s (optional) \<input setting file>
+
+Note: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
 
 ### Multiprocessing on folders
 In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
@@ -24,11 +25,12 @@ When the processing window opened, there are 3 tabs on the top,
 * [Image](#image)
 * [Fitting](#fitting)
 * [Results](#results)
+* [Parameter Editor](#parameter-editor)
 
 ### Image
-In this tab, you will see the selected image, Display Options section, and Image Processing section, Reject check box, next button previous button, and Process This Folder button.
+In this tab, you will see the selected image, Display Options section, and Image Processing section, Reject check box, Next and Previous buttons, and Process Current Folder button.
 
-![imagetab](../../images/BM/imagetab.png)
+![-](../../images/BM/imagetab.png)
 
 #### Display Options
 In Display Options section, you are able to select what you want to see in the image. All check boxes are all about displaying information in the image. In image above, 
@@ -40,11 +42,11 @@ In Display Options section, you are able to select what you want to see in the i
 
 The check box Persist max intensity is used to persist the max intensity when we move to the next image.
 
-![display_options](../../images/BM/display_options.png) 
+![-](../../images/BM/display_options.png) 
 
 You can also set min and max intensity for displayed image in this section. To zoom the image, you can click “Zoom In” button and select the zoom in area in the image, or using mouse wheeling in the image directly. This options in this section will not affect the image processing.
 #### Image Processing
-[display_options](../../images/BM/img_proc.png)
+![-](../../images/BM/img_proc.png)
 
 In Image Processing section, you will see multiple buttons allow you to calibrate the image and set some properties manually.
 ##### Calibration Settings
@@ -75,7 +77,7 @@ To set the integrated area, you need to click 2 positions of the image. The firs
 ![-](../../images/BM/boxwidth.png)
 
 ##### Blank image and Mask
-This option is available on version 1.6 or upper. Click [Here](Blank-Image-and-Mask.html) to see more details
+See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more information on how to use this option.
 
 ##### Fixed Angle
 This feature will allow users to fixed rotation angle for every image which has not been processed. After the checkbox is checked, the manual rotation angle which is set by buttons will be ignored.
@@ -105,6 +107,7 @@ This checkbox is similar to "Expand the image", the only difference is that the 
 ### Fitting
 In this tab, you will see the graph produced from the intensity histogram in the integrated area, and fitting information. 
 ![-](../../images/BM/fitting_tab.png)
+
 #### General Settings
 In the section, you are able set necessary parameters for fitting process including skeletal muscle checkbox, extra peak checkbox (second Z line), number of peaks on each side, and fitting model. The model functions for the peaks currently supported are Voigtian and Gaussian. If the Number of Peaks selected are more  than the number of peaks, the program still tries to fit the model with the selected Number of Peaks.
 

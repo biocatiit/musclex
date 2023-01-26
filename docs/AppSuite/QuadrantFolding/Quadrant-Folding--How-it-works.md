@@ -5,7 +5,7 @@ When an image is selected, the program will immediately process the image automa
 ## Processes
 ### 1. [Find Center](../Image-Processing-Functions.html#finding-center)
 ### 2. [Calculate Rotation Angle](../Image-Processing-Functions.html#calculate-rotation-angle)
-### 3. Centerize image (Image size increases)
+### 3. Centerize image (Image size increases) only if "Expand the Image" is Checked
 The diffraction center need not always occur at the center of the image. Therefore, when we fold about the diffraction center, the four quadrants generated may not be of equal size which results in the quadrant folded image being cropped. The image below illustrates the same.
 
 ![-](../../images/QF/incorrect_centerize.png)
@@ -58,7 +58,7 @@ The necessary parameters for this scheme for background subtraction are the pixe
 
 This method is from [CCP13 FibreFix](http://www.diamond.ac.uk/Beamlines/Soft-Condensed-Matter/small-angle/SAXS-Software/CCP13/FibreFix/FibreFix.html) and their fortran codes are available on [GitHub](https://github.com/scattering-central/CCP13)
 
-#### 6.2 2D Convex hull Background Subtraction
+#### 6.2 2D Convex hull Background Subtraction (Deprecated since MuscleX 1.21.1)
 ![-](../../images/QF/2dcon_set.png)
 
 The necessary parameters for this kind of background subtraction are again R-max and R-min. Initial values for these parameters are provided by the program. Users can change these parameters if necessary.

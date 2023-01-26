@@ -54,8 +54,8 @@ Download the [deb file](https://sourceforge.net/projects/musclex/files/) built f
 
 ### Troubleshooting
 
-- If the application crashes with the following error: `Gtk:ERROR:gtkiconhelper.c:494:ensure_surface_for_gicon: assertion failed (error == NULL): 
-Failed to load /org/gtk/libgtk/icons/16x16/status/image-missing.png.`, it is probably due to environment variables that are set on your computer and are conflicting with the program. Two solutions:
+- If the application crashes with the following error: `Gtk:ERROR:gtkiconhelper.c:494:ensure_surface_for_gicon: assertion failed (error == NULL):`
+`Failed to load /org/gtk/libgtk/icons/16x16/status/image-missing.png.`, it is probably due to environment variables that are set on your computer and are conflicting with the program. Two solutions:
 * Creating a new clean user and installing Muscle X on this new user (the environment variables should be cleaner).
 OR
 * Opening a terminal and typing `printenv` to display all the environment variables. Then you need to unset the conflicting ones (save the previous values in a separate document in case you need to set them back, and unset them one by one). Here is a non-exhaustive list of the variables that might be conflicting:
