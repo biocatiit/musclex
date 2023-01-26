@@ -216,7 +216,7 @@ class DiffractionCentroids:
         npt_rad = int(round(max([distance(center, c) for c in corners])))
         ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
-        integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
+        integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
         _, I = ai.integrate1d(img, npt_rad, unit="r_mm", method=integration_method)
         self.info['rmin'] = getFirstVallay(I)
         print("R-min = "+str(self.info['rmin']))

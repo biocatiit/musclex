@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 ## Setup file to compile the sources and install the package on your system
 # ==========================================
 from distutils.core import setup
-from setuptools import find_packages
+from setuptools import find_namespace_packages
 from musclex import __version__
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
@@ -39,7 +39,7 @@ import numpy, sys
 # ==========================================
 setup(
     name = 'musclex',
-    packages = find_packages(),
+    packages = find_namespace_packages(),
     # package_dir={"": "musclex"},
     # packages = ['CalibrationSettings', 'csv_manager', 'modules', 'ui', 'utils'],
     version = __version__,

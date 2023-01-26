@@ -388,8 +388,8 @@ def getRotationAngle(img, center, method=0):
     npt_rad = int(round(max([distance(center, c) for c in corners])))
     ai = AzimuthalIntegrator(detector=det)
     ai.setFit2D(200, center[0], center[1])
-    integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=2, default="csr", degradable=True)
-    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method="csr")
+    integration_method = IntegrationMethod.select_one_available("csr", dim=2, default="csr", degradable=True)
+    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method=integration_method)
     I2D = I2D[:, :int(len(tth)/3.)]
     hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0
@@ -807,8 +807,7 @@ def find_detector(img):
     for detect in Detector.registry:
         if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
             detector = detector_factory(detect)
-            print(detector)
-            break
+            return detector
     if detector is None:
         print("No corresponding detector found, using agilent_titan by default...")
         detector = detector_factory('agilent_titan')

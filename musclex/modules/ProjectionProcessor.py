@@ -107,7 +107,7 @@ class ProjectionProcessor:
         :return:
         """
         box_names = self.info['box_names']
-        if name in box_names and typ == 'oriented' and self.info['boxes'][name][:-1] != box[-1]:
+        if name in box_names and typ == 'oriented': # and self.info['boxes'][name][:-1] != box[-1]: # deprecation warning
             self.removeInfo(name)
             self.addBox(name, box, typ, bgsub)
         elif name in box_names and self.info['boxes'][name] != box:
@@ -352,7 +352,7 @@ class ProjectionProcessor:
 
                     hists2[name] = np.append(left_hull, right_hull)
                 else:
-                    # use original histogram without threshold
+                    # use original histogram and apply threshold
                     hists2[name] = copy.copy(hists[name])
                     hists2[name][hists2[name] <= self.info['mask_thres']] = self.info['mask_thres']
 
