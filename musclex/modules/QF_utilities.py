@@ -40,9 +40,21 @@ def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshol
                 n_fold = 0
                 for i in range(nQuadrant):
                     fold = quadrants[i]
-                    if fold[y,x] > threshold :
-                        sum_val += fold[y,x]
-                        n_fold += 1
+                    if fold[y,x] > threshold:
+                        # Case where there is an edge effect near gaps creating thin lines on the image
+                        # Neighbor pixels considered as part of the gap: 2
+                        if 2 < y < fold_height-2 and 2 < x < fold_width-2:
+                            not_gap_edge = True
+                            for i in range(y-2, y+3):
+                                for j in range(x-2, x+3):
+                                    if fold[i,j] < threshold:
+                                        not_gap_edge = False
+                            if not_gap_edge:
+                                sum_val += fold[y,x]
+                                n_fold += 1
+                        else:
+                            sum_val += fold[y,x]
+                            n_fold += 1
                 if n_fold == 0 :
                     result[y,x] = 0
                 else:
