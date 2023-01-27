@@ -68,7 +68,7 @@ class EquatorWindowh:
         self.fixedIntArea = None
         self.orientationModel = None
         self.modeOrientation = None
-        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
+        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
         if len(self.imgList) == 0:
             self.inputerror()
             return

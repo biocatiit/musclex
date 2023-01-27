@@ -56,7 +56,7 @@ class EQStartWindowh:
         """
         Popup an input folder dialog. Users can select a folder
         """
-        input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+        input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.h5', '.hdf5', '.smv']
         from multiprocessing import Lock, Process, cpu_count
         lock = Lock()
         procs = []

@@ -76,7 +76,7 @@ class QuadrantFoldingh:
         self.newImgDimension = None
         self.lock = lock
 
-        self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename))
+        self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
         self.numberOfFiles = 0
         if len(self.imgList) == 0:
             self.inputerror()
@@ -85,14 +85,18 @@ class QuadrantFoldingh:
         self.delcache=delcache
         self.settingspath=settingspath
         fileName = self.imgList[self.currentFileNumber]
+        file=fileName+'.info'
+        cache_path = os.path.join(self.dir_path, "qf_cache", file)
+        cache_exist=os.path.isfile(cache_path)
+        if self.delcache:
+            if cache_exist:
+                os.remove(cache_path)
         self.csvManager = QF_CSVManager(self.dir_path)
         self.quadFold = QuadrantFolder(self.dir_path, fileName, self, self.fileList, self.ext)
 
         if self.inputsettings:
             self.setCalibrationImage()
-            self.processImage()
-        else:
-            self.onImageChanged()
+        self.onImageChanged()
 
     def inputerror(self):
         """
@@ -127,9 +131,6 @@ class QuadrantFoldingh:
         file=fileName+'.info'
         cache_path = os.path.join(self.dir_path, "qf_cache", file)
         cache_exist=os.path.isfile(cache_path)
-        if self.delcache:
-            if os.path.isfile(cache_path):
-                os.remove(cache_path)
 
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
@@ -306,7 +307,7 @@ class QuadrantFoldingh:
         flags['tension'] = 1.0
         flags["tophat1"] = 5
         flags['tophat2'] = 20
-        flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img, self.quadFold.img_type)
+        flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img)
         flags['sigmoid'] = 0.1
         flags['fwhm'] = 10
         flags['boxcar_x'] = 10
@@ -315,9 +316,10 @@ class QuadrantFoldingh:
         flags['blank_mask'] = False
         flags['rotate'] = False
 
+        if self.calSettings is not None:
+            flags.update(self.calSettings)
         if 'center' in flags:
             flags.pop('center')
-
         return flags
 
     def statusPrint(self, text):
@@ -346,9 +348,12 @@ class QuadrantFoldingh:
                     self.calSettings = json.load(f)
             except Exception:
                 self.statusPrint("Can't load setting file")
-                self.inputsettings=False
-                self.calSettings = {"center": [1030.22, 1015.58], "radius": 686, "silverB": 5.83803, "type": "img"}
-            self.quadFold.info['calib_center'] = self.calSettings['center']
+                self.inputsettings = False
+                self.calSettings = None
+            if self.calSettings is not None:
+                self.quadFold.info['calib_center'] = self.calSettings['center']
+            else:
+                self.inputsettings = False
             if 'manual_center' in self.quadFold.info:
                 del self.quadFold.info['manual_center']
             if 'center' in self.quadFold.info:

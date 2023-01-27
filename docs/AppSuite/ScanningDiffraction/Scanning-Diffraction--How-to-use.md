@@ -1,20 +1,6 @@
 # How to use
 
-Scanning Diffraction (DI) provides two modes for users: Headless mode and Interactive mode  
-
-## Headless Mode  
-Image processing performed in the terminal.
-In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
-For example: `musclex eq -h -i test.tif -s config.json`
-Arguments:
--f \<foldername> or -i \<filename>
--d (optional) delete existing cache
--s (optional) \<input setting file>
-
-Note: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
-
-### Multiprocessing on folders
-In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
+Scanning Diffraction (DI) provides two modes for users: Interactive mode and Headless mode
 
 ## Interactive Mode 
 
@@ -124,3 +110,23 @@ If you think there might be some mistakes about fitting results at a pixel, you 
 2. Click More Details
 3. Fix it in the individual image mode (You can close the window after fixing)
 4. Go back to Batch mode window, and click "Refresh Maps"
+
+## Headless Mode
+Image processing performed in the terminal.
+In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
+For example: `musclex di -h -i test.tif -s config.json`.
+
+Arguments:
+* -f \<foldername> or -i \<filename>
+* -d (optional) delete existing cache
+* -s (optional) \<input setting file>
+
+Note: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
+
+### Multiprocessing on folders
+In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
+
+### Customization of the parameters
+Since Headless mode is limited in terms of interactions and parameters to change, you can directly set your parameters in a json format inside `disettings.json`. You might need to look at the code and especially 'modules/ScanningDiffraction.py' to know exactly which parameters to set and how to set them.
+
+

@@ -82,7 +82,7 @@ def getMaskOnly(path):
         return fabio.open(maskonly_file).data
     return None
 
-def getImgFiles(fullname):
+def getImgFiles(fullname, headless=False):
     """
     Get directory, all image file names in the same directory and current file index
     :param fullname: full name of the file including directory i.e. /aaa/bbb/ccc/ddd.tif (str)
@@ -109,7 +109,7 @@ def getImgFiles(fullname):
             if failedcases is not None and f not in failedcases:
                 continue
             imgList.append(f)
-        if len(imgList) == 1:
+        if len(imgList) == 1 and not headless:
             # if only one image in the h5 file, take all the single h5 images in the folder
             infMsg = QMessageBox()
             infMsg.setText('Single Image H5 File')
