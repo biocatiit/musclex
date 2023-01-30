@@ -391,13 +391,17 @@ class EquatorImage:
             #     max_ind = np.argmax(histo[0])
             #     self.info['mask_thres'] = histo[1][max_ind]
             # else:
-            #self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
+            #     self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
             ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
             if any(ignore):
                 left_ignore = ignore[:int(center[0])]
                 left_ignore = left_ignore[::-1]
                 right_ignore = ignore[int(center[0]):]
             else:
+                left_ignore = None
+                right_ignore = None
+            if all(ignore):
+                print('Failed to select ignored gaps: using original histogram for convexhull')
                 left_ignore = None
                 right_ignore = None
 
@@ -419,7 +423,7 @@ class EquatorImage:
 
             self.removeInfo('tmp_peaks') # Remove temp peaks from info dict to make it be re-calculated
 
-        print("Done")
+        print("Done.")
 
     def getPeaks(self):
         """

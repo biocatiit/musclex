@@ -254,7 +254,7 @@ def main(arguments=None):
                 from multiprocessing import Lock, Process, cpu_count
                 lock = Lock()
                 procs = []
-                in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+                in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.h5', '.hdf5', '.smv']
                 imgList = os.listdir(filename)
                 imgList.sort()
                 for image in imgList:
