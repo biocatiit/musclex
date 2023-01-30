@@ -676,7 +676,7 @@ class ProjectionTracesGUI(QMainWindow):
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
             for i in range(self.numberOfFiles):
-                self.progressBar.setValue(100. / self.numberOfFiles * i)
+                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
                 self.nextClicked()
             self.progressBar.setVisible(False)
@@ -1026,7 +1026,7 @@ class ProjectionTracesGUI(QMainWindow):
                         cx, cy = pivot[0], pivot[1]
 
                         # get the image rotated around the box center
-                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle, self.projProc.img_type)
+                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
 
                         x1, y1 = rotatePoint((cx, cy), (blx, bly), -np.radians(rot_angle))
                         x2 = x1 + width
@@ -1571,7 +1571,7 @@ class ProjectionTracesGUI(QMainWindow):
         if 'mask_thres' in self.projProc.info:
             self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
         elif self.maskThresSpnBx.value() == -999:
-            self.maskThresSpnBx.setValue(getMaskThreshold(img, img_type="NORMAL"))
+            self.maskThresSpnBx.setValue(getMaskThreshold(img))
         # self.maskThresSpnBx.setRange(img.min(), img.max())
         if 'blank_mask' in self.projProc.info:
             self.blankImageGrp.setChecked(self.projProc.info['blank_mask'])
@@ -1583,7 +1583,7 @@ class ProjectionTracesGUI(QMainWindow):
         :return:
         """
         if self.center_func == 'automatic':
-            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img), self.projProc.img_type)
+            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
             self.centerx, self.centery = center
             if self.qfChkBx.isChecked():
                 self.qfChkBx.setChecked(False)

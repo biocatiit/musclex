@@ -40,7 +40,6 @@ from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, isImg
 from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
-from ..utils.hdf5_manager import loadFile
 from ..CalibrationSettings import CalibrationSettings
 
 class AddIntensitiesMultExp(QMainWindow):
@@ -59,7 +58,6 @@ class AddIntensitiesMultExp(QMainWindow):
         self.orig_img_names = []
         self.initImg = None
         self.sum_img = None
-        self.img_type = None
         self.currentFileNumber = 0
         self.center_before_rotation = None
         self.updated = {'img' : False, 'res': False}
@@ -1698,7 +1696,7 @@ class AddIntensitiesMultExp(QMainWindow):
             self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
-        self.orig_imgs[0], self.info['center'] = processImageForIntCenter(orig_img, getCenter(orig_img), self.img_type, -1)
+        self.orig_imgs[0], self.info['center'] = processImageForIntCenter(orig_img, getCenter(orig_img))
         if self.orig_image_center is None:
             self.orig_image_center = self.info['center']
         print("Done. Center = "+str(self.info['center']))
@@ -1828,10 +1826,6 @@ class AddIntensitiesMultExp(QMainWindow):
             else:
                 self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data.astype(np.float32))
                 self.orig_img_names.append(os.path.split(self.numberToFilesMap[self.currentFileNumber][i])[1])
-        if self.orig_imgs[0].shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))
         self.processImage()
@@ -2038,7 +2032,7 @@ class AddIntensitiesMultExp(QMainWindow):
             center = self.center_before_rotation
 
         b, l = img.shape
-        rotImg, newCenter, _ = rotateImage(img, center, self.info["rotationAngle"][index], self.img_type, -1)
+        rotImg, newCenter, _ = rotateImage(img, center, self.info["rotationAngle"][index])
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape

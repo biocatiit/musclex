@@ -59,11 +59,7 @@ class DiffractionCentroids:
         :param off_mer: configuration of off-meridian peaks configured my users
         """
         self.avgImg = self.mergeImages(dir_path, imgList) # average all image in a group
-        if self.avgImg.shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
-        self.mask_thres = getMaskThreshold(self.avgImg, self.img_type)
+        self.mask_thres = getMaskThreshold(self.avgImg)
         self.dir_path = dir_path
         self.version = __version__
         self.info = {
@@ -181,7 +177,7 @@ class DiffractionCentroids:
                 self.info['center'] = (center[0], center[1])
                 self.info['orig_center'] = (center[0], center[1])
             return
-        self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg), self.img_type, self.mask_thres)
+        self.avgImg, self.info['center'] = processImageForIntCenter(self.avgImg, getCenter(self.avgImg))
         print("center = "+str(self.info['center']))
         self.removeInfo('rotationAngle')
 
@@ -282,7 +278,7 @@ class DiffractionCentroids:
         else:
             self.info["orig_center"] = center
 
-        rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.mask_thres)
+        rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle)
 
         return rotImg
 

@@ -378,10 +378,6 @@ def getRotationAngle(img, center, method=0):
         init_angle = init_angle if init_angle <= 90. else 180. - init_angle
 
     # Find angle with maximum intensity from Azimuthal integration
-    # if img.shape == (1043, 981):
-    #     det = "pilatus1m"
-    # else:
-    #     det = "agilent_titan"
     det = find_detector(img)
 
     corners = [(0, 0), (0, img.shape[1]), (img.shape[0], 0), (img.shape[0], img.shape[1])]
@@ -465,7 +461,7 @@ def getNewZoom(current, move, xmax, ymax, ymin=0):
 
     return [(x1, x2), (y1, y2)]
 
-def rotateImage(img, center, angle, img_type, mask_thres = -999):
+def rotateImage(img, center, angle):
     """
     Get rotated image by angle.
     :param img: input image
@@ -510,7 +506,7 @@ def rotateImage(img, center, angle, img_type, mask_thres = -999):
     # else:
     return rotateNonSquareImage(img, angle, center)
 
-def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
+def rotateImageAboutPoint(img, point, angle):
     """
     Get rotated image by angle about a given point.
     :param img: input image
@@ -522,9 +518,8 @@ def rotateImageAboutPoint(img, point, angle, img_type, mask_thres = -999):
         return img
 
     M = cv2.getRotationMatrix2D(tuple(point), angle, 1)
-
+    img = img.astype('float32')
     # if img_type == "PILATUS":
-    #     img = img.astype('float32')
     #     if mask_thres == -999:
     #         mask_thres = getMaskThreshold(img, img_type)
     #     mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
@@ -549,7 +544,7 @@ def rotatePoint(origin, point, angle):
     qy = oy + np.sin(angle) * (px - ox) + np.cos(angle) * (py - oy)
     return qx, qy
 
-def getMaskThreshold(img, img_type):
+def getMaskThreshold(img):
     """
     Compute the mask threshold for the image given
     :param img, img_type:
@@ -560,7 +555,7 @@ def getMaskThreshold(img, img_type):
         mask_thres = -0.01
     else:
         mask_thres = min_val
-    if img_type == "PILATUS":
+    if img.shape == (1043, 981): # if img_type == "PILATUS":
         hist = np.histogram(img, 3, (min_val, min_val+3))
         max_ind = np.argmax(hist[0])
         mask_thres = hist[1][max_ind]
@@ -630,15 +625,11 @@ def averageImages(file_list, rotate=False, preprocessed=False):
             img = f
         else:
             img = fabio.open(f).data
-        if img.shape == (1043, 981):
-            img_type = "PILATUS"
-        else:
-            img_type = "NORMAL"
         if rotate:
             print(f'Rotating and centering {f}')
             center = getCenter(img)
             angle = getRotationAngle(img, center, method=0)
-            img, center, _ = rotateImage(img, center, angle, img_type, mask_thres = -999)
+            img, center, _ = rotateImage(img, center, angle)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
@@ -658,11 +649,6 @@ def expandAndAverageImages(file_list, max_dim, max_img_center, rotate, preproces
         else:
             img = fabio.open(f).data
 
-        if img.shape == (1043, 981):
-            img_type = "PILATUS"
-        else:
-            img_type = "NORMAL"
-
         # Expand Image to max size by padding the surrounding by zeros and center of all image coincides
         center = getCenter(img)
         expanded_img = np.zeros(max_dim)
@@ -676,7 +662,7 @@ def expandAndAverageImages(file_list, max_dim, max_img_center, rotate, preproces
         if rotate:
             print(f'Rotating and centering {f}')
             angle = getRotationAngle(img, max_img_center, method=0)
-            img, center, _ = rotateImage(img, max_img_center, angle, img_type, mask_thres = -999)
+            img, center, _ = rotateImage(img, max_img_center, angle)
         all_imgs.append(img)
 
     return np.mean(all_imgs, axis=0)
@@ -704,7 +690,7 @@ def checkDimensionsMatch(file_list, preprocessed=False):
 
     return dims.count(dims[0]) == len(dims), max_dim, center
 
-def processImageForIntCenter(img, center, img_type, mask_thres = -999):
+def processImageForIntCenter(img, center):
     """
     Translate image such that the new center is an integer
     :param file_list: original image and its center with decimals
@@ -738,6 +724,7 @@ def rotateNonSquareImage(img, angle, center1):
     :param file_list: original non square image, angle of rotation and center
     :return: rotated image and center with respect to new coordinate system
     """
+    img = img.astype('float32')
     height, width = img.shape
     center = (width/2, height/2)
 
@@ -808,6 +795,10 @@ def find_detector(img):
         if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
             detector = detector_factory(detect)
             return detector
+    # if img.shape == (1043, 981):
+    #     det = "pilatus1m"
+    # else:
+    #     det = "agilent_titan"
     if detector is None:
         print("No corresponding detector found, using agilent_titan by default...")
         detector = detector_factory('agilent_titan')

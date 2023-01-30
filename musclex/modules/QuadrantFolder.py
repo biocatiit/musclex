@@ -70,10 +70,6 @@ class QuadrantFolder:
         self.orig_img = self.orig_img.astype("float32")
         self.orig_image_center = None
         self.dl, self.db = 0, 0
-        if self.orig_img.shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
         self.empty = False
         self.img_path = img_path
         self.img_name = img_name
@@ -196,7 +192,7 @@ class QuadrantFolder:
         Initial some parameters in case GUI doesn't specified
         """
         if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
+            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
         if 'ignore_folds' not in self.info:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:
@@ -248,7 +244,7 @@ class QuadrantFolder:
             return
         print("Center is being calculated ... ")
         self.orig_image_center = getCenter(self.orig_img)
-        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center, self.img_type, self.info['mask_thres'])
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
         print("Done. Center = "+str(self.info['center']))
 
 
@@ -373,7 +369,7 @@ class QuadrantFolder:
             self.center_before_rotation = center
 
         b, l = img.shape
-        rotImg, newCenter, self.rotMat = rotateImage(img, center, self.info["rotationAngle"], self.img_type, self.info['mask_thres'])
+        rotImg, newCenter, self.rotMat = rotateImage(img, center, self.info["rotationAngle"])
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape
@@ -413,7 +409,8 @@ class QuadrantFolder:
         center = [copy_img.shape[1]-1, copy_img.shape[0]-1]
         npt_rad = int(distance(center,(0,0)))
 
-        ai = AzimuthalIntegrator(detector="agilent_titan")
+        det = find_detector(copy_img)
+        ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
         mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
@@ -701,8 +698,8 @@ class QuadrantFolder:
         center = [copy_img.shape[1] - .5, copy_img.shape[0] - .5]
         # npt_rad = int(distance(center, (0, 0)))
 
-        ai = AzimuthalIntegrator(detector="agilent_titan")
-        ai.setFit2D(100, center[0], center[1])
+        # ai = AzimuthalIntegrator(detector="agilent_titan")
+        # ai.setFit2D(100, center[0], center[1])
         # mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
 
         start_p = self.info["cirmin"]  # minimum value of circular background subtraction pixel range in percent
@@ -770,7 +767,8 @@ class QuadrantFolder:
             npt_rad = int(distance(center, (0, 0)))
 
             # Get 1D azimuthal integration histogram
-            ai = AzimuthalIntegrator(detector="agilent_titan")
+            det = find_detector(copy_img)
+            ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
             integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
@@ -782,7 +780,7 @@ class QuadrantFolder:
         self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg1" from info to make it reprocess
         print("Done. R-min is "+str(self.info['rmin']) + " and R-max is " + str(self.info['rmax']))
 
-    def apply2DConvexhull(self):
+    def apply2DConvexhull(self): # Deprecated, removed from MuscleX
         """
         Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgimg1']
         """

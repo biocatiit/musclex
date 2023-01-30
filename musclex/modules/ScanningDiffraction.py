@@ -29,7 +29,6 @@ authorization from Illinois Institute of Technology.
 import copy
 import math
 import time
-import os
 from os.path import exists
 import collections
 import pickle
@@ -64,10 +63,6 @@ class ScanningDiffraction:
             original_image = fabio.open(fullPath(filepath, filename)).data
         original_image = ifHdfReadConvertless(filename, original_image)
         self.original_image = original_image.astype("float32")
-        if self.original_image.shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
         if parent is not None:
             self.parent = parent
         else:
@@ -196,12 +191,12 @@ class ScanningDiffraction:
         """
         if 'center' not in self.info.keys():
             img = get8bitImage(copy.copy(self.original_image))
-            self.original_image, self.info['center'] = processImageForIntCenter(img, getCenter(img), self.img_type)
+            self.original_image, self.info['center'] = processImageForIntCenter(img, getCenter(img))
             self.log("Center has been calculated. center is "+str(self.info['center']))
 
     def get2DIntegrations(self):
         """
-        Get 2D integrations and azimuthal histrogram
+        Get 2D integrations and azimuthal histogram
         :return:
         """
         if '2dintegration' not in self.info.keys():

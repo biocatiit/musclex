@@ -72,10 +72,6 @@ class EquatorImage:
         self.image = None
         self.skeletalVarsNotSet = False
         self.extraPeakVarsNotSet = False
-        if self.orig_img.shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
 
         self.quadrant_folded = False
         if filename.endswith(".tif"):
@@ -94,7 +90,7 @@ class EquatorImage:
         if cache is None:
             # info dictionary will save all results
             self.info = {
-                "mask_thres" : -0.01 #getMaskThreshold(self.orig_img, self.img_type)
+                "mask_thres" : -0.01 #getMaskThreshold(self.orig_img)
             }
         else:
             self.info = cache
@@ -190,7 +186,7 @@ class EquatorImage:
                 print("Using Calibration Center")
                 self.info['center'] = self.info['calib_center']
                 return
-            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img), self.img_type, self.info['mask_thres'])
+            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
         else:
             if self.rotMat is not None:
@@ -245,10 +241,6 @@ class EquatorImage:
             img = copy.copy(self.orig_img)
             center = self.info['center']
 
-            # if img.shape == (1043, 981):
-            #     det = "pilatus1m"
-            # else:
-            #     det = "agilent_titan"
             det = find_detector(img)
 
             corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
@@ -288,7 +280,7 @@ class EquatorImage:
             else:
                 self.info["orig_center"] = center
 
-            rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
+            rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle)
             self.rotated_img = [self.info["center"], angle, img, rotImg]
 
         return self.rotated_img[3]

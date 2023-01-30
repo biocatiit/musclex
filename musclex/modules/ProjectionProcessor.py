@@ -63,10 +63,6 @@ class ProjectionProcessor:
         # img -= img.min()
         self.orig_img = img
         self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
-        if self.orig_img.shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
         self.rotated_img = None
         self.rotated = False
         self.version = __version__
@@ -252,7 +248,7 @@ class ProjectionProcessor:
             if 'mask_thres' in settings:
                 self.info['mask_thres'] = settings['mask_thres']
             else:
-                self.info['mask_thres'] = getMaskThreshold(self.orig_img, self.img_type)
+                self.info['mask_thres'] = getMaskThreshold(self.orig_img)
         if 'blank_mask' in settings:
             self.info['blank_mask'] = settings['blank_mask']
 
@@ -280,7 +276,7 @@ class ProjectionProcessor:
                         # the box center
                         cx, cy = b[6]
                         rot_angle = b[5]
-                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle, self.img_type)
+                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
 
                     # y is shape[0], x is shape[1]?
                     x1 = np.max((int(b[0][0]), 0))
@@ -589,7 +585,7 @@ class ProjectionProcessor:
             else:
                 self.info["orig_center"] = center
 
-            rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle, self.img_type, self.info['mask_thres'])
+            rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle)
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
 
         return self.rotated_img[3]

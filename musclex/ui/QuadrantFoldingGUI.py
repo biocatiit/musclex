@@ -2275,10 +2275,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if 'mask_thres' in info.keys():
             self.maskThresSpnBx.setValue(info['mask_thres'])
         elif self.maskThresSpnBx.value() == -999:
-            if img.shape == (1043, 981):  # Pilatus
-                self.maskThresSpnBx.setValue(getMaskThreshold(img, img_type="PILATUS"))
-            else:
-                self.maskThresSpnBx.setValue(getMaskThreshold(img, img_type="NORMAL"))
+            self.maskThresSpnBx.setValue(getMaskThreshold(img))
         self.maskThresSpnBx.setRange(min_val, max_val)
 
         self.spResultmaxInt.setRange(min_val + 1, max_val)

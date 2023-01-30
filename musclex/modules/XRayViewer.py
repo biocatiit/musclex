@@ -56,10 +56,6 @@ class XRayViewer:
         self.orig_image_center = None
         self.hist = []
         self.dl, self.db = 0, 0
-        if self.orig_img.shape == (1043, 981):
-            self.img_type = "PILATUS"
-        else:
-            self.img_type = "NORMAL"
 
     def getRotatedImage(self, angle, center):
         """
@@ -67,7 +63,7 @@ class XRayViewer:
         """
         img = np.array(self.orig_img, dtype="float32")
         b, l = img.shape
-        rotImg, _, _ = rotateImage(img, center, angle, self.img_type, -999)
+        rotImg, _, _ = rotateImage(img, center, angle)
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape

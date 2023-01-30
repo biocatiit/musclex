@@ -619,7 +619,7 @@ class XRayViewerGUI(QMainWindow):
                 if test_first_slice:
                     print("Center of the line: ", (cx, cy))
 
-            rotImg, newCenter, _ = rotateImage(self.xrayViewer.orig_img, [cx, cy], angle, self.xrayViewer.img_type, -999)
+            rotImg, newCenter, _ = rotateImage(self.xrayViewer.orig_img, [cx, cy], angle)
             self.xrayViewer.hist = rotImg[newCenter[1], :]
             self.updateFittingTab(self.xrayViewer.hist)
             self.saveGraphSlice.setEnabled(True)
@@ -659,7 +659,7 @@ class XRayViewerGUI(QMainWindow):
             if test_first_box:
                 print("Center of the line: ", (cx, cy))
 
-            rotImg, newCenter, _ = rotateImage(self.xrayViewer.orig_img, [cx, cy], angle, self.xrayViewer.img_type, -999)
+            rotImg, newCenter, _ = rotateImage(self.xrayViewer.orig_img, [cx, cy], angle)
             l = func[3][3]//2
             self.xrayViewer.hist = rotImg[newCenter[1]-func[3][2], newCenter[0]-l:newCenter[0]+l]
             for i in range(newCenter[1]-func[3][2], newCenter[1]+func[3][2]):

@@ -295,7 +295,7 @@ class DIImageWindowh():
         self.in_batch_process = False
         self.folder_processed = True
 
-    def getFlags(self, imgChanged=True):
+    def getFlags(self):
         """
         Give the flags for the object associated
         """
@@ -319,7 +319,7 @@ class DIImageWindowh():
         if imgList is not None:
             self.imgList = imgList
         else:
-            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
+            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath, headless=True)
             # self.imgList, _ = getFilesAndHdf(self.filePath)
 
         # self.imgList.sort()
@@ -344,7 +344,7 @@ class DIImageWindowh():
         fileName = self.imgList[self.currentFileNumber]
         self.statusPrint("current file is "+fileName)
         self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger, parent=self)
-        self.processImage(True)
+        self.processImage()
         self.statusPrint('---------------------------------------------------')
 
         if self.inputflag and cache_exist and not self.delcache:
@@ -359,12 +359,12 @@ class DIImageWindowh():
 
         self.statusPrint('---------------------------------------------------')
 
-    def processImage(self, imgChanged=False):
+    def processImage(self):
         """
         Process the scanning diffraction
         """
         if self.cirProj is not None:
-            flags = self.getFlags(imgChanged)
+            flags = self.getFlags()
             self.cirProj.process(flags)
             self.updateParams()
             # acquire the lock

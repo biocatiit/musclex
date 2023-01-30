@@ -2010,7 +2010,7 @@ class EquatorWindow(QMainWindow):
                     else:
                         im[i][j]=0
 
-            _, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
+            _, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im))
 
             center=self.bioImg.info['center']
 
@@ -3106,8 +3106,7 @@ class EquatorWindow(QMainWindow):
             print("Finished QF")
             # self.bioImg.orig_img = self.quadFold.imgCache['resultImg']
             _, center = processImageForIntCenter(self.quadFold.imgCache['resultImg'],
-                                                 getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.img_type,
-                                                 self.quadFold.info["mask_thres"])
+                                                 getCenter(self.quadFold.imgCache['resultImg']))
             M = self.quadFold.centImgTransMat
             if M is not None:
                 M[0, 2] = -1 * M[0, 2]
@@ -3282,12 +3281,8 @@ class EquatorWindow(QMainWindow):
         self.minIntSpnBx.setSingleStep(step)
         self.maxIntSpnBx.setSingleStep(step)
 
-        if img.shape == (1043, 981):
-            self.minIntSpnBx.setDecimals(2)
-            self.maxIntSpnBx.setDecimals(2)
-        else:
-            self.minIntSpnBx.setDecimals(0)
-            self.maxIntSpnBx.setDecimals(0)
+        self.minIntSpnBx.setDecimals(2)
+        self.maxIntSpnBx.setDecimals(2)
 
         # use cached values if they're available
         if "minInt" in self.bioImg.info and "maxInt" in self.bioImg.info:
@@ -3304,25 +3299,6 @@ class EquatorWindow(QMainWindow):
         """
         self.update_plot['graph'] = True
         self.updateUI()
-
-    def getExtentAndCenter(self):
-        """
-        Give the Extant and center
-        :return: extent, center
-        """
-        if self.quadFold is None:
-            return [0,0], (0,0)
-        if 'calib_center' in self.quadFold.info:
-            center = self.quadFold.info['calib_center']
-        elif 'manual_center' in self.quadFold.info:
-            center = self.quadFold.info['manual_center']
-        else:
-            _, center = processImageForIntCenter(self.quadFold.initImg, getCenter(self.quadFold.initImg), self.quadFold.img_type, self.quadFold.info["mask_thres"])
-
-        extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
-
-        print("Extent is ", extent)
-        return extent, center
 
     def resetUI(self):
         """
