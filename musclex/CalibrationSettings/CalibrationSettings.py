@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import fabio
 import musclex
+from pyFAI.detectors import Detector
 from ..ui.pyqt_utils import *
 from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
 from ..utils.image_processor import *
@@ -93,6 +94,7 @@ class CalibrationSettings(QDialog):
         init_pix_size = 0.172
         typ = None
         center=None
+        detector = None
         if self.calSettings is not None:
             typ = self.calSettings["type"] if "type" in self.calSettings else None
             if typ == "cont":
@@ -104,6 +106,8 @@ class CalibrationSettings(QDialog):
 
             if 'center' in self.calSettings:
                 center = self.calSettings["center"]
+            if "detector" in self.calSettings:
+                detector = self.calSettings["detector"]
         self.mainLayout = QVBoxLayout(self)
 
         self.pathText = QLineEdit()
@@ -222,6 +226,21 @@ class CalibrationSettings(QDialog):
         self.centerY.setObjectName('centerY')
         self.editableVars[self.centerY.objectName()] = None
 
+        self.manDetector = QCheckBox("Manually Select Detector")
+        self.detectorChoice = QComboBox()
+        self.alldetectorChoices = list(Detector.registry.keys())
+        for c in self.alldetectorChoices:
+            self.detectorChoice.addItem(c)
+        if detector is not None:
+            self.detectorChoice.setCurrentIndex(self.alldetectorChoices.index(detector))
+            self.manDetector.setChecked(True)
+            self.detectorChoice.setEnabled(True)
+        else:
+            self.detectorChoice.setCurrentIndex(0)
+            self.manDetector.setChecked(False)
+            self.detectorChoice.setEnabled(False)
+        self.editableVars[self.detectorChoice.objectName()] = None
+
         self.paramLayout.addWidget(QLabel("Lambda : "), 0, 0, 1, 1)
         self.paramLayout.addWidget(self.lambdaSpnBx, 0, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("nm"), 0, 2, 1, 1)
@@ -237,6 +256,8 @@ class CalibrationSettings(QDialog):
         self.mainLayout.addWidget(self.fixedCenter)
         self.mainLayout.addWidget(self.centerX)
         self.mainLayout.addWidget(self.centerY)
+        self.mainLayout.addWidget(self.manDetector)
+        self.mainLayout.addWidget(self.detectorChoice)
         self.mainLayout.addWidget(self.bottons)
         self.mainLayout.setAlignment(Qt.AlignCenter)
         self.mainLayout.setAlignment(self.bottons, Qt.AlignCenter)
@@ -257,6 +278,7 @@ class CalibrationSettings(QDialog):
         self.minInt.valueChanged.connect(self.updateImage)
         self.maxInt.valueChanged.connect(self.updateImage)
         self.fixedCenter.stateChanged.connect(self.centerFixed)
+        self.manDetector.stateChanged.connect(self.detectorClicked)
 
         self.silverBehenate.editingFinished.connect(lambda: self.settingChanged('silverB', self.silverBehenate))
         self.lambdaSpnBx.editingFinished.connect(lambda: self.settingChanged('lambda', self.lambdaSpnBx))
@@ -264,6 +286,7 @@ class CalibrationSettings(QDialog):
         self.pixsSpnBx.editingFinished.connect(lambda: self.settingChanged('pixS', self.pixsSpnBx))
         self.centerX.editingFinished.connect(lambda: self.settingChanged('centerX', self.centerX))
         self.centerY.editingFinished.connect(lambda: self.settingChanged('centerY', self.centerY))
+        self.detectorChoice.currentIndexChanged.connect(lambda: self.settingChanged('detector', self.detectorChoice))
 
     def paramChecked(self):
         """
@@ -458,6 +481,9 @@ class CalibrationSettings(QDialog):
 
         if self.fixedCenter.isChecked():
             self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
+        
+        if self.manDetector.isChecked():
+            self.calSettings["detector"] = self.detectorChoice.currentText()
 
         cache = {
             "path": self.pathText.text(),
@@ -610,6 +636,14 @@ class CalibrationSettings(QDialog):
             self.centerX.setEnabled(False)
             self.centerY.setEnabled(False)
 
+    def detectorClicked(self):
+        """
+        React to the Manual Select Detector checkbox.
+        """
+        if not self.manDetector.isChecked() and 'detector' in self.calSettings:
+            self.calSettings.pop('detector')
+        self.detectorChoice.setEnabled(self.manDetector.isChecked())
+
     def okClicked(self):
         """
         React to the OK button.
@@ -634,7 +668,10 @@ class CalibrationSettings(QDialog):
         """
         Change the logging variables.
         """
-        newValue = obj.value()
+        if name == 'detector':
+            newValue = obj.currentText()
+        else:
+            newValue = obj.value()
         varName = obj.objectName()
         if self.editableVars[varName] == newValue:
             return

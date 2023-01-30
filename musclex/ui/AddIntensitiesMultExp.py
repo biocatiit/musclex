@@ -1727,6 +1727,8 @@ class AddIntensitiesMultExp(QMainWindow):
                     else:
                         self.setCenterRotationButton.setEnabled(True)
                         self.setCenterRotationButton.setToolTip("")
+                    if "detector" in self.calSettings:
+                        self.info["detector"] = self.calSettings["detector"]
                 return True
         return False
 
@@ -2016,7 +2018,10 @@ class AddIntensitiesMultExp(QMainWindow):
                 # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
                 img = copy.copy(self.orig_imgs[index])
                 # _, center = self.getExtentAndCenter(img)
-                self.info['rotationAngle'][index] = getRotationAngle(img, self.orig_image_center, 0)
+                if 'detector' in self.info:
+                    self.info['rotationAngle'][index] = getRotationAngle(img, self.orig_image_center, 0, man_det=self.info['detector'])
+                else:
+                    self.info['rotationAngle'][index] = getRotationAngle(img, self.orig_image_center, 0)
         print("Done. Rotation Angle is " + str(self.info['rotationAngle'][index]) +" degree")
         self.statusPrint("")
 
@@ -2108,7 +2113,11 @@ class AddIntensitiesMultExp(QMainWindow):
         createFolder(fullPath(dir_path, "aime_results"))
         if self.avgInsteadOfSum.isChecked():
             # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-            sum_img = averageImages(imgs, preprocessed=True) ##todo homogenize
+            ##todo homogenize
+            if 'detector' in self.info:
+                sum_img = averageImages(imgs, preprocessed=True, man_det=self.info['detector'])
+            else:
+                sum_img = averageImages(imgs, preprocessed=True)
         else:
             sum_img = 0
             for img in imgs:

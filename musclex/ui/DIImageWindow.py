@@ -989,13 +989,14 @@ class DIImageWindow(QMainWindow):
         if self.calSettings is not None and len(self.calSettings) > 0:
             if "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
-            if self.calSettings["type"] == "img":
-                text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) +" nm"
-                text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
-            else:
-                text += "\n  - Lambda : " + str(self.calSettings["lambda"]) +" nm"
-                text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
-                text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) +" nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+                else:
+                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) +" nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
+                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
         text += '\n\nAre you sure you want to process ' + str(nImg) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
@@ -1090,13 +1091,16 @@ class DIImageWindow(QMainWindow):
             flags['orientation_model'] = self.orientationModel
         flags['90rotation'] = self.rotation90ChkBx.isChecked()
         if self.calSettings is not None and len(self.calSettings) > 0:
-            if self.calSettings["type"] == "img":
-                flags["center"] = self.calSettings["center"]
-                flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
-            else:
-                flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-                if "center" in self.calSettings:
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
                     flags["center"] = self.calSettings["center"]
+                    flags["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+                else:
+                    flags["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+                    if "center" in self.calSettings:
+                        flags["center"] = self.calSettings["center"]
+            if "detector" in self.calSettings:
+                self.cirProj.info['detector'] = self.calSettings["detector"]
 
         if self.fixed_hull_range is not None and (self.persistROIChkBx.isChecked() or not imgChanged):
             flags['fixed_hull'] = self.fixed_hull_range

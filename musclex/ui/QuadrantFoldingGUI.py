@@ -2335,6 +2335,9 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             if 'calib_center' in currentInfo:
                 del currentInfo['calib_center']
+        if not self.calSettingsDialog.manDetector.isChecked() and prevInfo is not None:
+            if 'detector' in currentInfo:
+                del currentInfo['detector']
 
     def refreshAllTabs(self):
         """
@@ -2681,6 +2684,9 @@ class QuadrantFoldingGUI(QMainWindow):
             flags['fixed_rmax'] = self.rmaxSpnBx.value()
 
         flags['rotate'] = self.rotate90Chkbx.isChecked()
+
+        if 'detector' in self.calSettings:
+            flags['detector'] = self.calSettings['detector']
 
         return flags
 

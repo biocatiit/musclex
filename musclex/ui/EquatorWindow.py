@@ -1542,9 +1542,10 @@ class EquatorWindow(QMainWindow):
                 self.calSettings = self.calibSettingDialog.getValues()
 
                 if "center" in self.calSettings:
-
                     self.bioImg.info['calib_center'] = self.calSettings["center"]
                     self.bioImg.removeInfo('center')
+                if "detector" in self.calSettings:
+                    self.bioImg.info["detector"] = self.calSettings["detector"]
                 # Unchecking use previous fit
                 if self.use_previous_fit_chkbx.isChecked():
                     print("Calibration setting changed, unchecking use previous fit")
@@ -3116,7 +3117,10 @@ class EquatorWindow(QMainWindow):
                 self.bioImg.removeInfo()
                 print(center)
                 self.bioImg.info['calib_center'] = (int(center[0]), int(center[1]))
-                self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'])
+                if 'detector' in self.info:
+                    self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'], man_det=self.quadFold.info['detector'])
+                else:
+                    self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'])
 
     def processImage(self, paramInfo=None):
         """
@@ -3226,6 +3230,8 @@ class EquatorWindow(QMainWindow):
                         "pixel_size"]
             if "center" in self.calSettings and self.calibSettingDialog.fixedCenter.isChecked():
                 settings["calib_center"] = self.calSettings["center"]
+            if "detector" in self.calSettings and self.calibSettingDialog.manDetector.isChecked():
+                settings["detector"] = self.calSettings["detector"]
 
         if self.fixedAngleChkBx.isChecked():
             settings['fixed_angle'] = self.fixedAngle.value()

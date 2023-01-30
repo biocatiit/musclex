@@ -1739,6 +1739,8 @@ class ProjectionTracesGUI(QMainWindow):
             else:
                 del self.projProc.info['centerx']
                 del self.projProc.info['centery']
+            if "detector" in self.calSettings:
+                self.projProc.info["detector"] = self.calSettings["detector"]
 
         return settings
 

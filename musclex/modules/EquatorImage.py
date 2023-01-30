@@ -216,7 +216,10 @@ class EquatorImage:
         if 'rotationAngle' not in self.info:
             center = self.info['center']
             img = copy.copy(self.image)
-            self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
+            if 'detector' in self.info:
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
+            else:
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
 
         if "mode_angle" in self.info:
@@ -241,7 +244,10 @@ class EquatorImage:
             img = copy.copy(self.orig_img)
             center = self.info['center']
 
-            det = find_detector(img)
+            if 'detector' in self.info:
+                det = find_detector(img, man_det=self.info['detector'])
+            else:
+                det = find_detector(img)
 
             corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
             npt_rad = int(round(max([distance(center, c) for c in corners])))

@@ -208,7 +208,11 @@ class ScanningDiffraction:
                 noBGImg = getImgAfterWhiteTopHat(img)
 
             center = self.info['center']
-            det = find_detector(img)
+            if 'detector' in self.info:
+                det = find_detector(img, man_det=self.info['detector'])
+            else:
+                det = find_detector(img)
+
             if img.shape == (1043, 981):
                 # det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
                 # rmax = max(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1])
@@ -473,11 +477,10 @@ class ScanningDiffraction:
         if blank is not None:
             img = img - blank
 
-        # if img.shape == (1043, 981):
-        #     det = "pilatus1m"  # This detector has the size (1043, 981)
-        # else:
-        #     det = "agilent_titan"
-        det = find_detector(img)
+        if 'detector' in self.info:
+            det = find_detector(img, man_det=self.info['detector'])
+        else:
+            det = find_detector(img)
 
         center = self.info['center']
         corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]

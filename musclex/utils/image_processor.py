@@ -358,7 +358,7 @@ def getRadOfMaxHoF(HoFs, mode, ratio=0.05):
     opt_idx = np.mean(opt_grp) % len(HoFs)
     return 2 * np.pi * opt_idx / nHoFs
 
-def getRotationAngle(img, center, method=0):
+def getRotationAngle(img, center, method=0, man_det=None):
     """
     Find rotation angle of the diffraction.
     :param img: input image
@@ -378,7 +378,7 @@ def getRotationAngle(img, center, method=0):
         init_angle = init_angle if init_angle <= 90. else 180. - init_angle
 
     # Find angle with maximum intensity from Azimuthal integration
-    det = find_detector(img)
+    det = find_detector(img, man_det=man_det)
 
     corners = [(0, 0), (0, img.shape[1]), (img.shape[0], 0), (img.shape[0], img.shape[1])]
     npt_rad = int(round(max([distance(center, c) for c in corners])))
@@ -609,7 +609,7 @@ def display_test(img, name = "test", max_int = 100):
     img = cv2.resize(img, size)
     cv2.imshow(name, img)
 
-def averageImages(file_list, rotate=False, preprocessed=False):
+def averageImages(file_list, rotate=False, preprocessed=False, man_det=None):
     """
     open images and average them all
     WARNING: file_list is a list of string without preprocessed but it is a list of images with prepocessed
@@ -628,7 +628,7 @@ def averageImages(file_list, rotate=False, preprocessed=False):
         if rotate:
             print(f'Rotating and centering {f}')
             center = getCenter(img)
-            angle = getRotationAngle(img, center, method=0)
+            angle = getRotationAngle(img, center, method=0, man_det=man_det)
             img, center, _ = rotateImage(img, center, angle)
         all_imgs.append(img)
 
@@ -773,32 +773,54 @@ def inpaint_img(img, center=None, mask=None):
         corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
         npt_rad = int(round(max([distance(center, c) for c in corners])))
     else:
-        npt_rad=4096
+        npt_rad=1024
+        npt_azim=1024
     if mask is None:
+        # mask = detector.mask
         mask = np.zeros_like(img)
         mask[img < 0] = 1
     ai = AzimuthalIntegrator(detector=detector)
-    # ai.setFit2D(100, center[0], center[1])
-    integration_method = IntegrationMethod.select_one_available("csr_ocl", dim=1, default="csr", degradable=True)
-    image = ai.inpainting(img, mask=mask, poissonian=True, method=integration_method, npt_rad=npt_rad)
+    integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+    image = ai.inpainting(img, mask=mask, poissonian=True, method=integration_method, npt_rad=npt_rad, npt_azim=npt_azim, grow_mask=1)
+    
+    """
+    import pyFAI
+    import matplotlib.pyplot as plt
+    img_nomask = copy.copy(img)
+    img[mask == 1] = -1 
+    wo = ai.integrate1d(img_nomask, 2000, unit="r_mm", method="csr_ocl", radial_range=(0,210))
+    for k in (512, 1024, 2048, 4096):
+        ai.reset()
+        for i in (0, 1, 2, 4, 8):
+            inpainted = ai.inpainting(img, mask=mask, poissonian=True, method=integration_method, npt_rad=k, npt_azim=npt_azim, grow_mask=i)
+            wm = ai.integrate1d(inpainted, 2000, unit="r_mm", method="csr_ocl", radial_range=(0,210))
+            print(f"method: {integration_method} npt_rad={k} grow={i}; R= {pyFAI.utils.mathutil.rwp(wm,wo)}")
+            plt.imsave(f'{i}_{k}.png', inpainted)
+    """
     print("Done.")
     return image
 
-def find_detector(img):
+def find_detector(img, man_det=None):
     """
     Finds the detector used based on the size on the image used. 
     If not found, use the default agilent_titan
     """
-    print("Finding detector...")
-    detector = None
-    for detect in Detector.registry:
-        if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
-            detector = detector_factory(detect)
-            return detector
     # if img.shape == (1043, 981):
     #     det = "pilatus1m"
     # else:
     #     det = "agilent_titan"
+    print("Finding detector...")
+    detector = None
+    if man_det is None:
+        for detect in Detector.registry:
+            if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
+                detector = detector_factory(detect)
+                break
+    else:
+        if man_det in Detector.registry and hasattr(Detector.registry[man_det], 'MAX_SHAPE') and Detector.registry[man_det].MAX_SHAPE == img.shape:
+            detector = detector_factory(man_det)
+        else:
+            print('The detector specified does not correspond to the image being processed')
     if detector is None:
         print("No corresponding detector found, using agilent_titan by default...")
         detector = detector_factory('agilent_titan')

@@ -362,7 +362,10 @@ class ProjectionProcessor:
         if 'rotationAngle' not in self.info:
             center = (self.info['centerx'], self.info['centery'])
             img = copy.copy(self.orig_img)
-            self.info['rotationAngle'] = getRotationAngle(img, center)
+            if 'detector' in self.info:
+                self.info['rotationAngle'] = getRotationAngle(img, center, man_det=self.info['detector'])
+            else:
+                self.info['rotationAngle'] = getRotationAngle(img, center)
 
     def fitModel(self):
         """

@@ -267,7 +267,10 @@ class QuadrantFolder:
             # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
             _, center = self.parent.getExtentAndCenter()
             img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
-            self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
+            if 'detector' in self.info:
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
+            else:
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
 
@@ -409,7 +412,11 @@ class QuadrantFolder:
         center = [copy_img.shape[1]-1, copy_img.shape[0]-1]
         npt_rad = int(distance(center,(0,0)))
 
-        det = find_detector(copy_img)
+        if 'detector' in self.info:
+            det = find_detector(copy_img, man_det=self.info['detector'])
+        else:
+            det = find_detector(copy_img)
+
         ai = AzimuthalIntegrator(detector=det)
         ai.setFit2D(100, center[0], center[1])
         mask = np.zeros((copy_img.shape[0], copy_img.shape[1]))
@@ -751,7 +758,7 @@ class QuadrantFolder:
         Get R-min and R-max for background subtraction process. If these value is changed, background subtracted images need to be reproduced.
         """
         self.parent.statusPrint("Finding Rmin and Rmax...")
-        print("R-min and R-max is being calculated.")
+        print("R-min and R-max is being calculated...")
 
         if 'fixed_rmin' in self.info and 'fixed_rmax' in self.info:
             if 'rmin' in self.info and 'rmax' in self.info:
@@ -767,7 +774,11 @@ class QuadrantFolder:
             npt_rad = int(distance(center, (0, 0)))
 
             # Get 1D azimuthal integration histogram
-            det = find_detector(copy_img)
+            if 'detector' in self.info:
+                det = find_detector(copy_img, man_det=self.info['detector'])
+            else:
+                det = find_detector(copy_img)
+
             ai = AzimuthalIntegrator(detector=det)
             ai.setFit2D(100, center[0], center[1])
             integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
