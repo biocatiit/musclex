@@ -18,7 +18,8 @@ Simple program to convert HDF5 files to TIFF images.
 
 * [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py)
 
-* Windows installer: [HDF5 to TIFF Converter on SourceForge](https://sourceforge.net/projects/hdf5-to-tiff-converter/)
+* [Pip version](https://pypi.org/project/hdf5-to-tiff/): `pip install hdf5-to-tiff`
+
+* Windows installer and AppImage: [HDF5 to TIFF Converter on SourceForge](https://sourceforge.net/projects/hdf5-to-tiff-converter/)
 
 * Also available inside the MuscleX code. Click [here](AppSuite/WorkingWithHdf5Images/Working-with-hdf5-images.md) to learn more.
-

@@ -2685,7 +2685,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         flags['rotate'] = self.rotate90Chkbx.isChecked()
 
-        if 'detector' in self.calSettings:
+        if self.calSettings is not None and 'detector' in self.calSettings:
             flags['detector'] = self.calSettings['detector']
 
         return flags

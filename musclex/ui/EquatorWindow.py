@@ -3117,7 +3117,7 @@ class EquatorWindow(QMainWindow):
                 self.bioImg.removeInfo()
                 print(center)
                 self.bioImg.info['calib_center'] = (int(center[0]), int(center[1]))
-                if 'detector' in self.info:
+                if 'detector' in self.bioImg.info:
                     self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'], man_det=self.quadFold.info['detector'])
                 else:
                     self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'])

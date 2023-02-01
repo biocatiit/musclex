@@ -369,7 +369,6 @@ class CalibrationSettings(QDialog):
         y = int(round(event.ydata))
         if self.doubleZoomMode:
             # If x, y is inside figure and image is clicked for first time in double zoom mode
-            print(x,y)
             self.doubleZoomPt = (x, y)
             if not self.dontShowAgainDoubleZoomMessageResult:
                 msg = QMessageBox()

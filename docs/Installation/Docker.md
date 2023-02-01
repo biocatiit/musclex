@@ -14,7 +14,7 @@ Follow the [rootless docker](https://docs.docker.com/engine/security/rootless/) 
 For Ubuntu:
 ```
 sudo apt-get update
-sudo apt-get install curl
+sudo apt-get install curl docker.io
 curl -fsSL https://get.docker.com/rootless | sh
 ```
 
@@ -33,7 +33,7 @@ If the results folders are still under root rights, it might be because you are 
 ## Create docker group and add a user
 You need to add a user to docker group in order to give docker run permission to the user  
 ```
-sudo groupadd docker                
+sudo groupadd docker
 sudo usermod -aG docker [username] # replace [username] with your user name
 ```  
 Note: You need to log out and log in again for these settings to take effect.  
