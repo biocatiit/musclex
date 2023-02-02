@@ -635,7 +635,6 @@ class QuadrantFolder:
 
         self.info['bgimg1'] = result
 
-
     def applyRovingWindowBGSub(self):
         """
         Apply Roving Window background subtraction
@@ -984,6 +983,7 @@ class QuadrantFolder:
         result = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)
+        result[np.isnan(result)] = 0.
         self.imgCache['resultImg'] = result
         print("Done.")
 
