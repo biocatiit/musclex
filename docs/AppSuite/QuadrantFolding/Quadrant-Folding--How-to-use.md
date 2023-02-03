@@ -9,7 +9,9 @@ After the program is opened, users will be able to select a file or a folder to 
 ![-](../../images/QF/start.png)
 
 ### Original Image
-In this tab, the original image will be shown along with various options displayed on the right, Display Options, Image Processing, and Fix Center. 
+In this tab, the original image will be shown along with various options displayed on the right, Display Options, Image Processing, and Fix Center.
+
+If it is the first time processing the images, the Next image button will process the following image using the current parameters (in the Image tab AND the Results tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on 'Process Current Folder', or delete the file named 'qf_cache' before launching Quadrant Folder.
 
 #### Display Options
 
@@ -64,7 +66,9 @@ This feature is used to select part of the image and perform Quadrant folding on
 ![-](../../images/QF/SetRegionOfInterest.png)
 
 ### Results
-In this tab, the resulting image will be displayed along with options on the right. Display Options will provide the same options as in Original Image tab. Users can specify min and max display intensity, and zooming.  
+In this tab, the resulting image will be displayed along with options on the right. Display Options will provide the same options as in Original Image tab. Users can specify min and max display intensity, and zooming.
+
+If it is the first time processing the images, the Next image button will process the following image using the current parameters (in the Image tab AND the Results tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on 'Process Current Folder', or delete the file named 'qf_cache' before launching Quadrant Folder.
 
 ![-](../../images/QF/results.png)
 

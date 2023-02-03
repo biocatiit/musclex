@@ -2244,8 +2244,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         info = self.quadFold.info
         if "bgsub" in info:
+            self.bgChoice.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
-                self.bgChoice.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
+                # self.bgChoice.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
                 self.tophat1SpnBx.setValue(info['tophat1'])
                 self.tophat2SpnBx.setValue(info['tophat2'])
                 self.sigmoidSpnBx.setValue(info["sigmoid"])
@@ -2291,7 +2292,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.uiUpdating = False
 
-    def onImageChanged(self):
+    def onImageChanged(self, reprocess=False):
         """
         Need to be called when image is change i.e. to the next image.
         This will create a new QuadrantFolder object for the new image and syncUI if cache is available
@@ -2304,6 +2305,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+        if reprocess:
+            self.quadFold.info = {}
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2543,10 +2546,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 result_file, _ = splitext(result_file)
                 img = self.quadFold.imgCache['resultImg']
 
-                # if self.quadFold.info['imgType'] == 'float32':
-                #     img = get16bitImage(img)
-                # else:
-                #     img = img.astype(self.quadFold.info['imgType'])
                 img = img.astype("float32")
 
                 # metadata = json.dumps([True, self.quadFold.initImg.shape])
@@ -2815,7 +2814,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     break
                 self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
-                self.nextClicked()
+                self.nextClicked(reprocess=True)
             self.progressBar.setVisible(False)
 
         self.processFolderButton.setChecked(False)
@@ -2850,13 +2849,13 @@ class QuadrantFoldingGUI(QMainWindow):
             self.currentFileNumber = (self.currentFileNumber - 1) % self.numberOfFiles
             self.onImageChanged()
 
-    def nextClicked(self):
+    def nextClicked(self, reprocess=False):
         """
         Going to the next image
         """
         if self.numberOfFiles > 0:
             self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
-            self.onImageChanged()
+            self.onImageChanged(reprocess=reprocess)
 
     def statusPrint(self, text):
         """

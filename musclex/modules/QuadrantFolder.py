@@ -95,9 +95,7 @@ class QuadrantFolder:
         if cache is not None:
             self.info = cache
         else:
-            self.info = {
-                'imgType' : str(self.orig_img.dtype)
-            }
+            self.info = {}
 
     def cacheInfo(self):
         """
@@ -787,7 +785,7 @@ class QuadrantFolder:
             self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
 
         self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
-        self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg1" from info to make it reprocess
+        self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg2" from info to make it reprocess
         print("Done. R-min is "+str(self.info['rmin']) + " and R-max is " + str(self.info['rmax']))
 
     def apply2DConvexhull(self): # Deprecated, removed from MuscleX

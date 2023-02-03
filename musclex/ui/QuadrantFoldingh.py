@@ -221,10 +221,6 @@ class QuadrantFoldingh:
                 result_file, _ = splitext(result_file)
                 img = self.quadFold.imgCache['resultImg']
 
-                # if self.quadFold.info['imgType'] == 'float32':
-                #     img = get16bitImage(img)
-                # else:
-                #     img = img.astype(self.quadFold.info['imgType'])
                 img = img.astype("float32")
                 result_file += '_folded.tif'
                 # metadata = json.dumps([True, self.quadFold.initImg.shape])
