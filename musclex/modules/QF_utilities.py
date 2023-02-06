@@ -45,9 +45,9 @@ def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshol
                         # Neighbor pixels considered as part of the gap: 2
                         if 2 < y < fold_height-2 and 2 < x < fold_width-2:
                             not_gap_edge = True
-                            for i in range(y-2, y+3):
-                                for j in range(x-2, x+3):
-                                    if fold[i,j] < threshold:
+                            for k in range(y-2, y+3):
+                                for l in range(x-2, x+3):
+                                    if fold[k,l] < threshold:
                                         not_gap_edge = False
                             if not_gap_edge:
                                 sum_val += fold[y,x]

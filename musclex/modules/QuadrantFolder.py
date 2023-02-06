@@ -900,7 +900,7 @@ class QuadrantFolder:
             # if self.info['pixel_folding']:
             # average fold by pixel to pixel by cython
             result = qfu.get_avg_fold_float32(np.array(quadrants, dtype="float32"), len(quadrants), fold_height, fold_width,
-                                                  self.info['mask_thres'])
+                                                self.info['mask_thres'])
             # else:
             #     result = np.mean( np.array(quadrants), axis=0 )
 

@@ -163,7 +163,7 @@ class QuadrantFoldingh:
         if 'center' in currentInfo:
             del currentInfo['center']
 
-        if 'calib_center' in currentInfo:
+        if not self.inputsettings and 'calib_center' in currentInfo:
             del currentInfo['calib_center']
 
     def getExtentAndCenter(self):
