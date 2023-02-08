@@ -57,3 +57,11 @@ Follow this link to install Cuda:
 Follow this link to test Cuda:
 
 [https://xcat-docs.readthedocs.io/en/stable/advanced/gpu/nvidia/verify_cuda_install.html](https://xcat-docs.readthedocs.io/en/stable/advanced/gpu/nvidia/verify_cuda_install.html)
+
+# Tensorflow
+
+## Installation and testing
+
+Follow this link to install and test tensorflow:
+
+[https://www.tensorflow.org/install/pip](https://www.tensorflow.org/install/pip)

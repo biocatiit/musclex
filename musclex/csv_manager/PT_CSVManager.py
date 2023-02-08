@@ -108,14 +108,14 @@ class PT_CSVManager:
                     moved_peaks = info['moved_peaks'][bn] - model['centerX']
                     for i,c in enumerate(centroids):
                         new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (Pixel)"] = moved_peaks[i]
-                        new_data['Box ' + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
+                        new_data["Box " + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
                         new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
                         if 'lambda_sdd' in info:
-                            new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/moved_peaks[i]
-                            new_data['Box ' + str(bn) + " Centroid " + str(i) + " (nn)"] = 1.*info['lambda_sdd']/c
-                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (nn)"] = 1. * info['lambda_sdd'] / model['p_' + str(i)]
+                            new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (nm)"] = info['lambda_sdd']/moved_peaks[i]
+                            new_data["Box " + str(bn) + " Centroid " + str(i) + " (nm)"] = info['lambda_sdd']/c
+                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (nm)"] = info['lambda_sdd'] / model['p_' + str(i)]
                 new_data["Box " + str(bn) + " error"] = model['error']
                 if model['error'] > 0.15:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
