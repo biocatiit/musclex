@@ -451,6 +451,10 @@ class ProjectionTracesGUI(QMainWindow):
         """
         success = self.launchCalibrationSettings(force=True)
         if self.projProc is not None and success:
+            self.center_func = 'automatic'
+            self.rotated = False
+            self.projProc.rotMat = None
+            self.updateImage()
             self.processImage()
 
     def launchCalibrationSettings(self, force=False):
@@ -462,7 +466,7 @@ class ProjectionTracesGUI(QMainWindow):
 
         if self.calSettingsDialog is None:
             self.calSettingsDialog = CalibrationSettings(self.dir_path) if self.projProc is None else \
-                CalibrationSettings(self.dir_path, center=self.projProc.info['center'])
+                CalibrationSettings(self.dir_path, center=self.projProc.info['orig_center'])
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
@@ -1119,8 +1123,7 @@ class ProjectionTracesGUI(QMainWindow):
 
                 cx = int(round((x1 + x2) / 2.))
                 cy = int(round((y1 + y2) / 2.))
-                if self.projProc.info['rotationAngle'] is None:
-                    self.projProc.updateRotationAngle()
+                self.projProc.info['rotationAngle'] = 0
                 M = cv2.getRotationMatrix2D((self.projProc.info['centerx'], self.projProc.info['centery']), self.projProc.info['rotationAngle'], 1)
                 invM = cv2.invertAffineTransform(M)
                 homo_coords = [cx, cy, 1.]
@@ -1731,7 +1734,7 @@ class ProjectionTracesGUI(QMainWindow):
                     settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-            if "center" in self.calSettings:
+            if "center" in self.calSettings and self.center_func != 'manual':
                 settings["center"] = self.calSettings["center"]
                 self.projProc.info['orig_center'] = self.calSettings["center"]
                 self.projProc.info['centery'] = self.calSettings["center"][1]
