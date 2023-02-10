@@ -213,16 +213,16 @@ class ScanningDiffraction:
             else:
                 det = find_detector(img)
 
-            if img.shape == (1043, 981):
-                # det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
-                # rmax = max(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1])
-                rmax = max(img.shape[0] / 2, img.shape[1] / 2)
-                min_endpoint = int(round(min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1]) *.75))
-                # img = self.getFilledImage(img)
-            else:
-                # det = "agilent_titan"  # This detector has the same size (2048,2048)
-                rmax = int(round(min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1]) *.75))
-                min_endpoint = rmax
+            # if img.shape == (1043, 981):
+            #     # det = "pilatus1m"  # Sensor used for diffraction_mapping_bone is pilatus1m
+            #     # rmax = max(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1])
+            #     rmax = max(img.shape[0] / 2, img.shape[1] / 2)
+            #     min_endpoint = int(round(min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1]) *.75))
+            #     # img = self.getFilledImage(img)
+            # else:
+            # det = "agilent_titan"  # This detector has the same size (2048,2048)
+            rmax = int(round(min(img.shape[0] - center[1], img.shape[1] - center[0], center[0], center[1]) *.75))
+            min_endpoint = rmax
 
             corners = [(0, 0), (img.shape[1], 0), (0, img.shape[0]), (img.shape[1], img.shape[0])]
             npt_rad = int(round(max([distance(center, c) for c in corners])))
@@ -1053,9 +1053,9 @@ class ScanningDiffraction:
                 idxs.append(i)
         I2D = copy.copy(self.info['2dintegration'][0])
         I2D2 = copy.copy(I2D)
-        if self.original_image.shape == (1043, 981):
-            # if the image is from pilatus, replace gaps with large minus value to make deep valley
-            I2D2[I2D2 <= 0] = -99999
+        # if self.original_image.shape == (1043, 981):
+        # if the image is from pilatus, replace gaps with large minus value to make deep valley
+        I2D2[I2D2 <= 0] = -99999
 
         sigmas = [int(round(s)) for s in self.getInitSigma(self.info['hull_hist'], rings)]
         self.log("Peaks to check = "+ str(rings))
@@ -1071,9 +1071,9 @@ class ScanningDiffraction:
 
             # remove valleys and remove linear background
             hist = copy.copy(histograms[i])
-            if self.original_image.shape == (1043, 981):
-                deep_valleys_hist = deep_valleys_hists[i]
-                hist = self.removeValleys2(deep_valleys_hist, hist)
+            # if self.original_image.shape == (1043, 981):
+            deep_valleys_hist = deep_valleys_hists[i]
+            hist = self.removeValleys2(deep_valleys_hist, hist)
             min_val = hist.min()
             hist = hist - min_val
 
