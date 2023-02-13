@@ -98,7 +98,7 @@ class DI_CSVManager():
 
         # Add data to rings.csv
         if 'model_peaks' in info.keys() and len(info['model_peaks']) > 0 and len(info['merged_peaks']) > 0:
-            new_datas = []
+            # new_datas = []
             nRings = len(info['model_peaks'])
             models = info['ring_models']
             errors = info['ring_errors']
@@ -122,12 +122,12 @@ class DI_CSVManager():
                     new_data['d'] = info['peak_ds'][i]
                 else:
                     new_data['d'] = '-'
-                new_datas.append(new_data)
-            try:
-                self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records(new_datas)])
-                # self.df_rings = self.df_rings.append(new_datas, ignore_index=True) # Future warning deprecated
-            except Exception:
-                pass
+                # new_datas.append(new_data)
+                try:
+                    self.df_rings = pd.concat([self.df_rings, pd.DataFrame.from_records([new_data])])
+                    # self.df_rings = self.df_rings.append(new_datas, ignore_index=True) # Future warning deprecated
+                except Exception:
+                    pass
         else:
             for k in self.rings_header:
                 new_data = {}

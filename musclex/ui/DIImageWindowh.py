@@ -191,8 +191,13 @@ class DIImageWindowh():
         self.delcache=delcache
         self.inputflagfile=inputflagpath
         self.lock = lock
-
+        # acquire the lock
+        if self.lock is not None:
+            self.lock.acquire()
         self.csvManager = DI_CSVManager(dir_path)
+        # release the lock
+        if self.lock is not None:
+            self.lock.release()
         self.imgList = []
         self.numberOfFiles = 0
         self.currentFileNumber = 0
@@ -389,6 +394,9 @@ class DIImageWindowh():
         """
         Add pixel data to csv
         """
+        # acquire the lock
+        if self.lock is not None:
+            self.lock.acquire()
         if self.pixelDataFile is None:
             self.pixelDataFile = self.filePath + '/di_results/BackgroundSummary.csv'
             if not os.path.isfile(self.pixelDataFile):
@@ -424,6 +432,9 @@ class DIImageWindowh():
             next_row_index = csvDF.shape[0]
             csvDF.loc[next_row_index] = [self.cirProj.filename, averagePixelValue, numberOfPixels]
         csvDF.to_csv(self.pixelDataFile, index=False)
+        # release the lock
+        if self.lock is not None:
+            self.lock.release()
 
     def setMinMaxIntensity(self, img, minInt, maxInt, minIntLabel, maxIntLabel):
         """
