@@ -13,7 +13,7 @@ Auto grouping is performed automatically and the images you see on the screen ar
 
 * You can change the display options in order to have visually better images (won't affect the true result).
 
-* You can also change the processing options: the number of exposures you want to add simultaneously, averaging the images instead of summing them, calibrating the common center and the rotation of each image (can be done automatically or manually for each image).
+* You can also change the processing options: the number of exposures you want to add simultaneously, averaging the images instead of summing them, calibrating the center and the rotation of each image (can be done automatically or manually for each image).
 
 ```eval_rst
 .. note:: After clicking on a calibration button, you need to select an image by clicking on it before using the calibration function on this image.

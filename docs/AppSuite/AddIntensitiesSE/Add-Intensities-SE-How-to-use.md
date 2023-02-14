@@ -13,7 +13,7 @@ The image you see on the screen is the first of the group. The result image of t
 
 * You can change the display options in order to have visually better images (won't affect the true result).
 
-* You can also change the processing options: the number of frames you want to add simultaneously, averaging the images instead of summing them, calibrating the common center and the rotation of each image (can be done automatically or manually for each image). The groups are displayed in the terminal when a change is made.
+* You can also change the processing options: the number of frames you want to add simultaneously, averaging the images instead of summing them, calibrating the center and the rotation of each image (can be done automatically or manually for each image). The groups are displayed in the terminal when a change is made.
 
 * Use the 'Frame' arrows to go from one frame to the other inside a same group.
 
