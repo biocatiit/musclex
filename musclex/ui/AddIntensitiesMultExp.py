@@ -833,7 +833,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.info['manual_center'][self.index] = (cx, cy)
-                    self.info['center'][self.index] = (cx, cy)
+                    # self.info['center'][self.index] = (cx, cy)
                     # self.orig_image_center = self.info['manual_center']
                     self.info['manual_rotationAngle'][self.index] = new_angle
                     self.setCenterRotationButton.setChecked(False)
@@ -1563,6 +1563,8 @@ class AddIntensitiesMultExp(QMainWindow):
             print("New Center ", new_center)
             self.info['manual_center'][self.index] = (
                 int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
+            self.info['center'][self.index] = (
+                int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
             print("New center after extent ", self.info['manual_center'][self.index])
             self.setCentByPerp.setChecked(False)
             self.onImageChanged()
@@ -1602,13 +1604,17 @@ class AddIntensitiesMultExp(QMainWindow):
 
             cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
             cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            M = cv2.getRotationMatrix2D(tuple(self.orig_image_center), 0, 1)
+            if self.info['rotationAngle'][self.index] is None:
+                M = cv2.getRotationMatrix2D(tuple(self.info['center'][self.index]), 0, 1)
+            else:
+                M = cv2.getRotationMatrix2D(tuple(self.info['center'][self.index]), self.info['rotationAngle'][self.index], 1)
             invM = cv2.invertAffineTransform(M)
             homo_coords = [cx, cy, 1.]
             new_center = np.dot(invM, homo_coords)
             print("New center ", new_center)
             # Set new center
             self.info['manual_center'][self.index] = (int(round(new_center[0])), int(round(new_center[1])))
+            self.info['center'][self.index] = (int(round(new_center[0])), int(round(new_center[1])))
             self.setCentByChords.setChecked(False)
             self.onImageChanged()
 
@@ -1682,7 +1688,6 @@ class AddIntensitiesMultExp(QMainWindow):
             if c is None:
                 self.info['center'][d] = center
         extent = [self.info['center'][index][0] - center[0], self.info['center'][index][1] - center[1]]
-        print(extent, self.info['center'])
         return extent, center
 
     def findCenter(self, orig_img, index=0):
@@ -1970,7 +1975,7 @@ class AddIntensitiesMultExp(QMainWindow):
         ax.cla()
 
         if self.calibrationChkBx.isChecked():
-            extent, center = self.getExtentAndCenter(self.orig_imgs[index], index)
+            extent, center = self.getExtentAndCenter(img, index)
         else:
             extent, center = [0, 0], (0, 0)
 
@@ -1985,22 +1990,6 @@ class AddIntensitiesMultExp(QMainWindow):
             # Draw quadrant separator
             ax.axvline(center[0], color='y')
             ax.axhline(center[1], color='y')
-
-            '''
-            if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
-            else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
-            ax.set_facecolor('black')
-            ax.set_xlabel(name)
-
-            if self.showSeparator.isChecked() and self.orig_image_center is not None:
-                # Draw quadrant separator
-                ax.axvline(self.info['center'][0], color='y')
-                ax.axhline(self.info['center'][1], color='y')
-
-            '''
-
 
         # Set Zoom in location
         if self.img_zoom is not None and len(self.img_zoom) == 2:
