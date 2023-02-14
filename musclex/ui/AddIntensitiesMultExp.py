@@ -56,7 +56,6 @@ class AddIntensitiesMultExp(QMainWindow):
         self.numberToFilesMap = None
         self.orig_imgs = []
         self.orig_img_names = []
-        self.initImg = None
         self.sum_img = None
         self.currentFileNumber = 0
         self.center_before_rotation = None
@@ -67,7 +66,6 @@ class AddIntensitiesMultExp(QMainWindow):
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
         self.dir_path = ""
-        self.newImgDimension = None
         self.stop_process = False
         self.nbOfExposures = 0
         self.function = None
@@ -83,7 +81,6 @@ class AddIntensitiesMultExp(QMainWindow):
         self.axClicked = None
         self.isHdf5 = False
         self.fileList = []
-        self.chordpoints = []
         self.chordLines = []
         self.index = 0
         self.doubleZoomMode = False
@@ -91,7 +88,9 @@ class AddIntensitiesMultExp(QMainWindow):
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
         self.info = {'manual_rotationAngle': [None] * 8,
-                     'rotationAngle': [0] * 8}
+                     'rotationAngle': [0] * 8,
+                     'center': [None] * 8,
+                     'manual_center': [None] * 8}
         self.orig_image_center = None
         self.initUI()
         self.setConnections()
@@ -188,7 +187,10 @@ class AddIntensitiesMultExp(QMainWindow):
 
         self.avgInsteadOfSum = QCheckBox("Compute Average Instead of Sum")
 
-        self.calibrationChkBx = QCheckBox("Calibrate images")
+        self.calibrationChkBx = QGroupBox("Calibrate images")
+        self.calibrationChkBx.setCheckable(True)
+        self.calibrationChkBx.setChecked(False)
+        self.calibrationLayout = QGridLayout(self.calibrationChkBx)
         self.calibrationButton = QPushButton("Calibration Settings")
         self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
         self.setCenterRotationButton.setCheckable(True)
@@ -212,16 +214,16 @@ class AddIntensitiesMultExp(QMainWindow):
         self.settingsLayout.addWidget(QLabel('Exposures'), 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.exposureNb, 0, 1, 1, 2)
         self.settingsLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.calibrationChkBx, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.calibrationButton, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCenterRotationButton, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setRotationButton, 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByChords, 6, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setCentByPerp, 7, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setFitRegion, 8, 0, 1, 2)
-        self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 2)
-        self.settingsLayout.addWidget(self.centerWoRotateChkBx, 10, 0, 1, 2)
-        self.settingsLayout.addWidget(self.showSeparator, 11, 0, 1, 2)
+
+        self.calibrationLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.setCentByChords, 3, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.setCentByPerp, 4, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.setFitRegion, 5, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.centerWoRotateChkBx, 7, 0, 1, 2)
+        self.calibrationLayout.addWidget(self.showSeparator, 8, 0, 1, 2)
 
         self.calibrationButton.setEnabled(False)
         self.setCenterRotationButton.setEnabled(False)
@@ -252,6 +254,8 @@ class AddIntensitiesMultExp(QMainWindow):
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingsGroup)
+        self.optionsLayout.addSpacing(10)
+        self.optionsLayout.addWidget(self.calibrationChkBx)
 
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.buttonsLayout)
@@ -392,7 +396,7 @@ class AddIntensitiesMultExp(QMainWindow):
 
         self.exposureNb.valueChanged.connect(self.exposureNbChanged)
         self.avgInsteadOfSum.stateChanged.connect(self.avgInsteadOfSumChanged)
-        self.calibrationChkBx.stateChanged.connect(self.setCalibrationActive)
+        self.calibrationChkBx.clicked.connect(self.setCalibrationActive)
         self.calibrationButton.clicked.connect(self.calibrationClicked)
         self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
         self.setRotationButton.clicked.connect(self.setRotation)
@@ -427,7 +431,8 @@ class AddIntensitiesMultExp(QMainWindow):
         if self.centerWoRotateChkBx.isChecked():
             self.info['manual_rotationAngle'] = [None] * 8
             self.info['rotationAngle'] = [0] * 8
-        self.deleteInfo(['center'])
+            self.info['center'] = [None] * 8
+            self.info['manual_center'] = [None] * 8
         self.onImageChanged()
 
     def doubleZoomChecked(self):
@@ -758,44 +763,37 @@ class AddIntensitiesMultExp(QMainWindow):
                         "Drag mouse pointer to select height, click on the image to accept (ESC to cancel)")
                 else:
                     # both width and height selected
-                    extent, center = self.getExtentAndCenter(self.orig_imgs[0])
-                    half_height = abs(func[1] - center[0])
-                    half_width = abs(abs(int(y)) - center[1])
+                    extent, center = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
+                    half_width = abs(func[1] - center[0])
+                    half_height = abs(abs(int(y)) - center[1])
                     print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
 
                     initImg = self.orig_imgs[self.index]
-                    b, l = initImg.shape
-                    if self.newImgDimension is None:
-                        dim = int(2.8*max(l, b))
-                        self.newImgDimension = dim
-                    else:
-                        dim = self.newImgDimension
-                    scaleX = initImg.shape[0]/dim
-                    scaleY = initImg.shape[1]/dim
-                    half_width = int(half_width*scaleX)
-                    half_height = int(half_height*scaleY)
                     croppedImage = initImg[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)]
                     new_img = np.zeros(initImg.shape)
                     # Placing cropped image in new image such that size of original image matches new image
                     new_img[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)] = croppedImage
                     print("Cropped Image shape ", croppedImage.shape)
                     print("New Image shape ", new_img.shape)
-                    self.initImg = None
-                    self.newImgDimension = None
+                    self.orig_imgs[self.index] = new_img
                     # self.deleteInfo(['center', 'rotationAngle', 'manual_center', 'manual_rotationAngle'])
                     self.setFitRegion.setChecked(False)
-                    self.onImageChanged()
+                    self.processImage()
 
             elif func[0] == "chords_center":
+                if len(func) == 1:
+                    if len(ax.lines) > 0:
+                        for i in range(len(ax.lines) - 1, -1, -1):
+                            ax.lines.pop(i)
                 if self.axClicked is None:
                     self.imgPathOnStatusBar.setText(
                         "Click to place a point (need 3 points), then click on the button to process (ESC to cancel)")
                 else:
                     axis_size = 5
-                    self.chordpoints.append([x, y])
+                    self.function.append([x, y])
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    if len(self.chordpoints) >= 3:
+                    if len(self.function) >= 4:
                         self.drawPerpendiculars(ax)
                     self.imageCanvas.draw_idle()
             elif func[0] == "perp_center" and self.axClicked is not None:
@@ -827,21 +825,22 @@ class AddIntensitiesMultExp(QMainWindow):
                     else:
                         new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
-                    extent, center = self.getExtentAndCenter(self.orig_imgs[0])
+                    extent, _ = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
 
                     cx = int(round((x1 + x2) / 2.) + extent[0])
                     cy = int(round((y1 + y2) / 2.) + extent[1])
                     new_center = [cx, cy]
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
-                    self.info['manual_center'] = (cx, cy)
-                    #self.orig_image_center = self.info['manual_center']
-                    self.info['manual_rotationAngle'][self.index] = self.info['rotationAngle'][self.index] + new_angle
+                    self.info['manual_center'][self.index] = (cx, cy)
+                    self.info['center'][self.index] = (cx, cy)
+                    # self.orig_image_center = self.info['manual_center']
+                    self.info['manual_rotationAngle'][self.index] = new_angle
                     self.setCenterRotationButton.setChecked(False)
-                    self.onImageChanged()
+                    self.processImage()
             elif func[0] == "im_rotate" and self.axClicked is not None:
                 # set rotation angle
-                extent, center = self.getExtentAndCenter(self.orig_imgs[0])
+                _, center = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
 
                 if center[0] < x:
                     x1 = center[0]
@@ -1159,10 +1158,7 @@ class AddIntensitiesMultExp(QMainWindow):
             self.imgPathOnStatusBar.setText(
                 "Rotate the line to the pattern equator (ESC to cancel)")
             # draw line as angle
-            if self.calSettings is None or 'center' not in self.calSettings:
-                self.calSettings = {}
-                _, self.calSettings['center'] = self.getExtentAndCenter(self.orig_imgs[0])
-            center = self.calSettings['center']
+            _, center = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
             deltax = x - center[0]
             deltay = y - center[1]
             x2 = center[0] - deltax
@@ -1507,6 +1503,11 @@ class AddIntensitiesMultExp(QMainWindow):
             self.showSeparator.setEnabled(False)
             self.showSeparator.setChecked(False)
             self.centerWoRotateChkBx.setEnabled(False)
+            self.info = {'manual_rotationAngle': [None] * 8,
+                        'rotationAngle': [0] * 8,
+                        'center': [None] * 8,
+                        'manual_center': [None] * 8}
+            self.onImageChanged()
 
     def setFitRegionClicked(self):
         """
@@ -1560,9 +1561,9 @@ class AddIntensitiesMultExp(QMainWindow):
             new_center = [cx, cy]  # np.dot(invM, homo_coords)
             # Set new center and rotaion angle , re-calculate R-min
             print("New Center ", new_center)
-            self.info['manual_center'] = (
+            self.info['manual_center'][self.index] = (
                 int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
-            print("New center after extent ", self.info['manual_center'])
+            print("New center after extent ", self.info['manual_center'][self.index])
             self.setCentByPerp.setChecked(False)
             self.onImageChanged()
 
@@ -1574,7 +1575,6 @@ class AddIntensitiesMultExp(QMainWindow):
             self.axClicked = None
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
-            self.chordpoints = []
             self.chordLines = []
             self.imageCanvas.draw_idle()
             self.function = ["chords_center"]  # set current active function
@@ -1602,16 +1602,13 @@ class AddIntensitiesMultExp(QMainWindow):
 
             cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
             cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            if self.info['rotationAngle'][self.currentFrameNumber-1] is None:
-                M = cv2.getRotationMatrix2D(tuple(self.info['center']), 0, 1)
-            else:
-                M = cv2.getRotationMatrix2D(tuple(self.info['center']), self.info['rotationAngle'][self.currentFrameNumber-1], 1)
+            M = cv2.getRotationMatrix2D(tuple(self.orig_image_center), 0, 1)
             invM = cv2.invertAffineTransform(M)
             homo_coords = [cx, cy, 1.]
             new_center = np.dot(invM, homo_coords)
             print("New center ", new_center)
             # Set new center
-            self.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
+            self.info['manual_center'][self.index] = (int(round(new_center[0])), int(round(new_center[1])))
             self.setCentByChords.setChecked(False)
             self.onImageChanged()
 
@@ -1619,7 +1616,7 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         Draw perpendiculars on the image
         """
-        points = self.chordpoints
+        points = self.function[1:]
         self.chordLines = []
         for i, p1 in enumerate(points):
             for p2 in points[i + 1:]:
@@ -1636,15 +1633,15 @@ class AddIntensitiesMultExp(QMainWindow):
 
     def setRotation(self):
         """
-        Trigger when set center and rotation angle button is pressed
+        Trigger when set rotation angle button is pressed
         """
         if self.setRotationButton.isChecked():
             self.axClicked = None
             # clear plot
             self.imgPathOnStatusBar.setText(
                 "Click on an exposure to select it (ESC to cancel)")
-            _, center = self.getExtentAndCenter(self.orig_imgs[0])
-            self.info['center'] = center
+            # _, center = self.getExtentAndCenter(self.orig_imgs[0])
+            # self.info['center'] = center
             self.imageCanvas.draw_idle()
             self.function = ["im_rotate"]
         else:
@@ -1658,48 +1655,55 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         sucess = self.setCalibrationImage(force=True)
         if sucess:
+            self.info['manual_rotationAngle'] = [None] * 8
+            self.info['rotationAngle'] = [0] * 8
+            self.info['center'] = [None] * 8
+            self.info['manual_center'] = [None] * 8
             self.onImageChanged()
             self.refreshAllTab()
 
-    def getExtentAndCenter(self, orig_img):
+    def getExtentAndCenter(self, orig_img, index=0):
         """
         Give the extent and the center of the image
         """
         if self.orig_imgs == []:
             return [0, 0], (0, 0)
         if self.orig_image_center is None:
-            self.findCenter(orig_img)
+            self.findCenter(orig_img, index)
             self.statusPrint("Done.")
         if 'calib_center' in self.info:
             center = self.info['calib_center']
-        elif 'manual_center' in self.info:
-            center = self.info['manual_center']
+        elif self.info['manual_center'][index] is not None:
+            center = self.info['manual_center'][index]
         else:
             center = self.orig_image_center
-        if 'center' not in self.info:
-            self.info['center'] = self.orig_image_center
-        extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
+
+        for d, c in enumerate(self.info['center']):
+            if c is None:
+                self.info['center'][d] = center
+        extent = [self.info['center'][index][0] - center[0], self.info['center'][index][1] - center[1]]
+        print(extent, self.info['center'])
         return extent, center
 
-    def findCenter(self, orig_img):
+    def findCenter(self, orig_img, index=0):
         """
-        Find center of the diffraction. The center will be kept in self.info["center"].
+        Find center of the diffraction. The center will be kept in self.info['center'].
         Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
         """
         self.statusPrint("Finding Center...")
-        if 'center' in self.info:
+        if self.info['center'][index] is not None:
             return
         if 'calib_center' in self.info:
-            self.info['center'] = self.info['calib_center']
+            self.info['center'][index] = self.info['calib_center']
             return
-        if 'manual_center' in self.info:
-            self.info['center'] = self.info['manual_center']
+        if self.info['manual_center'][index] is not None:
+            self.info['center'][index] = self.info['manual_center'][index]
             return
         print("Center is being calculated ... ")
-        self.orig_imgs[0], self.info['center'] = processImageForIntCenter(orig_img, getCenter(orig_img))
+        self.orig_imgs[index], self.info['center'][index] = processImageForIntCenter(orig_img, getCenter(orig_img))
         if self.orig_image_center is None:
-            self.orig_image_center = self.info['center']
-        print("Done. Center = "+str(self.info['center']))
+            self.orig_image_center = self.info['center'][index]
+        print("Done. Center = "+str(self.info['center'][index]))
 
     def setCalibrationImage(self, force=False):
         """
@@ -1707,10 +1711,8 @@ class AddIntensitiesMultExp(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        _, center = self.getExtentAndCenter(self.orig_imgs[0])
         if self.calSettingsDialog is None:
-            self.calSettingsDialog = CalibrationSettings(self.dir_path) if self.orig_imgs == [] else \
-                CalibrationSettings(self.dir_path, center=center)
+            self.calSettingsDialog = CalibrationSettings(self.dir_path)
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
@@ -1888,25 +1890,25 @@ class AddIntensitiesMultExp(QMainWindow):
             self.uiUpdating = True
 
             if self.calibrationChkBx.isChecked():
-                extent, center = self.getExtentAndCenter(self.orig_imgs[0])
+                _, center = self.getExtentAndCenter(self.orig_imgs[0])
             else:
-                extent, center = [0, 0], (0, 0)
+                _, center = [0, 0], (0, 0)
 
-            self.plotImages(self.imageAxes, self.orig_imgs[0], extent, self.orig_img_names[0])
-            self.plotImages(self.imageAxes2, self.orig_imgs[1], extent, self.orig_img_names[1])
+            self.plotImages(self.imageAxes, self.orig_imgs[0], 0, self.orig_img_names[0])
+            self.plotImages(self.imageAxes2, self.orig_imgs[1], 1, self.orig_img_names[1])
 
             if self.nbOfExposures >= 3:
-                self.plotImages(self.imageAxes3, self.orig_imgs[2], extent, self.orig_img_names[2])
+                self.plotImages(self.imageAxes3, self.orig_imgs[2], 2, self.orig_img_names[2])
             if self.nbOfExposures >= 4:
-                self.plotImages(self.imageAxes4, self.orig_imgs[3], extent, self.orig_img_names[3])
+                self.plotImages(self.imageAxes4, self.orig_imgs[3], 3, self.orig_img_names[3])
             if self.nbOfExposures >= 5:
-                self.plotImages(self.imageAxes5, self.orig_imgs[4], extent, self.orig_img_names[4])
+                self.plotImages(self.imageAxes5, self.orig_imgs[4], 4, self.orig_img_names[4])
             if self.nbOfExposures >= 6:
-                self.plotImages(self.imageAxes6, self.orig_imgs[5], extent, self.orig_img_names[5])
+                self.plotImages(self.imageAxes6, self.orig_imgs[5], 5, self.orig_img_names[5])
             if self.nbOfExposures >= 7:
-                self.plotImages(self.imageAxes7, self.orig_imgs[6], extent, self.orig_img_names[6])
+                self.plotImages(self.imageAxes7, self.orig_imgs[6], 6, self.orig_img_names[6])
             if self.nbOfExposures >= 8:
-                self.plotImages(self.imageAxes8, self.orig_imgs[7], extent, self.orig_img_names[7])
+                self.plotImages(self.imageAxes8, self.orig_imgs[7], 7, self.orig_img_names[7])
 
             if self.calSettingsDialog is not None:
                 self.calSettingsDialog.centerX.setValue(center[0])
@@ -1926,7 +1928,7 @@ class AddIntensitiesMultExp(QMainWindow):
             self.uiUpdating = True
 
             if self.calibrationChkBx.isChecked():
-                extent, _ = self.getExtentAndCenter(self.orig_imgs[0])
+                extent, _ = self.getExtentAndCenter(self.sum_img)
             else:
                 extent, _ = [0, 0], (0, 0)
 
@@ -1960,12 +1962,17 @@ class AddIntensitiesMultExp(QMainWindow):
             self.updated['res'] = True
             self.uiUpdating = False
 
-    def plotImages(self, imageAxes, img, extent, name):
+    def plotImages(self, imageAxes, img, index, name):
         """
         Displays the image for each exposure
         """
         ax = imageAxes
         ax.cla()
+
+        if self.calibrationChkBx.isChecked():
+            extent, center = self.getExtentAndCenter(self.orig_imgs[index], index)
+        else:
+            extent, center = [0, 0], (0, 0)
 
         if self.logScaleIntChkBx.isChecked():
             ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
@@ -1976,8 +1983,24 @@ class AddIntensitiesMultExp(QMainWindow):
 
         if self.showSeparator.isChecked() and self.orig_image_center is not None:
             # Draw quadrant separator
-            ax.axvline(self.orig_image_center[0], color='y')
-            ax.axhline(self.orig_image_center[1], color='y')
+            ax.axvline(center[0], color='y')
+            ax.axhline(center[1], color='y')
+
+            '''
+            if self.logScaleIntChkBx.isChecked():
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
+            else:
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
+            ax.set_facecolor('black')
+            ax.set_xlabel(name)
+
+            if self.showSeparator.isChecked() and self.orig_image_center is not None:
+                # Draw quadrant separator
+                ax.axvline(self.info['center'][0], color='y')
+                ax.axhline(self.info['center'][1], color='y')
+
+            '''
+
 
         # Set Zoom in location
         if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -2017,11 +2040,11 @@ class AddIntensitiesMultExp(QMainWindow):
                 print("Rotation Angle is being calculated ... ")
                 # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
                 img = copy.copy(self.orig_imgs[index])
-                # _, center = self.getExtentAndCenter(img)
+                _, center = self.getExtentAndCenter(img, index)
                 if 'detector' in self.info:
-                    self.info['rotationAngle'][index] = getRotationAngle(img, self.orig_image_center, 0, man_det=self.info['detector'])
+                    self.info['rotationAngle'][index] = getRotationAngle(img, center, 0, man_det=self.info['detector'])
                 else:
-                    self.info['rotationAngle'][index] = getRotationAngle(img, self.orig_image_center, 0)
+                    self.info['rotationAngle'][index] = getRotationAngle(img, center, 0)
         print("Done. Rotation Angle is " + str(self.info['rotationAngle'][index]) +" degree")
         self.statusPrint("")
 
@@ -2030,11 +2053,13 @@ class AddIntensitiesMultExp(QMainWindow):
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
         """
         img = np.array(self.orig_imgs[index], dtype="float32")
-        center = self.info["center"]
-        if 'manual_center' in self.info:
-            center = self.info["manual_center"]
+        center = self.info['center'][index]
         if self.center_before_rotation is not None:
             center = self.center_before_rotation
+        else:
+            self.center_before_rotation = center
+        if self.info['manual_center'][index] is not None:
+            center = self.info['manual_center'][index]
 
         b, l = img.shape
         rotImg, newCenter, _ = rotateImage(img, center, self.info["rotationAngle"][index])
@@ -2043,7 +2068,7 @@ class AddIntensitiesMultExp(QMainWindow):
         bnew, lnew = rotImg.shape
         db, dl = (bnew - b)//2, (lnew-l)//2
         final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
-        self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        self.info['center'][index] = (newCenter[0]-dl, newCenter[1]-db)
 
         return final_rotImg
 
@@ -2054,11 +2079,12 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         if self.ableToProcess():
             if self.calibrationChkBx.isChecked():
-                _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
-                if not self.centerWoRotateChkBx.isChecked():
+                self.getExtentAndCenter(self.orig_imgs[0])
+                if not self.centerWoRotateChkBx.isChecked() or any(mra is not None for mra in self.info['manual_rotationAngle']):
                     for i in range(self.nbOfExposures):
                         self.rotateImg(i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
+
             self.sum_img = self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber + 1)
             self.refreshAllTab()
 
@@ -2105,12 +2131,34 @@ class AddIntensitiesMultExp(QMainWindow):
         newY = dzy - 10 + y
         return (newX, newY)
 
+    def matchCenters(self, imgs):
+        images = []
+        b, l = imgs[0].shape
+        size = 0
+        for img in imgs:
+            b, l = img.shape
+            dim = max(b,l)
+            if size < dim:
+                size = dim
+        for i, img in enumerate(imgs):
+            new_image = np.zeros((size,size))
+            new_image[0:img.shape[0],0:img.shape[1]] = img
+            transx = size/2-self.info['center'][i][0]
+            transy = size/2-self.info['center'][i][1]
+            M = np.float32([[1,0,transx],[0,1,transy]])
+            cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
+            translated_Img = cv2.warpAffine(new_image, M, (size,size))
+            images.append(translated_Img)
+        return images
+
     def addIntensity(self, imgs, dir_path, key):
         """
         Add Intensity of one set of files (main function).
         :param imgs, dir_path, key:
         """
         createFolder(fullPath(dir_path, "aime_results"))
+        if self.calibrationChkBx.isChecked():
+            imgs = self.matchCenters(imgs)
         if self.avgInsteadOfSum.isChecked():
             # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
             ##todo homogenize
@@ -2209,9 +2257,9 @@ def resizeImage(img, res_size):
     """
     Resize the image.
     """
-    print("Size mismatched, resizing image")
     if img.shape == res_size:
         return img
+    print("Size mismatched, resizing image")
     h, b = img.shape
     resH, resB = res_size
     dH = resH - h
