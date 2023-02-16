@@ -908,7 +908,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.info['manual_center'][self.currentFrameNumber] = (cx, cy)
-                    # self.info['center'][self.currentFrameNumber] = (cx, cy)
+                    self.info['center'][self.currentFrameNumber] = (cx, cy)
                     #self.orig_image_center = self.info['manual_center']
                     self.info['manual_rotationAngle'][self.currentFrameNumber] = new_angle
                     self.setCenterRotationButton.setChecked(False)

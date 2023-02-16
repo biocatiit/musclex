@@ -833,7 +833,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.info['manual_center'][self.index] = (cx, cy)
-                    # self.info['center'][self.index] = (cx, cy)
+                    self.info['center'][self.index] = (cx, cy)
                     # self.orig_image_center = self.info['manual_center']
                     self.info['manual_rotationAngle'][self.index] = new_angle
                     self.setCenterRotationButton.setChecked(False)
@@ -964,7 +964,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 "Drag mouse pointer to select width, click on the image to accept (ESC to cancel)")
             if self.calSettings is None or 'center' not in self.calSettings:
                 self.calSettings = {}
-                _, self.calSettings['center'] = self.getExtentAndCenter(self.orig_imgs[0])
+                _, self.calSettings['center'] = self.getExtentAndCenter(self.orig_imgs[self.index])
             center = self.calSettings['center']
             if len(func) == 2:
                 # width selected, change height as cursor moves
@@ -1557,7 +1557,7 @@ class AddIntensitiesMultExp(QMainWindow):
 
             print("Center calc ", (cx, cy))
 
-            extent, _ = self.getExtentAndCenter(self.orig_imgs[0])
+            extent, _ = self.getExtentAndCenter(self.orig_imgs[self.index])
             new_center = [cx, cy]  # np.dot(invM, homo_coords)
             # Set new center and rotaion angle , re-calculate R-min
             print("New Center ", new_center)
