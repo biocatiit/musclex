@@ -1,12 +1,12 @@
 # Version-1.21.1
 
-Release Date : 1/20/2023
+Release Date : 2/21/2023
 
 ### Updates
 
-- Bug fixes (EQ buttons, XV zoom, QF background subtraction and cache...)
+- Bug fixes (Calib buttons, XV zoom, QF background subtraction and cache...)
 - Memory leak fixed
-- XV: Inpainting on the gaps available
+- XV: Inpainting on the gaps available (experimental)
 - EQ: Extra peak option added to improve fitting, Blank image and mask improved, Better interaction with its cache if the images are already processed
 - PT: Blank Image and mask added, with mask threshold
 - EQ, QF and DI Headless: Multiprocessing on folders
