@@ -57,6 +57,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.orig_imgs = []
         self.orig_img_names = []
         self.sum_img = None
+        self.init_imgs = None
         self.currentFileNumber = 0
         self.center_before_rotation = None
         self.updated = {'img' : False, 'res': False}
@@ -835,7 +836,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     self.info['manual_center'][self.index] = (cx, cy)
                     self.info['center'][self.index] = (cx, cy)
                     # self.orig_image_center = self.info['manual_center']
-                    self.info['manual_rotationAngle'][self.index] = new_angle
+                    self.info['manual_rotationAngle'][self.index] = self.info['rotationAngle'][self.index] + new_angle
                     self.setCenterRotationButton.setChecked(False)
                     self.processImage()
             elif func[0] == "im_rotate" and self.axClicked is not None:
@@ -1835,6 +1836,7 @@ class AddIntensitiesMultExp(QMainWindow):
             else:
                 self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data.astype(np.float32))
                 self.orig_img_names.append(os.path.split(self.numberToFilesMap[self.currentFileNumber][i])[1])
+        self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))
         self.processImage()
@@ -2041,7 +2043,7 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
         """
-        img = np.array(self.orig_imgs[index], dtype="float32")
+        img = np.array(self.init_imgs[index], dtype="float32")
         center = self.info['center'][index]
         if self.center_before_rotation is not None:
             center = self.center_before_rotation
