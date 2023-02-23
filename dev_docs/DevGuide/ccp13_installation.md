@@ -1,5 +1,7 @@
 # Install ccp13 on Windows
 
+Warning: "musclexflibs" and "musclex-ccp13" basically refer to the same package, but only musclex-ccp13 has been updated and is useful. Don't install both packages!
+
 - [Requirements](#requirements)
 - [Preparing built packages](#preparing-built-packages)
   - [Extra requirements](#extra-requirements)

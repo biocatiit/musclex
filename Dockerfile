@@ -16,20 +16,6 @@ RUN echo "**** Installing Python ****" && \
     python3 get-pip.py && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade distro
-RUN pip3 install --upgrade pyopencl
-RUN pip3 install --upgrade cython
-RUN pip3 install --upgrade numpy
-RUN pip3 install --upgrade opencv-python-headless
-RUN pip3 install --upgrade pyfai
-RUN pip3 install --upgrade PyQt5
-RUN pip3 install --upgrade musclexflibs
-RUN pip3 install --upgrade hdf5plugin
-RUN pip3 install --upgrade numba
-RUN pip3 install --upgrade fisx
-RUN pip3 install --upgrade future
-
 RUN pip3 install --upgrade musclex
 #RUN pip3 install git+https://github.com/biocatiit/musclex.git@v1.15.7
 

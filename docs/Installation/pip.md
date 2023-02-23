@@ -62,7 +62,7 @@ pip install --upgrade numpy
 pip install --upgrade opencv-python-headless
 pip install --upgrade pyfai
 pip install --upgrade PyQt5
-pip install --upgrade musclexflibs
+pip install --upgrade musclex-ccp13
 pip install --upgrade hdf5plugin
 pip install --upgrade numba
 pip install --upgrade fisx
@@ -95,7 +95,7 @@ pip3 install --upgrade numpy
 pip3 install --upgrade opencv-python-headless
 pip3 install --upgrade pyfai
 pip3 install --upgrade PyQt5
-pip3 install --upgrade musclexflibs
+pip3 install --upgrade musclex-ccp13
 pip3 install --upgrade hdf5plugin
 pip3 install --upgrade numba
 pip3 install --upgrade fisx

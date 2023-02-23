@@ -32,8 +32,6 @@ from distutils.core import setup
 from setuptools import find_namespace_packages
 from musclex import __version__
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
-import numpy, sys
 
 # Build the main package, with script etc...
 # ==========================================
@@ -57,10 +55,15 @@ setup(
                    'Programming Language :: Python',
                    'Programming Language :: Cython',
                    'Topic :: Scientific/Engineering :: Bio-Informatics'],
-    install_requires=['scikit-image',
+    install_requires=['pip',
+                      'wheel',
+                      'numpy<1.24,>=1.18', # version control for numba
+                      'Cython',
+                      'scikit-image',
+                      'scikit-learn',
                       'openpyxl',
+                      'pyopencl',
                       'tifffile',
-                      'numpy',
                       'distro',
                       'numba',
                       'scikit-learn',
@@ -75,17 +78,18 @@ setup(
                       'musclex_ccp13',
                       'PyMca5',
                       'pandas',
-                      'Cython',
                       'opencv-python-headless',
-                      'pyFAI'],
+                      'pyFAI',
+                      'PyQt5',
+                      'hdf5plugin',
+                      'fisx',
+                      'future'],
     entry_points={
         'console_scripts': [
             'musclex=musclex.main:main',
             'musclex-launcher=musclex.launcher:LauncherForm.main'
         ],
     },
-    cmdclass = {'build_ext': build_ext},
-    include_dirs=[numpy.get_include()],
     include_package_data=True,
     test_suite="musclex/tests"
 )
