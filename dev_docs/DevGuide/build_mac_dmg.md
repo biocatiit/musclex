@@ -38,7 +38,7 @@ Use *Disk Utility* again.
 
 1. Select *Convert…* from the *Images* menu.
 2. Open the prepared image.
-3. Enter the final name, like "musclex-1.13.3".
+3. Enter the final name, like "musclex-1.21.1(macOS)".
 4. Select *Compressed* as Image Format.
 5. *Save* it.
 

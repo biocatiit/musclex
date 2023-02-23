@@ -165,11 +165,12 @@ Application Bundle][8].)
 1. Move the executables to `Contents/MacOS`  
   Assume that after the previous process the stand-alone program is
   generated in `dist/musclex` which contains all executables, libraries
-  and resouses needed at runtime, and `dist/musclex.app` is the target
+  and resources needed at runtime, and `dist/musclex.app` is the target
   App Bundle.
 ```
-cp -r dist/musclex/ dist/musclex.app/Contents/MacOS
+cp -r dist/musclex dist/musclex.app/Contents/MacOS
 ```
+Verify that you have the 'musclex' FOLDER copied in musclex.app/Contents/MacOS, not directly the files.
 2. Edit the file `Info.plist`  
   Specify the values of *CFBundleExecutable* and other attributes. (See
   [the example](../../dist/musclex.app/Contents/Info.plist).)

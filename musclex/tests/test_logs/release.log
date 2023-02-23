@@ -12,8 +12,8 @@
 - Mac M1 (12.6): not tested
 
 *** Deb installer:
-- Ubuntu (22.04): fully tested
-- Ubuntu (20.04): fully tested
+- Ubuntu (22.04): tested without "Run tests"
+- Ubuntu (20.04): tested without "Run tests"
 
 *** AppImage:
 - Ubuntu (22.04): tested without "Run tests"

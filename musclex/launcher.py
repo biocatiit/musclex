@@ -470,7 +470,8 @@ class TestDialog(QDialog):
 
         self.detail.setTextColor(self.black)
         self.detail.setFontWeight(50)
-        self.detail.insertPlainText(f"\nTest results:\n{'-'*80}{test_summary[1]}{'-'*80}\nSee the log at {self.test_path} for more info.")
+        if len(test_summary) >= 2:
+            self.detail.insertPlainText(f"\nTest results:\n{'-'*80}{test_summary[1]}{'-'*80}\nSee the log at {self.test_path} for more info.")
         QApplication.processEvents()
         proc.join()
 

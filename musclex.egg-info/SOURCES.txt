@@ -12,6 +12,7 @@ hooks/hook-pandas.py
 hooks/hook-pyFAI.py
 hooks/hook-pywt.py
 hooks/hook-scipy.py
+hooks/hook-sklearn.py
 hooks/hook-tifffile.py
 hooks/pre_safe_import_module/hook-PyMca5.PyMca.py
 hooks/pre_safe_import_module/hook-PyMca5.PyMcaGui.py

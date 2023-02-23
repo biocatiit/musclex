@@ -118,12 +118,7 @@ rd /s /q build\lib.win-amd64-3.6\musclex_ccp13
 3. Build distribution  
   Build a windows distribution (an executable installer for windows).
 ```
-python setup.py bdist_wininst
-```
-  Since *numpy.distutils* does not support building a wheel distribution, we have
-  to convert the windows distribution to a wheel one.
-```
-wheel convert -d dist dist\musclex_ccp13*.exe
+python setup.py bdist_wheel
 ```
 
 4. Upload project to PyPI  
@@ -136,6 +131,13 @@ twine upload --skip-existing dist\*.whl
 ```
 pip install musclex-ccp13
 ```
+
+For Windows, this install might not work correctly. You might need to download the musclex ccp13 code on github, create a distribution and install it:
+```
+python setup.py bdist_wheel
+pip install dist/musclex_ccp13-1.21.1.whl
+```
+Verify that the install worked by testing the background subtractions in QF.
 
 [1]: https://www.visualstudio.com/vs/older-downloads/
 [2]: http://mingw-w64.org/doku.php/download/mingw-builds

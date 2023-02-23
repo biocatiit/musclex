@@ -574,9 +574,9 @@ class XRayViewerGUI(QMainWindow):
                 func = self.function
                 for i in range(1, len(func) - 1, 2):
                     dist = math.dist(func[i], func[i+1])
-                print("Distance:", dist)
+                print("Distance:", str(round(dist,2)), "pixels")
                 msg = QMessageBox()
-                msg.setInformativeText("Distance: " + str(dist))
+                msg.setInformativeText("Distance: " + str(round(dist,2)) + " pixels")
                 msg.setStandardButtons(QMessageBox.Ok)
                 msg.setWindowTitle("Measure a Distance")
                 msg.setStyleSheet("QLabel{min-width: 500px;}")
