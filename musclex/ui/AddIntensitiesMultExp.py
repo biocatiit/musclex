@@ -154,7 +154,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.spmaxInt.setSingleStep(5)
         self.spmaxInt.setDecimals(0)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistMaxIntensity = QCheckBox("Persist Max intensity")
+        self.persistIntensity = QCheckBox("Persist intensities")
 
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
@@ -169,7 +169,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
         self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistMaxIntensity, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.persistIntensity, 5, 0, 1, 2)
 
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
@@ -310,7 +310,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
         self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.resPersistMaxIntensity = QCheckBox("Persist Max intensity")
+        self.resPersistIntensity = QCheckBox("Persist intensities")
 
         self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 1)
         self.resultDispOptLayout.addWidget(self.spResultminInt, 1, 1, 1, 1)
@@ -319,7 +319,7 @@ class AddIntensitiesMultExp(QMainWindow):
         self.resultDispOptLayout.addWidget(self.resultZoomInB, 3, 0, 1, 1)
         self.resultDispOptLayout.addWidget(self.resultZoomOutB, 3, 1, 1, 1)
         self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 4, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resPersistMaxIntensity, 5, 0, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resPersistIntensity, 5, 0, 1, 2)
 
         self.resultDispOptGrp.setLayout(self.resultDispOptLayout)
 
@@ -1853,11 +1853,11 @@ class AddIntensitiesMultExp(QMainWindow):
         min_val = img.min()
         max_val = img.max()
         self.spmaxInt.setRange(min_val, max_val)
-        if not self.persistMaxIntensity.isChecked():
-            self.spmaxInt.setValue(max_val * .5)
-        self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setRange(min_val, max_val)
-        self.spminInt.setValue(min_val)
+        if not self.persistIntensity.isChecked():
+            self.spmaxInt.setValue(max_val * .5)
+            self.spminInt.setValue(min_val)
+        self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setSingleStep(max_val * .05)
 
         self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
@@ -1866,11 +1866,11 @@ class AddIntensitiesMultExp(QMainWindow):
         min_val = result.min()
         max_val = result.max()
         self.spResultmaxInt.setRange(min_val, max_val)
-        if not self.resPersistMaxIntensity.isChecked():
-            self.spResultmaxInt.setValue(max_val * .5)
-        self.spResultmaxInt.setSingleStep(max_val * .05)
         self.spResultminInt.setRange(min_val, max_val)
-        self.spResultminInt.setValue(min_val)
+        if not self.resPersistIntensity.isChecked():
+            self.spResultmaxInt.setValue(max_val * .5)
+            self.spResultminInt.setValue(min_val)
+        self.spResultmaxInt.setSingleStep(max_val * .05)
         self.spResultminInt.setSingleStep(max_val * .05)
 
         self.resultminIntLabel.setText("Min Intensity ("+str(min_val)+")")

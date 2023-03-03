@@ -155,7 +155,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spmaxInt.setSingleStep(5)
         self.spmaxInt.setDecimals(0)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistMaxIntensity = QCheckBox("Persist Max intensity")
+        self.persistIntensity = QCheckBox("Persist intensities")
 
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
@@ -174,7 +174,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.maxIntLabel, 1, 2, 1, 2)
         self.dispOptLayout.addWidget(self.spmaxInt, 2, 2, 1, 2)
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 3, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistMaxIntensity, 3, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.persistIntensity, 3, 2, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomInB, 4, 0, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomOutB, 4, 2, 1, 2)
 
@@ -567,7 +567,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
         self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.resPersistMaxIntensity = QCheckBox("Persist Max intensity")
+        self.resPersistIntensity = QCheckBox("Persist intensities")
 
         self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 2)
@@ -575,7 +575,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultDispOptLayout.addWidget(self.resultmaxIntLabel, 1, 2, 1, 2)
         self.resultDispOptLayout.addWidget(self.spResultmaxInt, 2, 2, 1, 2)
         self.resultDispOptLayout.addWidget(self.resLogScaleIntChkBx, 3, 0, 1, 2)
-        self.resultDispOptLayout.addWidget(self.resPersistMaxIntensity, 3, 2, 1, 2)
+        self.resultDispOptLayout.addWidget(self.resPersistIntensity, 3, 2, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultZoomInB, 4, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultZoomOutB, 4, 2, 1, 2)
 
@@ -2221,11 +2221,11 @@ class QuadrantFoldingGUI(QMainWindow):
         min_val = img.min()
         max_val = img.max()
         self.spmaxInt.setRange(min_val, max_val)
-        if not self.persistMaxIntensity.isChecked():
-            self.spmaxInt.setValue(max_val * .5)
-        self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setRange(min_val, max_val)
-        self.spminInt.setValue(min_val)
+        if not self.persistIntensity.isChecked():
+            self.spmaxInt.setValue(max_val * .5)
+            self.spminInt.setValue(min_val)
+        self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setSingleStep(max_val * .05)
 
         self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
@@ -2280,11 +2280,11 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setRange(min_val, max_val)
 
         self.spResultmaxInt.setRange(min_val + 1, max_val)
-        if not self.resPersistMaxIntensity.isChecked():
-            self.spResultmaxInt.setValue(max_val * .1)
-        self.spResultmaxInt.setSingleStep(max_val * .05)
         self.spResultminInt.setRange(min_val, max_val - 1)
-        self.spResultminInt.setValue(min_val)
+        if not self.resPersistIntensity.isChecked():
+            self.spResultmaxInt.setValue(max_val * .1)
+            self.spResultminInt.setValue(min_val)
+        self.spResultmaxInt.setSingleStep(max_val * .05)
         self.spResultminInt.setSingleStep(max_val * .05)
 
         if 'rotate' in info:

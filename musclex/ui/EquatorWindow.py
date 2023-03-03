@@ -191,7 +191,7 @@ class EquatorWindow(QMainWindow):
         self.editableVars[self.maxIntSpnBx.objectName()] = None
         self.maxIntSpnBx.setKeyboardTracking(False)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistMaxIntensity = QCheckBox("Persist Max intensity")
+        self.persistIntensity = QCheckBox("Persist intensities")
         self.imgZoomInB = QPushButton('Zoom In')
         self.imgZoomInB.setCheckable(True)
         self.checkableButtons.append(self.imgZoomInB)
@@ -207,7 +207,7 @@ class EquatorWindow(QMainWindow):
         self.imgDispOptLayout.addWidget(self.minIntSpnBx, 5, 0, 1, 2)
         self.imgDispOptLayout.addWidget(self.maxIntSpnBx, 5, 2, 1, 2)
         self.imgDispOptLayout.addWidget(self.logScaleIntChkBx,6,0,1,2)
-        self.imgDispOptLayout.addWidget(self.persistMaxIntensity,6,2,1,2)
+        self.imgDispOptLayout.addWidget(self.persistIntensity,6,2,1,2)
         self.imgDispOptLayout.addWidget(self.imgZoomInB,7,0,1,2)
         self.imgDispOptLayout.addWidget(self.imgZoomOutB,7,2,1,2)
         self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
@@ -2890,6 +2890,9 @@ class EquatorWindow(QMainWindow):
         if 'fixed_max_intensity' in info:
             self.maxIntSpnBx.setValue(info['fixed_max_intensity'])
 
+        if 'fixed_min_intensity' in info:
+            self.minIntSpnBx.setValue(info['fixed_min_intensity'])
+
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
 
@@ -3245,8 +3248,9 @@ class EquatorWindow(QMainWindow):
         if self.fixedRminChkBx.isChecked():
             settings['fixed_rmin'] = self.fixedRmin.value()
 
-        if self.persistMaxIntensity.isChecked():
+        if self.persistIntensity.isChecked():
             settings['fixed_max_intensity'] = self.maxIntSpnBx.value()
+            settings['fixed_min_intensity'] = self.minIntSpnBx.value()
 
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
@@ -3274,16 +3278,13 @@ class EquatorWindow(QMainWindow):
         """
         img = bioImg.orig_img
         self.syncUI = True
-        self.minIntSpnBx.setMinimum(img.min())
-        self.minIntSpnBx.setMaximum(img.max())
-        self.maxIntSpnBx.setMinimum(img.min())
-        if self.persistMaxIntensity.isChecked():
-            self.maxIntSpnBx.setMaximum(self.maxIntSpnBx.value())
-        else:
-            self.maxIntSpnBx.setMaximum(img.max())
-        self.minIntLabel.setText("Min Intensity <br/>("+str(img.min())+")")
-        self.maxIntLabel.setText("Max Intensity <br/>("+str(img.max())+")")
-        step = (img.max() - img.min()) * 0.07  # set spinboxes step as 7% of image range
+        min_val = img.min()
+        max_val = img.max()
+        self.minIntSpnBx.setRange(min_val, max_val)
+        self.maxIntSpnBx.setRange(min_val, max_val)
+        self.minIntLabel.setText("Min Intensity <br/>("+str(min_val)+")")
+        self.maxIntLabel.setText("Max Intensity <br/>("+str(max_val)+")")
+        step = (max_val - min_val) * 0.07  # set spinboxes step as 7% of image range
         self.minIntSpnBx.setSingleStep(step)
         self.maxIntSpnBx.setSingleStep(step)
 
@@ -3294,9 +3295,9 @@ class EquatorWindow(QMainWindow):
         if "minInt" in self.bioImg.info and "maxInt" in self.bioImg.info:
             self.minIntSpnBx.setValue(self.bioImg.info["minInt"])
             self.maxIntSpnBx.setValue(self.bioImg.info["maxInt"])
-        else:
-            self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
-            self.maxIntSpnBx.setValue(img.max() * 0.20)  # init max intensity as 20% of max value
+        elif not self.persistIntensity.isChecked():
+            self.minIntSpnBx.setValue(min_val)
+            self.maxIntSpnBx.setValue(max_val * 0.20)
         self.syncUI = False
 
     def refreshGraph(self):

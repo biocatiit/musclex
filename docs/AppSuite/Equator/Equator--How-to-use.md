@@ -25,7 +25,7 @@ In Display Options section, you are able to select what you want to see in the i
 * Histogram : white plot as original histogram and red line as fitting model
 * Peaks : yellow lines
 
-The check box Persist max intensity is used to persist the max intensity when we move to the next image.
+The check box 'Persist intensities' is used to persist the max and the min intensities when we move to the next image.
 
 ![-](../../images/BM/display_options.png) 
 

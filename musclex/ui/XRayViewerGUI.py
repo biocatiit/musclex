@@ -72,7 +72,7 @@ class XRayViewerGUI(QMainWindow):
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
         self.setMinimumHeight(800)
-        self.setMinimumWidth(1400)
+        self.setMinimumWidth(1000)
 
     def initUI(self):
         """
@@ -136,7 +136,7 @@ class XRayViewerGUI(QMainWindow):
             self.colorMapChoice.addItem(c)
         
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistMaxIntensity = QCheckBox("Persist Max intensity")
+        self.persistIntensity = QCheckBox("Persist intensities")
 
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
@@ -153,7 +153,7 @@ class XRayViewerGUI(QMainWindow):
         self.dispOptLayout.addWidget(QLabel("Color Map:"), 4, 0, 1, 1)
         self.dispOptLayout.addWidget(self.colorMapChoice, 4, 1, 1, 1)
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 5, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistMaxIntensity, 6, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.persistIntensity, 6, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
         self.optionsLayout = QVBoxLayout()
@@ -1003,11 +1003,11 @@ class XRayViewerGUI(QMainWindow):
         min_val = img.min()
         max_val = img.max()
         self.spmaxInt.setRange(min_val, max_val)
-        if not self.persistMaxIntensity.isChecked():
-            self.spmaxInt.setValue(max_val * .5)
-        self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setRange(min_val, max_val)
-        self.spminInt.setValue(min_val)
+        if not self.persistIntensity.isChecked():
+            self.spmaxInt.setValue(max_val * .5)
+            self.spminInt.setValue(min_val)
+        self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setSingleStep(max_val * .05)
         self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
         self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
