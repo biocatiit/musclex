@@ -381,11 +381,13 @@ def getRotationAngle(img, center, method=0, man_det=None):
     det = find_detector(img, man_det=man_det)
 
     corners = [(0, 0), (0, img.shape[1]), (img.shape[0], 0), (img.shape[0], img.shape[1])]
-    npt_rad = int(round(max([distance(center, c) for c in corners])))
+    npt_rad = int(round(min([distance(center, c) for c in corners])))
+    mask = np.zeros(img.shape)
+    mask[img<0] = 1
     ai = AzimuthalIntegrator(detector=det)
     ai.setFit2D(200, center[0], center[1])
     integration_method = IntegrationMethod.select_one_available("csr", dim=2, default="csr", degradable=True)
-    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method=integration_method)
+    I2D, tth, _ = ai.integrate2d(img, npt_rad, 360, unit="r_mm", method=integration_method, mask=mask)
     I2D = I2D[:, :int(len(tth)/3.)]
     hist = np.sum(I2D, axis=1)  # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
     sum_range = 0
@@ -401,7 +403,21 @@ def getRotationAngle(img, center, method=0, man_det=None):
     else:  # Find the best degree by its intensity
         max_degree = max(np.arange(180), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]) + np.sum(
             hist[d + 180 - sum_range:d + 181 + sum_range]))
-
+        hist = 0
+        if -175 <= max_degree < 175:
+            I2D, tth, _ = ai.integrate2d(img, npt_rad, 100, azimuth_range=(max_degree-5, max_degree+5), unit="r_mm", method=integration_method, mask=mask)
+            I2D = I2D[:, :int(len(tth)/3.)]
+            hist += np.sum(I2D, axis=1)
+        op_max_degree = max_degree-180 if max_degree > 0 else max_degree+180
+        if -175 <= op_max_degree < 175:
+            I2D2, tth2, _ = ai.integrate2d(img, npt_rad, 100, azimuth_range=(op_max_degree-5, op_max_degree+5), unit="r_mm", method=integration_method, mask=mask)
+            I2D2 = I2D2[:, :int(len(tth2)/3.)]
+            hist += np.sum(I2D2, axis=1) # Find a histogram from 2D Azimuthal integrated histogram, the x-axis is degree and y-axis is intensity
+        delta_degree = max(np.arange(100), key=lambda d: np.sum(hist[d - sum_range:d + sum_range + 1]))
+        if delta_degree < 50:
+            max_degree -= (50-delta_degree)/10
+        else:
+            max_degree += (delta_degree-50)/10
     # # If the degree and initial angle from ellipse are different, return ellipse angle instead
     if init_angle is not None and abs(max_degree-init_angle) > 20. and abs(180 - max_degree - init_angle)>20:
         return int(round(init_angle))
@@ -815,6 +831,7 @@ def find_detector(img, man_det=None):
         for detect in Detector.registry:
             if hasattr(Detector.registry[detect], 'MAX_SHAPE') and Detector.registry[detect].MAX_SHAPE == img.shape:
                 detector = detector_factory(detect)
+                print(detector.get_name())
                 break
     else:
         if man_det in Detector.registry and hasattr(Detector.registry[man_det], 'MAX_SHAPE') and Detector.registry[man_det].MAX_SHAPE == img.shape:

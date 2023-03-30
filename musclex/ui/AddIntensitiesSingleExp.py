@@ -669,7 +669,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 l_ind2 = last.rfind('.')
 
                 if f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1 or first[:f_ind1] != last[:l_ind1]:
-                    filename = "Group"+str(self.currentGroupNumber + 1)+'.tif'
+                    filename = "group_"+str(self.currentGroupNumber + 1).zfill(5)+'.tif'
                 else:
                     filename = first[:f_ind1] + "_"
                     filename += first[f_ind1 + 1:f_ind2]

@@ -2165,7 +2165,19 @@ class AddIntensitiesMultExp(QMainWindow):
                 elif not isinstance(sum_img, int):
                     img = resizeImage(img, sum_img.shape)
                 sum_img += img
-        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key).zfill(5) + '.tif')
+
+        first = self.orig_img_names[0].split('.')[0]
+        last = self.orig_img_names[-1].split('.')[0]
+        ind = 1
+        filename = ""
+        while last.startswith(first[:ind]) and ind < len(first):
+            ind += 1
+        if ind != 1:
+            filename = first[:ind]
+            if filename[-1] != '_':
+                filename += '_'
+        filename += 'res_' + str(key).zfill(5) + '.tif'
+        result_file = os.path.join(dir_path, 'aime_results', filename)
         fabio.tifimage.tifimage(data=sum_img).write(result_file)
         print('Saved ', result_file)
         print('Resulting image shape ', sum_img.shape)
