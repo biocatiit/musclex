@@ -10,7 +10,9 @@ If the center obtained by the above method is a floating number, the entire imag
 If the circle cannot be determined this way, the center will be calculated by using the [moments](http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=moments#moments) method of OpenCV to find the center of the object.
 
 ## Calculate Rotation Angle
-The program will first calculate the initial angle by fitting an ellipse to the pattern. However, another approach will be applied to find more accurate angle by using azimuthal integration histogram. To find the angle from azimuthal integration histogram is just getting the angle with highest intensity. If the angle from this method is not too different from the initial angle, the angle from this method will be returned. Otherwise, the initial angle will be returned. It is ensured that the angle returned is always an acute angle (closest acute angle from the calculated angle).
+The program will first calculate the initial angle by fitting an ellipse to the pattern. 
+However, another approach will be applied to find a more accurate angle by using pyFAI's azimuthal integrator. This process is done in two passes: first we compute the azimuthal integration histogram on 360 values (one every degree), then we select the highest intensity peak in the histogram and we do a second pass around this high peak with a precision of 0.1 degrees to improve and confirm our first result.
+If the angle from this method is not too different from the initial angle, the angle from this method will be returned. Otherwise, the initial angle will be returned. It is ensured that the angle returned is always an acute angle (closest acute angle from the calculated angle).
 
 ![-](../images/img_proc/azimuthal.png)
 
