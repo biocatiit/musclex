@@ -1,4 +1,4 @@
-Convert rectangle images to square images
+Convert rectangle images to squared images
 =============
 .. _Convert rectangle images to squared images:
 

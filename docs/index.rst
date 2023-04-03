@@ -14,10 +14,10 @@ assist with analyzing diffraction X-ray images.
 - :ref:`DDF Processor (ddf) <DDF Processor>`
 - :ref:`Add Intensities Single Experiment (aise) <Add Intensities Single Experiment>`
 - :ref:`Add Intensities Multiple Experiments (aime) <Add Intensities Multiple Experiments>`
-- :ref:`Calibration Settings <Calibration-Settings>`
-- :ref:`Image Processing Functions <Image-Processing-Functions>`
+- :ref:`Calibration Settings <AppSuite/Calibration-Settings.md>`
+- :ref:`Image Processing Functions <AppSuite/Image-Processing-Functions.md>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
-- :ref:`Convert rectanglee images to square images <Convert rectangle images to square images>`
+- :ref:`Convert rectangle images to square images <Convert rectangle images to squared images>`
 - :ref:`Deprecated: Diffraction Centroids (dc) <Diffraction Centroids>`
 
 
