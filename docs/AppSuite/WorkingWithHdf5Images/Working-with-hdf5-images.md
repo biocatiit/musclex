@@ -4,7 +4,7 @@ There are currently two versions of the program: a standalone program and the co
 
 ## Standalone program
 
-The standalone program can be run in Interactive mode or in Headless mode.
+The standalone program can be run in Interactive mode or in Headless mode. As its name suggests, this program is NOT part of MuscleX, and can be found on the [Utilities page](../../utilities.md).
 
 ### Interactive mode
 
@@ -18,10 +18,12 @@ The headless mode works exactly as the Code Execution program: just run `hdf5-to
 
 ## Code Execution program
 
+The code execution program is composed of scripts located inside the MuscleX code. You need access to the source code to be able to run this version of the converter. The files are located in the "utils" folder of the MuscleX code.
+
 ### Convert HDF5 file to TIFF files
 The script will generate the tiff files from the hdf5 file. The Metadata are read from the metadata file and added as an ImageDescription tag in all the tiff files. It is possible to generate a compressed version of the file to save space.
 
-- Source Code: https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py
+- Source Code: [https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py](https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py)
 
 #### How to use
 
@@ -37,7 +39,7 @@ Note: You can run multiple conversions by including multiple h5 files after the 
 
 The Script prints the metadata of the TIFF file.
 
-- Source Code: https://github.com/biocatiit/musclex/blob/master/musclex/utils/tiff_metadata.py
+- Source Code: [https://github.com/biocatiit/musclex/blob/master/musclex/utils/tiff_metadata.py](https://github.com/biocatiit/musclex/blob/master/musclex/utils/tiff_metadata.py)
 
 #### How to use 
 
