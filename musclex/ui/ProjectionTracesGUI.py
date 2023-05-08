@@ -30,6 +30,7 @@ import sys
 import copy
 import pickle
 import traceback
+import json
 from os.path import exists, splitext
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -358,6 +359,22 @@ class ProjectionTracesGUI(QMainWindow):
 
         self.mainLayout.addWidget(self.tabWidget)
         self.mainLayout.addWidget(self.statusBar)
+
+        #### Menu Bar #####
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+
+        menubar = self.menuBar()
+        # menubar.setNativeMenuBar(False)
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(saveSettingsAction)
+
+        aboutAct = QAction('About', self)
+        aboutAct.triggered.connect(self.showAbout)
+        helpMenu = menubar.addMenu('&Help')
+        helpMenu.addAction(aboutAct)
+
         self.show()
         self.resize(1300, 700)
 
@@ -416,6 +433,26 @@ class ProjectionTracesGUI(QMainWindow):
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
         self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
         self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
+
+    def saveSettings(self):
+        """
+        save settings to json
+        """
+        if self.projProc is not None:
+            settings = self.calSettings if self.calSettings is not None else {}
+            cache = self.loadBoxesAndPeaks()
+            if cache is not None:
+                settings.update(cache)
+                # for b in settings["boxes"].items():
+                #     if isinstance(b[1][-1], np.ndarray):
+                #         settings["boxes"][b[0]] = [x for x in b[1]]
+                #         # settings["boxes"][b[0]][-1] = b[1][-1].tolist()
+                #         settings["boxes"][b[0]].pop(-1)
+                # print(settings["boxes"])
+            filename = getSaveFile("musclex/settings/ptsettings.json", None)
+            if filename != "":
+                with open(filename, 'w') as f:
+                    json.dump(settings, f)
 
     def blankChecked(self):
         """
@@ -1038,7 +1075,7 @@ class ProjectionTracesGUI(QMainWindow):
 
                         # add the oriented box
                         name, bgsub, _ = boxDialog.getDetails()
-                        self.allboxes[name] = ((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot, img)
+                        self.allboxes[name] = ((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot) #, img)
                         self.boxtypes[name] = 'oriented'
                         self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
                         self.bgsubs[name] = bgsub
@@ -1879,3 +1916,26 @@ class ProjectionTracesGUI(QMainWindow):
         newX = dzx -10 + x
         newY = dzy - 10 + y
         return (newX, newY)
+
+    def showAbout(self):
+        """
+        Display About Dialog
+        """
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("About")
+        msgBox.setTextFormat(Qt.RichText)
+        msgBox.setText("<br><br><br>" +
+                       "Projection Traces is running under" +
+                       "<h2>Muscle X v" +
+                       __version__ +
+                       "</h2><br><br>" +
+                       "&copy;2023 BioCAT <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://www.bio.aps.anl.gov/") +
+                       "Documentation : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://musclex.readthedocs.io/en/latest/") +
+                       "GitHub : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex") +
+                       "Send Feedback or Issues : <br>" +
+                       "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.exec_()

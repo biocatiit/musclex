@@ -274,6 +274,61 @@ def main(arguments=None):
                 for proc in procs:
                     proc.join()
                     sys.exit()
+    elif len(arguments) >= 5 and arguments[1]=='pt' and arguments[2]=='-h':
+        inputsetting=False
+        delcache=False
+        run=True
+        i=3
+        settingspath="empty"
+        while i < len(arguments):
+            if arguments[i]=='-s':
+                inputsetting=True
+                if i+1<len(arguments) and len(arguments[i+1])>5:
+                    _, ext = os.path.splitext(str(arguments[i+1]))
+                    if ext==".json" and os.path.isfile(arguments[i+1]):
+                        i=i+1
+                        settingspath=arguments[i]
+                    else:
+                        print("Please provide the right settings file")
+                        run=False
+            elif arguments[i]=='-d':
+                delcache=True
+            elif arguments[i]=='-i' or arguments[i]=='-f':
+                is_file = arguments[i]=='-i'
+                i=i+1
+                filename=arguments[i]
+            else:
+                run=False
+                break
+            i=i+1
+        if run:
+            from musclex.ui.ProjectionTracesh import ProjectionTracesh
+            if is_file:
+                ProjectionTracesh(filename, inputsetting, delcache, settingspath)
+            else:
+                from multiprocessing import Lock, Process, cpu_count
+                lock = Lock()
+                procs = []
+                in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.h5', '.hdf5', '.smv']
+                imgList = os.listdir(filename)
+                imgList.sort()
+                for image in imgList:
+                    file_name=os.path.join(filename,image)
+                    if os.path.isfile(file_name):
+                        _, ext = os.path.splitext(str(file_name))
+                        if ext in in_types:
+                            print("filename is", file_name)
+                            # QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
+                            proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock,))
+                            procs.append(proc)
+                            proc.start()
+                    if len(procs) % cpu_count() == 0:
+                        for proc in procs:
+                            proc.join()
+                        procs = []
+                for proc in procs:
+                    proc.join()
+                    sys.exit()
 
     else:
         run = False
@@ -288,7 +343,7 @@ def main(arguments=None):
         print("          eq [<-h>] - Equator (-h for headless version)")
         print("          di [<-h>] - Scanning Diffraction (-h for headless version)")
         print("          qf [<-h>] - Quadrant Folding (-h for headless version)")
-        print("          pt - Projection Traces")
+        print("          pt [<-h>] - Projection Traces")
         print("          ddf - DDF Processor")
         print("          aise - Add Intensities Single Experiment")
         print("          aime - Add Intensities Multiple Experiments")

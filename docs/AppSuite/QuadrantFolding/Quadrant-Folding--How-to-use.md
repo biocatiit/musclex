@@ -1,6 +1,6 @@
 # How to use
 
-Quadrant Folder (QF) provides two modes for users: Interactive mode and Headless mode  
+Quadrant Folder (QF) provides two modes for users: Interactive mode and Headless mode
 
 ## Interactive Mode 
 
@@ -108,7 +108,7 @@ Arguments:
 * -d (optional) delete existing cache
 * -s (optional) \<input setting file>
 
-Note: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
+Note: To generate the settings file, use the interactive musclex, set parameters in it, then select "Save current settings" in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
 
 ### Multiprocessing on folders
 In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.

@@ -1,5 +1,9 @@
 # How to use
 
+Projection Traces (PT) provides two modes for users: Interactive mode and Headless mode
+
+## Interactive Mode
+
 Once the program is run, you will see the steps 1 to 4 that you have to do on the left menu bar.
 
 ![-](../../images/PT/left_tab.png)
@@ -14,11 +18,11 @@ In this page, you will know about ...
 6. [Blank Image and Mask](#blank-image-and-mask)
 7. [Other Options](#other-options)
 
-## Mask Threshold
+### Mask Threshold
 
 The mask threshold allows you to ignore pixels for processing the image. For example if you set-up a threshold of 0, every part of the histogram where the value is less than 0 will be ignored.
 
-## Adding Boxes
+### Adding Boxes
 
 There are three options for box selection: axis aligned, oriented, and center oriented boxes.
 
@@ -34,10 +38,10 @@ Once a box is added, there's a new tab created. You can add how many boxes you n
 
 ![-](../../images/PT/box_select.png)
 
-### Remove A Box
+#### Remove A Box
 To remove a box, you can just close its tab.
 
-## Select Approximate peak locations
+### Select Approximate peak locations
 To select the approximate peak locations, you can just click on the button, select them in the box and click "Done". When you select a peak, the program will automatically select the corresponding peak on the opposite site.
 
 ![-](../../images/PT/peak_select.png)
@@ -49,12 +53,12 @@ To select peaks in the box tab, you can go to that box tab and select peaks by p
 
 When peaks in a box is selected, the program will process image by these [steps](Projection-Traces--How-it-works.html) to get all results
 
-## Select Convex Hull Range
+### Select Convex Hull Range
 If you select Convex Hull as background subtraction method for a box, and peaks are selected. The program will automatically select start and end points for Convex Hull. If you want to change this range, you can click "Set Manual Convex Hull Range" and select start and end points on the plot.
 
 ![-](../../images/PT/convex2.png)
 
-## Display options
+### Display options
 In the image tab, there are display options shown on the right. These options will not affect any processing. You can check "Boxes", "Center" or "Peaks" to be displayed on the image. You can zoom-in by pressing "Zoom in" and select the zoom in area on the image by drawing a rectangle. (You can zoom-in or zoom-out by mouse wheeling too). Also, you can select min/max intensity to see the image clearly.
 
 As of version 1.14.11, you can specify a rotation angle and center manually. This is done by specifying two reflection peaks in the diffraction. The image will be rotated according to the new angle.
@@ -67,22 +71,22 @@ In each box tab, you will see multiple check boxes in the section. You can check
 
 ![-](../../images/PT/box_disp_opt.png)
 
-### Calibration options
+#### Calibration options
 
-#### Set Rotation and Center
+##### Set Rotation and Center
 Before setting manual rotation and center, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.<br/>
 ![-](../../images/PT/center.png)
 
-#### Double Zoom
+##### Double Zoom
 This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
 ![-](../../images/PT/DoubleZoom.png)
 
-## Blank Image and Mask
+### Blank Image and Mask
 See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more information on how to use this option.
 
 ![-](../../images/PT/blank_img_mask.png)
 
-## Other Options
+### Other Options
 There're several options on the bottom left in image tab.
 
 ![-](../../images/PT/image_bottom.png)
@@ -93,3 +97,23 @@ If this checkbox is checked, and boxes are added, the program will save the orig
 This will process the whole images in current directory with current settings (boxes and peaks)
 * Previous and Next Buttons<br/>
 This will make the program go to process the next or previous image with current settings
+
+
+## Headless Mode
+Image processing performed in the terminal.
+In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
+For example: `musclex pt -h -i test.tif -s config.json`.
+
+Arguments:
+* -f \<foldername> or -i \<filename>
+* -d (optional) delete existing cache
+* -s (optional) \<input setting file>
+
+Note: To generate the settings file (containing both the calibration settings and the boxes and peaks saved), use the interactive musclex, set parameters in it, then select "Save current settings" in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, the program will not do anything as it needs boxes to produce results.
+
+### Multiprocessing on folders
+In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
+
+### Customization of the parameters
+Since Headless mode is limited in terms of interactions and parameters to change, you can directly set your parameters in a json format inside `ptsettings.json`. You might need to look at the code and especially 'modules/ProjectionProcessor.py' and 'ui/ProjectionTracesh.py' to know exactly which parameters to set and how to set them. You can also generate the json using the GUI version and look at the parameters for each box/type of box.
+
