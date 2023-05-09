@@ -287,6 +287,7 @@ class ProjectionTracesh:
         if self.lock is not None:
             self.lock.acquire()
         self.cacheBoxesAndPeaks()
+        self.csvManager.loadSummary()
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
