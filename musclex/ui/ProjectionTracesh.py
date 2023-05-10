@@ -221,6 +221,7 @@ class ProjectionTracesh:
             self.centerx = savedParams['centerx']
             self.centery = savedParams['centery']
             self.center_func = savedParams['center_func']
+            self.calSettings = savedParams
         else:
             self.allboxes = {}
             self.peaks = {}
@@ -392,7 +393,7 @@ class ProjectionTracesh:
         # add blank image and mask
         # settings['blank_mask'] = self.blankImageGrp.isChecked()
 
-        # settings['mask_thres'] = self.maskThresSpnBx.value()
+        settings['mask_thres'] = -0.01 # self.maskThresSpnBx.value()
 
         if self.refit:
             settings['refit'] = self.refit

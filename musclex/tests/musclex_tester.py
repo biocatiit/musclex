@@ -38,10 +38,12 @@ try:
     from ..ui.EQStartWindowh import EQStartWindowh
     from ..ui.QuadrantFoldingh import QuadrantFoldingh
     from ..ui.DIImageWindowh import DIImageWindowh
+    from ..ui.ProjectionTracesh import ProjectionTracesh
 except: # for coverage
     from ui.EQStartWindowh import EQStartWindowh
     from ui.QuadrantFoldingh import QuadrantFoldingh
     from ui.DIImageWindowh import DIImageWindowh
+    from ui.ProjectionTracesh import ProjectionTracesh
 
 class MuscleXGlobalTester(unittest.TestCase):
     """
@@ -368,6 +370,103 @@ class MuscleXGlobalTester(unittest.TestCase):
         # Remove cache folders
         if os.path.exists(os.path.join(pilatus_dir, "di_cache")):
             shutil.rmtree(os.path.join(pilatus_dir, "di_cache"))
+
+    ####### PROJECTION TRACES TEST #######
+    def testHeadlessMarProjectionTraces(self):
+        mar_dir = os.path.join(self.currdir, "testImages", "MARimages")
+        for filename in os.listdir(mar_dir):
+            _, ext = os.path.splitext(str(filename))
+            if ext in self.input_types:
+                f = os.path.join(mar_dir, filename)
+                ProjectionTracesh(f, True, True, os.path.join(mar_dir, "ptsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "pt", "-h", "-i", f, "-s", os.path.join(mar_dir, "ptsettings.json"), "-d"], cwd=self.currdir).wait()
+
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
+        generated_results = os.path.join(mar_dir, "pt_results", "summary.csv")
+        release_results = os.path.join(self.currdir, "testResults", "MARimages", "pt_results", "summary.csv")
+        pass_test = True
+        file1 = pd.read_csv(generated_results).round(4)
+        file2 = pd.read_csv(release_results).round(4)
+        res = pd.merge(file1, file2)
+        if len(res.index) != len(file1.index):
+            pass_test = False
+        if not pass_test:
+            print(f"\nTesting ProjectionTraces on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
+        else:
+            print(f"Testing ProjectionTraces on {mar_dir} ..... \033[0;32mPASSED\033[0;3140m")
+        self.log_results(pass_test, "ProjectionTraces MAR Image")
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for MAR image failed.")
+
+        # Remove cache folders
+        if os.path.exists(os.path.join(mar_dir, "pt_cache")):
+            shutil.rmtree(os.path.join(mar_dir, "pt_cache"))
+
+    def testHeadlessEigerProjectionTraces(self):
+        eiger_dir = os.path.join(self.currdir, "testImages", "EIGERimages")
+        for filename in os.listdir(eiger_dir):
+            _, ext = os.path.splitext(str(filename))
+            if ext in self.input_types:
+                f = os.path.join(eiger_dir, filename)
+                ProjectionTracesh(f, True, True, os.path.join(eiger_dir, "ptsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "pt", "-h", "-i", f, "-s", os.path.join(eiger_dir, "ptsettings.json"), "-d"], cwd=self.currdir).wait()
+
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
+        generated_results = os.path.join(eiger_dir, "pt_results", "summary.csv")
+        release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "pt_results", "summary.csv")
+        pass_test = True
+        file1 = pd.read_csv(generated_results).round(4)
+        file2 = pd.read_csv(release_results).round(4)
+        res = pd.merge(file1, file2)
+        if len(res.index) != len(file1.index):
+            pass_test = False
+        if not pass_test:
+            print(f"\nTesting ProjectionTraces on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
+        else:
+            print(f"Testing ProjectionTraces on {eiger_dir} ..... \033[0;32mPASSED\033[0;3140m")
+        self.log_results(pass_test, "ProjectionTraces EIGER Image")
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for EIGER image failed.")
+
+        # Remove cache folders
+        if os.path.exists(os.path.join(eiger_dir, "pt_cache")):
+            shutil.rmtree(os.path.join(eiger_dir, "pt_cache"))
+
+    def testHeadlessPilatusProjectionTraces(self):
+        pilatus_dir = os.path.join(self.currdir, "testImages", "PILATUSimages")
+        for filename in os.listdir(pilatus_dir):
+            _, ext = os.path.splitext(str(filename))
+            if ext in self.input_types:
+                f = os.path.join(pilatus_dir, filename)
+                ProjectionTracesh(f, True, True, os.path.join(pilatus_dir, "ptsettings.json"))
+                # subprocess.Popen([self.run_cmd, os.path.join(self.currdir, "..", "main.py"), "pt", "-h", "-i", f, "-s", os.path.join(pilatus_dir, "ptsettings.json"), "-d"], cwd=self.currdir).wait()
+
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
+        generated_results = os.path.join(pilatus_dir, "pt_results", "summary.csv")
+        release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "pt_results", "summary.csv")
+        pass_test = True
+        file1 = pd.read_csv(generated_results).round(4)
+        file2 = pd.read_csv(release_results).round(4)
+        res = pd.merge(file1, file2)
+        if len(res.index) != len(file1.index):
+            pass_test = False
+        if not pass_test:
+            print(f"\nTesting ProjectionTraces on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
+        else:
+            print(f"Testing ProjectionTraces on {pilatus_dir} ..... \033[0;32mPASSED\033[0;3140m")
+        self.log_results(pass_test, "ProjectionTraces PILATUS Image")
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for PILATUS image failed.")
+
+        # Remove cache folders
+        if os.path.exists(os.path.join(pilatus_dir, "pt_cache")):
+            shutil.rmtree(os.path.join(pilatus_dir, "pt_cache"))
 
     ############################
     def log_results(self, pass_test, testname):

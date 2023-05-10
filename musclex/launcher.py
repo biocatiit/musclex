@@ -400,7 +400,7 @@ class TestDialog(QDialog):
         from the log in the parent process.
         """
         self.progressBar.reset()
-        NTESTS = 10
+        NTESTS = 13
 
         suite = unittest.TestSuite()
         suite.addTest(MuscleXGlobalTester("testHeadlessMarEquator"))
@@ -412,6 +412,9 @@ class TestDialog(QDialog):
         suite.addTest(MuscleXGlobalTester("testHeadlessMarDiffraction"))
         suite.addTest(MuscleXGlobalTester("testHeadlessEigerDiffraction"))
         suite.addTest(MuscleXGlobalTester("testHeadlessPilatusDiffraction"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessMarProjectionTraces"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessEigerProjectionTraces"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessPilatusProjectionTraces"))
         runner = unittest.TextTestRunner()
         proc = Thread(target=runner.run, args=(suite,))
         proc.start()
@@ -564,7 +567,7 @@ class TestDialog(QDialog):
             return ""
         data = file.read()
         idx = 1
-        while idx < 10:
+        while idx < 13:
             last_test = data.split('-'*80)[-idx]
             if last_test == '\n':
                 idx += 1
@@ -583,7 +586,7 @@ class TestDialog(QDialog):
             return ""
         data = file.read()
         idx = 1
-        while idx < 10:
+        while idx < 13:
             release = data.split('-'*80)[-idx]
             if release == '\n':
                 idx += 1
