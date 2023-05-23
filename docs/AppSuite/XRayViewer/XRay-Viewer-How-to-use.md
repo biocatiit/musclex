@@ -22,11 +22,11 @@ You can see the index of the image displayed in the bottom left corner of the wi
 
 ```eval_rst
 .. note:: For now, the log file needs to be a simple text file (.txt, .log, etc...). The lines ignored need to start with a `#` and the data lines need to be in the same order as the images. For each data line, the fields are separated by a tabulation, with length_out at position 7, length_in at position 8 and force at position 9 (first column is position 0).
-
-For example:
-#Filename, start_time, exposure_time, I0, I1, Beam_current, Detector_Enable, Length_Out, Length_In, Force
-P1_F2_1350_1_014_000001, 0.0, 0.0179993, 931990.04530322, 1755.92892531, 102.44832854999918, 3.283979566710928, 0.018878511942131086, 0.0016222853110954315, 0.14441117154556013
 ```
+For example:
+\#Filename, start_time, exposure_time, I0, I1, Beam_current, Detector_Enable, Length_Out, Length_In, Force
+P1_F2_1350_1_014_000001, 0.0, 0.0179993, 931990.04530322, 1755.92892531, 102.44832854999918, 3.283979566710928, 0.018878511942131086, 0.0016222853110954315, 0.14441117154556013
+
 
 ## Display Options
 
