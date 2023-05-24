@@ -25,7 +25,7 @@ Auto grouping is performed automatically and the images you see on the screen ar
 
 When you want to add the intensities of different experiments grouped as h5 files you need to make sure that the files are in a same folder and that they have a name containing a number and the word data, each element being separated by the character `_`. An example is `P2_F5_849_1_094_data_000001.h5`.
 
-For folders with tiff images, it will take the last number as the file number within an experiment, and the rest of the name corresponds to an experiment.
+For folders with tiff images, it will take the last number as the frame number within an experiment, and the rest of the name corresponds to the experiment. The elements in the file name must be separated by `_` (underscore). For example `P2_F5_849_1_094_data_000001.tif`, the frame number will be `000001` amd the experiment group will be `P2_F5_849_1_094_data`.
 
 ## Display Options
 
