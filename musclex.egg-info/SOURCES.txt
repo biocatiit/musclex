@@ -55,7 +55,6 @@ musclex/tests/testImages/EIGERimages/disettings.json
 musclex/tests/testImages/EIGERimages/eqsettings.json
 musclex/tests/testImages/EIGERimages/ptsettings.json
 musclex/tests/testImages/EIGERimages/qfsettings.json
-musclex/tests/testImages/EIGERimages/settings/calibration.info
 musclex/tests/testImages/MARimages/F10_pCa8_SL21_0001.tif
 musclex/tests/testImages/MARimages/F10_pCa8_SL21_0002.tif
 musclex/tests/testImages/MARimages/disettings.json

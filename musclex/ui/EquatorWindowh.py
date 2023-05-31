@@ -49,7 +49,7 @@ class EquatorWindowh:
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, filename, inputsettings, delcache, lock=None, settingspath='musclex/settings/eqsettings.json'):
+    def __init__(self, filename, inputsettings, delcache, lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, settingspath='musclex/settings/eqsettings.json'):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -68,11 +68,13 @@ class EquatorWindowh:
         self.fixedIntArea = None
         self.orientationModel = None
         self.modeOrientation = None
-        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
+        if dir_path is not None:
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
+        else:
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
         if len(self.imgList) == 0:
             self.inputerror()
             return
-        self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.inputsettings=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
@@ -155,6 +157,7 @@ class EquatorWindowh:
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()
+        self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager.writeNewData2(self.bioImg)
         # release the lock

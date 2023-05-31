@@ -33,6 +33,7 @@ import sys
 import unittest
 from musclex import __version__
 from musclex.ui.pyqt_utils import *
+from musclex.utils.file_manager import getImgFiles
 from musclex.utils.exception_handler import handlers
 from musclex.tests.module_test import MuscleXTest
 from musclex.tests.musclex_tester import MuscleXGlobalTester
@@ -42,6 +43,8 @@ if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
 
 def main(arguments=None):
+    in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
+    h5_types = ['.h5', '.hdf5']
     if arguments is None:
         arguments = sys.argv
 
@@ -204,7 +207,8 @@ def main(arguments=None):
                     processFolder=True
                 i=i+1
                 fullfilename=arguments[i]
-                if not processFolder:
+                is_hdf5 = os.path.splitext(fullfilename)[1] in h5_types
+                if not processFolder and not is_hdf5:
                     filePath, fileName = os.path.split(fullfilename)
                 else:
                     filePath=fullfilename
@@ -213,7 +217,7 @@ def main(arguments=None):
                 break
             i=i+1
         if run:
-            if not processFolder:
+            if not processFolder and not is_hdf5:
                 from musclex.ui.DIImageWindowh import DIImageWindowh
                 DIImageWindowh(str(fileName), str(filePath), inputsetting, delcache, settingspath)
                 sys.exit()
@@ -251,17 +255,16 @@ def main(arguments=None):
             i=i+1
         if run:
             from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
-            if is_file:
+            if is_file and os.path.splitext(str(filename))[1] not in h5_types:
                 QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
             else:
                 from multiprocessing import Lock, Process, cpu_count
                 lock = Lock()
                 procs = []
-                in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.h5', '.hdf5', '.smv']
-                imgList = os.listdir(filename)
+                imgList = os.listdir(filename) if not is_file else [filename]
                 imgList.sort()
                 for image in imgList:
-                    file_name=os.path.join(filename,image)
+                    file_name=os.path.join(filename,image) if not is_file else filename
                     if os.path.isfile(file_name):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
@@ -270,6 +273,17 @@ def main(arguments=None):
                             proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock,))
                             procs.append(proc)
                             proc.start()
+                        elif ext in h5_types:
+                            hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                            for ind in range(len(himgList)):
+                                print("filename is", himgList[ind])
+                                proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext,))
+                                procs.append(proc)
+                                proc.start()
+                                if len(procs) % cpu_count() == 0:
+                                    for proc in procs:
+                                        proc.join()
+                                    procs = []
                     if len(procs) % cpu_count() == 0:
                         for proc in procs:
                             proc.join()
@@ -306,17 +320,16 @@ def main(arguments=None):
             i=i+1
         if run:
             from musclex.ui.ProjectionTracesh import ProjectionTracesh
-            if is_file:
+            if is_file and os.path.splitext(str(filename))[1] not in h5_types:
                 ProjectionTracesh(filename, inputsetting, delcache, settingspath)
             else:
                 from multiprocessing import Lock, Process, cpu_count
                 lock = Lock()
                 procs = []
-                in_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.h5', '.hdf5', '.smv']
-                imgList = os.listdir(filename)
+                imgList = os.listdir(filename) if not is_file else [filename]
                 imgList.sort()
                 for image in imgList:
-                    file_name=os.path.join(filename,image)
+                    file_name=os.path.join(filename,image) if not is_file else filename
                     if os.path.isfile(file_name):
                         _, ext = os.path.splitext(str(file_name))
                         if ext in in_types:
@@ -325,6 +338,17 @@ def main(arguments=None):
                             proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock,))
                             procs.append(proc)
                             proc.start()
+                        elif ext in h5_types:
+                            hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                            for ind in range(len(himgList)):
+                                print("filename is", himgList[ind])
+                                proc = Process(target=ProjectionTracesh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext,))
+                                procs.append(proc)
+                                proc.start()
+                                if len(procs) % cpu_count() == 0:
+                                    for proc in procs:
+                                        proc.join()
+                                    procs = []
                     if len(procs) % cpu_count() == 0:
                         for proc in procs:
                             proc.join()

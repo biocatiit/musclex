@@ -53,7 +53,7 @@ class ProjectionTracesh:
     """
     This class is for Projection Traces GUI Object
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/ptsettings.json', lock=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/ptsettings.json', lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
         self.lock = lock
         self.current_file = 0
         self.calSettings = None
@@ -82,7 +82,10 @@ class ProjectionTracesh:
         self.checkableButtons = []
 
         self.version = __version__
-        self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
+        if dir_path is not None:
+            self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
+        else:
+            self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
         if len(self.imgList) == 0:
             self.inputerror()
             return
@@ -90,7 +93,7 @@ class ProjectionTracesh:
         self.delcache=delcache
         self.settingspath=settingspath
 
-        fileName = self.imgList[self.currentFileNumber]
+        fileName = self.imgList[self.current_file]
         file=fileName+'.info'
         cache_path = os.path.join(self.dir_path, "qf_cache", file)
         cache_exist=os.path.isfile(cache_path)
@@ -100,7 +103,7 @@ class ProjectionTracesh:
 
         if self.inputsettings:
             self.getSettings()
-        self.onImageSelect(filename)
+        self.onImageSelect()
 
     def blankChecked(self):
         """
@@ -194,13 +197,12 @@ class ProjectionTracesh:
         self.current_file = (self.current_file + 1) % len(self.imgList)
         self.onImageChanged()
 
-    def onImageSelect(self, fullfilename):
+    def onImageSelect(self):
         """
         Triggered when a new image is selected
-        :param fullfilename: path for the image selected
         :return:
         """
-        self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
+        # self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
         savedParams = self.getSavedBoxesAndPeaks()
         cache = self.loadBoxesAndPeaks()
         if cache is not None and not self.delcache:
@@ -225,7 +227,6 @@ class ProjectionTracesh:
         else:
             self.allboxes = {}
             self.peaks = {}
-        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
         self.onImageChanged()
 
     def onImageChanged(self):
@@ -288,6 +289,7 @@ class ProjectionTracesh:
         if self.lock is not None:
             self.lock.acquire()
         self.cacheBoxesAndPeaks()
+        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
         self.csvManager.loadSummary()
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)

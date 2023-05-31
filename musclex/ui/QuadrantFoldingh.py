@@ -52,7 +52,7 @@ class QuadrantFoldingh:
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/qfsettings.json', lock=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/qfsettings.json', lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -75,9 +75,11 @@ class QuadrantFoldingh:
         self.modeOrientation = None
         self.newImgDimension = None
         self.lock = lock
-
-        self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
-        self.numberOfFiles = 0
+        if dir_path is not None:
+            self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
+        else:
+            self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(filename), headless=True)
+        self.numberOfFiles = len(self.imgList)
         if len(self.imgList) == 0:
             self.inputerror()
             return
@@ -91,7 +93,6 @@ class QuadrantFoldingh:
         if self.delcache:
             if cache_exist:
                 os.remove(cache_path)
-        self.csvManager = QF_CSVManager(self.dir_path)
         self.quadFold = QuadrantFolder(self.dir_path, fileName, self, self.fileList, self.ext)
 
         if self.inputsettings:
@@ -207,6 +208,7 @@ class QuadrantFoldingh:
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
+            self.csvManager = QF_CSVManager(self.dir_path)
             self.csvManager.writeNewData(self.quadFold)
             # release the lock
             if self.lock is not None:

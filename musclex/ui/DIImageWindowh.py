@@ -183,7 +183,7 @@ class DIImageWindowh():
     """
     A class to process Scanning diffraction on a file
     """
-    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', process_folder=False, imgList=None, lock=None):
+    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', lock=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, process_folder=False):
         self.fileName = image_name
         self.filePath = dir_path
         self.fullPath = os.path.join(dir_path, image_name)
@@ -194,7 +194,6 @@ class DIImageWindowh():
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()
-        self.csvManager = DI_CSVManager(dir_path)
         # release the lock
         if self.lock is not None:
             self.lock.release()
@@ -227,7 +226,12 @@ class DIImageWindowh():
                             'results_text': True
                             }
         self.logger = None
-        self.onNewFileSelected(imgList)
+        # self.onNewFileSelected(imgList)
+        if imgList is not None:
+            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
+        else:
+            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath, headless=True)
+        self.numberOfFiles = len(self.imgList)
         if process_folder and len(self.imgList) > 0:
             self.processFolder()
         elif len(self.imgList) > 0:
@@ -317,23 +321,23 @@ class DIImageWindowh():
 
         return flags
 
-    def onNewFileSelected(self, imgList):
-        """
-        Used when a new file is selected
-        """
-        if imgList is not None:
-            self.imgList = imgList
-        else:
-            self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath, headless=True)
-            # self.imgList, _ = getFilesAndHdf(self.filePath)
-
-        # self.imgList.sort()
-        self.numberOfFiles = len(self.imgList)
-        # if len(self.fileName) > 0:
-        #     self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
-        #     self.currentFileNumber = self.imgList.index(self.fileName)
-        # else:
-        #     self.currentFileNumber = 0
+    # def onNewFileSelected(self, imgList):
+    #     """
+    #     Used when a new file is selected
+    #     """
+    #     if imgList is not None:
+    #         self.imgList = imgList
+    #     else:
+    #         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath, headless=True)
+    #         # self.imgList, _ = getFilesAndHdf(self.filePath)
+    # 
+    #     # self.imgList.sort()
+    #     self.numberOfFiles = len(self.imgList)
+    #     # if len(self.fileName) > 0:
+    #     #     self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(self.fullPath)
+    #     #     self.currentFileNumber = self.imgList.index(self.fileName)
+    #     # else:
+    #     #     self.currentFileNumber = 0
 
     def onImageChanged(self):
         """
@@ -375,6 +379,7 @@ class DIImageWindowh():
             # acquire the lock
             if self.lock is not None:
                 self.lock.acquire()
+            self.csvManager = DI_CSVManager(self.filePath)
             self.csvManager.write_new_data(self.cirProj)
             # release the lock
             if self.lock is not None:

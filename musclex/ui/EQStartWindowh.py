@@ -31,8 +31,10 @@ import os
 from os.path import split
 try:
     from ..ui.EquatorWindowh import EquatorWindowh
+    from ..utils.file_manager import getImgFiles
 except: # for coverage
     from ui.EquatorWindowh import EquatorWindowh
+    from utils.file_manager import getImgFiles
 
 class EQStartWindowh:
     """
@@ -44,36 +46,51 @@ class EQStartWindowh:
         self.inputFlag=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
-        if os.path.isfile(self.dir_path):
+        is_hdf5 = os.path.splitext(self.dir_path)[1] in ['.h5', '.hdf5']
+        if os.path.isfile(self.dir_path) and not is_hdf5:
             self.browseFile() # start program by browse a file
-        elif os.path.isdir(self.dir_path):
-            self.browseFolder()
+        elif os.path.isdir(self.dir_path) or is_hdf5:
+            self.browseFolder(is_hdf5)
         else:
             print("Can't load image file or folder")
             return
 
-    def browseFolder(self):
+    def browseFolder(self, is_hdf5=False):
         """
         Popup an input folder dialog. Users can select a folder
         """
-        input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.h5', '.hdf5', '.smv']
+        input_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
         from multiprocessing import Lock, Process, cpu_count
         lock = Lock()
         procs = []
         if self.dir_path != "":
-            imgList = os.listdir(self.dir_path)
+            imgList = os.listdir(self.dir_path) if not is_hdf5 else [self.dir_path]
         for image in imgList:
-            file_name=os.path.join(self.dir_path,image)
+            file_name=os.path.join(self.dir_path,image) if not is_hdf5 else self.dir_path
             if os.path.isfile(file_name):
                 _, ext = os.path.splitext(str(file_name))
                 if ext in input_types:
                     print("filename is", file_name)
-                    if self.settingspath is None:
+                    if self.settingspath == 'empty':
                         proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock,))
                     else:
                         proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, self.settingspath,))
                     procs.append(proc)
                     proc.start()
+                elif ext in ['.h5', '.hdf5']:
+                    hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                    for ind in range(len(himgList)):
+                        print("filename is", himgList[ind])
+                        if self.settingspath == 'empty':
+                            proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext,))
+                        else:
+                            proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, hdir_path, himgList, ind, hfileList, ext, self.settingspath,))
+                        procs.append(proc)
+                        proc.start()
+                        if len(procs) % cpu_count() == 0:
+                            for proc in procs:
+                                proc.join()
+                            procs = []
             if len(procs) % cpu_count() == 0:
                 for proc in procs:
                     proc.join()

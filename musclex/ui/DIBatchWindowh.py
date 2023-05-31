@@ -111,7 +111,11 @@ class DIBatchWindowh():
     A class to process Scanning diffraction on folders (headless)
     """
     def __init__(self, dir_path="",inputsetting=False,delcache=False,settingspath=None):
-        self.filePath = dir_path
+        if os.path.isfile(dir_path):
+            self.filePath, self.fileName = os.path.split(dir_path)
+        else:
+            self.filePath = dir_path
+            self.fileName = None
         self.inputsetting=inputsetting
         self.delcache=delcache
         self.settingspath=settingspath
@@ -119,7 +123,7 @@ class DIBatchWindowh():
 
         self.csvManager = DI_CSVManager(self.filePath)
 
-        self.processFolder(self.filePath)
+        self.processFolder()
 
     def browseHDF(self, dir_path, hdfList=[]):
         """
@@ -205,33 +209,44 @@ class DIBatchWindowh():
                 data.extend(scans)
         return data
 
-    def processFolder(self, dir_path):
+    def processFolder(self):
         """
         Process the folder selected
         """
-        hdf_path=fullPath(dir_path,'settings')
+        hdf_path=fullPath(self.filePath,'settings')
         if os.path.exists(hdf_path):
             if os.path.exists(fullPath(hdf_path,'file.hdf')):
                 os.remove(fullPath(hdf_path,'file.hdf'))
             if os.path.exists(fullPath(hdf_path,'hdf.info')):
                 os.remove(fullPath(hdf_path,'hdf.info'))
-        inpt_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.hdf5', '.smv']
+        inpt_types = ['.adsc', '.cbf', '.edf', '.fit2d', '.mar345', '.marccd', '.pilatus', '.tif', '.tiff', '.smv']
 
-        if dir_path != "":
-            imgList = os.listdir(dir_path)
+        if self.filePath != "":
+            imgList = os.listdir(self.filePath) if self.fileName is None else [self.fileName]
             imgList.sort()
         from multiprocessing import Lock, Process, cpu_count
         lock = Lock()
         procs = []
         for image in imgList:
-            file_name=os.path.join(dir_path,image)
+            file_name=os.path.join(self.filePath,image)
             if os.path.isfile(file_name):
                 _, ext = os.path.splitext(str(file_name))
                 if ext in inpt_types:
                     # DIImageWindowh(image, dir_path,self.inputsetting,self.delcache,self.settingspath)
-                    proc = Process(target=DIImageWindowh, args=(image, dir_path, self.inputsetting, self.delcache, self.settingspath, lock,))
+                    proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock,))
                     procs.append(proc)
                     proc.start()
+                elif ext in ['.h5', '.hdf5']:
+                    _, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                    for ind in range(len(himgList)):
+                        print("filename is", himgList[ind])
+                        proc = Process(target=DIImageWindowh, args=(image, self.filePath, self.inputsetting, self.delcache, self.settingspath, lock, himgList, ind, hfileList, ext,))
+                        procs.append(proc)
+                        proc.start()
+                        if len(procs) % cpu_count() == 0:
+                            for proc in procs:
+                                proc.join()
+                            procs = []
             if len(procs) % cpu_count() == 0:
                 for proc in procs:
                     proc.join()
@@ -239,8 +254,8 @@ class DIBatchWindowh():
         for proc in procs:
             proc.join()
 
-        imgList, hdfList = getFilesAndHdf(dir_path)
-        self.browseHDF(dir_path, hdfList)
+        imgList, hdfList = getFilesAndHdf(self.filePath)
+        self.browseHDF(self.filePath, hdfList)
 
 def convertRadtoDegreesEllipse(rad):
     """
