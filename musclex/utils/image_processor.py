@@ -34,7 +34,9 @@ from skimage.morphology import white_tophat
 from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI.detectors import Detector
-from pyFAI import detector_factory
+from pyFAI import detector_factory, load
+from pyFAI.goniometer import SingleGeometry
+from pyFAI.calibrant import get_calibrant
 
 def distance(pt1, pt2):
     """
@@ -780,8 +782,10 @@ def mean_square_error(y_predict, y):
 def inpaint_img(img, center=None, mask=None):
     """
     Function to inpaint an image 
-    Warning: This function should not be used for any data processing or results, 
+    Warning: This function should not be used for any data processing or results,
     it is only for visualization and faster processing purpose.
+    Warning 2: the pyFAI inpainting function is NOT a machine learning method,
+    it is only using a dataset to fill in the gaps.
     """
     print("Inpainting...")
     detector = find_detector(img)
@@ -842,3 +846,28 @@ def find_detector(img, man_det=None):
         print("No corresponding detector found, using agilent_titan by default...")
         detector = detector_factory('agilent_titan')
     return detector
+
+def getMisSettingAngles(img, detector, center, wavelength=1e-10, calibrant="AgBh"):
+    """
+    Finds the detector's mis-setting angles using an image, the detector, the center of the image,
+    and optionally the wavelength and calibrant.
+    Warning: results need to be verified.
+    """
+    # Initialize a geometry:
+    geo = load({"detector": detector, "wavelength": wavelength})
+
+    # Approximate geometry:
+    geo.setFit2D(100, center[0], center[1])
+
+    # Initialize SingleGeometry:
+    calib = get_calibrant(calibrant)
+    calib.set_wavelength(wavelength)
+    sg = SingleGeometry(label='test', image=img, calibrant=calib, detector=detector, geometry=geo)
+    
+    # Extract control points: Usually one wants GUI here !
+    sg.extract_cp(max_rings=4)
+
+    # Perform the calibration
+    sg.geometry_refinement.refine3(fix=["wavelength"])
+
+    return sg.geometry_refinement.rot1, sg.geometry_refinement.rot2, sg.geometry_refinement.rot3
