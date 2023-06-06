@@ -39,13 +39,11 @@ try:
     from ..utils.image_processor import *
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..csv_manager.QF_CSVManager import QF_CSVManager
-    from .pyqt_utils import *
 except: # for coverage
     from utils.file_manager import *
     from utils.image_processor import *
     from modules.QuadrantFolder import QuadrantFolder
     from csv_manager.QF_CSVManager import QF_CSVManager
-    from ui.pyqt_utils import *
 
 class QuadrantFoldingh:
     """

@@ -39,7 +39,7 @@ setup(
     name = 'musclex',
     packages = find_namespace_packages(),
     # package_dir={"": "musclex"},
-    # packages = ['CalibrationSettings', 'csv_manager', 'modules', 'ui', 'utils'],
+    # packages = ['CalibrationSettings', 'csv_manager', 'modules', 'headless', 'ui', 'utils'],
     version = __version__,
     description = 'Muscle X',
     author = 'BioCAT',

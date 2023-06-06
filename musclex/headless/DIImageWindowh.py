@@ -37,12 +37,10 @@ import pandas as pd
 import numpy as np
 from numpy import ma
 try:
-    from .pyqt_utils import *
     from ..utils.file_manager import *
     from ..modules.ScanningDiffraction import *
     from ..csv_manager import DI_CSVManager
 except: # for coverage
-    from ui.pyqt_utils import *
     from utils.file_manager import *
     from modules.ScanningDiffraction import *
     from csv_manager import DI_CSVManager

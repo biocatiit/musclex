@@ -38,8 +38,6 @@ from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getCenter, processImageForIntCenter
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..csv_manager import PT_CSVManager
-from .BlankImageSettings import BlankImageSettings
-from .pyqt_utils import *
 
 class BoxDetails:
     """
@@ -112,16 +110,6 @@ class ProjectionTracesh:
         if self.projProc is not None:
             self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
             self.projProc.info['hists'] = {}
-            self.masked = False
-            self.processImage()
-
-    def blankSettingClicked(self):
-        """
-        Trigger when Set Blank Image and Mask clicked
-        """
-        dlg = BlankImageSettings(self.dir_path)
-        result = dlg.exec_()
-        if result == 1 and self.projProc is not None:
             self.masked = False
             self.processImage()
 

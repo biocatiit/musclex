@@ -178,7 +178,7 @@ def main(arguments=None):
                 break
             i=i+1
         if run:
-            from musclex.ui.EQStartWindowh import EQStartWindowh
+            from musclex.headless.EQStartWindowh import EQStartWindowh
             EQStartWindowh(filename, inputsetting, delcache, settingspath)
             sys.exit()
 
@@ -218,11 +218,11 @@ def main(arguments=None):
             i=i+1
         if run:
             if not processFolder and not is_hdf5:
-                from musclex.ui.DIImageWindowh import DIImageWindowh
+                from musclex.headless.DIImageWindowh import DIImageWindowh
                 DIImageWindowh(str(fileName), str(filePath), inputsetting, delcache, settingspath)
                 sys.exit()
             else:
-                from musclex.ui.DIBatchWindowh import DIBatchWindowh
+                from musclex.headless.DIBatchWindowh import DIBatchWindowh
                 DIBatchWindowh(str(filePath), inputsetting, delcache, settingspath)
                 sys.exit()
 
@@ -254,7 +254,7 @@ def main(arguments=None):
                 break
             i=i+1
         if run:
-            from musclex.ui.QuadrantFoldingh import QuadrantFoldingh
+            from musclex.headless.QuadrantFoldingh import QuadrantFoldingh
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
                 QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
             else:
@@ -319,7 +319,7 @@ def main(arguments=None):
                 break
             i=i+1
         if run:
-            from musclex.ui.ProjectionTracesh import ProjectionTracesh
+            from musclex.headless.ProjectionTracesh import ProjectionTracesh
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
                 ProjectionTracesh(filename, inputsetting, delcache, settingspath)
             else:

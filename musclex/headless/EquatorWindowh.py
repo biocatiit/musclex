@@ -32,13 +32,11 @@ import os
 import traceback
 from musclex import __version__
 try:
-    from .pyqt_utils import *
     from ..utils.file_manager import getImgFiles
     from ..modules.EquatorImage import EquatorImage
     from ..utils.image_processor import *
     from ..csv_manager import EQ_CSVManager
 except: # for coverage
-    from ui.pyqt_utils import *
     from utils.file_manager import getImgFiles
     from modules.EquatorImage import EquatorImage
     from utils.image_processor import *

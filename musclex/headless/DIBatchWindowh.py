@@ -30,13 +30,10 @@ import os
 import json
 import h5py
 import numpy as np
-from .pyqt_utils import *
 from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..csv_manager import DI_CSVManager
-from .DIImageWindowh import DIImageWindowh
-
-matplotlib.rcParams.update({'font.size': 5})
+from ..headless.DIImageWindowh import DIImageWindowh
 
 class HDFBrowser():
     """

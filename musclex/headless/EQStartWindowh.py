@@ -30,10 +30,10 @@ import sys
 import os
 from os.path import split
 try:
-    from ..ui.EquatorWindowh import EquatorWindowh
+    from ..headless.EquatorWindowh import EquatorWindowh
     from ..utils.file_manager import getImgFiles
 except: # for coverage
-    from ui.EquatorWindowh import EquatorWindowh
+    from headless.EquatorWindowh import EquatorWindowh
     from utils.file_manager import getImgFiles
 
 class EQStartWindowh:

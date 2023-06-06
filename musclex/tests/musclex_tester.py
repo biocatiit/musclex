@@ -35,15 +35,15 @@ from time import gmtime, strftime
 import pandas as pd
 from musclex import __version__
 try:
-    from ..ui.EQStartWindowh import EQStartWindowh
-    from ..ui.QuadrantFoldingh import QuadrantFoldingh
-    from ..ui.DIImageWindowh import DIImageWindowh
-    from ..ui.ProjectionTracesh import ProjectionTracesh
+    from ..headless.EQStartWindowh import EQStartWindowh
+    from ..headless.QuadrantFoldingh import QuadrantFoldingh
+    from ..headless.DIImageWindowh import DIImageWindowh
+    from ..headless.ProjectionTracesh import ProjectionTracesh
 except: # for coverage
-    from ui.EQStartWindowh import EQStartWindowh
-    from ui.QuadrantFoldingh import QuadrantFoldingh
-    from ui.DIImageWindowh import DIImageWindowh
-    from ui.ProjectionTracesh import ProjectionTracesh
+    from headless.EQStartWindowh import EQStartWindowh
+    from headless.QuadrantFoldingh import QuadrantFoldingh
+    from headless.DIImageWindowh import DIImageWindowh
+    from headless.ProjectionTracesh import ProjectionTracesh
 
 class MuscleXGlobalTester(unittest.TestCase):
     """
