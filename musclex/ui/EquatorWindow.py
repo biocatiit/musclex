@@ -63,6 +63,8 @@ class EquatorWindow(QMainWindow):
         """
         QWidget.__init__(self)
         self.mainWindow = mainWin
+        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
+        self.h5index = 0
         self.logger = None
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
@@ -116,6 +118,7 @@ class EquatorWindow(QMainWindow):
         self.setCalibrationImage()
         #    self.processImage()
 
+        self.setH5Mode(str(filename))
         self.processImage()
         self.show()
         self.init_logging()
@@ -315,15 +318,25 @@ class EquatorWindow(QMainWindow):
         self.processFolderButton = QPushButton("Reprocess and Refit current folder")
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
+        self.processH5FolderButton = QPushButton("Process All H5 Files")
+        self.processH5FolderButton.setStyleSheet(pfss)
+        self.processH5FolderButton.setCheckable(True)
         self.bottomLayout = QGridLayout()
-        self.prevButton = QPushButton("<<<")
-        self.nextButton = QPushButton(">>>")
+        self.nextButton = QPushButton(">")
+        self.prevButton = QPushButton("<")
+        self.nextFileButton = QPushButton(">>>")
+        self.prevFileButton = QPushButton("<<<")
+        self.nextButton.setToolTip('Next Frame')
+        self.prevButton.setToolTip('Previous Frame')
         self.filenameLineEdit = QLineEdit()
         self.bottomLayout.addWidget(self.rejectChkBx, 0, 0, 1, 2)
         self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
-        self.bottomLayout.addWidget(self.prevButton, 2, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextButton, 2, 1, 1, 1)
-        self.bottomLayout.addWidget(self.filenameLineEdit, 3, 0, 1, 2)
+        self.bottomLayout.addWidget(self.processH5FolderButton, 2, 0, 1, 2)
+        self.bottomLayout.addWidget(self.prevButton, 3, 0, 1, 1)
+        self.bottomLayout.addWidget(self.nextButton, 3, 1, 1, 1)
+        self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 1)
+        self.bottomLayout.addWidget(self.nextFileButton, 4, 1, 1, 1)
+        self.bottomLayout.addWidget(self.filenameLineEdit, 5, 0, 1, 2)
         self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
         self.imageOptionsFrame = QFrame()
@@ -445,14 +458,24 @@ class EquatorWindow(QMainWindow):
         self.processFolderButton2 = QPushButton("Reprocess and Refit current folder")
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
+        self.processH5FolderButton2 = QPushButton("Reprocess and Refit All H5 Files")
+        self.processH5FolderButton2.setStyleSheet(pfss)
+        self.processH5FolderButton2.setCheckable(True)
         self.bottomLayout2 = QGridLayout()
-        self.prevButton2 = QPushButton("<<<")
-        self.nextButton2 = QPushButton(">>>")
+        self.nextButton2 = QPushButton(">")
+        self.prevButton2 = QPushButton("<")
+        self.nextFileButton2 = QPushButton(">>>")
+        self.prevFileButton2 = QPushButton("<<<")
+        self.nextButton2.setToolTip('Next Frame')
+        self.prevButton2.setToolTip('Previous Frame')
         self.filenameLineEdit2 = QLineEdit()
         self.bottomLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.processH5FolderButton2, 1, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.prevButton2, 2, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextButton2, 2, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.prevFileButton2, 3, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextFileButton2, 3, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 4, 0, 1, 2)
 
         self.fittingOptionsFrame1 = QFrame()
         self.fittingOptionsFrame1.setFixedWidth(505)
@@ -587,6 +610,8 @@ class EquatorWindow(QMainWindow):
         Set Tooltips for widgets
         """
         ### image tab ###
+        self.nextFileButton.setToolTip('Next H5 File in this Folder')
+        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.centerChkBx.setToolTip("Show the detected projection center")
         self.intChkBx.setToolTip("Show the detected Integrated area ")
         self.rminChkBx.setToolTip("Show the detected R-min")
@@ -618,6 +643,8 @@ class EquatorWindow(QMainWindow):
         self.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
 
         ### Fitting tab ###
+        self.nextFileButton2.setToolTip('Next H5 File in this Folder')
+        self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.nPeakSpnBx.setToolTip("Select number of peaks on each side that will be fitted by model")
         self.modelSelect.setToolTip("Select the fitting model")
         self.setPeaksB.setToolTip(
@@ -682,8 +709,11 @@ class EquatorWindow(QMainWindow):
 
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
+        self.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.prevFileButton.clicked.connect(self.prevFileClicked)
         #self.processFolderButton.clicked.connect(self.processFolder)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.processH5FolderButton.toggled.connect(self.h5batchProcBtnToggled)
         self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
@@ -708,8 +738,11 @@ class EquatorWindow(QMainWindow):
 
         #self.processFolderButton2.clicked.connect(self.processFolder)
         self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
+        self.processH5FolderButton2.toggled.connect(self.h5batchProcBtnToggled)
         self.prevButton2.clicked.connect(self.prevClicked)
         self.nextButton2.clicked.connect(self.nextClicked)
+        self.nextFileButton2.clicked.connect(self.nextFileClicked)
+        self.prevFileButton2.clicked.connect(self.prevFileClicked)
         self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
         self.fittingFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.fittingFigure.canvas.mpl_connect('motion_notify_event', self.plotOnMotion)
@@ -1416,6 +1449,21 @@ class EquatorWindow(QMainWindow):
         else:
             self.stop_process = True
 
+    def h5batchProcBtnToggled(self):
+        """
+        Triggered when the batch process button is toggled
+        """
+        if self.processH5FolderButton.isChecked():
+            if not self.progressBar.isVisible():
+                self.processH5FolderButton.setText("Stop")
+                self.processH5Folder()
+        elif self.processH5FolderButton2.isChecked():
+            if not self.progressBar.isVisible():
+                self.processH5FolderButton2.setText("Stop")
+                self.processH5Folder()
+        else:
+            self.stop_process = True
+
     def processFolder(self):
         """
         Process current folder
@@ -1507,9 +1555,112 @@ class EquatorWindow(QMainWindow):
 
         self.progressBar.setVisible(False)
         self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Reprocess and Refit current folder")
         self.processFolderButton2.setChecked(False)
-        self.processFolderButton2.setText("Reprocess and Refit current folder")
+        if self.ext in ['.h5', '.hdf5']:
+            self.processFolderButton.setText("Reprocess and Refit current H5 File")
+            self.processFolderButton2.setText("Reprocess and Refit current H5 File")
+        else:
+            self.processFolderButton.setText("Reprocess and Refit current folder")
+            self.processFolderButton2.setText("Reprocess and Refit current folder")
+
+    def processH5Folder(self):
+        """
+        Process current folder of H5 file
+        """
+        ## Popup confirm dialog with settings
+        nImg = len(self.imgList)
+        errMsg = QMessageBox()
+        errMsg.setText('Process Current Folder')
+        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
+        settings = self.getSettings()
+        text += "\nCurrent Settings"
+
+        if 'fixed_angle' in settings:
+            text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
+        if 'fixed_rmin' in settings:
+            text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
+        if 'fixed_int_area' in settings:
+            text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
+
+        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
+        text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
+        text += "\n  - Extra Peak : " + str(settings["isExtraPeak"])
+        text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
+        text += "\n  - Model : " + str(settings["model"])
+
+        for side in ['left', 'right']:
+            if side+'_fix_sigmac' in settings:
+                text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
+            if side+'_fix_sigmad' in settings:
+                text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
+            if side+'_fix_sigmas' in settings:
+                text += "\n  - "+side+" Fixed Sigma S : " + str(settings[side+'_fix_sigmas'])
+            if side+'_fix_gamma' in settings:
+                text += "\n  - "+side+" Fixed Gamma : " + str(settings[side+'_fix_gamma'])
+            if side+'_fix_zline' in settings:
+                text += "\n  - "+side+" Fixed Z line Center: " + str(settings[side+'_fix_zline'])
+            if side+'_fix_intz' in settings:
+                text += "\n  - "+side+" Fixed Z line Intensity : " + str(settings[side+'_fix_intz'])
+            if side+'_fix_sigz' in settings:
+                text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
+            if side+'_fix_gammaz' in settings:
+                text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
+            if side+'_fix_zline_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Center: " + str(settings[side+'_fix_zline_EP'])
+            if side+'_fix_intz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Intensity : " + str(settings[side+'_fix_intz_EP'])
+            if side+'_fix_sigz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Sigma : " + str(settings[side+'_fix_sigz_EP'])
+            if side+'_fix_gammaz_EP' in settings:
+                text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
+
+        if self.calSettings is not None and len(self.calSettings) > 0:
+            if "center" in self.calSettings:
+                text += "\n  - Calibration Center : " + str(self.calSettings["center"])
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+                else:
+                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
+                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
+                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+
+        text += '\n\nAre you sure you want to process ' + str(
+            len(self.h5List)) + ' H5 file(s) in this Folder? \nThis might take a long time.'
+        errMsg.setInformativeText(text)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
+        ret = errMsg.exec_()
+
+        # If "yes" is pressed
+        if ret == QMessageBox.Yes:
+
+            # Display progress bar
+            self.progressBar.setMaximum(nImg)
+            self.progressBar.setMinimum(0)
+            self.progressBar.setVisible(True)
+
+            ## Process all images and update progress bar
+            self.in_batch_process = True
+            self.stop_process = False
+            for _ in range(len(self.h5List)):
+                for i in range(nImg):
+                    if self.stop_process:
+                        break
+                    self.progressBar.setValue(i)
+                    QApplication.processEvents()
+                    self.nextImageFitting(True)
+                if self.stop_process:
+                    break
+                self.nextFileClicked()
+            self.in_batch_process = False
+
+        self.progressBar.setVisible(False)
+        self.processH5FolderButton.setChecked(False)
+        self.processH5FolderButton.setText("Reprocess and Refit All H5 Files")
+        self.processH5FolderButton2.setChecked(False)
+        self.processH5FolderButton2.setText("Reprocess and Refit All H5 Files")
 
     def setCalibrationImage(self, force=False):
         """
@@ -1692,6 +1843,51 @@ class EquatorWindow(QMainWindow):
         """
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
         self.onImageChanged()
+
+    def prevFileClicked(self):
+        """
+        Going to the previous h5 file
+        """
+        if len(self.h5List) > 1:
+            self.h5index = (self.h5index - 1) % len(self.h5List)
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(os.path.join(self.dir_path, self.h5List[self.h5index]))
+            self.onImageChanged()
+
+    def nextFileClicked(self):
+        """
+        Going to the next h5 file
+        """
+        if len(self.h5List) > 1:
+            self.h5index = (self.h5index + 1) % len(self.h5List)
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(os.path.join(self.dir_path, self.h5List[self.h5index]))
+            self.onImageChanged()
+
+    def setH5Mode(self, file_name):
+        """
+        Sets the H5 list of file and displays the right set of buttons depending on the file selected
+        """
+        if self.ext in ['.h5', '.hdf5']:
+            for file in os.listdir(self.dir_path):
+                if file.endswith(".h5") or file.endswith(".hdf5"):
+                    self.h5List.append(file)
+            self.h5index = self.h5List.index(os.path.split(file_name)[1])
+            self.nextFileButton.show()
+            self.prevFileButton.show()
+            self.nextFileButton2.show()
+            self.prevFileButton2.show()
+            self.processH5FolderButton.show()
+            self.processH5FolderButton2.show()
+            self.processFolderButton.setText("Process Current H5 File")
+            self.processFolderButton2.setText("Process Current H5 File")
+        else:
+            self.nextFileButton.hide()
+            self.prevFileButton.hide()
+            self.nextFileButton2.hide()
+            self.prevFileButton2.hide()
+            self.processH5FolderButton.hide()
+            self.processH5FolderButton2.hide()
+            self.processFolderButton.setText("Process Current Folder")
+            self.processFolderButton2.setText("Process Current Folder")
 
     def fileNameChanged(self):
         """

@@ -31,7 +31,8 @@ import copy
 import pickle
 import traceback
 import json
-from os.path import exists, splitext
+import os
+from os.path import exists, splitext, join
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
@@ -132,6 +133,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.calSettings = None
         self.update_plot = {'img':True}
         self.imgList = []
+        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
+        self.h5index = 0
+        self.stop_process = False
         self.projProc = None
         self.syncUI = False
         self.csvManager = None
@@ -315,19 +319,32 @@ class ProjectionTracesGUI(QMainWindow):
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
         self.processFolderButton.setStyleSheet(pfss)
+        self.processFolderButton.setCheckable(True)
+        self.processH5FolderButton = QPushButton("Process All H5 Files")
+        self.processH5FolderButton.setStyleSheet(pfss)
+        self.processH5FolderButton.setCheckable(True)
 
         # Export 1-D Projections
         self.exportChkBx = QCheckBox("Export all 1-D Projections")
         self.exportChkBx.setChecked(True)
 
         # next previos buttons
-        self.nextButton = QPushButton(">>>")
-        self.prevButton = QPushButton("<<<")
+        self.nextButton = QPushButton(">")
+        self.prevButton = QPushButton("<")
+        self.nextFileButton = QPushButton(">>>")
+        self.prevFileButton = QPushButton("<<<")
+        self.nextButton.setToolTip('Next Frame')
+        self.prevButton.setToolTip('Previous Frame')
+        self.nextFileButton.setToolTip('Next H5 File in this Folder')
+        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.bottomLayout = QGridLayout()
         self.bottomLayout.addWidget(self.exportChkBx, 0, 0, 1, 2)
         self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
-        self.bottomLayout.addWidget(self.prevButton, 2, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextButton, 2, 1, 1, 1)
+        self.bottomLayout.addWidget(self.processH5FolderButton, 2, 0, 1, 2)
+        self.bottomLayout.addWidget(self.prevButton, 3, 0, 1, 1)
+        self.bottomLayout.addWidget(self.nextButton, 3, 1, 1, 1)
+        self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 1)
+        self.bottomLayout.addWidget(self.nextFileButton, 4, 1, 1, 1)
 
         self.rightFrameLayout.addWidget(self.dispOptGrp)
         self.rightFrameLayout.addSpacing(10)
@@ -423,10 +440,13 @@ class ProjectionTracesGUI(QMainWindow):
         self.exportChkBx.stateChanged.connect(self.exportHistograms)
 
         # Process Folder button
-        self.processFolderButton.clicked.connect(self.processFolder)
+        self.processFolderButton.clicked.connect(self.batchProcBtnToggled)
+        self.processH5FolderButton.clicked.connect(self.h5batchProcBtnToggled)
 
         self.prevButton.clicked.connect(self.prevClicked)
         self.nextButton.clicked.connect(self.nextClicked)
+        self.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.nextFileButton.clicked.connect(self.nextFileClicked)
 
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
@@ -673,6 +693,28 @@ class ProjectionTracesGUI(QMainWindow):
 
             self.processImage()
 
+    def batchProcBtnToggled(self):
+        """
+        Triggered when the batch process button is toggled
+        """
+        if self.processFolderButton.isChecked():
+            if not self.progressBar.isVisible():
+                self.processFolderButton.setText("Stop")
+                self.processFolder()
+        else:
+            self.stop_process = True
+    
+    def h5batchProcBtnToggled(self):
+        """
+        Triggered when the batch process button is toggled
+        """
+        if self.processH5FolderButton.isChecked():
+            if not self.progressBar.isVisible():
+                self.processH5FolderButton.setText("Stop")
+                self.processH5Folder()
+        else:
+            self.stop_process = True
+
     def processFolder(self):
         """
         Process the folder selected
@@ -716,11 +758,79 @@ class ProjectionTracesGUI(QMainWindow):
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
+            self.stop_process = False
             for i in range(self.numberOfFiles):
+                if self.stop_process:
+                    break
                 self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
                 self.nextClicked()
             self.progressBar.setVisible(False)
+        
+        self.processFolderButton.setChecked(False)
+        if self.ext in ['.h5', '.hdf5']:
+            self.processFolderButton.setText("Process Current H5 File")
+        else:
+            self.processFolderButton.setText("Process Current Folder")
+
+    def processH5Folder(self):
+        """
+        Process the folder selected
+        """
+        self.numberOfFiles = len(self.imgList)
+
+        errMsg = QMessageBox()
+        errMsg.setText('Process Current Folder')
+        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
+        settings = self.getSettings()
+
+        text += "\nCurrent Settings"
+        for bn in self.allboxes.keys():
+            text += "\n\n  - Box "+str(bn)+" : " + str(self.allboxes[bn])
+            text += "\n     - Peaks : "
+            if bn in self.peaks:
+                text += str(self.peaks[bn])
+            else:
+                text += "-"
+
+            if bn in self.bgsubs:
+                text += '\n     - Background Subtraction : '
+                if self.bgsubs[bn] == 0:
+                    text += 'Fitting Gaussians'
+                else:
+                    text += 'Convex Hull'
+
+            if bn in self.hull_ranges:
+                text += '\n     - Convex Hull Range : '+str(self.hull_ranges[bn])
+
+        if 'lambda_sdd' in settings:
+            text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
+
+        text += '\n\nAre you sure you want to process ' + str(
+            len(self.h5List)) + ' H5 file(s) in this Folder? \nThis might take a long time.'
+        errMsg.setInformativeText(text)
+        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        errMsg.setIcon(QMessageBox.Warning)
+        ret = errMsg.exec_()
+
+        # If "yes" is pressed
+        if ret == QMessageBox.Yes:
+            self.progressBar.setVisible(True)
+            self.stop_process = False
+            for _ in range(len(self.h5List)):
+                for i in range(self.numberOfFiles):
+                    if self.stop_process:
+                        break
+                    self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                    QApplication.processEvents()
+                    self.nextClicked()
+                if self.stop_process:
+                    break
+                self.nextFileClicked()
+            self.progressBar.setVisible(False)
+
+        self.processH5FolderButton.setChecked(False)
+        self.processH5FolderButton.setText("Process All H5 Files")
 
     def clearBoxes(self):
         """
@@ -845,6 +955,47 @@ class ProjectionTracesGUI(QMainWindow):
         """
         self.current_file = (self.current_file + 1) % len(self.imgList)
         self.onImageChanged()
+
+    def prevFileClicked(self):
+        """
+        Going to the previous h5 file
+        """
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        if len(self.h5List) > 1:
+            self.h5index = (self.h5index - 1) % len(self.h5List)
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(join(self.dir_path, self.h5List[self.h5index]))
+            self.onImageChanged()
+        QApplication.restoreOverrideCursor()
+
+    def nextFileClicked(self):
+        """
+        Going to the next h5 file
+        """
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        if len(self.h5List) > 1:
+            self.h5index = (self.h5index + 1) % len(self.h5List)
+            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(join(self.dir_path, self.h5List[self.h5index]))
+            self.onImageChanged()
+        QApplication.restoreOverrideCursor()
+
+    def setH5Mode(self, file_name):
+        """
+        Sets the H5 list of file and displays the right set of buttons depending on the file selected
+        """
+        if self.ext in ['.h5', '.hdf5']:
+            for file in os.listdir(self.dir_path):
+                if file.endswith(".h5") or file.endswith(".hdf5"):
+                    self.h5List.append(file)
+            self.h5index = self.h5List.index(os.path.split(file_name)[1])
+            self.nextFileButton.show()
+            self.prevFileButton.show()
+            self.processH5FolderButton.show()
+            self.processFolderButton.setText("Process Current H5 File")
+        else:
+            self.nextFileButton.hide()
+            self.prevFileButton.hide()
+            self.processH5FolderButton.hide()
+            self.processFolderButton.setText("Process Current Folder")
 
     def removeTab(self, index):
         """
@@ -1562,6 +1713,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.addBoxTabs()
         self.selectPeaksGrp.setEnabled(False)
         self.launchCalibrationSettings()
+        self.setH5Mode(fullfilename)
         self.onImageChanged()
 
     def onImageChanged(self):

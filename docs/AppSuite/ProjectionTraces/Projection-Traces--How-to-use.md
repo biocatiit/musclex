@@ -16,7 +16,8 @@ In this page, you will know about ...
 3. [Select Peaks](#select-approximate-peak-locations)
 5. [Display Options](#display-options)
 6. [Blank Image and Mask](#blank-image-and-mask)
-7. [Other Options](#other-options)
+7. [Navigation](#navigation)
+8. [Other Options](#other-options)
 
 ### Mask Threshold
 
@@ -85,6 +86,12 @@ This feature is used to zoom into subpixel level accuracy. On checking this box,
 See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more information on how to use this option.
 
 ![-](../../images/PT/blank_img_mask.png)
+
+### Navigation
+
+To navigate through a folder of TIF images or through an H5 file containing multiple images, you can use the simple arrows "<" and ">". 
+Depending on if you are looking at an H5 file or not, another set of button will be displayed: the arrows "<<<" and ">>>" allow you to go to the previous/next H5 file in the same folder. The "Process Current H5 File" button will process only the opened H5 file, whereas the "Process All H5 Files" button will process all the H5 files available in the folder.
+In the case of a simple TIF image, those buttons will be replaced by a simple "Process Current Folder" button that will process all the TIF images in the current folder.
 
 ### Other Options
 There're several options on the bottom left in image tab.

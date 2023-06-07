@@ -51,6 +51,8 @@ class XRayViewerGUI(QMainWindow):
         """
         QWidget.__init__(self)
         self.imgList = [] # all images name in current directory
+        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
+        self.h5index = 0
         self.windowList = []
         self.counter = 0
         self.filePath = "" # current directory
@@ -185,17 +187,24 @@ class XRayViewerGUI(QMainWindow):
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
 
-        self.nextButton = QPushButton()
-        self.nextButton.setText(">>>")
-        self.prevButton = QPushButton()
-        self.prevButton.setText("<<<")
+        self.nextButton = QPushButton(">")
+        self.prevButton = QPushButton("<")
+        self.nextFileButton = QPushButton(">>>")
+        self.prevFileButton = QPushButton("<<<")
+        self.nextButton.setToolTip('Next Frame')
+        self.prevButton.setToolTip('Previous Frame')
+        self.nextFileButton.setToolTip('Next H5 File in this Folder')
+        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit = QLineEdit()
         self.buttonsLayout = QGridLayout()
         self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
         self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
         self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
-        self.buttonsLayout.addWidget(self.filenameLineEdit,2,0,1,2)
+        self.buttonsLayout.addWidget(self.prevFileButton,2,0,1,1)
+        self.buttonsLayout.addWidget(self.nextFileButton,2,1,1,1)
+        self.buttonsLayout.addWidget(self.filenameLineEdit,3,0,1,2)
 
+        self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingsGroup)
@@ -210,13 +219,21 @@ class XRayViewerGUI(QMainWindow):
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
         self.bottomLayout2 = QGridLayout()
-        self.prevButton2 = QPushButton("<<<")
-        self.nextButton2 = QPushButton(">>>")
+        self.nextButton2 = QPushButton(">")
+        self.prevButton2 = QPushButton("<")
+        self.nextFileButton2 = QPushButton(">>>")
+        self.prevFileButton2 = QPushButton("<<<")
+        self.nextButton2.setToolTip('Next Frame')
+        self.prevButton2.setToolTip('Previous Frame')
+        self.nextFileButton2.setToolTip('Next H5 File in this Folder')
+        self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit2 = QLineEdit()
         self.bottomLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.prevButton2, 1, 0, 1, 1)
         self.bottomLayout2.addWidget(self.nextButton2, 1, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 2, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.prevFileButton2, 2, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextFileButton2, 2, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 3, 0, 1, 2)
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(250)
@@ -288,9 +305,13 @@ class XRayViewerGUI(QMainWindow):
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.nextButton.clicked.connect(self.nextClicked)
         self.prevButton.clicked.connect(self.prevClicked)
+        self.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.prevFileButton.clicked.connect(self.prevFileClicked)
         self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
         self.nextButton2.clicked.connect(self.nextClicked)
         self.prevButton2.clicked.connect(self.prevClicked)
+        self.nextFileButton2.clicked.connect(self.nextFileClicked)
+        self.prevFileButton2.clicked.connect(self.prevFileClicked)
         self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
         self.openTrace.clicked.connect(self.openTraceClicked)
@@ -1153,15 +1174,38 @@ class XRayViewerGUI(QMainWindow):
         Preprocess folder of the file and process current image
         :param newFile: full name of selected file
         """
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
         self.numberOfFiles = len(self.imgList)
         fileName = self.imgList[self.currentFileNumber]
+        self.h5List = []
+        self.setH5Mode(str(newFile))
         self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
         self.csv_manager = XV_CSVManager(self.filePath)
         self.selectImageButton.setHidden(True)
         self.imageCanvas.setHidden(False)
         self.tabWidget.setTabEnabled(1, True)
         self.onImageChanged()
+        QApplication.restoreOverrideCursor()
+
+    def setH5Mode(self, file_name):
+        """
+        Sets the H5 list of file and displays the right set of buttons depending on the file selected
+        """
+        if self.ext in ['.h5', '.hdf5']:
+            for file in os.listdir(self.filePath):
+                if file.endswith(".h5") or file.endswith(".hdf5"):
+                    self.h5List.append(file)
+            self.h5index = self.h5List.index(os.path.split(file_name)[1])
+            self.nextFileButton.show()
+            self.prevFileButton.show()
+            self.nextFileButton2.show()
+            self.prevFileButton2.show()
+        else:
+            self.nextFileButton.hide()
+            self.prevFileButton.hide()
+            self.nextFileButton2.hide()
+            self.prevFileButton2.hide()
 
     def batchProcBtnToggled(self):
         """
@@ -1221,6 +1265,22 @@ class XRayViewerGUI(QMainWindow):
         if self.numberOfFiles > 0:
             self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
             self.onImageChanged()
+    
+    def prevFileClicked(self):
+        """
+        Going to the previous h5 file
+        """
+        if len(self.h5List) > 1:
+            self.h5index = (self.h5index - 1) % len(self.h5List)
+            self.onNewFileSelected(os.path.join(self.filePath, self.h5List[self.h5index]))
+
+    def nextFileClicked(self):
+        """
+        Going to the next h5 file
+        """
+        if len(self.h5List) > 1:
+            self.h5index = (self.h5index + 1) % len(self.h5List)
+            self.onNewFileSelected(os.path.join(self.filePath, self.h5List[self.h5index]))
 
     def fileNameChanged(self):
         """
