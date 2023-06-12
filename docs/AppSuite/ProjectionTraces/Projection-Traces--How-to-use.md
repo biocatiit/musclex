@@ -93,6 +93,8 @@ To navigate through a folder of TIF images or through an H5 file containing mult
 Depending on if you are looking at an H5 file or not, another set of button will be displayed: the arrows "<<<" and ">>>" allow you to go to the previous/next H5 file in the same folder. The "Process Current H5 File" button will process only the opened H5 file, whereas the "Process All H5 Files" button will process all the H5 files available in the folder.
 In the case of a simple TIF image, those buttons will be replaced by a simple "Process Current Folder" button that will process all the TIF images in the current folder.
 
+![-](../../images/PT/navigation_pt.png)
+
 ### Other Options
 There're several options on the bottom left in image tab.
 
