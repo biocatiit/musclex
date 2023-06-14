@@ -78,10 +78,14 @@ class EquatorImage:
             with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
                 if "ImageDescription" in tif.pages[0].tags:
                     metadata = tif.pages[0].tags["ImageDescription"].value
-            try:
-                self.quadrant_folded, self.initialImgDim = json.loads(metadata)
-            except Exception:
-                print(filename, " file is not quadrant folded")
+            if filename.endswith("folded.tif"):
+                self.quadrant_folded = True
+                self.initialImgDim = self.orig_img.shape
+            else:
+                try:
+                    self.quadrant_folded, self.initialImgDim = json.loads(metadata)
+                except Exception:
+                    print(filename, " file is not quadrant folded")
 
         self.rotated_img = None
         self.version = __version__
@@ -176,9 +180,14 @@ class EquatorImage:
 
     def findCenter(self):
         """
-       Find center of the diffraction. The center will be kept in self.info["center"].
-       Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
-       """
+        Find center of the diffraction. The center will be kept in self.info["center"].
+        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
+        """
+        if self.quadrant_folded:
+            print(self.orig_img.shape)
+            self.info['center'] = self.orig_img.shape[1] / 2, self.orig_img.shape[0] / 2
+            print("QF Center is " + str(self.info['center']))
+            return
         self.parent.statusPrint("Finding Center...")
         print("Center is being calculated...")
         if 'center' not in self.info:
@@ -193,7 +202,7 @@ class EquatorImage:
                 center = self.info['center']
                 center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
                 self.info['orig_center'] = (center[0], center[1])
-        print("Done. Center is" + str(self.info['center']))
+        print("Done. Center is " + str(self.info['center']))
 
     def getRotationAngle(self):
         """
