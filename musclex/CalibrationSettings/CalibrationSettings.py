@@ -148,10 +148,10 @@ class CalibrationSettings(QDialog):
         self.silverBehenate.setSingleStep(5.83803)
         self.silverBehenate.setObjectName('silverBehenate')
         self.editableVars[self.silverBehenate.objectName()] = None
-        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
-        self.bottons.accepted.connect(self.okClicked)
-        self.bottons.rejected.connect(self.reject)
-        self.bottons.setFixedWidth(100)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
+        self.buttons.accepted.connect(self.okClicked)
+        self.buttons.rejected.connect(self.reject)
+        self.buttons.setFixedWidth(100)
         # grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
         self.calImageGrp = QGroupBox("Setting by Calibration Image")
         self.calImageGrp.setCheckable(True)
@@ -211,6 +211,10 @@ class CalibrationSettings(QDialog):
         self.centerY.setPrefix("Y:")
         self.centerY.setRange(0, 100000000000000000000)
 
+        self.misSettingChkBx = QCheckBox("Correct Mis-Setting Angles")
+        self.misSettingChkBx.setEnabled(False)
+        self.misSettingChkBx.setToolTip("Not yet implemented")
+
         if center is not None:
             self.centerX.setValue(center[0])
             self.centerY.setValue(center[1])
@@ -258,9 +262,10 @@ class CalibrationSettings(QDialog):
         self.mainLayout.addWidget(self.centerY)
         self.mainLayout.addWidget(self.manDetector)
         self.mainLayout.addWidget(self.detectorChoice)
-        self.mainLayout.addWidget(self.bottons)
+        self.mainLayout.addWidget(self.misSettingChkBx)
+        self.mainLayout.addWidget(self.buttons)
         self.mainLayout.setAlignment(Qt.AlignCenter)
-        self.mainLayout.setAlignment(self.bottons, Qt.AlignCenter)
+        self.mainLayout.setAlignment(self.buttons, Qt.AlignCenter)
 
         self.calImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.calImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
@@ -279,6 +284,7 @@ class CalibrationSettings(QDialog):
         self.maxInt.valueChanged.connect(self.updateImage)
         self.fixedCenter.stateChanged.connect(self.centerFixed)
         self.manDetector.stateChanged.connect(self.detectorClicked)
+        self.misSettingChkBx.stateChanged.connect(self.correctMisSetting)
 
         self.silverBehenate.editingFinished.connect(lambda: self.settingChanged('silverB', self.silverBehenate))
         self.lambdaSpnBx.editingFinished.connect(lambda: self.settingChanged('lambda', self.lambdaSpnBx))
@@ -642,6 +648,16 @@ class CalibrationSettings(QDialog):
         if not self.manDetector.isChecked() and 'detector' in self.calSettings:
             self.calSettings.pop('detector')
         self.detectorChoice.setEnabled(self.manDetector.isChecked())
+
+    def correctMisSetting(self):
+        """
+        TODO.
+        """
+        if self.manDetector.isChecked():
+            angles = getMisSettingAngles(self.cal_img, find_detector(self.cal_img), [self.centerX, self.centerY])
+            print(angles)
+        else:
+            pass
 
     def okClicked(self):
         """
