@@ -743,11 +743,11 @@ class ProjectionBoxTab(QWidget):
             self.resultTable2.setRowCount(nPeaks)
 
             for i in range(nPeaks):
-                center = fit_result['p_'+str(i)]
-                sigma = fit_result['sigma'+str(i)]
-                area = fit_result['amplitude' + str(i)]
+                center = round(fit_result['p_'+str(i)], 2)
+                sigma = round(fit_result['sigma'+str(i)], 2)
+                area = round(fit_result['amplitude' + str(i)], 2)
 
-                item = QTableWidgetItem(str(peaks[i]))
+                item = QTableWidgetItem(str(round(peaks[i], 2)))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 0, item)
 
@@ -763,9 +763,9 @@ class ProjectionBoxTab(QWidget):
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 3, item)
 
-                centroid = centroids[i]
-                baseline = baselines[i]
-                width = widths[i]
+                centroid = round(centroids[i], 2)
+                baseline = round(baselines[i], 2)
+                width = round(widths[i], 2)
 
                 item = QTableWidgetItem(str(baseline))
                 self.resultTable2.setItem(i, 0, item)

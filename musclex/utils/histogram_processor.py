@@ -379,7 +379,24 @@ def getWidth(hist, max_loc, baseline):
         l += 1
     while  max_loc + r < len(hist)-1 and hist[max_loc + r] > baseline:
         r += 1
-    return l+r, (max_loc - l, max_loc + r)
+    
+    # Intersection of baseline and hist (considered a line between 2 points)
+    # Left side
+    left_slope = hist[max_loc - (l-1)] - hist[max_loc - l]
+    left_b = hist[max_loc - l] - left_slope * (max_loc - l)
+    left_x = (baseline - left_b) / left_slope if left_slope != 0 else baseline - left_b
+
+    # Right side
+    right_slope = hist[max_loc + r] - hist[max_loc + (r-1)]
+    right_b = hist[max_loc + r] - right_slope * (max_loc + r)
+    right_x = (baseline - right_b) / right_slope if right_slope != 0 else right_b - baseline
+    width = right_x - left_x
+
+    # In the case the slope method fails, we use the int value
+    if width < 0 or abs(width - (l+r)) > 2:
+        width = l+r
+
+    return width, (max_loc - l, max_loc + r)
 
 def getPeakInformations(hist, peaks, baselines):
     """
