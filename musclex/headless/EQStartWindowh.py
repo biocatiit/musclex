@@ -74,7 +74,7 @@ class EQStartWindowh:
                     if self.settingspath == 'empty':
                         proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock,))
                     else:
-                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, self.settingspath,))
+                        proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, None, None, None, None, None, self.settingspath,))
                     procs.append(proc)
                     proc.start()
                 elif ext in ['.h5', '.hdf5']:
