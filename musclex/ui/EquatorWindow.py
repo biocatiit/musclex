@@ -551,7 +551,7 @@ class EquatorWindow(QMainWindow):
         self.tabWidget.addTab(self.parameterEditorTab, "Parameter Editor")
 
         ### Menu Bar ###
-        selectImageAction = QAction('Select a File...', self)
+        selectImageAction = QAction('Select a File (or Failed Cases)...', self)
         selectImageAction.setShortcut('Ctrl+O')
         selectImageAction.triggered.connect(self.browseFile)
 
@@ -562,6 +562,7 @@ class EquatorWindow(QMainWindow):
         clearCacheAction = QAction('Clear All Caches in Current Folder', self)
         clearCacheAction.setShortcut('Ctrl+D')
         clearCacheAction.triggered.connect(self.clearAllCache)
+
         processFolderAction = QAction('Process Current Folder', self)
         processFolderAction.setShortcut('Ctrl+F')
         processFolderAction.triggered.connect(self.processFolder)

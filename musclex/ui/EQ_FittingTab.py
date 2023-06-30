@@ -53,9 +53,11 @@ class EQ_FittingTab(QWidget):
 
         self.fitSettingsGrp = QGroupBox("Settings")
         self.fitSettingLayout = QGridLayout(self.fitSettingsGrp)
+
         self.fixSigmaC = QCheckBox("Sigma C :")
-        self.fixSigmaC.setChecked(True)
+        # self.fixSigmaC.setChecked(True)
         self.sigmaCSpinBx = QDoubleSpinBox()
+        self.sigmaCSpinBx.setEnabled(False)
         self.sigmaCSpinBx.setMinimum(-100)
         self.sigmaCSpinBx.setDecimals(6)
         self.sigmaCSpinBx.setMaximum(100)
@@ -74,8 +76,9 @@ class EQ_FittingTab(QWidget):
         self.sigmaDSpinBx.setValue(1.)
         self.sigmaDSpinBx.setObjectName('sigmaDSpinBx')
         self.editableVars[self.sigmaDSpinBx.objectName()] = None
+
         self.fixSigmaS = QCheckBox("Fixed Sigma S :")
-        self.fixSigmaS.setChecked(True)
+        # self.fixSigmaS.setChecked(True)
         self.sigmaSSpinBx = QDoubleSpinBox()
         self.sigmaSSpinBx.setEnabled(False)
         self.sigmaSSpinBx.setMinimum(-100)
@@ -85,6 +88,7 @@ class EQ_FittingTab(QWidget):
         self.sigmaSSpinBx.setValue(0.0001)
         self.sigmaSSpinBx.setObjectName('sigmaSSpinBx')
         self.editableVars[self.sigmaSSpinBx.objectName()] = None
+
         self.fixGamma = QCheckBox("Fixed gamma :")
         self.gammaSpinBx = QDoubleSpinBox()
         self.gammaSpinBx.setEnabled(False)
@@ -471,12 +475,19 @@ class EQ_FittingTab(QWidget):
 
         if self.fixSigmaD.isChecked():
             settings[side+'_fix_sigmad'] = self.sigmaDSpinBx.value()
+        else:
+            settings[side + '_sigmad'] = self.sigmaDSpinBx.value()
 
         if self.fixSigmaS.isChecked():
             settings[side+'_fix_sigmas'] = self.sigmaSSpinBx.value()
+        else:
+            settings[side + '_sigmas'] = self.sigmaSSpinBx.value()
 
-        if self.fixGamma.isChecked():
-            settings[side+'_fix_gamma'] = self.gammaSpinBx.value()
+        if not self.gammaSpinBx.isHidden():
+            if self.fixGamma.isChecked():
+                settings[side+'_fix_gamma'] = self.gammaSpinBx.value()
+            else:
+                settings[side + '_gamma'] = self.gammaSpinBx.value()
 
         if self.parent.skeletalChkBx.isChecked():
             if self.fixedIntZ.isChecked():

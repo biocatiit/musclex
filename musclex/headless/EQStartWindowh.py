@@ -46,7 +46,7 @@ class EQStartWindowh:
         self.inputFlag=inputsettings
         self.delcache=delcache
         self.settingspath=settingspath
-        is_hdf5 = os.path.splitext(self.dir_path)[1] in ['.h5', '.hdf5']
+        is_hdf5 = os.path.splitext(self.dir_path)[1] in ['.h5', '.hdf5', ".txt"]
         if os.path.isfile(self.dir_path) and not is_hdf5:
             self.browseFile() # start program by browse a file
         elif os.path.isdir(self.dir_path) or is_hdf5:
@@ -77,7 +77,7 @@ class EQStartWindowh:
                         proc = Process(target=EquatorWindowh, args=(file_name, self.inputFlag, self.delcache, lock, None, None, None, None, None, self.settingspath,))
                     procs.append(proc)
                     proc.start()
-                elif ext in ['.h5', '.hdf5']:
+                elif ext in ['.h5', '.hdf5', '.txt']:
                     hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
                     for ind in range(len(himgList)):
                         print("filename is", himgList[ind])

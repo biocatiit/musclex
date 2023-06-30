@@ -16,7 +16,7 @@ peakutils
 h5py
 hdf5plugin
 scipy
-matplotlib
+matplotlib<3.7,>=3.6.3
 musclex_ccp13
 opencv-python-headless
 PyQt5

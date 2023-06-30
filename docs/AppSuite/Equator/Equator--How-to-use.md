@@ -107,6 +107,12 @@ In the case of a simple TIF image, those buttons will be replaced by a simple "P
 
 ![-](../../images/BM/navigation_eq.png)
 
+#### Select Only Failed Cases
+
+Once you have processed your images, you might want to look at the images that failed to fit Equator properly (marked as "High Fitting Error"). You can do this when you select a file by changing the "Files of Type" option in the file finder. This will display and loop through the failed cases directly.
+
+![-](../../images/BM/failedcases.png)
+
 ### Fitting
 In this tab, you will see the graph produced from the intensity histogram in the integrated area, and fitting information. 
 ![-](../../images/BM/fitting_tab.png)
@@ -180,6 +186,8 @@ Arguments:
 * -s (optional) \<input setting file>
 
 Note: To generate the settings file, use the interactive musclex, set parameters in it, then select save the current settings in `File` (top left corner). This will create the necessary settings file. If a settings file is not provided, default settings will be used.
+
+Note 2: You can also process only the failed cases by passing "failedcases.txt" as a filename. For example: `musclex eq -h -i failedcases.txt`.
 
 ### Multiprocessing on folders
 In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
