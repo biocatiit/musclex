@@ -67,6 +67,7 @@ class PT_CSVManager:
                     self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i) + " (nm)")
                     self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (Pixel)")
                     self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (nm)")
+                    self.colnames.append("Box " + str(box_name) + " Centroid Area " + str(i))
                     self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (Pixel)")
                     self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (nm)")
                     self.colnames.append("Box " + str(box_name) + " Gaussian Sigma " + str(i))
@@ -109,6 +110,7 @@ class PT_CSVManager:
                     for i,c in enumerate(centroids):
                         new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (Pixel)"] = moved_peaks[i]
                         new_data["Box " + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
+                        new_data["Box " + str(bn) + " Centroid Area " + str(i)] = info["areas"][bn][i]
                         new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]

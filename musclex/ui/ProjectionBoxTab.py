@@ -190,12 +190,13 @@ class ProjectionBoxTab(QWidget):
         self.resultTable1.setFixedHeight(100)
 
         self.resultTable2 = QTableWidget()
-        self.resultTable2.setColumnCount(3)
-        self.resultTable2.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width"])
+        self.resultTable2.setColumnCount(4)
+        self.resultTable2.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width", "Area"])
         self.resultTable2.horizontalHeader().setStretchLastSection(True)
-        self.resultTable2.setColumnWidth(0, 100)
-        self.resultTable2.setColumnWidth(1, 100)
-        self.resultTable2.setColumnWidth(2, 100)
+        self.resultTable2.setColumnWidth(0, 75)
+        self.resultTable2.setColumnWidth(1, 75)
+        self.resultTable2.setColumnWidth(2, 75)
+        self.resultTable2.setColumnWidth(3, 75)
         self.resultTable2.setFixedHeight(100)
         self.pnButtons = QHBoxLayout()
         self.prevButton = QPushButton("<<<")
@@ -605,6 +606,7 @@ class ProjectionBoxTab(QWidget):
         all_centroids = info['centroids']
         all_widths = info['widths']
         all_peaks = info['moved_peaks']
+        all_areas = info['areas']
         bgsubs = info['bgsubs']
         hull_ranges = info['hull_ranges']
 
@@ -736,6 +738,7 @@ class ProjectionBoxTab(QWidget):
             centroids = all_centroids[name]
             baselines = all_baselines[name]
             widths = all_widths[name]
+            areas = all_areas[name]
             nPeaks = len(centroids)
             fit_result = fit_results[name]
             peaks = all_peaks[name] - fit_result['centerX']
@@ -766,6 +769,7 @@ class ProjectionBoxTab(QWidget):
                 centroid = round(centroids[i], 2)
                 baseline = round(baselines[i], 2)
                 width = round(widths[i], 2)
+                area = round(areas[i], 2)
 
                 item = QTableWidgetItem(str(baseline))
                 self.resultTable2.setItem(i, 0, item)
@@ -777,6 +781,10 @@ class ProjectionBoxTab(QWidget):
                 item = QTableWidgetItem(str(width))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 2, item)
+
+                item = QTableWidgetItem(str(area))
+                item.setFlags(Qt.ItemIsEnabled)
+                self.resultTable2.setItem(i, 3, item)
 
         self.need_update = False
         self.syncUI = False

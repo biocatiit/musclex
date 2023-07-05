@@ -108,7 +108,7 @@ To set the merge gradient, simply change the value in the Merge Gradient spinbox
 
 ## Headless Mode  
 Image processing performed in the terminal.
-In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
+In the terminal, if the user types `musclex eq|qf|di|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
 For example: `musclex qf -h -i test.tif -s config.json`.
 
 Arguments:

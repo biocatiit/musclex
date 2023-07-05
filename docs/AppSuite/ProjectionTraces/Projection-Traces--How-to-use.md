@@ -110,7 +110,7 @@ This will make the program go to process the next or previous image with current
 
 ## Headless Mode
 Image processing performed in the terminal.
-In the terminal, if the user types `musclex eq|qf|di -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
+In the terminal, if the user types `musclex eq|qf|di|pt -h -i|-f <file.tif|testfolder> [-s config.json] [-d]`, MuscleX will run under headless mode.
 For example: `musclex pt -h -i test.tif -s config.json`.
 
 Arguments:

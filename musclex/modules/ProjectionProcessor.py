@@ -86,6 +86,7 @@ class ProjectionProcessor:
                 'baselines':{},
                 'centroids':{},
                 'widths': {},
+                'areas': {},
                 'centerx': self.orig_img.shape[0] / 2 - 0.5,
                 'centery': self.orig_img.shape[1] / 2 - 0.5,
                 'rotationAngle' : 0
@@ -498,6 +499,7 @@ class ProjectionProcessor:
         all_baselines = self.info['baselines']
         all_centroids = self.info['centroids']
         all_widths = self.info['widths']
+        all_areas = self.info['areas']
 
         for name in box_names:
             if name not in all_hists:
@@ -537,6 +539,7 @@ class ProjectionProcessor:
                 results = getPeakInformations(hist, peaks, baselines)
                 all_centroids[name] = results['centroids'] - model['centerX']
                 all_widths[name] = results['widths']
+                all_areas[name] = results['areas']
 
     def setBaseline(self, box_name, peak_num, new_baseline):
         """
