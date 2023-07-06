@@ -54,7 +54,7 @@ class EQ_FittingTab(QWidget):
         self.fitSettingsGrp = QGroupBox("Settings")
         self.fitSettingLayout = QGridLayout(self.fitSettingsGrp)
 
-        self.fixSigmaC = QCheckBox("Sigma C :")
+        self.fixSigmaC = QCheckBox("Fixed Sigma C :")
         # self.fixSigmaC.setChecked(True)
         self.sigmaCSpinBx = QDoubleSpinBox()
         self.sigmaCSpinBx.setEnabled(False)
@@ -249,7 +249,7 @@ class EQ_FittingTab(QWidget):
         """
         self.syncUI = True
         side = self.side
-        self.fixSigmaC.setChecked(side + '_fix_sigmac' in info)
+        self.fixSigmaC.setChecked(side+'_fix_sigmac' in info)
         self.fixSigmaD.setChecked(side+'_fix_sigmad' in info)
         self.fixSigmaS.setChecked(side+'_fix_sigmas' in info)
         self.sigmaDSpinBx.setEnabled(side+'_fix_sigmad' in info)
@@ -286,12 +286,30 @@ class EQ_FittingTab(QWidget):
         side = self.side
         if 'fit_results' in info:
             fit_result = info['fit_results']
+            self.sigmaCSpinBx.setValue(fit_result[side+'_sigmac'])
+            if side+'_fix_sigmac' in info:
+                self.fixSigmaC.setChecked(True)
+                self.sigmaCSpinBx.setEnabled(True)
+            else:
+                self.fixSigmaC.setChecked(False)
+                self.sigmaCSpinBx.setEnabled(False)
             self.sigmaDSpinBx.setValue(fit_result[side+'_sigmad'])
+            if side+'_fix_sigmad' in info:
+                self.fixSigmaD.setChecked(True)
+                self.sigmaDSpinBx.setEnabled(True)
+            else:
+                self.fixSigmaD.setChecked(False)
+                self.sigmaDSpinBx.setEnabled(False)
             self.sigmaSSpinBx.setValue(fit_result[side+'_sigmas'])
+            if side+'_fix_sigmas' in info:
+                self.fixSigmaS.setChecked(True)
+                self.sigmaSSpinBx.setEnabled(True)
+            else:
+                self.fixSigmaS.setChecked(False)
+                self.sigmaSSpinBx.setEnabled(False)
             self.gammaSpinBx.setValue(fit_result[side+'_gamma'])
             # self.nPeakSpnBx.setValue(len(fit_result['areas']))
             # self.modelSelect.setCurrentIndex(self.modelSelect.findText(fit_result["model"]))
-            self.sigmaCSpinBx.setValue(fit_result[side+'_sigmac'])
             self.skeletalGrp.setEnabled(fit_result['isSkeletal'])
             self.extraPeakGrp.setEnabled(fit_result['isExtraPeak'])
             if fit_result['isSkeletal']:
@@ -459,13 +477,19 @@ class EQ_FittingTab(QWidget):
         self.gammaZSpnBxEP.setHidden(flag)
         self.fixedGammaZEP.setHidden(flag)
 
-    def getFittingSettings(self):
+    def getFittingSettings(self, first_run=False):
         """
         Get All settings that are necessary for EquatorImage to process
         :return:
         """
         settings = {}
         side = self.side
+
+        if first_run: # To check the boxes when no cache and first img
+            self.fixSigmaS.setChecked(True)
+            self.sigmaSSpinBx.setEnabled(True)
+            self.fixSigmaC.setChecked(True)
+            self.sigmaCSpinBx.setEnabled(True)
 
         # get all locked parameters
         if self.fixSigmaC.isChecked():

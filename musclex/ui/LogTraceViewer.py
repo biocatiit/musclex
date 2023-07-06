@@ -147,7 +147,7 @@ class LogTraceViewer(QMainWindow):
 
     def showLine(self, signal):
         self.currentFileNumber = signal
-        self.imageAxes.lines.pop()
+        self.imageAxes.lines[-1].remove()
         self.imageAxes.axvline(x=signal, color='r')
         self.imageCanvas.draw()
         self.resetStatusbar()
@@ -231,7 +231,7 @@ class LogTraceViewer(QMainWindow):
             ax = self.imageAxes
 
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)

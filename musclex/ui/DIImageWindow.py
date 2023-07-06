@@ -640,9 +640,9 @@ class DIImageWindow(QMainWindow):
             self.selectPeaks.setText("Done")
             ax = self.result_graph_axes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             hull = self.cirProj.info['hull_hist']
             ax.plot(hull)
             self.result_graph_canvas.draw_idle()
@@ -664,9 +664,9 @@ class DIImageWindow(QMainWindow):
             self.function = ['hull']
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
         else:
             self.function = None
@@ -685,9 +685,9 @@ class DIImageWindow(QMainWindow):
             self.function = ['ROI']
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
         else:
             self.function = None
@@ -706,9 +706,9 @@ class DIImageWindow(QMainWindow):
             self.selectRings.setText("Done")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
         else:
             self.cirProj.info['merged_peaks'] = sorted(self.function[1:])

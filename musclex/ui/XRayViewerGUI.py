@@ -459,7 +459,7 @@ class XRayViewerGUI(QMainWindow):
             ax = self.fittingAxes
 
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -554,9 +554,9 @@ class XRayViewerGUI(QMainWindow):
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
             self.function = ["im_zoomin"]
         else:
@@ -582,9 +582,9 @@ class XRayViewerGUI(QMainWindow):
         QApplication.restoreOverrideCursor()
         ax = self.imageAxes
         for i in range(len(ax.lines)-1,-1,-1):
-            ax.lines.pop(i)
+            ax.lines[i].remove()
         for i in range(len(ax.patches)-1,-1,-1):
-            ax.patches.pop(i)
+            ax.patches[i].remove()
             self.imageCanvas.draw_idle()
         if self.measureDist.isChecked():
             self.imgPathOnStatusBar.setText(
@@ -614,9 +614,9 @@ class XRayViewerGUI(QMainWindow):
         QApplication.restoreOverrideCursor()
         ax = self.imageAxes
         for i in range(len(ax.lines)-1,-1,-1):
-            ax.lines.pop(i)
+            ax.lines[i].remove()
         for i in range(len(ax.patches)-1,-1,-1):
-            ax.patches.pop(i)
+            ax.patches[i].remove()
             self.imageCanvas.draw_idle()
         if self.setSlice.isChecked():
             self.imgPathOnStatusBar.setText(
@@ -656,9 +656,9 @@ class XRayViewerGUI(QMainWindow):
         QApplication.restoreOverrideCursor()
         ax = self.imageAxes
         for i in range(len(ax.lines)-1,-1,-1):
-            ax.lines.pop(i)
+            ax.lines[i].remove()
         for i in range(len(ax.patches)-1,-1,-1):
-            ax.patches.pop(i)
+            ax.patches[i].remove()
             self.imageCanvas.draw_idle()
         if self.setSliceBox.isChecked():
             self.imgPathOnStatusBar.setText(
@@ -819,7 +819,7 @@ class XRayViewerGUI(QMainWindow):
         if func[0] == "im_zoomin" and len(self.function) == 2:
             # draw rectangle
             if len(ax.patches) > 0:
-                ax.patches.pop(0)
+                ax.patches[0].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -845,7 +845,7 @@ class XRayViewerGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             elif len(func) == 2:
@@ -853,7 +853,7 @@ class XRayViewerGUI(QMainWindow):
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -861,9 +861,9 @@ class XRayViewerGUI(QMainWindow):
             elif len(func) >= 2:
                 ax = self.imageAxes
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches.pop(i)
+                    ax.patches[i].remove()
                 self.imageCanvas.draw_idle()
                 if func[0] == "slice":
                     self.setSlice.setChecked(False)
@@ -880,7 +880,7 @@ class XRayViewerGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             elif len(func) == 2:
@@ -889,14 +889,14 @@ class XRayViewerGUI(QMainWindow):
                     n = len(func) * 5 // 2 - 1
                     # first_cross = ax.lines[:n]
                     for i in range(len(ax.lines)-1,n-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
             elif len(func) == 3:
                 for i in range(len(ax.lines)-1,1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 angle = np.radians(90 - func[2][4])
                 p_mouse = np.array([x,y])
                 if func[2][0] < func[2][1]: # p1 is to the left
@@ -938,9 +938,9 @@ class XRayViewerGUI(QMainWindow):
             elif len(func) >= 4:
                 ax = self.imageAxes
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches.pop(i)
+                    ax.patches[i].remove()
                 self.imageCanvas.draw_idle()
                 self.setSliceBox.setChecked(False)
                 self.setSliceBoxChecked()

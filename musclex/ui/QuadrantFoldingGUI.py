@@ -813,9 +813,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 "Drag mouse pointer to select width, click on the image to accept (ESC to cancel)")
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
             self.function = ['fit_region']
         else:
@@ -832,9 +832,9 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.setCentByPerp.isChecked():
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
             self.function = ["perp_center"]  # set current active function
         else:
@@ -893,9 +893,9 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.setCentByChords.isChecked():
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.chordpoints=[]
             self.chordLines = []
             self.imageCanvas.draw_idle()
@@ -1001,9 +1001,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 "Rotate the line to the pattern equator (ESC to cancel)")
             # ax = self.imageAxes
             # for i in range(len(ax.lines)-1,-1,-1):
-            #     ax.lines.pop(i)
+            #     ax.lines[i].remove()
             # for i in range(len(ax.patches)-1,-1,-1):
-            #     ax.patches.pop(i)
+            #     ax.patches[i].remove()
             _, center = self.getExtentAndCenter()
             self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
@@ -1071,9 +1071,9 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
             # ax = self.imageAxes
             # for i in range(len(ax.lines)-1,-1,-1):
-            #     ax.lines.pop(i)
+            #     ax.lines[i].remove()
             # for i in range(len(ax.patches)-1,-1,-1):
-            #     ax.patches.pop(i)
+            #     ax.patches[i].remove()
             self.imageCanvas.draw_idle()
             self.function = ["im_center_rotate"]
         else:
@@ -1089,9 +1089,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
             ax = self.resultAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.resultCanvas.draw_idle()
             self.function = ["r_zoomin"]
         else:
@@ -1115,9 +1115,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 "Draw a rectangle on the image to zoom in (ESC to cancel)")
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.imageCanvas.draw_idle()
             self.function = ["im_zoomin"]
         else:
@@ -1373,9 +1373,9 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches.pop(i)
+                            ax1.patches[i].remove()
                         self.imageCanvas.draw_idle()
 
         ax = self.imageAxes
@@ -1405,7 +1405,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if func[0] == "im_zoomin" and len(self.function) == 2:
             # draw rectangle
             if len(ax.patches) > 0:
-                ax.patches.pop(0)
+                ax.patches[0].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -1433,7 +1433,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 if not self.doubleZoom.isChecked():
                     if len(ax.patches) > 0:
                         for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches.pop(i)
+                            ax.patches[i].remove()
                     hei = 2*abs(y-center[1])
                     wei = 2*abs(func[1] - center[0])
                     sq = self.getRectanglePatch(center, wei, hei)
@@ -1444,13 +1444,13 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     elif self.doubleZoomMode:
                         if len(ax.patches) > 0:
                             for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches.pop(i)
+                                ax.patches[i].remove()
                         hei = 2*abs(y-center[1])
                         wei = 2*abs(func[1] - center[0])
                         sq = self.getRectanglePatch(center, wei, hei)
@@ -1460,7 +1460,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 if not self.doubleZoom.isChecked():
                     if len(ax.patches) > 0:
                         for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches.pop(i)
+                            ax.patches[i].remove()
                     wei = 2 * abs(x - center[0])
                     sq = self.getRectanglePatch(center, wei, 50)
                     ax.add_patch(sq)
@@ -1470,13 +1470,13 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     elif self.doubleZoomMode:
                         if len(ax.patches) > 0:
                             for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches.pop(i)
+                                ax.patches[i].remove()
                         wei = 2 * abs(x - center[0])
                         sq = self.getRectanglePatch(center, wei, 50)
                         ax.add_patch(sq)
@@ -1488,7 +1488,7 @@ class QuadrantFoldingGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1498,7 +1498,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1507,7 +1507,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -1519,7 +1519,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
@@ -1533,7 +1533,7 @@ class QuadrantFoldingGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines) - 1, -1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1543,7 +1543,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1551,7 +1551,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     for i in range(len(ax.lines) - 1, 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1562,7 +1562,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1570,7 +1570,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
                     for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1580,7 +1580,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1589,7 +1589,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
                     for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1600,7 +1600,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
@@ -1612,7 +1612,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
@@ -1629,7 +1629,7 @@ class QuadrantFoldingGUI(QMainWindow):
             y2 = center[1] - deltay
             if not self.doubleZoom.isChecked():
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
                 if (not self.doubleZoomMode) and x < 200 and y < 200:
@@ -1637,12 +1637,12 @@ class QuadrantFoldingGUI(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     ax.plot([x, x2], [y, y2], color="g")
             self.imageCanvas.draw_idle()
 
@@ -1855,7 +1855,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # draw rectangle
             ax = self.resultAxes
             if len(ax.patches) > 0:
-                ax.patches.pop(0)
+                ax.patches[0].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -1871,7 +1871,7 @@ class QuadrantFoldingGUI(QMainWindow):
             radius = distance((x, y), center)
             ax = self.resultAxes
             if len(ax.patches) > len(self.function) - 1:
-                ax.patches.pop()
+                ax.patches[-1].remove()
             ax.add_patch(
                 patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='solid'))
             self.resultCanvas.draw_idle()
@@ -1882,7 +1882,7 @@ class QuadrantFoldingGUI(QMainWindow):
             radius = distance((x, y), center)
             ax = self.resultAxes
             if len(ax.patches) > 0:
-                ax.patches.pop()
+                ax.patches[-1].remove()
             ax.add_patch(
                 patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='solid'))
             self.resultCanvas.draw_idle()
@@ -1972,7 +1972,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.function = ['rminmax'] # set active function
             ax = self.resultAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             self.resultCanvas.draw_idle()
         else:
             self.function = None
@@ -2132,9 +2132,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines.pop(i)
+                        ax1.lines[i].remove()
                 for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches.pop(i)
+                    ax1.patches[i].remove()
         else:
             self.imageFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False

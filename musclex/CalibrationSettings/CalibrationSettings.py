@@ -413,7 +413,7 @@ class CalibrationSettings(QDialog):
         if not self.doubleZoomMode:
             if len(self.ax2.lines) > 0:
                 for i in range(len(self.ax2.lines)-1,-1,-1):
-                    self.ax2.lines.pop(i)
+                    self.ax2.lines[i].remove()
             self.ax2.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             self.ax2.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
         else:

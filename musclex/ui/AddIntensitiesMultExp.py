@@ -459,9 +459,9 @@ class AddIntensitiesMultExp(QMainWindow):
                 # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines.pop(i)
+                        ax1.lines[i].remove()
                 for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches.pop(i)
+                    ax1.patches[i].remove()
         else:
             self.imageFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
@@ -785,7 +785,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 if len(func) == 1:
                     if len(ax.lines) > 0:
                         for i in range(len(ax.lines) - 1, -1, -1):
-                            ax.lines.pop(i)
+                            ax.lines[i].remove()
                 if self.axClicked is None:
                     self.imgPathOnStatusBar.setText(
                         "Click to place a point (need 3 points), then click on the button to process (ESC to cancel)")
@@ -911,9 +911,9 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches.pop(i)
+                            ax1.patches[i].remove()
                         self.imageCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
@@ -942,7 +942,7 @@ class AddIntensitiesMultExp(QMainWindow):
         if func[0] == "im_zoomin" and len(self.function) == 2:
             # draw rectangle
             if len(ax.patches) > 0:
-                ax.patches.pop(0)
+                ax.patches[0].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -972,7 +972,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 if not self.doubleZoom.isChecked():
                     if len(ax.patches) > 0:
                         for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches.pop(i)
+                            ax.patches[i].remove()
                     hei = 2*abs(y-center[1])
                     wei = 2*abs(func[1] - center[0])
                     sq = getRectanglePatch(center, wei, hei)
@@ -983,13 +983,13 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     elif self.doubleZoomMode:
                         if len(ax.patches) > 0:
                             for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches.pop(i)
+                                ax.patches[i].remove()
                         hei = 2*abs(y-center[1])
                         wei = 2*abs(func[1] - center[0])
                         sq = getRectanglePatch(center, wei, hei)
@@ -999,7 +999,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 if not self.doubleZoom.isChecked():
                     if len(ax.patches) > 0:
                         for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches.pop(i)
+                            ax.patches[i].remove()
                     wei = 2 * abs(x - center[0])
                     sq = getRectanglePatch(center, wei, 50)
                     ax.add_patch(sq)
@@ -1009,13 +1009,13 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     elif self.doubleZoomMode:
                         if len(ax.patches) > 0:
                             for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches.pop(i)
+                                ax.patches[i].remove()
                         wei = 2 * abs(x - center[0])
                         sq = getRectanglePatch(center, wei, 50)
                         ax.add_patch(sq)
@@ -1028,7 +1028,7 @@ class AddIntensitiesMultExp(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines) - 1, -1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1038,7 +1038,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1046,7 +1046,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     for i in range(len(ax.lines) - 1, 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1057,7 +1057,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1071,7 +1071,7 @@ class AddIntensitiesMultExp(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines) - 1, -1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1081,7 +1081,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1089,7 +1089,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     for i in range(len(ax.lines) - 1, 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1100,7 +1100,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1108,7 +1108,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
                     for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1118,7 +1118,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1127,7 +1127,7 @@ class AddIntensitiesMultExp(QMainWindow):
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
                     for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1138,7 +1138,7 @@ class AddIntensitiesMultExp(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
@@ -1150,7 +1150,7 @@ class AddIntensitiesMultExp(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.imageCanvas.draw_idle()
@@ -1166,7 +1166,7 @@ class AddIntensitiesMultExp(QMainWindow):
             y2 = center[1] - deltay
             if not self.doubleZoom.isChecked():
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
                 if (not self.doubleZoomMode) and x < 200 and y < 200:
@@ -1174,12 +1174,12 @@ class AddIntensitiesMultExp(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     ax.plot([x, x2], [y, y2], color="g")
             self.imageCanvas.draw_idle()
 
@@ -1391,7 +1391,7 @@ class AddIntensitiesMultExp(QMainWindow):
             # draw rectangle
             ax = self.resultAxes
             if len(ax.patches) > 0:
-                ax.patches.pop(0)
+                ax.patches[0].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)

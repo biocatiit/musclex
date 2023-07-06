@@ -109,7 +109,8 @@ class EquatorWindow(QMainWindow):
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         self.calSettings=None
-        settings=self.getSettings()
+        # Fix the value SigmaS and SigmaC for the first run if there is no cache
+        settings=self.getSettings(first_run=(True if 'model' not in self.bioImg.info else False))
         settings.update(self.bioImg.info)
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
@@ -303,12 +304,12 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.fixedRmin, 9, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 10, 0, 1, 4)
         self.imgProcLayout.addWidget(self.modeAngleChkBx, 10, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding: "), 11, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 12, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 13, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 13, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 11, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 11, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 12, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 12, 2, 1, 2)
 
-        self.imgProcLayout.addWidget(self.resetAllB, 11, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.resetAllB, 13, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
@@ -1007,9 +1008,9 @@ class EquatorWindow(QMainWindow):
                 ax1.imshow(imgScaled)
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines.pop(i)
+                        ax1.lines[i].remove()
                 for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches.pop(i)
+                    ax1.patches[i].remove()
         else:
             self.displayImgFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
@@ -1070,7 +1071,7 @@ class EquatorWindow(QMainWindow):
             # Remove all lines and draw only background subtracted histogram
             ax = self.fittingAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             ax.plot(bioImg.info['hulls']['all'], color = 'b')
             self.fittingCanvas.draw_idle()
         else:
@@ -1185,7 +1186,7 @@ class EquatorWindow(QMainWindow):
             ax = self.fittingAxes
 
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -1948,9 +1949,9 @@ class EquatorWindow(QMainWindow):
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["angle_center"]  # set current active function
         else:
@@ -1967,9 +1968,9 @@ class EquatorWindow(QMainWindow):
             self.setLeftStatus("Click on image to select perpendiculars (ESC to cancel)")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["perp_center"]  # set current active function
         else:
@@ -2029,9 +2030,9 @@ class EquatorWindow(QMainWindow):
             # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
             # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.chordpoints = []
             self.chordLines = []
             self.displayImgCanvas.draw_idle()
@@ -2137,9 +2138,9 @@ class EquatorWindow(QMainWindow):
             self.setLeftStatus("Click on image to select the angle of the equator (ESC to cancel)")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["angle"]  # set current active function
         else:
@@ -2153,9 +2154,9 @@ class EquatorWindow(QMainWindow):
             self.setLeftStatus("Please select R-min size (ESC to cancel)")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["rmin"]  # set current active function
         else:
@@ -2169,9 +2170,9 @@ class EquatorWindow(QMainWindow):
             self.setLeftStatus("Please select a center")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             # self.function=['bright']
             if 'center' not in self.bioImg.info:
@@ -2234,9 +2235,9 @@ class EquatorWindow(QMainWindow):
             self.setLeftStatus("Please select Integrated area by select start line and end line (ESC to cancel)")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["int_area"]  # set current active function
         else:
@@ -2280,7 +2281,7 @@ class EquatorWindow(QMainWindow):
         """
         Triggered when mode angle is checked or unchecked
         """
-        print("FUnction executed", flush=True)
+        print("Function executed", flush=True)
 
         if self.bioImg is not None:
 
@@ -2703,9 +2704,9 @@ class EquatorWindow(QMainWindow):
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches.pop(i)
+                            ax1.patches[i].remove()
                         self.displayImgCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
@@ -2737,7 +2738,7 @@ class EquatorWindow(QMainWindow):
             if len(func) < 2:
                 return
             ax = self.displayImgAxes
-            ax.patches.pop()
+            ax.patches[-1].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -2757,7 +2758,7 @@ class EquatorWindow(QMainWindow):
             ax = self.displayImgAxes
             if not self.doubleZoom.isChecked():
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
                 if (not self.doubleZoomMode) and x < 200 and y < 200:
@@ -2765,12 +2766,12 @@ class EquatorWindow(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
         elif func[0] == "int_area":
@@ -2780,7 +2781,7 @@ class EquatorWindow(QMainWindow):
                 if len(ax.lines) > len(func) - 1:
                     # line = ax.lines[:len(func) - 1]
                     for i in range(len(ax.lines)-1, len(func) - 2,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = line
                 ax.axhline(y, color='g')
             else: 
@@ -2789,14 +2790,14 @@ class EquatorWindow(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
                     if len(ax.lines) > len(func) - 1:
                         # line = ax.lines[:len(func) - 1]
                         for i in range(len(ax.lines)-1, len(func) - 2,-1):
-                            ax.lines.pop(i)
+                            ax.lines[i].remove()
                         # ax.lines = line
                     ax.axhline(y, color='g')
             self.displayImgCanvas.draw_idle()
@@ -2807,7 +2808,7 @@ class EquatorWindow(QMainWindow):
             ax = self.displayImgAxes
             if not self.doubleZoom.isChecked():
                 for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches.pop(i)
+                    ax.patches[i].remove()
                 ax.add_patch(
                     patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
             else: 
@@ -2816,12 +2817,12 @@ class EquatorWindow(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 elif self.doubleZoomMode:
                     for i in range(len(ax.patches)-1,-1,-1):
-                        ax.patches.pop(i)
+                        ax.patches[i].remove()
                     ax.add_patch(
                         patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
@@ -2834,7 +2835,7 @@ class EquatorWindow(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -2844,7 +2845,7 @@ class EquatorWindow(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             elif len(func) == 2:
@@ -2852,7 +2853,7 @@ class EquatorWindow(QMainWindow):
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2864,7 +2865,7 @@ class EquatorWindow(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -2878,7 +2879,7 @@ class EquatorWindow(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -2888,7 +2889,7 @@ class EquatorWindow(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -2897,7 +2898,7 @@ class EquatorWindow(QMainWindow):
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2909,7 +2910,7 @@ class EquatorWindow(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -2918,7 +2919,7 @@ class EquatorWindow(QMainWindow):
                     n = (len(func)-1)*5//2 + 2
                     # first_cross = ax.lines[:n]
                     for i in range(len(ax.lines)-1,n-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2929,7 +2930,7 @@ class EquatorWindow(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -2939,7 +2940,7 @@ class EquatorWindow(QMainWindow):
                     n = len(func) * 5 // 2 - 1
                     # first_cross = ax.lines[:n]
                     for i in range(len(ax.lines)-1,n-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2951,7 +2952,7 @@ class EquatorWindow(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
@@ -2963,7 +2964,7 @@ class EquatorWindow(QMainWindow):
                     ax1 = self.doubleZoomAxes
                     if len(ax1.lines) > 0:
                         for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines.pop(i)
+                            ax1.lines[i].remove()
                     ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
@@ -3394,14 +3395,14 @@ class EquatorWindow(QMainWindow):
         self.pixel_detail.setText("")
         QApplication.processEvents()
 
-    def getSettings(self):
+    def getSettings(self, first_run=False):
         """
         Get all settings for EquatorImage process() from widgets
         :return: settings (dict)
         """
         settings = {}
-        settings.update(self.left_fitting_tab.getFittingSettings())
-        settings.update(self.right_fitting_tab.getFittingSettings())
+        settings.update(self.left_fitting_tab.getFittingSettings(first_run))
+        settings.update(self.right_fitting_tab.getFittingSettings(first_run))
 
         settings['orientation_model'] = self.orientationModel
         settings['nPeaks'] = self.nPeakSpnBx.value()

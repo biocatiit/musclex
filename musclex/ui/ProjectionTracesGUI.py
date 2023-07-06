@@ -546,9 +546,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.updateImage()
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines.pop(i)
+                ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches.pop(i)
+                ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["angle_center"]
 
@@ -575,9 +575,9 @@ class ProjectionTracesGUI(QMainWindow):
                 # cy, cx = y // 2, x // 2
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines.pop(i)
+                        ax1.lines[i].remove()
                 for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches.pop(i)
+                    ax1.patches[i].remove()
         else:
             self.displayImgFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
@@ -589,7 +589,7 @@ class ProjectionTracesGUI(QMainWindow):
         """
         ax = self.displayImgAxes
         for i in range(len(ax.lines)-1,-1,-1):
-            ax.lines.pop(i)
+            ax.lines[i].remove()
         for _, box in self.boxes_on_img.items():
             box['rect'].remove()
             box['text'].remove()
@@ -678,7 +678,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.function = ['peaks', peaks]
                 ax = self.displayImgAxes
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines.pop(i)
+                    ax.lines[i].remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 # ignore if there're other function being active
@@ -1151,7 +1151,7 @@ class ProjectionTracesGUI(QMainWindow):
                 ax = self.displayImgAxes
                 if len(ax.patches) > 0:
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
-                        ax.patches.pop(i)
+                        ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
                 ax.lines.clear()
 
@@ -1395,9 +1395,9 @@ class ProjectionTracesGUI(QMainWindow):
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches.pop(i)
+                            ax1.patches[i].remove()
                         self.displayImgCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
@@ -1429,7 +1429,7 @@ class ProjectionTracesGUI(QMainWindow):
                 return
             ax = self.displayImgAxes
             if len(ax.patches) > 0:
-                ax.patches.pop()
+                ax.patches[-1].remove()
             start_pt = func[1]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
@@ -1452,7 +1452,7 @@ class ProjectionTracesGUI(QMainWindow):
                 ax = self.displayImgAxes
                 if len(ax.patches) > 0:
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
-                        ax.patches.pop(i)
+                        ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
                 ax.lines.clear()
                 start_pt = func[-1]
@@ -1484,7 +1484,7 @@ class ProjectionTracesGUI(QMainWindow):
             elif len(func) == 3: # get the width of the box
                 if len(ax.patches) > 0:
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
-                        ax.patches.pop(i)
+                        ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
 
                 angle = np.radians(90 - func[2][4])
@@ -1555,7 +1555,7 @@ class ProjectionTracesGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1565,7 +1565,7 @@ class ProjectionTracesGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
@@ -1574,7 +1574,7 @@ class ProjectionTracesGUI(QMainWindow):
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines.pop(i)
+                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -1586,7 +1586,7 @@ class ProjectionTracesGUI(QMainWindow):
                         ax1 = self.doubleZoomAxes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines.pop(i)
+                                ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
