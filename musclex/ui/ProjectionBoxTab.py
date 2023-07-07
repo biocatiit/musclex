@@ -548,6 +548,8 @@ class ProjectionBoxTab(QWidget):
         else:
             self.peaksButton.setText("Select Peaks")
             peaks = self.function[1]
+            op_peaks = [-x for x in self.function[1]]
+            peaks += op_peaks
             self.function = None
             self.parent.addPeakstoBox(self.name, peaks)
 
@@ -665,14 +667,14 @@ class ProjectionBoxTab(QWidget):
                 while 'p_' + str(i) in model:
                     p = model['p_' + str(i)]
                     i += 1
-                    ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
+                    # ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
                     ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
 
             if self.maxPeaksChkBx.isChecked():
                 peaks = all_peaks[name]
                 for p in peaks:
                     d = p - model['centerX']
-                    ax2.axvline(model['centerX'] - d, color='b', alpha=0.7)
+                    # ax2.axvline(model['centerX'] - d, color='b', alpha=0.7)
                     ax2.axvline(model['centerX'] + d, color='b', alpha=0.7)
             # max intensity locations
             # if name in all_peaks:
@@ -693,10 +695,10 @@ class ProjectionBoxTab(QWidget):
                     w = widths[i]
                     if self.centroidChkBx.isChecked():
                         ax2.axvline(centerX + c, color='#ff4732')
-                        ax2.axvline(centerX - c, color='#ff4732')
+                        # ax2.axvline(centerX - c, color='#ff4732')
                     if self.baselineChkBx.isChecked():
                         ax2.plot(((centerX + c) - w, (centerX + c) + w), (b, b), color='y')
-                        ax2.plot(((centerX - c) - w, (centerX - c) + w), (b, b), color='y')
+                        # ax2.plot(((centerX - c) - w, (centerX - c) + w), (b, b), color='y')
 
                     i += 1
 

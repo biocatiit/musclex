@@ -1760,16 +1760,18 @@ class ProjectionTracesGUI(QMainWindow):
                 self.minIntSpnBx.setValue(0)  # init min intensity as min value
                 self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
 
+        self.maskThresSpnBx.disconnect() # Avoid an extra run at launch
         if 'mask_thres' in self.projProc.info:
             self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
         elif self.maskThresSpnBx.value() == -999:
             self.maskThresSpnBx.setValue(getMaskThreshold(img))
+        self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
         # self.maskThresSpnBx.setRange(img.min(), img.max())
         if 'blank_mask' in self.projProc.info:
             self.blankImageGrp.setChecked(self.projProc.info['blank_mask'])
         self.syncUI = False
 
-    def updateCenter(self, refit=True):
+    def updateCenter(self, refit=False):
         """
         Update the image center
         :return:
@@ -1778,7 +1780,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
             self.centerx, self.centery = center
             if self.qfChkBx.isChecked():
+                self.qfChkBx.disconnect() # Avoid second runs at launch
                 self.qfChkBx.setChecked(False)
+                self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         elif self.center_func == 'quadrant_fold': # default to quadrant folded
             self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
             self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
@@ -1787,7 +1791,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.centery = self.projProc.info['centery']
             if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
                 self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
+                self.qfChkBx.disconnect()
                 self.qfChkBx.setChecked(False)
+                self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
 
         self.projProc.info['centerx'] = self.centerx
         self.projProc.info['centery'] = self.centery

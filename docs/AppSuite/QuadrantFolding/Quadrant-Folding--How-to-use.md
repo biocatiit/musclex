@@ -1,6 +1,6 @@
 # How to use
 
-Quadrant Folder (QF) provides two modes for users: Interactive mode and Headless mode
+Quadrant Folder (QF) provides two modes for users: [Interactive mode](#interactive-mode) and [Headless mode](#headless-mode).
 
 ## Interactive Mode 
 

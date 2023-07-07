@@ -458,8 +458,8 @@ class EquatorImage:
         self.parent.statusPrint("Selecting Peaks...")
         print("Model Peaks are being selected...")
         if 'peaks' not in self.info:
-            left_peaks = movePeaks(self.info['hulls']['left'], sorted(self.info['tmp_peaks']['left']), 5)
-            right_peaks = movePeaks(self.info['hulls']['right'], sorted(self.info['tmp_peaks']['right']), 5)
+            left_peaks = sorted(movePeaks(self.info['hulls']['left'], sorted(self.info['tmp_peaks']['left']), 5))
+            right_peaks = sorted(movePeaks(self.info['hulls']['right'], sorted(self.info['tmp_peaks']['right']), 5))
             first_left, first_right = self.findFirstSymmetricPeaks(left_peaks, right_peaks)
 
             self.removeInfo('fit_results')  # Remove fit results from info dict to make it be re-calculated

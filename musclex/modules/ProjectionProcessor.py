@@ -104,7 +104,7 @@ class ProjectionProcessor:
         :return:
         """
         box_names = self.info['box_names']
-        if name in box_names and typ == 'oriented': # and self.info['boxes'][name][:-1] != box[-1]: # deprecation warning
+        if name in box_names and typ == 'oriented' and self.info['boxes'][name][-1] != box[-1]:
             self.removeInfo(name)
             self.addBox(name, box, typ, bgsub)
         elif name in box_names and self.info['boxes'][name] != box:
@@ -263,6 +263,8 @@ class ProjectionProcessor:
             types = self.info['types']
             hists = self.info['hists']
             for name in box_names:
+                if name in hists:
+                    continue
                 t = types[name]
                 if self.rotated:
                     img = self.getRotatedImage()
@@ -511,20 +513,17 @@ class ProjectionProcessor:
             if name not in moved_peaks:
                 peaks = self.info['peaks'][name]
                 moved = []
-                i = 0
                 for p in peaks:
                     globalpeak = int(round(model['centerX']+p))
-                    if globalpeak <= len(hist):
+                    if 0 <= globalpeak <= len(hist):
                         moved.append(globalpeak)
-                    else:
-                        moved.append(int(round(model['centerX']-p)))
-                    i+=1
+                    # else:
+                    #     moved.append(int(round(model['centerX']-p)))
                 moved = movePeaks(hist, moved, 10)
                 moved_peaks[name] = moved
                 self.removeInfo(name, 'baselines')
 
             peaks = moved_peaks[name]
-
             ### Calculate Baselines
             if name not in all_baselines:
                 baselines = []
@@ -540,6 +539,9 @@ class ProjectionProcessor:
                 all_centroids[name] = results['centroids'] - model['centerX']
                 all_widths[name] = results['widths']
                 all_areas[name] = results['areas']
+                print("Box : "+ str(name))
+                print("Centroid Result : " + str(results))
+                print("---")
 
     def setBaseline(self, box_name, peak_num, new_baseline):
         """
@@ -568,6 +570,7 @@ class ProjectionProcessor:
             baselines[peak_num] = baseline
             self.removeInfo(box_name, 'centroids')
             self.removeInfo(box_name, 'widths')
+            self.removeInfo(box_name, 'areas')
 
     def getRotatedImage(self, img=None, angle=None):
         """
@@ -675,11 +678,11 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
 
             mod = VoigtModel()
             result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma, gamma=gamma)
-            result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma, gamma=-gamma)
+            # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma, gamma=-gamma)
         else:
             mod = GaussianModel()
             result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, sigma=sigma)
-            result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
+            # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
 
         i += 1
     return result

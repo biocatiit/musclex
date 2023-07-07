@@ -1,6 +1,6 @@
 # How to use
 
-Equator has 2 modes: Interactive mode and Headless mode. User could choose either mode at their own convenience.
+Equator has 2 modes: [Interactive mode](#interactive-mode) and [Headless mode](#headless-mode). User could choose either mode at their own convenience.
 
 ## Interactive Mode
 

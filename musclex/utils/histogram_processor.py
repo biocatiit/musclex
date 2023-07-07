@@ -325,7 +325,7 @@ def movePeaks(hist, peaks, dist=20):
                     break
             dist = dist / 2
         peakList.append(new_peak)
-    return sorted(list(peakList))
+    return list(peakList)
 
 def getFirstVallay(hist):
     """

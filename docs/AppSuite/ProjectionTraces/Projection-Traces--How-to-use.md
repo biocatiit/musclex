@@ -1,6 +1,6 @@
 # How to use
 
-Projection Traces (PT) provides two modes for users: Interactive mode and Headless mode
+Projection Traces (PT) provides two modes for users: [Interactive mode](#interactive-mode) and [Headless mode](#headless-mode).
 
 ## Interactive Mode
 
@@ -18,6 +18,7 @@ In this page, you will know about ...
 6. [Blank Image and Mask](#blank-image-and-mask)
 7. [Navigation](#navigation)
 8. [Other Options](#other-options)
+9. [Box Tab](#box-tab)
 
 ### Mask Threshold
 
@@ -47,17 +48,9 @@ To select the approximate peak locations, you can just click on the button, sele
 
 ![-](../../images/PT/peak_select.png)
 
-If there are multiple boxes, it's better to select the peak locations in the box tab.
-To select peaks in the box tab, you can go to that box tab and select peaks by pressing "Select Peaks" button, then select them on the 1-D projection on the left and press "Done".
+If there are multiple boxes, it's better to [select the peak locations in the box tab](#select-peaks).
 
-![-](../../images/PT/box_select_peak.png)
-
-When peaks in a box is selected, the program will process image by these [steps](Projection-Traces--How-it-works.html) to get all results
-
-### Select Convex Hull Range
-If you select Convex Hull as background subtraction method for a box, and peaks are selected. The program will automatically select start and end points for Convex Hull. If you want to change this range, you can click "Set Manual Convex Hull Range" and select start and end points on the plot.
-
-![-](../../images/PT/convex2.png)
+When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.html) to get the results.
 
 ### Display options
 In the image tab, there are display options shown on the right. These options will not affect any processing. You can check "Boxes", "Center" or "Peaks" to be displayed on the image. You can zoom-in by pressing "Zoom in" and select the zoom in area on the image by drawing a rectangle. (You can zoom-in or zoom-out by mouse wheeling too). Also, you can select min/max intensity to see the image clearly.
@@ -107,6 +100,26 @@ This will process the whole images in current directory with current settings (b
 * Previous and Next Buttons<br/>
 This will make the program go to process the next or previous image with current settings
 
+### Box Tab
+
+For each box you created on the image, a tab will be added to the top of the window. Inside this tab, you will be able to visualize the integrated graph corresonding to the box. Depending on the type of box you created, you will have access to different options.
+
+#### Select Convex Hull Range
+If you select Convex Hull as background subtraction method for a box, and peaks are selected. The program will automatically select start and end points for Convex Hull. If you want to change this range, you can click "Set Manual Convex Hull Range" and select start and end points on the plot.
+
+![-](../../images/PT/convex2.png)
+
+#### Select peaks
+To select peaks in the box tab, you can press the "Select Peaks" button, then select them on the 1-D projection on the left and press "Done". The peaks are going to be created symmetrically around the defined center.
+
+![-](../../images/PT/box_select_peak.png)
+
+When peaks in a box is selected, the program will process the image by following these [steps](Projection-Traces--How-it-works.html) to get the results.
+
+#### Modify Baseline Value
+Inside the Other Results table on the bottom right of your screen, you can modify the baseline value of a peak. You can do so by double clicking on that value, modifying it, then pressing enter.
+
+If the baseline value is higher than the height of the maximum peak, the program will roll back to the previous value entered.
 
 ## Headless Mode
 Image processing performed in the terminal.

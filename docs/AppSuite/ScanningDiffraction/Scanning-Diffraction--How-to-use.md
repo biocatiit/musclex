@@ -1,6 +1,6 @@
 # How to use
 
-Scanning Diffraction (DI) provides two modes for users: Interactive mode and Headless mode
+Scanning Diffraction (DI) provides two modes for users: [Interactive mode](#interactive-mode) and [Headless mode](#headless-mode).
 
 ## Interactive Mode 
 

@@ -601,7 +601,7 @@ class ScanningDiffraction:
         :return:
         """
         peak_list = getPeaksFromHist(orig_hist, width_thres=10)
-        peak_list = movePeaks(orig_hist, peak_list)
+        peak_list = sorted(movePeaks(orig_hist, peak_list))
         peak_list2 = self.select_peaks(peak_list, times_threshold=1, distance_threshold=min_dist)
         return sorted(peak_list2)
 

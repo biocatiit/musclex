@@ -63,15 +63,19 @@ class PT_CSVManager:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
                 for i in range(len(peaks[box_name])):
-                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i) + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i) + " (nm)")
-                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i) + " (nm)")
-                    self.colnames.append("Box " + str(box_name) + " Centroid Area " + str(i))
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i) + " (nm)")
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Sigma " + str(i))
-                    self.colnames.append("Box " + str(box_name) + " Gaussian Area " + str(i))
+                    side = " right" if i%2 == 0 else " left"
+                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (Pixel)")
+                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (nm)")
+                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i//2) + side + " (Pixel)")
+                    self.colnames.append("Box " + str(box_name) + " Centroid " + str(i//2) + side + " (nm)")
+                    self.colnames.append("Box " + str(box_name) + " Centroid Area " + str(i//2) + side)
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i//2) + side + " (Pixel)")
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Peak " + str(i//2) + side + " (nm)")
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Sigma " + str(i//2) + side)
+                    self.colnames.append("Box " + str(box_name) + " Gaussian Area " + str(i//2) + side)
+                    if i%2 == 1:
+                        self.colnames.append("Box " + str(box_name) + " Average Centroid Area " + str(i//2))
+                        self.colnames.append("Box " + str(box_name) + " Average Gaussian Area " + str(i//2))
                 self.colnames.append("Box " + str(box_name) + " error")
                 self.colnames.append("Box " + str(box_name) + " comments")
 
@@ -108,16 +112,20 @@ class PT_CSVManager:
                     centroids = info['centroids'][bn]
                     moved_peaks = info['moved_peaks'][bn] - model['centerX']
                     for i,c in enumerate(centroids):
-                        new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (Pixel)"] = moved_peaks[i]
-                        new_data["Box " + str(bn) + " Centroid " + str(i) + " (Pixel)"] = c
-                        new_data["Box " + str(bn) + " Centroid Area " + str(i)] = info["areas"][bn][i]
-                        new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (Pixel)"] = model['p_'+str(i)]
-                        new_data["Box " + str(bn) + " Gaussian Sigma " + str(i)] = model['sigma'+str(i)]
-                        new_data["Box " + str(bn) + " Gaussian Area " + str(i)] = model['amplitude'+str(i)]
+                        side = " right" if i%2 == 0 else " left"
+                        new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (Pixel)"] = moved_peaks[i]
+                        new_data["Box " + str(bn) + " Centroid " + str(i//2) + side + " (Pixel)"] = c
+                        new_data["Box " + str(bn) + " Centroid Area " + str(i//2) + side] = info["areas"][bn][i]
+                        new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (Pixel)"] = model['p_'+str(i)]
+                        new_data["Box " + str(bn) + " Gaussian Sigma " + str(i//2) + side] = model['sigma'+str(i)]
+                        new_data["Box " + str(bn) + " Gaussian Area " + str(i//2)+ side] = model['amplitude'+str(i)]
                         if 'lambda_sdd' in info:
-                            new_data["Box " + str(bn) + " Maximum Point " + str(i) + " (nm)"] = info['lambda_sdd']/moved_peaks[i]
-                            new_data["Box " + str(bn) + " Centroid " + str(i) + " (nm)"] = info['lambda_sdd']/c
-                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i) + " (nm)"] = info['lambda_sdd'] / model['p_' + str(i)]
+                            new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (nm)"] = info['lambda_sdd']/moved_peaks[i]
+                            new_data["Box " + str(bn) + " Centroid " + str(i//2) + side + " (nm)"] = info['lambda_sdd']/c
+                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (nm)"] = info['lambda_sdd'] / model['p_' + str(i)]
+                        if i%2 == 1:
+                            new_data["Box " + str(bn) + " Average Centroid Area " + str(i//2)] = (info["areas"][bn][i] + info["areas"][bn][i-1])/2
+                            new_data["Box " + str(bn) + " Average Gaussian Area " + str(i//2)] = (model['amplitude'+str(i)] + model['amplitude'+str(i-1)])/2
                 new_data["Box " + str(bn) + " error"] = model['error']
                 if model['error'] > 0.15:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
