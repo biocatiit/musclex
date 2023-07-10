@@ -2733,12 +2733,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.selectFolder.setHidden(True)
         self.imageCanvas.setHidden(False)
         self.resetWidgets()
+        QApplication.restoreOverrideCursor()
         if self.h5List == []:
             self.setCalibrationImage()
         self.h5List = []
         self.setH5Mode(str(newFile))
         self.onImageChanged()
-        QApplication.restoreOverrideCursor()
 
     def setH5Mode(self, file_name):
         """
