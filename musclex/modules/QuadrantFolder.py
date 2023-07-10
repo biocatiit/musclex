@@ -323,7 +323,9 @@ class QuadrantFolder:
 
         b, l = img.shape
         if self.parent.newImgDimension is None:
-            dim = int(self.expandImg*max(l, b))
+            qf_w, qf_h = 2*(l-center[0]), 2*(b-center[1])
+            max_side = max(max(l,b), max(qf_w, qf_h))
+            dim = int(self.expandImg*max_side)
             self.parent.newImgDimension = dim
         else:
             dim = self.parent.newImgDimension

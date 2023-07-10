@@ -38,7 +38,7 @@ See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more
 ![-](../../images/QF/image_processing.png)
 
 ##### Mode Orientation Checkbox
-This checkox uses the mode of the orientation angles in calculated from all the images in the folder as the rotation angle for fitting the images. All the images in the folder must be processed first before using this checkbox.
+This checkox uses the mode of the orientation angles calculated from all the images in the folder as the rotation angle for fitting the images. All the images in the folder must be processed first before using this checkbox. Once processed, by checking this box, the program will gather all the angles in the folder and use the angle with the biggest number of occurrences as the new rotation angle.
 
 ##### Save Cropped Image Checkbox
 As discussed in the working of Quadrant Folding, we enlarge the image such that the diffraction center is at the center of the resulting image.
