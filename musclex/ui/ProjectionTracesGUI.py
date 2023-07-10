@@ -898,7 +898,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.addCenterOrientedBoxButton.setText("Done")
                 self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
                 self.function = ['center_oriented_box']
-                self.function.append((self.centerx, self.centery))
+                self.function.append((self.projProc.info['centerx'], self.projProc.info['centery']))
                 ax = self.displayImgAxes
                 ax.lines.clear()
                 self.displayImgCanvas.draw_idle()
