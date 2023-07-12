@@ -871,3 +871,47 @@ def getMisSettingAngles(img, detector, center, wavelength=1e-10, calibrant="AgBh
     sg.geometry_refinement.refine3(fix=["wavelength"])
 
     return sg.geometry_refinement.rot1, sg.geometry_refinement.rot2, sg.geometry_refinement.rot3
+
+def calcSlope(pt1, pt2):
+    """
+    Compute the slope using 2 points.
+    :param pt1, pt2: 2 points
+    :return: slope
+    """
+    if pt1[0] == pt2[0]:
+        return float('inf')
+    return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
+
+def getIntersectionOfTwoLines(line1, line2):
+    """
+    Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
+    :param line1:
+    :param line2:
+    :return:
+    """
+    p1,p2 = line1
+    p3,p4 = line2
+    slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+    if p4[0] != p3[0]:
+        slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
+        x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
+        y = slope1*(x - p1[0]) + p1[1]
+    else:
+        # Slope2 is inf
+        x = p4[0]
+        y = slope1 * (x - p1[0]) + p1[1]
+
+    return (int(x), int(y))
+
+def getPerpendicularLineHomogenous(p1, p2):
+    """
+    Give the perpendicular line homogeneous
+    """
+    b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
+    chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
+    print("Chord_cent1 ", chord_cent)
+    if b1 == 0:
+        return float('inf'), chord_cent
+    if b1 == float('inf'):
+        return 0, chord_cent
+    return -1 / b1, chord_cent

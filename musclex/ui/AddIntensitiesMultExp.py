@@ -39,7 +39,7 @@ import cv2
 from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import fullPath, ifHdfReadConvertless, createFolder, isImg
-from ..utils.image_processor import processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
+from ..utils.image_processor import calcSlope, getIntersectionOfTwoLines, getPerpendicularLineHomogenous, processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
 from ..CalibrationSettings import CalibrationSettings
 
 class AddIntensitiesMultExp(QMainWindow):
@@ -2211,50 +2211,6 @@ def getRectanglePatch(center, w, h):
     leftTopCorner = (center[0] - w//2, center[1] - h//2)
     sq = patches.Rectangle(leftTopCorner, w, h, linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted')
     return sq
-
-def calcSlope(pt1, pt2):
-    """
-    Compute the slope using 2 points.
-    :param pt1, pt2: 2 points
-    :return: slope
-    """
-    if pt1[0] == pt2[0]:
-        return float('inf')
-    return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
-
-def getPerpendicularLineHomogenous(p1, p2):
-    """
-    Give the perpendicular line homogeneous
-    """
-    b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
-    chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
-    print("Chord_cent1 ", chord_cent)
-    if b1 == 0:
-        return float('inf'), chord_cent
-    if b1 == float('inf'):
-        return 0, chord_cent
-    return -1 / b1, chord_cent
-
-def getIntersectionOfTwoLines(line1, line2):
-    """
-    Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
-    :param line1:
-    :param line2:
-    :return:
-    """
-    p1, p2 = line1
-    p3, p4 = line2
-    slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
-    if p4[0] != p3[0]:
-        slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
-        x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
-        y = slope1*(x - p1[0]) + p1[1]
-    else:
-        # Slope2 is inf
-        x = p4[0]
-        y = slope1 * (x - p1[0]) + p1[1]
-
-    return (int(x), int(y))
 
 def resizeImage(img, res_size):
     """

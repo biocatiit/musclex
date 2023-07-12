@@ -153,6 +153,9 @@ class ProjectionBoxTab(QWidget):
         self.settingLayout = QGridLayout(self.settingGroup)
         self.peaksButton = QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
+        self.meridBckGrndChkBx = QCheckBox("Meridian Background Peak")
+        self.meridBckGrndChkBx.setChecked(True)
+        self.meridBckGrndChkBx.setHidden(self.parent.bgsubs[self.name]!=0)
         self.checkableButtons.append(self.peaksButton)
         self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
@@ -170,6 +173,7 @@ class ProjectionBoxTab(QWidget):
         self.endHull.setHidden(self.parent.bgsubs[self.name] != 1)
         self.checkableButtons.append(self.hullRangeButton)
         self.settingLayout.addWidget(self.peaksButton, 0, 0, 1, 2)
+        self.settingLayout.addWidget(self.meridBckGrndChkBx, 2, 0, 1, 2)
         self.settingLayout.addWidget(self.hullRangeButton, 1, 0, 1, 2)
         if self.parent.bgsubs[self.name]== 1:
             self.settingLayout.addWidget(QLabel("Start"), 2, 0, 1, 1, Qt.AlignCenter)
@@ -247,6 +251,7 @@ class ProjectionBoxTab(QWidget):
         self.fullButton.clicked.connect(self.fullClicked)
 
         self.peaksButton.clicked.connect(self.addPeaks)
+        self.meridBckGrndChkBx.stateChanged.connect(self.meridBckGrndChanged)
         self.hullRangeButton.clicked.connect(self.setManualHullRange)
         self.startHull.valueChanged.connect(self.hullRangeChanged)
         self.endHull.valueChanged.connect(self.hullRangeChanged)
@@ -264,6 +269,15 @@ class ProjectionBoxTab(QWidget):
         self.graphFigure2.canvas.mpl_connect('button_release_event', self.graphReleased)
         self.graphFigure1.canvas.mpl_connect('figure_leave_event', self.graphReleased)
         self.graphFigure2.canvas.mpl_connect('figure_leave_event', self.graphReleased)
+
+    def meridBckGrndChanged(self):
+        """
+        Trigger when meridian background is changed (on/off)
+        """
+        if self.parent.projProc is not None and not self.syncUI:
+            self.parent.projProc.removeInfo(self.name, 'fit_results')
+            self.parent.merid_bg[self.name] = self.meridBckGrndChkBx.isChecked()
+            self.parent.processImage()
 
     def hullRangeChanged(self):
         """
@@ -610,6 +624,7 @@ class ProjectionBoxTab(QWidget):
         all_peaks = info['moved_peaks']
         all_areas = info['areas']
         bgsubs = info['bgsubs']
+        merid_bgs = info['merid_bg']
         hull_ranges = info['hull_ranges']
 
         ax = self.graphAxes1
@@ -620,6 +635,9 @@ class ProjectionBoxTab(QWidget):
 
         if self.histChkBx.isChecked():
             ax.plot(hist, color='k')
+
+        if name in merid_bgs:
+            self.meridBckGrndChkBx.setChecked(merid_bgs[name])
 
         if name in fit_results:
             xs = np.arange(0, len(hist))
@@ -650,10 +668,13 @@ class ProjectionBoxTab(QWidget):
                 else:
                     # Add 3 Gaussians
                     background = layerlineBackground(xs, **model)
-                    meridian_bg = meridianBackground(xs, **model) + layerlineBackground(xs, **model)
                     meridian = layerlineModelBackground(xs, **model)
-                    ax.fill_between(xs, meridian, meridian_bg, facecolor='r', alpha=0.3)
-                    ax.fill_between(xs, meridian_bg, background, facecolor='y', alpha=0.3)
+                    if self.meridBckGrndChkBx.isChecked():
+                        meridian_bg = meridianBackground(xs, **model) + layerlineBackground(xs, **model)
+                        ax.fill_between(xs, meridian, meridian_bg, facecolor='r', alpha=0.3)
+                        ax.fill_between(xs, meridian_bg, background, facecolor='y', alpha=0.3)
+                    else:
+                        ax.fill_between(xs, meridian, background, facecolor='r', alpha=0.3)
                     ax.fill_between(xs, 0, background, facecolor='b', alpha=0.3)
 
             if self.centerChkBx.isChecked():
@@ -733,7 +754,6 @@ class ProjectionBoxTab(QWidget):
         self.graphCanvas1.draw()
         self.graphFigure2.tight_layout()
         self.graphCanvas2.draw()
-
 
         # Update Table
         if name in all_centroids and name in all_baselines:

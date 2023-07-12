@@ -63,6 +63,7 @@ class ProjectionProcessor:
         # img -= img.min()
         self.orig_img = img
         self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
+        self.orig_img = self.orig_img.astype("float32")
         self.rotated_img = None
         self.rotated = False
         self.version = __version__
@@ -78,6 +79,7 @@ class ProjectionProcessor:
                 'hists' : {},
                 'peaks' : {},
                 'bgsubs' : {},
+                'merid_bg' : {},
                 'hull_ranges':{},
                 'hists2': {},
                 'fit_results':{},
@@ -129,7 +131,7 @@ class ProjectionProcessor:
             if name in all_peaks and all_peaks[name] == peaks:
                 return
             all_peaks[name] = peaks
-            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs']
+            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg']
             for k in self.info.keys():
                 if k not in skip_list:
                     self.removeInfo(name, k)
@@ -142,7 +144,7 @@ class ProjectionProcessor:
         :param name: box name
         :return:
         """
-        skip_list = ['box_names', 'boxes', 'types', 'bgsubs']
+        skip_list = ['box_names', 'boxes', 'types', 'bgsubs', 'merid_bg']
         for k in self.info.keys():
             if k not in skip_list:
                 self.removeInfo(name, k)
@@ -157,7 +159,6 @@ class ProjectionProcessor:
         self.applyConvexhull()
         self.updateRotationAngle()
         self.fitModel()
-        # self.getOtherResults()
         self.getBackgroundSubtractedHistograms()
         self.getPeakInfos()
         if 'no_cache' not in settings:
@@ -235,13 +236,7 @@ class ProjectionProcessor:
 
         self.info.update(settings)
 
-        if 'centerx' in self.info and 'centery' in self.info:
-            if self.rotMat is not None:
-                center = (self.info['centerx'], self.info['centery'])
-                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
-                self.info['centerx'], self.info['centery'] = center[0], center[1]
-                self.info['orig_center'] = (center[0], center[1])
-        else:
+        if 'centerx' not in self.info or 'centery' not in self.info:
             self.info['centerx'] = self.orig_img.shape[0] / 2 - 0.5
             self.info['centery'] = self.orig_img.shape[1] / 2 - 0.5
         
@@ -433,9 +428,13 @@ class ProjectionProcessor:
                 params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
                 params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
 
-                # Init Meridian params1
-                params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
-                params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                if self.info['merid_bg'][name]:
+                    # Init Meridian params1
+                    params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
+                    params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                else:
+                    int_vars['center_sigma1'] = 1
+                    int_vars['center_amplitude1'] = 0
 
                 # Init Meridian params2
                 params.add('center_sigma2',5 , min=1, max=len(hist)+1.)

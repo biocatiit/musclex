@@ -845,14 +845,14 @@ class QuadrantFoldingGUI(QMainWindow):
             verticalLines = []
             intersections = []
             for i in range(1, len(func) - 1, 2):
-                slope = self.calcSlope(func[i], func[i + 1])
+                slope = calcSlope(func[i], func[i + 1])
                 if abs(slope) > 1:
                     verticalLines.append((func[i], func[i + 1]))
                 else:
                     horizontalLines.append((func[i], func[i + 1]))
             for line1 in verticalLines:
                 for line2 in horizontalLines:
-                    cx, cy = self.getIntersectionOfTwoLines(line2, line1)
+                    cx, cy = getIntersectionOfTwoLines(line2, line1)
                     print("Intersection ", (cx, cy))
                     intersections.append((cx, cy))
             cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
@@ -872,16 +872,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.deleteInfo(['avg_fold'])
             self.setCentByPerp.setChecked(False)
             self.processImage()
-
-    def calcSlope(self, pt1, pt2):
-        """
-        Compute the slope using 2 points.
-        :param pt1, pt2: 2 points
-        :return: slope
-        """
-        if pt1[0] == pt2[0]:
-            return float('inf')
-        return (pt2[1] - pt1[1]) / (pt2[0] - pt1[0])
 
     def setCenterByChordsClicked(self):
         """
@@ -946,7 +936,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.chordLines = []
         for i, p1 in enumerate(points):
             for p2 in points[i + 1:]:
-                slope, cent = self.getPerpendicularLineHomogenous(p1, p2)
+                slope, cent = getPerpendicularLineHomogenous(p1, p2)
                 if slope == float('inf'):
                     y_vals = np.array(ax.get_ylim())
                     x_vals = cent[0] + np.zeros(y_vals.shape)
@@ -956,40 +946,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     y_vals = (x_vals - cent[0]) * slope + cent[1]
                     self.chordLines.append([slope, cent[1] - slope * cent[0]])
                 ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
-
-    def getPerpendicularLineHomogenous(self, p1, p2):
-        """
-        Give the perpendicular line homogeneous
-        """
-        b1 = (p2[1] - p1[1]) / (p2[0] - p1[0]) if p1[0] != p2[0] else float('inf')
-        chord_cent = [(p2[0] + p1[0]) / 2, (p2[1] + p1[1]) / 2, 1]
-        print("Chord_cent1 ", chord_cent)
-        if b1 == 0:
-            return float('inf'), chord_cent
-        if b1 == float('inf'):
-            return 0, chord_cent
-        return -1 / b1, chord_cent
-
-    def getIntersectionOfTwoLines(self, line1, line2):
-        """
-        Finds intersection of lines line1 = [p1,p2], line2 = [p3,p4]
-        :param line1:
-        :param line2:
-        :return:
-        """
-        p1,p2 = line1
-        p3,p4 = line2
-        slope1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
-        if p4[0] != p3[0]:
-            slope2 = (p4[1] - p3[1]) / (p4[0] - p3[0])
-            x = (p3[1] - p1[1] + slope1*p1[0] - slope2*p3[0]) / (slope1 - slope2)
-            y = slope1*(x - p1[0]) + p1[1]
-        else:
-            # Slope2 is inf
-            x = p4[0]
-            y = slope1 * (x - p1[0]) + p1[1]
-
-        return (int(x), int(y))
 
     def setRotation(self):
         """

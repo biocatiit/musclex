@@ -35,11 +35,12 @@ import os
 from os.path import exists, splitext, join
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Normalize
 import numpy as np
 import cv2
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
-from ..utils.image_processor import getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
+from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
 from ..CalibrationSettings import CalibrationSettings
@@ -146,6 +147,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxes_on_img = {}
         self.boxtypes = {}
         self.bgsubs = {}
+        self.merid_bg = {}
         self.peaks = {}
         self.hull_ranges = {}
         self.centerx = None
@@ -160,6 +162,8 @@ class ProjectionTracesGUI(QMainWindow):
         self.dontShowAgainDoubleZoomMessageResult = False
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
+        self.chordLines = []
+        self.chordpoints = []
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
         self.initUI()
@@ -202,9 +206,39 @@ class ProjectionTracesGUI(QMainWindow):
         self.propGrp = QGroupBox("2. Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
+
         self.calibrateButton = QPushButton("Calibration Settings")
         self.calSettingsDialog = None
-        self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 1)
+        self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
+        self.setRotAndCentB.setCheckable(True)
+        self.setCentByChords = QPushButton("Set Center by Chords")
+        self.setCentByChords.setCheckable(True)
+        self.checkableButtons.append(self.setCentByChords)
+        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
+        self.setCentByPerp.setCheckable(True)
+        self.checkableButtons.append(self.setCentByPerp)
+        self.setRotationButton = QPushButton("Set Rotation Angle")
+        self.setRotationButton.setCheckable(True)
+        self.checkableButtons.append(self.setRotationButton)
+        self.qfChkBx = QCheckBox("Quadrant Folded?")
+        self.qfChkBx.setChecked(True)
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        self.maskThresSpnBx = QDoubleSpinBox()
+        self.maskThresSpnBx.setMinimum(-10000)
+        self.maskThresSpnBx.setMaximum(10000)
+        self.maskThresSpnBx.setValue(-999)
+        self.maskThresSpnBx.setKeyboardTracking(False)
+
+        self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 4)
+        self.propLayout.addWidget(self.setCentByChords, 1, 0, 1, 4)
+        self.propLayout.addWidget(self.setCentByPerp, 2, 0, 1, 4)
+        self.propLayout.addWidget(self.setRotAndCentB, 3, 0, 1, 4)
+        self.propLayout.addWidget(self.setRotationButton, 4, 0, 1, 4)
+        self.propLayout.addWidget(self.qfChkBx, 5, 0, 1, 2)
+        self.propLayout.addWidget(self.doubleZoom, 5, 2, 1, 2)
+        self.propLayout.addWidget(QLabel('Mask Threshold:'), 6, 0, 1, 2)
+        self.propLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
 
         # Box selection
         self.boxGrp = QGroupBox("3. Add boxes")
@@ -234,22 +268,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.checkableButtons.append(self.selectPeaksButton)
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
 
-        # Mask threshold selection
-        self.maskThresGrp = QGroupBox("Mask Threshold")
-        self.maskThresGrp.setEnabled(False)
-        self.maskThresLayout = QVBoxLayout(self.maskThresGrp)
-        self.maskThresSpnBx = QDoubleSpinBox()
-        self.maskThresSpnBx.setMinimum(-10000)
-        self.maskThresSpnBx.setMaximum(10000)
-        self.maskThresSpnBx.setValue(-999)
-        self.maskThresSpnBx.setKeyboardTracking(False)
-        self.maskThresLayout.addWidget(self.maskThresSpnBx)
-
         self.leftFrameLayout.addWidget(self.selectImageGrp)
         self.leftFrameLayout.addSpacing(10)
         self.leftFrameLayout.addWidget(self.propGrp)
-        self.leftFrameLayout.addSpacing(10)
-        self.leftFrameLayout.addWidget(self.maskThresGrp)
         self.leftFrameLayout.addSpacing(10)
         self.leftFrameLayout.addWidget(self.boxGrp)
         self.leftFrameLayout.addSpacing(10)
@@ -270,18 +291,11 @@ class ProjectionTracesGUI(QMainWindow):
         self.peaksChkBx.setChecked(True)
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
-        self.qfChkBx = QCheckBox("Quadrant Folded?")
-        self.qfChkBx.setChecked(True)
+
         self.imgZoomInB = QPushButton("Zoom In")
         self.imgZoomInB.setCheckable(True)
-        self.imgZoomOutB = QPushButton("Full")
-        self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
-        self.setRotAndCentB.setCheckable(True)
-        self.setRotAndCentB.setFixedHeight(45)
         self.checkableButtons.append(self.imgZoomInB)
-
-        self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        self.imgZoomOutB = QPushButton("Full")
 
         self.minIntLabel = QLabel("Min Intensity")
         self.minIntSpnBx = QDoubleSpinBox()
@@ -294,19 +308,20 @@ class ProjectionTracesGUI(QMainWindow):
         self.maxIntSpnBx.setDecimals(2)
         self.maxIntSpnBx.setKeyboardTracking(False)
 
-        self.dispOptLayout.addWidget(self.boxesChkBx, 0, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.peaksChkBx, 1, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.qfChkBx, 2, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.centerChkBx, 3, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.setRotAndCentB, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.doubleZoom, 5, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 6, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 6, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntLabel, 7, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.minIntSpnBx, 7, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 8, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntSpnBx, 8, 1, 1, 1)
+        self.persistIntensity = QCheckBox("Persist intensities")
+        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
 
+        self.dispOptLayout.addWidget(self.minIntLabel, 0, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.minIntSpnBx, 1, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.maxIntLabel, 0, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.maxIntSpnBx, 1, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.persistIntensity, 2, 0, 1, 4)
+        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 3, 0, 1, 4)
+        self.dispOptLayout.addWidget(self.imgZoomInB, 4, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomOutB, 4, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.centerChkBx, 5, 0, 1, 4)
+        self.dispOptLayout.addWidget(self.boxesChkBx, 6, 0, 1, 4)
+        self.dispOptLayout.addWidget(self.peaksChkBx, 7, 0, 1, 4)
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
         self.blankImageGrp.setCheckable(True)
@@ -338,13 +353,13 @@ class ProjectionTracesGUI(QMainWindow):
         self.nextFileButton.setToolTip('Next H5 File in this Folder')
         self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.bottomLayout = QGridLayout()
-        self.bottomLayout.addWidget(self.exportChkBx, 0, 0, 1, 2)
-        self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
-        self.bottomLayout.addWidget(self.processH5FolderButton, 2, 0, 1, 2)
-        self.bottomLayout.addWidget(self.prevButton, 3, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextButton, 3, 1, 1, 1)
-        self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextFileButton, 4, 1, 1, 1)
+        self.bottomLayout.addWidget(self.exportChkBx, 0, 0, 1, 4)
+        self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 4)
+        self.bottomLayout.addWidget(self.processH5FolderButton, 2, 0, 1, 4)
+        self.bottomLayout.addWidget(self.prevButton, 3, 0, 1, 2)
+        self.bottomLayout.addWidget(self.nextButton, 3, 2, 1, 2)
+        self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 2)
+        self.bottomLayout.addWidget(self.nextFileButton, 4, 2, 1, 2)
 
         self.rightFrameLayout.addWidget(self.dispOptGrp)
         self.rightFrameLayout.addSpacing(10)
@@ -407,6 +422,12 @@ class ProjectionTracesGUI(QMainWindow):
 
         # # Pattern Properties
         self.calibrateButton.clicked.connect(self.calibrationClicked)
+        self.setRotationButton.clicked.connect(self.setRotation)
+        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
+        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
+        self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
+        self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
+        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
 
         # Display options
         self.maxIntSpnBx.valueChanged.connect(self.updateImage)
@@ -414,11 +435,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxesChkBx.stateChanged.connect(self.updateImage)
         self.peaksChkBx.stateChanged.connect(self.updateImage)
         self.centerChkBx.stateChanged.connect(self.updateImage)
-        self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-        self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
-        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
+        self.logScaleIntChkBx.stateChanged.connect(self.updateImageTab)
 
         # Blank Image
         self.blankImageGrp.clicked.connect(self.blankChecked)
@@ -533,6 +552,142 @@ class ProjectionTracesGUI(QMainWindow):
                 return True
         return False
 
+    def setCenterByChordsClicked(self):
+        """
+        Prepare for manual rotation center setting by selecting chords
+        """
+        if self.projProc is None:
+            return
+
+        if self.setCentByChords.isChecked():
+            self.rotated = False
+            self.updateImage()
+            ax = self.displayImgAxes
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines[i].remove()
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches[i].remove()
+            self.displayImgCanvas.draw_idle()
+            self.chordpoints=[]
+            self.chordLines = []
+            self.function = ["chords_center"]  # set current active function
+        else:
+            QApplication.restoreOverrideCursor()
+            print("Finding Chords center ...")
+            centers = []
+            for i, line1 in enumerate(self.chordLines):
+                for line2 in self.chordLines[i + 1:]:
+                    if line1[0] == line2[0]:
+                        continue  # parallel lines
+                    if line1[0] == float('inf'):
+                        xcent = line1[1]
+                        ycent = line2[0] * xcent + line2[1]
+                    elif line2[0] == float('inf'):
+                        xcent = line2[1]
+                        ycent = line1[0] * xcent + line1[1]
+                    else:
+                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
+                        ycent = line1[0] * xcent + line1[1]
+                    center = [xcent, ycent]
+                    print("CenterCalc ", center)
+
+                    centers.append(center)
+
+            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
+            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
+            new_center = [cx, cy] #np.dot(invM, homo_coords)
+            print("New center ", new_center)
+            self.centerx = int(round(new_center[0]))
+            self.centery = int(round(new_center[1]))
+            self.projProc.info['centerx'] = self.centerx
+            self.projProc.info['centery'] = self.centery
+            self.projProc.info['orig_center'] = (self.centerx, self.centery)
+            self.setCentByChords.setChecked(False)
+            self.center_func = 'manual'
+            self.rotated = True
+            self.removeAllTabs()
+            self.processImage()
+            self.addBoxTabs()
+            self.updateImage()
+
+    def setCenterByPerpClicked(self):
+        """
+        Prepare for manual center selection using perpendicular peaks
+        :return:
+        """
+        if self.projProc is None:
+            return
+        if self.setCentByPerp.isChecked():
+            self.rotated = False
+            self.updateImage()
+            ax = self.displayImgAxes
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines[i].remove()
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches[i].remove()
+            self.displayImgCanvas.draw_idle()
+            self.function = ["perp_center"]  # set current active function
+        else:
+            QApplication.restoreOverrideCursor()
+            func = self.function
+            horizontalLines = []
+            verticalLines = []
+            intersections = []
+            for i in range(1, len(func) - 1, 2):
+                slope = calcSlope(func[i], func[i + 1])
+                if abs(slope) > 1:
+                    verticalLines.append((func[i], func[i + 1]))
+                else:
+                    horizontalLines.append((func[i], func[i + 1]))
+            for line1 in verticalLines:
+                for line2 in horizontalLines:
+                    cx, cy = getIntersectionOfTwoLines(line2, line1)
+                    print("Intersection ", (cx, cy))
+                    intersections.append((cx, cy))
+            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
+            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
+
+            new_center = [cx, cy]  # np.dot(invM, homo_coords)
+            # Set new center and rotaion angle , re-calculate R-min
+            print("New Center ", new_center)
+            self.centerx = int(round(new_center[0]))
+            self.centery = int(round(new_center[1]))
+            self.projProc.info['centerx'] = self.centerx
+            self.projProc.info['centery'] = self.centery
+            self.projProc.info['orig_center'] = (self.centerx, self.centery)
+            self.setCentByPerp.setChecked(False)
+            self.center_func = 'manual'
+            self.rotated = True
+            self.removeAllTabs()
+            self.processImage()
+            self.addBoxTabs()
+            self.updateImage()
+
+    def setRotation(self):
+        """
+        Trigger when set center and rotation angle button is pressed
+        """
+        if self.setRotationButton.isChecked():
+            # clear plot
+            self.left_status.setText(
+                "Rotate the line to the pattern equator (ESC to cancel)")
+            self.rotated = False
+            self.updateImage()
+            ax = self.displayImgAxes
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines[i].remove()
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches[i].remove()
+            self.displayImgCanvas.draw_idle()
+            self.function = ["im_rotate"]
+        else:
+            self.function = None
+            self.rotated = True
+            self.removeAllTabs()
+            self.addBoxTabs()
+            self.updateImage()
+            self.refreshStatusbar()
+
     def setAngleAndCenterClicked(self):
         """
         Triggered when the Set angle and center button is clicked
@@ -551,6 +706,13 @@ class ProjectionTracesGUI(QMainWindow):
                 ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
             self.function = ["angle_center"]
+        else:
+            self.function = None
+            self.rotated = True
+            self.removeAllTabs()
+            self.addBoxTabs()
+            self.updateImage()
+            self.refreshStatusbar()
 
     def doubleZoomChecked(self):
         """
@@ -840,6 +1002,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxtypes = {}
         self.boxes_on_img = {}
         self.bgsubs = {}
+        self.merid_bg = {}
         self.peaks = {}
         self.hull_ranges = {}
         self.removeAllTabs()
@@ -1047,10 +1210,10 @@ class ProjectionTracesGUI(QMainWindow):
 
         x = event.xdata
         y = event.ydata
+        ax = self.displayImgAxes
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1096,6 +1259,7 @@ class ProjectionTracesGUI(QMainWindow):
                         break
             else:
                 self.function = ['im_move', (x, y)]
+
         elif func[0] == 'box':
             # First draw two lines
             func.append((x, y))
@@ -1114,13 +1278,13 @@ class ProjectionTracesGUI(QMainWindow):
                     self.boxtypes[name] = 'h' if axis == 0 else 'v'
                     self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
                     self.bgsubs[name] = bgsub
+                    self.merid_bg[name] = True
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
             if len(func) == 1: # select a pivot
-                ax = self.displayImgAxes
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1134,7 +1298,6 @@ class ProjectionTracesGUI(QMainWindow):
                 deltay = y - pivot[1]
                 x2 = pivot[0] - deltax
                 y2 = pivot[1] - deltay
-                ax = self.displayImgAxes
                 ax.lines.clear()
                 ax.plot([x, x2], [y, y2], color="r")
                 self.displayImgCanvas.draw_idle()
@@ -1148,7 +1311,6 @@ class ProjectionTracesGUI(QMainWindow):
                 self.setLeftStatus("Drag to select the width of the box (must be less than the length) (ESC to cancel)")
 
             elif len(func) == 3: # drag to select the width
-                ax = self.displayImgAxes
                 if len(ax.patches) > 0:
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
                         ax.patches[i].remove()
@@ -1230,7 +1392,7 @@ class ProjectionTracesGUI(QMainWindow):
                         self.boxtypes[name] = 'oriented'
                         self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
                         self.bgsubs[name] = bgsub
-
+                        self.merid_bg[name] = True
                         self.function = None
 
                         self.addBoxTabs()
@@ -1239,7 +1401,6 @@ class ProjectionTracesGUI(QMainWindow):
         elif func[0] == "peaks":
             peaks = func[1]
             if len(self.allboxes.keys()) > 0:
-                ax = self.displayImgAxes
                 for name in self.allboxes.keys():
                     box = self.allboxes[name]
                     boxx = box[0]
@@ -1285,7 +1446,6 @@ class ProjectionTracesGUI(QMainWindow):
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == "angle_center":
-            ax = self.displayImgAxes
             axis_size = 5
             if self.doubleZoom.isChecked() and not self.doubleZoomMode:
                 x, y = self.doubleZoomToOrigCoord(x, y)
@@ -1311,26 +1471,77 @@ class ProjectionTracesGUI(QMainWindow):
 
                 cx = int(round((x1 + x2) / 2.))
                 cy = int(round((y1 + y2) / 2.))
-                self.projProc.info['rotationAngle'] = 0
-                M = cv2.getRotationMatrix2D((self.projProc.info['centerx'], self.projProc.info['centery']), self.projProc.info['rotationAngle'], 1)
-                invM = cv2.invertAffineTransform(M)
-                homo_coords = [cx, cy, 1.]
-                new_center = np.dot(invM, homo_coords)
+                # self.projProc.info['rotationAngle'] = 0
+                # M = cv2.getRotationMatrix2D((self.projProc.info['centerx'], self.projProc.info['centery']), self.projProc.info['rotationAngle'], 1)
+                # invM = cv2.invertAffineTransform(M)
+                # homo_coords = [cx, cy, 1.]
+                # new_center = np.dot(invM, homo_coords)
+                new_center = [cx, cy]
                 self.centerx = int(round(new_center[0]))
                 self.centery = int(round(new_center[1]))
+                self.projProc.info['centerx'] = self.centerx
+                self.projProc.info['centery'] = self.centery
                 self.projProc.info['orig_center'] = (self.centerx, self.centery)
                 self.rotationAngle = new_angle
                 self.projProc.info['rotationAngle'] = new_angle
                 self.setRotAndCentB.setChecked(False)
                 self.center_func = 'manual'
                 self.rotated = True
-                self.updateCenter()
+                # self.updateCenter()
                 self.removeAllTabs()
                 self.processImage()
                 self.addBoxTabs()
                 self.updateImage()
-        else:
-            if func[0] == "im_zoomin":
+
+        elif func[0] == "perp_center":
+            axis_size = 5
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
+                start_pt = func[len(func) - 1]
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.displayImgCanvas.draw_idle()
+            func.append((x, y))
+
+        elif func[0] == "chords_center":
+            axis_size = 5
+            self.chordpoints.append([x, y])
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            if len(self.chordpoints) >= 3:
+                self.drawPerpendiculars()
+            self.displayImgCanvas.draw_idle()
+
+        elif func[0] == "im_rotate":
+            # set rotation angle
+            center = self.projProc.info['orig_center']
+
+            if center[0] < x:
+                x1 = center[0]
+                y1 = center[1]
+                x2 = x
+                y2 = y
+            else:
+                x1 = x
+                y1 = y
+                x2 = center[0]
+                y2 = center[1]
+
+            if abs(x2 - x1) == 0:
+                new_angle = -90
+            else:
+                new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
+
+            self.rotationAngle = new_angle
+            self.projProc.info['rotationAngle'] = new_angle
+            self.setRotationButton.setChecked(False)
+            self.rotated = True
+            self.removeAllTabs()
+            self.processImage()
+            self.addBoxTabs()
+            self.updateImage()
+
+        elif func[0] == "im_zoomin":
                 func.append((x, y))
                 if len(func) == 3:
                     p1 = func[1]
@@ -1380,6 +1591,7 @@ class ProjectionTracesGUI(QMainWindow):
         x = event.xdata
         y = event.ydata
         img = self.projProc.orig_img
+        ax = self.displayImgAxes
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             x = int(round(x))
@@ -1403,7 +1615,6 @@ class ProjectionTracesGUI(QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.pixel_detail.setText("")
-            ax = self.displayImgAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1427,7 +1638,6 @@ class ProjectionTracesGUI(QMainWindow):
             # draw rectangle
             if len(func) < 2:
                 return
-            ax = self.displayImgAxes
             if len(ax.patches) > 0:
                 ax.patches[-1].remove()
             start_pt = func[1]
@@ -1442,14 +1652,12 @@ class ProjectionTracesGUI(QMainWindow):
         elif func[0] == 'box':
             if len(func) == 1:
                 # cross lines
-                ax = self.displayImgAxes
                 ax.lines.clear()
                 ax.axhline(y, color='y', linestyle='dotted')
                 ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 2:
                 # draw rectangle
-                ax = self.displayImgAxes
                 if len(ax.patches) > 0:
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
                         ax.patches[i].remove()
@@ -1465,7 +1673,6 @@ class ProjectionTracesGUI(QMainWindow):
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
-            ax = self.displayImgAxes
             ax.lines.clear()
             if len(func) == 1:
                 axis_size = 5
@@ -1530,13 +1737,13 @@ class ProjectionTracesGUI(QMainWindow):
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
-                ax = self.displayImgAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.displayImgCanvas.draw_idle()
+
         elif func[0] == 'box_move':
             box = self.boxes_on_img[func[1]]
             offset = (x - func[2][0], y - func[2][1])
@@ -1546,9 +1753,101 @@ class ProjectionTracesGUI(QMainWindow):
             box['text'].set_position((xy_t[0] + offset[0], xy_t[1] + offset[1]))
             self.displayImgCanvas.draw_idle()
             func[2] = (x, y)
+
+        elif func[0] == "perp_center":
+            # draw X on points and a line between points
+            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
+            axis_size = 5
+
+            if len(func) == 1:
+                if len(ax.lines) > 0:
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        ax.lines[i].remove()
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    for i in range(len(ax.lines) - 1, 1, -1):
+                        ax.lines[i].remove()
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            elif len(func) % 2 != 0:
+                if len(ax.lines) > 0:
+                    n = (len(func)-1)*5//2 + 2
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
+                        ax.lines[i].remove()
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
+            elif len(func) % 2 == 0:
+                start_pt = func[-1]
+                if len(ax.lines) > 3:
+                    n = len(func) * 5 // 2 - 1
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
+                        ax.lines[i].remove()
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomAxes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.displayImgCanvas.draw_idle()
+
+        elif func[0] == "chords_center":
+            if self.doubleZoom.isChecked():
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines[i].remove()
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.displayImgCanvas.draw_idle()
+
         elif func[0] == "angle_center":
             # draw X on points and a line between points
-            ax = self.displayImgAxes
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
 
@@ -1590,6 +1889,32 @@ class ProjectionTracesGUI(QMainWindow):
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
 
+            self.displayImgCanvas.draw_idle()
+        
+        elif func[0] == "im_rotate":
+            # draw line as angle
+            center = self.projProc.info['orig_center']
+            deltax = x - center[0]
+            deltay = y - center[1]
+            x2 = center[0] - deltax
+            y2 = center[1] - deltay
+            if not self.doubleZoom.isChecked():
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines[i].remove()
+                ax.plot([x, x2], [y, y2], color="g")
+            else:
+                if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    axis_size = 1
+                    ax1 = self.doubleZoomAxes
+                    if len(ax1.lines) > 0:
+                        for i in range(len(ax1.lines)-1,-1,-1):
+                            ax1.lines[i].remove()
+                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                elif self.doubleZoomMode:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        ax.lines[i].remove()
+                    ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
 
     def imgReleased(self, event):
@@ -1693,13 +2018,13 @@ class ProjectionTracesGUI(QMainWindow):
         self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
         self.propGrp.setEnabled(True)
         self.boxGrp.setEnabled(True)
-        self.maskThresGrp.setEnabled(True)
         cache = self.loadBoxesAndPeaks()
         if cache is not None:
             self.allboxes = cache['boxes']
             self.peaks = cache['peaks']
             self.boxtypes = cache['types']
             self.bgsubs = cache['bgsubs']
+            self.merid_bg = cache['merid_bg']
             self.hull_ranges = cache['hull_ranges']
             self.centerx = cache['centerx']
             self.centery = cache['centery']
@@ -1727,9 +2052,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
         self.refreshStatusbar()
-        self.center_func = 'init'
+        if self.center_func is None:
+            self.center_func = 'init'
         self.updateCenter() # do not update fit results
-        self.center_func = None
         # Process new image
         self.processImage()
 
@@ -1752,13 +2077,14 @@ class ProjectionTracesGUI(QMainWindow):
         self.maxIntSpnBx.setSingleStep(step)
 
         # use cached values if they're available
-        if "minInt" in self.projProc.info and "maxInt" in self.projProc.info:
-            self.minIntSpnBx.setValue(self.projProc.info["minInt"])
-            self.maxIntSpnBx.setValue(self.projProc.info["maxInt"])
-        else:
-            if self.maxIntSpnBx.value() == 0:
-                self.minIntSpnBx.setValue(0)  # init min intensity as min value
-                self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
+        if not self.persistIntensity.isChecked():
+            if "minInt" in self.projProc.info and "maxInt" in self.projProc.info:
+                self.minIntSpnBx.setValue(self.projProc.info["minInt"])
+                self.maxIntSpnBx.setValue(self.projProc.info["maxInt"])
+            else:
+                if self.maxIntSpnBx.value() == 0:
+                    self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
+                    self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
 
         self.maskThresSpnBx.disconnect() # Avoid an extra run at launch
         if 'mask_thres' in self.projProc.info:
@@ -1868,6 +2194,7 @@ class ProjectionTracesGUI(QMainWindow):
             'peaks' : self.peaks,
             'types' : self.boxtypes,
             'bgsubs' : self.bgsubs,
+            'merid_bg' : self.merid_bg,
             'hull_ranges' : self.hull_ranges,
             'centerx' : self.centerx,
             'centery' : self.centery,
@@ -1904,6 +2231,9 @@ class ProjectionTracesGUI(QMainWindow):
         # add bgsub methods
         settings['bgsubs'] = self.bgsubs
 
+        # add meridian bg on/off
+        settings['merid_bg'] = self.merid_bg
+
         # add peaks location
         settings['peaks'] = self.peaks
 
@@ -1921,7 +2251,9 @@ class ProjectionTracesGUI(QMainWindow):
 
         if self.center_func == 'manual' or self.rotated:
             settings['rotated'] = True
-            settings['rotationAngle'] = self.rotationAngle
+            self.rotated = True
+            if self.rotationAngle != 0:
+                settings['rotationAngle'] = self.rotationAngle
 
         if self.calSettings is not None:
             if 'type' in self.calSettings:
@@ -2010,11 +2342,14 @@ class ProjectionTracesGUI(QMainWindow):
             img = self.projProc.getRotatedImage()
         else:
             img = self.projProc.orig_img
-        img = getBGR(get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value()))
+        img = get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value())
         ax = self.displayImgAxes
         ax.cla()
-        ax.imshow(img)
-
+        if self.logScaleIntChkBx.isChecked():
+            ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minIntSpnBx.value()), vmax=self.maxIntSpnBx.value()))
+        else:
+            ax.imshow(getBGR(img))
+        
         if len(self.allboxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
@@ -2074,6 +2409,26 @@ class ProjectionTracesGUI(QMainWindow):
         newX = dzx -10 + x
         newY = dzy - 10 + y
         return (newX, newY)
+
+    def drawPerpendiculars(self):
+        """
+        Draw perpendiculars on the image
+        """
+        ax = self.displayImgAxes
+        points = self.chordpoints
+        self.chordLines = []
+        for i, p1 in enumerate(points):
+            for p2 in points[i + 1:]:
+                slope, cent = getPerpendicularLineHomogenous(p1, p2)
+                if slope == float('inf'):
+                    y_vals = np.array(ax.get_ylim())
+                    x_vals = cent[0] + np.zeros(y_vals.shape)
+                    self.chordLines.append([slope, cent[0]])
+                else:
+                    x_vals = np.array(ax.get_xlim())
+                    y_vals = (x_vals - cent[0]) * slope + cent[1]
+                    self.chordLines.append([slope, cent[1] - slope * cent[0]])
+                ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
 
     def showAbout(self):
         """
