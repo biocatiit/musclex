@@ -64,6 +64,7 @@ class ProjectionTracesh:
         self.boxes_on_img = {}
         self.boxtypes = {}
         self.bgsubs = {}
+        self.merid_bg = {}
         self.peaks = {}
         self.hull_ranges = {}
         self.centerx = None
@@ -167,6 +168,7 @@ class ProjectionTracesh:
         self.boxtypes = {}
         self.boxes_on_img = {}
         self.bgsubs = {}
+        self.merid_bg = {}
         self.peaks = {}
         self.hull_ranges = {}
         self.processImage()
@@ -198,6 +200,7 @@ class ProjectionTracesh:
             self.peaks = cache['peaks']
             self.boxtypes = cache['types']
             self.bgsubs = cache['bgsubs']
+            self.merid_bg = cache['merid_bg']
             self.hull_ranges = cache['hull_ranges']
             self.centerx = cache['centerx']
             self.centery = cache['centery']
@@ -207,6 +210,7 @@ class ProjectionTracesh:
             self.peaks = savedParams['peaks']
             self.boxtypes = savedParams['types']
             self.bgsubs = savedParams['bgsubs']
+            self.merid_bg = savedParams['merid_bg']
             self.hull_ranges = savedParams['hull_ranges']
             self.centerx = savedParams['centerx']
             self.centery = savedParams['centery']
@@ -320,6 +324,7 @@ class ProjectionTracesh:
             'peaks' : self.peaks,
             'types' : self.boxtypes,
             'bgsubs' : self.bgsubs,
+            'merid_bg' : self.merid_bg,
             'hull_ranges' : self.hull_ranges,
             'centerx' : self.centerx,
             'centery' : self.centery,
@@ -374,6 +379,9 @@ class ProjectionTracesh:
         # add bgsub methods
         settings['bgsubs'] = self.bgsubs
 
+        # add meridian bg on/off
+        settings['merid_bg'] = self.merid_bg
+
         # add peaks location
         settings['peaks'] = self.peaks
 
@@ -391,7 +399,9 @@ class ProjectionTracesh:
 
         if self.center_func == 'manual' or self.rotated:
             settings['rotated'] = True
-            settings['rotationAngle'] = self.rotationAngle
+            self.rotated = True
+            if self.rotationAngle != 0:
+                settings['rotationAngle'] = self.rotationAngle
 
         if self.calSettings is not None:
             if 'type' in self.calSettings:
