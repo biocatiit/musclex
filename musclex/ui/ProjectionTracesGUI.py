@@ -2206,7 +2206,8 @@ class ProjectionTracesGUI(QMainWindow):
             'hull_ranges' : self.hull_ranges,
             'centerx' : self.centerx,
             'centery' : self.centery,
-            'center_func' : self.center_func
+            'center_func' : self.center_func,
+            'mask_thres' : self.maskThresSpnBx.value()
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)

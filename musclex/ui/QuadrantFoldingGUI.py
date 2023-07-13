@@ -870,6 +870,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 del self.quadFold.info['center']
             print("New center after extent ", self.quadFold.info['manual_center'])
             self.deleteInfo(['avg_fold'])
+            self.newImgDimension = None
             self.setCentByPerp.setChecked(False)
             self.processImage()
 
@@ -924,6 +925,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 del self.quadFold.info['center']
             print("New center after extent ", self.quadFold.info['manual_center'])
             self.deleteInfo(['avg_fold'])
+            self.newImgDimension = None
             self.setCentByChords.setChecked(False)
             self.processImage()
 
@@ -1270,6 +1272,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         del self.quadFold.info['center']
                     self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                     self.deleteInfo(['avg_fold'])
+                    self.newImgDimension = None
                     self.setCenterRotationButton.setChecked(False)
                     self.processImage()
             elif func[0] == "im_rotate":

@@ -35,7 +35,7 @@ from os.path import exists, splitext
 import numpy as np
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
-from ..utils.image_processor import getCenter, processImageForIntCenter
+from ..utils.image_processor import getMaskThreshold, getCenter, processImageForIntCenter
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..csv_manager import PT_CSVManager
 
@@ -55,11 +55,9 @@ class ProjectionTracesh:
         self.lock = lock
         self.current_file = 0
         self.calSettings = None
-        self.update_plot = {'img':True}
         self.projProc = None
         self.csvManager = None
         self.masked = False
-        self.function = None
         self.allboxes = {}
         self.boxes_on_img = {}
         self.boxtypes = {}
@@ -67,18 +65,13 @@ class ProjectionTracesh:
         self.merid_bg = {}
         self.peaks = {}
         self.hull_ranges = {}
+        self.mask_thres = -999
         self.centerx = None
         self.centery = None
         self.center_func = None
         self.rotated = False
         self.rotationAngle = 0
-        self.numberOfFiles = 0
         self.refit = False
-        self.doubleZoomMode = False
-        self.dontShowAgainDoubleZoomMessageResult = False
-        self.doubleZoomPt = (0, 0)
-        self.doubleZoomAxes = None
-        self.checkableButtons = []
 
         self.version = __version__
         if dir_path is not None:
@@ -104,89 +97,6 @@ class ProjectionTracesh:
             self.getSettings()
         self.onImageSelect()
 
-    def blankChecked(self):
-        """
-        Handle when the Blank image and mask is checked or unchecked
-        """
-        if self.projProc is not None:
-            self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
-            self.projProc.info['hists'] = {}
-            self.masked = False
-            self.processImage()
-
-    def maskThresChanged(self):
-        """
-        Trigger when Mask threshold is changed
-        """
-        if self.projProc is not None:
-            self.projProc.info['hists'] = {}
-            self.processImage()
-
-    def updatePeaks(self, name, peaks):
-        """
-        update peaks in box name
-        :param name:
-        :param peaks:
-        :return:
-        """
-        self.peaks[name] = peaks
-
-        # if name in self.hull_ranges:
-        #     del self.hull_ranges[name]
-
-    def addPeakstoBox(self, name, peaks):
-        """
-        add peaks to box and process image
-        :param name:
-        :param peaks:
-        :return:
-        """
-        self.updatePeaks(name, peaks)
-        self.processImage()
-
-    def addPeaks(self):
-        """
-        Triggered when Add a Box pressed
-        :return:
-        """
-        if self.projProc is None:
-            return
-
-        if self.function is not None and len(self.function) == 2:
-            # When Done clicked
-            peaks = self.function[1]
-            for name in peaks.keys():
-                self.updatePeaks(name, peaks[name])
-
-        self.processImage()
-
-    def clearBoxes(self):
-        """
-        Clear all boxes
-        """
-        self.allboxes = {}
-        self.boxtypes = {}
-        self.boxes_on_img = {}
-        self.bgsubs = {}
-        self.merid_bg = {}
-        self.peaks = {}
-        self.hull_ranges = {}
-        self.processImage()
-
-    def prevClicked(self):
-        """
-        Going to the previous image
-        """
-        self.current_file = (self.current_file - 1) % len(self.imgList)
-        self.onImageChanged()
-
-    def nextClicked(self):
-        """
-        Going to the next image
-        """
-        self.current_file = (self.current_file + 1) % len(self.imgList)
-        self.onImageChanged()
-
     def onImageSelect(self):
         """
         Triggered when a new image is selected
@@ -205,6 +115,7 @@ class ProjectionTracesh:
             self.centerx = cache['centerx']
             self.centery = cache['centery']
             self.center_func = cache['center_func']
+            self.mask_thres = cache['mask_thres']
         elif savedParams is not None:
             self.allboxes = savedParams['boxes']
             self.peaks = savedParams['peaks']
@@ -215,6 +126,7 @@ class ProjectionTracesh:
             self.centerx = savedParams['centerx']
             self.centery = savedParams['centery']
             self.center_func = savedParams['center_func']
+            self.mask_thres = savedParams['mask_thres']
             self.calSettings = savedParams
         else:
             self.allboxes = {}
@@ -228,11 +140,11 @@ class ProjectionTracesh:
         Process the new image if there's no cache.
         """
         self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
-        # self.initSpinBoxes(self.projProc.info)
-        self.img_zoom = None
-        self.center_func = 'init'
+        if self.mask_thres == -999:
+            self.mask_thres = getMaskThreshold(self.projProc.orig_img)
+        if self.center_func is None:
+            self.center_func = 'init'
         self.updateCenter() # do not update fit results
-        self.center_func = None
         # Process new image
         self.processImage()
 
@@ -250,9 +162,6 @@ class ProjectionTracesh:
         elif self.center_func == 'init': # loading from the cache if it exists
             self.centerx = self.projProc.info['centerx']
             self.centery = self.projProc.info['centery']
-            # if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
-            #     self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
-            #     self.qfChkBx.setChecked(False)
 
         self.projProc.info['centerx'] = self.centerx
         self.projProc.info['centery'] = self.centery
@@ -328,7 +237,8 @@ class ProjectionTracesh:
             'hull_ranges' : self.hull_ranges,
             'centerx' : self.centerx,
             'centery' : self.centery,
-            'center_func' : self.center_func
+            'center_func' : self.center_func,
+            'mask_thres' : self.mask_thres
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)
@@ -389,9 +299,10 @@ class ProjectionTracesh:
         settings['hull_ranges'] = self.hull_ranges
 
         # add blank image and mask
-        # settings['blank_mask'] = self.blankImageGrp.isChecked()
-
-        settings['mask_thres'] = -0.01 # self.maskThresSpnBx.value()
+        # if 'blank_mask' in self.projProc.info:
+        #     settings['blank_mask'] = self.projProc.info['blank_mask']
+        
+        settings['mask_thres'] = self.mask_thres
 
         if self.refit:
             settings['refit'] = self.refit

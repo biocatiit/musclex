@@ -323,7 +323,8 @@ class QuadrantFolder:
 
         b, l = img.shape
         if self.parent.newImgDimension is None:
-            qf_w, qf_h = 2*(l-center[0]), 2*(b-center[1])
+            # This is the max dimension in the case beamline is in a corner and image rotated to 45 degrees
+            qf_w, qf_h = 2.8*(l-center[0]), 2.8*(b-center[1])
             max_side = max(max(l,b), max(qf_w, qf_h))
             dim = int(self.expandImg*max_side)
             self.parent.newImgDimension = dim
