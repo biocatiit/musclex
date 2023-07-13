@@ -68,6 +68,7 @@ class ProjectionProcessor:
         self.rotated = False
         self.version = __version__
         self.masked = False
+        self.fixed_sigma = {}
         cache = self.loadCache()
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:
@@ -443,7 +444,10 @@ class ProjectionProcessor:
             # Init peaks params
             for j,p in enumerate(peaks):
                 params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
-                params.add('sigma' + str(j), 10, min=1, max=50.)
+                if j in self.fixed_sigma:
+                    params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
+                else:
+                    params.add('sigma' + str(j), 10, min=1, max=50.)
                 params.add('amplitude' + str(j), sum(hist)/10., min=-1)
                 # params.add('gamma' + str(j), 0. , min=0., max=30)
 
@@ -542,6 +546,18 @@ class ProjectionProcessor:
                 print("Centroid Result : " + str(results))
                 print("---")
 
+    def setGaussSig(self, box_name, peak_num, new_sigma):
+        """
+        Change Gaussian Sigma and clear previous fit
+        :param box_name: box name (str)
+        :param peak_num: peak name (int)
+        :param mew_sigma: new sigma value or percentage (str)
+        :return:
+        """
+        new_sigma = float(str(new_sigma))
+        self.fixed_sigma[peak_num] = new_sigma
+        self.removeInfo(box_name, 'fit_results')
+
     def setBaseline(self, box_name, peak_num, new_baseline):
         """
         Change baseline and clear centroid and width for the specific box and peak
@@ -560,7 +576,7 @@ class ProjectionProcessor:
             percent = float(new_baseline.rstrip("%"))
             baseline = height * percent / 100.
         elif len(new_baseline) == 0:
-            # if new_baseline is empty, baseline will by half-height
+            # if new_baseline is empty, baseline will be half-height
             baseline = float(height * .5)
         else:
             baseline = float(new_baseline)

@@ -256,7 +256,8 @@ class ProjectionBoxTab(QWidget):
         self.startHull.valueChanged.connect(self.hullRangeChanged)
         self.endHull.valueChanged.connect(self.hullRangeChanged)
 
-        self.resultTable2.itemChanged.connect(self.handleItemChanged)
+        self.resultTable1.itemChanged.connect(self.handleGaussSigChanged)
+        self.resultTable2.itemChanged.connect(self.handleBaselineChanged)
 
         self.prevButton.clicked.connect(self.parent.prevClicked)
         self.nextButton.clicked.connect(self.parent.nextClicked)
@@ -288,15 +289,45 @@ class ProjectionBoxTab(QWidget):
             self.parent.projProc.removeInfo(self.name, 'hists2')
             self.parent.processImage()
 
-    def handleItemChanged(self, item):
+    def handleGaussSigChanged(self, item):
         """
-        Trigger when a item in table is changed
+        Trigger when Gaussian Sigma in table is changed
+        :param item:
+        :return:
+        """
+        if self.parent.projProc is not None and item.column() == 2 and not self.syncUI:
+            try:
+                self.parent.projProc.setGaussSig(self.name, item.row(), item.text())
+                self.parent.processImage()
+            except ValueError:
+                errMsg = QMessageBox()
+                errMsg.setText('Invalid Value')
+                errMsg.setInformativeText("Please use an int or float number for the Gaussian Sigma value\n\n")
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
+                errMsg.exec_()
+                self.need_update = True
+                self.updateUI()
+
+    def handleBaselineChanged(self, item):
+        """
+        Trigger when baseline in table is changed
         :param item:
         :return:
         """
         if self.parent.projProc is not None and item.column() == 0 and not self.syncUI:
-            self.parent.projProc.setBaseline(self.name, item.row(), item.text())
-            self.parent.processImage()
+            try:
+                self.parent.projProc.setBaseline(self.name, item.row(), item.text())
+                self.parent.processImage()
+            except ValueError:
+                errMsg = QMessageBox()
+                errMsg.setText('Invalid Value')
+                errMsg.setInformativeText("Please use an int/float number or a percentage (using '%') for the baseline value\n\n")
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
+                errMsg.exec_()
+                self.need_update = True
+                self.updateUI()
 
     def zoomInclicked(self):
         """
@@ -781,7 +812,7 @@ class ProjectionBoxTab(QWidget):
                 self.resultTable1.setItem(i, 1, item)
 
                 item = QTableWidgetItem(str(sigma))
-                item.setFlags(Qt.ItemIsEnabled)
+                # item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 2, item)
 
                 item = QTableWidgetItem(str(area))

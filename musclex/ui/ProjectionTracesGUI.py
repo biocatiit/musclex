@@ -153,7 +153,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.centerx = None
         self.centery = None
         self.center_func = None
-        self.rotated = False
+        self.rotated = True
         self.rotationAngle = 0
         self.calSettingsDialog = None
         self.numberOfFiles = 0
@@ -605,6 +605,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.setCentByChords.setChecked(False)
             self.center_func = 'manual'
             self.rotated = True
+            self.updateCenter()
             self.removeAllTabs()
             self.processImage()
             self.addBoxTabs()
@@ -658,6 +659,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.setCentByPerp.setChecked(False)
             self.center_func = 'manual'
             self.rotated = True
+            self.updateCenter()
             self.removeAllTabs()
             self.processImage()
             self.addBoxTabs()
@@ -789,11 +791,13 @@ class ProjectionTracesGUI(QMainWindow):
         """
         if self.qfChkBx.isChecked():
             self.center_func = 'quadrant_fold'
+            self.rotated = False
         elif self.center_func == 'init':
+            self.rotated = False
             pass
         else:
             self.center_func = 'automatic'
-        self.rotated = False
+            self.rotated = True
         self.updateCenter()
         self.processImage()
         self.addBoxTabs()
@@ -1487,7 +1491,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.setRotAndCentB.setChecked(False)
                 self.center_func = 'manual'
                 self.rotated = True
-                # self.updateCenter()
+                self.updateCenter()
                 self.removeAllTabs()
                 self.processImage()
                 self.addBoxTabs()
@@ -2120,6 +2124,10 @@ class ProjectionTracesGUI(QMainWindow):
                 self.qfChkBx.disconnect()
                 self.qfChkBx.setChecked(False)
                 self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
+        elif self.center_func == 'manual':
+            self.qfChkBx.disconnect()
+            self.qfChkBx.setChecked(False)
+            self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
 
         self.projProc.info['centerx'] = self.centerx
         self.projProc.info['centery'] = self.centery

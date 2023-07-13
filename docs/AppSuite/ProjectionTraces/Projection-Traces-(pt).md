@@ -8,8 +8,6 @@ An important capability is to process whole directories of images without user i
 
 **If using a version prior to MuscleX 1.14.11, it is important that these images have been pre-processed using the Quadrant Folding program to ensure that the center of the diffraction pattern coincides with the center of the image (image width/2 and image height/2) with the meridian of the pattern parallel to the long axis of the image** 
 
-*This program is available on MuscleX version 1.3.0 or later.*
-
 ![-](../../images/PT/boxes_peaks.png)
 
 ### More Details
