@@ -1194,18 +1194,18 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     # both width and height selected
                     extent, center = self.getExtentAndCenter()
-                    half_height = abs(func[1] - center[0])
-                    half_width = abs(abs(int(y)) - center[1])
+                    half_width = abs(func[1] - center[0])
+                    half_height = abs(abs(int(y)) - center[1])
                     # img_center = self.quadFold.info['center']
                     print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
 
-                    dim = self.newImgDimension
-                    initImg = self.quadFold.initImg
-                    scaleX = initImg.shape[0]/dim
-                    scaleY = initImg.shape[1]/dim
+                    # dim = self.newImgDimension
+                    initImg = self.img
+                    scaleX = 1 # initImg.shape[0]/dim
+                    scaleY = 1 # initImg.shape[1]/dim
                     half_width = int(half_width*scaleX)
                     half_height = int(half_height*scaleY)
-                    croppedImage = initImg[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)]
+                    croppedImage = initImg[int(extent[1]+ center[1] - half_height):int(extent[1]+center[1] + half_height), int(extent[0]+center[0] - half_width):int(extent[0]+center[0] + half_width)]
                     new_img = np.zeros(initImg.shape)
                     # Placing cropped image in new image such that size of original image matches new image
                     new_img[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)] = croppedImage
