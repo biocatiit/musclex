@@ -22,6 +22,7 @@ In Display Options section, you are able to select what you want to see in the i
 * Center : blue dot 
 * Integrated Area (Box Width) : green lines
 * R-min : red dotted circle
+* R-max : orange dotted circle
 * Histogram : white plot as original histogram and red line as fitting model
 * Peaks : yellow lines
 
@@ -54,8 +55,11 @@ This assumes that the center of diffraction is correct. After the button is clic
 ![-](../../images/BM/rotation.png)
 
 ##### Set Manual R-min
-After the button clicked, you will see the red circle when you move the cursor around. To set manual R-min, please click on image when the circle size is the size of R-min you want. To cancel, press ESC.<br/>
+Once the button is clicked, you will see a red circle when you move the cursor around. To set manual R-min, please click on image when the circle size is the size of R-min you want. To cancel, press ESC.<br/>
 ![-](../../images/BM/rmin.png)
+
+##### Set Manual R-max
+This function is useful to remove outside artifacts on an image. The convexhull functions will only consider what is between R-min and R-max. By default, R-max is not set, so the outside bound is the image border. Once the button is clicked, you will see a red circle when you move the cursor around. To set manual R-max, please click on the image when the circle size is the size of R-max you want. To cancel, press ESC.<br/>
 
 ##### Set Box Width (Integrated Area)
 To set the integrated area, you need to click 2 positions of the image. The first one will be the start line, and the second one will be the end line. To cancel, press ESC.<br/>
@@ -68,7 +72,13 @@ See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more
 This feature will allow users to fixed rotation angle for every image which has not been processed. After the checkbox is checked, the manual rotation angle which is set by buttons will be ignored.
 
 ##### Fixed Box Width (Integrated Area)
-This feature works in the same way as fixed angle, but the fixed value will be start and end position (pixel) of the box
+This feature works in the same way as fixed angle, but the fixed value will be start and end position (pixel) of the box.
+
+##### Fixed R-min
+This feature works in the same way as fixed angle.
+
+##### Fixed R-max
+This feature works in the same way as fixed angle. By default, R-max is not set, so the default value displayed ("1") is irrelevant until you manually set or fix it.
 
 ##### Double Zoom
 This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>

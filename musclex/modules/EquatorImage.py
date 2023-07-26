@@ -158,6 +158,9 @@ class EquatorImage:
             else:
                 del settings['orientation_model']
         self.info.update(settings)
+        if 'fixed_rmax' in self.info:
+            self.info['rmax'] = self.info['fixed_rmax']
+            print("R-max is fixed as " + str(self.info['rmax']))
 
     def applyBlankAndMask(self):
         """
@@ -377,7 +380,10 @@ class EquatorImage:
         if 'hulls' not in self.info:
             center = self.info['center']
             shapes = self.image.shape
-            rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.8)
+            if 'rmax' in self.info:
+                rmax = self.info['rmax']
+            else:
+                rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.8)
             rmin = self.info['rmin']
             hist = copy.copy(self.info['hist'])
             int_area = self.info['int_area']

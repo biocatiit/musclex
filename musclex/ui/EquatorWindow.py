@@ -178,6 +178,7 @@ class EquatorWindow(QMainWindow):
         self.centerChkBx.setChecked(True)
         self.rminChkBx = QCheckBox('R-min')
         self.rminChkBx.setChecked(True)
+        self.rmaxChkBx = QCheckBox('R-max')
         self.histChkBx = QCheckBox('Histogram')
         self.histChkBx.setChecked(True)
         self.intChkBx = QCheckBox('Integrated Area')
@@ -204,8 +205,9 @@ class EquatorWindow(QMainWindow):
         self.imgDispOptLayout.addWidget(self.centerChkBx,1,0,1,2)
         self.imgDispOptLayout.addWidget(self.intChkBx,1,2,1,2)
         self.imgDispOptLayout.addWidget(self.rminChkBx,2,0,1,2)
-        self.imgDispOptLayout.addWidget(self.histChkBx,2,2,1,2)
-        self.imgDispOptLayout.addWidget(self.imgPeakChkBx,3,0,1,2)
+        self.imgDispOptLayout.addWidget(self.rmaxChkBx,2,2,1,2)
+        self.imgDispOptLayout.addWidget(self.histChkBx,3,0,1,2)
+        self.imgDispOptLayout.addWidget(self.imgPeakChkBx,3,2,1,2)
         self.imgDispOptLayout.addWidget(self.minIntLabel,4,0,1,2)
         self.imgDispOptLayout.addWidget(self.maxIntLabel,4,2,1,2)
         self.imgDispOptLayout.addWidget(self.minIntSpnBx, 5, 0, 1, 2)
@@ -234,16 +236,20 @@ class EquatorWindow(QMainWindow):
         self.setRminB = QPushButton("Set R-min")
         self.setRminB.setCheckable(True)
         # self.setRminB.setFixedHeight(45)
+        self.setRmaxB = QPushButton("Set R-max")
+        self.setRmaxB.setCheckable(True)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
-        self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setAngleB])
+        self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setRmaxB, self.setAngleB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle:")
         self.fixedAngleChkBx.setChecked(False)
         self.fixedRminChkBx = QCheckBox("Fixed R-min:")
         self.fixedRminChkBx.setChecked(False)
+        self.fixedRmaxChkBx = QCheckBox("Fixed R-max:")
+        self.fixedRmaxChkBx.setChecked(False)
         self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
         self.modeAngleChkBx = QCheckBox("Mode orientation")
@@ -260,6 +266,12 @@ class EquatorWindow(QMainWindow):
         self.fixedRmin.setKeyboardTracking(False)
         self.fixedRmin.setRange(1, 1000)
         self.fixedRmin.setEnabled(False)
+        self.fixedRmax = QSpinBox()
+        self.fixedRmax.setObjectName('fixedRmax')
+        self.editableVars[self.fixedRmax.objectName()] = None
+        self.fixedRmax.setKeyboardTracking(False)
+        self.fixedRmax.setRange(1, 10000)
+        self.fixedRmax.setEnabled(False)
         self.applyBlank = QCheckBox("Apply Blank Image and Mask")
         self.doubleZoom = QCheckBox("Double Zoom")
         self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
@@ -290,26 +302,29 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setRotAndCentB, 2, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setAngleB, 2, 2, 1, 2)
         self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setIntAreaB, 3, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.brightSpot,4, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.applyBlank, 5, 0, 1, 3)
-        self.imgProcLayout.addWidget(self.blankSettings, 5, 3, 1, 1)
-        self.imgProcLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 6, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 7, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 7, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 8, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 9, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 9, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 10, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 10, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 11, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 11, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 12, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 12, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setRmaxB, 3, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setIntAreaB, 4, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.brightSpot, 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.applyBlank, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.blankSettings, 6, 3, 1, 1)
+        self.imgProcLayout.addWidget(self.doubleZoom, 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 7, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 8, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 9, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 10, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 10, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 11, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmax, 11, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 12, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 12, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 13, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 13, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 14, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 14, 2, 1, 2)
 
-        self.imgProcLayout.addWidget(self.resetAllB, 13, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.resetAllB, 15, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
@@ -616,6 +631,7 @@ class EquatorWindow(QMainWindow):
         self.centerChkBx.setToolTip("Show the detected projection center")
         self.intChkBx.setToolTip("Show the detected Integrated area ")
         self.rminChkBx.setToolTip("Show the detected R-min")
+        self.rmaxChkBx.setToolTip("Show the selected R-max")
         self.histChkBx.setToolTip("Show the background subtracted histogram obtained using convex hull operators")
         self.imgPeakChkBx.setToolTip("Show the detected peaks")
         self.minIntSpnBx.setToolTip("Increase in the minimal intensity shown to allow for more details in the image")
@@ -632,6 +648,7 @@ class EquatorWindow(QMainWindow):
         self.setAngleB.setToolTip(
             "Activate rotation adjustment.\n To adjust, please click when the line is on the equator of diffraction")
         self.setRminB.setToolTip("Activate R-min adjustment.\n To adjust, please click location of R-min on the image")
+        self.setRmaxB.setToolTip("Activate R-max adjustment.\n To adjust, please click location of R-max on the image")
         self.setIntAreaB.setToolTip(
             "Activate Integrated Area adjustment.\n To adjust, please click start and end position of the Integrated area on the image")
         self.brightSpot.setToolTip("Use The Brightest Spots to Find The Orientation\n")
@@ -677,6 +694,7 @@ class EquatorWindow(QMainWindow):
         self.histChkBx.stateChanged.connect(self.updateImage)
         self.intChkBx.stateChanged.connect(self.updateImage)
         self.rminChkBx.stateChanged.connect(self.updateImage)
+        self.rmaxChkBx.stateChanged.connect(self.updateImage)
         self.imgPeakChkBx.stateChanged.connect(self.updateImage)
         self.minIntSpnBx.editingFinished.connect(self.intensityChanged)
         self.maxIntSpnBx.editingFinished.connect(self.intensityChanged)
@@ -690,14 +708,17 @@ class EquatorWindow(QMainWindow):
         self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.setAngleB.clicked.connect(self.setAngleClicked)
         self.setRminB.clicked.connect(self.setRminClicked)
+        self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
         self.brightSpot.clicked.connect(self.brightSpotClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
+        self.fixedRmaxChkBx.stateChanged.connect(self.fixedRmaxChecked)
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.fixedAngle.editingFinished.connect(self.fixedAngleChanged)
         self.fixedRmin.editingFinished.connect(self.fixedRminChanged)
+        self.fixedRmax.editingFinished.connect(self.fixedRmaxChanged)
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
         self.applyBlank.stateChanged.connect(self.applyBlankChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
@@ -895,6 +916,8 @@ class EquatorWindow(QMainWindow):
             text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
         if 'fixed_rmin' in settings:
             text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
+        if 'fixed_rmax' in settings:
+            text += "\n  - Fixed R-max : " + str(settings["fixed_rmax"])
         if 'fixed_int_area' in settings:
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
@@ -1475,6 +1498,8 @@ class EquatorWindow(QMainWindow):
             text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
         if 'fixed_rmin' in settings:
             text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
+        if 'fixed_rmax' in settings:
+            text += "\n  - Fixed R-max : " + str(settings["fixed_rmax"])
         if 'fixed_int_area' in settings:
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
@@ -1574,6 +1599,8 @@ class EquatorWindow(QMainWindow):
             text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
         if 'fixed_rmin' in settings:
             text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
+        if 'fixed_rmax' in settings:
+            text += "\n  - Fixed R-max : " + str(settings["fixed_rmax"])
         if 'fixed_int_area' in settings:
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
@@ -1738,6 +1765,7 @@ class EquatorWindow(QMainWindow):
         if self.bioImg is not None:
             self.fixedAngleChkBx.setChecked(False)
             self.fixedRminChkBx.setChecked(False)
+            self.fixedRmaxChkBx.setChecked(False)
             self.fixedIntAreaChkBx.setChecked(False)
             self.bioImg.removeInfo()
             self.bioImg.delCache()
@@ -1786,6 +1814,7 @@ class EquatorWindow(QMainWindow):
         if self.bioImg is not None:
             self.bioImg.removeInfo('center')
             self.bioImg.removeInfo('rmin')
+            self.bioImg.removeInfo('rmax')
             self.bioImg.removeInfo('int_area')
             self.bioImg.removeInfo('hist')
             self.bioImg.removeInfo('hulls')
@@ -2117,6 +2146,22 @@ class EquatorWindow(QMainWindow):
             self.function = ["rmin"]  # set current active function
         else:
             self.resetUI()
+    
+    def setRmaxClicked(self):
+        """
+        Prepare for manual R-max setting
+        """
+        if self.setRmaxB.isChecked():
+            self.setLeftStatus("Please select R-max size (ESC to cancel)")
+            ax = self.displayImgAxes
+            for i in range(len(ax.lines)-1,-1,-1):
+                ax.lines[i].remove()
+            for i in range(len(ax.patches)-1,-1,-1):
+                ax.patches[i].remove()
+            self.displayImgCanvas.draw_idle()
+            self.function = ["rmax"]  # set current active function
+        else:
+            self.resetUI()
 
     def brightSpotClicked(self):
         """
@@ -2219,6 +2264,17 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo("rmin")
             self.bioImg.delCache()
             self.processImage()
+    
+    def fixedRmaxChecked(self):
+        """
+        Triggered when fixed R-max is checked or unchecked
+        """
+        self.fixedRmax.setEnabled(self.fixedRmaxChkBx.isChecked())
+        if not self.fixedRmaxChkBx.isChecked() and self.bioImg is not None:
+            self.bioImg.removeInfo("fixed_rmax")
+            self.bioImg.removeInfo("rmax")
+            self.bioImg.delCache()
+            self.processImage()
 
     def fixedIntAreaChecked(self):
         """
@@ -2298,6 +2354,15 @@ class EquatorWindow(QMainWindow):
         if self.bioImg is not None and not self.syncUI:
             self.log_changes('fixedRmin', obj=self.fixedRmin)
             self.bioImg.info['fixed_rmin'] = self.fixedRmin.value()
+            self.processImage()
+
+    def fixedRmaxChanged(self):
+        """
+        Triggered when fixed R-max spinbox value is changed
+        """
+        if self.bioImg is not None and not self.syncUI:
+            self.log_changes('fixedRmax', obj=self.fixedRmax)
+            self.bioImg.info['fixed_rmax'] = self.fixedRmax.value()
             self.processImage()
 
     def orientationModelChanged(self):
@@ -2621,6 +2686,15 @@ class EquatorWindow(QMainWindow):
             self.function = None
             self.setRminB.setChecked(False)
             self.processImage()
+        elif func[0] == "rmax":
+            # Set new R-min, re-calculate from getting integrated area process
+            self.bioImg.info['rmax'] = int(np.round(distance(self.bioImg.info['center'], (x, y))))
+            self.fixedRmax.setValue(self.bioImg.info['rmax'])
+            self.log_changes('Rmax', obj=self.fixedRmax)
+            self.bioImg.removeInfo('hulls')
+            self.function = None
+            self.setRmaxB.setChecked(False)
+            self.processImage()
         else:
             if func[0] == "im_zoomin":
                 func.append((x, y))
@@ -2757,7 +2831,7 @@ class EquatorWindow(QMainWindow):
                         # ax.lines = line
                     ax.axhline(y, color='g')
             self.displayImgCanvas.draw_idle()
-        elif func[0] == "rmin":
+        elif func[0] in ("rmin", "rmax"):
             # draw R-min circle
             center = self.bioImg.info['center']
             dis = int(np.round(distance(center, (x, y))))
@@ -3034,6 +3108,11 @@ class EquatorWindow(QMainWindow):
         if 'fixed_rmin' in info:
             self.fixedRmin.setValue(info['fixed_rmin'])
 
+        self.fixedRmaxChkBx.setChecked('fixed_rmax' in info)
+        self.fixedRmax.setEnabled('fixed_rmax' in info)
+        if 'fixed_rmax' in info:
+            self.fixedRmax.setValue(info['fixed_rmax'])
+
         if 'fixed_max_intensity' in info:
             self.maxIntSpnBx.setValue(info['fixed_max_intensity'])
 
@@ -3103,6 +3182,11 @@ class EquatorWindow(QMainWindow):
         # Check fixed rmin
         if self.fixedRminChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rmin'):
             self.bioImg.removeInfo('int_area')  # Remove integrated area from info dict to make it be re-calculated
+            return True
+
+        # Check fixed rmax
+        if self.fixedRmaxChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rmax'):
+            self.bioImg.removeInfo('hulls')  # Remove hulls from info dict to make it be re-calculated
             return True
 
         # Check fixed Angle
@@ -3388,9 +3472,11 @@ class EquatorWindow(QMainWindow):
         else:
             settings['find_oritation']=False
 
-
         if self.fixedRminChkBx.isChecked():
             settings['fixed_rmin'] = self.fixedRmin.value()
+
+        if self.fixedRmaxChkBx.isChecked():
+            settings['fixed_rmax'] = self.fixedRmax.value()
 
         if self.persistIntensity.isChecked():
             settings['fixed_max_intensity'] = self.maxIntSpnBx.value()
@@ -3500,6 +3586,8 @@ class EquatorWindow(QMainWindow):
         self.right_fitting_tab.syncSpinBoxes(info)
         self.fixedAngle.setValue(round(info["rotationAngle"]))
         self.fixedRmin.setValue(info['rmin'])
+        if self.fixedRmaxChkBx.isChecked():
+            self.fixedRmax.setValue(info['rmax'])
 
         if 'fit_results' in info:
             self.k_spnbx.setValue(info['fit_results']['k'])
@@ -3565,6 +3653,11 @@ class EquatorWindow(QMainWindow):
             # Draw R-min
             ax.add_patch(
                 patches.Circle(tuple(center), rmin, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
+        
+        if self.rmaxChkBx.isChecked() and 'rmax' in info:
+            # Draw R-max
+            ax.add_patch(
+                patches.Circle(tuple(center), info['rmax'], linewidth=2, edgecolor='orange', facecolor='none', linestyle='dotted'))
 
         if self.intChkBx.isChecked():
             # Draw Integrated area

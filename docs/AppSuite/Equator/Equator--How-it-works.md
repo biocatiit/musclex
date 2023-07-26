@@ -8,7 +8,8 @@ The program will process an image by going through multiple processes in the ord
 ### 2. [Calculate Rotation Angle](../Image-Processing-Functions.html#calculate-rotation-angle)
 ### 3. [Calculate R-min](../Image-Processing-Functions.html#calculate-r-min)
 ### 4. Calculate Box Width
-The image will be rotated by the rotation angle determined above, and the area inside R-min removed as in this image. The image will be cropped by using R-min x 1.5. While rotating the image, it is ensured that the image is expanded appropriately so that it is not cropped. Rotation of both Squared and Non-Squared images have been handled.
+
+The image will be rotated by the rotation angle determined above, and the area inside R-min removed as in this image. If R-max is set, the area outside R-max will also be removed. The image's box width will be initially set by using R-min x 1.5. While rotating the image, it is ensured that the image is expanded appropriately so that it is not cropped. Rotation of both Squared and Non-Squared images have been handled.
  
 ![-](../../images/BM/boxwidth_1.png)
 
@@ -38,4 +39,4 @@ This process prepares and corrects the background-subtracted, intensity histogra
 ### 9. Fit Model
 The program will fit the model to the histogram by using the specified model (currently Gaussian and Voigtian models are supported), initial S<sub>10</sub>,and the area of the reflection peaks. Finally, we will obtain the new parameters we want from the fitting results. This will include the area of each peak, S10, sigma D, sigma S, gamma, and  I<sub>11</sub>/I<sub>10</sub>. However, if you see only 4 reflection from the pattern (Only I<sub>11</sub> and I<sub>10</sub> on each side), it will be overdetermined if you use Voigt as a fitting model. To solve this problem, sigma S or gamma should be fixed.
 
-If there are some parameters that need to be configured manually to obtain good fits, the program will run these processes again, but it will not start from the beginning. Instead, it will start from the process after the manual one. For example, if the Box Width is set manually, the program will run processes from Get Intensity Histogram to Fit Model because the center, rotation angle and r-min do not need to be recalculated.
+If there are some parameters that need to be configured manually to obtain good fits, the program will run these processes again, but it will not start from the beginning. Instead, it will start from the process after the manual one. For example, if the Box Width is set manually, the program will run processes from Get Intensity Histogram to Fit Model because the center, rotation angle and R-min do not need to be recalculated.
