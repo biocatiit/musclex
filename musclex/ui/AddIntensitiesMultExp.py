@@ -2160,7 +2160,7 @@ class AddIntensitiesMultExp(QMainWindow):
         else:
             sum_img = 0
             for img in imgs:
-                if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+                if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
                     sum_img = resizeImage(sum_img, img.shape)
                 elif not isinstance(sum_img, int):
                     img = resizeImage(img, sum_img.shape)
@@ -2194,7 +2194,7 @@ def addIntensities(numberToFilesMap, dir_path):
         for fname in numberToFilesMap[key]:
             img = fabio.open(fname).data
             img = ifHdfReadConvertless(fname, img)
-            if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+            if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
                 sum_img = resizeImage(sum_img, img.shape)
             elif not isinstance(sum_img, int):
                 img = resizeImage(img, sum_img.shape)

@@ -699,7 +699,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 else:
                     sum_img = 0
                     for img in images:
-                        if not isinstance(sum_img, int) and img.shape[0] > sum_img.shape[0]:
+                        if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
                             sum_img = resizeImage(sum_img, img.shape)
                         elif not isinstance(sum_img, int):
                             img = resizeImage(img, sum_img.shape)

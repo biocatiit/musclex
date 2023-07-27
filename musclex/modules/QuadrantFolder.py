@@ -338,7 +338,7 @@ class QuadrantFolder:
         transy = int(((dim/2) - center[1]))
         M = np.float32([[1,0,transx],[0,1,transy]])
         self.centImgTransMat = M
-        rows,cols = new_img.shape
+        rows, cols = new_img.shape
         # mask_thres = self.info["mask_thres"]
 
         # if self.img_type == "PILATUS":
@@ -359,7 +359,6 @@ class QuadrantFolder:
         self.info['center'] = (int(dim / 2), int(dim / 2))
         self.center_before_rotation = (int(dim / 2), int(dim / 2))
         print("Dimension of image after centerize ", self.orig_img.shape)
-
 
     def getRotatedImage(self):
         """
@@ -861,8 +860,8 @@ class QuadrantFolder:
             print("Quadrant folding is being processed...")
             img_width = rotate_img.shape[1]
             img_height = rotate_img.shape[0]
-            fold_width = max(int(center[0]), img_width-int(center[0]))
-            fold_height = max(int(center[1]), img_height-int(center[1]))
+            fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
+            fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
 
             # Get each fold, and flip them to the same direction
             top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
