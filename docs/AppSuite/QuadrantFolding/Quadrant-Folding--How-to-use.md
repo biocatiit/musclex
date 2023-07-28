@@ -40,9 +40,17 @@ See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more
 ##### Mode Orientation Checkbox
 This checkox uses the mode of the orientation angles calculated from all the images in the folder as the rotation angle for fitting the images. All the images in the folder must be processed first before using this checkbox. Once processed, by checking this box, the program will gather all the angles in the folder and use the angle with the biggest number of occurrences as the new rotation angle.
 
+##### Save Compressed Image Checkbox
+Images can sometimes take a lot of storage, especially when doing time resolved experiments.
+By selecting this option, the resulting quadrant folded image (which is saved in qf_results) is compressed using the tiff_lzw method in order to recude the storage used.
+
+```eval_rst
+.. note:: This compression format might create errors when you open the resulting Quadrant folded images through another software than MuscleX.
+```
+
 ##### Save Cropped Image Checkbox
 As discussed in the working of Quadrant Folding, we enlarge the image such that the diffraction center is at the center of the resulting image.
-On selecting this option the resulting quadrant folded image (which is saved in qf_results) is cropped such that the size of the image is same as the original input image size.
+By selecting this option the resulting quadrant folded image (which is saved in qf_results) is cropped such that the size of the image is same as the original input image size.
 
 ##### Set Rotation and Center
 Before setting manual rotation and center, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.<br/>

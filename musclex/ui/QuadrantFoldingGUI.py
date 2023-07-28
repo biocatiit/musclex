@@ -221,9 +221,9 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.expandImage.setChecked(False)
         # self.expandImage.setToolTip("Expand the size of the image, for images with an offset center")
 
-        # self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
-        # self.compressFoldedImageChkBx.setChecked(False)
-        # self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
+        self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
+        self.compressFoldedImageChkBx.setChecked(False)
+        self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
 
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
@@ -242,9 +242,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.orientationCmbBx, 4, 2, 1, 2)
         self.settingsLayout.addWidget(self.modeAngleChkBx, 5, 0, 1, 4)
         # self.settingsLayout.addWidget(self.expandImage, 7, 0, 1, 4)
-        # self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 11, 0, 1, 2)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 6, 0, 1, 4)
-        self.settingsLayout.addWidget(self.doubleZoom, 7, 0, 1, 4)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 6, 0, 1, 4)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 4)
+        self.settingsLayout.addWidget(self.doubleZoom, 8, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -721,6 +721,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
+        self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
@@ -768,6 +769,13 @@ class QuadrantFoldingGUI(QMainWindow):
     def cropFoldedImageChanged(self):
         """
         Handle when the crop to original size checkbox is checked or unchecked
+        """
+        if self.quadFold is not None and not self.uiUpdating:
+            self.saveResults()
+
+    def compressFoldedImageChanged(self):
+        """
+        Handle when the compress folded image is checked or unchecked
         """
         if self.quadFold is not None and not self.uiUpdating:
             self.saveResults()
@@ -2532,18 +2540,21 @@ class QuadrantFoldingGUI(QMainWindow):
                 img = img[max(yl,0):yh, max(xl,0):xh]
                 print("After cropping, ", img.shape)
                 result_file += '_folded_cropped.tif'
-                # if self.compressFoldedImageChkBx.isChecked():
-                #     tif_img = Image.fromarray(img)
-                #     tif_img.save(result_file, compression='tiff_lzw')
-                # else:
-                fabio.tifimage.tifimage(data=img).write(result_file)
+                if self.compressFoldedImageChkBx.isChecked():
+                    result_file += '_folded_cropped_compressed.tif'
+                    tif_img = Image.fromarray(img)
+                    tif_img.save(result_file, compression='tiff_lzw')
+                else:
+                    result_file += '_folded_cropped.tif'
+                    fabio.tifimage.tifimage(data=img).write(result_file)
             else:
-                result_file += '_folded.tif'
-                # if self.compressFoldedImageChkBx.isChecked():
-                #     tif_img = Image.fromarray(img)
-                #     tif_img.save(result_file, compression='tiff_lzw')
-                # else:
-                fabio.tifimage.tifimage(data=img).write(result_file)
+                if self.compressFoldedImageChkBx.isChecked():
+                    result_file += '_folded_compressed.tif'
+                    tif_img = Image.fromarray(img)
+                    tif_img.save(result_file, compression='tiff_lzw')
+                else:
+                    result_file += '_folded.tif'
+                    fabio.tifimage.tifimage(data=img).write(result_file)
             # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
 
             self.saveBackground()
@@ -2930,9 +2941,11 @@ class QuadrantFoldingGUI(QMainWindow):
         save settings to json
         """
         settings = self.calSettings
-        if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
+        if self.quadFold is not None:
             if settings is None:
                 settings = {}
+            settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
+        if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
             settings['fixed_roi_rad'] = self.quadFold.info['fixed_roi_rad']
         filename = getSaveFile("musclex/settings/qfsettings.json", None)
         if filename != "":

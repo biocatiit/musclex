@@ -33,6 +33,7 @@ from os.path import splitext
 import traceback
 import fabio
 import pandas as pd
+from PIL import Image
 from musclex import __version__
 try:
     from ..utils.file_manager import *
@@ -222,10 +223,15 @@ class QuadrantFoldingh:
                 img = self.quadFold.imgCache['resultImg']
 
                 img = img.astype("float32")
-                result_file += '_folded.tif'
+                if 'compressed' in self.quadFold.info and self.quadFold.info['compressed']:
+                    result_file += '_folded_compressed.tif'
+                    tif_img = Image.fromarray(img)
+                    tif_img.save(result_file, compression='tiff_lzw')
+                else:
+                    result_file += '_folded.tif'
+                    fabio.tifimage.tifimage(data=img).write(result_file)
                 # metadata = json.dumps([True, self.quadFold.initImg.shape])
                 # imsave(result_file, img, description=metadata)
-                fabio.tifimage.tifimage(data=img).write(result_file)
                 self.saveBackground()
 
     def saveBackground(self):
