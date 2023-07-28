@@ -93,7 +93,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
-        self.setMinimumHeight(850)
+        self.setMinimumHeight(900)
         self.newImgDimension = None
         self.browseFile()
 
@@ -201,9 +201,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setRotationButton = QPushButton("Set Rotation Angle")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
-        self.setFitRegion = QPushButton("Set Region of Interest")
-        self.setFitRegion.setCheckable(True)
-        self.checkableButtons.append(self.setFitRegion)
 
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-999)
@@ -224,9 +221,9 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.expandImage.setChecked(False)
         # self.expandImage.setToolTip("Expand the size of the image, for images with an offset center")
 
-        self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
-        self.compressFoldedImageChkBx.setChecked(False)
-        self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
+        # self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
+        # self.compressFoldedImageChkBx.setChecked(False)
+        # self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
 
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
@@ -239,16 +236,15 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 2, 1, 2)
-        self.settingsLayout.addWidget(self.setFitRegion, 3, 0, 1, 4)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 2, 1, 2)
-        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 4)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 3, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 4, 2, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 5, 0, 1, 4)
         # self.settingsLayout.addWidget(self.expandImage, 7, 0, 1, 4)
         # self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 11, 0, 1, 2)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.doubleZoom, 8, 0, 1, 4)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 6, 0, 1, 4)
+        self.settingsLayout.addWidget(self.doubleZoom, 7, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -258,10 +254,22 @@ class QuadrantFoldingGUI(QMainWindow):
         self.blankSettingButton = QPushButton("Set Blank Image and Mask")
         self.blankImageLayout.addWidget(self.blankSettingButton)
 
-        # background Subtraction
-        self.bgSubGrpBx = QGroupBox()
-        self.bgSubGrpBx.setTitle("Background Subtraction")
-        self.bgSubGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        # Result processing and background Subtraction
+        self.resProcGrpBx = QGroupBox()
+        self.resProcGrpBx.setTitle("Result Processing")
+        self.resProcGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+        self.setFitRoi = QPushButton("Set Region Of Interest (ROI)")
+        self.setFitRoi.setCheckable(True)
+        self.unsetRoi = QPushButton("Unset ROI")
+        self.checkableButtons.append(self.setFitRoi)
+        self.fixedRoiChkBx = QCheckBox("Fixed ROI Radius:")
+        self.fixedRoiChkBx.setChecked(False)
+        self.fixedRoi = QSpinBox()
+        self.fixedRoi.setObjectName('fixedRoi')
+        self.fixedRoi.setKeyboardTracking(False)
+        self.fixedRoi.setRange(1, 10000)
+        self.fixedRoi.setEnabled(False)
 
         self.bgChoice = QComboBox()
         self.bgChoice.setCurrentIndex(0)
@@ -408,85 +416,89 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tophat2Widgets = [self.tophat2SpnBx, self.tophat2Label, self.mergeGradientLabel, self.sigmoidSpnBx, separator]
 
         self.bgLayout = QGridLayout()
-        self.bgLayout.addWidget(QLabel("Method : "), 0, 0, 1, 1)
-        self.bgLayout.addWidget(self.bgChoice, 0, 1, 1, 2)
+        self.bgLayout.addWidget(self.setFitRoi, 0, 0, 1, 3)
+        self.bgLayout.addWidget(self.unsetRoi, 0, 3, 1, 1)
+        self.bgLayout.addWidget(self.fixedRoiChkBx, 1, 0, 1, 2)
+        self.bgLayout.addWidget(self.fixedRoi, 1, 2, 1, 2)
+        self.bgLayout.addWidget(QLabel("Background Subtraction :"), 2, 0, 1, 2)
+        self.bgLayout.addWidget(self.bgChoice, 2, 2, 1, 2)
 
         # R-min R-max settings
         self.rrangeSettingFrame = QFrame()
         self.rrangeSettingLayout = QGridLayout(self.rrangeSettingFrame)
         self.rrangeSettingLayout.setContentsMargins(0, 0, 0, 0)
-        self.rrangeSettingLayout.addWidget(self.setRminmaxButton, 0, 0, 1, 3)
-        self.rrangeSettingLayout.addWidget(self.radiusLabel, 1, 0, 2, 1)
-        self.rrangeSettingLayout.addWidget(self.rminLabel, 1, 1, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rmaxLabel, 1, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rmaxSpnBx, 2, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 3)
-        self.bgLayout.addWidget(self.rrangeSettingFrame, 2, 0, 1, 3)
+        self.rrangeSettingLayout.addWidget(self.setRminmaxButton, 0, 0, 1, 4)
+        self.rrangeSettingLayout.addWidget(self.radiusLabel, 1, 0, 2, 2)
+        self.rrangeSettingLayout.addWidget(self.rminLabel, 1, 2, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.rmaxLabel, 1, 3, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 2, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.rmaxSpnBx, 2, 3, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 4)
+        self.bgLayout.addWidget(self.rrangeSettingFrame, 3, 0, 3, 4)
 
         # Gaussian FWHM
-        self.bgLayout.addWidget(self.gaussFWHMLabel, 5, 0, 1, 2)
-        self.bgLayout.addWidget(self.gaussFWHM, 5, 2, 1, 1)
+        self.bgLayout.addWidget(self.gaussFWHMLabel, 6, 0, 1, 2)
+        self.bgLayout.addWidget(self.gaussFWHM, 6, 2, 1, 2)
 
         # Box car size
-        self.bgLayout.addWidget(self.boxcarLabel, 6, 0, 1, 1)
-        self.bgLayout.addWidget(self.boxcarX, 6, 1, 1, 1)
-        self.bgLayout.addWidget(self.boxcarY, 6, 2, 1, 1)
+        self.bgLayout.addWidget(self.boxcarLabel, 7, 0, 1, 2)
+        self.bgLayout.addWidget(self.boxcarX, 7, 2, 1, 1)
+        self.bgLayout.addWidget(self.boxcarY, 7, 3, 1, 1)
 
         # Number of cycles
-        self.bgLayout.addWidget(self.cycleLabel, 7, 0, 1, 2)
-        self.bgLayout.addWidget(self.cycle, 7, 2, 1, 1)
+        self.bgLayout.addWidget(self.cycleLabel, 8, 0, 1, 2)
+        self.bgLayout.addWidget(self.cycle, 8, 2, 1, 2)
 
         # Theta bin
-        self.bgLayout.addWidget(self.thetaBinLabel, 8, 0, 1, 2)
-        self.bgLayout.addWidget(self.thetabinCB, 8, 1, 1, 2)
+        self.bgLayout.addWidget(self.thetaBinLabel, 9, 0, 1, 2)
+        self.bgLayout.addWidget(self.thetabinCB, 9, 2, 1, 2)
 
         # Radial bin
-        self.bgLayout.addWidget(self.radialBinLabel, 9, 0, 1, 2)
-        self.bgLayout.addWidget(self.radialBinSpnBx, 9, 1, 1, 2)
+        self.bgLayout.addWidget(self.radialBinLabel, 10, 0, 1, 2)
+        self.bgLayout.addWidget(self.radialBinSpnBx, 10, 2, 1, 2)
 
         # Window size
-        self.bgLayout.addWidget(self.windowSizeLabel, 10, 0, 1, 1)
-        self.bgLayout.addWidget(self.winSizeX, 10, 1, 1, 1)
-        self.bgLayout.addWidget(self.winSizeY, 10, 2, 1, 1)
+        self.bgLayout.addWidget(self.windowSizeLabel, 11, 0, 1, 2)
+        self.bgLayout.addWidget(self.winSizeX, 11, 2, 1, 1)
+        self.bgLayout.addWidget(self.winSizeY, 11, 3, 1, 1)
 
         # Window Seperation
-        self.bgLayout.addWidget(self.windowSepLabel, 11, 0, 1, 1)
-        self.bgLayout.addWidget(self.winSepX, 11, 1, 1, 1)
-        self.bgLayout.addWidget(self.winSepY, 11, 2, 1, 1)
+        self.bgLayout.addWidget(self.windowSepLabel, 12, 0, 1, 2)
+        self.bgLayout.addWidget(self.winSepX, 12, 2, 1, 1)
+        self.bgLayout.addWidget(self.winSepY, 12, 3, 1, 1)
 
         # Pixel ranges
-        self.bgLayout.addWidget(self.pixRangeLabel, 12, 0, 1, 1)
-        self.bgLayout.addWidget(self.minPixRange, 12, 1, 1, 1)
-        self.bgLayout.addWidget(self.maxPixRange, 12, 2, 1, 1)
+        self.bgLayout.addWidget(self.pixRangeLabel, 13, 0, 1, 2)
+        self.bgLayout.addWidget(self.minPixRange, 13, 2, 1, 1)
+        self.bgLayout.addWidget(self.maxPixRange, 13, 3, 1, 1)
 
         # Smooth
-        self.bgLayout.addWidget(self.smoothLabel, 13, 0, 1, 2)
-        self.bgLayout.addWidget(self.smoothSpnBx, 13, 2, 1, 1)
+        self.bgLayout.addWidget(self.smoothLabel, 14, 0, 1, 2)
+        self.bgLayout.addWidget(self.smoothSpnBx, 14, 2, 1, 2)
 
         # Tension
-        self.bgLayout.addWidget(self.tensionLabel, 14, 0, 1, 2)
-        self.bgLayout.addWidget(self.tensionSpnBx, 14, 2, 1, 1)
+        self.bgLayout.addWidget(self.tensionLabel, 15, 0, 1, 2)
+        self.bgLayout.addWidget(self.tensionSpnBx, 15, 2, 1, 2)
 
         # White top hat (inside R-max)
-        self.bgLayout.addWidget(self.tophat1Label, 15, 0, 1, 2)
-        self.bgLayout.addWidget(self.tophat1SpnBx, 15, 2, 1, 1)
-        self.bgLayout.addWidget(separator, 16, 0, 1, 3)
+        self.bgLayout.addWidget(self.tophat1Label, 16, 0, 1, 2)
+        self.bgLayout.addWidget(self.tophat1SpnBx, 16, 2, 1, 2)
+        self.bgLayout.addWidget(separator, 17, 0, 1, 4)
 
         # White top hat (outside R-max)
-        self.bgLayout.addWidget(self.tophat2Label, 17, 0, 1, 2)
-        self.bgLayout.addWidget(self.tophat2SpnBx, 17, 2, 1, 1)
+        self.bgLayout.addWidget(self.tophat2Label, 18, 0, 1, 2)
+        self.bgLayout.addWidget(self.tophat2SpnBx, 18, 2, 1, 2)
 
         # Merging params
-        self.bgLayout.addWidget(self.mergeGradientLabel, 18, 0, 1, 2)
-        self.bgLayout.addWidget(self.sigmoidSpnBx, 18, 2, 1, 1)
+        self.bgLayout.addWidget(self.mergeGradientLabel, 19, 0, 1, 2)
+        self.bgLayout.addWidget(self.sigmoidSpnBx, 19, 2, 1, 2)
 
         # Apply button
-        self.bgLayout.addWidget(self.applyBGButton, 19, 0, 1, 3)
+        self.bgLayout.addWidget(self.applyBGButton, 20, 0, 1, 4)
 
         # self.bgLayout.setColumnStretch(0, 2)
 
-        self.bgSubGrpBx.setLayout(self.bgLayout)
+        self.resProcGrpBx.setLayout(self.bgLayout)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -598,7 +610,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.rightLayout.addWidget(self.resultDispOptGrp)
         self.rightLayout.addSpacing(10)
-        self.rightLayout.addWidget(self.bgSubGrpBx)
+        self.rightLayout.addWidget(self.resProcGrpBx)
         self.rightLayout.addStretch()
 
         self.processFolderButton2 = QPushButton("Process Current Folder")
@@ -708,6 +720,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
+        self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
@@ -718,7 +731,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setRotationButton.clicked.connect(self.setRotation)
         self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
         self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
-        self.setFitRegion.clicked.connect(self.setFitRegionClicked)
         self.maskThresSpnBx.valueChanged.connect(self.ignoreThresChanged)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
@@ -738,6 +750,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.blankSettingButton.clicked.connect(self.blankSettingClicked)
 
         # Background Subtraction
+        self.setFitRoi.clicked.connect(self.setFitRoiClicked)
+        self.unsetRoi.clicked.connect(self.unsetRoiClicked)
+        self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
+        self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
         self.bgChoice.currentIndexChanged.connect(self.bgChoiceChanged)
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
@@ -748,6 +764,34 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
+
+    def cropFoldedImageChanged(self):
+        """
+        Handle when the crop to original size checkbox is checked or unchecked
+        """
+        if self.quadFold is not None and not self.uiUpdating:
+            self.saveResults()
+
+    def fixedRoiChecked(self):
+        """
+        Triggered when fixed ROI Radius is checked or unchecked
+        """
+        self.fixedRoi.setEnabled(self.fixedRoiChkBx.isChecked())
+        if not self.fixedRoiChkBx.isChecked() and self.quadFold is not None:
+            if 'fixed_roi_rad' in self.quadFold.info:
+                del self.quadFold.info['fixed_roi_rad']
+            # if 'roi_rad' in self.quadFold.info:
+            #     del self.quadFold.info['roi_rad']
+            self.processImage()
+
+    def fixedRoiChanged(self):
+        """
+        Triggered when fixed ROI Radius spinbox value is changed
+        """
+        if self.quadFold is not None and not self.uiUpdating:
+            self.quadFold.info['fixed_roi_rad'] = self.fixedRoi.value()
+            self.result_zoom = None
+            self.processImage()
 
     def blankChecked(self):
         """
@@ -802,15 +846,15 @@ class QuadrantFoldingGUI(QMainWindow):
         sq = patches.Rectangle(leftTopCorner, w, h, linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted')
         return sq
 
-    def setFitRegionClicked(self):
+    def setFitRoiClicked(self):
         """
-        Triggered when the Set fit region button is clicked
+        Triggered when the Set fit roi button is clicked
         """
         if self.quadFold is None:
             return
-        if self.setFitRegion.isChecked():
+        if self.setFitRoi.isChecked():
             self.imgPathOnStatusBar.setText(
-                "Drag mouse pointer to select width, click on the image to accept (ESC to cancel)")
+                "Drag mouse pointer to select the box size, click on the image to accept (ESC to cancel)")
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines[i].remove()
@@ -821,6 +865,23 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             self.function = None
             self.resetStatusbar()
+    
+    def unsetRoiClicked(self):
+        """
+        Triggered when the unset roi button is clicked
+        """
+        if self.quadFold is not None:
+            self.fixedRoi.setEnabled(False)
+            self.fixedRoiChkBx.setChecked(False)
+            if 'fixed_roi_rad' in self.quadFold.info:
+                del self.quadFold.info['fixed_roi_rad']
+            if 'roi_rad' in self.quadFold.info:
+                del self.quadFold.info['roi_rad']
+            self.result_zoom = None
+            self.zoomOutClicked = True
+            self.default_result_img_zoom = None
+            self.processImage()
+        
 
     def setCenterByPerpClicked(self):
         """
@@ -1062,6 +1123,9 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         self.resultZoomInB.setChecked(False)
         self.result_zoom = None
+        self.zoomOutClicked = True
+        self.default_img_zoom = None
+        self.default_result_img_zoom = None
         self.refreshResultTab()
 
     def imageZoomIn(self):
@@ -1185,40 +1249,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.function = None
                     self.imgZoomInB.setChecked(False)
                     self.refreshImageTab()
-            elif func[0] == "fit_region":
-                if len(func) == 1:
-                    # width selected
-                    func.append(abs(int(x)))
-                    self.imgPathOnStatusBar.setText(
-                        "Drag mouse pointer to select height, click on the image to accept (ESC to cancel)")
-                else:
-                    # both width and height selected
-                    extent, center = self.getExtentAndCenter()
-                    half_width = abs(func[1] - center[0])
-                    half_height = abs(abs(int(y)) - center[1])
-                    # img_center = self.quadFold.info['center']
-                    print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
-
-                    # dim = self.newImgDimension
-                    initImg = self.img
-                    scaleX = 1 # initImg.shape[0]/dim
-                    scaleY = 1 # initImg.shape[1]/dim
-                    half_width = int(half_width*scaleX)
-                    half_height = int(half_height*scaleY)
-                    croppedImage = initImg[int(extent[1]+ center[1] - half_height):int(extent[1]+center[1] + half_height), int(extent[0]+center[0] - half_width):int(extent[0]+center[0] + half_width)]
-                    new_img = np.zeros(initImg.shape)
-                    # Placing cropped image in new image such that size of original image matches new image
-                    new_img[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)] = croppedImage
-                    print("Cropped Image shape ", croppedImage.shape)
-                    print("New Image shape ", new_img.shape)
-                    self.quadFold.orig_img = new_img
-                    self.quadFold.initImg = None
-                    self.newImgDimension = None
-                    self.deleteInfo(['avg_fold', 'center', 'rotationAngle', 'manual_center', 'manual_rotationAngle'])
-                    self.setFitRegion.setChecked(False)
-                    self.quadFold.centImgTransMat = None
-                    self.processImage()
-
             elif func[0] == "chords_center":
                 ax = self.imageAxes
                 axis_size = 5
@@ -1382,64 +1412,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
-        elif func[0] == "fit_region":
-            if self.calSettings is None or 'center' not in self.calSettings:
-                self.calSettings = {}
-                extent, self.calSettings['center'] = self.getExtentAndCenter()
-            center = self.calSettings['center']
-            if len(func) == 2:
-                # width selected, change height as cursor moves
-                if not self.doubleZoom.isChecked():
-                    if len(ax.patches) > 0:
-                        for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches[i].remove()
-                    hei = 2*abs(y-center[1])
-                    wei = 2*abs(func[1] - center[0])
-                    sq = self.getRectanglePatch(center, wei, hei)
-                    ax.add_patch(sq)
-                else: 
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    elif self.doubleZoomMode:
-                        if len(ax.patches) > 0:
-                            for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches[i].remove()
-                        hei = 2*abs(y-center[1])
-                        wei = 2*abs(func[1] - center[0])
-                        sq = self.getRectanglePatch(center, wei, hei)
-                        ax.add_patch(sq)
-            else:
-                # nothing is selected, start by changing width
-                if not self.doubleZoom.isChecked():
-                    if len(ax.patches) > 0:
-                        for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches[i].remove()
-                    wei = 2 * abs(x - center[0])
-                    sq = self.getRectanglePatch(center, wei, 50)
-                    ax.add_patch(sq)
-                else: 
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    elif self.doubleZoomMode:
-                        if len(ax.patches) > 0:
-                            for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches[i].remove()
-                        wei = 2 * abs(x - center[0])
-                        sq = self.getRectanglePatch(center, wei, 50)
-                        ax.add_patch(sq)
-            self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate":
             # draw X on points and a line between points
@@ -1757,15 +1729,21 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.setRminRmax(rmin, rmax)
                     self.function = None
                     self.setRminmaxButton.setChecked(False)
-            # elif func[0] == "mrad":
-            #     # Set new merge radius
-            #     img = self.quadFold.info['avg_fold']
-            #     center = (img.shape[1], img.shape[0])
-            #     self.quadFold.info["merge_rad"] = int(round(distance((x, y), center)))
-            #     self.deleteImgCache(['BgSubFold'])
-            #     self.function = None
-            #     self.processImage()
-            #     self.mergeRadiusButton.setChecked(False)
+
+            elif func[0] == "fit_region":
+                # both width and height selected
+                center = self.quadFold.imgCache['resultImg'].shape[0] / 2, self.quadFold.imgCache['resultImg'].shape[1] / 2 
+                radius = max(abs(x-center[0]), abs(y-center[1]))
+                print("Selected Fit Reg Radius is ", radius)
+
+                self.quadFold.info['roi_rad'] = radius
+                self.fixedRoi.setValue(radius)
+                print("New Image shape ", self.quadFold.imgCache['resultImg'].shape)
+                self.setFitRoi.setChecked(False)
+                self.result_zoom = None
+                self.zoomOutClicked = True
+                self.default_result_img_zoom = None
+                self.processImage()
 
     def resultOnMotion(self, event):
         """
@@ -1776,6 +1754,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         x = event.xdata
         y = event.ydata
+        ax = self.resultAxes
         img = self.quadFold.imgCache["resultImg"]
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
@@ -1788,7 +1767,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
             self.imgCoordOnStatusBar.setText("")
-            ax = self.resultAxes
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1812,7 +1790,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         if func[0] == "r_zoomin" and len(self.function) == 2:
             # draw rectangle
-            ax = self.resultAxes
             if len(ax.patches) > 0:
                 ax.patches[0].remove()
             start_pt = func[1]
@@ -1828,27 +1805,25 @@ class QuadrantFoldingGUI(QMainWindow):
             img = self.quadFold.info['avg_fold']
             center = (img.shape[1] - 1, img.shape[0] - 1)
             radius = distance((x, y), center)
-            ax = self.resultAxes
             if len(ax.patches) > len(self.function) - 1:
                 ax.patches[-1].remove()
             ax.add_patch(
                 patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='solid'))
             self.resultCanvas.draw_idle()
-        elif func[0] == "mrad":
-            # draw circle
-            img = self.quadFold.info['avg_fold']
-            center = (img.shape[1] - 1, img.shape[0] - 1)
-            radius = distance((x, y), center)
-            ax = self.resultAxes
+
+        elif func[0] == "fit_region":
+            center = img.shape[0] / 2, img.shape[1] / 2 
             if len(ax.patches) > 0:
-                ax.patches[-1].remove()
-            ax.add_patch(
-                patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='solid'))
+                for i in range(len(ax.patches) - 1, -1, -1):
+                    ax.patches[i].remove()
+            radius = 2 * max(abs(x-center[0]), abs(y-center[1]))
+            sq = self.getRectanglePatch(center, radius, radius)
+            ax.add_patch(sq)
             self.resultCanvas.draw_idle()
+
         elif func[0] == "r_move":
             # move zoom in location when image dragged
             if self.result_zoom is not None:
-                ax = self.resultAxes
                 move = (func[1][0] - x, func[1][1] - y)
                 self.result_zoom = getNewZoom(self.result_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.result_zoom[0])
@@ -2465,6 +2440,10 @@ class QuadrantFoldingGUI(QMainWindow):
             self.spResultmaxInt.setRange(img.min(), img.max())
             self.rminSpnBx.setValue(self.quadFold.info['rmin'])
             self.rmaxSpnBx.setValue(self.quadFold.info['rmax'])
+            self.fixedRoiChkBx.setChecked('fixed_roi_rad' in self.quadFold.info)
+            self.fixedRoi.setEnabled('fixed_roi_rad' in self.quadFold.info)
+            if 'fixed_roi_rad' in self.quadFold.info:
+                self.fixedRoi.setValue(self.quadFold.info['fixed_roi_rad'])
 
             # convert image for displaying
             # img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
@@ -2524,45 +2503,50 @@ class QuadrantFoldingGUI(QMainWindow):
             self.refreshAllTabs()
             self.csvManager.writeNewData(self.quadFold)
 
-            # Save result to folder qf_results
-            if 'resultImg' in self.quadFold.imgCache:
-                result_path = fullPath(self.filePath, 'qf_results')
-                createFolder(result_path)
-
-                result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
-                result_file, _ = splitext(result_file)
-                img = self.quadFold.imgCache['resultImg']
-
-                img = img.astype("float32")
-
-                # metadata = json.dumps([True, self.quadFold.initImg.shape])
-                if self.cropFoldedImageChkBx.isChecked():
-                    print("Cropping folded image ")
-                    ylim, xlim = self.quadFold.initImg.shape
-                    xlim, ylim = int(xlim / 2), int(ylim / 2)
-                    cx,cy = self.quadFold.info['center']
-                    xl,xh = (cx - xlim, cx + xlim)
-                    yl,yh = (cy - ylim, cy + ylim)
-                    print("Before cropping ", img.shape)
-                    img = img[max(yl,0):yh, max(xl,0):xh]
-                    print("After cropping, ", img.shape)
-                    result_file += '_folded_cropped.tif'
-                    if self.compressFoldedImageChkBx.isChecked():
-                        tif_img = Image.fromarray(img)
-                        tif_img.save(result_file, compression='tiff_lzw')
-                    else:
-                        fabio.tifimage.tifimage(data=img).write(result_file)
-                else:
-                    result_file += '_folded.tif'
-                    if self.compressFoldedImageChkBx.isChecked():
-                        tif_img = Image.fromarray(img)
-                        tif_img.save(result_file, compression='tiff_lzw')
-                    else:
-                        fabio.tifimage.tifimage(data=img).write(result_file)
-                # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
-
-                self.saveBackground()
+            self.saveResults()
             QApplication.restoreOverrideCursor()
+
+    def saveResults(self):
+        """
+        Save result to folder qf_results
+        """
+        if 'resultImg' in self.quadFold.imgCache:
+            result_path = fullPath(self.filePath, 'qf_results')
+            createFolder(result_path)
+
+            result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
+            result_file, _ = splitext(result_file)
+            img = self.quadFold.imgCache['resultImg']
+
+            img = img.astype("float32")
+
+            # metadata = json.dumps([True, self.quadFold.initImg.shape])
+            if self.cropFoldedImageChkBx.isChecked():
+                print("Cropping folded image ")
+                ylim, xlim = self.quadFold.initImg.shape
+                xlim, ylim = int(xlim / 2), int(ylim / 2)
+                cx,cy = self.quadFold.info['center']
+                xl,xh = (cx - xlim, cx + xlim)
+                yl,yh = (cy - ylim, cy + ylim)
+                print("Before cropping ", img.shape)
+                img = img[max(yl,0):yh, max(xl,0):xh]
+                print("After cropping, ", img.shape)
+                result_file += '_folded_cropped.tif'
+                # if self.compressFoldedImageChkBx.isChecked():
+                #     tif_img = Image.fromarray(img)
+                #     tif_img.save(result_file, compression='tiff_lzw')
+                # else:
+                fabio.tifimage.tifimage(data=img).write(result_file)
+            else:
+                result_file += '_folded.tif'
+                # if self.compressFoldedImageChkBx.isChecked():
+                #     tif_img = Image.fromarray(img)
+                #     tif_img.save(result_file, compression='tiff_lzw')
+                # else:
+                fabio.tifimage.tifimage(data=img).write(result_file)
+            # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
+
+            self.saveBackground()
 
     def saveBackground(self):
         """
@@ -2668,6 +2652,9 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.rmaxSpnBx.value() > self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()
             flags['fixed_rmax'] = self.rmaxSpnBx.value()
+
+        if self.fixedRoiChkBx.isChecked():
+            flags['fixed_roi_rad'] = self.fixedRoi.value()
 
         flags['rotate'] = self.rotate90Chkbx.isChecked()
 
@@ -2943,6 +2930,10 @@ class QuadrantFoldingGUI(QMainWindow):
         save settings to json
         """
         settings = self.calSettings
+        if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
+            if settings is None:
+                settings = {}
+            settings['fixed_roi_rad'] = self.quadFold.info['fixed_roi_rad']
         filename = getSaveFile("musclex/settings/qfsettings.json", None)
         if filename != "":
             with open(filename, 'w') as f:

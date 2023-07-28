@@ -346,7 +346,7 @@ class QuadrantFoldingh:
                 self.statusPrint("Can't load setting file")
                 self.inputsettings = False
                 self.calSettings = None
-            if self.calSettings is not None:
+            if self.calSettings is not None and 'center' in self.calSettings:
                 self.quadFold.info['calib_center'] = self.calSettings['center']
             else:
                 self.inputsettings = False

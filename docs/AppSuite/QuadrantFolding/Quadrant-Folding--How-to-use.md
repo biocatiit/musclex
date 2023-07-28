@@ -69,16 +69,31 @@ To fix the center position to a user supplied value, you can check Fix Center ch
 This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
 ![-](../../images/QF/DoubleZoom.png)
 
-##### Set Region of Interest
-This feature is used to select part of the image and perform Quadrant folding on that part. For example, we would want to ignore the artefacts on the edges of the image. On clicking this button, a default rectangle appears around the center of diffraction. As you move the mouse pointer into the image area, the vertical edges of the rectangle move to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current width of the region. Next, as you move the pointer, the horizontal edges of the rectangle start moving to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current height of the fitting region. Once the width and height is fixed, the resultant image will be cropped to the region selected by the rectangle following which we process quadrant folding on the resultant image. Therefore, any artefacts present outside the selected region are ignored while quadrant folding. One can only select the region of interest about the center of diffraction.
-![-](../../images/QF/SetRegionOfInterest.png)
-
 ### Results
-In this tab, the resulting image will be displayed along with options on the right. Display Options will provide the same options as in Original Image tab. Users can specify min and max display intensity, and zooming.
+In this tab, the resulting image will be displayed along with options on the right. 
 
 If it is the first time processing the images, the Next image button will process the following image using the current parameters (in the Image tab AND the Results tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on 'Process Current Folder', or delete the file named 'qf_cache' before launching Quadrant Folder.
 
 ![-](../../images/QF/results.png)
+
+#### Display Options
+
+Display Options will provide the same options as in Original Image tab. Users can specify min and max display intensity, and zooming.
+
+#### Result Processing
+##### Set Region of Interest (ROI)
+This feature is used to select a part of the Quadrant folded image. For example, we would want to ignore the artefacts on the edges of the image. On clicking this button, a square appears around the center of diffraction. As you move the mouse pointer into the image area, the edges of the square move to where the mouse pointer is located in a symmetrical fashion. Click on the image to accept the current size of the region. Once the size is set, the resultant image will be cropped to the region selected by the square. Therefore, any artefacts present outside the selected region are ignored while quadrant folding. One can only select the region of interest about the center of diffraction.
+![-](../../images/QF/SetRegionOfInterest.png)
+
+##### Unset ROI
+
+Use this button to remove the current region of interest and unfix it if the "Fixed ROI Radius" was set. The image will go back to its original shape.
+
+##### Fixed ROI Radius
+
+You can set and fix the value of the region of interest in order to propagate the results to the following images when you process a folder. This can also be useful when you want to crop images using the headless version as it is a parameter that will be saved in "qfsettings.json".
+
+##### Background Subtraction
 
 For the background subtraction section, by default, the program will not apply any background subtraction. To apply background subtraction, you can choose a method by method drop-down list. There are currently 6 options, [Circularly Symmetric](#circularly-symmetric), [2D Convex hull](#2d-convex-hull), [Roving Window](#roving-window), [White-top-hat](#white-top-hat), [Smoothed-Gaussian](#smoothed-gaussian), and [Smoothed-Boxcar](#smoothed-boxcar)
 
@@ -86,23 +101,23 @@ For each method, users can select R-min and R-max manually by pressing the butto
 
 ![-](../../images/QF/rmin_rmax.png)
 
-#### Circularly Symmetric
+###### Circularly Symmetric
 ![-](../../images/QF/csym_set.png)
-#### 2D convex hull
+###### 2D convex hull
 ![-](../../images/QF/2dcon_set.png)
-#### Roving Window
+###### Roving Window
 ![-](../../images/QF/roving.png)
-#### White top hat
+###### White top hat
 ![-](../../images/QF/tophat_set.png)
-#### Smoothed Gaussian
+###### Smoothed Gaussian
 ![-](../../images/QF/smooth_g.png)
-#### Smoothed Boxcar
+###### Smoothed Boxcar
 ![-](../../images/QF/smooth_b.png)
 
 You can change the parameters and click Apply to make the program re-process the background subtraction
 
-#### Merging
-For the merging settings, they will be under the white line in the Background Subtraction section. There is the ability to set also another top hat parameter for regions of the image outside the R-max so the top hat parameter can be different inside and outside the merge radius if desired. 
+###### Merging
+For the merging settings, they will be under the black line in the Background Subtraction section. There is the ability to set also another top hat parameter for regions of the image outside the R-max so the top hat parameter can be different inside and outside the merge radius if desired. 
 
 To set the merge gradient, simply change the value in the Merge Gradient spinbox
 

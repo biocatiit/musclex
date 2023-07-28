@@ -184,6 +184,8 @@ class QuadrantFolder:
             else:
                 del flags['orientation_model']
         self.info.update(flags)
+        if 'fixed_roi_rad' in self.info:
+            self.info['roi_rad'] = self.info['fixed_roi_rad']
 
     def initParams(self):
         """
@@ -984,6 +986,10 @@ class QuadrantFolder:
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)
         result[np.isnan(result)] = 0.
+        if 'roi_rad' in self.info:
+            center = result.shape[0]/2, result.shape[1]/2
+            rad = self.info['roi_rad']
+            result = result[max(int(center[1]-rad), 0):min(int(center[1]+rad), result.shape[1]), max(int(center[0]-rad), 0):min(int(center[0]+rad), result.shape[0])]
         self.imgCache['resultImg'] = result
         print("Done.")
 
