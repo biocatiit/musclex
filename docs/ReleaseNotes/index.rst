@@ -29,3 +29,4 @@ Release Notes
    Version-1.20
    Version-1.21.0
    Version-1.21.1
+   Version-1.22.0

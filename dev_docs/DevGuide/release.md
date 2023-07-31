@@ -16,7 +16,7 @@
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
 
 ## Process outline
-1. Generate pickle testing files, update test files.
+1. Generate pickle testing files (deprecated), update test files.
 2. Test release (GUI == Headless, Current == Previous) using the testing module.
 3. Create release tag and enter release notes on Github.
 4. Update DOI on Zenodo (if it was not done automatically).
