@@ -78,7 +78,7 @@ class EquatorImage:
             with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
                 if "ImageDescription" in tif.pages[0].tags:
                     metadata = tif.pages[0].tags["ImageDescription"].value
-            if filename.endswith("folded.tif"):
+            if 'folded' in filename:
                 self.quadrant_folded = True
                 self.initialImgDim = self.orig_img.shape
             else:
@@ -187,7 +187,6 @@ class EquatorImage:
         Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
         """
         if self.quadrant_folded:
-            print(self.orig_img.shape)
             self.info['center'] = self.orig_img.shape[1] / 2, self.orig_img.shape[0] / 2
             print("QF Center is " + str(self.info['center']))
             return
