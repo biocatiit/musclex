@@ -7,12 +7,12 @@ The Muscle X program suite is a collection of programs intended to assist with a
 * Quadrant Folding (qf)
 * Projection Traces (pt)
 * Scanning Diffraction (di)
-* Diffraction Centroids (dc)
 * DDF Processor (ddf)
 * Add Intensities Single Experiment (aise)
 * Add Intensities Multiple Experiments (aime)
+* Diffraction Centroids (dc) - DEPRECATED
 
-# Current Stable Version: 1.21.1
+# Current Stable Version: 1.22.0
 Get the latest Windows / Mac stable release from SourceForge - https://sourceforge.net/projects/musclex/files/ or the latest Docker release from dockerhub - https://hub.docker.com/search?q=musclex&type=image. For more information on how to install check our wikipage - https://hub.docker.com/search?q=musclex&type=image
 
 # For more information check our wiki page 

@@ -1745,7 +1745,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 print("Selected Fit Reg Radius is ", radius)
 
                 self.quadFold.info['roi_rad'] = radius
-                self.fixedRoi.setValue(radius)
+                self.fixedRoi.setValue(int(radius))
                 print("New Image shape ", self.quadFold.imgCache['resultImg'].shape)
                 self.setFitRoi.setChecked(False)
                 self.result_zoom = None
@@ -2451,7 +2451,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.fixedRoiChkBx.setChecked('fixed_roi_rad' in self.quadFold.info)
             self.fixedRoi.setEnabled('fixed_roi_rad' in self.quadFold.info)
             if 'fixed_roi_rad' in self.quadFold.info:
-                self.fixedRoi.setValue(self.quadFold.info['fixed_roi_rad'])
+                self.fixedRoi.setValue(int(self.quadFold.info['fixed_roi_rad']))
 
             # convert image for displaying
             # img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))

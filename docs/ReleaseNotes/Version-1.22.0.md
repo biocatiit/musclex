@@ -6,7 +6,7 @@ Release Date : 7/31/2023
 
 - Bug fixes (PT functionalities, QF and EQ bugs...)
 - PT: Headless mode, center and rotation tools, interface improvements
-- EQ: Rmax added to crop histograms and remove outside artifacts
+- EQ: Rmax added to crop histograms and remove outside artifacts, Extra peak fitting
 - QF: ROI improvements
 - H5 files processing improved : everything can be done directly on H5 files without converting
 - Documentation update

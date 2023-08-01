@@ -43,7 +43,12 @@ pip_details = {
     "distro" : "1.8.0",
     "hdf5plugin" : "4.1.1",
     "PyMca5" : "5.8.0",
-    "numba" : "0.56.4"
+    "numba" : "0.56.4",
+    "fisx" : "1.2.0",
+    "future" : "0.18.2",
+    "openpyxl" : "3.1.1",
+    "pip" : "23.2.1",
+    "wheel" : "0.37.1"
     }
 
 import os

@@ -1,5 +1,5 @@
 
-*** Version 1.21.1 tested on Python 3.10.
+*** Version 1.22.0 tested on Python 3.10.
 
 *** Windows Installer:
 - Window 10 Pro: fully tested
@@ -44,3 +44,8 @@ scikit-image           0.19.3
 scikit-learn           1.2.0
 scipy                  1.10.0
 tifffile               2023.1.23
+fisx                   1.2.0
+future                 0.18.2
+openpyxl               3.1.1
+pip                    23.2.1
+wheel                  0.37.1

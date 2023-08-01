@@ -1,11 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 1.1
 Name: musclex
-Version: 1.21.1
+Version: 1.22.0
 Summary: Muscle X
 Home-page: https://github.com/biocatiit/musclex
 Author: BioCAT
 Author-email: biocat@lethocerus.biol.iit.edu
 License: UNKNOWN
+Description: UNKNOWN
 Keywords: musclex,biomuscle,diffraction,biocat
 Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
@@ -16,7 +17,3 @@ Classifier: Operating System :: Other OS
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-License-File: LICENSE.txt
-
-UNKNOWN
-

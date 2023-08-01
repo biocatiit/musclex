@@ -27,7 +27,7 @@
 9. Test release on each distribution.
 
 ## Prepare a Release
-### Generate pickle testing files
+### Generate pickle testing files (deprecated)
 Generate the testing files with the right version number (if you release 1.15.7, change the version number in `__init__.py` first).
 Go to the `test_utils.py` directory in the `tests` folder and run:
 ```
@@ -44,9 +44,9 @@ Upload it on SourceForge.
 
 ### Update the test files
 Update `environment_tester.sh` and `tests/test_logs/release.log`
-To know the pip packages necessary, run for example:
+To know the pip packages necessary, run for example (`libraries` is in `dev_docs/DevGuide/release-info`, you need to update it if you add new libraries to MuscleX):
 ```
-pip list | grep -f requirements
+pip list | grep -f libraries
 ```
 Copy and paste this list in `tests/release.log` in "Pip versions detail".
 
@@ -139,9 +139,11 @@ the GitHub repo. Change them properly according to [Project Credits][10].
 ### Create App Image using App Image Installer
 
 Note: AppImage created on the Muscle computer. The compilation might fail on Lethocerus.
+IMPORTANT: You need to be in an environment using Python 3.8 and with all the libraries necessary to make MuscleX work.
 
-- Place musclex/requirements.txt, musclex/musclex and musclex/musclex/main.py in musclex/AppImageBuilder Folder.
-- Open terminal and run the following command
+- Place `musclex/requirements.txt`, `musclex/musclex` and `musclex/musclex/main.py` in `musclex/AppImageBuilder` Folder.
+- Change version inside `AppImageBuilder.yml`.
+- Open terminal and run the following command:
 ```
 appimage-builder
 ```

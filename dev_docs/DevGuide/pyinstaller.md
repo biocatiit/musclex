@@ -5,10 +5,20 @@
 - [Building Mac OS X App Bundle](#building-mac-os-x-app-bundle)
 
 ## Basic steps
-Environment: Python 3.6.4 [MSC v.1900 64 bit (AMD64)] on win32
-Environment for 1.15.7: Python 3.8.10 [MSC v.1900 64 bit (AMD64)] on win32
+Environment: Python 3.10.10 [MSC v.1900 64 bit (AMD64)] on win32
 
 If you are using a new computer, you first need to create an environment with all the pip libraries needed for the program.
+
+The process to create a Linux and Windows standalone program using pyinstaller is similar, just use the linux files instead of the win32 files.
+
+If you want the Linux deb package to be able to launch from the Application finder (on click), you first need to add in main.py, in the "if not run" after all the prints (line 400):
+```
+from musclex.launcher import LauncherForm
+app = QApplication(sys.argv)
+myapp = LauncherForm.main()
+sys.exit(app.exec_())
+```
+(Don't forget to remove it after creating the package.)
 
 ### Build a spec file
 Build a [spec (specification) file][1]. (Work in the root directory
@@ -132,9 +142,7 @@ pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api
 Above parts describe the process in Windows. For building Mac App, baisc
 steps and settings are almost the same as those for Windows,  but there
 are a few more stuff needed to be done.  
-Environment: Python 3.6.5 [GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.39.2)] on darwin  
-Environment for 1.15.1: Python 3.9.6 [Clang 12.0.5 (clang-1205.0.22.9)] on darwin
-Environment for 1.15.7: Python 3.8.10 on darwin
+Environment: Python 3.10.10 [Clang 14.0.0 (clang-1400.0.29.202)] on darwin
 ### Additional Issues
 1. OpenCV library dependency  
   **Description**: Error occurs when importing *cv2* module. (Opencv is

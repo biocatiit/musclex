@@ -21,7 +21,7 @@ assist with analyzing diffraction X-ray images.
 
 .. rubric:: Get the software
 
-- Current stable version: 1.21.1
+- Current stable version: 1.22.0
 - :ref:`Get Muscle X <install>`
 
 .. rubric:: Support
@@ -38,10 +38,10 @@ Submit feedback at https://github.com/biocatiit/musclex/issues.
 
 Click the following badge.
 
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7468634.svg
-   :target: https://doi.org/10.5281/zenodo.7468634
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8200611.svg
+   :target: https://doi.org/10.5281/zenodo.8200611
 
-`J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, J. Nabon, Weikang Ma. G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.21.0), doi:10.5281/zenodo.7468634, December 2022. <https://doi.org/10.5281/zenodo.7468634>`_
+`J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, J. Nabon, Weikang Ma. G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.22.0), doi:10.5281/zenodo.8200611, July 2023. <https://doi.org/10.5281/zenodo.8200611>`_
 
 .. rubric:: License
 
