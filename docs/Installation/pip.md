@@ -55,18 +55,9 @@ source musclex/bin/activate
 which python
 
 pip install --upgrade pip
-pip install --upgrade distro
-pip install --upgrade pyopencl
-pip install --upgrade cython
-pip install --upgrade numpy
-pip install --upgrade opencv-python-headless
-pip install --upgrade pyfai
-pip install --upgrade PyQt5
-pip install --upgrade musclex-ccp13
-pip install --upgrade hdf5plugin
-pip install --upgrade numba
-pip install --upgrade fisx
-pip install --upgrade future
+wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
+pip install -r requirements
+rm requirements
 
 pip install --upgrade musclex
 #pip install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
@@ -88,18 +79,9 @@ Instead of a virtual environment install you may install the program directly on
 First install the libraries needed for MuscleX. 
 ```
 pip3 install --upgrade pip
-pip3 install --upgrade distro
-pip3 install --upgrade pyopencl
-pip3 install --upgrade cython
-pip3 install --upgrade numpy
-pip3 install --upgrade opencv-python-headless
-pip3 install --upgrade pyfai
-pip3 install --upgrade PyQt5
-pip3 install --upgrade musclex-ccp13
-pip3 install --upgrade hdf5plugin
-pip3 install --upgrade numba
-pip3 install --upgrade fisx
-pip3 install --upgrade future
+wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
+pip install -r requirements
+rm requirements
 ```
 
 Run this command to install Muscle X programs

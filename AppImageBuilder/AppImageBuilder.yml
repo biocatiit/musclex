@@ -12,12 +12,12 @@ script:
   - python3 -m pip install --ignore-installed --prefix=/usr --root=AppDir -r ./requirements.txt
 
 AppDir:
-  path: /home/ran/test/musclex/musclex/AppImageBuilder/AppDir
+  path: ./AppDir
   app_info:
     id: musclex
     name: musclex
     icon: utilities-terminal
-    version: '1.22.0'
+    version: 1.22.0
     # Set the python executable as entry point
     exec: usr/bin/python3.8
     # Set the application main script path as argument. Use '$@' to forward CLI parameters

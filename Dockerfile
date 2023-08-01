@@ -16,6 +16,13 @@ RUN echo "**** Installing Python ****" && \
     python3 get-pip.py && \
     rm -rf /var/lib/apt/lists/*
 
+RUN echo "**** Installing Libraries ****" && \
+    pip3 install --upgrade pip && \
+    pip3 install --upgrade numpy && \
+    curl https://raw.githubusercontent.com/biocatiit/musclex/master/requirements --output requirements && \
+    pip3 install -r requirements && \
+    rm requirements
+
 RUN pip3 install --upgrade musclex
 #RUN pip3 install git+https://github.com/biocatiit/musclex.git@v1.15.7
 

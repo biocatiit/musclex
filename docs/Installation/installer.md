@@ -79,3 +79,4 @@ unset XDG_SESSION_DESKTOP
 
 - If you are using a 4K screen and MuscleX is displayed in a way that makes the buttons and texts unreadable, try to add the following environment variable: `export QT_AUTO_SCREEN_SCALE_FACTOR=1`
 
+- For Pip and GitHub install: If there is a problem during the installation of the libraries, try to install wheel using `pip install --upgrade wheel`.

@@ -10,3 +10,4 @@ chmod u+x musclex-1.15.7-x86_64.AppImage
 
 If you encounter an error message while launching the AppImage saying `AppImages require FUSE to run.`, please refer to [the AppImage documentation here](https://docs.appimage.org/user-guide/troubleshooting/fuse.html).
 
+If you encounter a GTK error message while launching the AppImage, please try to run the `gui` interface to access the module you want to use instead of directly using it ('gui' instead of 'qf' for example).
