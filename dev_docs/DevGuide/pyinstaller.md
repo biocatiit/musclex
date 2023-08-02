@@ -1,4 +1,4 @@
-# Create Stand-alone Program for MuscleX with PyInstaller
+# Create Stand-alone Program for MuscleX with PyInstaller on Windows
 ## Contents
 - [Basic steps](#basic-steps)
 - [Debugging](#debugging)
@@ -6,19 +6,9 @@
 
 ## Basic steps
 Environment: Python 3.10.10 [MSC v.1900 64 bit (AMD64)] on win32
+Recommendation: Use the miniconda prompt with base environment already installed on the Windows computer in the lab
 
 If you are using a new computer, you first need to create an environment with all the pip libraries needed for the program.
-
-The process to create a Linux and Windows standalone program using pyinstaller is similar, just use the linux files instead of the win32 files.
-
-If you want the Linux deb package to be able to launch from the Application finder (on click), you first need to add in main.py, in the "if not run" after all the prints (line 400):
-```
-from musclex.launcher import LauncherForm
-app = QApplication(sys.argv)
-myapp = LauncherForm.main()
-sys.exit(app.exec_())
-```
-(Don't forget to remove it after creating the package.)
 
 ### Build a spec file
 Build a [spec (specification) file][1]. (Work in the root directory
@@ -137,9 +127,24 @@ pyinstaller --clean -y musclex_win32.spec 2>&1 | findstr "..*" | findstr /v "api
 6. If encounter error "OSError: /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/PyMca5/PyMcaData directory not found", find the installed PyMca5 in the system, copy PyMcaData and PyMcaDataDir.py to musclex/dist. Modify the path to current folder in PyMcaDataDir.py if necessary.
 7. If Error during pyinstaller or launching the app related to `QF_utilities`, go in `musclex/modules` and run `python setup2.py build_ext --inplace` before running pyinstaller again>
 8. If you have troubles installing musclex-ccp13 on Windows (compilation error/legacy install failure), you might need to install a gfortran compiler. To do so, you can use [the first link for Windows here](https://fortran-lang.org/en/learn/os_setup/install_gfortran/). To verify, run `gfortran -v`.
+9. If you get an error when launching musclex-launcher after the install saying that the program was unable to import `ccp13`, try to install musclex-ccp13 by creating the wheel and installing it as explained in [ccp13_installation](ccp13_installation.md#installing-musclex_ccp13).
+
+## Create Stand-alone Program for MuscleX with PyInstaller on Linux
+
+The process to create a Linux and Windows standalone program using pyinstaller is similar, just use the linux files instead of the win32 files.
+
+If you want the Linux deb package to be able to launch from the Application finder (on click), you first need to add in main.py, in the "if not run" after all the prints (line 400):
+```
+from musclex.launcher import LauncherForm
+app = QApplication(sys.argv)
+myapp = LauncherForm.main()
+sys.exit(app.exec_())
+```
+(Don't forget to remove it after creating the package.)
+
 
 ## Building Mac OS X App Bundle
-Above parts describe the process in Windows. For building Mac App, baisc
+Above parts describe the process in Windows. For building Mac App, basic
 steps and settings are almost the same as those for Windows,  but there
 are a few more stuff needed to be done.  
 Environment: Python 3.10.10 [Clang 14.0.0 (clang-1400.0.29.202)] on darwin
@@ -176,6 +181,7 @@ Application Bundle][8].)
   and resources needed at runtime, and `dist/musclex.app` is the target
   App Bundle.
 ```
+mkdir dist/musclex.app/Contents/MacOS
 cp -r dist/musclex dist/musclex.app/Contents/MacOS
 ```
 Verify that you have the 'musclex' FOLDER copied in musclex.app/Contents/MacOS, not directly the files.

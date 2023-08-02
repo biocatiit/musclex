@@ -78,7 +78,9 @@ pip install dist/musclex-<version>.tar.gz
   during these steps, check if they work in any previous sections.
 
 ### Create a Mac OS X App Bundle
-New mac os installation no longer being produced, please use the docker version
+New pkg MacOS installation no longer being produced, we still do the DMG installation but if possible, please use the docker version.
+
+Pyinstaller and DMG image have been done on BioCAT's MacBook Air 2015 Intel i7, on user Jules.
 1. [Create Stand-alone Program for Mac OS X with PyInstaller][1]
 2. [Build a DMG Image or pkg file][3]
 
@@ -161,7 +163,7 @@ Note: if the command doesn't exist, you can download the appimage-builder [here]
 [6]:https://sourceforge.net/p/forge/documentation/Release%20Files%20for%20Download/#scp
 [7]:https://realpython.com/pypi-publish-python-package/  
 [8]:https://github.com/biocatiit/musclex/releases
-[9]:https://doi.org/10.5281/zenodo.1195050
+[9]:https://doi.org/10.5281/zenodo.8200611
 [10]:https://musclex.readthedocs.io/en/latest/credits.html
 [11]:https://appimage-builder.readthedocs.io/en/latest/examples/pyqt.html
 [12]:https://appimage-builder.readthedocs.io/en/latest/intro/install.html
