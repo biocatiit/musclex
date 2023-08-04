@@ -15,6 +15,7 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Add Intensities Single Experiment (aise) <Add Intensities Single Experiment>`
 - :ref:`Add Intensities Multiple Experiments (aime) <Add Intensities Multiple Experiments>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
+- :ref:`Compress/decompress TIFF images <Compress-Decompress TIFF Images>`  
 - :ref:`Convert rectangle images to square images <Convert rectangle images to squared images>`
 - :ref:`Deprecated: Diffraction Centroids (dc) <Diffraction Centroids>`
 

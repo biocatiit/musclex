@@ -1,5 +1,9 @@
 # HDF5 to TIFF Converter
 
+```eval_rst
+.. note:: Starting in MuscleX 1.22.0, H5 files can directly be read, processed, and analyzed by MuscleX modules.
+```
+
 There are currently two versions of the program: a standalone program and the code execution program.
 
 ## Standalone program

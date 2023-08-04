@@ -14,6 +14,10 @@ Chiplot-analyze is a utility program designed to take as input 1D traces of the 
 
 ## HDF5 to TIFF Converter
 
+```eval_rst
+.. note:: Starting in MuscleX 1.22.0, H5 files can directly be read, processed, and analyzed by MuscleX modules.
+```
+
 Simple program to convert HDF5 files to TIFF images.
 
 * Available inside the MuscleX code: [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/utils/hdf5_to_tiffs.py)
