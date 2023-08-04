@@ -24,3 +24,14 @@ Simple program to convert HDF5 files to TIFF images.
 
 Click [here](AppSuite/WorkingWithHdf5Images/Working-with-hdf5-images.md) to learn more about the program and how it works.
 
+## TIFF Compressor-Decompressor
+
+Simple program to compress or decompress TIFF images. Uses tiff_lzw format (lossless).
+
+* Available inside the MuscleX code: [Github code](https://github.com/biocatiit/musclex/blob/master/musclex/utils/tif_compressor.py)
+
+* [Pip version](https://pypi.org/project/tif-compressor/): `pip install tif-compressor`
+
+* Windows installer and AppImage: [TIFF Compressor-Decompressor on SourceForge](https://sourceforge.net/projects/tiff-compressor-decompressor/)
+
+Click [here](AppSuite/CompressDecompressTif/Compress-decompress-tif-images.md) to learn more about the program and how it works.

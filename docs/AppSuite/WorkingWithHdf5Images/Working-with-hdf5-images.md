@@ -18,7 +18,7 @@ The headless mode works exactly as the Code Execution program: just run `hdf5-to
 
 ## Code Execution program
 
-The code execution program is composed of scripts located inside the MuscleX code. You need access to the source code to be able to run this version of the converter. The files are located in the "utils" folder of the MuscleX code.
+The code execution program is composed of a script located inside the MuscleX code. You need access to the source code to be able to run this version of the converter. The file is located in the "utils" folder of the MuscleX code.
 
 ### Convert HDF5 file to TIFF files
 The script will generate the tiff files from the hdf5 file. The Metadata are read from the metadata file and added as an ImageDescription tag in all the tiff files. It is possible to generate a compressed version of the file to save space.

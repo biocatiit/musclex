@@ -14,7 +14,8 @@ Application Suite
    AddIntensitiesME/index
    Calibration-Settings
    Image-Processing-Functions
-   WorkingWithHdf5Images/index  
+   WorkingWithHdf5Images/index
+   CompressDecompressTif/index
    ConvertRectangleImagetoSquareImages/index
    DiffractionCentroids/index
    
