@@ -222,7 +222,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.expandImage.setToolTip("Expand the size of the image, for images with an offset center")
 
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
-        self.compressFoldedImageChkBx.setChecked(False)
+        self.compressFoldedImageChkBx.setChecked(True)
         self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
 
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")

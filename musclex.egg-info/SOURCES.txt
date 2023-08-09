@@ -173,5 +173,6 @@ musclex/utils/histogram_processor.py
 musclex/utils/image_processor.py
 musclex/utils/logger.py
 musclex/utils/rec2sq.py
+musclex/utils/tif_compressor.py
 musclex/utils/tiff_metadata.py
 musclex/utils/zip_download.py
