@@ -108,6 +108,8 @@ class EquatorWindow(QMainWindow):
         self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
+        if 'paramInfo' in self.bioImg.info:
+            self.k_chkbx.setChecked(self.bioImg.info['paramInfo']['k']['fixed'])
         self.calSettings=None
         # Fix the value SigmaS and SigmaC for the first run if there is no cache
         settings=self.getSettings(first_run=(True if 'model' not in self.bioImg.info else False))
@@ -3085,6 +3087,10 @@ class EquatorWindow(QMainWindow):
         if 'fix_k' in info:
             self.k_chkbx.setChecked(True)
             self.k_spnbx.setValue(info['fix_k'])
+        else:
+            self.k_chkbx.setChecked(False)
+            if 'paramInfo' in info:
+                self.k_spnbx.setValue(info['paramInfo']['k']['val'])
 
         if 'nPeaks' in info:
             self.nPeakSpnBx.setValue(info['nPeaks'])
