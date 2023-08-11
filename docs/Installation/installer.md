@@ -13,7 +13,6 @@ Download the [Windows Installer](https://sourceforge.net/projects/musclex/files/
 1. Find the shortcut of MuscleX on the Desktop or in the Start Menu, and click it to run.
 2. Test the program using the `Run Tests` button in the launcher window.
 
-Note: You can run the headless version using a CMD prompt by replacing `musclex` in the headless command by `musclex-main.exe` in `C:\Users\Program Files\BioCAT\MuscleX\musclex`.
 ## Mac OS X
 There are 2 ways to install the Mac OS program for most versions.
 

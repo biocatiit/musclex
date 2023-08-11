@@ -6,7 +6,8 @@
 
 ## Basic steps
 Environment: Python 3.10.10 [MSC v.1900 64 bit (AMD64)] on win32
-Recommendation: Use the miniconda prompt with base environment already installed on the Windows computer in the lab
+
+Recommendations: Use the miniconda prompt with base environment already installed on the Windows computer in the lab. OR use a CMD prompt opened as administrator. (Sometimes one gives the ccp13 error and not the other)
 
 If you are using a new computer, you first need to create an environment with all the pip libraries needed for the program.
 

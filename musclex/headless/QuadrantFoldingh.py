@@ -51,7 +51,7 @@ class QuadrantFoldingh:
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/qfsettings.json', lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'qfsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -248,7 +248,7 @@ class QuadrantFoldingh:
             resultImg = np.rot90(resultImg)
 
         filename = self.imgList[self.currentFileNumber]
-        bg_path = fullPath(self.dir_path, "qf_results/bg")
+        bg_path = fullPath(self.dir_path, os.path.join("qf_results", "bg"))
         result_path = fullPath(bg_path, filename + ".bg.tif")
 
         # create bg folder

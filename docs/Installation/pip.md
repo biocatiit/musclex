@@ -55,6 +55,7 @@ source musclex/bin/activate
 which python
 
 pip install --upgrade pip
+pip install wheel numpy
 wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
 pip install -r requirements
 rm requirements
@@ -79,6 +80,7 @@ Instead of a virtual environment install you may install the program directly on
 First install the libraries needed for MuscleX. 
 ```
 pip3 install --upgrade pip
+pip install wheel numpy
 wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
 pip install -r requirements
 rm requirements

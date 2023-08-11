@@ -488,7 +488,7 @@ class ProjectionTracesGUI(QMainWindow):
                 #         # settings["boxes"][b[0]][-1] = b[1][-1].tolist()
                 #         settings["boxes"][b[0]].pop(-1)
                 # print(settings["boxes"])
-            filename = getSaveFile("musclex/settings/ptsettings.json", None)
+            filename = getSaveFile(os.path.join("musclex", "settings", "ptsettings.json"), None)
             if filename != "":
                 with open(filename, 'w') as f:
                     json.dump(settings, f)
@@ -2174,7 +2174,7 @@ class ProjectionTracesGUI(QMainWindow):
         :return:
         """
         if self.exportChkBx.isChecked() and self.projProc:
-            path = fullPath(self.dir_path,'/pt_results/1d_projections')
+            path = fullPath(self.dir_path, os.path.join('pt_results', '1d_projections'))
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)

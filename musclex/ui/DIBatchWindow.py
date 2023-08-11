@@ -1084,7 +1084,7 @@ class DIBatchWindow(QMainWindow):
         VN = V * speed
         self.vec_quiver.set_UVC(UN, VN)
         self.vectorFieldMapCanvas.draw_idle()
-        self.vectorFieldMapFigure.savefig(fullPath(self.filePath, 'di_results/vector_field.png'))
+        self.vectorFieldMapFigure.savefig(fullPath(self.filePath, os.path.join('di_results', 'vector_field.png')))
 
     def updateEllipticalMap(self):
         """
@@ -1483,7 +1483,7 @@ class DIBatchWindow(QMainWindow):
         createFolder(fullPath(dir_path, 'di_results'))
 
         if len(imgList) == 0:
-            if exists(fullPath(dir_path, 'di_results/summary.csv')):
+            if exists(fullPath(dir_path, os.path.join('di_results', 'summary.csv'))):
                 self.browseHDF(dir_path, hdfList)
             else:
                 errMsg = QMessageBox()

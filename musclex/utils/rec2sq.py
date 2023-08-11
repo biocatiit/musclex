@@ -68,10 +68,11 @@ def fullPath(filePath, fileName):
     :param filepath, fileName:
     :return: full file path
     """
-    if filePath[-1] == '/':
-        return filePath+fileName
-    else:
-        return filePath+"/"+fileName
+    # if filePath[-1] == '/':
+    #     return filePath+fileName
+    # else:
+    #     return filePath+"/"+fileName
+    return os.path.join(filePath, fileName)
 
 def getImgFiles(input):
     """

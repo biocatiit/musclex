@@ -1429,7 +1429,7 @@ class EquatorWindow(QMainWindow):
         # paramInfo = self.getInfoFromParameterEditor()
         # settings['paramInfo'] = paramInfo
 
-        filename = getSaveFile("musclex/settings/eqsettings.json",None)
+        filename = getSaveFile(os.path.join("musclex", "settings", "eqsettings.json"), None)
         if filename!="":
             with open(filename,'w') as f:
                 json.dump(settings,f)

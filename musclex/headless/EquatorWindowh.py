@@ -47,7 +47,7 @@ class EquatorWindowh:
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, filename, inputsettings, delcache, lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, settingspath='musclex/settings/eqsettings.json'):
+    def __init__(self, filename, inputsettings, delcache, lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, settingspath=os.path.join('musclex', 'settings', 'eqsettings.json')):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file

@@ -787,7 +787,7 @@ class DIImageWindow(QMainWindow):
         save settings to json
         """
         settings = self.flags
-        filename=getSaveFile("musclex/settings/disettings.json",None)
+        filename=getSaveFile(os.path.join("musclex", "settings", "disettings.json"),None)
         if filename!="":
             with open(filename,'w') as f:
                 json.dump(settings,f)
@@ -1197,7 +1197,7 @@ class DIImageWindow(QMainWindow):
         Add pixel data to csv
         """
         if self.pixelDataFile is None:
-            self.pixelDataFile = self.filePath + '/di_results/BackgroundSummary.csv'
+            self.pixelDataFile = os.path.join(self.filePath, 'di_results', 'BackgroundSummary.csv')
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
                 f = open(self.pixelDataFile, 'a')

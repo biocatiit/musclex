@@ -43,7 +43,7 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=False )
+          console=True )
 
 lpyz = PYZ(la.pure, la.zipped_data,
              cipher=block_cipher)

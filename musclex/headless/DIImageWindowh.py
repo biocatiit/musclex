@@ -181,7 +181,7 @@ class DIImageWindowh():
     """
     A class to process Scanning diffraction on a file
     """
-    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath='musclex/settings/disettings.json', lock=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, process_folder=False):
+    def __init__(self, image_name = "", dir_path = "", inputflags=False, delcache=False, inputflagpath=os.path.join('musclex', 'settings', 'disettings.json'), lock=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, process_folder=False):
         self.fileName = image_name
         self.filePath = dir_path
         self.fullPath = os.path.join(dir_path, image_name)
@@ -401,7 +401,7 @@ class DIImageWindowh():
         if self.lock is not None:
             self.lock.acquire()
         if self.pixelDataFile is None:
-            self.pixelDataFile = self.filePath + '/di_results/BackgroundSummary.csv'
+            self.pixelDataFile = os.path.join(self.filePath, 'di_results', 'BackgroundSummary.csv')
             if not os.path.isfile(self.pixelDataFile):
                 header = ['File Name', 'Average Pixel Value (Outside rmin or mask)', 'Number of Pixels (Outside rmin or mask)']
                 f = open(self.pixelDataFile, 'a')

@@ -163,10 +163,11 @@ def fullPath(filePath, fileName):
     :param fileName: file name (string)
     :return: filePath/filename (string)
     """
-    if filePath[-1] == '/':
-        return filePath+fileName
-    else:
-        return filePath+"/"+fileName
+    # if filePath[-1] == '/':
+    #     return filePath+fileName
+    # else:
+    #     return filePath+"/"+fileName
+    return os.path.join(filePath, fileName)
 
 def isImg(fileName):
     """

@@ -146,9 +146,9 @@ Linux ID: {}\n
 
         pass_test = module_test(mode="eq",
                                 settings=settingsA,
-                                pickledir=os.path.join(self.currdir, "eq/tmp_verify_settingsA"),
+                                pickledir=os.path.join(self.currdir, "eq", "tmp_verify_settingsA"),
                                 inputpath=self.inpath,
-                                compdir=os.path.join(self.currdir, "eq/test_pickles_settingsA"),
+                                compdir=os.path.join(self.currdir, "eq", "test_pickles_settingsA"),
                                 testrecord=False,
                                 testversion=self.testversion,
                                 keeppickles=False)
@@ -166,9 +166,9 @@ Linux ID: {}\n
         pass_test = module_test(
                         mode="qf",
                         settings=settingsQF,
-                        pickledir=os.path.join(self.currdir, "qf/tmp_verify_settingsQF"),
+                        pickledir=os.path.join(self.currdir, "qf", "tmp_verify_settingsQF"),
                         inputpath=self.inpath,
-                        compdir=os.path.join(self.currdir, "qf/test_pickles_settingsQF"),
+                        compdir=os.path.join(self.currdir, "qf", "test_pickles_settingsQF"),
                         testrecord=False,
                         testversion=self.testversion,
                         keeppickles=False)
@@ -185,9 +185,9 @@ Linux ID: {}\n
         pass_test = module_test(
                             mode="dc",
                             settings=settingsDC,
-                            pickledir=os.path.join(self.currdir, "dc/tmp_verify_settingsDC"),
+                            pickledir=os.path.join(self.currdir, "dc", "tmp_verify_settingsDC"),
                             inputpath=self.inpath,
-                            compdir=os.path.join(self.currdir, "dc/test_pickles_settingsDC"),
+                            compdir=os.path.join(self.currdir, "dc", "test_pickles_settingsDC"),
                             testrecord=False,
                             testversion=self.testversion,
                             keeppickles=False)
@@ -208,9 +208,9 @@ Linux ID: {}\n
         pass_test = module_test(
                             mode="pt",
                             settings=settingsPT,
-                            pickledir=os.path.join(self.currdir, "pt/tmp_verify_settingsPT"),
+                            pickledir=os.path.join(self.currdir, "pt", "tmp_verify_settingsPT"),
                             inputpath=self.inpath,
-                            compdir=os.path.join(self.currdir, "pt/test_pickles_settingsPT"),
+                            compdir=os.path.join(self.currdir, "pt", "test_pickles_settingsPT"),
                             testrecord=False,
                             testversion=self.testversion,
                             keeppickles=False)
@@ -222,9 +222,9 @@ Linux ID: {}\n
         pass_test = module_test(
                         mode="di",
                         settings=settingsDI,
-                        pickledir=os.path.join(self.currdir, "di/tmp_verify_settingsDI"),
+                        pickledir=os.path.join(self.currdir, "di", "tmp_verify_settingsDI"),
                         inputpath=self.inpath,
-                        compdir=os.path.join(self.currdir, "di/test_pickles_settingsDI"),
+                        compdir=os.path.join(self.currdir, "di", "test_pickles_settingsDI"),
                         testrecord=False,
                         testversion=self.testversion,
                         keeppickles=False)

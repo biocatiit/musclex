@@ -2573,7 +2573,7 @@ class QuadrantFoldingGUI(QMainWindow):
             resultImg = np.rot90(resultImg)
 
         filename = self.imgList[self.currentFileNumber]
-        bg_path = fullPath(self.filePath, "qf_results/bg")
+        bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
         result_path = fullPath(bg_path, filename + ".bg.tif")
 
         # create bg folder
@@ -2947,7 +2947,7 @@ class QuadrantFoldingGUI(QMainWindow):
             settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
         if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
             settings['fixed_roi_rad'] = self.quadFold.info['fixed_roi_rad']
-        filename = getSaveFile("musclex/settings/qfsettings.json", None)
+        filename = getSaveFile(os.path.join("musclex", "settings", "qfsettings.json"), None)
         if filename != "":
             with open(filename, 'w') as f:
                 json.dump(settings, f)

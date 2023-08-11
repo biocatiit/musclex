@@ -2199,7 +2199,7 @@ def addIntensities(numberToFilesMap, dir_path):
             elif not isinstance(sum_img, int):
                 img = resizeImage(img, sum_img.shape)
             sum_img += img
-        result_file = os.path.join(dir_path, 'aime_results/res_' + str(key).zfill(5) + '.tif')
+        result_file = os.path.join(dir_path, 'aime_results', 'res_' + str(key).zfill(5) + '.tif')
         fabio.tifimage.tifimage(data=sum_img).write(result_file)
         print('Saved ', result_file)
         print('Resulting image shape ', sum_img.shape)

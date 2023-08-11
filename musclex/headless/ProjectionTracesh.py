@@ -51,7 +51,7 @@ class ProjectionTracesh:
     """
     This class is for Projection Traces GUI Object
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath='musclex/settings/ptsettings.json', lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'ptsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
         self.lock = lock
         self.current_file = 0
         self.calSettings = None
@@ -205,7 +205,7 @@ class ProjectionTracesh:
         :return:
         """
         if self.projProc:
-            path = fullPath(self.dir_path,'/pt_results/1d_projections')
+            path = fullPath(self.dir_path, os.path.join('pt_results', '1d_projections'))
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
