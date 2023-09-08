@@ -98,6 +98,7 @@ Once the virtual environment is activated, you should see (musclex) at the begin
 We assume that you activated the virtual environment in the previous section. If not, please do it before continuing. 
 Then, type the following commands in the anaconda prompt terminal:
 ```
+pip install cython numpy pyqt5 opencv-python-headless pyfai
 pip install --upgrade pip
 pip install wheel numpy
 curl -O https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
