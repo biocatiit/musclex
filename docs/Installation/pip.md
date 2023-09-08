@@ -44,6 +44,7 @@ We recommend installing [Anaconda](https://www.anaconda.com/products/individual)
 Some of the libraries used by MuscleX require a compilation of the source code to properly work on windows. To do so, you need to install the build tools from [Microsoft Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
 
 ##### Installation of the Microsoft studio build tools
+To install the build tools, follow these steps:
 - start to the visual studio installer app
 - once the visual studio installer app is opened, go to the "workloads" tab, check the "C++ build tools" box
 - only check MSVC … C++ x64/x86 build tools and windows <your version number> SDK and uncheck the rest of options 
@@ -237,7 +238,7 @@ pip install opencv-python==4.2.0.32
 ```
 Once you are done using MuscleX, you can deactivate the virtual environment by typing the following command in the terminal:
 ```
-source musclex/bin/deactivate
+deactivate
 ```
 
 ### If you installed MuscleX in a virtual environment on Windows
