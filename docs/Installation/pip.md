@@ -129,6 +129,7 @@ where <Your_username> is your windows username. Hit enter to validate the comman
 Type the command "git" in the terminal. If git is installed correctly, you should see a list of commands. If not, please check that you followed the instructions correctly.
 
 ##### Installation of the fortran compiler
+The fortran compiler is required to compile the Fortran source files contained in the musclex_cpp13 package. To install the fortran compiler, follow these steps:
 - Visit https://winlibs.com
 - Download the latest version of the fortran compiler in the "MSVCRT runtime" category in 64 bits
 - Unzip the downloaded file
