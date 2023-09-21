@@ -35,7 +35,7 @@ sudo pip install cython
 ```
 
 ### Windows
-For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and **Microsoft Visual C++** (MSVC) is recommended. If you do need to build the Fortran source, refer to [Installation on Windows from source]( #TODO: add link to source installation).
+For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and **Microsoft Visual C++** (MSVC) is recommended, refer to [this section](#download-of-the-microsoft-studio-build-tools). If you do need to build the Fortran source, refer to [Installation on Windows from source](#installation-of-musclex-from-source-on-windows).
 
 #### Installing Python
 We recommend installing [Anaconda](https://www.anaconda.com/products/individual) to install Python and the required dependencies. Anaconda is a free and open-source distribution of the Python and R programming languages for scientific computing, that aims to simplify package management and deployment. 
