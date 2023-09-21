@@ -46,9 +46,9 @@ Some of the libraries used by MuscleX require a compilation of the source code t
 ##### Installation of the Microsoft studio build tools
 To install the build tools, follow these steps:
 - start to the visual studio installer app
-- once the visual studio installer app is opened, go to the "workloads" tab, check the "C++ build tools" box
-- only check MSVC … C++ x64/x86 build tools and windows <your version number> SDK and uncheck the rest of options 
-- install the tools
+- once the visual studio installer app is opened, click on "modify" in the visual studio build tools window. You should then be in the "workloads" tab, check the "C++ build tools" box
+- in the right panel, only check MSVC … C++ x64/x86 build tools and windows <your version number> SDK and uncheck the rest of options 
+- install the tools by hitting the "Modify" button
 
 
 
