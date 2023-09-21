@@ -30,7 +30,7 @@ import os
 from os.path import split, exists, join
 import numpy as np
 import fabio
-from ..ui.pyqt_utils import *
+#from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
