@@ -2,8 +2,6 @@
 
 # Installation by Pip
 
-In order to install the program, you need to install [Python 3](https://www.python.org/).
-
 ## Preparing
 There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
 
@@ -128,6 +126,7 @@ Open the "command prompt" app from the start menu. Once the app is opened, type 
 set PATH=%PATH%;C:\Users\<Your_username>\AppData\Local\Programs\Git\bin
 ```
 where <Your_username> is your windows username. Hit enter to validate the command.
+Clost the command prompt app and open it again.
 Type the command "git" in the terminal. If git is installed correctly, you should see a list of commands. If not, please check that you followed the instructions correctly.
 
 ##### Installation of the fortran compiler
@@ -148,9 +147,11 @@ where <path_to_the_bin_folder_of_installed_file> is the path to the bin folder o
 One of the dependencies of MuscleX is the musclex_cpp13 package. This package contains some Fortran code that needs to be compiled. To do so, you need to type the following commands in the anaconda prompt terminal:
 ```
 conda activate musclex # if you are not already in the virtual environment
-pip install numpy
+pip install numpy==24.0
 git clone https://github.com/biocatiit/musclex_ccp13
 cd musclex_ccp13
+# Note : if you are on windows 10, enter the following command to downgrade the version of the "numexpr" package, since it may cause an error if not downgraded
+# pip install numexpr==2.8.0 
 ```
 Hit enter to validate each command.
 
@@ -178,9 +179,9 @@ This will create the precompiled musclex_cpp13 package, also called a wheel.
 ##### Installation of the musclex_cpp13 package
 In the anacoda prompt terminal, type the following command:
 ```
-pip install dist/musclex_ccp13-<version>.whl
+pip install dist\musclex_ccp13-<version>-<suffix>.whl
 ```
-where <version> is the version of the package you just created. Hit enter to validate the command.
+where <version> is the version of the package you just created (example: "1.2") and <suffix> is made of information such as the python version and processor type. For example, the file could be called: "musclex_ccp13-1.2-cp310-cp310-win_amd64.whl",for a 64 bits system with python 3.10. Hit enter to validate the command.
 
 ##### Installation of MuscleX using the precompiled musclex_cpp13 package
 Once the musclex_cpp13 package is installed, you can install MuscleX by typing the following command in the anaconda prompt terminal:
