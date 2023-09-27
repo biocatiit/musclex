@@ -150,8 +150,8 @@ conda activate musclex # if you are not already in the virtual environment
 pip install numpy==24.0
 git clone https://github.com/biocatiit/musclex_ccp13
 cd musclex_ccp13
-# Note : if you are on windows 10, enter the following command to downgrade the version of the "numexpr" package, since it may cause an error if not downgraded
-# pip install numexpr==2.8.0 
+#Note : if you are on windows 10, enter the following command to downgrade the version of the "numexpr" package, since it may cause an error if not downgraded
+#pip install numexpr==2.8.0 
 ```
 Hit enter to validate each command.
 
