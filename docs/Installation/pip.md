@@ -1,7 +1,7 @@
 ![python logo](https://www.python.org/static/community_logos/python-logo-master-v3-TM.png)
 
 # Installation by Pip
-
+This guide will go through the installation of MuscleX using pip.
 ## Preparing
 There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
 
