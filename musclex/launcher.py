@@ -119,12 +119,13 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         """
         prog = LauncherForm.programs[self.program_idx]
         try:
+            subprocess.Popen(['musclex', prog], shell=(sys.platform=='win32'))
+        except IOError:
             path = os.path.dirname(sys.argv[0])
             path = '.' if path == '' else path
             subprocess.Popen([os.path.join(path, 'musclex-main'), prog],
             	shell=(sys.platform=='win32'))
-        except IOError:
-            subprocess.Popen(['musclex', prog], shell=(sys.platform=='win32'))
+            
 
     def test(self):
         """
