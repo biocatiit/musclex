@@ -126,7 +126,7 @@ Open the "command prompt" app from the start menu. Once the app is opened, type 
 set PATH=%PATH%;C:\Users\<Your_username>\AppData\Local\Programs\Git\bin
 ```
 where <Your_username> is your windows username. Hit enter to validate the command.
-Clost the command prompt app and open it again.
+Close the command prompt app and open it again.
 Type the command "git" in the terminal. If git is installed correctly, you should see a list of commands. If not, please check that you followed the instructions correctly.
 
 ##### Installation of the fortran compiler
