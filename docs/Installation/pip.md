@@ -147,7 +147,7 @@ where <path_to_the_bin_folder_of_installed_file> is the path to the bin folder o
 One of the dependencies of MuscleX is the musclex_cpp13 package. This package contains some Fortran code that needs to be compiled. To do so, you need to type the following commands in the anaconda prompt terminal:
 ```
 conda activate musclex # if you are not already in the virtual environment
-pip install numpy==24.0
+pip install numpy==1.24.0
 git clone https://github.com/biocatiit/musclex_ccp13
 cd musclex_ccp13
 #Note : if you are on windows 10, enter the following command to downgrade the version of the "numexpr" package, since it may cause an error if not downgraded
