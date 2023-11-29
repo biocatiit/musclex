@@ -389,9 +389,9 @@ class EquatorImage:
             img = self.getRotatedImage()
             # remove lines in the box width that are under the -1 value (on the gap)
             k, l = 0, 0
-            while np.sum(img[int_area[0] + k, :]) <= -1:
+            while np.sum(img[int_area[0] + k, :]) <= self.info['mask_thres']:
                 k += 1
-            while np.sum(img[int_area[1] - l, :]) <= -1:
+            while np.sum(img[int_area[1] - l, :]) <= self.info['mask_thres']:
                 l += 1
             if int_area[0] + k >= int_area[1] - l:
                 # cancel it and compute hull anyway 
