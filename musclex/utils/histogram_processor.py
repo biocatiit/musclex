@@ -59,7 +59,13 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
         ignore2 = ignore[hist_x]
         hist_y2[ignore2] = int(max(hist_y2)*1.5)
 
-    hull_x, hull_y = getHull(hist_x, hist_y2)
+    # hull_x, hull_y = getHull(hist_x, hist_y2)
+    # hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
+
+    if ignore is not None:
+        hull_x, hull_y = getHull(hist_x, hist_y2, ignored = ignore2)
+    else:
+        hull_x, hull_y = getHull(hist_x, hist_y2)
     hull = getSubtractedHist(hist_x, hist_y, hull_x, hull_y)
 
     ret = list(np.zeros(start_p))
@@ -73,7 +79,7 @@ def convexHull(hist, start_p = 0, end_p = 99999999, ignore = None):
 
     return ret
 
-def getHull(x_data, y_data):
+def getHull(x_data, y_data, ignored = None):
     """
     Get Hull from histogram
     :param x_data: x values of the histogram (list)
@@ -86,7 +92,7 @@ def getHull(x_data, y_data):
         return xhull, yhull
     xhull.append(x_data[0])
     yhull.append(y_data[0])
-
+    
     lasthullindex = 0
 
     points = len(y_data)
@@ -98,14 +104,31 @@ def getHull(x_data, y_data):
 
         for i in range(currenthullindex + 1, points):
             extrapolation = currenthully + slope * (x_data[i] - x_data[lasthullindex])
-            if y_data[i] < extrapolation:
-                slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
-                currenthullindex = i
+            if ignored is not None:
+                if y_data[i] < extrapolation:
+                    slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
+                    currenthullindex = i
 
+                elif y_data[i] >= extrapolation: 
+                    if ignored[i] == True:
+                        currenthullindex = i
+            else : 
+                if y_data[i] < extrapolation:
+                    slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
+                    currenthullindex = i
         # Store the hull points to be used for a spline fit
         xhull.append(x_data[currenthullindex])
+        #yhull.append(y_data[currenthullindex])
+        if ignored is not None:
+            if ignored[currenthullindex] == True:
+                yhull.append(0)
+            else:
+                yhull.append(y_data[currenthullindex]) 
+        else:
+            yhull.append(y_data[currenthullindex])
         yhull.append(y_data[currenthullindex])
         lasthullindex = currenthullindex
+    
 
     return xhull, yhull
 
