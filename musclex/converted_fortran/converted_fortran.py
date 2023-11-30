@@ -222,7 +222,7 @@ def bcksmooth( # not used
 
 @jit(parallel=True)
 def replicate_bcksmooth(image, max_iterations=10, kernel_size=(5, 5), sigmaX=0, tension=0.5,
-              edge_background=None, filter_radius=5, filter_type='gaussian'):
+              edge_background=None, filter_type='gaussian'):
     """
     Updated bcksmooth function with edge handling and filter selection.
 
@@ -236,39 +236,17 @@ def replicate_bcksmooth(image, max_iterations=10, kernel_size=(5, 5), sigmaX=0, 
     :param filter_type: 'gaussian' for Gaussian blur or 'boxcar' for boxcar filter.
     :return: Processed image.
     """
-    current_background = np.zeros_like(image)
     for _ in range(max_iterations):
-    # Apply low-pass filter to get overestimated background
-        image = image - current_background
-        filtered_background = blur_image(image, kernel_size, sigmaX, filter_type)
+        # Applying low-pass filter to get overestimated background
+        blurred_background = blur_image(image, kernel_size, sigmaX, filter_type)
 
-        # Subtract the overestimated background to get underestimated diffraction maxima
-        diffraction_maxima = image - filtered_background
+        diffraction_maxima = np.clip(image - blurred_background, 0, None)
 
         # Update the background by subtracting these maxima from the original data where the maxima are positive
-        current_background = image - np.where(diffraction_maxima > 0, diffraction_maxima, 0)
+        image -= diffraction_maxima
 
-            
-        #current_background += np.where(subtraction_result < 0, blurred_background, original_data)
-    # # Final background estimation
-    # x = np.arange(image.shape[0])  # Assuming x coordinates are pixel positions
-    # y = np.arange(image.shape[1])  # Assuming y coordinates are pixel positions
-    # z = current_background  # The background estimates obtained during iterations
-    
-    # final_background = merge_backgrounds_with_spline(x, y, z, tension)
-    # # reshape y     
-    # final_background = cv2.GaussianBlur(current_background, kernel_size, sigmaX)
 
-    x = np.arange(image.shape[1])
-    y = np.arange(image.shape[0])
-    X, Y = np.meshgrid(x, y)
-    final_background = interpolate.griddata((X.ravel(), Y.ravel()), current_background.ravel(),
-                                            (X, Y), method='cubic')
-
-    if edge_background is not None:
-        final_background = handle_edge_effects(final_background, edge_background, filter_radius)
-
-    return final_background
+    return image
 
 
 def handle_edge_effects(final_background, edge_background, filter_radius):

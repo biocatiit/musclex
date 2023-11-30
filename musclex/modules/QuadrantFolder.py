@@ -714,18 +714,16 @@ class QuadrantFolder:
 
         tension = self.info["tension"]
         edge_background = None  # You can provide edge background if available
-        filter_radius = 10
 
         # Call bcksmooth function
         result = replicate_bcksmooth(
             image=img,
             max_iterations=self.info["cycles"],
             filter_type=filter_type,
-            kernel_size=(5,5),
+            kernel_size=(self.info["fwhm"], self.info["fwhm"]),
             sigmaX=sigmaX,
             tension=tension,
             edge_background=edge_background,
-            filter_radius=filter_radius
         )
 
         background = copy.copy(result)
