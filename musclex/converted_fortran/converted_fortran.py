@@ -245,6 +245,11 @@ def replicate_bcksmooth(image, max_iterations=10, kernel_size=(5, 5), sigmaX=0, 
         # Update the background by subtracting these maxima from the original data where the maxima are positive
         image -= diffraction_maxima
 
+        # check convergence
+        if np.all(diffraction_maxima == 0):
+            print("Converged at iteration", _)
+            break
+
 
     return image
 

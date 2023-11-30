@@ -705,6 +705,8 @@ class QuadrantFolder:
         if typ == "gauss":
             filter_type = 'gaussian'
             kernel_size = (self.info["fwhm"], self.info["fwhm"])
+            if kernel_size[0] % 2 == 0:
+                kernel_size = (kernel_size[0] + 1, kernel_size[1] + 1)
             print("kernel size", kernel_size)
             sigmaX = 0
         else:
@@ -716,11 +718,12 @@ class QuadrantFolder:
         edge_background = None  # You can provide edge background if available
 
         # Call bcksmooth function
+        print("kernel size", kernel_size)
         result = replicate_bcksmooth(
             image=img,
             max_iterations=self.info["cycles"],
             filter_type=filter_type,
-            kernel_size=(self.info["fwhm"], self.info["fwhm"]),
+            kernel_size=kernel_size,
             sigmaX=sigmaX,
             tension=tension,
             edge_background=edge_background,
