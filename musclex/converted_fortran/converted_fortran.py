@@ -220,7 +220,7 @@ def bcksmooth( # not used
                     CBACK[I] = 0.0
     return CBACK
 
-@jit(parallel=True)
+@jit(forceobj=True, parallel=True)
 def replicate_bcksmooth(image, max_iterations=10, kernel_size=(5, 5), sigmaX=0, tension=0.5,
               edge_background=None, filter_type='gaussian'):
     """
