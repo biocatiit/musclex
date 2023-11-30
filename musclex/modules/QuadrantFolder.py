@@ -32,7 +32,8 @@ import fabio
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
-import ccp13
+#import ccp13
+from ..converted_fortran.converted_fortran import *
 from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
@@ -491,8 +492,70 @@ class QuadrantFolder:
         """
         Apply Circular Background Subtraction to average fold, and save the result to self.info['bgimg1']
         """
-        fold = copy.copy(self.info['avg_fold'])
-        # center = [fold.shape[1] + .5, fold.shape[0] + .5]
+        # fold = copy.copy(self.info['avg_fold'])
+        # # center = [fold.shape[1] + .5, fold.shape[0] + .5]
+
+        # img = self.makeFullImage(fold)
+        # img = img.astype("float32")
+        # width = img.shape[1]
+        # height = img.shape[0]
+
+        # ad = np.ravel(img)
+        # ad = np.array(ad, 'f')
+        # b = np.array(ad, 'f')
+        # rmin = float(self.info['rmin'])
+        # rmax = float(self.info['rmax'])
+        # bin_size = float(self.info["radial_bin"])
+        # smoo = self.info['smooth']
+        # tension = self.info['tension']
+        # max_bin = int(np.ceil((rmax - rmin) / bin_size))*10
+        # max_num = int(np.ceil(rmax * 2 * np.pi))*10
+        # pc1 = self.info['cirmin']/100.
+        # pc2 = self.info['cirmax']/100.
+
+        # csyb = np.zeros(max_bin, 'f')
+        # csyd = np.zeros(max_bin, 'f')
+        # ys = np.zeros(max_bin, 'f')
+        # ysp = np.zeros(max_bin, 'f')
+        # wrk = np.zeros(max_bin * 9, 'f')
+        # pixbin = np.zeros(max_num, 'f')
+        # index_bn = np.zeros(max_num, 'f')
+
+        # ccp13.bgcsym2(ad=ad, b=b,
+        #               smoo=smoo,
+        #               tens=tension,
+        #               pc1=pc1,
+        #               pc2=pc2,
+        #               npix=width,
+        #               nrast=height,
+        #               dmin=rmin,
+        #               dmax=rmax,
+        #               xc=width/2.-.5,
+        #               yc=height/2.-.5,
+        #               dinc=bin_size,
+        #               csyb=csyb,
+        #               csyd=csyd,
+        #               ys=ys,
+        #               ysp=ysp,
+        #               wrk=wrk,
+        #               pixbin=pixbin,
+        #               index_bn=index_bn,
+        #               iprint=0,
+        #               ilog=6,
+        #               maxbin=max_bin,
+        #               maxnum=max_num)
+
+        # background = copy.copy(b)
+        # background[np.isnan(background)] = 0.
+        # background = np.array(background, 'float32')
+        # background = background.reshape((height, width))
+        # background = background[:fold.shape[0], :fold.shape[1]]
+        # result = np.array(fold - background, dtype=np.float32)
+        # result = qfu.replaceRmin(result, int(rmin), 0.)
+
+        # self.info['bgimg1'] = result
+
+        fold = copy.copy(self.info["avg_fold"])
 
         img = self.makeFullImage(fold)
         img = img.astype("float32")
@@ -500,203 +563,312 @@ class QuadrantFolder:
         height = img.shape[0]
 
         ad = np.ravel(img)
-        ad = np.array(ad, 'f')
-        b = np.array(ad, 'f')
-        rmin = float(self.info['rmin'])
-        rmax = float(self.info['rmax'])
+        rmin = float(self.info["rmin"])
+        rmax = float(self.info["rmax"])
         bin_size = float(self.info["radial_bin"])
-        smoo = self.info['smooth']
-        tension = self.info['tension']
-        max_bin = int(np.ceil((rmax - rmin) / bin_size))*10
-        max_num = int(np.ceil(rmax * 2 * np.pi))*10
-        pc1 = self.info['cirmin']/100.
-        pc2 = self.info['cirmax']/100.
+        smoo = self.info["smooth"]
+        pc1 = self.info["cirmin"] / 100.0
+        pc2 = self.info["cirmax"] / 100.0
 
-        csyb = np.zeros(max_bin, 'f')
-        csyd = np.zeros(max_bin, 'f')
-        ys = np.zeros(max_bin, 'f')
-        ysp = np.zeros(max_bin, 'f')
-        wrk = np.zeros(max_bin * 9, 'f')
-        pixbin = np.zeros(max_num, 'f')
-        index_bn = np.zeros(max_num, 'f')
+        # Call the new background subtraction function
+        background = replicate_bgcsym2(
+            AD=ad, 
+            width=width, 
+            height=height, 
+            dmin=rmin, 
+            dmax=rmax, 
+            xc=width / 2.0 - 0.5, 
+            yc=height / 2.0 - 0.5, 
+            bin_size=bin_size, 
+            smooth=smoo, 
+            tension=self.info["tension"], 
+            pc1=pc1, 
+            pc2=pc2
+        )
 
-        ccp13.bgcsym2(ad=ad, b=b,
-                      smoo=smoo,
-                      tens=tension,
-                      pc1=pc1,
-                      pc2=pc2,
-                      npix=width,
-                      nrast=height,
-                      dmin=rmin,
-                      dmax=rmax,
-                      xc=width/2.-.5,
-                      yc=height/2.-.5,
-                      dinc=bin_size,
-                      csyb=csyb,
-                      csyd=csyd,
-                      ys=ys,
-                      ysp=ysp,
-                      wrk=wrk,
-                      pixbin=pixbin,
-                      index_bn=index_bn,
-                      iprint=0,
-                      ilog=6,
-                      maxbin=max_bin,
-                      maxnum=max_num)
-
-        background = copy.copy(b)
+        background = copy.copy(background)
         background[np.isnan(background)] = 0.
         background = np.array(background, 'float32')
         background = background.reshape((height, width))
         background = background[:fold.shape[0], :fold.shape[1]]
         result = np.array(fold - background, dtype=np.float32)
         result = qfu.replaceRmin(result, int(rmin), 0.)
-
         self.info['bgimg1'] = result
+
+
 
     def applySmoothedBGSub(self, typ='gauss'):
         """
         Apply the background substraction smoothed, with default type to gaussian.
         :param typ: type of the substraction
         """
-        fold = copy.copy(self.info['avg_fold'])
+        # fold = copy.copy(self.info['avg_fold'])
 
+        # img = self.makeFullImage(fold)
+        # img = img.astype("float32")
+        # width = img.shape[1]
+        # height = img.shape[0]
+
+        # img = np.ravel(img)
+        # buf = np.array(img, 'f')
+        # maxfunc = len(buf)
+        # cback = np.zeros(maxfunc, 'f')
+        # b = np.zeros(maxfunc, 'f')
+        # smbuf = np.zeros(maxfunc, 'f')
+        # vals = np.zeros(20, 'f')
+
+        # if typ == 'gauss':
+        #     vals[0] = self.info['fwhm']
+        #     vals[1] = self.info['cycles']
+        #     vals[2] = float(self.info['rmin'])
+        #     vals[3] = float(self.info['rmax'])
+        #     vals[4] = width / 2. - .5
+        #     vals[5] = height / 2. - .5
+        #     vals[6] = img.min() - 1
+
+        #     options = np.zeros((10, 10), 'S')
+        #     options[0] = ['G', 'A', 'U', 'S', 'S', '', '', '', '', '']
+        #     options = np.array(options, dtype='S')
+        # else:
+        #     vals[0] = self.info['boxcar_x']
+        #     vals[1] = self.info['boxcar_y']
+        #     vals[2] = self.info['cycles']
+        #     vals[3] = float(self.info['rmin'])
+        #     vals[4] = float(self.info['rmax'])
+        #     vals[5] = width / 2. - .5
+        #     vals[6] = height / 2. - .5
+
+        #     options = np.zeros((10, 10), 'S')
+        #     options[0] = ['B', 'O', 'X', 'C', 'A', '', '', '', '', '']
+        #     options = np.array(options, dtype='S')
+
+        # npix = width
+        # nrast = height
+        # xb = np.zeros(npix, 'f')
+        # yb = np.zeros(npix, 'f')
+        # ys = np.zeros(npix, 'f')
+        # ysp = np.zeros(npix, 'f')
+        # sig = np.zeros(npix, 'f')
+        # wrk = np.zeros(9 * npix, 'f')
+        # iflag = np.zeros(npix * nrast, 'f')
+        # ilog = 6
+
+        # ccp13.bcksmooth(buf=buf,
+        #                 cback=cback,
+        #                 b=b,
+        #                 smbuf=smbuf,
+        #                 vals=vals,
+        #                 options=options,
+        #                 xb=xb,
+        #                 yb=yb,
+        #                 ys=ys,
+        #                 ysp=ysp,
+        #                 sig=sig,
+        #                 wrk=wrk,
+        #                 iflag=iflag,
+        #                 ilog=ilog,
+        #                 nrast=nrast,
+        #                 npix=npix)
+
+        # background = copy.copy(b)
+        # background[np.isnan(background)] = 0.
+        # background = np.array(background, 'float32')
+        # background = background.reshape((height, width))
+        # background = background[:fold.shape[0], :fold.shape[1]]
+        # result = np.array(fold - background, dtype=np.float32)
+        # result = qfu.replaceRmin(result, int(self.info['rmin']), 0.)
+
+        # self.info['bgimg1'] = result
+
+        #--------------------------------NEW ROVING WINDOW BG SUB--------------------------------
+
+        fold = np.copy(self.info["avg_fold"])
+        
         img = self.makeFullImage(fold)
+        center = self.info["center"]
+
+        if "roi_rad" in self.info: # if roi_rad is specified, use it
+            roi_rad = int(self.info["roi_rad"])
+            center_x = int(center[0])
+            center_y = int(center[1])
+            img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
+
         img = img.astype("float32")
         width = img.shape[1]
         height = img.shape[0]
+       
 
-        img = np.ravel(img)
-        buf = np.array(img, 'f')
-        maxfunc = len(buf)
-        cback = np.zeros(maxfunc, 'f')
-        b = np.zeros(maxfunc, 'f')
-        smbuf = np.zeros(maxfunc, 'f')
-        vals = np.zeros(20, 'f')
+        # Prepare input image
+        #img = img.ravel().astype("float32")
 
-        if typ == 'gauss':
-            vals[0] = self.info['fwhm']
-            vals[1] = self.info['cycles']
-            vals[2] = float(self.info['rmin'])
-            vals[3] = float(self.info['rmax'])
-            vals[4] = width / 2. - .5
-            vals[5] = height / 2. - .5
-            vals[6] = img.min() - 1
-
-            options = np.zeros((10, 10), 'S')
-            options[0] = ['G', 'A', 'U', 'S', 'S', '', '', '', '', '']
-            options = np.array(options, dtype='S')
+        # Prepare options and parameter values based on 'typ'
+        if typ == "gauss":
+            filter_type = 'gaussian'
+            kernel_size = (self.info["fwhm"], self.info["fwhm"])
+            print("kernel size", kernel_size)
+            sigmaX = 0
         else:
-            vals[0] = self.info['boxcar_x']
-            vals[1] = self.info['boxcar_y']
-            vals[2] = self.info['cycles']
-            vals[3] = float(self.info['rmin'])
-            vals[4] = float(self.info['rmax'])
-            vals[5] = width / 2. - .5
-            vals[6] = height / 2. - .5
+            filter_type = 'boxcar'
+            kernel_size = (self.info["boxcar_x"], self.info["boxcar_y"])
+            sigmaX = 0  # Set to zero for boxcar filter
 
-            options = np.zeros((10, 10), 'S')
-            options[0] = ['B', 'O', 'X', 'C', 'A', '', '', '', '', '']
-            options = np.array(options, dtype='S')
+        tension = self.info["tension"]
+        edge_background = None  # You can provide edge background if available
+        filter_radius = 10
 
-        npix = width
-        nrast = height
-        xb = np.zeros(npix, 'f')
-        yb = np.zeros(npix, 'f')
-        ys = np.zeros(npix, 'f')
-        ysp = np.zeros(npix, 'f')
-        sig = np.zeros(npix, 'f')
-        wrk = np.zeros(9 * npix, 'f')
-        iflag = np.zeros(npix * nrast, 'f')
-        ilog = 6
+        # Call bcksmooth function
+        result = replicate_bcksmooth(
+            image=img,
+            max_iterations=self.info["cycles"],
+            filter_type=filter_type,
+            kernel_size=(5,5),
+            sigmaX=sigmaX,
+            tension=tension,
+            edge_background=edge_background,
+            filter_radius=filter_radius
+        )
 
-        ccp13.bcksmooth(buf=buf,
-                        cback=cback,
-                        b=b,
-                        smbuf=smbuf,
-                        vals=vals,
-                        options=options,
-                        xb=xb,
-                        yb=yb,
-                        ys=ys,
-                        ysp=ysp,
-                        sig=sig,
-                        wrk=wrk,
-                        iflag=iflag,
-                        ilog=ilog,
-                        nrast=nrast,
-                        npix=npix)
-
-        background = copy.copy(b)
-        background[np.isnan(background)] = 0.
-        background = np.array(background, 'float32')
+        background = copy.copy(result)
+        background[np.isnan(background)] = 0.0
+        background = np.array(background, "float32")
         background = background.reshape((height, width))
-        background = background[:fold.shape[0], :fold.shape[1]]
+        # replacing values that fall outside the roi_rad with the original values fromthe image
+        print("background shape before padding", background.shape)
+        print("fold shape", fold.shape)
+        if "roi_rad" in self.info:
+            background = background[:height//2, :width//2]
+            pad_y = max((fold.shape[0] - background.shape[0]), 0)
+            pad_x = max((fold.shape[1] - background.shape[1]), 0)
+            background = np.pad(background, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
+        else: 
+            background = background[:fold.shape[0], :fold.shape[1]]
+       
         result = np.array(fold - background, dtype=np.float32)
-        result = qfu.replaceRmin(result, int(self.info['rmin']), 0.)
+        # replacing negative values with 0
+        result = np.where(result < 0, 0, result)
+        # positive values are obtained by computing the difference between the result and the corresponding value in the original image if the correspondinv value in the result is positive
+        result = qfu.replaceRmin(result, int(self.info["rmin"]), 0.0)
 
-        self.info['bgimg1'] = result
+        self.info["bgimg1"] = result
+
 
     def applyRovingWindowBGSub(self):
         """
         Apply Roving Window background subtraction
         :return:
         """
-        fold = copy.copy(self.info['avg_fold'])
+        # fold = copy.copy(self.info['avg_fold'])
+        # # center = [fold.shape[1] + .5, fold.shape[0] + .5]
+
+        # img = self.makeFullImage(fold)
+        # width = img.shape[1]
+        # height = img.shape[0]
+        # img = np.ravel(img)
+        # buf = np.array(img, 'f')
+        # b = np.zeros(len(buf), 'f')
+        # iwid = self.info['win_size_x']
+        # jwid = self.info['win_size_y']
+        # isep = self.info['win_sep_x']
+        # jsep = self.info['win_sep_y']
+        # smoo = self.info['smooth']
+        # tension = self.info['tension']
+        # pc1 = self.info['cirmin'] / 100.
+        # pc2 = self.info['cirmax'] / 100.
+
+        # maxdim = width * height
+        # maxwin = (iwid * 2 + 1) * (jwid * 2 + 1)
+
+        # ccp13.bgwsrt2(buf=buf,
+        #               b=b,
+        #               iwid=iwid,
+        #               jwid=jwid,
+        #               isep=isep,
+        #               jsep=jsep,
+        #               smoo=smoo,
+        #               tens=tension,
+        #               pc1=pc1,
+        #               pc2=pc2,
+        #               npix=width,
+        #               nrast=height,
+        #               maxdim=maxdim,
+        #               maxwin=maxwin,
+        #               xb=np.zeros(maxdim, 'f'),
+        #               yb=np.zeros(maxdim, 'f'),
+        #               ys=np.zeros(maxdim, 'f'),
+        #               ysp=np.zeros(maxdim, 'f'),
+        #               wrk=np.zeros(9 * maxdim, 'f'),
+        #               bw=np.zeros(maxwin, 'f'),
+        #               index_bn=np.zeros(maxwin, 'i'),
+        #               iprint=0,
+        #               ilog=6)
+
+        # background = copy.copy(b)
+        # background[np.isnan(background)] = 0.
+        # background = np.array(background, 'float32')
+        # background = background.reshape((height, width))
+        # background = background[:fold.shape[0], :fold.shape[1]]
+        # result = np.array(fold - background, dtype=np.float32)
+        # result = qfu.replaceRmin(result, int(self.info['rmin']), 0.)
+
+        # self.info['bgimg1'] = result
+
+        #---------------------NEW VERSION OF ROVING WINDOW BACKGROUND SUBTRACTION---------------------#
+
+        fold = copy.copy(self.info["avg_fold"])
         # center = [fold.shape[1] + .5, fold.shape[0] + .5]
 
         img = self.makeFullImage(fold)
+        center = self.info["center"]
+
+        if "roi_rad" in self.info: # if roi_rad is specified, use it
+
+            roi_rad = int(self.info["roi_rad"])
+            center_x = int(center[0])
+            center_y = int(center[1])
+            img = img[center_y - roi_rad:center_y + roi_rad, center_x - roi_rad:center_x + roi_rad]
+
         width = img.shape[1]
         height = img.shape[0]
         img = np.ravel(img)
-        buf = np.array(img, 'f')
-        b = np.zeros(len(buf), 'f')
-        iwid = self.info['win_size_x']
-        jwid = self.info['win_size_y']
-        isep = self.info['win_sep_x']
-        jsep = self.info['win_sep_y']
-        smoo = self.info['smooth']
-        tension = self.info['tension']
-        pc1 = self.info['cirmin'] / 100.
-        pc2 = self.info['cirmax'] / 100.
+        buf = np.array(img, "f")
+        iwid = self.info["win_size_x"]
+        jwid = self.info["win_size_y"]
+        isep = self.info["win_sep_x"]
+        jsep = self.info["win_sep_y"]
+        smoo = self.info["smooth"]
+        tension = self.info["tension"]
+        pc1 = self.info["cirmin"] / 100.0
+        pc2 = self.info["cirmax"] / 100.0
 
         maxdim = width * height
         maxwin = (iwid * 2 + 1) * (jwid * 2 + 1)
 
-        ccp13.bgwsrt2(buf=buf,
-                      b=b,
-                      iwid=iwid,
-                      jwid=jwid,
-                      isep=isep,
-                      jsep=jsep,
-                      smoo=smoo,
-                      tens=tension,
-                      pc1=pc1,
-                      pc2=pc2,
-                      npix=width,
-                      nrast=height,
-                      maxdim=maxdim,
-                      maxwin=maxwin,
-                      xb=np.zeros(maxdim, 'f'),
-                      yb=np.zeros(maxdim, 'f'),
-                      ys=np.zeros(maxdim, 'f'),
-                      ysp=np.zeros(maxdim, 'f'),
-                      wrk=np.zeros(9 * maxdim, 'f'),
-                      bw=np.zeros(maxwin, 'f'),
-                      index_bn=np.zeros(maxwin, 'i'),
-                      iprint=0,
-                      ilog=6)
+        # Prepare additional parameters for replicate_bgwsrt2
+        xb = np.zeros(maxdim, dtype='f')
+        yb = np.zeros(maxdim, dtype='f')
+        ys = np.zeros(maxdim, dtype='f')  # Check if needed
+        ysp = np.zeros(maxdim, dtype='f') # Check if needed
+        wrk = np.zeros(9 * maxdim, dtype='f')  # Workspace array
+        bw = np.zeros(maxwin, dtype='f')  # Background window array
+        index_bn = np.zeros(maxwin, dtype='int')  # Check if needed
+        b = np.zeros(maxdim, dtype='f')  # Background array
+        # Call the replicate_bgwsrt2 function
+        b = replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tension, pc1, pc2, width, height, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index_bn, 0, 6)
+        b= b.reshape((height, width))
+      
+        if "roi_rad" in self.info:
+            b = b[:height//2, :width//2]
+            pad_y = max((fold.shape[0] - b.shape[0]), 0)
+            pad_x = max((fold.shape[1] - b.shape[1]), 0)
+            b = np.pad(b, ((pad_y, 0), (pad_x, 0)), 'constant', constant_values=0)
 
-        background = copy.copy(b)
-        background[np.isnan(background)] = 0.
-        background = np.array(background, 'float32')
-        background = background.reshape((height, width))
-        background = background[:fold.shape[0], :fold.shape[1]]
-        result = np.array(fold - background, dtype=np.float32)
-        result = qfu.replaceRmin(result, int(self.info['rmin']), 0.)
+        else: 
+            b = b[:fold.shape[0], :fold.shape[1]]
+      
+        result = np.array(fold - b, dtype=np.float32)
+        result = qfu.replaceRmin(result, int(self.info["rmin"]), 0.0)
 
-        self.info['bgimg1'] = result
-
+        self.info["bgimg1"] = result
 
     def applyCircularlySymBGSub(self):
         """
