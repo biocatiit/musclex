@@ -86,41 +86,14 @@ def getHull(x_data, y_data, ignored = None):
     :param y_data: y values of the histogram (list)
     :return: x and y values of hull (list)
     """
-    # xhull = []
-    # yhull = []
-    
-    # if len(x_data) == 0 or len(y_data) == 0:
-    #     return xhull, yhull
-    # xhull.append(x_data[0])
-    # yhull.append(y_data[0])
-
-    # lasthullindex = 0
-
-    # points = len(y_data)
-    # while lasthullindex < points - 1:
-    #     slope = (y_data[lasthullindex + 1] - y_data[lasthullindex]) / (
-    #         x_data[lasthullindex + 1] - x_data[lasthullindex])
-    #     currenthullindex = lasthullindex + 1
-    #     currenthully = y_data[lasthullindex]
-
-    #     for i in range(currenthullindex + 1, points):
-    #         extrapolation = currenthully + slope * (x_data[i] - x_data[lasthullindex])
-    #         if y_data[i] < extrapolation:
-    #             slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
-    #             currenthullindex = i
-
-    #     # Store the hull points to be used for a spline fit
-    #     xhull.append(x_data[currenthullindex])
-    #     yhull.append(y_data[currenthullindex])
-    #     lasthullindex = currenthullindex
-
     xhull = []
     yhull = []
+    
     if len(x_data) == 0 or len(y_data) == 0:
         return xhull, yhull
     xhull.append(x_data[0])
     yhull.append(y_data[0])
-    
+
     lasthullindex = 0
 
     points = len(y_data)
@@ -132,33 +105,60 @@ def getHull(x_data, y_data, ignored = None):
 
         for i in range(currenthullindex + 1, points):
             extrapolation = currenthully + slope * (x_data[i] - x_data[lasthullindex])
-            if ignored is not None:
-                if y_data[i] < extrapolation:
-                    slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
-                    currenthullindex = i
+            if y_data[i] < extrapolation:
+                slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
+                currenthullindex = i
 
-                elif y_data[i] >= extrapolation: 
-                    if ignored[i] == True:
-                        currenthullindex = i
-                    
-            else : 
-                if y_data[i] < extrapolation:
-                    slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
-                    currenthullindex = i
         # Store the hull points to be used for a spline fit
         xhull.append(x_data[currenthullindex])
-        #yhull.append(y_data[currenthullindex])
-        if ignored is not None:
-            if ignored[currenthullindex] == True:
-                yhull.append(0)
-            else:
-                yhull.append(y_data[currenthullindex]) 
-        else:
-            yhull.append(y_data[currenthullindex])
-
+        yhull.append(y_data[currenthullindex])
         lasthullindex = currenthullindex
+
+    # xhull = []
+    # yhull = []
+    # if len(x_data) == 0 or len(y_data) == 0:
+    #     return xhull, yhull
+    # xhull.append(x_data[0])
+    # yhull.append(y_data[0])
     
-    print("done with hull")
+    # lasthullindex = 0
+
+    # points = len(y_data)
+    # while lasthullindex < points - 1:
+    #     slope = (y_data[lasthullindex + 1] - y_data[lasthullindex]) / (
+    #         x_data[lasthullindex + 1] - x_data[lasthullindex])
+    #     currenthullindex = lasthullindex + 1
+    #     currenthully = y_data[lasthullindex]
+
+    #     for i in range(currenthullindex + 1, points):
+    #         extrapolation = currenthully + slope * (x_data[i] - x_data[lasthullindex])
+    #         if ignored is not None:
+    #             if y_data[i] < extrapolation:
+    #                 slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
+    #                 currenthullindex = i
+
+    #             elif y_data[i] >= extrapolation: 
+    #                 if ignored[i] == True:
+    #                     currenthullindex = i
+                    
+    #         else : 
+    #             if y_data[i] < extrapolation:
+    #                 slope = ((y_data[i] - y_data[lasthullindex]) / (x_data[i] - x_data[lasthullindex]))
+    #                 currenthullindex = i
+    #     # Store the hull points to be used for a spline fit
+    #     xhull.append(x_data[currenthullindex])
+    #     #yhull.append(y_data[currenthullindex])
+    #     if ignored is not None:
+    #         if ignored[currenthullindex] == True:
+    #             yhull.append(0)
+    #         else:
+    #             yhull.append(y_data[currenthullindex]) 
+    #     else:
+    #         yhull.append(y_data[currenthullindex])
+
+    #     lasthullindex = currenthullindex
+    
+    # print("done with hull")
     
     return xhull, yhull
 
