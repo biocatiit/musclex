@@ -1,0 +1,27 @@
+package:
+  name: "musclex"
+  version: "1.23.0"
+
+source:
+  path: ../../musclex
+
+build:
+  number: 0
+  script: "python setup.py install" 
+  preserve_egg_dir: True
+
+requirements:
+  host:
+    - python
+    - pip
+    - numpy<1.24,>=1.18
+  run:
+    - python
+
+about:
+  home: "https://github.com/biocatiit/musclex/"
+  summary: "The Muscle X program suite is a collection of programs intended to assist with analyzing diffraction X-ray images."
+
+extra:
+  maintainers:
+    - "biocat"
