@@ -2,8 +2,8 @@ pip
 wheel
 numpy<1.24,>=1.18
 Cython<=0.29.33
-scikit-image<=0.20.0
-scikit-learn<=1.2.1
+scikit-image
+scikit-learn
 openpyxl<=3.1.1
 pyopencl<=2022.3.1
 tifffile<=2023.2.28
