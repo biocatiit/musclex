@@ -78,7 +78,6 @@ class QuadrantFolder:
         self.ignoreFolds = set()
         self.version = __version__
         cache = self.loadCache() # load from cache if it's available
-
         self.initImg = None
         self.centImgTransMat = None # Centerize image transformation matrix
         self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
@@ -163,6 +162,16 @@ class QuadrantFolder:
         self.centerizeImage()
         self.rotateImg()
         self.calculateAvgFold()
+        if flags['fold_image'] == False:
+            self.info['avg_fold'] = self.orig_img
+            self.info['folded'] = False
+            
+            #self.initImg = self.orig_img
+            
+            # if self.initImg is not None:
+            #     self.info['avg_fold'] = self.initImg
+            # else:
+            #     self.info['avg_fold'] = self.orig_img
         self.getRminmax()
         self.applyBackgroundSubtraction()
         self.mergeImages()
@@ -334,7 +343,11 @@ class QuadrantFolder:
         else:
             dim = self.parent.newImgDimension
         new_img = np.zeros((dim,dim)).astype("float32")
-        new_img[0:b,0:l] = img
+        try:
+            new_img[0:b,0:l] = img
+        except:
+            print("Centerize Image : Dimension mismatched. Please report error and the steps leading up to it.")
+        
 
         #Translate image to appropriate position
         transx = int(((dim/2) - center[0]))
@@ -1060,6 +1073,7 @@ class QuadrantFolder:
             self.get_avg_fold(quadrants,fold_height,fold_width)
             if 'resultImg' in self.imgCache:
                 del self.imgCache['resultImg']
+            
 
             print("Done.")
 
@@ -1082,6 +1096,7 @@ class QuadrantFolder:
             #     result = np.mean( np.array(quadrants), axis=0 )
 
         self.info['avg_fold'] = result
+        self.info['folded'] = True
 
     def applyBackgroundSubtraction(self):
         """
@@ -1098,7 +1113,7 @@ class QuadrantFolder:
             avg_fold = np.array(self.info['avg_fold'], dtype="float32")
             if method == 'None':
                 self.info["bgimg1"] = avg_fold # if method is None, original average fold will be used
-            elif method == '2D Convexhull':
+            elif method == '2D Convexhull': # option has been commented out in the gui
                 self.apply2DConvexhull()
             elif method == 'Circularly-symmetric':
                 self.applyCircularlySymBGSub2()

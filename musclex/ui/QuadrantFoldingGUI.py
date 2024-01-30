@@ -231,6 +231,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.doubleZoom = QCheckBox("Double Zoom")
         self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
+        self.toggleFoldImage = QCheckBox("Fold Image")
+        self.toggleFoldImage.setChecked(True)
+
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 4)
         self.settingsLayout.addWidget(self.setCentByChords, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
@@ -245,6 +248,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 6, 0, 1, 4)
         self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 4)
         self.settingsLayout.addWidget(self.doubleZoom, 8, 0, 1, 4)
+        self.settingsLayout.addWidget(self.toggleFoldImage, 9, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -720,6 +724,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
+        self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
@@ -2286,7 +2291,20 @@ class QuadrantFoldingGUI(QMainWindow):
         self.initialWidgets(original_image, previnfo)
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
+        if 'folded' in self.quadFold.info:
+            print(self.quadFold.info['folded'])
+            if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
+                self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
+                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
         self.processImage()
+
+    def onFoldChkBoxToggled(self):
+        if self.quadFold is not None:
+            self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
+            # self.quadFold.info['avg_fold'] = self.quadFold.orig_img
+            # self.quadFold.deleteFromDict(self.quadFold.imgCache, 'resultImg')
+            self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
+            self.processImage()
 
     def closeEvent(self, ev):
         """
@@ -2565,37 +2583,47 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
+
+
         avg_fold = info["avg_fold"]
+
+        print("Avg_fold shape:")
+        print(avg_fold.shape)
+        print("result shape: ")
+        print(result.shape)
         background = avg_fold-result
         resultImg = self.quadFold.makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
             resultImg = np.rot90(resultImg)
 
-        filename = self.imgList[self.currentFileNumber]
-        bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
-        result_path = fullPath(bg_path, filename + ".bg.tif")
+        method = info['bgsub']
+        if method != 'None':
 
-        # create bg folder
-        createFolder(bg_path)
-        resultImg = resultImg.astype("float32")
-        fabio.tifimage.tifimage(data=resultImg).write(result_path)
+            filename = self.imgList[self.currentFileNumber]
+            bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
+            result_path = fullPath(bg_path, filename + ".bg.tif")
 
-        total_inten = np.sum(resultImg)
-        csv_path = join(bg_path, 'background_sum.csv')
-        if self.csv_bg is None:
-            # create csv file to save total intensity for background
-            if exists(csv_path):
-                self.csv_bg = pd.read_csv(csv_path)
-            else:
-                self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
-            self.csv_bg = self.csv_bg.set_index('Name')
+            # create bg folder
+            createFolder(bg_path)
+            resultImg = resultImg.astype("float32")
+            fabio.tifimage.tifimage(data=resultImg).write(result_path)
 
-        if filename in self.csv_bg.index:
-            self.csv_bg = self.csv_bg.drop(index=filename)
+            total_inten = np.sum(resultImg)
+            csv_path = join(bg_path, 'background_sum.csv')
+            if self.csv_bg is None:
+                # create csv file to save total intensity for background
+                if exists(csv_path):
+                    self.csv_bg = pd.read_csv(csv_path)
+                else:
+                    self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
+                self.csv_bg = self.csv_bg.set_index('Name')
 
-        self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
-        self.csv_bg.to_csv(csv_path)
+            if filename in self.csv_bg.index:
+                self.csv_bg = self.csv_bg.drop(index=filename)
+
+            self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
+            self.csv_bg.to_csv(csv_path)
 
     def updateParams(self):
         """
@@ -2654,6 +2682,7 @@ class QuadrantFoldingGUI(QMainWindow):
         flags['boxcar_y'] = self.boxcarY.value()
         flags['cycles'] = self.cycle.value()
         flags['blank_mask'] = self.blankImageGrp.isChecked()
+        flags['fold_image'] = self.toggleFoldImage.isChecked()
 
         if self.modeAngleChkBx.isChecked():
             modeOrientation = self.getModeRotation()
