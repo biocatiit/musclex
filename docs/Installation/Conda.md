@@ -30,7 +30,6 @@ Ensure you have Conda installed on your system. If not, install Miniconda from [
    ```bash
    conda install -c conda-forge musclex
    ```
-   Replace `conda-forge` with the appropriate channel if `MuscleX` is hosted on a different one.
 
 ### macOS and Linux
 
