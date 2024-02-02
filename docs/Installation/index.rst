@@ -12,6 +12,8 @@ We provide five ways to install Muscle X. See the following parts for details.
    installer
    pip
    Docker
+   Conda
    AppImage
    github
    testing
+   
