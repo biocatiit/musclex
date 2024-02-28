@@ -1,10 +1,12 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLayout, QFileDialog
+from PyQt5.QtWidgets import QDialogButtonBox, QDoubleSpinBox, QGridLayout, QDialog, QPushButton, QLabel, QSpinBox, QStatusBar, QVBoxLayout, QFileDialog, QWidget
+from .BlankImageSettings import MaskImageWidget
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 import numpy as np
 import subprocess
+import glob
 from PIL import Image
 import fabio
 
@@ -45,9 +47,11 @@ def displayImage(imageArray):
 
 
 
-class ImageMaskerWindow(QWidget):
-    def __init__(self):
+class ImageMaskerWindow(QDialog):
+    def __init__(self, dir_path, firstImage):
         super().__init__()
+        self.dir_path = dir_path
+        self.firstImage = self.dir_path + '/' + firstImage
         self.initUI()
         self.imageData = None  # Attribute to store the loaded image data
         self.maskData = None  # Attribute to store the loaded mask data
@@ -55,42 +59,105 @@ class ImageMaskerWindow(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Image Mask Application')
-        layout = QVBoxLayout()
 
-        # Create an image display label with a fixed size of 500x500
+        self.layout = QVBoxLayout()
+
+        self.buttonWidget = QWidget()
+        self.buttonLayout = QGridLayout()
+        self.buttonWidget.setLayout(self.buttonLayout)
+
         self.imageLabel = QLabel()
         self.imageLabel.setFixedSize(500, 500)  # Set the fixed size
         # Optional: Set a border to visualize the area if you like
         self.imageLabel.setStyleSheet("border: 1px solid black;")
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
-        layout.addWidget(self.imageLabel)
 
-        self.openFileBtn = QPushButton('Open File')
-        self.openFileBtn.clicked.connect(self.openFileDialog)
-        layout.addWidget(self.openFileBtn)
 
-        self.drawMaskBtn = QPushButton('Draw Mask')
-        self.drawMaskBtn.clicked.connect(self.drawMask)
-        self.drawMaskBtn.setEnabled(False)  # Disable until an image is loaded
-        layout.addWidget(self.drawMaskBtn)
+        self.selectImage = QPushButton("Select Blank Image(s)")
+        self.drawMaskBtn = QPushButton("Draw Mask")
+        self.maskThres = QDoubleSpinBox()
+        self.maskThres.setRange(-10, 10)
+        self.maskThres.setKeyboardTracking(False)
+        self.scaleFactor = QSpinBox()
+        self.scaleFactor.setRange(1, 200)
+        self.scaleFactor.setValue(100)
+        self.scaleFactor.setKeyboardTracking(True)
 
         self.computeMaskBtn = QPushButton('Compute Mask')
         self.computeMaskBtn.clicked.connect(self.computeMask)
-        self.computeMaskBtn.setEnabled(False)  # Disable until an image is loaded
-        layout.addWidget(self.computeMaskBtn)
-
         self.showMaskBtn = QPushButton('Show Combined Mask')
         self.showMaskBtn.clicked.connect(self.showMask)
-        self.showMaskBtn.setEnabled(False)  # Disabled until an image is loaded
-        layout.addWidget(self.showMaskBtn)
-
         self.applyMaskBtn = QPushButton('Apply Mask')
         self.applyMaskBtn.clicked.connect(self.applyMask)
         self.applyMaskBtn.setEnabled(False)  # Disable until mask is drawn
-        layout.addWidget(self.applyMaskBtn)
 
-        self.setLayout(layout)
-        self.filePath = ''
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
+
+        ### Status Bar ###
+        self.statusBar = QStatusBar()
+        self.pixel_detail = QLabel()
+        self.statusBar.addWidget(self.pixel_detail)
+
+        self.buttonLayout.addWidget(self.imageLabel, 0, 0, 1, 4)
+        self.buttonLayout.addWidget(self.selectImage, 1, 0, 1, 1)
+        self.buttonLayout.addWidget(self.drawMaskBtn, 2, 0, 1, 1)
+        self.buttonLayout.addWidget(self.computeMaskBtn, 3, 0, 1, 1)
+        self.buttonLayout.addWidget(self.showMaskBtn, 4, 0, 1, 1)
+        self.buttonLayout.addWidget(self.applyMaskBtn, 5, 0, 1, 1)
+        self.buttonLayout.addWidget(QLabel("Mask Threshold:"), 1, 2, 1, 1, Qt.AlignRight)
+        self.buttonLayout.addWidget(self.maskThres, 1, 3, 1, 1)
+        self.buttonLayout.addWidget(QLabel("Scale Factor (%):"), 2, 2, 1, 1, Qt.AlignRight)
+        self.buttonLayout.addWidget(self.scaleFactor, 2, 3, 1, 1)
+        self.buttonLayout.addWidget(self.bottons, 6, 0, 1, 4,  Qt.AlignCenter)
+        self.buttonLayout.addWidget(self.statusBar, 7, 0, 1, 4, Qt.AlignCenter)
+
+        self.layout.addWidget(self.imageLabel)
+        self.layout.addWidget(self.buttonWidget)
+        self.setLayout(self.layout)
+
+        self.drawMaskBtn.clicked.connect(self.drawMask)
+
+        # layout = QVBoxLayout()
+
+        # # Create an image display label with a fixed size of 500x500
+        # self.imageLabel = QLabel()
+        # self.imageLabel.setFixedSize(500, 500)  # Set the fixed size
+        # # Optional: Set a border to visualize the area if you like
+        # self.imageLabel.setStyleSheet("border: 1px solid black;")
+        # self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
+        # layout.addWidget(self.imageLabel)
+
+        # self.buttonLayout = QGridLayout()
+
+        # self.openFileBtn = QPushButton('Open File')
+        # self.openFileBtn.clicked.connect(self.openFileDialog)
+        # #layout.addWidget(self.openFileBtn)
+
+        # self.drawMaskBtn = QPushButton('Draw Mask')
+        # self.drawMaskBtn.clicked.connect(self.drawMask)
+        # self.drawMaskBtn.setEnabled(False)  # Disable until an image is loaded
+        # layout.addWidget(self.drawMaskBtn)
+
+        # self.computeMaskBtn = QPushButton('Compute Mask')
+        # self.computeMaskBtn.clicked.connect(self.computeMask)
+        # self.computeMaskBtn.setEnabled(False)  # Disable until an image is loaded
+        # layout.addWidget(self.computeMaskBtn)
+
+        # self.showMaskBtn = QPushButton('Show Combined Mask')
+        # self.showMaskBtn.clicked.connect(self.showMask)
+        # self.showMaskBtn.setEnabled(False)  # Disabled until an image is loaded
+        # layout.addWidget(self.showMaskBtn)
+
+        # self.applyMaskBtn = QPushButton('Apply Mask')
+        # self.applyMaskBtn.clicked.connect(self.applyMask)
+        # self.applyMaskBtn.setEnabled(False)  # Disable until mask is drawn
+        # layout.addWidget(self.applyMaskBtn)
+        # self.setLayout(layout)
+        # self.drawMaskBtn.setEnabled(True)
+        # self.computeMaskBtn.setEnabled(True)
+
+        self.loadImage(self.firstImage)
+        displayImage(self.imageData)
 
     def openFileDialog(self):
         options = QFileDialog.Options()
@@ -121,13 +188,19 @@ class ImageMaskerWindow(QWidget):
 
 
     def drawMask(self):
-        if self.filePath:
+        if self.dir_path:
             # Assuming pyFAI-drawmask can be called directly from the command line
-            command = f'pyFAI-drawmask {self.filePath}'
-            subprocess.run(command, shell=True)
+
+            # command = f'pyFAI-drawmask {self.dir_path}'
+            # subprocess.run(command, shell=True)
+
+            self.selected = fabio.open(self.firstImage).data
+
+            draw_dialog = MaskImageWidget(self.selected, self.maskData)
+            result = draw_dialog.exec_()
 
             # Assuming the mask file follows a naming convention like originalFileName-mask.edf
-            maskPath = self.filePath.rsplit('.', 1)[0] + '-mask.edf'
+            maskPath = self.dir_path.rsplit('.', 1)[0] + '-mask.edf'
             self.loadMask(maskPath)   
             if self.maskData is not None:
                 thresholdValue = np.max(self.maskData)  # This works for images where the mask is full white for mask-out regions
@@ -174,7 +247,7 @@ class ImageMaskerWindow(QWidget):
 
 
     def applyMask(self):
-        if self.filePath:
+        if self.dir_path:
             maskArray=self.maskData
             originalImageArray = self.imageData
 
@@ -214,12 +287,4 @@ class ImageMaskerWindow(QWidget):
             else:
                 print("No non-masked pixels found. Cannot compute average intensity.")
 
-
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    mainWindow = MainWindow()
-    mainWindow.show()
-    sys.exit(app.exec_())
 

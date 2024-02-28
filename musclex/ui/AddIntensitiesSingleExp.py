@@ -32,6 +32,7 @@ import copy
 import pickle
 import numpy as np
 import cv2
+import hdf5plugin
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
@@ -41,6 +42,7 @@ import fabio
 
 from .AISEImageSelectionWindow import AISEImageSelectionWindow
 from .UnalignedImagesDialog import UnalignedImagesDialog
+from .ImageMaskTool import ImageMaskerWindow
 from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly
@@ -73,6 +75,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calSettingsDialog = None
         self.imageSequenceDialog = None
         self.unalignedImagesDialog = None
+        self.imageMaskingTool = None
         self.customImageSequence = False  # If we are using a custom sequence by the user himself
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
@@ -548,9 +551,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
     def maskImageButtonClicked(self):
-        #dlg = image_masker()
-        #result = dlg.exec_()
-        print('mask image clicked')
+        if self.imageMaskingTool is None:
+            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , self.img_list[0])
+        if self.imageMaskingTool.exec_():
+            print("success??")
 
     def correctCenterButtonClicked(self):
         QMessageBox.information(self, "Match Centers", "Program will now match centers automticallly")
@@ -621,17 +625,19 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.frameNb.setValue(len(self.img_grps[0]))
             self.filenameLineEdit.setVisible(False)
         elif (value == 'Step through badly correlated images'):
+            self.img_grps_copy = self.img_grps
             self.filenameLineEdit.setVisible(False)
             if not self.misaligned_images:
                 QMessageBox.information(self, "No Misaligned Images", "No misaligned images found")
+                self.frameSteppingSelection.setCurrentIndex(0)
             else:
-                self.img_grps_copy = self.img_grps
                 self.img_grps = []
                 self.img_grps.append(self.misaligned_images)
                 self.nbOfGroups = len(self.img_grps)
                 self.frameNb.setValue(len(self.img_grps[0]))
         # elif (value == 'Step through group images'):
         #     self.filenameLineEdit.setVisible(True)
+                
     def loadImagesCache(self):
         cache_file = fullPath(fullPath(self.dir_path, "aise_cache"), "imageresultscache"+".info")
         if os.path.isfile(cache_file):
@@ -2161,6 +2167,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.img_list.sort()
                 self.updateImageGroups()
                 self.onNewFileSelected()
+                self.refreshAllTab()
             else:
                 errMsg = QMessageBox()
                 errMsg.setText('Wrong file type')

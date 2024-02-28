@@ -5,7 +5,7 @@ import glob
 import fabio
 from functools import partial
 from PyQt5.QtWidgets import (QGroupBox, QDialog, QWidget,
-QScrollArea, QGridLayout, QLabel, QCheckBox, QVBoxLayout, QSlider,
+QScrollArea, QGridLayout, QLabel, QCheckBox, QVBoxLayout,
 QDoubleSpinBox, QPushButton, QHBoxLayout, QSizePolicy, QMessageBox)
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
@@ -30,6 +30,7 @@ class AISEImageSelectionWindow(QDialog):
         self.showInstructions = True
         self.editingMode = False
         self.XRayViewer = None
+        self.selectionMode = False
 
         self.initUI()
         self.resize(1200,750)
@@ -39,15 +40,16 @@ class AISEImageSelectionWindow(QDialog):
 
     def initUI(self):
         self.scroll = QScrollArea()
-        self.grid_layout = QGridLayout()
-
-        self.thumbnail_widget = QWidget()
-        self.thumbnail_widget.setLayout(self.grid_layout)
+        
+        self.createListWidget()
 
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll.setWidgetResizable(True)
-        self.scroll.setWidget(self.thumbnail_widget)
+        #self.scroll.setVisible(False)
+
+        self.scroll.setWidget(self.list_widget)
+        #self.scroll.setWidget(self.thumbnail_widget)
 
         self.layout = QHBoxLayout(self)
         self.layout.addWidget(self.scroll)
@@ -74,8 +76,8 @@ class AISEImageSelectionWindow(QDialog):
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
-        self.toggleThumbnailChkBx = QCheckBox("Toggle Thumbnails")
-        self.toggleThumbnailChkBx.setChecked(True)
+        self.toggleThumbnailChkBx = QCheckBox("Toggle Thumbnails (SLOW)")
+        self.toggleThumbnailChkBx.setChecked(False)
 
         self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 1)
         self.dispOptLayout.addWidget(self.spminInt, 1, 1, 1, 1)
@@ -83,23 +85,6 @@ class AISEImageSelectionWindow(QDialog):
         self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
         self.dispOptLayout.addWidget(self.toggleThumbnailChkBx, 3, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
-
-
-        # Thumbnail Size Slider Box
-        self.sliderGrpBox = QGroupBox()
-        self.sliderGrpBox.setTitle("Thumbnail Size")
-        self.sliderGrpBox.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        self.sliderGrpBoxLayout = QVBoxLayout()
-
-        self.sliderLabel = QLabel('Thumbnail Size')
-        self.slider = QSlider(Qt.Horizontal, self)
-        self.slider.setMinimum(50)
-        self.slider.setMaximum(150)
-        self.slider.setValue(100)  # Initial size
-
-        self.sliderGrpBoxLayout.addWidget(self.sliderLabel)
-        self.sliderGrpBoxLayout.addWidget(self.slider)
-        self.sliderGrpBox.setLayout(self.sliderGrpBoxLayout)
 
         self.legendGrpBox = QGroupBox()
         self.legendGrpBox.setTitle("Legend")
@@ -128,7 +113,6 @@ class AISEImageSelectionWindow(QDialog):
         # Options Layout
         self.optionsLayout = QVBoxLayout()
         self.optionsLayout.addWidget(self.displayOptGrpBx)
-        self.optionsLayout.addWidget(self.sliderGrpBox)
         self.optionsLayout.addWidget(self.selectSequenceButton)
         self.optionsLayout.addWidget(self.resetSequenceButton)
         self.optionsLayout.addWidget(self.editSequenceButton)
@@ -140,11 +124,21 @@ class AISEImageSelectionWindow(QDialog):
         self.setGeometry(300, 300, 350, 300)
         self.setWindowTitle('Image Sequence Selection')
 
+        #self.load_images(self.dir_path)
         self.load_images(self.dir_path)
         self.show()
 
+    def createThumbnailWidget(self):
+        self.thumbnail_widget = QWidget()
+        self.grid_layout = QGridLayout()
+        self.thumbnail_widget.setLayout(self.grid_layout)
+    
+    def createListWidget(self):
+        self.list_widget = QWidget()
+        self.vertical_layout = QVBoxLayout()
+        self.list_widget.setLayout(self.vertical_layout)
+
     def setConnections(self):
-        self.slider.valueChanged.connect(self.update_thumbnail_size)
         self.spminInt.valueChanged.connect(self.update_thumbnail_intensities)
         self.spmaxInt.valueChanged.connect(self.update_thumbnail_intensities)
         self.toggleThumbnailChkBx.clicked.connect(self.toggleThumbnailsClicked)    
@@ -152,6 +146,8 @@ class AISEImageSelectionWindow(QDialog):
         self.confirmButton.clicked.connect(self.confirmedClicked)
         self.resetSequenceButton.clicked.connect(self.resetSequenceClicked)
         self.editSequenceButton.clicked.connect(self.editSequenceClicked)
+
+    
 
     def confirmedClicked(self):
         if self.XRayViewer is not None:
@@ -187,8 +183,13 @@ class AISEImageSelectionWindow(QDialog):
 
     # TODO CHANGE IT INTO A LIST FORMAT
     def toggleThumbnailsClicked(self):
-        for label in self.thumbnail_labels:
-            label.setVisible(self.toggleThumbnailChkBx.isChecked())
+        if self.toggleThumbnailChkBx.isChecked():
+            self.createThumbnailWidget()
+            self.scroll.setWidget(self.thumbnail_widget)
+        else:
+            self.createListWidget()
+            self.scroll.setWidget(self.list_widget)
+        self.load_images(self.dir_path)
 
     def open_message_box(self):
         msg_box = QMessageBox()
@@ -248,41 +249,16 @@ class AISEImageSelectionWindow(QDialog):
 
     
     def load_images(self, folder_path):
-
         self.thumbnail_labels.clear()
         print(self.misaligned_images)
 
         # List all TIFF files in the folder
         tiff_files = glob.glob(os.path.join(folder_path, '*.tif'))
         for i, tiff_file in enumerate(tiff_files):
-
-            image = fabio.open(tiff_file).data.astype(np.float32)
-            min_val = image.min()
-            max_val = image.max()
-            self.spmaxInt.setRange(min_val, max_val)
-            self.spminInt.setRange(min_val, max_val)
-            self.spmaxInt.setValue(max_val * .5)
-            self.spminInt.setValue(min_val)
-
-            self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
-            self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
-
-
             label = QLabel(self)
             widget = QWidget()
-            if tiff_file in self.misaligned_images:
-                print("here!")
-                widget.setStyleSheet("border: 4px solid red")
-            vbox = QVBoxLayout()
-            image = self.normalizeImage(image, None, None)
-            q_image = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Indexed8)
-            pixmap = QPixmap.fromImage(q_image)            
-            label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio))
-            self.thumbnail_labels.append(label)  # Add label to the list
-            vbox.addWidget(label)
-            self.qlabel_list.append(label)
-
-            # File name and checkbox
+            
+             # File name and checkbox
             filename = os.path.basename(tiff_file)
             short_filename = (filename[:10] + '...') if len(filename) > 10 else filename
             file_label = QLabel(short_filename)
@@ -296,23 +272,51 @@ class AISEImageSelectionWindow(QDialog):
             if any(self.img_list[i] in sublist for sublist in self.img_grps):
                 checkbox.setChecked(True)
 
+            if tiff_file in self.misaligned_images:
+                widget.setStyleSheet("border: 4px solid red")
+
             self.checkbox_list.append(checkbox)
 
-            vbox.addWidget(file_label)
-            vbox.addWidget(checkbox)
-            vbox.addStretch()
-            label.setProperty("fileName", tiff_file)
+            if (self.toggleThumbnailChkBx.isChecked()):
+                image = fabio.open(tiff_file).data.astype(np.float32)
+                min_val = image.min()
+                max_val = image.max()
+                self.spmaxInt.setRange(min_val, max_val)
+                self.spminInt.setRange(min_val, max_val)
+                self.spmaxInt.setValue(max_val * .5)
+                self.spminInt.setValue(min_val)
 
-            label.mousePressEvent = lambda event, i=i, label=label: self.onLabelClicked(event, i, label)
+                self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
+                self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
 
-            widget.setLayout(vbox)
+                vbox = QVBoxLayout()
+                image = self.normalizeImage(image, None, None)
+                q_image = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Indexed8)
+                pixmap = QPixmap.fromImage(q_image)            
+                label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio))
+                self.thumbnail_labels.append(label)  # Add label to the list
+                vbox.addWidget(label)
+                vbox.addWidget(file_label)
+                vbox.addWidget(checkbox)
+                vbox.addStretch()
+                self.qlabel_list.append(label)
+                label.setProperty("fileName", tiff_file)
+                label.mousePressEvent = lambda event, i=i, label=label: self.onLabelClicked(event, i, label)
+                widget.setLayout(vbox)
+                row = i // 3  # Change '3' to the desired number of columns
+                column = i % 3  # Change '3' to the desired number of columns
+                self.grid_layout.addWidget(widget, row, column)
+            else:
+                hbox = QHBoxLayout()
+                file_label.setProperty("fileName", tiff_file)
+                file_label.mousePressEvent = lambda event, i=i, label=file_label: self.onLabelClicked(event, i, label)
+                hbox.addWidget(file_label)
+                hbox.addWidget(checkbox)
+                widget.setLayout(hbox)
+                widget.resize(widget.sizeHint())
+                self.vertical_layout.addWidget(widget)
 
-            # Add row layout to grid
-            row = i // 3  # Change '3' to the desired number of columns
-            column = i % 3  # Change '3' to the desired number of columns
-            self.grid_layout.addWidget(widget, row, column)
 
-    
     # Handles the click event on the thumbnail label.
     # Opens the XRayViewerGUI and loads the selected image
     # Loads a new image if XRayViewerGUI is already open
@@ -365,13 +369,5 @@ class AISEImageSelectionWindow(QDialog):
             q_image = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Indexed8)
             pixmap = QPixmap.fromImage(q_image)
             label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio))
-
-    # TODO some scaling problems when using this, need to look into it deeper
-    def update_thumbnail_size(self, value):
-        # Update the size of each thumbnail based on the slider's value
-        for label in self.thumbnail_labels:
-            pixmap = label.pixmap()
-            scaled_pixmap = pixmap.scaledToWidth(value, Qt.SmoothTransformation)
-            label.setPixmap(scaled_pixmap)
 
     #def setConnections(self):
