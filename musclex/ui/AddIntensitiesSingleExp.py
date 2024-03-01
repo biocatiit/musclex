@@ -27,12 +27,15 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+from os.path import join
+from datetime import datetime
 import gc
 import copy
 import pickle
 import numpy as np
 import cv2
-import hdf5plugin
+import csv
+import hdf5plugin # for some reason this is needed even though never coded
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
@@ -64,6 +67,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.misaligned_images = []
         self.file_name = '' 
         self.avg_img = None
+        self.orig_avg_img = None
         self.init_imgs = None
         self.currentFileNumber = 0
         self.currentFrameNumber = 0
@@ -94,6 +98,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.dontShowAgainDoubleZoomMessageResult = False
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
+        self.maskData = None
+        self.csvInfo = []
         self.initUI()
         self.setConnections()
 
@@ -208,12 +214,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.selectImageChkBx = QCheckBox('Sum Image Ranges')
         self.sumImagesButton = QPushButton("Select Image Subsets")
         self.sumImagesButton.setEnabled(False)
+        self.useMaskChkBx = QCheckBox('Use Mask')
+        self.useMaskChkBx.setEnabled(False)
         self.maskImageButton = QPushButton("Mask Image")
+        self.maskImageButton.setEnabled(False)
         self.imgOperationLayout.addWidget(self.binFactorChkBox, 0, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
         self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.sumImagesButton, 1, 3, 1, 1)
-        self.imgOperationLayout.addWidget(self.maskImageButton, 2, 0, 1, 3)
+        self.imgOperationLayout.addWidget(self.useMaskChkBx, 2, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 3)
 
         # Operation Options Group Box
 
@@ -554,7 +564,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self.imageMaskingTool is None:
             self.imageMaskingTool = ImageMaskerWindow(self.dir_path , self.img_list[0])
         if self.imageMaskingTool.exec_():
-            print("success??")
+            if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
+                print("mask found!!")
+                self.maskPath = join(join(self.dir_path, 'settings'), 'mask.tif')
+                self.useMaskChkBx.setChecked(True)
+                self.useMaskChkBx.setEnabled(True)
 
     def correctCenterButtonClicked(self):
         QMessageBox.information(self, "Match Centers", "Program will now match centers automticallly")
@@ -914,6 +928,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.progressBar.setValue(self.nbOfGroups)
             self.progressBar.setVisible(False)
             self.statusPrint("")
+            print("writing to csv file..")
+            self.writeToCSV()
             print("Done. All result images have been saved to "+output)
 
         self.processFolderButton.setChecked(False)
@@ -1004,6 +1020,12 @@ class AddIntensitiesSingleExp(QMainWindow):
                 #             img = resizeImage(img, sum_img.shape)
                 #         sum_img += img
                 #     self.avg_img = sum_img
+                if self.useMaskChkBx.isChecked():
+                    self.maskData = fabio.open(self.maskPath).data
+                    self.orig_avg_img = self.avg_img
+                    self.avg_img = self.avg_img * self.maskData
+                
+                self.generateCSVLine(filename)
                 print('Saving merged image...')
                 self.statusPrint('Saving merged image...')
                 if self.compressChkBx.isChecked():
@@ -1036,6 +1058,31 @@ class AddIntensitiesSingleExp(QMainWindow):
                     img = resizeImage(img, sum_img.shape)
                 sum_img += img
             self.avg_img = sum_img
+    
+    def generateCSVLine(self, filename):
+        nonmaskedPixels = 0
+        orig_img_intensity = 0
+        img_with_mask_intensity = 0
+        if self.maskData is not None:
+            nonmaskedPixels = np.sum(self.maskData == 1)
+            img_with_mask_intensity = np.sum(self.avg_img)
+        if self.orig_avg_img is not None:
+            orig_img_intensity = np.sum(self.orig_avg_img)
+        else:
+            orig_img_intensity = np.sum(self.avg_img)
+        
+        dateString = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        
+        info = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, self.nbOfFrames]
+        self.csvInfo.append(info)
+            
+    def writeToCSV(self):
+        with open(join(join(self.dir_path, 'aise_results'), 'intensities.csv') , 'a' ) as f:
+            writer = csv.writer(f)
+            for line in self.csvInfo:
+                writer.writerow(line)
+        
+        self.csvInfo = []
 
     def refreshAllTab(self):
         """
@@ -2137,6 +2184,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.browseFolderButton.setHidden(True)
         self.browseFileButton.setHidden(True)
         self.calibrationChkBx.setEnabled(True)
+        self.maskImageButton.setEnabled(True)
         self.checkImagesButton.setEnabled(True)
         self.correctionGroup.setEnabled(True)
         self.imageCanvas.setHidden(False)

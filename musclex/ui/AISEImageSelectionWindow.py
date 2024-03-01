@@ -263,7 +263,6 @@ class AISEImageSelectionWindow(QDialog):
             short_filename = (filename[:10] + '...') if len(filename) > 10 else filename
             file_label = QLabel(short_filename)
             file_label.setToolTip(filename)  # Set tooltip to display full filename on hover
-            file_label.adjustSize()
 
             checkbox = QCheckBox("Select")
             checkbox.setEnabled(False)
@@ -310,10 +309,20 @@ class AISEImageSelectionWindow(QDialog):
                 hbox = QHBoxLayout()
                 file_label.setProperty("fileName", tiff_file)
                 file_label.mousePressEvent = lambda event, i=i, label=file_label: self.onLabelClicked(event, i, label)
+                
+                #TODO figure out why the text is still being truncated
+                file_label.setFixedHeight(20)
+                checkbox.setFixedHeight(20)
+                file_label.setAlignment(Qt.AlignLeft)
+                file_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                
                 hbox.addWidget(file_label)
                 hbox.addWidget(checkbox)
                 widget.setLayout(hbox)
-                widget.resize(widget.sizeHint())
+                widget.setFixedHeight(30)
+                
+                self.vertical_layout.setSpacing(0)
+                self.vertical_layout.setContentsMargins(0, 0, 0, 0)
                 self.vertical_layout.addWidget(widget)
 
 
