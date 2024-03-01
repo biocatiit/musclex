@@ -50,3 +50,6 @@ Simple program to create strong images from a set of TIFF images, or from h5 fil
 * [Pip version](https://pypi.org/project/strong-image-creation): `pip install strong-image-creation`
 
 
+A more advanced version of this program is available under the name "AISE".
+
+
