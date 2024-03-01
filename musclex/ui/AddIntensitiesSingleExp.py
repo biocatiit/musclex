@@ -562,7 +562,11 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def maskImageButtonClicked(self):
         if self.imageMaskingTool is None:
-            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , self.img_list[0])
+            if self.isHdf5:
+                file_name = self.file_name
+            else:
+                file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
+            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value())
         if self.imageMaskingTool.exec_():
             if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
                 print("mask found!!")
@@ -619,7 +623,11 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def selectImageSequence(self):
         if self.imageSequenceDialog is None:
-            self.imageSequenceDialog = AISEImageSelectionWindow(self.dir_path, self.img_list, self.img_grps, self.misaligned_images)
+            if self.isHdf5:
+                file_path = self.file_name
+            else:
+                file_path = self.dir_path
+            self.imageSequenceDialog = AISEImageSelectionWindow(file_path, self.img_list, self.img_grps, self.misaligned_images, self.isHdf5)
         self.imageSequenceLists = None
         if self.imageSequenceDialog.exec_():
             self.customImageSequence = True

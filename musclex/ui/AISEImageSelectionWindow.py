@@ -14,9 +14,10 @@ from .XRayViewerGUI import XRayViewerGUI
 
 class AISEImageSelectionWindow(QDialog):
 
-    def __init__(self, dir_path, orig_img_list, img_grps, misaligned_images):
+    def __init__(self, dir_path, orig_img_list, img_grps, misaligned_images, isHDF5):
         super().__init__(None)
         self.setWindowTitle("Image Sequence Selection")
+        self.isHDF5 = isHDF5
         self.img_list = orig_img_list
         self.dir_path = dir_path
         self.thumbnail_labels = []
@@ -31,6 +32,7 @@ class AISEImageSelectionWindow(QDialog):
         self.editingMode = False
         self.XRayViewer = None
         self.selectionMode = False
+        print(self.dir_path)
 
         self.initUI()
         self.resize(1200,750)
@@ -253,77 +255,80 @@ class AISEImageSelectionWindow(QDialog):
         print(self.misaligned_images)
 
         # List all TIFF files in the folder
-        tiff_files = glob.glob(os.path.join(folder_path, '*.tif'))
-        for i, tiff_file in enumerate(tiff_files):
-            label = QLabel(self)
-            widget = QWidget()
-            
-             # File name and checkbox
-            filename = os.path.basename(tiff_file)
-            short_filename = (filename[:10] + '...') if len(filename) > 10 else filename
-            file_label = QLabel(short_filename)
-            file_label.setToolTip(filename)  # Set tooltip to display full filename on hover
-
-            checkbox = QCheckBox("Select")
-            checkbox.setEnabled(False)
-            checkbox.clicked.connect(partial(self.checkboxChecked, i))
-
-            if any(self.img_list[i] in sublist for sublist in self.img_grps):
-                checkbox.setChecked(True)
-
-            if tiff_file in self.misaligned_images:
-                widget.setStyleSheet("border: 4px solid red")
-
-            self.checkbox_list.append(checkbox)
-
-            if (self.toggleThumbnailChkBx.isChecked()):
-                image = fabio.open(tiff_file).data.astype(np.float32)
-                min_val = image.min()
-                max_val = image.max()
-                self.spmaxInt.setRange(min_val, max_val)
-                self.spminInt.setRange(min_val, max_val)
-                self.spmaxInt.setValue(max_val * .5)
-                self.spminInt.setValue(min_val)
-
-                self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
-                self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
-
-                vbox = QVBoxLayout()
-                image = self.normalizeImage(image, None, None)
-                q_image = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Indexed8)
-                pixmap = QPixmap.fromImage(q_image)            
-                label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio))
-                self.thumbnail_labels.append(label)  # Add label to the list
-                vbox.addWidget(label)
-                vbox.addWidget(file_label)
-                vbox.addWidget(checkbox)
-                vbox.addStretch()
-                self.qlabel_list.append(label)
-                label.setProperty("fileName", tiff_file)
-                label.mousePressEvent = lambda event, i=i, label=label: self.onLabelClicked(event, i, label)
-                widget.setLayout(vbox)
-                row = i // 3  # Change '3' to the desired number of columns
-                column = i % 3  # Change '3' to the desired number of columns
-                self.grid_layout.addWidget(widget, row, column)
-            else:
-                hbox = QHBoxLayout()
-                file_label.setProperty("fileName", tiff_file)
-                file_label.mousePressEvent = lambda event, i=i, label=file_label: self.onLabelClicked(event, i, label)
+        if self.isHDF5:
+            print("handle this")
+        else:
+            tiff_files = glob.glob(os.path.join(folder_path, '*.tif'))
+            for i, tiff_file in enumerate(tiff_files):
+                label = QLabel(self)
+                widget = QWidget()
                 
-                #TODO figure out why the text is still being truncated
-                file_label.setFixedHeight(20)
-                checkbox.setFixedHeight(20)
-                file_label.setAlignment(Qt.AlignLeft)
-                file_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-                
-                hbox.addWidget(file_label)
-                hbox.addWidget(checkbox)
-                widget.setLayout(hbox)
-                widget.setFixedHeight(30)
-                
-                self.vertical_layout.setSpacing(0)
-                self.vertical_layout.setContentsMargins(0, 0, 0, 0)
-                self.vertical_layout.addWidget(widget)
+                # File name and checkbox
+                filename = os.path.basename(tiff_file)
+                short_filename = (filename[:10] + '...') if len(filename) > 10 else filename
+                file_label = QLabel(short_filename)
+                file_label.setToolTip(filename)  # Set tooltip to display full filename on hover
+
+                checkbox = QCheckBox("Select")
+                checkbox.setEnabled(False)
+                checkbox.clicked.connect(partial(self.checkboxChecked, i))
+
+                if any(self.img_list[i] in sublist for sublist in self.img_grps):
+                    checkbox.setChecked(True)
+
+                if tiff_file in self.misaligned_images:
+                    widget.setStyleSheet("border: 4px solid red")
+
+                self.checkbox_list.append(checkbox)
+
+                if (self.toggleThumbnailChkBx.isChecked()):
+                    image = fabio.open(tiff_file).data.astype(np.float32)
+                    min_val = image.min()
+                    max_val = image.max()
+                    self.spmaxInt.setRange(min_val, max_val)
+                    self.spminInt.setRange(min_val, max_val)
+                    self.spmaxInt.setValue(max_val * .5)
+                    self.spminInt.setValue(min_val)
+
+                    self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
+                    self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
+
+                    vbox = QVBoxLayout()
+                    image = self.normalizeImage(image, None, None)
+                    q_image = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Indexed8)
+                    pixmap = QPixmap.fromImage(q_image)            
+                    label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio))
+                    self.thumbnail_labels.append(label)  # Add label to the list
+                    vbox.addWidget(label)
+                    vbox.addWidget(file_label)
+                    vbox.addWidget(checkbox)
+                    vbox.addStretch()
+                    self.qlabel_list.append(label)
+                    label.setProperty("fileName", tiff_file)
+                    label.mousePressEvent = lambda event, i=i, label=label: self.onLabelClicked(event, i, label)
+                    widget.setLayout(vbox)
+                    row = i // 3  # Change '3' to the desired number of columns
+                    column = i % 3  # Change '3' to the desired number of columns
+                    self.grid_layout.addWidget(widget, row, column)
+                else:
+                    hbox = QHBoxLayout()
+                    file_label.setProperty("fileName", tiff_file)
+                    file_label.mousePressEvent = lambda event, i=i, label=file_label: self.onLabelClicked(event, i, label)
+                    
+                    #TODO figure out why the text is still being truncated
+                    file_label.setFixedHeight(20)
+                    checkbox.setFixedHeight(20)
+                    file_label.setAlignment(Qt.AlignLeft)
+                    file_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                    
+                    hbox.addWidget(file_label)
+                    hbox.addWidget(checkbox)
+                    widget.setLayout(hbox)
+                    widget.setFixedHeight(30)
+                    
+                    self.vertical_layout.setSpacing(0)
+                    self.vertical_layout.setContentsMargins(0, 0, 0, 0)
+                    self.vertical_layout.addWidget(widget)
 
 
     # Handles the click event on the thumbnail label.

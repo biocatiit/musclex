@@ -21,7 +21,7 @@ def read_edf_to_numpy(file_path):
     return np_array
 
 
-def displayImage(imageArray):
+def displayImage(imageArray, minInt, maxInt):
 
     if imageArray is None:
       print("Empty image")
@@ -31,7 +31,8 @@ def displayImage(imageArray):
     flippedImageArray = np.flipud(imageArray)
 
     # Normalize the flipped image to the 0-255 range for display
-    normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
+    # normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
+    normFlippedImageArray = 255 * (flippedImageArray - minInt) / (maxInt - minInt)
     normFlippedImageArray = normFlippedImageArray.astype(np.uint8)  # Convert to 8-bit
 
     # Create a QImage from the 8-bit array
@@ -47,10 +48,12 @@ def displayImage(imageArray):
 
 
 class ImageMaskerWindow(QDialog):
-    def __init__(self, dir_path, firstImage):
+    def __init__(self, dir_path, imagePath, minInt, maxInt):
         super().__init__()
         self.dir_path = dir_path
-        self.firstImage = self.dir_path + '/' + firstImage
+        self.imagePath = imagePath
+        self.minInt = minInt # Min Intensity from AISE User Input
+        self.maxInt = maxInt # Max Intensity from AISE user Input
         self.blankImagePath = None
         self.imageData = None  # Attribute to store the loaded image data
         self.maskData = None  # Attribute to store the loaded mask data
@@ -59,6 +62,7 @@ class ImageMaskerWindow(QDialog):
         self.doSubtractBlankImage = False
         self.doSubtractBlankImageWeight = None
         self.initUI()
+        self.loadImage(self.imagePath)
 
     def initUI(self):
         self.setWindowTitle('Image Mask Application')
@@ -149,7 +153,8 @@ class ImageMaskerWindow(QDialog):
         self.setLayout(self.layout)
 
         self.drawMaskBtn.clicked.connect(self.drawMask)
-        self.loadImage(self.firstImage)
+            
+
         
     def browseImage(self):
         """
@@ -157,19 +162,20 @@ class ImageMaskerWindow(QDialog):
         """
         img_list = getFiles(path=self.dir_path)
         if not img_list:
-            self.blankImagePath = img_list[0]
+            raw_filepath = r"{}".format(img_list[0])
+            self.blankImagePath = raw_filepath
             self.showBlankImageChkbx.setEnabled(True)
             self.subtractBlankChkbx.setEnabled(True)  
-        
+    
     def showBlankImage(self):
         if self.showBlankImageChkbx.isChecked():
             self.loadImage(self.blankImagePath)
         else:
             if self.maskedImage is not None:
-                scaledPixmap=displayImage(self.maskedImage.data)
+                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
-                self.loadImage(self.firstImage)
+                self.loadImage(self.imagePath)
         
     def update_slider(self):
         self.subtractSlider.blockSignals(True)
@@ -227,9 +233,10 @@ class ImageMaskerWindow(QDialog):
 
     def loadImage(self, filePath):
         # Use fabio to open the image file and store its data
-        image = fabio.open(filePath)
+        raw_filepath = r"{}".format(filePath)
+        image = fabio.open(raw_filepath)
         self.imageData = image.data
-        scaledPixmap=displayImage(self.imageData)
+        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
         self.imageLabel.setPixmap(scaledPixmap)
 
 
@@ -237,14 +244,14 @@ class ImageMaskerWindow(QDialog):
         
         if self.dir_path:
             # Assuming pyFAI-drawmask can be called directly from the command line
-            command = f'pyFAI-drawmask "{self.firstImage}"'
+            command = f'pyFAI-drawmask "{self.imagePath}"'
             subprocess.run(command, shell=True)
 
             # draw_dialog = MaskImageWidget(self.selected, self.maskData)
             # result = draw_dialog.exec_()
             
             # Assuming the mask file follows a naming convention like originalFileName-mask.edf
-            self.maskPath = self.firstImage.rsplit('.', 1)[0] + '-mask.edf'
+            self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
             self.loadMask(self.maskPath)   
             if self.maskData is not None:
                 
@@ -279,7 +286,7 @@ class ImageMaskerWindow(QDialog):
 
     def showMask(self):
         self.computeCombinedMask()
-        scaledPixmap=displayImage(self.maskData)
+        scaledPixmap=displayImage(self.maskData, self.minInt, self.maxInt)
         self.imageLabel.setPixmap(scaledPixmap)
 
     def applyMask(self):
@@ -306,7 +313,7 @@ class ImageMaskerWindow(QDialog):
                 bytesPerLine = width
 
             self.maskedImage = maskedImageArray
-            scaledPixmap=displayImage(maskedImageArray.data)
+            scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt)
             self.imageLabel.setPixmap(scaledPixmap)
 
             # Compute the number of pixels to mask out (where the value is 0)
@@ -338,8 +345,10 @@ class ImageMaskerWindow(QDialog):
 
     def subtractMaskedImage(self):
         weight = self.subtractSliderText.value()
-        self.maskData = self.maskData * weight
-        self.applyMask()
-        
-        
+        if os.path.exists(self.blankImagePath):
+            image = fabio.open(self.blankImagePath)
+            self.blankImageData = image.data
+
+        else:
+            print("blank image path does not exist")
 
