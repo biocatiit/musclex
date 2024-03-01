@@ -62,12 +62,6 @@ python3 -m pip install --user virtualenv
 python3 -m venv musclex
 source musclex/bin/activate
 which python
-
-pip install --upgrade pip
-pip install wheel numpy
-wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
-pip install -r requirements
-rm requirements
 ```
 
 To exit the virtual environment use:
@@ -91,19 +85,6 @@ conda activate musclex
 ```
 This will create a virtual environment called musclex and activate it. 
 Once the virtual environment is activated, you should see (musclex) at the beginning of the line in the terminal.
-
-##### Installation of the dependencies
-We assume that you activated the virtual environment in the previous section. If not, please do it before continuing. 
-Then, type the following commands in the anaconda prompt terminal:
-```
-pip install cython numpy pyqt5 opencv-python-headless pyfai
-pip install --upgrade pip
-pip install wheel numpy
-curl -O https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
-pip install -r requirements
-del requirements
-```
-Note: If the command "pip install -r requirements" does not work, it is likely that the package manager didn't manage to build the Fortran source files contained in the musclex_cpp13 package. In this case, Follow the instructions in the section [Installation of musclex from source on windows](#installation-of-musclex-from-source-on-windows) to install the package from source.
 
 ### Installation of MuscleX
 
