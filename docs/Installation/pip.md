@@ -2,8 +2,36 @@
 
 # Installation by Pip
 This guide will go through the installation of MuscleX using pip.
-## Preparing
-There are some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
+
+
+### Installing Miniconda
+As a prerequisite, you need to have Conda installed. We recommend installing Miniconda, which is a minimal installer for Conda.
+
+### Download Miniconda
+
+Miniconda is a minimal installer for Conda, a powerful package manager and environment management system that is used for installing, running, and updating packages and their dependencies in virtual environments. Developed by Anaconda, Inc., Conda is open-source and designed to facilitate package management and deployment for various computing environments across multiple languages, with a primary focus on Python.
+
+It allows to create a completely independent environment for each project, which can have its own dependencies and Python version. This is particularly useful when working on multiple projects with different dependencies or when collaborating with others on projects.
+
+Visit the [Miniconda download page](https://docs.conda.io/en/latest/miniconda.html) download page and download the appropriate installer for your operating system.
+
+You can also download the installer from the command for linux line by using the following commands:
+```
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+```
+For macOS, you can download the installer from the command line by using the following command:
+```
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+```
+For Windows, you can download the installer from the command line by using the following command:
+```
+curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
+```
+
+### Install Miniconda
+
+On Linux and macOS: Open a terminal and run the downloaded script with bash <Miniconda3-latest-Linux-x86_64.sh> for Linux or bash <Miniconda3-latest-MacOSX-x86_64.sh> for macOS, and follow the on-screen instructions.
+On Windows: Run the downloaded .exe file and follow the installation instructions.
 
 ### Linux
 
@@ -13,7 +41,6 @@ Then here is the recommended setup to run:
 ```
 sudo apt-get update
 sudo apt-get install python3 python3-pip python3-dev python3-distutils 
-sudo apt-get install gfortran
 #sudo apt-get install git # run this if you are going to use the most up-to-date version
 ```
 
@@ -56,22 +83,21 @@ To install the build tools, follow these steps:
 A virtual environment allows you to have a clean environment that is independent of other software installations. We will create a virtual environment and install musclex inside of it.
 
 #### Installation of the virtual environment on linux and Mac OS
+After you are done with the installation of Miniconda, you can create a virtual environment by typing the following commands in the terminal:
 
 ```
-python3 -m pip install --user virtualenv
-python3 -m venv musclex
-source musclex/bin/activate
-which python
+conda create -n musclex python=3.10
+conda activate musclex
 ```
+This command will create a virtual environment called musclex and activate it.
 
 To exit the virtual environment use:
 ```
-deactivate
+conda deactivate
 ```
 To re-enter the virtual environment use:
 ```
-source musclex/bin/activate
-musclex eq
+conda activate musclex
 ```
 
 #### Installation of the virtual environment on Windows
@@ -89,11 +115,12 @@ Once the virtual environment is activated, you should see (musclex) at the begin
 ### Installation of MuscleX
 
 #### Normal install
-Once the virtual environment is activated and the dependencies are installed, you can install MuscleX by typing the following command in the anaconda prompt terminal:
+Once the virtual environment is activated, you can install MuscleX by typing the following command in the anaconda prompt terminal:
 ```
 pip install --upgrade musclex
 #pip install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
 ```
+Make sure that you are in the virtual environment before running the command. 
 
 #### Installation of MuscleX from source on windows
 
@@ -174,18 +201,10 @@ pip install --upgrade musclex
 ### System install (Only recommended for Linux and Mac OS users)
 
 Instead of a virtual environment install you may install the program directly on the system. It is not recommended as it may create conflicts with other libraries on your computer, or other versions of MuscleX already installed.
-First install the libraries needed for MuscleX. 
-```
-pip3 install --upgrade pip
-pip install wheel numpy
-wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
-pip install -r requirements
-rm requirements
-```
 
 Run this command to install Muscle X programs
 ```
-pip3 install musclex
+pip install musclex
 ```
 Note: If you are upgrading, add --upgrade at the end.  
 
@@ -194,7 +213,7 @@ Note: If you are upgrading, add --upgrade at the end.
 ### If you installed MuscleX in a virtual environment on Linux or Mac OS
 To run a program, you need to activate the virtual environment first. Assuming you created a virtual environment called musclex, you can activate it by typing the following command in the terminal:
 ```
-source musclex/bin/activate
+conda activate musclex
 ```
 Then you can run the program by typing the program shortcut in the terminal. 
 
@@ -221,7 +240,7 @@ pip install opencv-python==4.2.0.32
 ```
 Once you are done using MuscleX, you can deactivate the virtual environment by typing the following command in the terminal:
 ```
-deactivate
+conda deactivate
 ```
 
 ### If you installed MuscleX in a virtual environment on Windows
