@@ -1,6 +1,10 @@
 # Blank Image and Mask
 
-There 2 settings you can set here, blank image and mask
+There 2 settings you can set here, blank image and mask.
+
+The blank image is more properly called an empty cell image.  A diffraction pattern from a muscle will consist of the diffraction pattern from the muscle added to the empty cell X-ray pattern. When blank images are available, it is possible to subtract them. By subtracting the empty cell images you can see just the muscle diffraction. This is important for some calculations.
+
+A mask is a binary pattern that can be computed or specified (drawn) to mask out certain regions in the image. Computing a mask is done using a threshold (e.g., -1) below which regions are masked out (e.g., in sensor gaps). 
 
 ## Blank Image
 Once the window launches, you will see "Select Blank Image(s)" at the bottom. Then, you can select a blank image or multiple images. The program will average them all if you select multiple images. If the image is from Pilatus detector. The program will initial mask threshold, and paint the mask as orange color. You can change it in order to make correct mask.
