@@ -7,6 +7,7 @@ from PyQt5.QtCore import Qt
 import numpy as np
 import subprocess
 import glob
+import json
 from PIL import Image
 import fabio
 from ..utils.file_manager import createFolder
@@ -31,9 +32,15 @@ def displayImage(imageArray, minInt, maxInt):
     flippedImageArray = np.flipud(imageArray)
 
     # Normalize the flipped image to the 0-255 range for display
-    # normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
-    normFlippedImageArray = 255 * (flippedImageArray - minInt) / (maxInt - minInt)
-    normFlippedImageArray = normFlippedImageArray.astype(np.uint8)  # Convert to 8-bit
+    if np.max(flippedImageArray) == np.min(flippedImageArray):
+        normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
+    else:
+        # If i manually set minInt and maxInt to -1, just use the images min and max (perhaps need to change since we are performing operations)
+        if minInt == -1 and maxInt == -1:
+            normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
+        else:
+            normFlippedImageArray = 255 * (flippedImageArray - minInt) / (maxInt - minInt)
+        normFlippedImageArray = normFlippedImageArray.astype(np.uint8)  # Convert to 8-bit
 
     # Create a QImage from the 8-bit array
     qImg = QImage(normFlippedImageArray.data, normFlippedImageArray.shape[1], normFlippedImageArray.shape[0], normFlippedImageArray.strides[0], QImage.Format_Grayscale8)
@@ -47,6 +54,7 @@ def displayImage(imageArray, minInt, maxInt):
     return scaledPixmap
 
 
+
 class ImageMaskerWindow(QDialog):
     def __init__(self, dir_path, imagePath, minInt, maxInt):
         super().__init__()
@@ -55,12 +63,13 @@ class ImageMaskerWindow(QDialog):
         self.minInt = minInt # Min Intensity from AISE User Input
         self.maxInt = maxInt # Max Intensity from AISE user Input
         self.blankImagePath = None
+        self.blankImageData = None
         self.imageData = None  # Attribute to store the loaded image data
-        self.maskData = None  # Attribute to store the loaded mask data
-        self.maskedImage = None
+        self.maskData = None  # Stores the mask data (computed + drawn mask data)
+        self.maskedImage = None # Attribute to store the masked image data (original image + mask data) usually for displaying
         self.computedMaskData = None  # Attribute to store the computed mask data
-        self.doSubtractBlankImage = False
-        self.doSubtractBlankImageWeight = None
+        self.drawnMaskData = None  # Attribute to store the drawn mask data
+        self.subtractedImage = None # Attribute to store the subtracted image data
         self.initUI()
         self.loadImage(self.imagePath)
 
@@ -110,12 +119,12 @@ class ImageMaskerWindow(QDialog):
         self.subtractBlankChkbx.stateChanged.connect(self.enableSubtractSlider)
         
         self.subtractSlider = QSlider(Qt.Horizontal, self)
-        self.subtractSlider.setRange(0, 100)
+        self.subtractSlider.setRange(0, 200)
         self.subtractSlider.setSingleStep(1)
         self.subtractSlider.setValue(100)
         self.subtractSliderText = QDoubleSpinBox()
         self.subtractSliderText.setKeyboardTracking(False)
-        self.subtractSliderText.setRange(0, 1)
+        self.subtractSliderText.setRange(0, 2)
         self.subtractSliderText.setValue(1.00)
         self.subtractSliderText.setSingleStep(0.01)
         self.subtractSlider.setEnabled(False)
@@ -153,17 +162,20 @@ class ImageMaskerWindow(QDialog):
         self.setLayout(self.layout)
 
         self.drawMaskBtn.clicked.connect(self.drawMask)
-            
-
         
     def browseImage(self):
         """
         Browse a blank image
         """
         img_list = getFiles(path=self.dir_path)
-        if not img_list:
+        if img_list:
             raw_filepath = r"{}".format(img_list[0])
             self.blankImagePath = raw_filepath
+            
+            if os.path.exists(self.blankImagePath):
+                image = fabio.open(self.blankImagePath)
+                self.blankImageData = image.data
+
             self.showBlankImageChkbx.setEnabled(True)
             self.subtractBlankChkbx.setEnabled(True)  
     
@@ -185,7 +197,7 @@ class ImageMaskerWindow(QDialog):
     def update_spinbox(self):
         self.subtractSliderText.blockSignals(True)
         value_changed = self.subtractSlider.value() / 100
-        self.subtractMaskedImage()
+        self.subtractBlankImage()
         self.subtractSliderText.setValue(value_changed)
         self.subtractSliderText.blockSignals(False)
         
@@ -196,18 +208,27 @@ class ImageMaskerWindow(QDialog):
         else:
             self.maskThresh.setEnabled(False)
             self.computedMaskData = None
-            self.maskData = self.drawnMaskData
-            self.applyMask()
+            if self.drawnMaskData is not None:
+                self.maskData = self.drawnMaskData
+                self.applyMask()
+            else:
+                self.loadImage(self.imagePath)
             
     def enableSubtractSlider(self):
         if self.subtractBlankChkbx.isChecked():
-            self.doSubtractBlankImage = True
+            self.subtractBlankImage()
             self.subtractSlider.setEnabled(True)
             self.subtractSliderText.setEnabled(True)
         else:
-            self.doSubtractBlankImage = False
             self.subtractSlider.setEnabled(False)
             self.subtractSliderText.setEnabled(False)
+            # reload non-subtracted image
+            if self.maskedImage is not None:
+                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt)
+                self.imageLabel.setPixmap(scaledPixmap)
+            else:
+                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
+                self.imageLabel.setPixmap(scaledPixmap)
             
     def onShowMaskClicked(self):
         if self.showMaskChkBx.isChecked():
@@ -228,8 +249,9 @@ class ImageMaskerWindow(QDialog):
     def maskThresholdChanged(self):
         value = self.maskThresh.value()
         originalImageArray = self.imageData
-        self.computedMaskData = np.where(originalImageArray <= value, 0, 1)
-        # self.showMask()
+        self.computedMaskData = np.where(originalImageArray <= -1, 0, 1).astype(np.uint8)
+        scaledPixmap=displayImage(self.computedMaskData, -1, -1)
+        self.imageLabel.setPixmap(scaledPixmap)
 
     def loadImage(self, filePath):
         # Use fabio to open the image file and store its data
@@ -239,19 +261,21 @@ class ImageMaskerWindow(QDialog):
         scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
         self.imageLabel.setPixmap(scaledPixmap)
 
-
     def drawMask(self):
-        
         if self.dir_path:
             # Assuming pyFAI-drawmask can be called directly from the command line
-            command = f'pyFAI-drawmask "{self.imagePath}"'
+            if self.showBlankImageChkbx.isChecked():
+                command = f'pyFAI-drawmask "{self.blankImagePath}"'
+                self.maskPath = self.blankImagePath.rsplit('.', 1)[0] + '-mask.edf'
+            else:
+                command = f'pyFAI-drawmask "{self.imagePath}"'
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
             subprocess.run(command, shell=True)
 
             # draw_dialog = MaskImageWidget(self.selected, self.maskData)
             # result = draw_dialog.exec_()
             
             # Assuming the mask file follows a naming convention like originalFileName-mask.edf
-            self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
             self.loadMask(self.maskPath)   
             if self.maskData is not None:
                 
@@ -270,23 +294,23 @@ class ImageMaskerWindow(QDialog):
         else:
             print("No input file to draw on.")
         
-
     def computeCombinedMask(self):
         # Check if self.computedMaskData is None and initialize it to ones if so
         if self.computedMaskData is None:
+            print("here!")
             # Initialize computedMaskData to an array of ones with the same shape as maskData
             self.computedMaskData = np.ones_like(self.maskData)
 
         # Ensure self.maskData is also not None before proceeding
-        if self.maskData is not None:
+        if self.drawnMaskData is not None:
             # Multiply self.maskData and self.computedMaskData element-wise
-            self.maskData = np.multiply(self.maskData, self.computedMaskData)
+            self.maskData = np.multiply(self.drawnMaskData, self.computedMaskData)
         else:
             self.maskData = self.computedMaskData
 
     def showMask(self):
         self.computeCombinedMask()
-        scaledPixmap=displayImage(self.maskData, self.minInt, self.maxInt)
+        scaledPixmap=displayImage(self.maskData, -1, -1)
         self.imageLabel.setPixmap(scaledPixmap)
 
     def applyMask(self):
@@ -333,22 +357,42 @@ class ImageMaskerWindow(QDialog):
                 print("No non-masked pixels found. Cannot compute average intensity.")
                 
     def okClicked(self):
-        if self.maskData is not None:
+        if self.maskData is None and self.subtractBlankChkbx.isChecked() == False:
+            errMsg = QMessageBox()
+            errMsg.setText('No mask data or blank image was provided. Please draw a mask or select a blank image.')
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.setFixedWidth(300)
+            errMsg.exec_()
+        else:
             path = join(self.dir_path, 'settings')
             createFolder(path)
-            fabio.tifimage.tifimage(data=self.maskData).write(join(path,'mask.tif'))
-            if self.doSubtractBlankImage:
-                self.doSubtractBlankImageWeight = self.subtractSliderText.value()
+            if self.maskData is not None:
+                self.computeCombinedMask() # to ensure mask data is updated
+                fabio.tifimage.tifimage(data=self.maskData).write(join(path,'mask.tif'))
+                print("mask file saved")  
+            if self.subtractBlankChkbx.isChecked():
+                dictionary = {
+                    'subtractBlank': True, 
+                    'weight': self.subtractSliderText.value(),
+                    'path': self.blankImagePath
+                    }
+                path = join(path, 'blank_image_settings.json')
+                with open(path, 'w') as f:
+                    json.dump(dictionary, f)
+                print("blank image settings saved")
             self.accept()
-        else:
-            self.reject()
+            
 
-    def subtractMaskedImage(self):
+    def subtractBlankImage(self):
         weight = self.subtractSliderText.value()
-        if os.path.exists(self.blankImagePath):
-            image = fabio.open(self.blankImagePath)
-            self.blankImageData = image.data
-
+        if self.maskedImage is not None:
+            self.subtractedImage = self.maskedImage - weight * self.blankImageData
+            self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
+            scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
+            self.imageLabel.setPixmap(scaledPixmap)
         else:
-            print("blank image path does not exist")
-
+            self.subtractedImage = self.imageData - weight * self.blankImageData
+            self.subtractedImage[self.subtractedImage < 0] = 0
+            scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
+            self.imageLabel.setPixmap(scaledPixmap)
