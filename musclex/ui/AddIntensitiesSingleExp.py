@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import json
 from os.path import join
 from datetime import datetime
 import gc
@@ -99,6 +100,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
         self.maskData = None
+        self.blankImageSettings = None
         self.csvInfo = []
         self.initUI()
         self.setConnections()
@@ -303,10 +305,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.setCenterByPerpBtn.setVisible(False)
         self.doubleZoom = QCheckBox("Double Zoom")
         self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-        self.correctCenterButton = QPushButton("Correct Center")
-        self.correctCenterButton.setCheckable(True)
-        self.correctOrientationButton = QPushButton("Correct Orientation")
-        self.correctOrientationButton.setVisible(False) # doesnt currently do anything, will need to update
+        # self.correctCenterButton = QPushButton("Correct Center")
+        # self.correctCenterButton.setCheckable(True)
+        # self.correctOrientationButton = QPushButton("Correct Orientation")
+        # self.correctOrientationButton.setVisible(False) # doesnt currently do anything, will need to update
 
         self.correctionGroup.setEnabled(False)
 
@@ -315,8 +317,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.correctionGroupLayout.addWidget(self.setCenterByChordsBtn, 1, 0, 1, 4)
         self.correctionGroupLayout.addWidget(self.setCenterByPerpBtn, 2, 0, 1, 4)
         self.correctionGroupLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
-        self.correctionGroupLayout.addWidget(self.correctCenterButton, 4, 0, 1, 2)
-        self.correctionGroupLayout.addWidget(self.correctOrientationButton, 4, 2, 1, 3)
+        # self.correctionGroupLayout.addWidget(self.correctCenterButton, 4, 0, 1, 2)
+        # self.correctionGroupLayout.addWidget(self.correctOrientationButton, 4, 2, 1, 3)
 
 
         # Review Images Group
@@ -531,7 +533,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calibrationChkBx.clicked.connect(self.setCalibrationActive)
 
         self.calibrationButton.clicked.connect(self.calibrationClicked)
-        self.correctCenterButton.clicked.connect(self.correctCenterButtonClicked)
+        # self.correctCenterButton.clicked.connect(self.correctCenterButtonClicked)
         self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
 
         # self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
@@ -573,6 +575,10 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.maskPath = join(join(self.dir_path, 'settings'), 'mask.tif')
                 self.useMaskChkBx.setChecked(True)
                 self.useMaskChkBx.setEnabled(True)
+            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
+                print("blank image found!")
+                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
+                    self.blankImageSettings = json.load(f)
 
     def correctCenterButtonClicked(self):
         QMessageBox.information(self, "Match Centers", "Program will now match centers automticallly")
@@ -638,7 +644,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def stepComboBoxChanged(self, value):
         if (value == 'Step through all images'):
-            self.img_grps_copy = self.img_grps
+            self.img_grps_copy = self.img_grpsmask
             self.frameNb.setValue(len(self.img_list))
             self.filenameLineEdit.setVisible(False)
         elif (value == 'Step through selected images'):
@@ -1028,25 +1034,48 @@ class AddIntensitiesSingleExp(QMainWindow):
                 #             img = resizeImage(img, sum_img.shape)
                 #         sum_img += img
                 #     self.avg_img = sum_img
+                if self.blankImageSettings is not None:
+                    if self.blankImageSettings['subtractBlank'] == True:
+                        raw_filepath = r"{}".format(self.blankImageSettings['path'])
+                        blank_image = fabio.open(raw_filepath).data
+                        weight = self.blankImageSettings['weight']
+                        self.avg_img = self.avg_img - weight * blank_image * len(imgs)
+                
                 if self.useMaskChkBx.isChecked():
                     self.maskData = fabio.open(self.maskPath).data
                     self.orig_avg_img = self.avg_img
                     self.avg_img = self.avg_img * self.maskData
-                
+                    avg_intensity = np.sum(self.orig_avg_img) / np.sum(self.avg_img)
+                    print("Average masked intensity: ", avg_intensity)
+                    index = filename.rfind('.')
+                    masked_filename = filename[:index] + "_masked" + filename[index:]
+                                   
                 self.generateCSVLine(filename)
                 print('Saving merged image...')
                 self.statusPrint('Saving merged image...')
+                # Saving images
+                # If use mask is checked, then we save the masked image and the unmasked image
                 if self.compressChkBx.isChecked():
-                    tif_img = Image.fromarray(self.avg_img)
-                    tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
+                    if self.useMaskChkBx.isChecked():
+                        mask_tif_img = Image.fromarray(self.avg_img)
+                        mask_tif_img.save(os.path.join(output, masked_filename), compression='tiff_lzw')
+                        tif_img = Image.fromarray(self.orig_avg_img)
+                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
+                    else:
+                        tif_img = Image.fromarray(self.avg_img)
+                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
                 else:
-                    fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
+                    if self.useMaskChkBx.isChecked():
+                        fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, masked_filename))
+                        fabio.tifimage.tifimage(data=self.orig_avg_img).write(os.path.join(output, filename))
+                    else:
+                        fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
 
             self.refreshAllTab()
             print("Done. Result image have been saved to "+output)
 
     def generateAvgImg(self):
-        if self.calibrationChkBx.isChecked() or self.correctCenterButton.isChecked():
+        if self.calibrationChkBx.isChecked():
             images = self.matchCenters(self.orig_imgs)
         else:
             images = self.orig_imgs
@@ -1067,25 +1096,45 @@ class AddIntensitiesSingleExp(QMainWindow):
                 sum_img += img
             self.avg_img = sum_img
     
+    # CSV Line in format: ['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor']
     def generateCSVLine(self, filename):
         nonmaskedPixels = 0
         orig_img_intensity = 0
         img_with_mask_intensity = 0
-        if self.maskData is not None:
-            nonmaskedPixels = np.sum(self.maskData == 1)
-            img_with_mask_intensity = np.sum(self.avg_img)
+        weight = 0
+            
         if self.orig_avg_img is not None:
             orig_img_intensity = np.sum(self.orig_avg_img)
         else:
             orig_img_intensity = np.sum(self.avg_img)
+            
+        if self.maskData is not None:
+            nonmaskedPixels = np.sum(self.maskData == 1)
+            img_with_mask_intensity = np.sum(self.avg_img)
+        else:
+            img_with_mask_intensity = orig_img_intensity
         
         dateString = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         
-        info = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, self.nbOfFrames]
+        # Masked Image Intensity (average) = Masked Image Intensity (Total) / Number of Pixels Not Masked
+        average_mask = img_with_mask_intensity / nonmaskedPixels
+        
+        if self.blankImageSettings is not None:
+            weight = self.blankImageSettings['weight']
+        
+        info = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, average_mask, weight, self.nbOfFrames]
         self.csvInfo.append(info)
             
     def writeToCSV(self):
-        with open(join(join(self.dir_path, 'aise_results'), 'intensities.csv') , 'a' ) as f:
+        file_path = join(join(self.dir_path, 'aise_results'), 'intensities.csv')
+        # Write header line if file doesn't exist
+        if not os.path.exists(file_path):
+            with open(file_path, 'w') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor'])
+        
+        # Write all the other lines
+        with open(file_path, 'a' ) as f:
             writer = csv.writer(f)
             for line in self.csvInfo:
                 writer.writerow(line)
