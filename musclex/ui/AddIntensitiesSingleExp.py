@@ -47,6 +47,7 @@ import fabio
 from .AISEImageSelectionWindow import AISEImageSelectionWindow
 from .UnalignedImagesDialog import UnalignedImagesDialog
 from .ImageMaskTool import ImageMaskerWindow
+from .CalibrationDialog import CalibrationDialog
 from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly
@@ -102,6 +103,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.maskData = None
         self.blankImageSettings = None
         self.csvInfo = []
+        self.calibrationDialog = None
         self.initUI()
         self.setConnections()
 
@@ -218,14 +220,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sumImagesButton.setEnabled(False)
         self.useMaskChkBx = QCheckBox('Use Mask')
         self.useMaskChkBx.setEnabled(False)
-        self.maskImageButton = QPushButton("Mask Image")
+        self.maskImageButton = QPushButton("Specify Blank and Mask Images")
         self.maskImageButton.setEnabled(False)
+        self.calibrationChkBx = QCheckBox("Align Images")
+        self.specifyCenterAndOrientationButton = QPushButton("Specify Center and Orientation")
         self.imgOperationLayout.addWidget(self.binFactorChkBox, 0, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
         self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.sumImagesButton, 1, 3, 1, 1)
         self.imgOperationLayout.addWidget(self.useMaskChkBx, 2, 0, 1, 2)
-        self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 3)
+        self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 4)
+        self.imgOperationLayout.addWidget(self.calibrationChkBx, 4, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.specifyCenterAndOrientationButton, 5, 0, 1, 4)
 
         # Operation Options Group Box
 
@@ -237,9 +243,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.avgInsteadOfSum = QCheckBox("Compute Average Instead of Sum")
         self.compressChkBx = QCheckBox('Compress the Resulting Images')
 
-        self.calibrationChkBx = QCheckBox("Align Images")
-        self.calibrationChkBx.setEnabled(False)
-
         self.calibrationDrpDwn = QComboBox()
         self.calibrationDrpDwn.addItems(['Use Computed Center and Orientation', 'Use Calibration Center', 'Use Computed Center', 'Use Calibration Center and Computed Orientation'])
         self.calibrationDrpDwn.setVisible(False)
@@ -248,7 +251,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.operationGroupLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 4)
         self.operationGroupLayout.addWidget(self.compressChkBx, 2, 0, 1, 4)
-        self.operationGroupLayout.addWidget(self.calibrationChkBx, 3, 0, 1, 2)
+        # self.operationGroupLayout.addWidget(self.calibrationChkBx, 3, 0, 1, 2)
         self.operationGroupLayout.addWidget(self.calibrationDrpDwn, 4, 0, 1, 4)
         self.operationGroupLayout.addWidget(self.calibrationButton, 5, 0, 1, 4)
 
@@ -535,6 +538,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calibrationButton.clicked.connect(self.calibrationClicked)
         # self.correctCenterButton.clicked.connect(self.correctCenterButtonClicked)
         self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
+        self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
 
         # self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
         # self.setRotationButton.clicked.connect(self.setRotation)
@@ -579,6 +583,15 @@ class AddIntensitiesSingleExp(QMainWindow):
                 print("blank image found!")
                 with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
                     self.blankImageSettings = json.load(f)
+    
+    def specifyCenterAndOrientationClicked(self):
+        if self.isHdf5:
+            file_name = self.file_name
+        else:
+            file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
+        
+        self.calibrationDialog = CalibrationDialog(self.dir_path, file_name)
+        self.calibrationDialog.show()
 
     def correctCenterButtonClicked(self):
         QMessageBox.information(self, "Match Centers", "Program will now match centers automticallly")
@@ -1978,7 +1991,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             # self.setCentByChords.setEnabled(True)
             # self.setCentByPerp.setEnabled(True)
             # self.setFitRegion.setEnabled(True)
-            self.calibrationDrpDwn.setVisible(True)
+            # self.calibrationDrpDwn.setVisible(True)
             # self.doubleZoom.setEnabled(True)
             _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
         else:
@@ -1988,7 +2001,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             # self.setCentByChords.setEnabled(False)
             # self.setCentByPerp.setEnabled(False)
             # self.setFitRegion.setEnabled(False)
-            self.calibrationDrpDwn.setVisible(False)
+            # self.calibrationDrpDwn.setVisible(False)
             # self.doubleZoom.setEnabled(False)
             # self.doubleZoom.setChecked(False)
         # self.onGroupChanged()
@@ -2136,6 +2149,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Handle when Calibration Settings button is clicked
         :return:
+        
         """
         sucess = self.setCalibrationImage(force=False)
         if sucess:

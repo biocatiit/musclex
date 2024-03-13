@@ -74,7 +74,7 @@ class ImageMaskerWindow(QDialog):
         self.loadImage(self.imagePath)
 
     def initUI(self):
-        self.setWindowTitle('Image Mask Application')
+        self.setWindowTitle('Mask and Blank Image Specification')
 
         self.layout = QVBoxLayout()
 
@@ -99,8 +99,8 @@ class ImageMaskerWindow(QDialog):
         self.maskThresChkbx.stateChanged.connect(self.enableMaskThres)
         
         self.maskThresh = QDoubleSpinBox()
-        self.maskThresh.setRange(0, 1)
-        self.maskThresh.setValue(1)
+        self.maskThresh.setMinimum(-50)
+        self.maskThresh.setValue(-1)
         self.maskThresh.setSingleStep(0.01)
         #self.maskThresh.setKeyboardTracking(False)
         
@@ -108,30 +108,29 @@ class ImageMaskerWindow(QDialog):
         
         self.maskThresh.setEnabled(False)
         
-        
         self.showMaskChkBx = QCheckBox("Show Mask")
         self.showMaskChkBx.setEnabled(False)
         self.showMaskChkBx.stateChanged.connect(self.onShowMaskClicked)
-        
         
         self.subtractBlankChkbx = QCheckBox("Subtract Blank Image")
         self.subtractBlankChkbx.setEnabled(False)
         self.subtractBlankChkbx.stateChanged.connect(self.enableSubtractSlider)
         
-        self.subtractSlider = QSlider(Qt.Horizontal, self)
-        self.subtractSlider.setRange(0, 200)
-        self.subtractSlider.setSingleStep(1)
-        self.subtractSlider.setValue(100)
+        # self.subtractSlider = QSlider(Qt.Horizontal, self)
+        # self.subtractSlider.setRange(0, 200)
+        # self.subtractSlider.setSingleStep(1)
+        # self.subtractSlider.setValue(100)
+        # self.subtractSlider.setEnabled(False)
+        
         self.subtractSliderText = QDoubleSpinBox()
         self.subtractSliderText.setKeyboardTracking(False)
         self.subtractSliderText.setRange(0, 2)
         self.subtractSliderText.setValue(1.00)
         self.subtractSliderText.setSingleStep(0.01)
-        self.subtractSlider.setEnabled(False)
         self.subtractSliderText.setEnabled(False)
         
-        self.subtractSlider.valueChanged.connect(self.update_spinbox)
-        self.subtractSliderText.valueChanged.connect(self.update_slider)
+        # self.subtractSlider.valueChanged.connect(self.update_spinbox)
+        self.subtractSliderText.valueChanged.connect(self.subtractBlankImage)
 
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         okButton = self.bottons.button(QDialogButtonBox.Ok)
@@ -153,8 +152,8 @@ class ImageMaskerWindow(QDialog):
         self.buttonLayout.addWidget(self.maskThresh, 2, 3, 1, 2)
         self.buttonLayout.addWidget(self.showMaskChkBx, 3, 0, 1, 2)
         self.buttonLayout.addWidget(self.subtractBlankChkbx, 4, 0, 1, 2)
-        self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
-        self.buttonLayout.addWidget(self.subtractSliderText, 5, 3, 1, 2)
+        # self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
+        self.buttonLayout.addWidget(self.subtractSliderText, 4, 3, 1, 2)
         self.buttonLayout.addWidget(self.bottons, 6, 1, 1, 2)
 
         self.layout.addWidget(self.imageLabel)
@@ -162,6 +161,11 @@ class ImageMaskerWindow(QDialog):
         self.setLayout(self.layout)
 
         self.drawMaskBtn.clicked.connect(self.drawMask)
+        
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            return
+        super().keyPressEvent(event)
         
     def browseImage(self):
         """
@@ -189,21 +193,24 @@ class ImageMaskerWindow(QDialog):
             else:
                 self.loadImage(self.imagePath)
         
-    def update_slider(self):
-        self.subtractSlider.blockSignals(True)
-        value_changed = self.subtractSliderText.value() * 100
-        self.subtractSlider.setValue(int(value_changed))
-        self.subtractSlider.blockSignals(False)
-    def update_spinbox(self):
-        self.subtractSliderText.blockSignals(True)
-        value_changed = self.subtractSlider.value() / 100
-        self.subtractBlankImage()
-        self.subtractSliderText.setValue(value_changed)
-        self.subtractSliderText.blockSignals(False)
+    # def update_slider(self):
+    #     self.subtractSlider.blockSignals(True)
+    #     value_changed = self.subtractSliderText.value() * 100
+    #     self.subtractSlider.setValue(int(value_changed))
+    #     self.subtractSlider.blockSignals(False)
+    
+    # def update_spinbox(self):
+    #     self.subtractSliderText.blockSignals(True)
+    #     value_changed = self.subtractSlider.value() / 100
+    #     self.subtractBlankImage()
+    #     self.subtractSliderText.setValue(value_changed)
+    #     self.subtractSliderText.blockSignals(False)
+
         
     def enableMaskThres(self):
         if self.maskThresChkbx.isChecked():
             self.maskThresh.setEnabled(True)
+            self.showMaskChkBx.setEnabled(True)  
             self.maskThresholdChanged()
         else:
             self.maskThresh.setEnabled(False)
@@ -217,10 +224,10 @@ class ImageMaskerWindow(QDialog):
     def enableSubtractSlider(self):
         if self.subtractBlankChkbx.isChecked():
             self.subtractBlankImage()
-            self.subtractSlider.setEnabled(True)
+            # self.subtractSlider.setEnabled(True)
             self.subtractSliderText.setEnabled(True)
         else:
-            self.subtractSlider.setEnabled(False)
+            # self.subtractSlider.setEnabled(False)
             self.subtractSliderText.setEnabled(False)
             # reload non-subtracted image
             if self.maskedImage is not None:
@@ -249,9 +256,9 @@ class ImageMaskerWindow(QDialog):
     def maskThresholdChanged(self):
         value = self.maskThresh.value()
         originalImageArray = self.imageData
-        self.computedMaskData = np.where(originalImageArray <= -1, 0, 1).astype(np.uint8)
-        scaledPixmap=displayImage(self.computedMaskData, -1, -1)
-        self.imageLabel.setPixmap(scaledPixmap)
+        self.computedMaskData = np.where(originalImageArray <= value, 0, 1).astype(np.uint8)
+        # scaledPixmap=displayImage(self.computedMaskData, -1, -1)
+        # self.imageLabel.setPixmap(scaledPixmap)
 
     def loadImage(self, filePath):
         # Use fabio to open the image file and store its data
