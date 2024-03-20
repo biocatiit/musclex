@@ -102,6 +102,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.doubleZoomAxes = None
         self.maskData = None
         self.blankImageSettings = None
+        self.drawnMask = False
+        self.computedMask = False
         self.csvInfo = []
         self.calibrationDialog = None
         self.initUI()
@@ -197,11 +199,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.dispOptLayout.addWidget(self.persistIntensity, 5, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
-        # Check Images Button
-        self.checkImagesButton = QPushButton("Check Images")
-        self.checkImagesButton.setToolTip("Check all images for misalignment")
-        self.checkImagesButton.setEnabled(False)
-
         # Image Operations Group Box
 
         self.imgOperationGrp = QGroupBox("Image Operations")
@@ -220,10 +217,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sumImagesButton.setEnabled(False)
         self.useMaskChkBx = QCheckBox('Use Mask')
         self.useMaskChkBx.setEnabled(False)
-        self.maskImageButton = QPushButton("Specify Blank and Mask Images")
+        self.maskImageButton = QPushButton("Specify Empty Cell and Mask Images")
         self.maskImageButton.setEnabled(False)
         self.calibrationChkBx = QCheckBox("Align Images")
-        self.specifyCenterAndOrientationButton = QPushButton("Specify Center and Orientation")
+        self.specifyCenterAndOrientationButton = QPushButton("Correct Center and Orientation")
+        self.specifyCenterAndOrientationButton.setEnabled(False)
+        
+        self.checkImagesButton = QPushButton("Detect Misaligned Images")
+        self.checkImagesButton.setToolTip("Check all images for misalignment")
+        self.checkImagesButton.setEnabled(False)
+        
         self.imgOperationLayout.addWidget(self.binFactorChkBox, 0, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
         self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
@@ -232,6 +235,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 4)
         self.imgOperationLayout.addWidget(self.calibrationChkBx, 4, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.specifyCenterAndOrientationButton, 5, 0, 1, 4)
+        self.imgOperationLayout.addWidget(self.checkImagesButton, 6, 0, 1, 4)
 
         # Operation Options Group Box
 
@@ -366,7 +370,6 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(5)
-        self.optionsLayout.addWidget(self.checkImagesButton)
         self.optionsLayout.addWidget(self.imgOperationGrp)
         self.optionsLayout.addSpacing(5)
         self.optionsLayout.addWidget(self.operationGroup)
@@ -583,7 +586,10 @@ class AddIntensitiesSingleExp(QMainWindow):
                 print("blank image found!")
                 with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
                     self.blankImageSettings = json.load(f)
-    
+            self.drawnMask = self.imageMaskingTool.drawnMask
+            self.computedMask = self.imageMaskingTool.computedMask
+            self.imageMaskingTool = None
+
     def specifyCenterAndOrientationClicked(self):
         if self.isHdf5:
             file_name = self.file_name
@@ -1053,6 +1059,8 @@ class AddIntensitiesSingleExp(QMainWindow):
                         blank_image = fabio.open(raw_filepath).data
                         weight = self.blankImageSettings['weight']
                         self.avg_img = self.avg_img - weight * blank_image * len(imgs)
+                        print(self.avg_img.min())
+                        self.avg_img = np.clip(self.avg_img, 0, None) 
                 
                 if self.useMaskChkBx.isChecked():
                     self.maskData = fabio.open(self.maskPath).data
@@ -1109,7 +1117,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 sum_img += img
             self.avg_img = sum_img
     
-    # CSV Line in format: ['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor']
+    # CSV Line in format: ['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor', 'Drawn Mask', 'Computed Mask']
     def generateCSVLine(self, filename):
         nonmaskedPixels = 0
         orig_img_intensity = 0
@@ -1135,7 +1143,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self.blankImageSettings is not None:
             weight = self.blankImageSettings['weight']
         
-        info = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, average_mask, weight, self.nbOfFrames]
+        info = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, average_mask, weight, self.nbOfFrames, self.drawnMask, self.computedMask]
         self.csvInfo.append(info)
             
     def writeToCSV(self):
@@ -1144,7 +1152,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         if not os.path.exists(file_path):
             with open(file_path, 'w') as f:
                 writer = csv.writer(f)
-                writer.writerow(['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor'])
+                writer.writerow(['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor', 'Drawn Mask', 'Computed Mask'])
         
         # Write all the other lines
         with open(file_path, 'a' ) as f:
@@ -1985,7 +1993,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             'center': [None] * self.nbOfFrames,
             'manual_center': [None] * self.nbOfFrames}
         if self.calibrationChkBx.isChecked():
-            self.calibrationButton.setVisible(True)
+            self.specifyCenterAndOrientationButton.setEnabled(True)
+            # self.calibrationButton.setVisible(True)
             # self.setCenterRotationButton.setEnabled(True)
             # self.setRotationButton.setEnabled(True)
             # self.setCentByChords.setEnabled(True)
@@ -1995,7 +2004,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             # self.doubleZoom.setEnabled(True)
             _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
         else:
-            self.calibrationButton.setVisible(False)
+            self.specifyCenterAndOrientationButton.setEnabled(False)
+            # self.calibrationButton.setVisible(False)
             # self.setCenterRotationButton.setEnabled(False)
             # self.setRotationButton.setEnabled(False)
             # self.setCentByChords.setEnabled(False)

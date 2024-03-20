@@ -70,11 +70,13 @@ class ImageMaskerWindow(QDialog):
         self.computedMaskData = None  # Attribute to store the computed mask data
         self.drawnMaskData = None  # Attribute to store the drawn mask data
         self.subtractedImage = None # Attribute to store the subtracted image data
+        self.drawnMask = False
+        self.computedMask = False
         self.initUI()
         self.loadImage(self.imagePath)
 
     def initUI(self):
-        self.setWindowTitle('Mask and Blank Image Specification')
+        self.setWindowTitle('Mask and Empty Cell Specification')
 
         self.layout = QVBoxLayout()
 
@@ -89,10 +91,10 @@ class ImageMaskerWindow(QDialog):
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
 
-        self.selectBlankImg = QPushButton("Select Blank Image(s)")
+        self.selectBlankImg = QPushButton("Select Empty Cell Image(s)")
         self.selectBlankImg.clicked.connect(self.browseImage)
         self.drawMaskBtn = QPushButton("Draw Mask")
-        self.showBlankImageChkbx = QCheckBox("Show Blank Image")
+        self.showBlankImageChkbx = QCheckBox("Show Empty Cell Image")
         self.showBlankImageChkbx.setEnabled(False)
         self.showBlankImageChkbx.stateChanged.connect(self.showBlankImage)
         self.maskThresChkbx = QCheckBox("Mask Threshold")
@@ -112,7 +114,7 @@ class ImageMaskerWindow(QDialog):
         self.showMaskChkBx.setEnabled(False)
         self.showMaskChkBx.stateChanged.connect(self.onShowMaskClicked)
         
-        self.subtractBlankChkbx = QCheckBox("Subtract Blank Image")
+        self.subtractBlankChkbx = QCheckBox("Subtract Empty Cell Image")
         self.subtractBlankChkbx.setEnabled(False)
         self.subtractBlankChkbx.stateChanged.connect(self.enableSubtractSlider)
         
@@ -209,11 +211,13 @@ class ImageMaskerWindow(QDialog):
         
     def enableMaskThres(self):
         if self.maskThresChkbx.isChecked():
+            self.computedMask = True
             self.maskThresh.setEnabled(True)
             self.showMaskChkBx.setEnabled(True)  
             self.maskThresholdChanged()
         else:
             self.maskThresh.setEnabled(False)
+            self.computedMask = False
             self.computedMaskData = None
             if self.drawnMaskData is not None:
                 self.maskData = self.drawnMaskData
@@ -292,6 +296,7 @@ class ImageMaskerWindow(QDialog):
                 
                 self.maskThresh.setEnabled(True)
                 self.showMaskChkBx.setEnabled(True)
+                self.drawnMask = True
                 self.applyMask()
                 # scaledPixmap=displayImage(self.maskData)
                 # self.imageLabel.setPixmap(scaledPixmap)
@@ -364,7 +369,7 @@ class ImageMaskerWindow(QDialog):
                 print("No non-masked pixels found. Cannot compute average intensity.")
                 
     def okClicked(self):
-        if self.maskData is None and self.subtractBlankChkbx.isChecked() == False:
+        if self.maskData is None and self.subtractBlankChkbx.isChecked() == False and self.computedMaskData is None and self.drawnMaskData is None:
             errMsg = QMessageBox()
             errMsg.setText('No mask data or blank image was provided. Please draw a mask or select a blank image.')
             errMsg.setStandardButtons(QMessageBox.Ok)
@@ -382,7 +387,7 @@ class ImageMaskerWindow(QDialog):
                 dictionary = {
                     'subtractBlank': True, 
                     'weight': self.subtractSliderText.value(),
-                    'path': self.blankImagePath
+                    'path': self.blankImagePath,
                     }
                 path = join(path, 'blank_image_settings.json')
                 with open(path, 'w') as f:

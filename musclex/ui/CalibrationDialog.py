@@ -19,6 +19,7 @@ class CalibrationDialog(QMainWindow):
     def __init__(self, dir_path, imagePath):
         QWidget.__init__(self)
         self.dir_path = dir_path
+        self.orig_image = None
         self.image = None
         self.img_zoom = None
         self.default_img_zoom = None
@@ -139,56 +140,96 @@ class CalibrationDialog(QMainWindow):
         self.optionsDisplayButtonGroup.addButton(self.displayCompute)
         self.optionsDisplayButtonGroup.addButton(self.displayCenter)
         
+        # New Layout
+        self.testLayout = QGridLayout()
+        self.testLayoutGrp = QGroupBox()
+        self.testLayoutGrp.setLayout(self.testLayout)
+        self.selectCalibrationImageButton = QPushButton("Use Calibration Image Center")
+        self.setCalibrationCenter = QCheckBox("Set Calibration Center")
+        self.calibrationCenterDropdown = QComboBox()
+        self.calibrationCenterDropdown.addItems(["(Select function)", "Set Center by Chord", "Set Center by Perpendicular"])
+        self.calibrationCenterDropdown.setEnabled(False)
+        self.computeCenter = QCheckBox("Compute Center")
+        self.setOrientationChkBx = QCheckBox("Set Orientation")
+        self.orientationDrpDown = QComboBox()
+        self.orientationDrpDown.addItems(["(Select function)", "Set Rotation Angle", "Set Rotation Angle and Center"])
+        self.orientationDrpDown.setEnabled(False)
+        self.computeOrientation = QCheckBox("Compute Orientation")
+        self.computeOrientationDrpDown = QComboBox()
+        self.computeOrientationDrpDown.addItems(["Max Intensity", "GMM", "Herman Factor (Half Pi)", "Herman Factor (Pi)"])
+        self.computeOrientationDrpDown.setEnabled(False)
+        
+        self.calibrationButtonGroup = QButtonGroup()
+        self.calibrationButtonGroup.setExclusive(True)
+        self.calibrationButtonGroup.addButton(self.setCalibrationCenter)
+        self.calibrationButtonGroup.addButton(self.computeCenter)
+        
+        self.orientationButtonGroup = QButtonGroup()
+        self.orientationButtonGroup.setExclusive(True)
+        self.orientationButtonGroup.addButton(self.setOrientationChkBx)
+        self.orientationButtonGroup.addButton(self.computeOrientation)
+        
+        self.testLayout.addWidget(self.selectCalibrationImageButton, 0, 0, 1, 5)
+        self.testLayout.addWidget(self.setCalibrationCenter, 1, 0, 1, 2)
+        self.testLayout.addWidget(self.calibrationCenterDropdown, 1, 3, 1, 2)
+        self.testLayout.addWidget(self.computeCenter, 2, 0, 1, 5)
+        self.testLayout.addWidget(self.setOrientationChkBx, 3, 0, 1, 2)
+        self.testLayout.addWidget(self.orientationDrpDown, 3, 3, 1, 2)
+        self.testLayout.addWidget(self.computeOrientation, 4, 0, 1, 2)
+        self.testLayout.addWidget(self.computeOrientationDrpDown, 4, 3, 1, 2)
+        
         # Compute Group
-        self.computeGroup = QGroupBox("Compute Center and Orientation")
-        self.computeGrpLayout = QGridLayout()
-        self.selectCalibrationImageButton = QPushButton("Select Calibration Image")
-        self.useComputedCenter = QCheckBox("Use Computed Center")
-        self.useCalibrationCenter = QCheckBox("Use Calibration Center")
+        # self.computeGroup = QGroupBox("Compute Center and Orientation")
+        # self.computeGrpLayout = QGridLayout()
+        # self.selectCalibrationImageButton = QPushButton("Select Calibration Image")
+        # self.useComputedCenter = QCheckBox("Use Computed Center")
+        # self.useComputedCenter.setChecked(True)
+        # self.useCalibrationCenter = QCheckBox("Use Calibration Center")
         
-        self.centerCheckButtonGroup = QButtonGroup()
-        self.centerCheckButtonGroup.setExclusive(True)
-        self.centerCheckButtonGroup.addButton(self.useComputedCenter)
-        self.centerCheckButtonGroup.addButton(self.useCalibrationCenter)
         
-        self.useCalibrationCenter.setEnabled(False)
-        self.useComputedOrientation = QCheckBox("Use Computed Orientation")
+        # self.centerCheckButtonGroup = QButtonGroup()
+        # self.centerCheckButtonGroup.setExclusive(True)
+        # self.centerCheckButtonGroup.addButton(self.useComputedCenter)
+        # self.centerCheckButtonGroup.addButton(self.useCalibrationCenter)
         
-        self.computeGrpLayout.addWidget(self.selectCalibrationImageButton, 0, 0, 1, 5)
-        self.computeGrpLayout.addWidget(self.useComputedCenter, 1, 0, 1, 2)
-        self.computeGrpLayout.addWidget(self.useCalibrationCenter, 1, 3, 1, 2)
-        self.computeGrpLayout.addWidget(self.useComputedOrientation, 2, 0, 1, 2)
-        self.computeGroup.setLayout(self.computeGrpLayout)
-        self.computeGroup.setVisible(False)
+        # self.useCalibrationCenter.setEnabled(False)
+        # self.useComputedOrientation = QCheckBox("Use Computed Orientation")
         
-        # Set Center Group
-        self.setCenterGroup = QGroupBox("Set Center and Orientation")
-        self.setCenterLayout = QGridLayout()
-        self.setCenterGroup.setLayout(self.setCenterLayout)
+        # self.computeGrpLayout.addWidget(self.selectCalibrationImageButton, 0, 0, 1, 5)
+        # self.computeGrpLayout.addWidget(self.useComputedCenter, 1, 0, 1, 2)
+        # self.computeGrpLayout.addWidget(self.useCalibrationCenter, 1, 3, 1, 2)
+        # self.computeGrpLayout.addWidget(self.useComputedOrientation, 2, 0, 1, 2)
+        # self.computeGroup.setLayout(self.computeGrpLayout)
+        # self.computeGroup.setVisible(False)
         
-        self.setCenterByChord = QCheckBox("Set Center by Chord")
-        self.setCenterByPerp = QCheckBox("Set Center by Perpendicular")
-        self.setRotationCenter = QCheckBox("Set Rotation Angle and Center")
-        self.setRotationOnly = QCheckBox("Set Rotation Angle")
+        # # Set Center Group
+        # self.setCenterGroup = QGroupBox("Set Center and Orientation")
+        # self.setCenterLayout = QGridLayout()
+        # self.setCenterGroup.setLayout(self.setCenterLayout)
         
-        self.centerButtonGroup = QButtonGroup()
-        self.centerButtonGroup.setExclusive(True)
-        self.centerButtonGroup.addButton(self.setCenterByChord)
-        self.centerButtonGroup.addButton(self.setCenterByPerp)
-        self.centerButtonGroup.addButton(self.setRotationCenter)
-        self.centerButtonGroup.addButton(self.setRotationOnly)
+        # self.setCenterByChord = QCheckBox("Set Center by Chord")
+        # self.setCenterByPerp = QCheckBox("Set Center by Perpendicular")
+        # self.setRotationCenter = QCheckBox("Set Rotation Angle and Center")
+        # self.setRotationOnly = QCheckBox("Set Rotation Angle")
         
-        self.setButton = QPushButton("Set Center/Orientation")
+        # self.centerButtonGroup = QButtonGroup()
+        # self.centerButtonGroup.setExclusive(True)
+        # self.centerButtonGroup.addButton(self.setCenterByChord)
+        # self.centerButtonGroup.addButton(self.setCenterByPerp)
+        # self.centerButtonGroup.addButton(self.setRotationCenter)
+        # self.centerButtonGroup.addButton(self.setRotationOnly)
         
-        self.setCenterLayout.addWidget(self.setCenterByChord, 0, 0, 1, 2)
-        self.setCenterLayout.addWidget(self.setCenterByPerp, 0, 3, 1, 2)
-        self.setCenterLayout.addWidget(self.setRotationCenter, 1, 0, 1, 2)
-        self.setCenterLayout.addWidget(self.setRotationOnly, 1, 3, 1, 2)
-        self.setCenterLayout.addWidget(self.setButton, 2, 0, 1, 5)
-        self.setCenterGroup.setVisible(False)
+        # self.setButton = QPushButton("Set Center/Orientation")
         
-        self.saveButton = QPushButton("Save")
-        self.saveButton.setStyleSheet("background-color: green; color: white;")
+        # self.setCenterLayout.addWidget(self.setCenterByChord, 0, 0, 1, 2)
+        # self.setCenterLayout.addWidget(self.setCenterByPerp, 0, 3, 1, 2)
+        # self.setCenterLayout.addWidget(self.setRotationCenter, 1, 0, 1, 2)
+        # self.setCenterLayout.addWidget(self.setRotationOnly, 1, 3, 1, 2)
+        # self.setCenterLayout.addWidget(self.setButton, 2, 0, 1, 5)
+        # self.setCenterGroup.setVisible(False)
+        
+        self.saveButton = QPushButton("Correct Center and Orientation")
+        # self.saveButton.setStyleSheet("background-color: green; color: white;")
         self.saveButton.setIcon(self.style().standardIcon(QStyle.SP_DialogOkButton))
         
         self.cancelButton = QPushButton("Cancel")
@@ -199,9 +240,10 @@ class CalibrationDialog(QMainWindow):
         
         self.optionsLayout.addWidget(self.modeGroup)
         self.optionsLayout.addWidget(self.displayOptGrpBx)
-        self.optionsLayout.addWidget(self.optionsDisplay)
-        self.optionsLayout.addWidget(self.computeGroup)
-        self.optionsLayout.addWidget(self.setCenterGroup)
+        self.optionsLayout.addWidget(self.testLayoutGrp)
+        # self.optionsLayout.addWidget(self.optionsDisplay)
+        # self.optionsLayout.addWidget(self.computeGroup)
+        # self.optionsLayout.addWidget(self.setCenterGroup)
         self.optionsLayout.addWidget(self.saveButton)
         self.optionsLayout.addWidget(self.cancelButton)
         
@@ -239,24 +281,78 @@ class CalibrationDialog(QMainWindow):
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImage)
         
         self.selectCalibrationImageButton.clicked.connect(self.selectCalibrationImage)
-        self.useComputedCenter.clicked.connect(self.useComputedCenterClicked)
+        self.setCalibrationCenter.stateChanged.connect(self.setCenterChecked)
+        self.setOrientationChkBx.stateChanged.connect(self.setOrientationChecked)
+        self.orientationDrpDown.currentIndexChanged.connect(self.orientationComboChanged)
+        self.computeOrientation.stateChanged.connect(self.computeOrientationChecked)
+        self.computeOrientationDrpDown.currentIndexChanged.connect(self.computeOrientationChanged)
+        self.calibrationCenterDropdown.currentIndexChanged.connect(self.setCenterDropDownChanged)
+        self.computeCenter.stateChanged.connect(self.useComputedCenterClicked)
+        # self.useComputedCenter.clicked.connect(self.useComputedCenterClicked)
         
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
         self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
         
-        self.displayCompute.stateChanged.connect(self.displayGroupChecked)
-        self.displayCenter.stateChanged.connect(self.displayGroupChecked)
+        # self.displayCompute.stateChanged.connect(self.displayGroupChecked)
+        # self.displayCenter.stateChanged.connect(self.displayGroupChecked)
         
-        self.setButton.clicked.connect(self.setButtonClicked)
+        # self.setButton.clicked.connect(self.setButtonClicked)
         
         self.saveButton.clicked.connect(self.saveClicked)
         self.cancelButton.clicked.connect(self.cancelClicked)
         
-    def displayGroupChecked(self):
-        self.computeGroup.setVisible(self.displayCompute.isChecked())
-        self.setCenterGroup.setVisible(self.displayCenter.isChecked())
+    # def displayGroupChecked(self):
+    #     self.computeGroup.setVisible(self.displayCompute.isChecked())
+    #     self.setCenterGroup.setVisible(self.displayCenter.isChecked())
+    
+    def setCenterChecked(self):
+        if self.setCalibrationCenter.isChecked():
+            self.calibrationCenterDropdown.setEnabled(True)
+        else:
+            self.calibrationCenterDropdown.setEnabled(False)
+            
+    def setOrientationChecked(self):
+        if self.setOrientationChkBx.isChecked():
+            self.orientationDrpDown.setEnabled(True)
+        else:
+            self.orientationDrpDown.setEnabled(False)
+    
+    def computeOrientationChecked(self):
+        if self.computeOrientation.isChecked():
+            self.computeOrientationDrpDown.setEnabled(True)
+        else:
+            self.computeOrientationDrpDown.setEnabled(False)
+            
+    def setCenterDropDownChanged(self):    
+        if self.calibrationCenterDropdown.currentText() == "Set Center by Chord":
+            print("Set Center by Chords Mode")
+            self.setCenterByChordsActive()
+        elif self.calibrationCenterDropdown.currentText() == "Set Center by Perpendicular":
+            print("Set Center by Perpendicular Mode")
+            self.setCenterByPerpActive()
+        
+    def orientationComboChanged(self):
+        if self.orientationDrpDown.currentText() == "Set Rotation Angle":
+            print("Set Rotation Angle Mode")
+            self.setRotation()
+        elif self.orientationDrpDown.currentText() == "Set Rotation Angle and Center":
+            print("Set Rotation Angle and Center Mode")
+            self.setCenterRotation()
+            
+    def computeOrientationChanged(self):
+        method = self.computeOrientationDrpDown.currentIndex()
+        self.info['rotationAngle'] = None
+        if self.info['center'] is not None:
+            center = self.info['center']
+        else:
+            center = self.findCenter()
+        self.info['rotationAngle'] = getRotationAngle(self.orig_image, center, method)
+        self.centerizeImage()
+        self.image, _, _ = rotateImage(self.orig_image, center, self.info['rotationAngle'])
+        self.newImgDimension = None
+        self.refreshImage()
         
     def saveClicked(self):
         path = join(self.dir_path, 'settings')
@@ -267,7 +363,8 @@ class CalibrationDialog(QMainWindow):
         self.close()
     
     def useComputedCenterClicked(self):
-        if self.info['center'] is None:
+        if self.computeCenter.isChecked():
+            self.info['center'] = None
             self.findCenter()
     
     def cancelClicked(self):
@@ -280,7 +377,7 @@ class CalibrationDialog(QMainWindow):
         result = self.calSettingsDialog.exec_()
         if result == 1:
             self.calSettings = self.calSettingsDialog.getValues()
-            self.useCalibrationCenter.setEnabled(True)
+            # self.useCalibrationCenter.setEnabled(True)
 
             if self.calSettings is not None and self.calSettings:
                 print("not empty")
@@ -303,7 +400,6 @@ class CalibrationDialog(QMainWindow):
     # Redraw the Image
     def refreshImage(self):
         self.plotImages(self.imageAxes, self.image)
-        
         self.imageFigure.tight_layout()
         self.imageCanvas.draw()
         
@@ -312,6 +408,7 @@ class CalibrationDialog(QMainWindow):
     def loadImage(self):
         raw_filepath = r"{}".format(self.imagePath)
         self.image = fabio.open(raw_filepath).data
+        self.orig_image = self.image
         
         min_val = self.image.min()
         max_val = self.image.max()
@@ -800,7 +897,7 @@ class CalibrationDialog(QMainWindow):
                     self.centerizeImage()
                     self.image, _, _ = rotateImage(self.image, new_center, self.info['manual_rotationAngle'])
                     self.newImgDimension = None
-                    self.setRotationCenter.setChecked(False)
+                    # self.setRotationCenter.setChecked(False)
                     self.refreshImage()
             elif func[0] == "im_rotate":
                 # draw line as angle
@@ -826,7 +923,7 @@ class CalibrationDialog(QMainWindow):
                 print(self.info['manual_rotationAngle'])
                 self.image = rotateImageAboutPoint(self.image, center, self.info['manual_rotationAngle'])
                 self.setRotation()
-                self.setRotationOnly.setChecked(False)
+                # self.setRotationOnly.setChecked(False)
                 self.refreshImage()
             
     def imageReleased(self, event):
@@ -1103,7 +1200,7 @@ class CalibrationDialog(QMainWindow):
             self.info['center'] = self.info['manual_center']
             return
         print("Center is being calculated ... ")
-        self.image, self.info['center']= processImageForIntCenter(self.image, getCenter(self.image))
+        self.image, self.info['center']= processImageForIntCenter(self.orig_image, getCenter(self.orig_image))
         if self.image_center is None:
             self.image_center = self.info['center']
         print("Done. Center = "+str(self.info['center']))
@@ -1122,6 +1219,7 @@ class CalibrationDialog(QMainWindow):
             
         if self.centImgTransMat is not None and 'calib_center' not in self.info:
             # convert center in initial img coordinate system
+            print("here!!!!!!!!!!!!!!!!!???")
             M = self.centImgTransMat
             M[0,2] = -1*M[0,2]
             M[1,2] = -1*M[1,2]
@@ -1134,7 +1232,7 @@ class CalibrationDialog(QMainWindow):
 
         center = (int(center[0]), int(center[1]))
         print("Dimension of initial image before centerize ", self.image.shape)
-        img = self.image
+        img = self.orig_image
         print("Dimension of image before centerize ", img.shape)
 
         b, l = img.shape

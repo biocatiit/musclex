@@ -19,7 +19,7 @@ class Item:
 
 items = []
 max_intensity = 255
-distance_mode = 5
+global_distance_mode = 5
 coefficients = {
         'image': 0.33,
         'center': 0.33,
@@ -30,15 +30,15 @@ def addImages(image, center, angle, name):
     items.append(Item(image, center, angle, name))
 
 def detectImages (folder_path, max_intensity, distance_mode, coefficients):
-
+    global global_distance_mode
+    
     max_intensity = max_intensity
-    distance_mode = distance_mode
+    global_distance_mode = distance_mode
     coefficients = coefficients
-
 
     print("Processing with the following parameters:")
     print("Max intensity:", max_intensity)
-    print("Distance mode:", distance_mode)
+    print("Distance mode:", global_distance_mode)
     print("Coefficients:", coefficients)
 
     # tiff_files = glob.glob(os.path.join(folder_path, '*.tif'))
@@ -63,23 +63,22 @@ def detectImages (folder_path, max_intensity, distance_mode, coefficients):
     return inconsistent_items
 
 
-
 # Define distance measurement functions
 def measure_distance(item1, item2, center_median, angle_median):
     # Compute the average absolute difference between images (as a distance)
-    if distance_mode in [1, 4, 5]:
+    if global_distance_mode in [1, 4, 5]:
         image_difference = np.abs(item1.image - item2.image) / max_intensity
         image_distance = np.mean(image_difference) * coefficients['image']
     else:
         image_distance = 0
 
-    if distance_mode in [2, 3, 4, 5]:
+    if global_distance_mode in [2, 3, 4, 5]:
         center_difference = np.linalg.norm(np.array(item1.center) - np.array(item2.center))
         center_distance = (center_difference / center_median) * coefficients['center']
     else:
         center_distance = 0
 
-    if distance_mode in [3, 5]:
+    if global_distance_mode in [3, 5]:
         angle_difference = abs(item1.angle - item2.angle)
         angle_distance = (angle_difference / angle_median) * coefficients['angle']
     else:
@@ -89,17 +88,34 @@ def measure_distance(item1, item2, center_median, angle_median):
 
 def find_inconsistencies(items, center_median, angle_median):
     # Calculate distance scores for each pair of subsequent items
+    print(global_distance_mode)
     distances = [measure_distance(items[i], items[i+1], center_median, angle_median) for i in range(len(items) - 1)]
+    distances.append(measure_distance(items[-1], items[0], center_median, angle_median)) # compare last image and first image
+    
+    distance_pairs = [[i, i+1] for i in range(len(items))]
+    distance_pairs.append([len(items) - 1, 0])
+    print(distance_pairs)
     
     # Find the 80th percentile of the distances
     threshold = np.percentile(distances, 80)
     #threshold = np.max(threshold, 0.1)
+    print(distances)
     
     # Classify items based on the threshold
     inconsistent_items_indices = [i for i in range(len(distances)) if distances[i] > threshold]
+    
+    inconsistent_items_index = []
+    
+    for i in range(len(inconsistent_items_indices)):
+        if i+1 < len(inconsistent_items_indices):
+            set1 = set(distance_pairs[inconsistent_items_indices[i]])
+            set2 = set(distance_pairs[inconsistent_items_indices[i+1]])
+            common_values = list(set1.intersection(set2))
+            inconsistent_items_index.append(common_values[0])    
+            
 
     # Output inconsistent items
-    inconsistent_items = [items[i] for i in inconsistent_items_indices]
+    inconsistent_items = [items[i] for i in inconsistent_items_index]
     
     # Also include the next item in the sequence if the last comparison was inconsistent
     if len(distances) in inconsistent_items_indices:

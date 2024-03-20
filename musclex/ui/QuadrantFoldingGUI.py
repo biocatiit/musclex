@@ -894,7 +894,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.zoomOutClicked = True
             self.default_result_img_zoom = None
             self.processImage()
-        
 
     def setCenterByPerpClicked(self):
         """
