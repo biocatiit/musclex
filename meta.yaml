@@ -50,7 +50,8 @@ requirements:
     - numba <=0.57.1
     - fisx <=1.2.1
     - future <=0.18.3
-    - pymca 
+    - pymca <=5.8.1
+    - setuptools<60.0.0
 
 test:
   imports:
@@ -59,13 +60,17 @@ test:
     - docs
     - hooks
     - musclex
+  commands: 
+    - pip check 
+    - musclex --help
+    - musclex-launcher --help
   requires:
     - pip
 
 about:
   home: https://github.com/biocatiit/musclex
   summary: Muscle X The Muscle X Application Suite is a collection of programs intended to assist with analyzing diffraction X-ray images.
-  license: LicenseRef-Proprietary
+  license: MIT
   license_file: LICENSE.txt
   doc_url: https://musclex.readthedocs.io/en/latest/
 
