@@ -17,18 +17,24 @@ Ensure you have Conda installed on your system. If not, install Miniconda from [
 
 2. **Create a New Conda Environment**: It's recommended to install `MuscleX` in a new environment to avoid conflicts with other packages.
    ```bash
-   conda create --name musclex-env python=3.x
+   conda create --name musclex-env python=3.10
    ```
-   Replace `3.x` with the specific Python version `MuscleX` requires.
+   The above command creates a new environment named `musclex-env` with Python 3.10. Replace `3.10` with the required Python version for `MuscleX`.
 
 3. **Activate the Environment**:
    ```bash
    conda activate musclex-env
    ```
 
-4. **Install muscleX**:
+4. **Add fastai Channel**:
    ```bash
-   conda install -c conda-forge musclex
+   conda config --add channels fastai
+   ```
+   This step is necessary to access the `fastai` channel that hosts a dependency for `MuscleX`.
+
+5. **Install MuscleX**:
+   ```bash
+   conda install biocat_iit::musclex
    ```
 
 ### macOS and Linux
@@ -37,20 +43,25 @@ Ensure you have Conda installed on your system. If not, install Miniconda from [
 
 2. **Create a New Conda Environment**:
    ```bash
-   conda create --name musclex-env python=3.x
+   conda create --name musclex-env python=3.10
    ```
-   As with Windows, replace `3.x` with the required Python version for `MuscleX`.
+   As with Windows, the above command creates a new environment named `musclex-env` with Python 3.10. Replace `3.10` with the required Python version for `MuscleX`.
 
 3. **Activate the Environment**:
    ```bash
    conda activate musclex-env
    ```
 
-4. **Install muscleX**:
+4. **Add fastai Channel**:
    ```bash
-   conda install -c conda-forge musclex
+   conda config --add channels fastai
    ```
-   Ensure you're using the correct channel that hosts `MuscleX`.
+   This step is necessary to access the `fastai` channel that hosts a dependency for `MuscleX`.
+
+5. **Install MuscleX**:
+   ```bash
+   conda install biocat_iit::musclex
+   ```
 
 ## Post-Installation
 
