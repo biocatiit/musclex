@@ -170,14 +170,13 @@ Note: if the command doesn't exist, you can download the appimage-builder [here]
 [12]:https://appimage-builder.readthedocs.io/en/latest/intro/install.html
 
 
-### Create a Conda Package
+### Build and upload a Conda Package
 
 Conda packages are a convenient way to distribute MuscleX to users. This section outlines the process for creating and publishing a new Conda package.
 
 #### Prerequisites
 
 - Anaconda or Miniconda installed
-- Anaconda account (for uploading to Anaconda Cloud)
 - GitHub account (for Conda-Forge submission)
 - Basic understanding of Conda packaging, more information at [Building a conda package from scratch](https://docs.conda.io/projects/conda-build/en/latest/user-guide/tutorials/build-pkgs.html)
 
@@ -188,17 +187,24 @@ For each new release:
 - Ensure dependencies in the `requirements` section are accurate and up to date.
 - Review and update the `test` section as necessary.
 
-#### 2. Build the Conda Package
+#### 2. Create a virtual environment to build the package
+
+Create a new environment and install the necessary packages:
+
+```bash
+conda create -n musclex-build python=3.10 conda-build anaconda-client
+conda activate musclex-build
+```
+
+#### 3. Build the Conda Package
 
 Use the following commands to build your package:
 
 ```bash
-conda install conda-build
-conda install anaconda-client
 conda build .
 ```
 
-#### 3. Test the Package Locally
+#### 4. Test the Package Locally
 
 Create and activate a test environment:
 
@@ -215,76 +221,6 @@ Verify the main functionalities. Run the tests.
 Login to the Anaconda account of biocat and upload the package:
 
 ```bash
-anaconda login
+anaconda login # then enter your credentials, the username of the account is biocat_IIT
 anaconda upload /path/to/your/conda/package.tar.bz2
 ```
-
-#### 5. Tag the Release
-
-Tag the release in your version control system:
-
-```bash
-git tag -a v<version> -m "Release version <version>"
-git push origin v<version>
-```
-#### Updating the package on conda-forge
-
-#### 6. Updating the Package on Conda-Forge
-
-Conda-Forge is a community-led collection of recipes, build infrastructure, and distributions for the Conda package manager. When you release a new version of MuscleX, it's important to update the package on Conda-Forge to make it available to the wider community.
-
-##### Fork the Feedstock
-
-- Visit the `musclex-feedstock` repository on Conda-Forge's GitHub.
-- Fork it to your account.
-
-##### Clone Your Fork
-
-```bash
-git clone https://github.com/your-username/musclex-feedstock.git
-cd musclex-feedstock
-```
-
-##### Create a New Branch
-
-```bash
-git checkout -b update-musclex-version
-```
-
-##### Update the Recipe
-
-- Edit the `recipe/meta.yaml` file:
-  - Update the `version` number.
-  - Update the `sha256` hash of the source file.
-  - Ensure dependencies are up to date.
-- If necessary, update other files like `build.sh` or `bld.bat`.
-
-##### Commit and Push Changes
-
-```bash
-git add recipe/meta.yaml
-git commit -m "Update MuscleX to version x.y.z"
-git push origin update-musclex-version
-```
-
-##### Open a Pull Request
-
-- Go to your fork on GitHub.
-- Open a pull request against the original `musclex-feedstock` repository.
-- Conda-Forge's automated systems will review your update.
-
-##### Address Feedback
-
-- The Conda-Forge community might provide feedback or request changes.
-- Update your pull request as needed.
-
-##### Merge and Release
-
-- Once the pull request is approved, a Conda-Forge maintainer will merge it.
-- The Conda-Forge automation will build and release the new version.
-
-#### 7. Monitor the Build
-
-- After the pull request is merged, Conda-Forge's CI systems will automatically build the new package version.
-- You can monitor the progress in the "Actions" tab of the `musclex-feedstock` repository.
-- If there are any issues with the build, address them as needed.
