@@ -8,11 +8,12 @@ We provide five ways to install Muscle X. See the following parts for details.
 
 .. toctree::
    :maxdepth: 2
-
+   
+   Prerequisites
    installer
+   Conda
    pip
    Docker
-   Conda
    AppImage
    github
    testing
