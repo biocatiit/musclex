@@ -1,202 +1,65 @@
 ![python logo](https://www.python.org/static/community_logos/python-logo-master-v3-TM.png)
 
 # Installation by Pip
-This guide will go through the installation of MuscleX using pip.
 
+This guide will walk you through the steps for installing MuscleX using pip, Python's package manager.
 
-### Installing Miniconda
-As a prerequisite, you need to have Conda installed. We recommend installing Miniconda, which is a minimal installer for Conda.
+## Before You Begin
 
-### Download Miniconda
+This installation guide assumes that you have already set up a virtual environment according to our [Prerequisite Guide: Setting Up Virtual Environments](Prerequisites.md). It is essential to have your environment ready to ensure MuscleX is installed in an isolated space, preventing any potential conflicts with other packages on your system.
 
-Miniconda is a minimal installer for Conda, a powerful package manager and environment management system that is used for installing, running, and updating packages and their dependencies in virtual environments. Developed by Anaconda, Inc., Conda is open-source and designed to facilitate package management and deployment for various computing environments across multiple languages, with a primary focus on Python.
+If you have not yet prepared a virtual environment, please refer to the prerequisite guide for detailed instructions.
 
-It allows to create a completely independent environment for each project, which can have its own dependencies and Python version. This is particularly useful when working on multiple projects with different dependencies or when collaborating with others on projects.
+## Installing MuscleX
 
-Visit the [Miniconda download page](https://docs.conda.io/en/latest/miniconda.html) download page and download the appropriate installer for your operating system.
+With your virtual environment set up and activated, you are now ready to install MuscleX. Execute the following command within your virtual environment:
 
-You can also download the installer from the command for linux line by using the following commands:
-```
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-```
-For macOS, you can download the installer from the command line by using the following command:
-```
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-```
-For Windows, you can download the installer from the command line by using the following command:
-```
-curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
+```bash
+pip install --upgrade musclex
 ```
 
-### Install Miniconda
+Or, to install the most current development version directly from GitHub:
 
-On Linux and macOS: Open a terminal and run the downloaded script with bash <Miniconda3-latest-Linux-x86_64.sh> for Linux or bash <Miniconda3-latest-MacOSX-x86_64.sh> for macOS, and follow the on-screen instructions.
-On Windows: Run the downloaded .exe file and follow the installation instructions.
-
-### Linux
-
-It is recommended to install Python 3.10 on Linux to use MuscleX as it is the Python version we use and test. You can still use another one, newer or older, but MuscleX has not been tested on other Python versions. Whichever version you plan on using, you will need the associated pip, dev, and distutils packages. 
-
-Then here is the recommended setup to run:
-```
-sudo apt-get update
-sudo apt-get install python3 python3-pip python3-dev python3-distutils 
-#sudo apt-get install git # run this if you are going to use the most up-to-date version
+```bash
+pip install --upgrade git+https://github.com/biocatiit/musclex.git
 ```
 
-### Mac OS
-```
-/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-brew install opencv
-brew install pyqt5
-brew install gcc
-sudo easy_install pip
-sudo pip install pyfai
-sudo pip install cython
-```
+Ensure that these commands are run within the virtual environment you have prepared for MuscleX to maintain the isolation from other Python packages.
 
-```eval_rst
-.. note:: If the "Run tests" functionalities are not working, try to go in `Applications > Python 3.x folder` and double click on `Install Certificates.command`.
+## Post-Installation
+
+After successfully installing MuscleX, you can verify the installation by checking the installed packages in your environment:
+
+```bash
+pip list | grep musclex
 ```
 
-### Windows
-For windows, we have built the Fortran source for you, so Fortran compiler is not required. But C compiler is still required to build C extensions during the installation process, and **Microsoft Visual C++** (MSVC) is recommended, refer to [this section](#download-of-the-microsoft-studio-build-tools). If you do need to build the Fortran source, refer to [Installation on Windows from source](#installation-of-musclex-from-source-on-windows).
+This command should list MuscleX and its version, indicating that the installation was successful.
 
-#### Installing Python
-We recommend installing [Anaconda](https://www.anaconda.com/products/individual) to install Python and the required dependencies. Anaconda is a free and open-source distribution of the Python and R programming languages for scientific computing, that aims to simplify package management and deployment. 
+## Running MuscleX
 
-##### Download of the Microsoft studio build tools
-Some of the libraries used by MuscleX require a compilation of the source code to properly work on windows. To do so, you need to install the build tools from [Microsoft Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+With MuscleX installed, you can now run the application directly from the command line, within your virtual environment. Make sure your virtual environment is activated whenever you wish to use MuscleX.
 
-##### Installation of the Microsoft studio build tools
-To install the build tools, follow these steps:
-- start to the visual studio installer app
-- once the visual studio installer app is opened, click on "modify" in the visual studio build tools window. You should then be in the "workloads" tab, check the "C++ build tools" box
-- in the right panel, only check MSVC … C++ x64/x86 build tools and windows <your version number> SDK and uncheck the rest of options 
-- install the tools by hitting the "Modify" button
+To deactivate your virtual environment when you're finished working with MuscleX, simply run:
 
-
-
-## Installing
-
-### Virtual environment install (Recommended)
-A virtual environment allows you to have a clean environment that is independent of other software installations. We will create a virtual environment and install musclex inside of it.
-
-#### Installation of the virtual environment on linux and Mac OS
-After you are done with the installation of Miniconda, you can create a virtual environment by typing the following commands in the terminal:
-
+```bash
+deactivate
 ```
-conda create -n musclex python=3.10
-conda activate musclex
-```
-This command will create a virtual environment called musclex and activate it.
 
-To exit the virtual environment use:
-```
+if you are using a venv environment, or:
+
+```bash
 conda deactivate
 ```
-To re-enter the virtual environment use:
-```
-conda activate musclex
-```
+if you are using a Conda virtual environment.
 
-#### Installation of the virtual environment on Windows
-To install the virtual environment on windows, you need to install the anaconda distribution of python. We assume that you did it in the section [Installing Python](#installing-python).
+## Updating MuscleX
 
-##### Creation of the virtual environment
-Open the "anaconda prompt" app. This app is installed with anaconda and can be found in the start menu. Once the app is opened, type the following commands in the terminal:
-```
-conda create -n musclex python=3.10
-conda activate musclex
-```
-This will create a virtual environment called musclex and activate it. 
-Once the virtual environment is activated, you should see (musclex) at the beginning of the line in the terminal.
+To update MuscleX to the latest version, use the following command within your virtual environment:
 
-### Installation of MuscleX
-
-#### Normal install
-Once the virtual environment is activated, you can install MuscleX by typing the following command in the anaconda prompt terminal:
-```
-pip install --upgrade musclex
-#pip install --upgrade git+https://github.com/biocatiit/musclex.git # use this for the most up-to-date version
-```
-Make sure that you are in the virtual environment before running the command. 
-
-#### Installation of MuscleX from source on windows
-
-If the normal install fails on windows, you can install MuscleX from source.
-We assume that you already installed the microsoft studio build tools in the section [Download of the Microsoft studio build tools](#download-of-the-microsoft-studio-build-tools).
-
-##### Installation of git
-Git is a version control system that allows you to download the source code of MuscleX. Download the latest version of git from https://git-scm.com/download/win and install it.
-Open the "command prompt" app from the start menu. Once the app is opened, type the following commands in the terminal:
-```
-set PATH=%PATH%;C:\Users\<Your_username>\AppData\Local\Programs\Git\bin
-```
-where <Your_username> is your windows username. Hit enter to validate the command.
-Close the command prompt app and open it again.
-Type the command "git" in the terminal. If git is installed correctly, you should see a list of commands. If not, please check that you followed the instructions correctly.
-
-##### Installation of the fortran compiler
-The fortran compiler is required to compile the Fortran source files contained in the musclex_cpp13 package. To install the fortran compiler, follow these steps:
-- Visit https://winlibs.com
-- Download the latest version of the fortran compiler in the "MSVCRT runtime" category in 64 bits
-- Unzip the downloaded file
-- Copy the path to the "bin" folder of the unzipped file, by right clicking on the address bar of the file explorer and clicking on "copy path"
-- Open the "anaconda prompt" app from the start menu
-- Set the path to the fortran compiler executable by typing the following command in the anaconda prompt terminal:
-```
-set PATH=%PATH%;<path_to_the_bin_folder_of_installed_file>
-```
-where <path_to_the_bin_folder_of_installed_file> is the path to the bin folder of the unzipped file that you copied earlier. Hit enter to validate the command.
-- Restart your computer to apply the changes
-
-##### Compilation of the musclex_cpp13 package
-One of the dependencies of MuscleX is the musclex_cpp13 package. This package contains some Fortran code that needs to be compiled. To do so, you need to type the following commands in the anaconda prompt terminal:
-```
-conda activate musclex # if you are not already in the virtual environment
-pip install numpy==1.24.0
-git clone https://github.com/biocatiit/musclex_ccp13
-cd musclex_ccp13
-#Note : if you are on windows 10, enter the following command to downgrade the version of the "numexpr" package, since it may cause an error if not downgraded
-#pip install numexpr==2.8.0 
-```
-Hit enter to validate each command.
-
-- Compile the Fortran code by typing the following command in the anaconda prompt terminal:
-```
-python setup.py build
-```
-Don't leave the anaconda prompt terminal until the compilation is finished. Leave it open for the next step.
-
-##### Creation of the musclex_ccp13 package
-Once the Fortran code is compiled, we can create the precompiled musclex_cpp13 package. To do so, type the following command in the anaconda prompt terminal you opened in the previous section:
-```
-start .
-```
-This will open a file explorer in the current directory. In this file explorer: 
-- navigate to the “build” folder, lib.<suffix> where the suffix depends on your windows version
-- enter this folder. There you’ll find a folder named “ccp13”
-- open this folder, where you’ll find a “.libs” folder. Open this folder and copy the .dll file inside it. go back to the lib.<suffix> file, and paste the dll file you copied. delete the “ccp13” folder.
-- go back to the terminal and type: 
-```
-python setup.py bdist_wheel 
-```
-This will create the precompiled musclex_cpp13 package, also called a wheel.
-
-##### Installation of the musclex_cpp13 package
-In the anacoda prompt terminal, type the following command:
-```
-pip install dist\musclex_ccp13-<version>-<suffix>.whl
-```
-where <version> is the version of the package you just created (example: "1.2") and <suffix> is made of information such as the python version and processor type. For example, the file could be called: "musclex_ccp13-1.2-cp310-cp310-win_amd64.whl",for a 64 bits system with python 3.10. Hit enter to validate the command.
-
-##### Installation of MuscleX using the precompiled musclex_cpp13 package
-Once the musclex_cpp13 package is installed, you can install MuscleX by typing the following command in the anaconda prompt terminal:
-```
+```bash
 pip install --upgrade musclex
 ```
-
 
 ### System install (Only recommended for Linux and Mac OS users)
 
@@ -213,7 +76,7 @@ Note: If you are upgrading, add --upgrade at the end.
 ### If you installed MuscleX in a virtual environment on Linux or Mac OS
 To run a program, you need to activate the virtual environment first. Assuming you created a virtual environment called musclex, you can activate it by typing the following command in the terminal:
 ```
-conda activate musclex
+conda activate musclex # or use 'source activate musclex' if you are using a venv environment
 ```
 Then you can run the program by typing the program shortcut in the terminal. 
 
@@ -240,13 +103,13 @@ pip install opencv-python==4.2.0.32
 ```
 Once you are done using MuscleX, you can deactivate the virtual environment by typing the following command in the terminal:
 ```
-conda deactivate
+conda deactivate # or use 'deactivate' if you are using a venv environment
 ```
 
 ### If you installed MuscleX in a virtual environment on Windows
 To run a program, you need to activate the virtual environment first. Assuming you created a virtual environment called musclex, you can activate it by typing the following command in the anaconda prompt terminal:
 ```
-conda activate musclex
+conda activate musclex # or use 'activate musclex' if you are using a venv environment
 ```
 Then you can run the program by typing the program shortcut in the anaconda prompt terminal. 
 
@@ -260,7 +123,7 @@ musclex dc
 ```
 Once you are done using MuscleX, you can deactivate the virtual environment by typing the following command in the anaconda prompt terminal:
 ```
-conda deactivate
+conda deactivate # or use 'deactivate' if you are using a venv environment
 ```
 
 ## Updating
@@ -280,3 +143,8 @@ if you need to install a previous version (e.g. v1.15.2) directly from github, y
 pip install git+https://github.com/biocatiit/musclex.git@v1.15.2
 ```
 
+
+
+## Troubleshooting
+
+If you encounter any issues during the installation process, ensure that your virtual environment is correctly set up and activated. For further assistance, refer back to the [Prerequisite Guide: Setting Up Virtual Environments](Prerequisites.md) or consult the troubleshooting section of the MuscleX documentation.
