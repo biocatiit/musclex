@@ -224,3 +224,5 @@ Login to the Anaconda account of biocat and upload the package:
 anaconda login # then enter your credentials, the username of the account is biocat_IIT
 anaconda upload /path/to/your/conda/package.tar.bz2
 ```
+
+Note : The same process should be followed for the tree different platforms (linux, osx, win), i.e., the package should be built and uploaded for each platform.
