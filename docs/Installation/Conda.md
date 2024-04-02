@@ -7,7 +7,7 @@ Conda is a powerful package manager and environment management system that simpl
 
 ## Before You Begin: Prerequisites
 
-Before proceeding with the installation of `MuscleX` via Conda, **please ensure you have followed our [Prerequisites: setting up a conda virtual environment](Prerequisites.md#recommended-conda-environment-management)**. This guide will help you set up a Conda environment, crucial for a smooth installation process and avoiding conflicts with other packages on your system. The guide also explains the advantages of using Conda for managing virtual environments, especially for specifying different Python versions independent of the system interpreter.
+Before proceeding with the installation of `MuscleX` via Conda, **please ensure you have followed our [Prerequisites: setting up a conda virtual environment](Prerequisites.md)**. This guide will help you set up a Conda environment, crucial for a smooth installation process and avoiding conflicts with other packages on your system. The guide also explains the advantages of using Conda for managing virtual environments, especially for specifying different Python versions independent of the system interpreter.
 
 ## Installation Instructions
 
