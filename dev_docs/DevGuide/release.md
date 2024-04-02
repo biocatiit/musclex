@@ -192,7 +192,9 @@ For each new release:
 Create a new environment and install the necessary packages:
 
 ```bash
-conda create -n musclex-build python=3.10 conda-build anaconda-client
+conda create -n musclex-build python=3.10 conda-build anaconda-client 
+# adding the conda-forge and fastai channels, which are necessary for conda to fetch the dependencies needed for MuscleX
+conda config --add channels conda-forge fastai
 conda activate musclex-build
 ```
 

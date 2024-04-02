@@ -30,9 +30,9 @@ We assume that you have already installed Miniconda or Anaconda on your Windows 
 
 4. **Add fastai Channel** (Necessary for Dependencies):
    ```bash
-   conda config --add channels fastai
+   conda config --add channels conda-forge fastai
    ```
-   This step ensures you can access the `fastai` channel that hosts a dependency required by `MuscleX` (open-cv-python-headless) which is not available in the default channels.
+   This step ensures you can access the `fastai` channel that hosts a dependency required by `MuscleX` (opencv-python-headless) which is not available in the default channels. The `conda-forge` channel is also added to ensure you have access to a wide range of packages.
 
 5. **Install MuscleX**:
    ```bash
