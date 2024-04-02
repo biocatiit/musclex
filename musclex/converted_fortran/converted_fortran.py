@@ -323,7 +323,7 @@ def blur_image(image, kernel_size=(5, 5), sigmaX=0, filter_type='gaussian'):
         raise ValueError("Invalid filter_type. Use 'gaussian' or 'boxcar'.")  
 
 
-@jit(forceobj=False, parallel=True)
+#@jit(forceobj=False, parallel=True)
 def replicate_bgcsym2(
     AD, width, height, dmin, dmax, xc, yc, bin_size, smooth, tension, pc1, pc2
 ):
