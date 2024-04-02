@@ -59,6 +59,8 @@ class XRayViewerGUI(QMainWindow):
         self.numberOfFiles = 0
         self.currentFileNumber = 0
         self.img_zoom = None # zoom location of original image (x,y range)
+        self.checkableButtons = []
+        self.line_coords = []
         self.xrayViewer = None
         self.default_img_zoom = None # default zoom calculated after processing image
         self.graph_zoom = None # zoom location of result image (x,y range)
@@ -143,6 +145,7 @@ class XRayViewerGUI(QMainWindow):
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
         self.imgZoomOutB = QPushButton("Full")
+        self.checkableButtons.append(self.imgZoomInB)
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
@@ -174,7 +177,11 @@ class XRayViewerGUI(QMainWindow):
         self.saveGraphSlice = QCheckBox("Save Graph Profile")
         self.saveGraphSlice.setEnabled(False)
         self.inpaintChkBx = QCheckBox("Inpainting")
-
+        
+        self.checkableButtons.append(self.measureDist)
+        self.checkableButtons.append(self.setSlice)
+        self.checkableButtons.append(self.setSliceBox)
+        
         self.settingsLayout.addWidget(self.openTrace, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.measureDist, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setSlice, 2, 0, 1, 2)
@@ -348,6 +355,8 @@ class XRayViewerGUI(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
+            for b in self.checkableButtons:
+                b.setChecked(False)
 
     def openTraceClicked(self):
         """
@@ -1148,6 +1157,9 @@ class XRayViewerGUI(QMainWindow):
 
         # Zoom
         self.plot_min = -50
+        print(self.function)
+        # coord1 = self.function[1]
+        # coord2 = self.function[2]
         if self.graph_zoom is not None and len(self.graph_zoom) == 2:
             ax.set_xlim(self.graph_zoom[0])
             ax.set_ylim(self.graph_zoom[1])
@@ -1156,7 +1168,8 @@ class XRayViewerGUI(QMainWindow):
             ax.set_ylim(self.default_img_zoom[1])
         else:
             self.plot_min = ax.get_ylim()[0]
-            ax.set_xlim(0, len(self.xrayViewer.hist))
+            # ax.set_xlim(0, len(self.xrayViewer.hist))
+            ax.set_xlim(self.function[1][0], self.function[2][0])
 
         self.fittingFigure.tight_layout()
         self.fittingCanvas.draw()

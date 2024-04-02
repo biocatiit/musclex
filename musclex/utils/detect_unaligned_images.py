@@ -111,7 +111,8 @@ def find_inconsistencies(items, center_median, angle_median):
             set1 = set(distance_pairs[inconsistent_items_indices[i]])
             set2 = set(distance_pairs[inconsistent_items_indices[i+1]])
             common_values = list(set1.intersection(set2))
-            inconsistent_items_index.append(common_values[0])    
+            if common_values is not None and len(common_values) > 0:
+                inconsistent_items_index.append(common_values[0])    
             
 
     # Output inconsistent items

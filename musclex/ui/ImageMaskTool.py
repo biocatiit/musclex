@@ -118,6 +118,10 @@ class ImageMaskerWindow(QDialog):
         self.subtractBlankChkbx.setEnabled(False)
         self.subtractBlankChkbx.stateChanged.connect(self.enableSubtractSlider)
         
+        self.clampNegativeValuesChkbx = QCheckBox("Clamp Negative Values to 0")
+        self.clampNegativeValuesChkbx.setToolTip("Sets all negative values after subtraction to 0")
+        self.clampNegativeValuesChkbx.setEnabled(False)
+        
         # self.subtractSlider = QSlider(Qt.Horizontal, self)
         # self.subtractSlider.setRange(0, 200)
         # self.subtractSlider.setSingleStep(1)
@@ -156,6 +160,7 @@ class ImageMaskerWindow(QDialog):
         self.buttonLayout.addWidget(self.subtractBlankChkbx, 4, 0, 1, 2)
         # self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
         self.buttonLayout.addWidget(self.subtractSliderText, 4, 3, 1, 2)
+        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 5, 0, 1, 2)
         self.buttonLayout.addWidget(self.bottons, 6, 1, 1, 2)
 
         self.layout.addWidget(self.imageLabel)
@@ -183,7 +188,7 @@ class ImageMaskerWindow(QDialog):
                 self.blankImageData = image.data
 
             self.showBlankImageChkbx.setEnabled(True)
-            self.subtractBlankChkbx.setEnabled(True)  
+            self.subtractBlankChkbx.setEnabled(True)
     
     def showBlankImage(self):
         if self.showBlankImageChkbx.isChecked():
@@ -230,9 +235,11 @@ class ImageMaskerWindow(QDialog):
             self.subtractBlankImage()
             # self.subtractSlider.setEnabled(True)
             self.subtractSliderText.setEnabled(True)
+            self.clampNegativeValuesChkbx.setEnabled(True) 
         else:
             # self.subtractSlider.setEnabled(False)
             self.subtractSliderText.setEnabled(False)
+            self.clampNegativeValuesChkbx.setEnabled(False) 
             # reload non-subtracted image
             if self.maskedImage is not None:
                 scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt)
@@ -388,6 +395,7 @@ class ImageMaskerWindow(QDialog):
                     'subtractBlank': True, 
                     'weight': self.subtractSliderText.value(),
                     'path': self.blankImagePath,
+                    'clampNegativeValues': self.clampNegativeValuesChkbx.isChecked()
                     }
                 path = join(path, 'blank_image_settings.json')
                 with open(path, 'w') as f:

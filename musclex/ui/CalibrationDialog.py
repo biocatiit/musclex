@@ -38,7 +38,8 @@ class CalibrationDialog(QMainWindow):
             'rotationAngle' : 0,
             'calib_center' : None,
             'manual_center': None,
-            'detector' : None
+            'detector' : None,
+            'applyAll': False,
         }
         self.calSettingsDialog = None
         
@@ -104,6 +105,7 @@ class CalibrationDialog(QMainWindow):
         self.spmaxInt.setDecimals(0)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.persistIntensity = QCheckBox("Persist intensities")
+
 
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
@@ -325,7 +327,9 @@ class CalibrationDialog(QMainWindow):
         else:
             self.computeOrientationDrpDown.setEnabled(False)
             
-    def setCenterDropDownChanged(self):    
+    def setCenterDropDownChanged(self):
+        self.activeFunction = False
+        self.function = None
         if self.calibrationCenterDropdown.currentText() == "Set Center by Chord":
             print("Set Center by Chords Mode")
             self.setCenterByChordsActive()
@@ -358,6 +362,12 @@ class CalibrationDialog(QMainWindow):
         path = join(self.dir_path, 'settings')
         createFolder(path)
         path = join(path, 'calibrationDialog.json')
+        
+        if self.applyAllImage.isChecked():
+            self.info['applyAll'] = True
+        elif self.applyCurrentImage.isChecked():
+            self.info['applyAll'] = False
+        
         with open(path, 'w') as f:
             json.dump(self.info, f)
         self.close()
@@ -366,6 +376,9 @@ class CalibrationDialog(QMainWindow):
         if self.computeCenter.isChecked():
             self.info['center'] = None
             self.findCenter()
+            self.plotCenter()
+            self.refreshImage()
+            
     
     def cancelClicked(self):
         self.close()
@@ -396,10 +409,16 @@ class CalibrationDialog(QMainWindow):
             else:
                 print("empty")
                 return False
+            
+    def plotCenter(self):
+        if self.image_center is not None:
+            self.imageAxes.plot(self.image_center[0], self.image_center[1], 'bo')
         
     # Redraw the Image
     def refreshImage(self):
         self.plotImages(self.imageAxes, self.image)
+        if self.computeCenter.isChecked() or self.setCalibrationCenter.isChecked():
+            self.plotCenter()
         self.imageFigure.tight_layout()
         self.imageCanvas.draw()
         
@@ -1201,8 +1220,7 @@ class CalibrationDialog(QMainWindow):
             return
         print("Center is being calculated ... ")
         self.image, self.info['center']= processImageForIntCenter(self.orig_image, getCenter(self.orig_image))
-        if self.image_center is None:
-            self.image_center = self.info['center']
+        self.image_center = self.info['center']
         print("Done. Center = "+str(self.info['center']))
         
         
@@ -1275,6 +1293,7 @@ class CalibrationDialog(QMainWindow):
 
         self.image = translated_Img
         self.info['center'] = (int(dim / 2), int(dim / 2))
+        self.image_center = self.info['center']
         self.center_before_rotation = (int(dim / 2), int(dim / 2))
         print("Dimension of image after centerize ", self.image.shape)
         

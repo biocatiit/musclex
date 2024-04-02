@@ -41,13 +41,19 @@ def decompress_tiff_files(fn, compress):
     :return: -
     """
     with Image.open(fn) as im:
+        
+        name,ext = os.path.splitext(fn)
+        
         if compress:
             print('Compressing TIFF Files...')
-            im.save(fn, compression='tiff_lzw')
+            new_fn = f"{name}_compressed{ext}"
+            im.save(new_fn, compression='tiff_lzw')
         else:
             print('Decompressing TIFF Files...')
             data = np.array(im)
-            fabio.tifimage.tifimage(data=data).write(fn)
+            new_fn = f"{name}_uncompressed{ext}"
+            fabio.tifimage.tifimage(data=data).write(new_fn)
+        # os.remove(fn)
         print('Completed')
 
 if __name__ == '__main__':

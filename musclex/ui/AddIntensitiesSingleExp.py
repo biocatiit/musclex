@@ -663,7 +663,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def stepComboBoxChanged(self, value):
         if (value == 'Step through all images'):
-            self.img_grps_copy = self.img_grpsmask
+            self.img_grps_copy = self.img_grps
             self.frameNb.setValue(len(self.img_list))
             self.filenameLineEdit.setVisible(False)
         elif (value == 'Step through selected images'):
@@ -746,6 +746,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     addImages(image, center, angle, tiff_file)
                 self.progressBar.setValue(i)
 
+            
             inconsistent_images = detectImages(self.dir_path, int(np.percentile(max_intensities, 95)), self.unalignedImagesDialog.distance_mode, { 'image': imageCo, 'center': centerCo, 'angle': angleCo})
             self.progressBar.setValue(len(self.img_list)+1)
             self.progressBar.setVisible(False)
@@ -1059,8 +1060,8 @@ class AddIntensitiesSingleExp(QMainWindow):
                         blank_image = fabio.open(raw_filepath).data
                         weight = self.blankImageSettings['weight']
                         self.avg_img = self.avg_img - weight * blank_image * len(imgs)
-                        print(self.avg_img.min())
-                        self.avg_img = np.clip(self.avg_img, 0, None) 
+                        if self.blankImagesettings['clampNegativeValues'] == True:
+                            self.avg_img = np.clip(self.avg_img, 0, None) 
                 
                 if self.useMaskChkBx.isChecked():
                     self.maskData = fabio.open(self.maskPath).data

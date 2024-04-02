@@ -340,6 +340,8 @@ class AISEImageSelectionWindow(QDialog):
             print(self.img_list[index])
             print(label.property("fileName"))
             print("opening xv")
+            if self.XRayViewer is not None:
+                self.XRayViewer.close()
             self.XRayViewer = XRayViewerGUI()
             self.XRayViewer.show()
             self.XRayViewer.onNewFileSelected(label.property("fileName"))

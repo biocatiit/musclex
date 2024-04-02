@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 import sys
 import json
 import traceback
+import copy
 from os.path import split, splitext
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
@@ -36,6 +37,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 from musclex import __version__
+from PyQt5.QtCore import QThread, pyqtSignal
 import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
@@ -44,6 +46,20 @@ from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
+
+class Worker(QObject):
+    finished = pyqtSignal(object)
+
+    def __init__(self, quadFold, flags):
+        super().__init__()
+        self.quadFold = quadFold
+        self.flags = flags
+
+    def process(self):
+        print("working!")
+        self.quadFold.process(self.flags)
+        self.finished.emit(self.quadFold)
+
 
 class QuadrantFoldingGUI(QMainWindow):
     """
@@ -84,6 +100,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.chordpoints = []
         self.masked = False
         self.csvManager = None
+        
+        self.thread = None
+        self.worker = None
+        self.tasks = []
 
         self.calSettingsDialog = None
         self.doubleZoomMode = False
@@ -829,6 +849,10 @@ class QuadrantFoldingGUI(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
+            self.setCenterRotationButton.setChecked(False)
+            self.setCentByChords.setChecked(False)
+            self.setCentByPerp.setChecked(False)
+            self.setRotationButton.setChecked(False)
 
     # def expandImageChecked(self):
     #     """
@@ -2295,6 +2319,7 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
                 self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
+                
         self.processImage()
 
     def onFoldChkBoxToggled(self):
@@ -2508,8 +2533,11 @@ class QuadrantFoldingGUI(QMainWindow):
             QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags()
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
+            quadFold_copy = copy.copy(self.quadFold)
             try:
-                self.quadFold.process(flags)
+                # print(self.quadFold.initImg)
+                # self.quadFold.process(flags)
+                self.threadingProcess(quadFold_copy, flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2523,14 +2551,57 @@ class QuadrantFoldingGUI(QMainWindow):
                 errMsg.setFixedWidth(300)
                 errMsg.exec_()
                 raise
+            
+            # self.updateParams()
+            # self.refreshAllTabs()
+            # self.csvManager.writeNewData(self.quadFold)
 
-            self.updateParams()
-            self.refreshAllTabs()
-            self.csvManager.writeNewData(self.quadFold)
+            # self.saveResults()
+            # QApplication.restoreOverrideCursor()
+            
+    def threadingProcess(self, quadFold, flags):
+        
+        if self.thread is not None and self.thread.isRunning():
+            print("task qued")
+            self.tasks.append((quadFold, flags))
+        else:
+            self.startNewThread(quadFold, flags)
+        
+    def startNewThread(self, quadFold, flags):
+        print("creating worker and thread")
+        self.worker = Worker(quadFold, flags)
+        self.thread = QThread()
+        self.worker.moveToThread(self.thread)
+        
+        self.thread.started.connect(self.worker.process)
+        self.worker.finished.connect(self.onProcessingFinished)
+        
+        self.thread.start()
+        
+    def onProcessingFinished(self, quadFold):
+        print("Processing finished")
+        self.quadFold = quadFold
+        
+        self.updateParams()
+        self.refreshAllTabs()
+        self.csvManager.writeNewData(self.quadFold)
 
-            self.saveResults()
-            QApplication.restoreOverrideCursor()
-
+        self.saveResults()
+        QApplication.restoreOverrideCursor()
+        
+        
+        self.worker.finished.disconnect(self.onProcessingFinished)
+        self.thread.started.disconnect(self.worker.process)
+        
+        self.thread.quit()
+        self.thread.wait()
+        
+        if self.tasks:
+            print("pop")
+            quadFold, flags = self.tasks.pop(0)
+            self.startNewThread(quadFold, flags)
+            
+            
     def saveResults(self):
         """
         Save result to folder qf_results
@@ -2565,6 +2636,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     result_file += '_folded_cropped.tif'
                     fabio.tifimage.tifimage(data=img).write(result_file)
             else:
+                print("SAVING IMAGE")
                 if self.compressFoldedImageChkBx.isChecked():
                     result_file += '_folded_compressed.tif'
                     tif_img = Image.fromarray(img)
@@ -2583,7 +2655,6 @@ class QuadrantFoldingGUI(QMainWindow):
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
 
-
         avg_fold = info["avg_fold"]
 
         print("Avg_fold shape:")
@@ -2598,7 +2669,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         method = info['bgsub']
         if method != 'None':
-
+            
             filename = self.imgList[self.currentFileNumber]
             bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
@@ -3018,7 +3089,8 @@ class QuadrantFoldingGUI(QMainWindow):
         :param text: text to print
         :return: -
         """
-        self.statusReport.setText(text)
+        # self.statusReport.setText(text) // will fix later with different threads
+        print(text)
         QApplication.processEvents()
 
     def fileNameChanged(self):

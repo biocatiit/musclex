@@ -133,13 +133,15 @@ class EquatorWindow(QMainWindow):
         """
         Display input error to screen
         """
+        
         errMsg = QMessageBox()
         errMsg.setText('Invalid Input')
         errMsg.setInformativeText("Please select non empty failedcases.txt or an image\n\n")
         errMsg.setStandardButtons(QMessageBox.Ok)
         errMsg.setIcon(QMessageBox.Warning)
         errMsg.exec_()
-        self.close()
+        # self.close()
+        self.browseFile()
 
     def mousePressEvent(self, event):
         """
@@ -204,6 +206,10 @@ class EquatorWindow(QMainWindow):
         self.checkableButtons.append(self.imgZoomInB)
         self.imgZoomOutB = QPushButton('Full')
         self.checkableButtons.append(self.imgZoomOutB)
+        self.fittingErrorText = QLabel("Fitting Error Threshold:")
+        self.fittingErrorThreshold = QDoubleSpinBox()
+        self.fittingErrorThreshold.setValue(0.2)
+        self.fittingErrorThreshold.setKeyboardTracking(False)
         self.imgDispOptLayout.addWidget(self.centerChkBx,1,0,1,2)
         self.imgDispOptLayout.addWidget(self.intChkBx,1,2,1,2)
         self.imgDispOptLayout.addWidget(self.rminChkBx,2,0,1,2)
@@ -218,6 +224,8 @@ class EquatorWindow(QMainWindow):
         self.imgDispOptLayout.addWidget(self.persistIntensity,6,2,1,2)
         self.imgDispOptLayout.addWidget(self.imgZoomInB,7,0,1,2)
         self.imgDispOptLayout.addWidget(self.imgZoomOutB,7,2,1,2)
+        self.imgDispOptLayout.addWidget(self.fittingErrorText, 8, 0, 1, 2)
+        self.imgDispOptLayout.addWidget(self.fittingErrorThreshold, 8, 2, 1, 2)
         self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
 
         self.imgProcGrp = QGroupBox("Image Processing")
@@ -245,7 +253,7 @@ class EquatorWindow(QMainWindow):
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
-        self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setRmaxB, self.setAngleB])
+        self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setRmaxB, self.setAngleB, self.setCentByChords, self.setCentByPerp])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle:")
         self.fixedAngleChkBx.setChecked(False)
         self.fixedRminChkBx = QCheckBox("Fixed R-min:")
@@ -703,6 +711,7 @@ class EquatorWindow(QMainWindow):
         self.logScaleIntChkBx.stateChanged.connect(self.updateImage)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
+        self.fittingErrorThreshold.valueChanged.connect(self.fittingErrorChanged)
 
         self.calibrationB.clicked.connect(self.calibrationClicked)
         self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
@@ -784,6 +793,10 @@ class EquatorWindow(QMainWindow):
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
         self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+        
+    def fittingErrorChanged(self):
+        self.bioImg.fitting_error = self.fittingErrorThreshold.value()
+        self.refitting()
 
     def skeletalChecked(self):
         """
@@ -3518,8 +3531,8 @@ class EquatorWindow(QMainWindow):
         max_val = img.max()
         self.minIntSpnBx.setRange(min_val, max_val)
         self.maxIntSpnBx.setRange(min_val, max_val)
-        self.minIntLabel.setText("Min Intensity <br/>("+str(min_val)+")")
-        self.maxIntLabel.setText("Max Intensity <br/>("+str(max_val)+")")
+        self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
+        self.maxIntLabel.setText("Max Intensity ("+str(max_val)+")")
         step = (max_val - min_val) * 0.07  # set spinboxes step as 7% of image range
         self.minIntSpnBx.setSingleStep(step)
         self.maxIntSpnBx.setSingleStep(step)
@@ -3551,7 +3564,9 @@ class EquatorWindow(QMainWindow):
         self.graph_zoom = None
         QApplication.restoreOverrideCursor()
         for b in self.checkableButtons:
-            b.setChecked(False)
+            # print(b.text())
+            b.setChecked(False)  
+        
         for k in self.update_plot:
             self.update_plot[k] = True
 
@@ -3789,7 +3804,7 @@ class EquatorWindow(QMainWindow):
                 genResults += "<b>d10 : </b>" + str(fit_results["d10"]) + '<br/><br/>'
             genResults += "<b>Average I11/I10 per fiber : </b>" + str(fit_results["avg_ratio"]) + '<br/><br/>'
             genResults += "<b>Fitting Error : </b>" + str(fit_results["fiterror"])
-            if fit_results['fiterror'] > 0.2:
+            if fit_results['fiterror'] > self.fittingErrorThreshold.value():
                 genResults += " <b>(High Error)</b>"
         else:
             genResults +=  "<b>Model cannot be fit</b>"

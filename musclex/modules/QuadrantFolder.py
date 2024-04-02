@@ -163,6 +163,7 @@ class QuadrantFolder:
         self.rotateImg()
         self.calculateAvgFold()
         if flags['fold_image'] == False:
+            print("here!")
             self.info['avg_fold'] = self.orig_img
             self.info['folded'] = False
             
@@ -275,7 +276,8 @@ class QuadrantFolder:
         elif not self.empty and 'rotationAngle' not in self.info.keys():
             print("Rotation Angle is being calculated ... ")
             # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
-            _, center = self.parent.getExtentAndCenter()
+            #_, center = self.parent.getExtentAndCenter()
+            _, center = self.getExtentAndCenter()
             img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
             if 'detector' in self.info:
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
