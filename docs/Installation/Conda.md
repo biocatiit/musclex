@@ -3,73 +3,63 @@
 
 # Installing MuscleX using Conda
 
-Conda is a powerful package manager and environment management system that allows you to install, run, and update packages and their dependencies. Below are the instructions to install `MuscleX` using Conda for Windows, macOS, and Linux.
+Conda is a powerful package manager and environment management system that simplifies the process of installing, running, and updating packages and their dependencies. This guide provides instructions for installing `MuscleX` using Conda on Windows, macOS, and Linux.
 
-## Prerequisites
+## Before You Begin: Prerequisites
 
-Ensure you have Conda installed on your system. If not, install Miniconda from [Miniconda's official website](https://docs.conda.io/en/latest/miniconda.html), which is a minimal installer for Conda.
+Before proceeding with the installation of `MuscleX` via Conda, **please ensure you have followed our [Prerequisites: setting up a conda virtual environment](Prerequisites.md#recommended-conda-environment-management)**. This guide will help you set up a Conda environment, crucial for a smooth installation process and avoiding conflicts with other packages on your system. The guide also explains the advantages of using Conda for managing virtual environments, especially for specifying different Python versions independent of the system interpreter.
 
 ## Installation Instructions
 
-### Windows
+### For Windows Users
+
+We assume that you have already installed Miniconda or Anaconda on your Windows system. If not, please refer to the [Miniconda installation guide](https://docs.conda.io/en/latest/miniconda.html) for detailed instructions.
 
 1. **Open Anaconda Prompt**: Search for "Anaconda Prompt" in the Start menu and open it.
 
-2. **Create a New Conda Environment**: It's recommended to install `MuscleX` in a new environment to avoid conflicts with other packages.
+2. **Create a New Conda Environment**: It's strongly recommended to install `MuscleX` in a new, isolated environment to avoid conflicts with other packages.
    ```bash
    conda create --name musclex-env python=3.10
    ```
-   The above command creates a new environment named `musclex-env` with Python 3.10. Replace `3.10` with the required Python version for `MuscleX`.
+   This command creates a new environment named `musclex-env` with Python 3.10. You can replace `3.10` with the specific Python version required for `MuscleX`.
 
 3. **Activate the Environment**:
    ```bash
    conda activate musclex-env
    ```
 
-4. **Add fastai Channel**:
+4. **Add fastai Channel** (Necessary for Dependencies):
    ```bash
    conda config --add channels fastai
    ```
-   This step is necessary to access the `fastai` channel that hosts a dependency for `MuscleX`.
+   This step ensures you can access the `fastai` channel that hosts a dependency required by `MuscleX` (open-cv-python-headless) which is not available in the default channels.
 
 5. **Install MuscleX**:
    ```bash
    conda install biocat_iit::musclex
    ```
 
-### macOS and Linux
+### For macOS and Linux Users
 
-1. **Open Terminal**: Use Terminal on macOS or your preferred terminal emulator on Linux.
+The steps for macOS and Linux are similar to those for Windows. 
+Ensure you have miniconda or anaconda installed on your system before proceeding. Refer to the [Miniconda installation guide](https://docs.conda.io/en/latest/miniconda.html) if you haven't installed it yet.
 
-2. **Create a New Conda Environment**:
-   ```bash
-   conda create --name musclex-env python=3.10
-   ```
-   As with Windows, the above command creates a new environment named `musclex-env` with Python 3.10. Replace `3.10` with the required Python version for `MuscleX`.
-
-3. **Activate the Environment**:
-   ```bash
-   conda activate musclex-env
-   ```
-
-4. **Add fastai Channel**:
-   ```bash
-   conda config --add channels fastai
-   ```
-   This step is necessary to access the `fastai` channel that hosts a dependency for `MuscleX`.
-
-5. **Install MuscleX**:
-   ```bash
-   conda install biocat_iit::musclex
-   ```
+If this is your first time using Conda, you may need to initialize the shell by running:
+```bash
+conda init
+```
 
 ## Post-Installation
 
-After installation, you can verify that `MuscleX` has been successfully installed by checking the list of installed packages:
+To confirm that `MuscleX` has been installed successfully, you can check the list of installed packages with:
 ```bash
 conda list musclex
 ```
 
 ## Troubleshooting
 
-If you encounter any issues during the installation process, ensure that you are connected to the internet, have permissions to install software on your system, and the Conda channels are accessible. 
+If you encounter any issues during the installation, please ensure that:
+- You are connected to the internet.
+- You have the necessary permissions to install software on your system.
+
+Refer back to the [Prerequisite Guide](Prerequisites.md) for additional troubleshooting tips related to setting up and managing your Conda environment.
