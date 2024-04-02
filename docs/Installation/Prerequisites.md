@@ -30,6 +30,9 @@ Conda is an all-encompassing package and environment management system, ideal fo
 
 1. **Install Miniconda**: Refer to the [Miniconda installation guide](https://docs.conda.io/en/latest/miniconda.html) for your operating system.
 
+Important note: On linux and macOS, you may need to run `source ~/.bashrc` or `source ~/.bash_profile` after installing Miniconda to activate the `conda` command, then close and reopen your terminal.
+On Windows, you will need to search for 'Anaconda Prompt' in the Start Menu and open it. It will open a terminal with the `conda` command available.
+
 2. **Create a New Environment**: For an environment named `myenv` with Python 3.10, use:
 
    ```bash
