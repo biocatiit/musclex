@@ -1060,7 +1060,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                         blank_image = fabio.open(raw_filepath).data
                         weight = self.blankImageSettings['weight']
                         self.avg_img = self.avg_img - weight * blank_image * len(imgs)
-                        if self.blankImagesettings['clampNegativeValues'] == True:
+                        if self.blankImageSettings['clampNegativeValues'] == True:
                             self.avg_img = np.clip(self.avg_img, 0, None) 
                 
                 if self.useMaskChkBx.isChecked():
