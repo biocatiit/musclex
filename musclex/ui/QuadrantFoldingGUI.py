@@ -2318,8 +2318,7 @@ class QuadrantFoldingGUI(QMainWindow):
             print(self.quadFold.info['folded'])
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
-                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
-                
+                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')   
         self.processImage()
 
     def onFoldChkBoxToggled(self):
@@ -2340,6 +2339,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Deleting the center for appropriate recalculation
         """
+
         if 'center' in currentInfo:
             del currentInfo['center']
 
@@ -2582,6 +2582,7 @@ class QuadrantFoldingGUI(QMainWindow):
         print("Processing finished")
         self.quadFold = quadFold
         
+        
         self.updateParams()
         self.refreshAllTabs()
         self.csvManager.writeNewData(self.quadFold)
@@ -2600,6 +2601,8 @@ class QuadrantFoldingGUI(QMainWindow):
             print("pop")
             quadFold, flags = self.tasks.pop(0)
             self.startNewThread(quadFold, flags)
+
+
             
             
     def saveResults(self):
@@ -2610,7 +2613,7 @@ class QuadrantFoldingGUI(QMainWindow):
             result_path = fullPath(self.filePath, 'qf_results')
             createFolder(result_path)
 
-            result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
+            result_file = str(join(result_path, self.quadFold.img_name))
             result_file, _ = splitext(result_file)
             img = self.quadFold.imgCache['resultImg']
 
@@ -2782,8 +2785,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
         self.csvManager = QF_CSVManager(self.filePath)
         self.numberOfFiles = len(self.imgList)
-        fileName = self.imgList[self.currentFileNumber]
-        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+        
         self.ignoreFolds = set()
         self.selectImageButton.setHidden(True)
         self.selectFolder.setHidden(True)
@@ -2791,6 +2793,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resetWidgets()
         QApplication.restoreOverrideCursor()
         if self.h5List == []:
+            fileName = self.imgList[self.currentFileNumber]
+            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.setCalibrationImage()
         self.h5List = []
         self.setH5Mode(str(newFile))
