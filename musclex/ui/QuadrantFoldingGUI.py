@@ -104,6 +104,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.thread = None
         self.worker = None
         self.tasks = []
+        self.tasksDone = 0
+        self.totalFiles = 1
 
         self.calSettingsDialog = None
         self.doubleZoomMode = False
@@ -2535,7 +2537,6 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             quadFold_copy = copy.copy(self.quadFold)
             try:
-                # print(self.quadFold.initImg)
                 # self.quadFold.process(flags)
                 self.threadingProcess(quadFold_copy, flags)
             except Exception:
@@ -2562,13 +2563,12 @@ class QuadrantFoldingGUI(QMainWindow):
     def threadingProcess(self, quadFold, flags):
         
         if self.thread is not None and self.thread.isRunning():
-            print("task qued")
             self.tasks.append((quadFold, flags))
         else:
             self.startNewThread(quadFold, flags)
+            self.tasksDone = 0
         
     def startNewThread(self, quadFold, flags):
-        print("creating worker and thread")
         self.worker = Worker(quadFold, flags)
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
@@ -2581,7 +2581,8 @@ class QuadrantFoldingGUI(QMainWindow):
     def onProcessingFinished(self, quadFold):
         print("Processing finished")
         self.quadFold = quadFold
-        
+        self.tasksDone += 1
+        self.progressBar.setValue(int(100. / self.totalFiles * self.tasksDone))
         
         self.updateParams()
         self.refreshAllTabs()
@@ -2598,12 +2599,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.thread.wait()
         
         if self.tasks:
-            print("pop")
             quadFold, flags = self.tasks.pop(0)
             self.startNewThread(quadFold, flags)
-
-
-            
+        else:
+            self.progressBar.setVisible(False)
             
     def saveResults(self):
         """
@@ -2943,14 +2942,16 @@ class QuadrantFoldingGUI(QMainWindow):
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
+            self.progressBar.setValue(0)
             self.stop_process = False
+            self.totalFiles = self.numberOfFiles
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
                 self.nextClicked(reprocess=True)
-            self.progressBar.setVisible(False)
+            #self.progressBar.setVisible(False)
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
@@ -3011,19 +3012,21 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
+            self.progressBar.setValue(0)
             self.progressBar.setVisible(True)
             self.stop_process = False
+            self.totalFiles = len(self.h5List) * self.numberOfFiles
             for _ in range(len(self.h5List)):
                 for i in range(self.numberOfFiles):
                     if self.stop_process:
                         break
-                    self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
+                    #self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
                     QApplication.processEvents()
                     self.nextClicked(reprocess=True)
                 if self.stop_process:
                     break
                 self.nextFileClicked()
-            self.progressBar.setVisible(False)
+            #self.progressBar.setVisible(False)
 
         self.processH5FolderButton.setChecked(False)
         self.processH5FolderButton2.setChecked(False)

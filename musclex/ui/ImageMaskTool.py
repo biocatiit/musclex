@@ -29,8 +29,9 @@ def displayImage(imageArray, minInt, maxInt):
       return
 
     # Flip the image horizontally
-    flippedImageArray = np.flipud(imageArray)
-
+    # flippedImageArray = np.flipud(imageArray)
+    flippedImageArray = imageArray
+    
     # Normalize the flipped image to the 0-255 range for display
     if np.max(flippedImageArray) == np.min(flippedImageArray):
         normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
@@ -118,6 +119,12 @@ class ImageMaskerWindow(QDialog):
         self.subtractBlankChkbx.setEnabled(False)
         self.subtractBlankChkbx.stateChanged.connect(self.enableSubtractSlider)
         
+        self.negativeValuesLabel = QLabel("Negative Values Detected in Image: ")
+        font = QFont()
+        font.setBold(True)
+        self.negativeValuesLabel.setFont(font)
+        self.negativeValuesLabel.setVisible(False)
+        
         self.clampNegativeValuesChkbx = QCheckBox("Clamp Negative Values to 0")
         self.clampNegativeValuesChkbx.setToolTip("Sets all negative values after subtraction to 0")
         self.clampNegativeValuesChkbx.setEnabled(False)
@@ -160,8 +167,9 @@ class ImageMaskerWindow(QDialog):
         self.buttonLayout.addWidget(self.subtractBlankChkbx, 4, 0, 1, 2)
         # self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
         self.buttonLayout.addWidget(self.subtractSliderText, 4, 3, 1, 2)
-        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 5, 0, 1, 2)
-        self.buttonLayout.addWidget(self.bottons, 6, 1, 1, 2)
+        self.buttonLayout.addWidget(self.negativeValuesLabel, 5, 0, 1, 4)
+        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 6, 0, 1, 2)
+        self.buttonLayout.addWidget(self.bottons, 7, 1, 1, 2)
 
         self.layout.addWidget(self.imageLabel)
         self.layout.addWidget(self.buttonWidget)
@@ -231,6 +239,7 @@ class ImageMaskerWindow(QDialog):
                 self.loadImage(self.imagePath)
             
     def enableSubtractSlider(self):
+        
         if self.subtractBlankChkbx.isChecked():
             self.subtractBlankImage()
             # self.subtractSlider.setEnabled(True)
@@ -239,14 +248,20 @@ class ImageMaskerWindow(QDialog):
         else:
             # self.subtractSlider.setEnabled(False)
             self.subtractSliderText.setEnabled(False)
-            self.clampNegativeValuesChkbx.setEnabled(False) 
+            self.clampNegativeValuesChkbx.setEnabled(False)
+            min_value = 0
             # reload non-subtracted image
             if self.maskedImage is not None:
+                min_value = np.min(self.maskedImage)
                 scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
+                min_value = np.min(self.imageData)
                 scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
-                self.imageLabel.setPixmap(scaledPixmap)
+                self.imageLabel.setPixmap(scaledPixmap)    
+            if min_value < 0:
+                self.negativeValuesLabel.setText("Negative Values in Image (Min: {}) ".format(min_value))
+                self.negativeValuesLabel.setVisible(True)
             
     def onShowMaskClicked(self):
         if self.showMaskChkBx.isChecked():
@@ -408,11 +423,15 @@ class ImageMaskerWindow(QDialog):
         weight = self.subtractSliderText.value()
         if self.maskedImage is not None:
             self.subtractedImage = self.maskedImage - weight * self.blankImageData
-            self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
-            scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
-            self.imageLabel.setPixmap(scaledPixmap)
         else:
             self.subtractedImage = self.imageData - weight * self.blankImageData
-            self.subtractedImage[self.subtractedImage < 0] = 0
-            scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
-            self.imageLabel.setPixmap(scaledPixmap)
+        
+        if np.any(self.subtractedImage < 0):
+            min_value = np.min(self.subtractedImage)
+            self.negativeValuesLabel.setText("Negative Values in Image (Min: {}) ".format(min_value))
+            self.negativeValuesLabel.setVisible(True)
+        else:
+            self.negativeValuesLabel.setVisible(False)
+        self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
+        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
+        self.imageLabel.setPixmap(scaledPixmap)
