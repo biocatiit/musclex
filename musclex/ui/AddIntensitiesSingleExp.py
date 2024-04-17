@@ -186,6 +186,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
         self.imgZoomOutB = QPushButton("Full")
+        
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
@@ -197,6 +200,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
         self.dispOptLayout.addWidget(self.persistIntensity, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
         # Image Operations Group Box
@@ -310,20 +314,19 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.setCenterByChordsBtn.setCheckable(True)
         self.setCenterByPerpBtn.setCheckable(True)
         self.setCenterByPerpBtn.setVisible(False)
-        self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
         # self.correctCenterButton = QPushButton("Correct Center")
         # self.correctCenterButton.setCheckable(True)
         # self.correctOrientationButton = QPushButton("Correct Orientation")
         # self.correctOrientationButton.setVisible(False) # doesnt currently do anything, will need to update
 
+        self.correctionGroup.setVisible(False)
         self.correctionGroup.setEnabled(False)
 
         self.correctionGroupLayout.addWidget(self.correctionLabel, 0, 0, 1, 3)
         self.correctionGroupLayout.addWidget(self.correctionDrpDown, 0, 3, 1, 2)
         self.correctionGroupLayout.addWidget(self.setCenterByChordsBtn, 1, 0, 1, 4)
         self.correctionGroupLayout.addWidget(self.setCenterByPerpBtn, 2, 0, 1, 4)
-        self.correctionGroupLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
+        # self.correctionGroupLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
         # self.correctionGroupLayout.addWidget(self.correctCenterButton, 4, 0, 1, 2)
         # self.correctionGroupLayout.addWidget(self.correctOrientationButton, 4, 2, 1, 3)
 
