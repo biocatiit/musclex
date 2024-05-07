@@ -106,6 +106,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tasks = []
         self.tasksDone = 0
         self.totalFiles = 1
+        
+        self.rotationAngle = None
 
         self.calSettingsDialog = None
         self.doubleZoomMode = False
@@ -223,6 +225,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setRotationButton = QPushButton("Set Rotation Angle")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
+        
+        self.persistRotations = QCheckBox("Persist Rotations")
+        self.persistRotations.setVisible(False)
 
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-999)
@@ -261,16 +266,17 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 3, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, 4, 2, 1, 2)
-        self.settingsLayout.addWidget(self.modeAngleChkBx, 5, 0, 1, 4)
+        self.settingsLayout.addWidget(self.persistRotations, 3, 0, 1, 4)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 2, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 4)
         # self.settingsLayout.addWidget(self.expandImage, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 6, 0, 1, 4)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.doubleZoom, 8, 0, 1, 4)
-        self.settingsLayout.addWidget(self.toggleFoldImage, 9, 0, 1, 4)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 7, 0, 1, 4)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 8, 0, 1, 4)
+        self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 4)
+        self.settingsLayout.addWidget(self.toggleFoldImage, 10, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -792,6 +798,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
+        
+    def persistRotationsChecked(self):
+        if self.persistRotations.isChecked():
+            self.rotationAngle = self.quadFold.info['rotationAngle']
 
     def cropFoldedImageChanged(self):
         """
@@ -1366,6 +1376,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                 self.deleteInfo(['avg_fold'])
                 self.setRotationButton.setChecked(False)
+                self.persistRotations.setVisible(True)
                 self.processImage()
 
     def imageOnMotion(self, event):
@@ -2305,8 +2316,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        if reprocess:
-            self.quadFold.info = {}
+        # if reprocess:
+        #     self.quadFold.info = {}
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2320,7 +2331,9 @@ class QuadrantFoldingGUI(QMainWindow):
             print(self.quadFold.info['folded'])
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
-                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')   
+                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')  
+        if self.persistRotations.isChecked():
+            self.quadFold.info['manual_rotationAngle'] = self.rotationAngle
         self.processImage()
 
     def onFoldChkBoxToggled(self):

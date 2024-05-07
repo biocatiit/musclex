@@ -163,7 +163,6 @@ class QuadrantFolder:
         self.rotateImg()
         self.calculateAvgFold()
         if flags['fold_image'] == False:
-            print("here!")
             self.info['avg_fold'] = self.orig_img
             self.info['folded'] = False
             

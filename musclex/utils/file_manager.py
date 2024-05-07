@@ -32,6 +32,7 @@ import numpy as np
 import fabio
 #from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
+from PyQt5.QtWidgets import QMessageBox
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 
@@ -105,6 +106,14 @@ def getImgFiles(fullname, headless=False):
     if ext in ('.hdf5', '.h5'):
         fileList = loadFile(fullname)
         imgList = []
+        if fileList is None or not fileList:
+            infMsg = QMessageBox()
+            infMsg.setText('Error opening file: ', fullname)
+            infMsg.setInformativeText("Skipping this file.")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+            return None, None, None, None, None
         for f in fileList[0]:
             if failedcases is not None and f not in failedcases:
                 continue
