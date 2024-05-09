@@ -37,7 +37,7 @@ We assume that you have already installed Miniconda or Anaconda on your Windows 
 
 5. **Install MuscleX**:
    ```bash
-   conda install --channel "biocat_IIT" package
+   conda install --channel "biocat_IIT" musclex
    ```
 
 ### For macOS and Linux Users
