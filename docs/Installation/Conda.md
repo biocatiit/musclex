@@ -1,7 +1,7 @@
 
 ![Conda](https://upload.wikimedia.org/wikipedia/commons/e/ea/Conda_logo.svg)
 
-# Installing MuscleX using Conda
+# Installation by Conda
 
 Conda is a powerful package manager and environment management system that simplifies the process of installing, running, and updating packages and their dependencies. This guide provides instructions for installing `MuscleX` using Conda on Windows, macOS, and Linux.
 
