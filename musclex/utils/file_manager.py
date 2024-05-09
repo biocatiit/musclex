@@ -106,10 +106,10 @@ def getImgFiles(fullname, headless=False):
     if ext in ('.hdf5', '.h5'):
         fileList = loadFile(fullname)
         imgList = []
-        if fileList is None or not fileList:
+        if fileList is None or not fileList or None in fileList:
             infMsg = QMessageBox()
-            infMsg.setText('Error opening file: ', fullname)
-            infMsg.setInformativeText("Skipping this file.")
+            infMsg.setText('Error opening file: ' + fullname)
+            infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
@@ -151,11 +151,11 @@ def getImgFiles(fullname, headless=False):
                 continue
             full_file_name = fullPath(dir_path, f)
             _, ext2 = os.path.splitext(str(f))
-            if isImg(full_file_name) and f != "calibration.tif" and ext2 not in ('.hdf5', '.h5'):
+            if isImg(full_file_name) and f != "calibration.tif" and ext2 not in ('.hdf5', '.h5') and validateImage(full_file_name):
                 imgList.append(f)
         imgList.sort()
 
-    if failedcases is None:
+    if failedcases is None and imgList:
         if ext in ('.hdf5', '.h5'):
             if filename_index is None:
                 current = 0
@@ -163,6 +163,7 @@ def getImgFiles(fullname, headless=False):
                 current = imgList.index(filename_index)
         else:
             current = imgList.index(filename)
+    
     return dir_path, imgList, current, fileList, ext
 
 def fullPath(filePath, fileName):
@@ -186,6 +187,20 @@ def isImg(fileName):
     """
     nameList = fileName.split('.')
     return nameList[-1] in input_types
+
+def validateImage(fileName, showDialog=True):
+    try:
+        test = fabio.open(fileName).data
+        return True
+    except Exception:
+        if showDialog:
+            infMsg = QMessageBox()
+            infMsg.setText('Error opening file: ' + fileName)
+            infMsg.setInformativeText("Fabio could not open .TIFF File. File is either corrupt or invalid.")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+        return False
 
 def isHdf5(fileName):
     """

@@ -49,6 +49,7 @@ from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
+from skimage.morphology import binary_dilation
 
 class EquatorWindow(QMainWindow):
     """
@@ -91,7 +92,7 @@ class EquatorWindow(QMainWindow):
         self.quadFold = None
 
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
-        if len(self.imgList) == 0:
+        if self.imgList is None or len(self.imgList) == 0:
             self.inputerror()
             return
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
@@ -133,7 +134,6 @@ class EquatorWindow(QMainWindow):
         """
         Display input error to screen
         """
-        
         errMsg = QMessageBox()
         errMsg.setText('Invalid Input')
         errMsg.setInformativeText("Please select non empty failedcases.txt or an image\n\n")
@@ -4163,6 +4163,7 @@ class EquatorWindow(QMainWindow):
         self.resetUI()
         self.refreshStatusbar()
         QApplication.restoreOverrideCursor()
+        
 
     def init_logging(self):
         """
