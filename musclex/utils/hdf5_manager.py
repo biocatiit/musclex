@@ -757,7 +757,9 @@ def loadFile(filename, no_processing=False, return_all_images=True):
             hdf5_file = fabio.open(filename)
             file_type = 'image'
         except Exception:
-            pass
+            print("Error loading HDF5 file")
+            return None, None
+            # pass
     else:
         hdf5_file = None
 
@@ -778,6 +780,7 @@ def loadFile(filename, no_processing=False, return_all_images=True):
 
     if not isinstance(sasm, list) and (sasm is None or len(sasm.i) == 0):
         print('No data could be retrieved from the file, unknown format.')
+        return None, None
 
     return sasm, img
 
@@ -863,9 +866,10 @@ def loadImageFile(filename, hdf5_file=None, return_all_images=True):
                           'counters'    : hdrfile_info,
                           'filename'    : new_filename,
                           'load_path'   : filename}
-
+            
             sasm = parameters['filename']
-
+            
+            
             sasm_list.append(sasm)
 
     return sasm_list, loaded_data

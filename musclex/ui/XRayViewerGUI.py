@@ -77,17 +77,9 @@ class XRayViewerGUI(QMainWindow):
         self.doubleZoomMode = False
         self.dontShowAgainDoubleZoomMessageResult = False
         
-        self.doubleZoomMode2 = False
-        self.dontShowAgainDoubleZoomMessageResult2 = False
-        self.graph_img = None
-        
-        self.doubleZoomPt = (0, 0)
-        self.doubleZoomAxes = None
-        self.doubleZoomPt2 = (0, 0)
-        self.doubleZoomAxes2 = None
 
         self.initUI() # initial all GUI
-        self.setConnections() # set triggered function for widgets
+        self.setConnections() # set triggered function for widgetsF
         self.setMinimumHeight(800)
         self.setMinimumWidth(1000)
 
@@ -239,8 +231,6 @@ class XRayViewerGUI(QMainWindow):
         self.frameOfKeys.setLayout(self.optionsLayout)
         self.imageTabLayout.addWidget(self.frameOfKeys)
         
-        self.doubleZoomButton2 = QCheckBox('Double Zoom')
-        self.dontShowAgainDoubleZoomMessage2 = QCheckBox("Do not show this message again")
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
         
@@ -258,13 +248,12 @@ class XRayViewerGUI(QMainWindow):
         self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit2 = QLineEdit()
         self.bottomLayout2.addWidget(self.measureDist2, 0, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.doubleZoomButton2, 1, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processFolderButton2, 2, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 3, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 3, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 4, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 4, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 5, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.processFolderButton2, 1, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.prevButton2, 2, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextButton2, 2, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.prevFileButton2, 3, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextFileButton2, 3, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 4, 0, 1, 2)
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(250)
@@ -367,7 +356,6 @@ class XRayViewerGUI(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('button_release_event', self.plotReleased)
         self.fittingFigure.canvas.mpl_connect('figure_leave_event', self.leavePlot)
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
-        self.doubleZoomButton2.stateChanged.connect(self.doubleZoomChecked2)
         self.measureDist2.clicked.connect(self.measureDistChecked2)
         self.checkableButtons.append(self.measureDist2)
 
@@ -499,18 +487,6 @@ class XRayViewerGUI(QMainWindow):
         else:
             # Display plot information if the cursor is on the graph
             self.imgCoordOnStatusBar.setText("x=" + str(round(x,2)) + ', y=' + str(round(y,2)))
-            if self.doubleZoomButton2.isChecked() and self.doubleZoomMode2 and x>10 and y>10:
-                ax1 = self.doubleZoomAxes2
-                img = self.graph_img
-                imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                ax1.imshow(imgScaled)
-                # if len(ax1.lines) > 0:
-                #     for i in range(len(ax1.lines)-1,-1,-1):
-                #         ax1.lines[i].remove()
-                # for i in range(len(ax1.patches)-1,-1,-1):
-                #     ax1.patches[i].remove()
-                self.fittingCanvas.draw_idle()
 
         if self.function is None:
             return
@@ -675,45 +651,6 @@ class XRayViewerGUI(QMainWindow):
             self.imageFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
         self.imageCanvas.draw_idle()
-        
-    def doubleZoomChecked2(self):
-        """
-        Triggered when double zoom is checked
-        """
-        if self.doubleZoomButton2.isChecked():
-            self.doubleZoomAxes2 = self.fittingFigure.add_subplot(333)
-            self.doubleZoomAxes2.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes2.axes.yaxis.set_visible(False)
-            # self.doubleZoomMode2 = True
-            
-            # y_limits = self.fittingAxes.get_ylim()
-            # height = y_limits[1] - y_limits[0]
-            
-            # self.graph_img = np.ones((int(height), len(self.xrayViewer.hist)))
-            
-            # for i, y in enumerate(self.xrayViewer.hist):
-            #     self.graph_img[:int(y), i] = 0
-
-            
-            # img = self.xrayViewer.orig_img
-            # ax1 = self.doubleZoomAxes2
-            # x,y = (0, 0)
-            # imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            # if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-            #     imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-            #     self.doubleZoomPt = (x, y)
-            #     ax1.imshow(imgScaled)
-            #     # y, x = imgScaled.shape
-            #     # cy, cx = y // 2, x // 2
-            #     if len(ax1.lines) > 0:
-            #         for i in range(len(ax1.lines)-1,-1,-1):
-            #             ax1.lines[i].remove()
-            #     for i in range(len(ax1.patches)-1,-1,-1):
-            #         ax1.patches[i].remove()
-        else:
-            self.fittingFigure.delaxes(self.doubleZoomAxes2)
-            self.doubleZoomMode2 = False
-        self.fittingCanvas.draw_idle()
         
 
     def measureDistChecked(self):
@@ -1456,7 +1393,7 @@ class XRayViewerGUI(QMainWindow):
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
-        if self.filePath is not None:
+        if self.filePath is not None and self.imgList is not None and self.imgList:
             self.numberOfFiles = len(self.imgList)
             fileName = self.imgList[self.currentFileNumber]
             self.h5List = []

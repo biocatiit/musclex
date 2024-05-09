@@ -50,7 +50,7 @@ from .ImageMaskTool import ImageMaskerWindow
 from .CalibrationDialog import CalibrationDialog
 from musclex import __version__
 from .pyqt_utils import *
-from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly
+from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly, validateImage
 from ..utils.image_processor import calcSlope, getIntersectionOfTwoLines, getPerpendicularLineHomogenous, processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.detect_unaligned_images import *
@@ -2292,15 +2292,23 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.isHdf5 = True
                 self.dir_path, _ = os.path.split(str(file_name))
                 self.file_name = file_name
-                with fabio.open(file_name) as series:
-                    for frame in series.frames():
-                        namefile = os.path.split(frame.file_container.filename)[1].split('.')
-                        temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
-                        self.img_list.append(temp_filename)
-                self.img_list.sort()
-                self.updateImageGroups()
-                self.onNewFileSelected()
-                self.refreshAllTab()
+                try:
+                    with fabio.open(file_name) as series:
+                        for frame in series.frames():
+                            namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                            temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                            self.img_list.append(temp_filename)
+                    self.img_list.sort()
+                    self.updateImageGroups()
+                    self.onNewFileSelected()
+                    self.refreshAllTab()
+                except:
+                    infMsg = QMessageBox()
+                    infMsg.setText('Error opening file: ' + file_name)
+                    infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.")
+                    infMsg.setStandardButtons(QMessageBox.Ok)
+                    infMsg.setIcon(QMessageBox.Information)
+                    infMsg.exec_()
             else:
                 errMsg = QMessageBox()
                 errMsg.setText('Wrong file type')
@@ -2330,7 +2338,19 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         imgs, _ = getFilesAndHdf(self.dir_path)
         self.img_list = sorted(imgs)
+        self.validateFolder()
         self.updateImageGroups()
+        
+    def validateFolder(self):
+        for img in self.img_list:
+            if not validateImage(os.path.join(self.dir_path, img), showDialog=False):
+                self.img_list.remove(img)
+                infMsg = QMessageBox()
+                infMsg.setText('Error opening file: ' + os.path.join(self.dir_path, img))
+                infMsg.setInformativeText("File is not a valid .TIFF file. The file will be skipped.")
+                infMsg.setStandardButtons(QMessageBox.Ok)
+                infMsg.setIcon(QMessageBox.Information)
+                infMsg.exec_()
 
     def updateImageGroups(self):
         """
@@ -2376,7 +2396,9 @@ class AddIntensitiesSingleExp(QMainWindow):
                     frame = series.get_frame(i).data
                 self.orig_imgs.append(ifHdfReadConvertless(self.img_list[i], frame).astype(np.float32))
             else:
-                self.orig_imgs.append(fabio.open(os.path.join(self.dir_path, self.img_list[i])).data.astype(np.float32))
+                filePath = os.path.join(self.dir_path, self.img_list[i])
+                self.orig_imgs.append(fabio.open(filePath).data.astype(np.float32))
+          
         self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))

@@ -49,6 +49,8 @@ from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
+from skimage.morphology import binary_dilation
+import torch
 
 class EquatorWindow(QMainWindow):
     """
@@ -91,7 +93,7 @@ class EquatorWindow(QMainWindow):
         self.quadFold = None
 
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
-        if len(self.imgList) == 0:
+        if self.imgList is None or len(self.imgList) == 0:
             self.inputerror()
             return
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
@@ -133,7 +135,6 @@ class EquatorWindow(QMainWindow):
         """
         Display input error to screen
         """
-        
         errMsg = QMessageBox()
         errMsg.setText('Invalid Input')
         errMsg.setInformativeText("Please select non empty failedcases.txt or an image\n\n")
@@ -4163,6 +4164,81 @@ class EquatorWindow(QMainWindow):
         self.resetUI()
         self.refreshStatusbar()
         QApplication.restoreOverrideCursor()
+        
+    def fill_quadrant(self, masked_quadrant, to_be_inpainted_mask, edge_mask):
+        
+        # to_be_inpainted_mask being a binary mask with 1 indicating pixels to inpaint and 0 the rest
+
+        surrounding_pixels = torch.zeros(
+            (
+                masked_quadrant.shape[0],
+                1,
+                masked_quadrant.shape[2],
+                masked_quadrant.shape[3],
+            )
+        ).to(masked_quadrant.device)
+
+        # performing morphological dilation on the inpainting mask, and computing an edge mask based on the dilated mask
+        # the goal is to avoid pixels belonging to the black bands of the original image to be considered as surrounding pixels
+        to_be_inpainted_mask_dilated = torch.zeros_like(to_be_inpainted_mask)
+        to_be_inpainted_mask = to_be_inpainted_mask.cpu()
+        for i in range(to_be_inpainted_mask.shape[0]):
+            to_be_inpainted_mask_dilated[i, :, :] = torch.tensor(
+                binary_dilation(to_be_inpainted_mask[i, :, :].squeeze(), square(5))
+            ).unsqueeze(0)
+
+        edge_mask_new = torch.zeros_like(to_be_inpainted_mask)
+        for i in range(to_be_inpainted_mask.shape[0]):
+            edge_mask_new[i, :, :] = torch.tensor(self.get_edge_mask(to_be_inpainted_mask_dilated[i, :, :].squeeze())).unsqueeze(0)
+
+        edge_mask_new = edge_mask_new.to(masked_quadrant.device)
+        surrounding_pixels = torch.where(
+            edge_mask_new > 0,
+            masked_quadrant,
+            -1,
+        )
+        
+        # removing pixels belonging to the original black band 
+        surrounding_pixels[masked_quadrant < 0] = -1
+    
+        filled_quadrant_batch = torch.zeros(
+            (
+                masked_quadrant.shape[0],
+                1,
+                masked_quadrant.shape[2],
+                masked_quadrant.shape[3],
+            )
+        ).to(masked_quadrant.device)
+
+        to_be_inpainted_mask = to_be_inpainted_mask.to(masked_quadrant.device)
+
+        for i in range(masked_quadrant.shape[0]):
+            
+            # computing the average of the surrounding pixels, removing 0 values
+            average = torch.mean(surrounding_pixels[i, :, :, :][surrounding_pixels[i, :, :, :] > 0])
+            filled_quadrant_batch[i, :, :, :] = torch.where(
+                to_be_inpainted_mask[i, :, :, :] > 0,
+                average,
+                masked_quadrant[i, :, :, :],
+            )
+
+        return filled_quadrant_batch, to_be_inpainted_mask_dilated, edge_mask_new
+    
+    def get_edge_mask(to_be_inpainted_mask):
+        """
+        will return a mask highlighting the borders of the inpaint region
+        """
+        # if the mask is a torch tensor, we convert it to numpy
+        if isinstance(to_be_inpainted_mask, torch.Tensor):
+            to_be_inpainted_mask = to_be_inpainted_mask.squeeze(0)
+            to_be_inpainted_mask = to_be_inpainted_mask.cpu().detach().numpy()
+            
+        to_be_inpainted_mask[to_be_inpainted_mask == 1] = 255
+        borders = cv2.Canny(to_be_inpainted_mask.astype(np.uint8), 100, 200)
+        kernel = np.ones((3,3),np.uint8)
+        borders = cv2.dilate(borders,kernel,iterations = 1)
+
+        return borders
 
     def init_logging(self):
         """

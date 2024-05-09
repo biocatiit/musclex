@@ -2021,30 +2021,31 @@ class ProjectionTracesGUI(QMainWindow):
         :return:
         """
         self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
-        self.propGrp.setEnabled(True)
-        self.boxGrp.setEnabled(True)
-        cache = self.loadBoxesAndPeaks()
-        if cache is not None:
-            self.allboxes = cache['boxes']
-            self.peaks = cache['peaks']
-            self.boxtypes = cache['types']
-            self.bgsubs = cache['bgsubs']
-            self.merid_bg = cache['merid_bg']
-            self.hull_ranges = cache['hull_ranges']
-            self.centerx = cache['centerx']
-            self.centery = cache['centery']
-            self.center_func = cache['center_func']
-            for name, box in self.allboxes.items():
-                self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
-        else:
-            self.allboxes = {}
-            self.peaks = {}
-        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
-        self.addBoxTabs()
-        self.selectPeaksGrp.setEnabled(False)
-        self.launchCalibrationSettings()
-        self.setH5Mode(fullfilename)
-        self.onImageChanged()
+        if self.dir_path is not None and self.imgList is not None and self.imgList:
+            self.propGrp.setEnabled(True)
+            self.boxGrp.setEnabled(True)
+            cache = self.loadBoxesAndPeaks()
+            if cache is not None:
+                self.allboxes = cache['boxes']
+                self.peaks = cache['peaks']
+                self.boxtypes = cache['types']
+                self.bgsubs = cache['bgsubs']
+                self.merid_bg = cache['merid_bg']
+                self.hull_ranges = cache['hull_ranges']
+                self.centerx = cache['centerx']
+                self.centery = cache['centery']
+                self.center_func = cache['center_func']
+                for name, box in self.allboxes.items():
+                    self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
+            else:
+                self.allboxes = {}
+                self.peaks = {}
+            self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
+            self.addBoxTabs()
+            self.selectPeaksGrp.setEnabled(False)
+            self.launchCalibrationSettings()
+            self.setH5Mode(fullfilename)
+            self.onImageChanged()
 
     def onImageChanged(self):
         """

@@ -770,6 +770,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
         self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
+        
+        self.persistRotations.stateChanged.connect(self.persistRotationsChecked)
 
         ##### Result Tab #####
         self.rotate90Chkbx.stateChanged.connect(self.processImage)
@@ -2303,7 +2305,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.uiUpdating = False
 
-    def onImageChanged(self, reprocess=False):
+    def onImageChanged(self, reprocess=False, folderProcess=False):
         """
         Need to be called when image is change i.e. to the next image.
         This will create a new QuadrantFolder object for the new image and syncUI if cache is available
@@ -2316,8 +2318,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        # if reprocess:
-        #     self.quadFold.info = {}
+        if reprocess:
+            if folderProcess:
+                pass
+            else:
+                self.quadFold.info = {}
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2795,22 +2800,27 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
-        self.csvManager = QF_CSVManager(self.filePath)
-        self.numberOfFiles = len(self.imgList)
-        
-        self.ignoreFolds = set()
-        self.selectImageButton.setHidden(True)
-        self.selectFolder.setHidden(True)
-        self.imageCanvas.setHidden(False)
-        self.resetWidgets()
-        QApplication.restoreOverrideCursor()
-        if self.h5List == []:
-            fileName = self.imgList[self.currentFileNumber]
-            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-            self.setCalibrationImage()
-        self.h5List = []
-        self.setH5Mode(str(newFile))
-        self.onImageChanged()
+        if self.filePath is not None and self.imgList is not None and self.imgList:
+            self.csvManager = QF_CSVManager(self.filePath)
+            self.numberOfFiles = len(self.imgList)
+            
+            self.ignoreFolds = set()
+            self.selectImageButton.setHidden(True)
+            self.selectFolder.setHidden(True)
+            self.imageCanvas.setHidden(False)
+            self.resetWidgets()
+            QApplication.restoreOverrideCursor()
+            if self.h5List == []:
+                fileName = self.imgList[self.currentFileNumber]
+                self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+                
+                self.setCalibrationImage()
+            self.h5List = []
+            self.setH5Mode(str(newFile))
+            self.onImageChanged()
+        else:
+            QApplication.restoreOverrideCursor()
+            self.browseFile()
 
     def setH5Mode(self, file_name):
         """
