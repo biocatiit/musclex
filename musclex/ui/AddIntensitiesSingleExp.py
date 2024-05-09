@@ -27,20 +27,34 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import json
+from os.path import join
+from datetime import datetime
 import gc
 import copy
+import pickle
 import numpy as np
 import cv2
+import csv
+import hdf5plugin # for some reason this is needed even though never coded
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 from PIL import Image
 import fabio
+#from .image_masker import image_masker
+
+from .AISEImageSelectionWindow import AISEImageSelectionWindow
+from .UnalignedImagesDialog import UnalignedImagesDialog
+from .ImageMaskTool import ImageMaskerWindow
+from .CalibrationDialog import CalibrationDialog
 from musclex import __version__
 from .pyqt_utils import *
-from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf
+from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly
 from ..utils.image_processor import calcSlope, getIntersectionOfTwoLines, getPerpendicularLineHomogenous, processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
 from ..CalibrationSettings import CalibrationSettings
+from ..utils.detect_unaligned_images import *
+
 
 class AddIntensitiesSingleExp(QMainWindow):
     """
@@ -51,8 +65,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.orig_imgs = []
         self.img_list = []
         self.img_grps = []
-        self.file_name = ''
+        self.img_grps_copy = []
+        self.misaligned_images = []
+        self.file_name = '' 
         self.avg_img = None
+        self.orig_avg_img = None
         self.init_imgs = None
         self.currentFileNumber = 0
         self.currentFrameNumber = 0
@@ -62,11 +79,15 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.uiUpdating = False # update ui status flag (prevent recursive)
         self.calSettings = None
         self.calSettingsDialog = None
+        self.imageSequenceDialog = None
+        self.unalignedImagesDialog = None
+        self.imageMaskingTool = None
+        self.customImageSequence = False  # If we are using a custom sequence by the user himself
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
         self.dir_path = ""
         self.stop_process = False
-        self.nbOfFrames = 3
+        self.nbOfFrames = 2 # This controls binning factor 
         self.nbOfGroups = 1
         self.function = None
         self.imageAxes = None
@@ -79,6 +100,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.dontShowAgainDoubleZoomMessageResult = False
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
+        self.maskData = None
+        self.blankImageSettings = None
+        self.drawnMask = False
+        self.computedMask = False
+        self.csvInfo = []
+        self.calibrationDialog = None
         self.initUI()
         self.setConnections()
 
@@ -128,9 +155,17 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.imageTabLayout.addLayout(self.verImgLayout)
         self.imageTabLayout.addWidget(self.imageCanvas)
 
+        # Options Menu on the Right
+
+        # Main Layout to add GrpBoxes To
+        self.optionsLayout = QVBoxLayout()
+        self.optionsLayout.setAlignment(Qt.AlignCenter)
+
+        # Display Options
         self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self.displayOptGrpBx.setStyleSheet("QGroupBox {font-weight: bold;}")
         self.dispOptLayout = QGridLayout()
 
         self.spminInt = QDoubleSpinBox()
@@ -151,6 +186,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.imgZoomInB = QPushButton("Zoom in")
         self.imgZoomInB.setCheckable(True)
         self.imgZoomOutB = QPushButton("Full")
+        
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
@@ -162,102 +200,190 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
         self.dispOptLayout.addWidget(self.persistIntensity, 5, 0, 1, 2)
-
+        self.dispOptLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
-        self.optionsLayout = QVBoxLayout()
-        self.optionsLayout.setAlignment(Qt.AlignCenter)
-        self.settingsGroup = QGroupBox("Image Processing")
-        self.settingsLayout = QGridLayout()
-        self.settingsGroup.setLayout(self.settingsLayout)
+        # Image Operations Group Box
 
+        self.imgOperationGrp = QGroupBox("Image Operations")
+        self.imgOperationGrp.setStyleSheet("QGroupBox {font-weight: bold;}")
+        self.imgOperationLayout = QGridLayout()
+        self.imgOperationGrp.setLayout(self.imgOperationLayout)
+
+        self.binFactorChkBox = QCheckBox('Binning Factor')
+        self.binFactorChkBox.setChecked(True)
         self.frameNb = QSpinBox()
         self.frameNb.setToolTip("Choose the number of frames per group you would like.")
         self.frameNb.setKeyboardTracking(False)
-        self.frameNb.setValue(3)
-        self.frameNb.setMinimum(2)
+        self.frameNb.setValue(2)
+        self.selectImageChkBx = QCheckBox('Sum Image Ranges')
+        self.sumImagesButton = QPushButton("Select Image Subsets")
+        self.sumImagesButton.setEnabled(False)
+        self.useMaskChkBx = QCheckBox('Use Mask')
+        self.useMaskChkBx.setEnabled(False)
+        self.maskImageButton = QPushButton("Specify Empty Cell and Mask Images")
+        self.maskImageButton.setEnabled(False)
+        self.calibrationChkBx = QCheckBox("Align Images")
+        self.specifyCenterAndOrientationButton = QPushButton("Correct Center and Orientation")
+        self.specifyCenterAndOrientationButton.setEnabled(False)
+        
+        self.checkImagesButton = QPushButton("Detect Misaligned Images")
+        self.checkImagesButton.setToolTip("Check all images for misalignment")
+        self.checkImagesButton.setEnabled(False)
+        
+        self.imgOperationLayout.addWidget(self.binFactorChkBox, 0, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
+        self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.sumImagesButton, 1, 3, 1, 1)
+        self.imgOperationLayout.addWidget(self.useMaskChkBx, 2, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 4)
+        self.imgOperationLayout.addWidget(self.calibrationChkBx, 4, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.specifyCenterAndOrientationButton, 5, 0, 1, 4)
+        self.imgOperationLayout.addWidget(self.checkImagesButton, 6, 0, 1, 4)
+
+        # Operation Options Group Box
+
+        self.operationGroup = QGroupBox("Operation Options")
+        self.operationGroup.setStyleSheet("QGroupBox {font-weight: bold;}")
+        self.operationGroupLayout = QGridLayout()
+        self.operationGroup.setLayout(self.operationGroupLayout)
 
         self.avgInsteadOfSum = QCheckBox("Compute Average Instead of Sum")
-
-        self.calibrationChkBx = QGroupBox("Calibrate images")
-        self.calibrationChkBx.setCheckable(True)
-        self.calibrationChkBx.setChecked(False)
-        self.calibrationLayout = QGridLayout(self.calibrationChkBx)
-
-        self.calibrationButton = QPushButton("Calibration Settings")
-        self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
-        self.setCenterRotationButton.setCheckable(True)
-        self.setCentByChords = QPushButton("Set Center by Chords")
-        self.setCentByChords.setCheckable(True)
-        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
-        self.setCentByPerp.setCheckable(True)
-        self.setRotationButton = QPushButton("Set Manual Rotation")
-        self.setRotationButton.setCheckable(True)
-        self.setFitRegion = QPushButton("Set Region of Interest")
-        self.setFitRegion.setCheckable(True)
-        self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-
-        self.showSeparator = QCheckBox("Show Quadrant Separator")
-
-        self.centerWoRotateChkBx = QCheckBox("Calibrate Center Without Rotation")
-        self.centerWoRotateChkBx.setChecked(True)
-
         self.compressChkBx = QCheckBox('Compress the Resulting Images')
 
-        self.settingsLayout.addWidget(QLabel('Frames/Group'), 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.frameNb, 0, 1, 1, 2)
-        self.settingsLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.compressChkBx, 2, 0, 1, 2)
+        self.calibrationDrpDwn = QComboBox()
+        self.calibrationDrpDwn.addItems(['Use Computed Center and Orientation', 'Use Calibration Center', 'Use Computed Center', 'Use Calibration Center and Computed Orientation'])
+        self.calibrationDrpDwn.setVisible(False)
+        self.calibrationButton = QPushButton("Calibration Settings")
+        self.calibrationButton.setVisible(False)
+
+        self.operationGroupLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 4)
+        self.operationGroupLayout.addWidget(self.compressChkBx, 2, 0, 1, 4)
+        # self.operationGroupLayout.addWidget(self.calibrationChkBx, 3, 0, 1, 2)
+        self.operationGroupLayout.addWidget(self.calibrationDrpDwn, 4, 0, 1, 4)
+        self.operationGroupLayout.addWidget(self.calibrationButton, 5, 0, 1, 4)
+
+        #self.calibrationLayout = QGridLayout(self.calibrationChkBx)
+        # self.calibrationButton = QPushButton("Calibration Settings")
+        # self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
+        # self.setCenterRotationButton.setCheckable(True)
+        # self.setCentByChords = QPushButton("Set Center by Chords")
+        # self.setCentByChords.setCheckable(True)
+        # self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
+        # self.setCentByPerp.setCheckable(True)
+        # self.setRotationButton = QPushButton("Set Manual Rotation")
+        # self.setRotationButton.setCheckable(True)
+        # self.setFitRegion = QPushButton("Set Region of Interest")
+        # self.setFitRegion.setCheckable(True)
+        # self.doubleZoom = QCheckBox("Double Zoom")
+        # self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+        # self.calibrationLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.setCentByChords, 3, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.setCentByPerp, 4, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.setFitRegion, 5, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.computeCenterAutomaticallyChk, 7, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.computeOrientationAutomaticallyChk, 8, 0, 1, 2)
+        # self.calibrationLayout.addWidget(self.useCalibratedImage, 9, 0, 1, 2)
+        # self.computeCenterAutomaticallyChk.setVisible(False)
+        # self.computeOrientationAutomaticallyChk.setVisible(False)
+        # self.useCalibratedImage.setVisible(False)
+        # self.sumImagesButton.setEnabled(False)
+        # self.calibrationButton.setEnabled(False)
+        # self.setCenterRotationButton.setEnabled(False)
+        # self.setRotationButton.setEnabled(False)
+        # self.setCentByChords.setEnabled(False)
+        # self.setCentByPerp.setEnabled(False)
+        # self.setFitRegion.setEnabled(False)
+        # self.doubleZoom.setEnabled(False)
+
+        # Image Correction Group Box
+        self.correctionGroup = QGroupBox("Correct Image Center and Orientation")
+        self.correctionGroup.setStyleSheet("QGroupBox {font-weight: bold;}")
+        self.correctionGroupLayout = QGridLayout()
+        self.correctionGroup.setLayout(self.correctionGroupLayout)
+
+        self.correctionLabel = QLabel("Correction Method")
+        self.correctionDrpDown = QComboBox()
+        self.correctionDrpDown.addItems(['None', 'Set Center by Chords', 'Set Center by Perpendiculars'])
+        self.setCenterByChordsBtn = QPushButton("Set Center by Chords")
+        self.setCenterByPerpBtn = QPushButton("Set Center by Perpendiculars")
+        self.setCenterByChordsBtn.setVisible(False)
+        self.setCenterByChordsBtn.setCheckable(True)
+        self.setCenterByPerpBtn.setCheckable(True)
+        self.setCenterByPerpBtn.setVisible(False)
+        # self.correctCenterButton = QPushButton("Correct Center")
+        # self.correctCenterButton.setCheckable(True)
+        # self.correctOrientationButton = QPushButton("Correct Orientation")
+        # self.correctOrientationButton.setVisible(False) # doesnt currently do anything, will need to update
+
+        self.correctionGroup.setVisible(False)
+        self.correctionGroup.setEnabled(False)
+
+        self.correctionGroupLayout.addWidget(self.correctionLabel, 0, 0, 1, 3)
+        self.correctionGroupLayout.addWidget(self.correctionDrpDown, 0, 3, 1, 2)
+        self.correctionGroupLayout.addWidget(self.setCenterByChordsBtn, 1, 0, 1, 4)
+        self.correctionGroupLayout.addWidget(self.setCenterByPerpBtn, 2, 0, 1, 4)
+        # self.correctionGroupLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
+        # self.correctionGroupLayout.addWidget(self.correctCenterButton, 4, 0, 1, 2)
+        # self.correctionGroupLayout.addWidget(self.correctOrientationButton, 4, 2, 1, 3)
+
+
+        # Review Images Group
+        self.reviewImageGroup = QGroupBox("Review Images")
+        self.reviewImageGroup.setStyleSheet("QGroupBox {font-weight: bold;}")
+        self.reviewImageLayout = QGridLayout()
+        self.reviewImageGroup.setLayout(self.reviewImageLayout)
+
+        self.frameSteppingSelection = QComboBox()
+        self.frameSteppingSelection.addItems(['Step through selected images', 'Step through all images', 'Step through badly correlated images'])
+        self.nextButton = QPushButton("Frame >")
+        self.prevButton = QPushButton("< Frame")
+
+        self.filenameLineEdit = QSpinBox()
+        self.filenameLineEdit.setMinimum(1)
+        self.filenameLineEdit.setKeyboardTracking(False)
+        self.filenameLineEdit.setVisible(False)
         
-        self.calibrationLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.setCenterRotationButton, 1, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.setRotationButton, 2, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.setCentByChords, 3, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.setCentByPerp, 4, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.setFitRegion, 5, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.centerWoRotateChkBx, 7, 0, 1, 2)
-        self.calibrationLayout.addWidget(self.showSeparator, 8, 0, 1, 2)
+        self.reviewImageLayout.addWidget(self.frameSteppingSelection, 0, 0, 1, 2)
+        self.reviewImageLayout.addWidget(self.filenameLineEdit, 1, 0, 1, 1) 
+        self.reviewImageLayout.addWidget(self.prevButton, 2, 0, 1, 1)
+        self.reviewImageLayout.addWidget(self.nextButton, 2, 1, 1, 1)
+        
 
-        self.calibrationButton.setEnabled(False)
-        self.setCenterRotationButton.setEnabled(False)
-        self.setRotationButton.setEnabled(False)
-        self.setCentByChords.setEnabled(False)
-        self.setCentByPerp.setEnabled(False)
-        self.setFitRegion.setEnabled(False)
-        self.showSeparator.setEnabled(False)
-        self.centerWoRotateChkBx.setEnabled(False)
-        self.doubleZoom.setEnabled(False)
-
-        self.processFolderButton = QPushButton("Process All Groups")
+        self.processFolderButton = QPushButton("Sum Images")
         self.processFolderButton.setStyleSheet(pfss)
         self.processFolderButton.setCheckable(True)
 
-        self.nextButton = QPushButton("Frame >")
-        self.prevButton = QPushButton("< Frame")
-        self.nextGrpButton = QPushButton("Group >>>")
-        self.prevGrpButton = QPushButton("<<< Group")
-        self.filenameLineEdit = QSpinBox()
-        self.filenameLineEdit.setMinimum(0)
-        self.filenameLineEdit.setKeyboardTracking(False)
-        self.buttonsLayout = QGridLayout()
-        self.buttonsLayout.addWidget(self.processFolderButton, 0, 0, 1, 2)
-        self.buttonsLayout.addWidget(self.prevButton, 1, 0, 1, 1)
-        self.buttonsLayout.addWidget(self.nextButton, 1, 1, 1, 1)
-        self.buttonsLayout.addWidget(self.prevGrpButton, 2, 0, 1, 1)
-        self.buttonsLayout.addWidget(self.nextGrpButton, 2, 1, 1, 1)
-        self.buttonsLayout.addWidget(QLabel('Group #'), 3, 0, 1, 1)
-        self.buttonsLayout.addWidget(self.filenameLineEdit, 3, 1, 1, 1)
+        
+        # self.nextGrpButton = QPushButton("Subset >>>")
+        # self.prevGrpButton = QPushButton("<<< Subset")
+        
+        # self.buttonsLayout = QGridLayout()
+        # self.buttonsLayout.addWidget(self.frameSteppingSelection, 1, 0, 1, 2)
+        # self.buttonsLayout.addWidget(self.processFolderButton, 2, 0, 1, 2)
+        # self.buttonsLayout.addWidget(self.prevButton, 3, 0, 1, 1)
+        # self.buttonsLayout.addWidget(self.nextButton, 3, 1, 1, 1)
+        # self.buttonsLayout.addWidget(self.prevGrpButton, 4, 0, 1, 1)
+        # self.buttonsLayout.addWidget(self.nextGrpButton, 4, 1, 1, 1)
+        # self.buttonsLayout.addWidget(QLabel('Group #'), 5, 0, 1, 1)
+        # self.buttonsLayout.addWidget(self.filenameLineEdit, 5, 1, 1, 1)
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.settingsGroup)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.calibrationChkBx)
+        self.optionsLayout.addSpacing(5)
+        self.optionsLayout.addWidget(self.imgOperationGrp)
+        self.optionsLayout.addSpacing(5)
+        self.optionsLayout.addWidget(self.operationGroup)
+        self.optionsLayout.addSpacing(5)
+        self.optionsLayout.addWidget(self.correctionGroup)
+        self.optionsLayout.addSpacing(5)
+        # self.optionsLayout.addWidget(self.calibrationChkBx)  
+        self.optionsLayout.addWidget(self.reviewImageGroup)
+        self.optionsLayout.addSpacing(5)
+        self.optionsLayout.addWidget(self.processFolderButton)
 
-        self.optionsLayout.addStretch()
-        self.optionsLayout.addLayout(self.buttonsLayout)
         self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(350)
         self.frameOfKeys.setLayout(self.optionsLayout)
@@ -327,6 +453,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.processFolderButton2 = QPushButton("Process All Groups")
         self.processFolderButton2.setStyleSheet(pfss)
         self.processFolderButton2.setCheckable(True)
+        self.processFolderButton2.setVisible(False)
         self.nextGrpButton2 = QPushButton("Group >>>")
         self.prevGrpButton2 = QPushButton("<<< Group")
         self.filenameLineEdit2 = QSpinBox()
@@ -389,25 +516,42 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
-        self.showSeparator.stateChanged.connect(self.refreshImageTab)
-        self.centerWoRotateChkBx.stateChanged.connect(self.centerWoRotateChanged)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.nextButton.clicked.connect(self.nextClicked)
         self.prevButton.clicked.connect(self.prevClicked)
-        self.nextGrpButton.clicked.connect(self.nextGrpClicked)
-        self.prevGrpButton.clicked.connect(self.prevGrpClicked)
+
+        self.checkImagesButton.clicked.connect(self.checkImages)
+
+        self.binFactorChkBox.clicked.connect(self.binFactorChecked)
+        self.selectImageChkBx.clicked.connect(self.selectImageChecked)
+        self.calibrationDrpDwn.currentIndexChanged.connect(self.calibrationDrpDownChanged)
+        self.correctionDrpDown.currentIndexChanged.connect(self.correctionDrpDownChanged)
+        self.frameSteppingSelection.currentTextChanged.connect(self.stepComboBoxChanged)
+
+        self.setCenterByChordsBtn.clicked.connect(self.setCenterByChordsClicked)
+        self.setCenterByPerpBtn.clicked.connect(self.setCenterByPerpClicked)
+
+        # self.nextGrpButton.clicked.connect(self.nextGrpClicked)
+        # self.prevGrpButton.clicked.connect(self.prevGrpClicked)
         self.filenameLineEdit.valueChanged.connect(self.fileNameChanged)
 
+        self.sumImagesButton.clicked.connect(self.selectImageSequence)
         self.frameNb.valueChanged.connect(self.frameNbChanged)
         self.avgInsteadOfSum.stateChanged.connect(self.avgInsteadOfSumChanged)
         self.compressChkBx.stateChanged.connect(self.compressChanged)
         self.calibrationChkBx.clicked.connect(self.setCalibrationActive)
+
         self.calibrationButton.clicked.connect(self.calibrationClicked)
-        self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
-        self.setRotationButton.clicked.connect(self.setRotation)
-        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
-        self.setFitRegion.clicked.connect(self.setFitRegionClicked)
+        # self.correctCenterButton.clicked.connect(self.correctCenterButtonClicked)
+        self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
+        self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
+
+        # self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
+        # self.setRotationButton.clicked.connect(self.setRotation)
+        # self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
+        # self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
+        # self.setFitRegion.clicked.connect(self.setFitRegionClicked)
+
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
@@ -428,6 +572,207 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
+    def maskImageButtonClicked(self):
+        if self.imageMaskingTool is None:
+            if self.isHdf5:
+                file_name = self.file_name
+            else:
+                file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
+            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value())
+        if self.imageMaskingTool.exec_():
+            if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
+                print("mask found!!")
+                self.maskPath = join(join(self.dir_path, 'settings'), 'mask.tif')
+                self.useMaskChkBx.setChecked(True)
+                self.useMaskChkBx.setEnabled(True)
+            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
+                print("blank image found!")
+                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
+                    self.blankImageSettings = json.load(f)
+            self.drawnMask = self.imageMaskingTool.drawnMask
+            self.computedMask = self.imageMaskingTool.computedMask
+            self.imageMaskingTool = None
+
+    def specifyCenterAndOrientationClicked(self):
+        if self.isHdf5:
+            file_name = self.file_name
+        else:
+            file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
+        
+        self.calibrationDialog = CalibrationDialog(self.dir_path, file_name)
+        self.calibrationDialog.show()
+
+    def correctCenterButtonClicked(self):
+        QMessageBox.information(self, "Match Centers", "Program will now match centers automticallly")
+
+    def calibrationDrpDownChanged(self, value):
+        if (value == 0):
+            print("computed center and orientation")
+        elif (value == 1):
+            print("calibration image center")
+        elif (value == 2):
+            print("computed center only")
+        elif (value == 3):
+            print("calibration center and computed orientation")
+
+    def correctionDrpDownChanged(self, value):
+        if (value == 0):
+            self.function = None
+            self.setCenterByChordsBtn.setVisible(False)
+            self.setCenterByPerpBtn.setVisible(False)
+        elif (value == 1):
+            if (self.function is None):
+                self.info = {'manual_rotationAngle': [None] * self.nbOfFrames,
+                    'rotationAngle': [0] * self.nbOfFrames,
+                    'center': [None] * self.nbOfFrames,
+                    'manual_center': [None] * self.nbOfFrames}
+                self.setCenterByChordsBtn.setVisible(True)
+                self.setCenterByPerpBtn.setVisible(False)
+        elif (value == 2):
+            if (self.function is None):
+                self.info = {'manual_rotationAngle': [None] * self.nbOfFrames,
+                    'rotationAngle': [0] * self.nbOfFrames,
+                    'center': [None] * self.nbOfFrames,
+                    'manual_center': [None] * self.nbOfFrames}
+                self.setCenterByPerpBtn.setVisible(True)
+                self.setCenterByChordsBtn.setVisible(False)
+        
+    def binFactorChecked(self):
+        if self.binFactorChkBox.isChecked():
+            self.frameNb.setEnabled(True)
+            self.selectImageChkBx.setChecked(False)
+            self.sumImagesButton.setEnabled(False)
+    
+    def selectImageChecked(self):
+        if self.selectImageChkBx.isChecked():
+            self.frameNb.setEnabled(False)
+            self.binFactorChkBox.setChecked(False)
+            self.sumImagesButton.setEnabled(True)
+
+    def selectImageSequence(self):
+        if self.imageSequenceDialog is None:
+            if self.isHdf5:
+                file_path = self.file_name
+            else:
+                file_path = self.dir_path
+            self.imageSequenceDialog = AISEImageSelectionWindow(file_path, self.img_list, self.img_grps, self.misaligned_images, self.isHdf5)
+        self.imageSequenceLists = None
+        if self.imageSequenceDialog.exec_():
+            self.customImageSequence = True
+            if self.imageSequenceDialog.img_grps:
+                self.img_grps = self.imageSequenceDialog.img_grps
+                self.nbOfGroups = len(self.img_grps)
+                self.frameNb.setValue(len(self.img_grps[0]))
+
+    def stepComboBoxChanged(self, value):
+        if (value == 'Step through all images'):
+            self.img_grps_copy = self.img_grps
+            self.frameNb.setValue(len(self.img_list))
+            self.filenameLineEdit.setVisible(False)
+        elif (value == 'Step through selected images'):
+            self.img_grps = self.img_grps_copy
+            self.nbOfGroups = len(self.img_grps)
+            self.frameNb.setValue(len(self.img_grps[0]))
+            self.filenameLineEdit.setVisible(False)
+        elif (value == 'Step through badly correlated images'):
+            self.img_grps_copy = self.img_grps
+            self.filenameLineEdit.setVisible(False)
+            if not self.misaligned_images:
+                QMessageBox.information(self, "No Misaligned Images", "No misaligned images found")
+                self.frameSteppingSelection.setCurrentIndex(0)
+            else:
+                self.img_grps = []
+                self.img_grps.append(self.misaligned_images)
+                self.nbOfGroups = len(self.img_grps)
+                self.frameNb.setValue(len(self.img_grps[0]))
+        # elif (value == 'Step through group images'):
+        #     self.filenameLineEdit.setVisible(True)
+                
+    def loadImagesCache(self):
+        cache_file = fullPath(fullPath(self.dir_path, "aise_cache"), "imageresultscache"+".info")
+        if os.path.isfile(cache_file):
+            with open(cache_file, "rb") as c:
+                info = pickle.load(c)
+            if info is not None:
+                return info
+            print("Cache didnt work or soething")
+
+    def saveImagesCache(self, infoCache):
+        cache_file = fullPath(fullPath(self.dir_path, "aise_cache"), "imageresultscache" + ".info")
+        createFolder(fullPath(self.dir_path, "aise_cache"))
+        with open(cache_file, "wb") as c:
+            pickle.dump(infoCache, c)
+
+    def searchInfoCache(self, tiff_file, infoCache):
+        for info in infoCache:
+            if info[0] == tiff_file:
+                return info
+        return None
+
+    def checkImages(self):
+        if self.unalignedImagesDialog is None:
+            self.unalignedImagesDialog = UnalignedImagesDialog()
+        if self.unalignedImagesDialog.exec_():
+            inconsistent_images = []
+            imageCo = self.unalignedImagesDialog.image
+            centerCo = self.unalignedImagesDialog.center
+            angleCo = self.unalignedImagesDialog.angle
+            
+            processData = False
+            infoCache = self.loadImagesCache()
+            if infoCache is None:
+                processData = True
+                infoCache = []
+            print(processData)
+
+            self.progressBar.setRange(0, len(self.img_list)+1)
+            self.progressBar.setVisible(True)
+            tiff_files = glob.glob(os.path.join(self.dir_path, '*.tif'))
+            max_intensities = []
+            for i, tiff_file in enumerate(tiff_files):
+                image = fabio.open(tiff_file).data.astype(np.float32)
+                max_intensities.append(np.max(image))
+                if self.unalignedImagesDialog.distance_mode != 1: # Don't calculate if image mode has been selected
+                    if processData == True:
+                        center = getCenter(image)
+                        angle = getRotationAngle(image, center)
+                    else:
+                        info = self.searchInfoCache(tiff_file, infoCache)
+                        center = info[1]
+                        angle = info[2]
+                    addImages(image, center, angle, tiff_file)
+                    currentList = [tiff_file, center, angle]
+                    infoCache.append(currentList)
+                else:
+                    center = 0
+                    angle = 0
+                    addImages(image, center, angle, tiff_file)
+                self.progressBar.setValue(i)
+
+            
+            inconsistent_images = detectImages(self.dir_path, int(np.percentile(max_intensities, 95)), self.unalignedImagesDialog.distance_mode, { 'image': imageCo, 'center': centerCo, 'angle': angleCo})
+            self.progressBar.setValue(len(self.img_list)+1)
+            self.progressBar.setVisible(False)
+
+            if self.unalignedImagesDialog.distance_mode != 1: # Dont save cache as distance_mode 1 (image) does not calculate anything so no info needs to be saved
+                self.saveImagesCache(infoCache)
+
+            if inconsistent_images is None or inconsistent_images == []:
+                QMessageBox.information(self, "No Unaligned Images", "No unaligned images found")
+            else:
+                for image in inconsistent_images:
+                    self.misaligned_images.append(image.getName())
+                items = ['Review selected images', 'Ignore all misaligned images']
+                item, ok = QInputDialog.getItem(self, "Select Option", "Misaligned images found, what would you like to do?",  items, 0, False)
+                if ok and item:
+                    if item == 'Review selected images':
+                        self.selectImageSequence()
+                    else:
+                        for grps in self.img_grps:
+                            grps = list(set(grps).difference(self.misaligned_images)) #don't think this works right now
+                        self.onGroupChanged()
+
+
     def compressChanged(self):
         """
         Triggered when the button is clicked
@@ -438,17 +783,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Change the resulting image from sum if unchecked to avg if checked
         """
-        self.onGroupChanged()
-
-    def centerWoRotateChanged(self):
-        """
-        Triggered when the button is clicked
-        """
-        if self.centerWoRotateChkBx.isChecked():
-            self.info['manual_rotationAngle'] = [None] * self.nbOfFrames
-            self.info['rotationAngle'] = [0] * self.nbOfFrames
-            self.info['center'] = [None] * self.nbOfFrames
-            self.info['manual_center'] = [None] * self.nbOfFrames
         self.onGroupChanged()
 
     def fileNameChanged(self):
@@ -482,6 +816,10 @@ class AddIntensitiesSingleExp(QMainWindow):
                 max_frame = len(self.img_list)%self.nbOfFrames
             else:
                 max_frame = self.nbOfFrames
+            if self.frameSteppingSelection.currentIndex() == 0:
+                if self.currentFrameNumber - 1 < 0:
+                    self.prevGrpClicked()
+                    return
             self.currentFrameNumber = (self.currentFrameNumber - 1) % max_frame
             self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber) * self.nbOfFrames
             self.refreshImageTab()
@@ -495,6 +833,10 @@ class AddIntensitiesSingleExp(QMainWindow):
                 max_frame = len(self.img_list)%self.nbOfFrames
             else:
                 max_frame = self.nbOfFrames
+            if self.frameSteppingSelection.currentIndex() == 0:
+                if self.currentFrameNumber + 1 >= max_frame:
+                    self.nextGrpClicked()
+                    return
             self.currentFrameNumber = (self.currentFrameNumber + 1) % max_frame
             self.currentFileNumber = self.currentFrameNumber + (self.currentGroupNumber) * self.nbOfFrames
             self.refreshImageTab()
@@ -558,7 +900,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.currentFrameNumber = 0
         self.currentGroupNumber = 0
         self.currentFileNumber = 0
-        self.updateImageGroups()
+        if self.customImageSequence is False:
+            self.updateImageGroups()
         self.nbOfGroups = len(self.img_grps)
         self.filenameLineEdit.setMaximum(self.nbOfGroups)
         self.filenameLineEdit2.setMaximum(self.nbOfGroups)
@@ -573,7 +916,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if (self.processFolderButton.isChecked() or self.processFolderButton2.isChecked()) and self.processFolderButton.text() == "Process All Groups":
+        
+        if (self.processFolderButton.isChecked() or self.processFolderButton2.isChecked()) and self.processFolderButton.text() == "Sum Images":
             if not self.progressBar.isVisible():
                 self.processFolderButton.setText("Stop")
                 self.processFolderButton.setChecked(True)
@@ -591,7 +935,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         errMsg.setText('Start')
         text = 'The current folder will be processed using current settings. \
             Make sure to adjust them before processing the folder. \n\n'
-        text += "\nCurrent Settings"
+        text += ""
         if self.orig_image_center is not None:
             text += "\n - Center : " + str(self.orig_image_center)
         text += '\n\nAre you sure you want to process ' + str(self.nbOfGroups) + ' groups of ' + str(self.nbOfFrames) + ' frames in this Folder? \nThis might take a long time.'
@@ -606,20 +950,27 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.progressBar.setRange(0, self.nbOfGroups)
             self.stop_process = False
             output = os.path.join(self.dir_path, 'aise_results')
+
+            if self.frameSteppingSelection.currentIndex() != 0:
+                self.img_grps = self.img_grps_copy
+
             print('Start merging...')
             for i, imgs in enumerate(self.img_grps):
                 if len(imgs) > 0 and not self.stop_process:
                     self.progressBar.setValue(i)
+                    self.processGroup()
                     self.nextGrpClicked()
                 else:
                     break
             self.progressBar.setValue(self.nbOfGroups)
             self.progressBar.setVisible(False)
             self.statusPrint("")
+            print("writing to csv file..")
+            self.writeToCSV()
             print("Done. All result images have been saved to "+output)
 
         self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Process All Groups")
+        self.processFolderButton.setText("Sum Images")
         self.processFolderButton2.setChecked(False)
         self.processFolderButton2.setText("Process All Groups")
 
@@ -653,7 +1004,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.statusPrint('Processing...')
             if self.calibrationChkBx.isChecked():
                 self.getExtentAndCenter(self.orig_imgs[0])
-                if not self.centerWoRotateChkBx.isChecked() or any(mra is not None for mra in self.info['manual_rotationAngle']):
+                if any(mra is not None for mra in self.info['manual_rotationAngle']):
                     for i in range(self.nbOfFrames):
                         self.rotateImg(i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
@@ -685,36 +1036,135 @@ class AddIntensitiesSingleExp(QMainWindow):
 
                 print(details)
                 self.statusPrint('Merging...')
-                if self.calibrationChkBx.isChecked():
-                    images = self.matchCenters(self.orig_imgs)
-                else:
-                    images = self.orig_imgs
-                if self.avgInsteadOfSum.isChecked():
-                    # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-                    ##todo homogenize
-                    if 'detector' in self.info:
-                        self.avg_img = averageImages(images, preprocessed=True, man_det=self.info['detector'])
-                    else:
-                        self.avg_img = averageImages(images, preprocessed=True)
-                else:
-                    sum_img = 0
-                    for img in images:
-                        if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
-                            sum_img = resizeImage(sum_img, img.shape)
-                        elif not isinstance(sum_img, int):
-                            img = resizeImage(img, sum_img.shape)
-                        sum_img += img
-                    self.avg_img = sum_img
+                self.generateAvgImg()
+                # if self.calibrationChkBx.isChecked():
+                #     images = self.matchCenters(self.orig_imgs)
+                # else:
+                #     images = self.orig_imgs
+                # if self.avgInsteadOfSum.isChecked():
+                #     # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+                #     ##todo homogenize
+                #     if 'detector' in self.info:
+                #         self.avg_img = averageImages(images, preprocessed=True, man_det=self.info['detector'])
+                #     else:
+                #         self.avg_img = averageImages(images, preprocessed=True)
+                # else:
+                #     sum_img = 0
+                #     for img in images:
+                #         if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
+                #             sum_img = resizeImage(sum_img, img.shape)
+                #         elif not isinstance(sum_img, int):
+                #             img = resizeImage(img, sum_img.shape)
+                #         sum_img += img
+                #     self.avg_img = sum_img
+                if self.blankImageSettings is not None:
+                    if self.blankImageSettings['subtractBlank'] == True:
+                        raw_filepath = r"{}".format(self.blankImageSettings['path'])
+                        blank_image = fabio.open(raw_filepath).data
+                        weight = self.blankImageSettings['weight']
+                        self.avg_img = self.avg_img - weight * blank_image * len(imgs)
+                        if self.blankImageSettings['clampNegativeValues'] == True:
+                            self.avg_img = np.clip(self.avg_img, 0, None) 
+                
+                if self.useMaskChkBx.isChecked():
+                    self.maskData = fabio.open(self.maskPath).data
+                    self.orig_avg_img = self.avg_img
+                    self.avg_img = self.avg_img * self.maskData
+                    avg_intensity = np.sum(self.orig_avg_img) / np.sum(self.avg_img)
+                    print("Average masked intensity: ", avg_intensity)
+                    index = filename.rfind('.')
+                    masked_filename = filename[:index] + "_masked" + filename[index:]
+                                   
+                self.generateCSVLine(filename)
                 print('Saving merged image...')
                 self.statusPrint('Saving merged image...')
+                # Saving images
+                # If use mask is checked, then we save the masked image and the unmasked image
                 if self.compressChkBx.isChecked():
-                    tif_img = Image.fromarray(self.avg_img)
-                    tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
+                    if self.useMaskChkBx.isChecked():
+                        mask_tif_img = Image.fromarray(self.avg_img)
+                        mask_tif_img.save(os.path.join(output, masked_filename), compression='tiff_lzw')
+                        tif_img = Image.fromarray(self.orig_avg_img)
+                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
+                    else:
+                        tif_img = Image.fromarray(self.avg_img)
+                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
                 else:
-                    fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
+                    if self.useMaskChkBx.isChecked():
+                        fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, masked_filename))
+                        fabio.tifimage.tifimage(data=self.orig_avg_img).write(os.path.join(output, filename))
+                    else:
+                        fabio.tifimage.tifimage(data=self.avg_img).write(os.path.join(output, filename))
 
             self.refreshAllTab()
             print("Done. Result image have been saved to "+output)
+
+    def generateAvgImg(self):
+        if self.calibrationChkBx.isChecked():
+            images = self.matchCenters(self.orig_imgs)
+        else:
+            images = self.orig_imgs
+        if self.avgInsteadOfSum.isChecked():
+            # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+            ##todo homogenize
+            if 'detector' in self.info:
+                self.avg_img = averageImages(images, preprocessed=True, man_det=self.info['detector'])
+            else:
+                self.avg_img = averageImages(images, preprocessed=True)
+        else:
+            sum_img = 0
+            for img in images:
+                if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
+                    sum_img = resizeImage(sum_img, img.shape)
+                elif not isinstance(sum_img, int):
+                    img = resizeImage(img, sum_img.shape)
+                sum_img += img
+            self.avg_img = sum_img
+    
+    # CSV Line in format: ['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor', 'Drawn Mask', 'Computed Mask']
+    def generateCSVLine(self, filename):
+        nonmaskedPixels = 0
+        orig_img_intensity = 0
+        img_with_mask_intensity = 0
+        weight = 0
+            
+        if self.orig_avg_img is not None:
+            orig_img_intensity = np.sum(self.orig_avg_img)
+        else:
+            orig_img_intensity = np.sum(self.avg_img)
+            
+        if self.maskData is not None:
+            nonmaskedPixels = np.sum(self.maskData == 1)
+            img_with_mask_intensity = np.sum(self.avg_img)
+        else:
+            img_with_mask_intensity = orig_img_intensity
+        
+        dateString = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        
+        # Masked Image Intensity (average) = Masked Image Intensity (Total) / Number of Pixels Not Masked
+        average_mask = img_with_mask_intensity / nonmaskedPixels
+        
+        if self.blankImageSettings is not None:
+            weight = self.blankImageSettings['weight']
+        
+        info = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, average_mask, weight, self.nbOfFrames, self.drawnMask, self.computedMask]
+        self.csvInfo.append(info)
+            
+    def writeToCSV(self):
+        file_path = join(join(self.dir_path, 'aise_results'), 'intensities.csv')
+        # Write header line if file doesn't exist
+        if not os.path.exists(file_path):
+            with open(file_path, 'w') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor', 'Drawn Mask', 'Computed Mask'])
+        
+        # Write all the other lines
+        with open(file_path, 'a' ) as f:
+            writer = csv.writer(f)
+            for line in self.csvInfo:
+                writer.writerow(line)
+        
+        self.csvInfo = []
 
     def refreshAllTab(self):
         """
@@ -1547,30 +1997,28 @@ class AddIntensitiesSingleExp(QMainWindow):
             'center': [None] * self.nbOfFrames,
             'manual_center': [None] * self.nbOfFrames}
         if self.calibrationChkBx.isChecked():
-            self.calibrationButton.setEnabled(True)
-            self.setCenterRotationButton.setEnabled(True)
-            self.setRotationButton.setEnabled(True)
-            self.setCentByChords.setEnabled(True)
-            self.setCentByPerp.setEnabled(True)
-            self.setFitRegion.setEnabled(True)
-            self.showSeparator.setEnabled(True)
-            self.centerWoRotateChkBx.setEnabled(True)
-            self.doubleZoom.setEnabled(True)
+            self.specifyCenterAndOrientationButton.setEnabled(True)
+            # self.calibrationButton.setVisible(True)
+            # self.setCenterRotationButton.setEnabled(True)
+            # self.setRotationButton.setEnabled(True)
+            # self.setCentByChords.setEnabled(True)
+            # self.setCentByPerp.setEnabled(True)
+            # self.setFitRegion.setEnabled(True)
+            # self.calibrationDrpDwn.setVisible(True)
+            # self.doubleZoom.setEnabled(True)
             _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
-            self.showSeparator.setChecked(True)
         else:
-            self.calibrationButton.setEnabled(False)
-            self.setCenterRotationButton.setEnabled(False)
-            self.setRotationButton.setEnabled(False)
-            self.setCentByChords.setEnabled(False)
-            self.setCentByPerp.setEnabled(False)
-            self.setFitRegion.setEnabled(False)
-            self.showSeparator.setEnabled(False)
-            self.showSeparator.setChecked(False)
-            self.doubleZoom.setEnabled(False)
-            self.doubleZoom.setChecked(False)
-            self.centerWoRotateChkBx.setEnabled(False)
-        self.onGroupChanged()
+            self.specifyCenterAndOrientationButton.setEnabled(False)
+            # self.calibrationButton.setVisible(False)
+            # self.setCenterRotationButton.setEnabled(False)
+            # self.setRotationButton.setEnabled(False)
+            # self.setCentByChords.setEnabled(False)
+            # self.setCentByPerp.setEnabled(False)
+            # self.setFitRegion.setEnabled(False)
+            # self.calibrationDrpDwn.setVisible(False)
+            # self.doubleZoom.setEnabled(False)
+            # self.doubleZoom.setChecked(False)
+        # self.onGroupChanged()
 
     def setFitRegionClicked(self):
         """
@@ -1593,7 +2041,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         Prepare for manual center selection using perpendicular peaks
         :return:
         """
-        if self.setCentByPerp.isChecked():
+        if self.setCenterByPerpBtn.isChecked():
             self.imageCanvas.draw_idle()
             self.function = ["perp_center"]  # set current active function
         else:
@@ -1635,7 +2083,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Prepare for manual rotation center setting by selecting chords
         """
-        if self.setCentByChords.isChecked():
+        if self.setCenterByChordsBtn.isChecked():
             self.chordLines = []
             self.imageCanvas.draw_idle()
             self.function = ["chords_center"]  # set current active function
@@ -1715,8 +2163,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Handle when Calibration Settings button is clicked
         :return:
+        
         """
-        sucess = self.setCalibrationImage(force=True)
+        sucess = self.setCalibrationImage(force=False)
         if sucess:
             self.info['manual_rotationAngle'] = [None] * self.nbOfFrames
             self.info['rotationAngle'] = [0] * self.nbOfFrames
@@ -1734,7 +2183,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self.orig_image_center is None:
             self.findCenter(orig_img, index)
             self.statusPrint("Done.")
-        if 'calib_center' in self.info:
+        if 'calib_center' in self.info and (self.calibrationDrpDwn.currentText() == "Use Calibration Center" or self.calibrationDrpDwn.currentText() == "Use Calibration Center and Computed Orientation"):
             center = self.info['calib_center']
         elif self.info['manual_center'][index] is not None:
             center = self.info['manual_center'][index]
@@ -1755,7 +2204,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.statusPrint("Finding Center...")
         if self.info['center'][index] is not None:
             return
-        if 'calib_center' in self.info:
+        if 'calib_center' in self.info and (self.calibrationDrpDwn.currentText() == "Use Calibration Center" or self.calibrationDrpDwn.currentText() == "Use Calibration Center and Computed Orientation"):
             self.info['center'][index] = self.info['calib_center']
             return
         if self.info['manual_center'][index] is not None:
@@ -1776,25 +2225,28 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self.calSettingsDialog is None:
             self.calSettingsDialog = CalibrationSettings(self.dir_path)
         self.calSettings = None
-        cal_setting = self.calSettingsDialog.calSettings
-        if cal_setting is not None or force:
-            result = self.calSettingsDialog.exec_()
-            if result == 1:
-                self.calSettings = self.calSettingsDialog.getValues()
+        # cal_setting = self.calSettingsDialog.calSettings
+        result = self.calSettingsDialog.exec_()
+        if result == 1:
+            self.calSettings = self.calSettingsDialog.getValues()
 
-                if self.calSettings is not None:
-                    if self.calSettingsDialog.fixedCenter.isChecked():
-                        self.info['calib_center'] = self.calSettings['center']
-                        self.setCenterRotationButton.setEnabled(False)
-                        self.setCenterRotationButton.setToolTip(
-                            "Please uncheck fixed center in calibration settings first")
-                    else:
-                        self.setCenterRotationButton.setEnabled(True)
-                        self.setCenterRotationButton.setToolTip("")
-                    if "detector" in self.calSettings:
-                        self.info["detector"] = self.calSettings["detector"]
+            if self.calSettings is not None and self.calSettings:
+                print("not empty")
+                if self.calSettingsDialog.fixedCenter.isChecked():
+                    self.info['calib_center'] = self.calSettings['center']
+                    # self.setCenterRotationButton.setEnabled(False)
+                    # self.setCenterRotationButton.setToolTip(
+                    #     "Please uncheck fixed center in calibration settings first")
+                else:
+                    # self.setCenterRotationButton.setEnabled(True)
+                    # self.setCenterRotationButton.setToolTip("")
+                    print("fix this")
+                if "detector" in self.calSettings:
+                    self.info["detector"] = self.calSettings["detector"]
                 return True
-        return False
+            else:
+                print("empty")
+                return False
 
     def setCenterRotation(self):
         """
@@ -1816,6 +2268,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         createFolder(os.path.join(self.dir_path, 'aise_results'))
         self.browseFolderButton.setHidden(True)
         self.browseFileButton.setHidden(True)
+        self.calibrationChkBx.setEnabled(True)
+        self.maskImageButton.setEnabled(True)
+        self.checkImagesButton.setEnabled(True)
+        self.correctionGroup.setEnabled(True)
         self.imageCanvas.setHidden(False)
         self.frameNb.setMaximum(len(self.img_list))
         self.nbOfGroups = len(self.img_grps)
@@ -1844,6 +2300,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.img_list.sort()
                 self.updateImageGroups()
                 self.onNewFileSelected()
+                self.refreshAllTab()
             else:
                 errMsg = QMessageBox()
                 errMsg.setText('Wrong file type')
@@ -1865,6 +2322,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.isHdf5 = False
             self.preprocessfolder()
             self.onNewFileSelected()
+            self.refreshAllTab()
 
     def preprocessfolder(self):
         """
@@ -1922,7 +2380,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))
-        self.processGroup()
+        # self.processGroup() // dont need to process every image
+        self.generateAvgImg()
+        self.refreshAllTab()
         self.initialWidgets(self.orig_imgs[0], self.avg_img)
         self.statusPrint("")
         gc.collect()
@@ -1971,6 +2431,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.spResultminInt.setDecimals(2)
 
         self.uiUpdating = False
+    
 
     def updateImageTab(self):
         """
@@ -2050,11 +2511,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         else:
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
         ax.set_facecolor('black')
-
-        if self.showSeparator.isChecked() and self.orig_image_center is not None:
-            # Draw quadrant separator
-            ax.axvline(center[0], color='y')
-            ax.axhline(center[1], color='y')
 
         # Set Zoom in location
         if self.img_zoom is not None and len(self.img_zoom) == 2:

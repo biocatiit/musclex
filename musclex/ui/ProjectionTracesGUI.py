@@ -1089,6 +1089,7 @@ class ProjectionTracesGUI(QMainWindow):
         elif key == Qt.Key_Left:
             self.prevClicked()
         elif key == Qt.Key_Escape:
+            
             self.resetUI()
         elif key == Qt.Key_D:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())

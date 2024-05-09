@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 import sys
 import json
 import traceback
+import copy
 from os.path import split, splitext
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
@@ -36,6 +37,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 from musclex import __version__
+from PyQt5.QtCore import QThread, pyqtSignal
 import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
@@ -44,6 +46,20 @@ from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
+
+class Worker(QObject):
+    finished = pyqtSignal(object)
+
+    def __init__(self, quadFold, flags):
+        super().__init__()
+        self.quadFold = quadFold
+        self.flags = flags
+
+    def process(self):
+        print("working!")
+        self.quadFold.process(self.flags)
+        self.finished.emit(self.quadFold)
+
 
 class QuadrantFoldingGUI(QMainWindow):
     """
@@ -84,6 +100,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.chordpoints = []
         self.masked = False
         self.csvManager = None
+        
+        self.thread = None
+        self.worker = None
+        self.tasks = []
+        self.tasksDone = 0
+        self.totalFiles = 1
+        
+        self.rotationAngle = None
 
         self.calSettingsDialog = None
         self.doubleZoomMode = False
@@ -201,6 +225,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setRotationButton = QPushButton("Set Rotation Angle")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
+        
+        self.persistRotations = QCheckBox("Persist Rotations")
+        self.persistRotations.setVisible(False)
 
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-999)
@@ -239,16 +266,17 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
         self.settingsLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 3, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, 4, 2, 1, 2)
-        self.settingsLayout.addWidget(self.modeAngleChkBx, 5, 0, 1, 4)
+        self.settingsLayout.addWidget(self.persistRotations, 3, 0, 1, 4)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 2, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 4)
         # self.settingsLayout.addWidget(self.expandImage, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 6, 0, 1, 4)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.doubleZoom, 8, 0, 1, 4)
-        self.settingsLayout.addWidget(self.toggleFoldImage, 9, 0, 1, 4)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 7, 0, 1, 4)
+        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 8, 0, 1, 4)
+        self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 4)
+        self.settingsLayout.addWidget(self.toggleFoldImage, 10, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -770,6 +798,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
+        
+    def persistRotationsChecked(self):
+        if self.persistRotations.isChecked():
+            self.rotationAngle = self.quadFold.info['rotationAngle']
 
     def cropFoldedImageChanged(self):
         """
@@ -829,6 +861,10 @@ class QuadrantFoldingGUI(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
+            self.setCenterRotationButton.setChecked(False)
+            self.setCentByChords.setChecked(False)
+            self.setCentByPerp.setChecked(False)
+            self.setRotationButton.setChecked(False)
 
     # def expandImageChecked(self):
     #     """
@@ -894,7 +930,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.zoomOutClicked = True
             self.default_result_img_zoom = None
             self.processImage()
-        
 
     def setCenterByPerpClicked(self):
         """
@@ -1341,6 +1376,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                 self.deleteInfo(['avg_fold'])
                 self.setRotationButton.setChecked(False)
+                self.persistRotations.setVisible(True)
                 self.processImage()
 
     def imageOnMotion(self, event):
@@ -2280,8 +2316,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        if reprocess:
-            self.quadFold.info = {}
+        # if reprocess:
+        #     self.quadFold.info = {}
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2295,7 +2331,9 @@ class QuadrantFoldingGUI(QMainWindow):
             print(self.quadFold.info['folded'])
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
-                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
+                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')  
+        if self.persistRotations.isChecked():
+            self.quadFold.info['manual_rotationAngle'] = self.rotationAngle
         self.processImage()
 
     def onFoldChkBoxToggled(self):
@@ -2316,6 +2354,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Deleting the center for appropriate recalculation
         """
+
         if 'center' in currentInfo:
             del currentInfo['center']
 
@@ -2509,8 +2548,10 @@ class QuadrantFoldingGUI(QMainWindow):
             QApplication.setOverrideCursor(Qt.WaitCursor)
             flags = self.getFlags()
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
+            quadFold_copy = copy.copy(self.quadFold)
             try:
-                self.quadFold.process(flags)
+                # self.quadFold.process(flags)
+                self.threadingProcess(quadFold_copy, flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2524,14 +2565,58 @@ class QuadrantFoldingGUI(QMainWindow):
                 errMsg.setFixedWidth(300)
                 errMsg.exec_()
                 raise
+            
+            # self.updateParams()
+            # self.refreshAllTabs()
+            # self.csvManager.writeNewData(self.quadFold)
 
-            self.updateParams()
-            self.refreshAllTabs()
-            self.csvManager.writeNewData(self.quadFold)
+            # self.saveResults()
+            # QApplication.restoreOverrideCursor()
+            
+    def threadingProcess(self, quadFold, flags):
+        
+        if self.thread is not None and self.thread.isRunning():
+            self.tasks.append((quadFold, flags))
+        else:
+            self.startNewThread(quadFold, flags)
+            self.tasksDone = 0
+        
+    def startNewThread(self, quadFold, flags):
+        self.worker = Worker(quadFold, flags)
+        self.thread = QThread()
+        self.worker.moveToThread(self.thread)
+        
+        self.thread.started.connect(self.worker.process)
+        self.worker.finished.connect(self.onProcessingFinished)
+        
+        self.thread.start()
+        
+    def onProcessingFinished(self, quadFold):
+        print("Processing finished")
+        self.quadFold = quadFold
+        self.tasksDone += 1
+        self.progressBar.setValue(int(100. / self.totalFiles * self.tasksDone))
+        
+        self.updateParams()
+        self.refreshAllTabs()
+        self.csvManager.writeNewData(self.quadFold)
 
-            self.saveResults()
-            QApplication.restoreOverrideCursor()
-
+        self.saveResults()
+        QApplication.restoreOverrideCursor()
+        
+        
+        self.worker.finished.disconnect(self.onProcessingFinished)
+        self.thread.started.disconnect(self.worker.process)
+        
+        self.thread.quit()
+        self.thread.wait()
+        
+        if self.tasks:
+            quadFold, flags = self.tasks.pop(0)
+            self.startNewThread(quadFold, flags)
+        else:
+            self.progressBar.setVisible(False)
+            
     def saveResults(self):
         """
         Save result to folder qf_results
@@ -2540,7 +2625,7 @@ class QuadrantFoldingGUI(QMainWindow):
             result_path = fullPath(self.filePath, 'qf_results')
             createFolder(result_path)
 
-            result_file = str(join(result_path, self.imgList[self.currentFileNumber]))
+            result_file = str(join(result_path, self.quadFold.img_name))
             result_file, _ = splitext(result_file)
             img = self.quadFold.imgCache['resultImg']
 
@@ -2566,6 +2651,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     result_file += '_folded_cropped.tif'
                     fabio.tifimage.tifimage(data=img).write(result_file)
             else:
+                print("SAVING IMAGE")
                 if self.compressFoldedImageChkBx.isChecked():
                     result_file += '_folded_compressed.tif'
                     tif_img = Image.fromarray(img)
@@ -2584,7 +2670,6 @@ class QuadrantFoldingGUI(QMainWindow):
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
 
-
         avg_fold = info["avg_fold"]
 
         print("Avg_fold shape:")
@@ -2599,7 +2684,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         method = info['bgsub']
         if method != 'None':
-
+            
             filename = self.imgList[self.currentFileNumber]
             bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
@@ -2712,8 +2797,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
         self.csvManager = QF_CSVManager(self.filePath)
         self.numberOfFiles = len(self.imgList)
-        fileName = self.imgList[self.currentFileNumber]
-        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+        
         self.ignoreFolds = set()
         self.selectImageButton.setHidden(True)
         self.selectFolder.setHidden(True)
@@ -2721,6 +2805,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resetWidgets()
         QApplication.restoreOverrideCursor()
         if self.h5List == []:
+            fileName = self.imgList[self.currentFileNumber]
+            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.setCalibrationImage()
         self.h5List = []
         self.setH5Mode(str(newFile))
@@ -2869,14 +2955,16 @@ class QuadrantFoldingGUI(QMainWindow):
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
+            self.progressBar.setValue(0)
             self.stop_process = False
+            self.totalFiles = self.numberOfFiles
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
                 self.nextClicked(reprocess=True)
-            self.progressBar.setVisible(False)
+            #self.progressBar.setVisible(False)
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
@@ -2937,19 +3025,21 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
+            self.progressBar.setValue(0)
             self.progressBar.setVisible(True)
             self.stop_process = False
+            self.totalFiles = len(self.h5List) * self.numberOfFiles
             for _ in range(len(self.h5List)):
                 for i in range(self.numberOfFiles):
                     if self.stop_process:
                         break
-                    self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
+                    #self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
                     QApplication.processEvents()
                     self.nextClicked(reprocess=True)
                 if self.stop_process:
                     break
                 self.nextFileClicked()
-            self.progressBar.setVisible(False)
+            #self.progressBar.setVisible(False)
 
         self.processH5FolderButton.setChecked(False)
         self.processH5FolderButton2.setChecked(False)
@@ -3019,7 +3109,8 @@ class QuadrantFoldingGUI(QMainWindow):
         :param text: text to print
         :return: -
         """
-        self.statusReport.setText(text)
+        # self.statusReport.setText(text) // will fix later with different threads
+        print(text)
         QApplication.processEvents()
 
     def fileNameChanged(self):

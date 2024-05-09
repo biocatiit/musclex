@@ -317,6 +317,7 @@ class QuadrantFoldingh:
         flags['cycles'] = 5
         flags['blank_mask'] = False
         flags['rotate'] = False
+        flags['fold_image'] = True # always fold image
 
         if self.calSettings is not None:
             flags.update(self.calSettings)

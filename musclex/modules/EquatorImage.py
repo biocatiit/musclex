@@ -73,6 +73,8 @@ class EquatorImage:
         self.skeletalVarsNotSet = False
         self.extraPeakVarsNotSet = False
 
+        self.fitting_error = 0.2
+        
         self.quadrant_folded = False
         if filename.endswith(".tif"):
             with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
@@ -770,7 +772,7 @@ class EquatorImage:
 
         if 'fit_results' in self.info:
             print("Done. Fitting Results : " + str(self.info['fit_results']))
-            if self.info['fit_results']['fiterror'] > 0.2:
+            if self.info['fit_results']['fiterror'] > self.fitting_error:
                 print("WARNING : High Fitting Error")
         else:
             print("Model cannot be fitted.")
@@ -925,7 +927,7 @@ class EquatorImage:
 
         if 'fit_results' in self.info:
             print("Done. Fitting Results : " + str(self.info['fit_results']))
-            if self.info['fit_results']['fiterror'] > 0.2:
+            if self.info['fit_results']['fiterror'] > self.fitting_error:
                 print("WARNING : High Fitting Error")
         else:
             print("Model cannot be fitted.")

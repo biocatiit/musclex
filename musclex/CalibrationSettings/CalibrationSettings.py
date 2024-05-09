@@ -528,7 +528,7 @@ class CalibrationSettings(QDialog):
             center, radius, _ = cv2.fitEllipse(np.array(self.manualCalPoints))
             self.calSettings = {
                 "center": [round(center[0], 4), round(center[1],4)],
-                "radius": int(round((radius[0] + radius[1]) / 4.))
+                "radius": round((radius[0] + radius[1]) / 4.)
             }
         else:
             imgcopy, _ = self.getImage()
@@ -580,7 +580,8 @@ class CalibrationSettings(QDialog):
                     errMsg.exec_()
                     return
 
-            cali_radius = int(np.round(cali_radius / 2.))
+            # cali_radius = int(np.round(cali_radius / 2.))
+            cali_radius = np.round(cali_radius / 2.)
 
             self.calSettings = {
                 "center": [fixcenter[0], fixcenter[1]],

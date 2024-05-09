@@ -353,9 +353,20 @@ class LogTraceViewer(QMainWindow):
         for line in f:
             if line[0] != '#' and len(line) >= 10:
                 linelist = line.split('\t')
-                self.length_out.append(float(linelist[7]))
-                self.length_in.append(float(linelist[8]))
-                self.force.append(float(linelist[9]))
+                if len(linelist) == 10:
+                    self.length_out.append(float(linelist[7]))
+                    self.length_in.append(float(linelist[8]))
+                    self.force.append(float(linelist[9]))
+                else:
+                    errMsg = QMessageBox()
+                    errMsg.setText('Trace file is invalid')
+                    msg = 'Please select a file formatted correctly\n\n'
+                    errMsg.setInformativeText(msg)
+                    errMsg.setStandardButtons(QMessageBox.Ok)
+                    errMsg.setIcon(QMessageBox.Warning)
+                    errMsg.setFixedWidth(300)
+                    if errMsg.exec_() == QMessageBox.Ok:
+                        self.close()
         ax.plot(self.length_in, color='g', label='Length In')
         ax.plot(self.length_out, color='g', linestyle='dashed', label='Length Out')
         ax.set_xlabel("Time", fontsize=14)
