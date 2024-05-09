@@ -37,7 +37,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 from musclex import __version__
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from queue import Queue
 import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
@@ -47,18 +48,25 @@ from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
 
-class Worker(QObject):
-    finished = pyqtSignal(object)
+class Worker(QRunnable):
 
-    def __init__(self, quadFold, flags):
+    def __init__(self, quadFold, flags, callback):
         super().__init__()
         self.quadFold = quadFold
         self.flags = flags
-
-    def process(self):
-        print("working!")
+        self.callback = callback
+        
+    def run(self):
         self.quadFold.process(self.flags)
-        self.finished.emit(self.quadFold)
+        self.callback(self.quadFold)
+
+    # def process(self):
+    #     self.quadFold.process(self.flags)
+    #     self.finished.emit(self.quadFold)
+        
+    # def update(self, quadFold1, flags1):
+    #     self.quadFold = quadFold1
+    #     self.flags = flags1
 
 
 class QuadrantFoldingGUI(QMainWindow):
@@ -101,9 +109,11 @@ class QuadrantFoldingGUI(QMainWindow):
         self.masked = False
         self.csvManager = None
         
-        self.thread = None
+        self.threadPool = QThreadPool()
+        self.tasksQueue = Queue()
+        self.loop = QEventLoop()
+        self.currentTask = None
         self.worker = None
-        self.tasks = []
         self.tasksDone = 0
         self.totalFiles = 1
         
@@ -2305,7 +2315,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.uiUpdating = False
 
-    def onImageChanged(self, reprocess=False, folderProcess=False):
+    def onImageChanged(self, reprocess=False):
         """
         Need to be called when image is change i.e. to the next image.
         This will create a new QuadrantFolder object for the new image and syncUI if cache is available
@@ -2318,11 +2328,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        if reprocess:
-            if folderProcess:
-                pass
-            else:
-                self.quadFold.info = {}
+        # if reprocess:
+        #     self.quadFold.info = {}
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2333,13 +2340,14 @@ class QuadrantFoldingGUI(QMainWindow):
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
         if 'folded' in self.quadFold.info:
-            print(self.quadFold.info['folded'])
+            # print(self.quadFold.info['folded'])
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
                 self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')  
         if self.persistRotations.isChecked():
             self.quadFold.info['manual_rotationAngle'] = self.rotationAngle
         self.processImage()
+        
 
     def onFoldChkBoxToggled(self):
         if self.quadFold is not None:
@@ -2551,12 +2559,13 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            flags = self.getFlags()
+            #flags = self.getFlags()
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
-            quadFold_copy = copy.copy(self.quadFold)
+            # quadFold_copy = copy.copy(self.quadFold)
             try:
                 # self.quadFold.process(flags)
-                self.threadingProcess(quadFold_copy, flags)
+                # self.threadingProcess(quadFold_copy, flags)
+                self.addTask()
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2578,49 +2587,48 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.saveResults()
             # QApplication.restoreOverrideCursor()
             
-    def threadingProcess(self, quadFold, flags):
+    # def threadingProcess(self, quadFold, flags):
         
-        if self.thread is not None and self.thread.isRunning():
-            self.tasks.append((quadFold, flags))
-        else:
-            self.startNewThread(quadFold, flags)
-            self.tasksDone = 0
-        
-    def startNewThread(self, quadFold, flags):
-        self.worker = Worker(quadFold, flags)
-        self.thread = QThread()
-        self.worker.moveToThread(self.thread)
-        
-        self.thread.started.connect(self.worker.process)
-        self.worker.finished.connect(self.onProcessingFinished)
-        
-        self.thread.start()
+    #     if self.processClicked == False:
+    #         self.startNewThread()
+            
+    #     # if self.thread is not None and self.thread.isRunning():
+    #     #     self.tasks.append((quadFold, flags))
+    #     # else:
+    #     #     self.startNewThread(quadFold, flags)
+    #     #     self.tasksDone = 0
+    
+    def addTask(self):
+        self.tasksQueue.put((self.quadFold, self.getFlags()))
+
+        # If there's no task currently running, start the next task
+        if self.currentTask is None:
+            self.startNextTask()
+            
+    def startNextTask(self):
+        if not self.tasksQueue.empty():
+            quadFold, flags = self.tasksQueue.get()
+            self.currentTask = Worker(quadFold, flags, self.onProcessingFinished)
+            self.threadPool.start(self.currentTask)
+            self.loop.exec_()
         
     def onProcessingFinished(self, quadFold):
         print("Processing finished")
         self.quadFold = quadFold
         self.tasksDone += 1
-        self.progressBar.setValue(int(100. / self.totalFiles * self.tasksDone))
         
         self.updateParams()
         self.refreshAllTabs()
+        
         self.csvManager.writeNewData(self.quadFold)
 
         self.saveResults()
         QApplication.restoreOverrideCursor()
+        self.loop.quit()
+        self.currentTask = None
+        self.startNextTask()
         
         
-        self.worker.finished.disconnect(self.onProcessingFinished)
-        self.thread.started.disconnect(self.worker.process)
-        
-        self.thread.quit()
-        self.thread.wait()
-        
-        if self.tasks:
-            quadFold, flags = self.tasks.pop(0)
-            self.startNewThread(quadFold, flags)
-        else:
-            self.progressBar.setVisible(False)
             
     def saveResults(self):
         """
@@ -2813,7 +2821,6 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.h5List == []:
                 fileName = self.imgList[self.currentFileNumber]
                 self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-                
                 self.setCalibrationImage()
             self.h5List = []
             self.setH5Mode(str(newFile))
@@ -2968,13 +2975,18 @@ class QuadrantFoldingGUI(QMainWindow):
             self.progressBar.setValue(0)
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
+            self.tasksDone = 0
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
                 QApplication.processEvents()
                 self.nextClicked(reprocess=True)
-            #self.progressBar.setVisible(False)
+                # if i == self.numberOfFiles - 1:
+                #     self.tasks_done = 0
+                #     self.startNewThread()
+                
+            self.progressBar.setVisible(False)
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
@@ -3060,6 +3072,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Popup input dialog and set file selection
         """
+        self.newProcess = True
         file_name = getAFile()
         if file_name != "":
             self.onNewFileSelected(str(file_name))
@@ -3159,3 +3172,4 @@ class QuadrantFoldingGUI(QMainWindow):
                        "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec_()
+        
