@@ -151,7 +151,7 @@ def getImgFiles(fullname, headless=False):
                 continue
             full_file_name = fullPath(dir_path, f)
             _, ext2 = os.path.splitext(str(f))
-            if isImg(full_file_name) and f != "calibration.tif" and ext2 not in ('.hdf5', '.h5') and validateImage(full_file_name):
+            if isImg(full_file_name) and f != "calibration.tif" and ext2 not in ('.hdf5', '.h5'): # and validateImage(full_file_name):
                 imgList.append(f)
         imgList.sort()
 
