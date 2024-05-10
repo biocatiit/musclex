@@ -1364,6 +1364,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.deleteInfo(['avg_fold'])
                     self.newImgDimension = None
                     self.setCenterRotationButton.setChecked(False)
+                    self.persistRotations.setVisible(True)
                     self.processImage()
             elif func[0] == "im_rotate":
                 # set rotation angle
