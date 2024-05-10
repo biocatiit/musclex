@@ -14,6 +14,7 @@
   * [Publish the release on GitHub](#publish-the-release-on-github)
   * [Update the information of the new release on Zenodo](#update-the-information-of-the-new-release-on-zenodo)
   * [Create App Image using App Image Installer](#create-app-image-using-app-image-installer)
+  * [Create a conda package](#create-a-conda-package)
 
 ## Process outline
 1. Generate pickle testing files (deprecated), update test files.
@@ -167,3 +168,63 @@ Note: if the command doesn't exist, you can download the appimage-builder [here]
 [10]:https://musclex.readthedocs.io/en/latest/credits.html
 [11]:https://appimage-builder.readthedocs.io/en/latest/examples/pyqt.html
 [12]:https://appimage-builder.readthedocs.io/en/latest/intro/install.html
+
+
+### Build and upload a Conda Package
+
+Conda packages are a convenient way to distribute MuscleX to users. This section outlines the process for creating and publishing a new Conda package.
+
+#### Prerequisites
+
+- Anaconda or Miniconda installed
+- GitHub account (for Conda-Forge submission)
+- Basic understanding of Conda packaging, more information at [Building a conda package from scratch](https://docs.conda.io/projects/conda-build/en/latest/user-guide/tutorials/build-pkgs.html)
+
+#### 1. Update `meta.yaml`
+
+For each new release:
+- Update `version` and `sha256` in `meta.yaml`.
+- Ensure dependencies in the `requirements` section are accurate and up to date.
+- Review and update the `test` section as necessary.
+
+#### 2. Create a virtual environment to build the package
+
+Create a new environment and install the necessary packages:
+
+```bash
+conda create -n musclex-build python=3.10 conda-build anaconda-client 
+# adding the conda-forge and fastai channels, which are necessary for conda to fetch the dependencies needed for MuscleX
+conda config --add channels conda-forge fastai
+conda activate musclex-build
+```
+
+#### 3. Build the Conda Package
+
+Use the following commands to build your package:
+
+```bash
+conda build .
+```
+
+#### 4. Test the Package Locally
+
+Create and activate a test environment:
+
+```bash
+conda create -n test-musclex python=3.10
+conda activate test-musclex
+conda install --use-local musclex
+```
+
+Verify the main functionalities. Run the tests.
+
+#### 4. Upload to Anaconda Cloud
+
+Login to the Anaconda account of biocat and upload the package:
+
+```bash
+anaconda login # then enter your credentials, the username of the account is biocat_IIT
+anaconda upload /path/to/your/conda/package.tar.bz2
+```
+
+Note : The same process should be followed for the tree different platforms (linux, osx, win), i.e., the package should be built and uploaded for each platform.

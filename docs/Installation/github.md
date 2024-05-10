@@ -18,7 +18,6 @@ Here is the recommended setup to run:
 ```
 sudo apt-get update
 sudo apt-get install python3 python3-pip python3-dev python3-distutils 
-sudo apt-get install gfortran
 #sudo apt-get install git # run this if you are going to use the most up-to-date version
 ```
 ```eval_rst
@@ -75,12 +74,19 @@ sudo pip install cython
 
 ## Installing
 
+### Installing with pip from GitHub
+
+The simplest way to install the latest version of musclex available on GitHub is to use pip.
+```
+pip install git+https://github.com/biocatiit/musclex
+```
+
+### Alternative: Install from the downloaded code and build it locally
+
 Simply [download the zip file from GitHub](https://github.com/biocatiit/musclex) and extract it or clone the repository on your computer.
 ```
 git clone https://github.com/biocatiit/musclex.git
 ```
-
-## Running the program
 
 First, you will need to build the program from the code. Open a terminal window at the root of the musclex code folder.
 
@@ -90,6 +96,9 @@ python3 setup.py clean --all
 python3 setup.py build
 python3 setup.py install
 ```
+
+## Running the program
+
 Run the program:
 ```
 musclex [program shortcut]

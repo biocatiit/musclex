@@ -25,20 +25,11 @@ copyright = '2023, BioCAT'
 author = 'BioCAT'
 
 # The short X.Y version
-version = '1.22'
+version = '1.23'
 # The full version, including alpha/beta/rc tags
-release = '1.22.0'
+release = '1.23.1'
 
 
-# -- General configuration ---------------------------------------------------
-
-# If your documentation needs a minimal Sphinx version, state it here.
-#
-# needs_sphinx = '1.0'
-
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
     'sphinx.ext.mathjax', 'recommonmark'
 ]
@@ -46,10 +37,7 @@ extensions = [
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
+
 from recommonmark.transform import AutoStructify
 from recommonmark.parser import CommonMarkParser
 
@@ -103,9 +91,7 @@ html_theme_options = {
     'logo_only': False
 }
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
+
 html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names

@@ -39,3 +39,17 @@ Simple program to compress or decompress TIFF images. Uses tiff_lzw format (loss
 * Windows installer and AppImage: [TIFF Compressor-Decompressor on SourceForge](https://sourceforge.net/projects/tiff-compressor-decompressor/)
 
 Click [here](AppSuite/CompressDecompressTif/Compress-decompress-tif-images.md) to learn more about the program and how it works.
+
+## Strong image creator 
+
+Simple program to create strong images from a set of TIFF images, or from h5 files containing single images.
+
+* Available inside the MuscleX code: [Github code](
+    https://github.com/biocatiit/musclex/blob/master/musclex/utils/strong_image_creation.py)
+
+* [Pip version](https://pypi.org/project/strong-image-creation): `pip install strong-image-creation`
+
+
+A more advanced version of this program is available under the name "AISE".
+
+

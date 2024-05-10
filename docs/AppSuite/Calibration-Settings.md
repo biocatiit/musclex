@@ -1,5 +1,9 @@
 # Calibration Settings
 
+A calibration image is a shot of a membrane sample that gives a ring in the diffraction pattern at a known spacing in inverse nm.
+By fitting this ring to a circle you can refine a center and you can use the radius of the ring to convert spacings in pixels to spacings in nm.
+
+
 ## Setting by Calibration Image
 
 When the box is selected, you can choose a calibration image and the program will try to fit a circle to the image. The center and radius will be shown on it if the circle can be fitted.
