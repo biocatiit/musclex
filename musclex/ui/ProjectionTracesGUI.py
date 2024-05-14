@@ -38,6 +38,8 @@ import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 import numpy as np
 import cv2
+from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from queue import Queue
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
@@ -47,6 +49,26 @@ from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CSVManager
 from .BlankImageSettings import BlankImageSettings
 from .pyqt_utils import *
+
+class Worker(QRunnable):
+
+    def __init__(self, projProc, settings, callback):
+        super().__init__()
+        self.projProc = projProc
+        self.settings = settings
+        self.callback = callback
+        
+    def run(self):
+        self.projProc.process(self.settings)
+        self.callback(self.projProc)
+
+    # def process(self):
+    #     self.quadFold.process(self.flags)
+    #     self.finished.emit(self.quadFold)
+        
+    # def update(self, quadFold1, flags1):
+    #     self.quadFold = quadFold1
+    #     self.flags = flags1
 
 class BoxDetails(QDialog):
     """
@@ -166,6 +188,15 @@ class ProjectionTracesGUI(QMainWindow):
         self.chordpoints = []
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
+        
+        self.threadPool = QThreadPool()
+        self.tasksQueue = Queue()
+        self.loop = QEventLoop()
+        self.currentTask = None
+        self.worker = None
+        self.tasksDone = 0
+        self.totalFiles = 1
+        
         self.initUI()
         self.setConnections()
 
@@ -2146,9 +2177,10 @@ class ProjectionTracesGUI(QMainWindow):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        settings = self.getSettings()
+        #settings = self.getSettings()
         try:
-            self.projProc.process(settings)
+            # self.projProc.process(settings)
+            self.addTask()
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
@@ -2162,13 +2194,44 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.exec_()
             raise
 
+        # self.resetUI()
+        # self.refreshStatusbar()
+        # self.cacheBoxesAndPeaks()
+        # self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        # self.csvManager.writeNewData(self.projProc)
+        # self.exportHistograms()
+        # QApplication.restoreOverrideCursor()
+        
+    def addTask(self):
+        self.tasksQueue.put((self.projProc, self.getSettings()))
+
+        # If there's no task currently running, start the next task
+        if self.currentTask is None:
+            self.startNextTask()
+            
+    def startNextTask(self):
+        if not self.tasksQueue.empty():
+            projProc, settings = self.tasksQueue.get()
+            self.currentTask = Worker(projProc, settings, self.onProcessingFinished)
+            self.threadPool.start(self.currentTask)
+            self.loop.exec_()
+        
+    def onProcessingFinished(self, projProc):
+        # print("Processing finished")
+        self.projProc = projProc
+        self.tasksDone += 1
+        
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
+        
         QApplication.restoreOverrideCursor()
+        self.loop.quit()
+        self.currentTask = None
+        self.startNextTask()
 
     def exportHistograms(self):
         """

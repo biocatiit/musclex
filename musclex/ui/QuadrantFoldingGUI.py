@@ -2697,6 +2697,7 @@ class QuadrantFoldingGUI(QMainWindow):
             resultImg = np.rot90(resultImg)
 
         method = info['bgsub']
+        print(method)
         if method != 'None':
             
             filename = self.imgList[self.currentFileNumber]
@@ -2810,22 +2811,34 @@ class QuadrantFoldingGUI(QMainWindow):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
         if self.filePath is not None and self.imgList is not None and self.imgList:
-            self.csvManager = QF_CSVManager(self.filePath)
-            self.numberOfFiles = len(self.imgList)
-            
-            self.ignoreFolds = set()
-            self.selectImageButton.setHidden(True)
-            self.selectFolder.setHidden(True)
-            self.imageCanvas.setHidden(False)
-            self.resetWidgets()
-            QApplication.restoreOverrideCursor()
-            if self.h5List == []:
-                fileName = self.imgList[self.currentFileNumber]
-                self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-                self.setCalibrationImage()
-            self.h5List = []
-            self.setH5Mode(str(newFile))
-            self.onImageChanged()
+            try:
+                self.csvManager = QF_CSVManager(self.filePath)
+            except Exception:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Permission denied when creating a folder at " + self.filePath + ". Please check the folder permissions.")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Error Creating CSVManager")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.exec_()
+            if self.csvManager is not None:
+                self.numberOfFiles = len(self.imgList)
+                self.ignoreFolds = set()
+                self.selectImageButton.setHidden(True)
+                self.selectFolder.setHidden(True)
+                self.imageCanvas.setHidden(False)
+                self.resetWidgets()
+                QApplication.restoreOverrideCursor()
+                if self.h5List == []:
+                    fileName = self.imgList[self.currentFileNumber]
+                    self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+                    self.setCalibrationImage()
+                self.h5List = []
+                self.setH5Mode(str(newFile))
+                self.onImageChanged()
+            else:
+                QApplication.restoreOverrideCursor()
+                self.browseFile()
         else:
             QApplication.restoreOverrideCursor()
             self.browseFile()
@@ -3056,13 +3069,13 @@ class QuadrantFoldingGUI(QMainWindow):
                 for i in range(self.numberOfFiles):
                     if self.stop_process:
                         break
-                    #self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
+                    self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
                     QApplication.processEvents()
                     self.nextClicked(reprocess=True)
                 if self.stop_process:
                     break
                 self.nextFileClicked()
-            #self.progressBar.setVisible(False)
+            self.progressBar.setVisible(False)
 
         self.processH5FolderButton.setChecked(False)
         self.processH5FolderButton2.setChecked(False)
@@ -3133,7 +3146,7 @@ class QuadrantFoldingGUI(QMainWindow):
         :param text: text to print
         :return: -
         """
-        # self.statusReport.setText(text) // will fix later with different threads
+        self.statusReport.setText(text) # will fix later with different threads
         print(text)
         QApplication.processEvents()
 
