@@ -64,3 +64,8 @@ If you encounter any issues during the installation, please ensure that:
 - You have the necessary permissions to install software on your system.
 
 Refer back to the [Prerequisite Guide](Prerequisites.md) for additional troubleshooting tips related to setting up and managing your Conda environment.
+
+
+## Additional notes 
+
+If you want to work with the latest version of the code available on the repository of musclex, we redirect you to the [Directly working with downloaded GitHub code](github.md) guide.
