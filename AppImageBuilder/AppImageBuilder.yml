@@ -17,7 +17,7 @@ AppDir:
     id: musclex
     name: musclex
     icon: utilities-terminal
-    version: 1.23.1
+    version: 1.23.2
     # Set the python executable as entry point
     exec: usr/bin/python3.8
     # Set the application main script path as argument. Use '$@' to forward CLI parameters
@@ -46,12 +46,13 @@ AppDir:
     - python3-pyqt5
     - libfreetype6
     - libfontconfig1
-    - gfortran
     - cython
     - libjpeg-dev
     - libopencv-dev
     - python3-opencv
     - mesa-common-dev
+    - libgl1
+    - libglx0
    
     
   files:
