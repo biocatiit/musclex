@@ -2,8 +2,8 @@ pip
 wheel
 numpy<1.24,>=1.18
 Cython<=0.29.33
-scikit-image<=0.20.0
-scikit-learn<=1.2.1
+scikit-image
+scikit-learn
 openpyxl<=3.1.1
 pyopencl<=2022.3.1
 tifffile<=2023.2.28
@@ -17,7 +17,6 @@ h5py<=3.8.0
 hdf5plugin<=4.1.1
 scipy<=1.10.1
 matplotlib<3.7,>=3.6.3
-musclex_ccp13==1.2
 opencv-python-headless<=4.7.0.72
 PyQt5<=5.15.9
 pyFAI<=2023.2.0
@@ -26,3 +25,4 @@ PyMca5<=5.8.1
 numba<=0.57.1
 fisx<=1.2.1
 future<=0.18.3
+numexpr==2.8.4
