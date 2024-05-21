@@ -83,6 +83,7 @@ setup(
         'numba<=0.57.1',
         'fisx<=1.2.1',
         'future<=0.18.3',
+        'numexpr==2.8.4',
 
     ],
 
