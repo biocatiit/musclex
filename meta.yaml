@@ -55,7 +55,6 @@ requirements:
 
 test:
   imports:
-    - AppImageBuilder
     - dev_docs
     - docs
     - hooks
