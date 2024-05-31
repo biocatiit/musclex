@@ -112,9 +112,6 @@ Note: The first push is to save a tagged version, and the second push is to upda
 
 Copy this file into dev_docs/DevGuide/release-info
 
-### Update documents in docs_archive
-Create a copy of the current docs version in docs_archive and rename it as docs_versionNumber.
-
 ### Update documents
 [Update docs for Read-the-Docs][4].
 
@@ -228,3 +225,10 @@ anaconda upload /path/to/your/conda/package.tar.bz2
 ```
 
 Note : The same process should be followed for the tree different platforms (linux, osx, win), i.e., the package should be built and uploaded for each platform.
+
+## Old steps 
+
+### Update documents in docs_archive
+Create a copy of the current docs version in docs_archive and rename it as docs_versionNumber.
+
+Not needed anymore since readthedocs allows to retrieve archives directly from the website. See https://readthedocs.org/projects/musclex/downloads/. 
