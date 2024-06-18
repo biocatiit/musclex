@@ -163,6 +163,42 @@ Note that just like Computer Center and Set Calibration Center, Set Orientation 
 
 Clicking the save button will create a `calibrationDialog.json` file in the `settings` folder to which the program will read from and apply the data inside during the final processing.
 
+#### Detect Misaligned Images
+
+Clicking this button will open up a popup with configurable options. The user can choose the method of which they want the algorithm to scan for misaligned images, and can edit the threshold values of the variables being used in the calculations. 
+
+![-](../../images/AISE/misaligned_settings.PNG)
+
+If any misaligned images are found, the user will be prompted to either review or ignore all the misaligned images. If the user selects to review the misaligned images, the Select Image Subset menu will open up, with all the misaligned images being marked in red. The user can use the menu to remove them from the bins as needed. If the user selects to ignore them, the program will just simply skip over them during final processing.
+
+## Operation Options
+
+The following options will affect processing at the end.
+
+#### Compute Average Instead of Sum
+
+Selecting this option will compute the average of all the images per bin instead of summing them together during the final processing
+
+#### Compress the Resulting Images
+
+Selecting this option will generate the files with a `_compressed` tag added to them as well as their reduced size to save space.
+
+## Review Images
+
+Here you can use buttons to switch between the images to view them and perform operations on them. There is a dropdown box that changes the behaviors of the arrows.
+
+#### Step through Selected Images
+
+This option will make the arrows go through all the images in the bins. Any images that are not found in the bins will skipped and therefore not be displayed.
+
+#### Step through all images
+
+This option will make the arrows go through all the images in the folder. 
+
+#### Step through badly correlated images
+
+This option will make the arrows go through all the images marked as badly correlated. The images will only be marked as badly correlated if the user has clicked on the Detect Misaligned Images button before. If no badly correlated images are found, a popup will display stating it and the option will remain the same.
+
 <!-- ## Calibration options
 
 The Mask Threshold is used for excluding certain pixel values when calculating the folded image. The program will ignore pixels with intensity below mask threshold. This can be used to remove the dark gaps in images resulting from the gaps between detector elements in Pilatus detectors, as well as other detector abnormalities.
