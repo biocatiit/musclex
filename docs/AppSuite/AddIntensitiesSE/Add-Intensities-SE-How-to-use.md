@@ -44,7 +44,7 @@ This option allows the user to modify the number of frames per bin they want to 
 
 The other option to modify bins. Selecting this will disable the binning factor box and enable the button to Select Image Subsets. Clicking the button opens up the following menu.
 
-![-](../../images/AISE/SelectImageSubsets.png)
+![-](../../images/AISE/SelectImageSubsets.PNG)
 
 By default, due to loading times, the images will be presented in a list format. We have given an option to toggle the images but they may take some time. Clicking on the image name will open up XV so that the user can view that specific image.
 
@@ -70,7 +70,7 @@ This option saves the bins and closes the dialog.
 
 This button opens up another menu for the user to specify a mask or add an empty cell image to subtract.
 
-![-](../../images/AISE/SpecifyEmptyMaskMenu.png)
+![-](../../images/AISE/SpecifyEmptyMaskMenu.PNG)
 
 The program will remember the min/max intensity values set by the user earlier and the image displayed in the menu will use the values.
 
@@ -110,7 +110,7 @@ Once the user is done, clicking the save button will save and close the dialog. 
 
 This button becomes enabled when the previous checkbox **Align Images** has been checked. Clicking this button will open up the following menu:
 
-![-](../../images/AISE/calibration_menu.png)
+![-](../../images/AISE/calibration_menu.PNG)
 
 This menu will be used to correct images if their center or orientation is misaligned. As per usual, we have provided display options so the user can edit the intensities of the image to view them better. This will not affect processing.
 
