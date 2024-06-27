@@ -54,11 +54,13 @@ class Worker(QRunnable):
 
     def __init__(self, projProc, settings, callback):
         super().__init__()
+        print("new worker")
         self.projProc = projProc
         self.settings = settings
         self.callback = callback
         
     def run(self):
+        print("processing")
         self.projProc.process(self.settings)
         self.callback(self.projProc)
 
@@ -532,6 +534,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
             self.projProc.info['hists'] = {}
             self.masked = False
+            print("Blank checked")
             self.processImage()
 
     def blankSettingClicked(self):
@@ -542,6 +545,7 @@ class ProjectionTracesGUI(QMainWindow):
         result = dlg.exec_()
         if result == 1 and self.projProc is not None:
             self.masked = False
+            print("Blank setting clicked")
             self.processImage()
 
     def maskThresChanged(self):
@@ -550,6 +554,7 @@ class ProjectionTracesGUI(QMainWindow):
         """
         if self.projProc is not None:
             self.projProc.info['hists'] = {}
+            print("Mask threshold changed")
             self.processImage()
 
     def calibrationClicked(self):
@@ -562,6 +567,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.rotated = False
             self.projProc.rotMat = None
             self.updateImage()
+            print("calibration clicked")
             self.processImage()
 
     def launchCalibrationSettings(self, force=False):
@@ -638,6 +644,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.rotated = True
             self.updateCenter()
             self.removeAllTabs()
+            print("set center by chords")
             self.processImage()
             self.addBoxTabs()
             self.updateImage()
@@ -692,6 +699,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.rotated = True
             self.updateCenter()
             self.removeAllTabs()
+            print("set center by perp")
             self.processImage()
             self.addBoxTabs()
             self.updateImage()
@@ -830,6 +838,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.center_func = 'automatic'
             self.rotated = True
         self.updateCenter()
+        print("qfbox")
         self.processImage()
         self.addBoxTabs()
         self.updateImage()
@@ -854,6 +863,7 @@ class ProjectionTracesGUI(QMainWindow):
         :return:
         """
         self.updatePeaks(name, peaks)
+        print("addPeakstoBox")
         self.processImage()
 
     def addPeaks(self):
@@ -888,6 +898,7 @@ class ProjectionTracesGUI(QMainWindow):
                 for name in peaks.keys():
                     self.updatePeaks(name, peaks[name])
 
+            print("peaks")
             self.processImage()
 
     def batchProcBtnToggled(self):
@@ -1041,6 +1052,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.peaks = {}
         self.hull_ranges = {}
         self.removeAllTabs()
+        print("clearBoxes")
         self.processImage()
 
     def addABox(self):
@@ -1215,6 +1227,7 @@ class ProjectionTracesGUI(QMainWindow):
                 if name in self.hull_ranges:
                     del self.hull_ranges[name]
                 widget.deleteLater()
+            print("removeTab")
             self.processImage()
             self.tabWidget.removeTab(index)
 
@@ -1317,6 +1330,7 @@ class ProjectionTracesGUI(QMainWindow):
                     self.merid_bg[name] = True
                 self.function = None
                 self.addBoxTabs()
+                print("box")
                 self.processImage()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
@@ -1432,6 +1446,7 @@ class ProjectionTracesGUI(QMainWindow):
                         self.function = None
 
                         self.addBoxTabs()
+                        print("orientedbox")
                         self.processImage()
 
         elif func[0] == "peaks":
@@ -1525,6 +1540,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.rotated = True
                 self.updateCenter()
                 self.removeAllTabs()
+                print("anglecenter")
                 self.processImage()
                 self.addBoxTabs()
                 self.updateImage()
@@ -1573,6 +1589,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.setRotationButton.setChecked(False)
             self.rotated = True
             self.removeAllTabs()
+            print("im_rotate")
             self.processImage()
             self.addBoxTabs()
             self.updateImage()
@@ -1968,6 +1985,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.allboxes[func[1]] = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
                 self.function = None
                 self.addBoxTabs()
+                print("img_released")
                 self.processImage()
 
     def leaveImage(self, event):
@@ -2177,10 +2195,11 @@ class ProjectionTracesGUI(QMainWindow):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        #settings = self.getSettings()
+        settings = self.getSettings()
         try:
-            # self.projProc.process(settings)
-            self.addTask()
+            self.projProc.process(settings)
+            # print("adding task")
+            # self.addTask()
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
@@ -2194,30 +2213,32 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.resetUI()
-        # self.refreshStatusbar()
-        # self.cacheBoxesAndPeaks()
-        # self.csvManager.setColumnNames(self.allboxes, self.peaks)
-        # self.csvManager.writeNewData(self.projProc)
-        # self.exportHistograms()
-        # QApplication.restoreOverrideCursor()
+        self.resetUI()
+        self.refreshStatusbar()
+        self.cacheBoxesAndPeaks()
+        self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        self.csvManager.writeNewData(self.projProc)
+        self.exportHistograms()
+        QApplication.restoreOverrideCursor()
         
     def addTask(self):
         self.tasksQueue.put((self.projProc, self.getSettings()))
-
+        print("added task")
+        
         # If there's no task currently running, start the next task
         if self.currentTask is None:
             self.startNextTask()
             
     def startNextTask(self):
         if not self.tasksQueue.empty():
+            print("starting new task")
             projProc, settings = self.tasksQueue.get()
             self.currentTask = Worker(projProc, settings, self.onProcessingFinished)
             self.threadPool.start(self.currentTask)
             self.loop.exec_()
         
     def onProcessingFinished(self, projProc):
-        # print("Processing finished")
+        print("Processing finished")
         self.projProc = projProc
         self.tasksDone += 1
         
@@ -2231,6 +2252,7 @@ class ProjectionTracesGUI(QMainWindow):
         QApplication.restoreOverrideCursor()
         self.loop.quit()
         self.currentTask = None
+        print(self.tasksQueue.qsize())
         self.startNextTask()
 
     def exportHistograms(self):

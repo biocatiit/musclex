@@ -40,7 +40,7 @@ def displayImage(imageArray, minInt, maxInt):
         if minInt == -1 and maxInt == -1:
             normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
         else:
-            normFlippedImageArray = 255 * (flippedImageArray - minInt) / (maxInt - minInt)
+            normFlippedImageArray = 255 * (np.array(flippedImageArray) - minInt) / (maxInt - minInt)
         normFlippedImageArray = normFlippedImageArray.astype(np.uint8)  # Convert to 8-bit
 
     # Create a QImage from the 8-bit array

@@ -48,6 +48,7 @@ except: # for coverage
     from utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from utils.histogram_processor import *
     from utils.image_processor import *
+from collections import deque
 
 class EquatorImage:
     """
@@ -163,12 +164,80 @@ class EquatorImage:
         if 'fixed_rmax' in self.info:
             self.info['rmax'] = self.info['fixed_rmax']
             print("R-max is fixed as " + str(self.info['rmax']))
+            
+    def fill_sensor_gaps_propagate(self, image, threshold):
+        if isinstance(image, str):
+            image = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
+
+        # Create a binary mask for sensor gaps
+        mask = image <= threshold
+
+        # Dilate the sensor gap mask using a 3x3 kernel twice
+        kernel = np.ones((3, 3), np.uint8)
+        dilated_mask = cv2.dilate(mask.astype(np.uint8), kernel, iterations=2)
+
+        # Create a difference mask by subtracting the original sensor gap mask from the dilated one
+        difference_mask = dilated_mask - mask
+
+        # Multiply the original image by the difference mask
+        masked_image = image * difference_mask
+        dialated_masked_image = image * difference_mask
+
+        # Convolve this masked image by a 3x3 smoothing filter but only within the difference mask
+        kernel = np.ones((3, 3), np.float32) / 9 * 2
+        convolved_image = cv2.filter2D(masked_image, -1, kernel)
+        convolved_image = convolved_image * difference_mask
+
+        # Prepare the output image
+        output_image = np.copy(image)
+
+        # A mask to keep track of filled areas
+        filled_mask = np.zeros_like(image, dtype=bool)
+
+        # Initialize a queue for flood fill propagation
+        queue = deque()
+        # Enqueue all the seed points
+        seeds = np.argwhere((difference_mask == 1))
+
+        for seed in seeds:
+            queue.append((seed[0], seed[1]))
+            filled_mask[seed[0], seed[1]] = True
+            output_image[seed[0]-1:seed[0]+2, seed[1]-1:seed[1]+2] = convolved_image[seed[0], seed[1]]
+            output_image[seed[0]-2:seed[0]+3, seed[1]-2:seed[1]+3] = convolved_image[seed[0], seed[1]]
+
+        # Directions for the 8-connected neighborhood
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+        # Propagate the fill
+        while queue:
+            x, y = queue.popleft()
+
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < image.shape[0] and 0 <= ny < image.shape[1]:
+                    if not filled_mask[nx, ny] and mask[nx, ny]:
+                        output_image[nx, ny] = output_image[x, y]
+                        filled_mask[nx, ny] = True
+                        queue.append((nx, ny))
+
+        # Perform final smoothing
+        kernel = np.ones((5, 5), np.float32) / 25
+        convolved_image = cv2.filter2D(output_image, -1, kernel)
+        output_image = np.where(dilated_mask, convolved_image, image)
+
+        return output_image
+            
 
     def applyBlankAndMask(self):
         """
         Subtract the original image with blank image and set pixels in mask below the mask threshold
         """
-        img = np.array(self.orig_img, dtype='float32')
+        
+        # Temporary code to fill sensor gaps in the image if toggled
+        if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
+            img = self.fill_sensor_gaps_propagate(self.orig_img, self.info['fillGapLinesThreshold'])
+        else:
+            img = np.array(self.orig_img, dtype='float32')
         if self.info['blank_mask']:
             blank, mask = getBlankImageAndMask(self.dir_path)
             maskOnly = getMaskOnly(self.dir_path)
@@ -199,7 +268,10 @@ class EquatorImage:
                 print("Using Calibration Center")
                 self.info['center'] = self.info['calib_center']
                 return
-            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
+            if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
+                self.image, self.info['center'] = processImageForIntCenter(self.image, getCenter(self.image))
+            else:
+                self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
         else:
             if self.rotMat is not None:
@@ -254,7 +326,10 @@ class EquatorImage:
 
         print("R-min is being calculated...")
         if 'rmin' not in self.info:
-            img = copy.copy(self.orig_img)
+            if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
+                img = copy.copy(self.image)
+            else:
+                img = copy.copy(self.orig_img)
             center = self.info['center']
 
             if 'detector' in self.info:

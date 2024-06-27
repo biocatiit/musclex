@@ -51,6 +51,7 @@ from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 from skimage.morphology import binary_dilation
 
+
 class EquatorWindow(QMainWindow):
     """
     Window displaying all information of a selected image.
@@ -250,6 +251,13 @@ class EquatorWindow(QMainWindow):
         self.setRmaxB.setCheckable(True)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
+        
+        self.fillGapLinesChkbx = QCheckBox("Fill Gap Lines")
+        self.fillGapLinesChkbx.setChecked(False)
+        self.fillGapLinesLabel = QLabel("Threshold: ")
+        self.fillGapLinesThreshold = QSpinBox()
+        self.fillGapLinesThreshold.setEnabled(False)
+        
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
@@ -314,25 +322,28 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setRmaxB, 3, 2, 1, 2)
         self.imgProcLayout.addWidget(self.setIntAreaB, 4, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.brightSpot, 5, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.applyBlank, 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.blankSettings, 6, 3, 1, 1)
-        self.imgProcLayout.addWidget(self.doubleZoom, 7, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 7, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 8, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 9, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 9, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 10, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 10, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 11, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmax, 11, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 12, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 12, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 13, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 13, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 14, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 14, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fillGapLinesChkbx, 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fillGapLinesLabel, 5, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fillGapLinesThreshold, 5, 3, 1, 1)
+        self.imgProcLayout.addWidget(self.brightSpot, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.applyBlank, 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.blankSettings, 7, 3, 1, 1)
+        self.imgProcLayout.addWidget(self.doubleZoom, 8, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 9, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 10, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 10, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 11, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 11, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 12, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmax, 12, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 13, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 13, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 14, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 14, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 15, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 15, 2, 1, 2)
 
         self.imgProcLayout.addWidget(self.resetAllB, 15, 0, 1, 4)
 
@@ -721,6 +732,7 @@ class EquatorWindow(QMainWindow):
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
+        self.fillGapLinesChkbx.stateChanged.connect(self.fillGapLinesChanged)
         self.brightSpot.clicked.connect(self.brightSpotClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
@@ -793,6 +805,16 @@ class EquatorWindow(QMainWindow):
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
         self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+        
+    def fillGapLinesChanged(self):
+        if self.fillGapLinesChkbx.isChecked():
+            self.fillGapLinesThreshold.setEnabled(True)
+            self.bioImg.info['fillGapLines'] = True
+            self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
+        else:
+            self.fillGapLinesThreshold.setEnabled(False)
+            self.bioImg.info['fillGapLines'] = False
+        self.processImage()
         
     def fittingErrorChanged(self):
         self.bioImg.fitting_error = self.fittingErrorThreshold.value()
@@ -3548,6 +3570,9 @@ class EquatorWindow(QMainWindow):
             self.minIntSpnBx.setValue(min_val)
             self.maxIntSpnBx.setValue(max_val * 0.20)
         self.syncUI = False
+        
+        self.fillGapLinesThreshold.setMinimum(int(min_val))
+        self.fillGapLinesThreshold.setValue(-1)
 
     def refreshGraph(self):
         """

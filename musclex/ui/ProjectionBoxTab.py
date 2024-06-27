@@ -256,8 +256,8 @@ class ProjectionBoxTab(QWidget):
         self.startHull.valueChanged.connect(self.hullRangeChanged)
         self.endHull.valueChanged.connect(self.hullRangeChanged)
 
-        self.resultTable1.itemChanged.connect(self.handleGaussSigChanged)
-        self.resultTable2.itemChanged.connect(self.handleBaselineChanged)
+        # self.resultTable1.itemChanged.connect(self.handleGaussSigChanged)
+        # self.resultTable2.itemChanged.connect(self.handleBaselineChanged)
 
         self.prevButton.clicked.connect(self.parent.prevClicked)
         self.nextButton.clicked.connect(self.parent.nextClicked)
@@ -482,6 +482,7 @@ class ProjectionBoxTab(QWidget):
                 hull_range = tuple(sorted(hull_range))
                 self.parent.hull_ranges[self.name] = hull_range
                 self.parent.projProc.removeInfo(self.name, 'hists2')
+                print("hull graph clicked")
                 self.parent.processImage()
         elif func[0] == 'zoom':
             # select zoom in area for the second plot
@@ -639,6 +640,7 @@ class ProjectionBoxTab(QWidget):
             return
 
         self.syncUI = True
+        
 
         # Update graphs
         info = self.parent.projProc.info
@@ -665,6 +667,7 @@ class ProjectionBoxTab(QWidget):
         ax2.cla()
 
         if self.histChkBx.isChecked():
+            print(hist)
             ax.plot(hist, color='k')
 
         if name in merid_bgs:
@@ -770,7 +773,11 @@ class ProjectionBoxTab(QWidget):
             ax.set_xlim(self.zoom1[0])
             ax.set_ylim(self.zoom1[1])
         else:
+            # print(info['boxes'][name])
+            # pairs = [item for item in info['boxes'][name] if isinstance(item, tuple) and len(item) == 2]
+            # min_tuple = min(pairs, key=lambda x: x[0])
             ax.set_xlim((0, len(hist)))
+            # ax.set_xlim((min_tuple[0], min_tuple[0] + len(hist)))
 
         if self.zoom2 is not None:
             ax2.set_xlim(self.zoom2[0])
@@ -787,6 +794,7 @@ class ProjectionBoxTab(QWidget):
         self.graphCanvas2.draw()
 
         # Update Table
+        
         if name in all_centroids and name in all_baselines:
             centroids = all_centroids[name]
             baselines = all_baselines[name]
@@ -808,7 +816,7 @@ class ProjectionBoxTab(QWidget):
                 self.resultTable1.setItem(i, 0, item)
 
                 item = QTableWidgetItem(str(center))
-                item.setFlags(Qt.ItemIsEnabled)
+                #item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 1, item)
 
                 item = QTableWidgetItem(str(sigma))
@@ -838,6 +846,7 @@ class ProjectionBoxTab(QWidget):
                 item = QTableWidgetItem(str(area))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 3, item)
-
+        
         self.need_update = False
         self.syncUI = False
+        
