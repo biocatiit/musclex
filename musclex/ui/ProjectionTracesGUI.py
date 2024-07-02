@@ -863,7 +863,6 @@ class ProjectionTracesGUI(QMainWindow):
         :return:
         """
         self.updatePeaks(name, peaks)
-        print("addPeakstoBox")
         self.processImage()
 
     def addPeaks(self):
@@ -1052,7 +1051,6 @@ class ProjectionTracesGUI(QMainWindow):
         self.peaks = {}
         self.hull_ranges = {}
         self.removeAllTabs()
-        print("clearBoxes")
         self.processImage()
 
     def addABox(self):
@@ -1227,7 +1225,6 @@ class ProjectionTracesGUI(QMainWindow):
                 if name in self.hull_ranges:
                     del self.hull_ranges[name]
                 widget.deleteLater()
-            print("removeTab")
             self.processImage()
             self.tabWidget.removeTab(index)
 
@@ -1330,7 +1327,6 @@ class ProjectionTracesGUI(QMainWindow):
                     self.merid_bg[name] = True
                 self.function = None
                 self.addBoxTabs()
-                print("box")
                 self.processImage()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
@@ -1446,7 +1442,6 @@ class ProjectionTracesGUI(QMainWindow):
                         self.function = None
 
                         self.addBoxTabs()
-                        print("orientedbox")
                         self.processImage()
 
         elif func[0] == "peaks":
@@ -1540,7 +1535,6 @@ class ProjectionTracesGUI(QMainWindow):
                 self.rotated = True
                 self.updateCenter()
                 self.removeAllTabs()
-                print("anglecenter")
                 self.processImage()
                 self.addBoxTabs()
                 self.updateImage()
@@ -1589,7 +1583,6 @@ class ProjectionTracesGUI(QMainWindow):
             self.setRotationButton.setChecked(False)
             self.rotated = True
             self.removeAllTabs()
-            print("im_rotate")
             self.processImage()
             self.addBoxTabs()
             self.updateImage()
@@ -1985,7 +1978,6 @@ class ProjectionTracesGUI(QMainWindow):
                 self.allboxes[func[1]] = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
                 self.function = None
                 self.addBoxTabs()
-                print("img_released")
                 self.processImage()
 
     def leaveImage(self, event):

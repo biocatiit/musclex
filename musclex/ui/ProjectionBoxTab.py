@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.ticker import MaxNLocator
 import numpy as np
 from .pyqt_utils import *
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground
@@ -256,8 +257,8 @@ class ProjectionBoxTab(QWidget):
         self.startHull.valueChanged.connect(self.hullRangeChanged)
         self.endHull.valueChanged.connect(self.hullRangeChanged)
 
-        # self.resultTable1.itemChanged.connect(self.handleGaussSigChanged)
-        # self.resultTable2.itemChanged.connect(self.handleBaselineChanged)
+        self.resultTable1.itemChanged.connect(self.handleResultTable1Changed)
+        self.resultTable2.itemChanged.connect(self.handleBaselineChanged)
 
         self.prevButton.clicked.connect(self.parent.prevClicked)
         self.nextButton.clicked.connect(self.parent.nextClicked)
@@ -289,9 +290,10 @@ class ProjectionBoxTab(QWidget):
             self.parent.projProc.removeInfo(self.name, 'hists2')
             self.parent.processImage()
 
-    def handleGaussSigChanged(self, item):
+
+    def handleResultTable1Changed(self, item):
         """
-        Trigger when Gaussian Sigma in table is changed
+        Trigger when Gaussian Sigma or Gauss Center in table is changed
         :param item:
         :return:
         """
@@ -308,6 +310,20 @@ class ProjectionBoxTab(QWidget):
                 errMsg.exec_()
                 self.need_update = True
                 self.updateUI()
+        elif self.parent.projProc is not None and item.column() == 1 and not self.syncUI:
+            try:
+                self.parent.projProc.setGaussCenter(self.name, item.row(), item.text())
+                self.parent.processImage()
+            except ValueError:
+                errMsg = QMessageBox()
+                errMsg.setText('Invalid Value')
+                errMsg.setInformativeText("Please use an int or float number for the Gaussian Center value\n\n")
+                errMsg.setStandardButtons(QMessageBox.Ok)
+                errMsg.setIcon(QMessageBox.Warning)
+                errMsg.exec_()
+                self.need_update = True
+                self.updateUI()
+
 
     def handleBaselineChanged(self, item):
         """
@@ -482,7 +498,6 @@ class ProjectionBoxTab(QWidget):
                 hull_range = tuple(sorted(hull_range))
                 self.parent.hull_ranges[self.name] = hull_range
                 self.parent.projProc.removeInfo(self.name, 'hists2')
-                print("hull graph clicked")
                 self.parent.processImage()
         elif func[0] == 'zoom':
             # select zoom in area for the second plot
@@ -667,7 +682,6 @@ class ProjectionBoxTab(QWidget):
         ax2.cla()
 
         if self.histChkBx.isChecked():
-            print(hist)
             ax.plot(hist, color='k')
 
         if name in merid_bgs:
@@ -777,6 +791,9 @@ class ProjectionBoxTab(QWidget):
             # pairs = [item for item in info['boxes'][name] if isinstance(item, tuple) and len(item) == 2]
             # min_tuple = min(pairs, key=lambda x: x[0])
             ax.set_xlim((0, len(hist)))
+            ax.set_xticks(np.arange(0, len(hist)))
+            ax.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=10))
             # ax.set_xlim((min_tuple[0], min_tuple[0] + len(hist)))
 
         if self.zoom2 is not None:

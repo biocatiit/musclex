@@ -70,6 +70,7 @@ class ProjectionProcessor:
         self.masked = False
         self.fixed_sigma = {}
         cache = self.loadCache()
+        self.fixed_center = {}
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:
             # info dictionary will save all results
@@ -443,11 +444,16 @@ class ProjectionProcessor:
 
             # Init peaks params
             for j,p in enumerate(peaks):
+                # if j in self.fixed_center:
+                #     params.add('p_' + str(j), self.fixed_center[j])
+                # else:
                 params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
                 if j in self.fixed_sigma:
                     params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
                 else:
                     params.add('sigma' + str(j), 10, min=1, max=50.)
+                # if j in self.fixed_center:
+                #     params.add('fix' + str(j), self.fixed_center[j])
                 params.add('amplitude' + str(j), sum(hist)/10., min=-1)
                 # params.add('gamma' + str(j), 0. , min=0., max=30)
 
@@ -461,6 +467,9 @@ class ProjectionProcessor:
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
                 self.info['fit_results'][name] = result_dict
                 self.removeInfo(name, 'subtracted_hists')
+                for i in self.fixed_center:
+                    if 'p_'+str(i) in self.info['fit_results'][name]:
+                        self.info['fit_results'][name]['p_'+str(i)] = self.fixed_center[i]
                 print("Box : "+ str(name))
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
@@ -545,6 +554,12 @@ class ProjectionProcessor:
                 print("Box : "+ str(name))
                 print("Centroid Result : " + str(results))
                 print("---")
+
+    def setGaussCenter(self, box_name, peak_num, new_center):
+        new_center = float(str(new_center))
+        self.fixed_center[peak_num] = new_center
+        self.removeInfo(box_name, 'fit_results')
+        self.fitModel()
 
     def setGaussSig(self, box_name, peak_num, new_sigma):
         """
