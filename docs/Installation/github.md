@@ -88,7 +88,25 @@ Simply [download the zip file from GitHub](https://github.com/biocatiit/musclex)
 git clone https://github.com/biocatiit/musclex.git
 ```
 
-First, you will need to build the program from the code. Open a terminal window at the root of the musclex code folder.
+If you would like to work with the **development** version of the program, cd into the root of the musclex code folder then run the following command
+
+```
+git checkout development
+git pull
+```
+
+The commands will switch from the main (release) branch to a development branch.
+
+**Note that the development branch contains features that are untested and will most likely contain more bugs than the release version. Please report all bugs you find so we can fix them**
+
+If you want to switch back to the release version, simply run the following commands
+
+```
+git checkout master
+git pull
+```
+
+To run the program, you will need to build the program from the code. Open a terminal window at the root of the musclex code folder.
 
 Build the program:
 ```
