@@ -52,6 +52,12 @@ class ProjectionBoxTab(QWidget):
         self.zoom2 = None
         self.zoomRect = None
         self.centerX = None
+        
+        self.dragging = False
+        self.dragged_line = None
+        self.fixed_indices = []
+        self.lines = []
+        
         self.initUI()
         self.setAllToolTips()
         self.setConnections()
@@ -271,6 +277,9 @@ class ProjectionBoxTab(QWidget):
         self.graphFigure2.canvas.mpl_connect('button_release_event', self.graphReleased)
         self.graphFigure1.canvas.mpl_connect('figure_leave_event', self.graphReleased)
         self.graphFigure2.canvas.mpl_connect('figure_leave_event', self.graphReleased)
+        self.graphFigure1.canvas.mpl_connect('button_press_event', self.on_press)
+        self.graphFigure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
 
     def meridBckGrndChanged(self):
         """
@@ -656,7 +665,8 @@ class ProjectionBoxTab(QWidget):
 
         self.syncUI = True
         
-
+        self.lines = []
+        
         # Update graphs
         info = self.parent.projProc.info
         name = self.name
@@ -737,7 +747,8 @@ class ProjectionBoxTab(QWidget):
                     p = model['p_' + str(i)]
                     i += 1
                     # ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
-                    ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
+                    center_line = ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
+                    self.lines.append(center_line)
 
             if self.maxPeaksChkBx.isChecked():
                 peaks = all_peaks[name]
@@ -866,4 +877,43 @@ class ProjectionBoxTab(QWidget):
         
         self.need_update = False
         self.syncUI = False
+        
+        
+    def on_press(self, event):
+        if event.inaxes != self.graphAxes1:
+            return
+        for idx, line in enumerate(self.lines):
+            if line.contains(event)[0]:
+                self.dragging = True
+                self.dragged_line = line
+                self.fixed_indices.append(idx)
+                break
+
+    def on_motion(self, event):
+
+        if not self.dragging or event.inaxes != self.graphAxes1:
+            return
+        self.dragged_line.set_xdata([event.xdata, event.xdata])
+        self.graphAxes1.draw_artist(self.graphAxes1.patch)
+        self.graphAxes1.draw_artist(self.dragged_line)
+        self.graphFigure1.canvas.blit(self.graphAxes1.bbox)
+
+    def on_release(self, event):
+        if not self.dragging:
+            return
+        self.dragging = False
+        self.dragged_line = None
+        #fit_gaussians(fixed_indices)
+        print(self.fixed_indices)
+        
+        hist = self.parent.projProc.info['hists'][self.name]
+        
+        print(event.xdata - len(hist)/2)
+        
+        self.parent.projProc.setGaussCenter(self.name, self.fixed_indices[-1], event.xdata - len(hist)/2)
+        self.parent.processImage()
+        
+        self.graphFigure1.canvas.draw()  # Ensure the canvas is updated
+        
+        
         

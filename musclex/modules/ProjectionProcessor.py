@@ -559,7 +559,7 @@ class ProjectionProcessor:
         new_center = float(str(new_center))
         self.fixed_center[peak_num] = new_center
         self.removeInfo(box_name, 'fit_results')
-        self.fitModel()
+        #self.fitModel()
 
     def setGaussSig(self, box_name, peak_num, new_sigma):
         """
