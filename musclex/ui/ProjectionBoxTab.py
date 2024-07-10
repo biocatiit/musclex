@@ -263,8 +263,9 @@ class ProjectionBoxTab(QWidget):
         self.startHull.valueChanged.connect(self.hullRangeChanged)
         self.endHull.valueChanged.connect(self.hullRangeChanged)
 
-        self.resultTable1.itemChanged.connect(self.handleResultTable1Changed)
-        self.resultTable2.itemChanged.connect(self.handleBaselineChanged)
+        self.resultTable1.itemClicked.connect(self.handleTable1Event)
+        self.resultTable2.itemClicked.connect(self.handleTable2Event)
+        
 
         self.prevButton.clicked.connect(self.parent.prevClicked)
         self.nextButton.clicked.connect(self.parent.nextClicked)
@@ -298,6 +299,19 @@ class ProjectionBoxTab(QWidget):
             self.parent.hull_ranges[self.name] = (self.startHull.value(), self.endHull.value())
             self.parent.projProc.removeInfo(self.name, 'hists2')
             self.parent.processImage()
+            
+    def handleTable1Event(self, item):
+        """
+        Trigger when item in resultTable1 is clicked
+        """
+        print("triggered click")
+        self.resultTable1.itemChanged.connect(self.handleResultTable1Changed)
+    
+    def handleTable2Event(self, item):
+        """
+        Trigger when item in resultTable2 is clicked
+        """
+        self.resultTable1.itemChanged.connect(self.handleBaselineChanged)
 
 
     def handleResultTable1Changed(self, item):
@@ -306,6 +320,7 @@ class ProjectionBoxTab(QWidget):
         :param item:
         :return:
         """
+        self.resultTable1.itemChanged.disconnect(self.handleResultTable1Changed)
         if self.parent.projProc is not None and item.column() == 2 and not self.syncUI:
             try:
                 self.parent.projProc.setGaussSig(self.name, item.row(), item.text())
@@ -340,6 +355,7 @@ class ProjectionBoxTab(QWidget):
         :param item:
         :return:
         """
+        self.resultTable2.itemChanged.disconnect(self.handleBaselineChanged) 
         if self.parent.projProc is not None and item.column() == 0 and not self.syncUI:
             try:
                 self.parent.projProc.setBaseline(self.name, item.row(), item.text())
@@ -353,6 +369,8 @@ class ProjectionBoxTab(QWidget):
                 errMsg.exec_()
                 self.need_update = True
                 self.updateUI()
+        
+        
 
     def zoomInclicked(self):
         """
@@ -613,7 +631,7 @@ class ProjectionBoxTab(QWidget):
         :return:
         """
         if self.peaksButton.isChecked():
-            self.peaksButton.setText("Done")
+            self.peaksButton.setText("Accept Peaks")
             self.function = ['peaks', []]
         else:
             self.peaksButton.setText("Select Peaks")
@@ -621,6 +639,7 @@ class ProjectionBoxTab(QWidget):
             op_peaks = [-x for x in self.function[1]]
             peaks += op_peaks
             self.function = None
+            
             self.parent.addPeakstoBox(self.name, peaks)
 
     def keyPressEvent(self, event):

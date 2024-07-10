@@ -64,13 +64,13 @@ class Worker(QRunnable):
         self.projProc.process(self.settings)
         self.callback(self.projProc)
 
-    # def process(self):
-    #     self.quadFold.process(self.flags)
-    #     self.finished.emit(self.quadFold)
+    def process(self):
+        self.quadFold.process(self.flags)
+        self.finished.emit(self.quadFold)
         
-    # def update(self, quadFold1, flags1):
-    #     self.quadFold = quadFold1
-    #     self.flags = flags1
+    def update(self, quadFold1, flags1):
+        self.quadFold = quadFold1
+        self.flags = flags1
 
 class BoxDetails(QDialog):
     """
@@ -2189,9 +2189,9 @@ class ProjectionTracesGUI(QMainWindow):
         QApplication.processEvents()
         settings = self.getSettings()
         try:
-            self.projProc.process(settings)
-            # print("adding task")
-            # self.addTask()
+            # self.projProc.process(settings)
+            print("adding task")
+            self.addTask()
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
@@ -2355,8 +2355,10 @@ class ProjectionTracesGUI(QMainWindow):
                 self.projProc.info['centery'] = self.calSettings["center"][1]
                 self.projProc.info['centerx'] = self.calSettings["center"][0]
             else:
-                del self.projProc.info['centerx']
-                del self.projProc.info['centery']
+                if 'centerx' in self.projProc.info:
+                    del self.projProc.info['centerx']
+                if 'centery' in self.projProc.info:
+                    del self.projProc.info['centery']
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]
 
