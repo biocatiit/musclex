@@ -472,7 +472,7 @@ class EquatorWindow(QMainWindow):
         self.fittingTabWidget.addTab(self.right_fitting_tab, "Right")
         self.fittingTabWidget.setStyleSheet("QTabBar::tab { width: 100px; }")
 
-        self.k_chkbx = QCheckBox("Background K : ")
+        self.k_chkbx = QCheckBox("Fixed Background K : ")
         self.k_chkbx.setChecked(True)
         self.k_spnbx = QDoubleSpinBox()
         self.k_spnbx.setObjectName('k_spnbx')
@@ -2636,7 +2636,8 @@ class EquatorWindow(QMainWindow):
             self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] - new_angle
             self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
             self.log_changes('rotationAngle', obj=self.fixedAngle)
-            self.bioImg.removeInfo('rmin')
+            # self.bioImg.removeInfo('rmin')
+            self.bioImg.removeInfo('int_area')
             self.setAngleB.setChecked(False)
             self.processImage()
         # elif func[0]=="bright":
