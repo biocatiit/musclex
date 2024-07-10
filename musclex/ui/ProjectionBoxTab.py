@@ -912,10 +912,13 @@ class ProjectionBoxTab(QWidget):
 
         if not self.dragging or event.inaxes != self.graphAxes1:
             return
+        
         self.dragged_line.set_xdata([event.xdata, event.xdata])
         self.graphAxes1.draw_artist(self.graphAxes1.patch)
         self.graphAxes1.draw_artist(self.dragged_line)
-        self.graphFigure1.canvas.blit(self.graphAxes1.bbox)
+        # self.graphFigure1.canvas.blit(self.graphAxes1.bbox)
+        self.graphFigure1.canvas.draw()
+        
 
     def on_release(self, event):
         if not self.dragging:
