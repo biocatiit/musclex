@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MaxNLocator, FixedLocator
 import numpy as np
 from .pyqt_utils import *
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground
@@ -823,8 +823,41 @@ class ProjectionBoxTab(QWidget):
             ax.set_xlim((0, len(hist)))
             ax.set_xticks(np.arange(0, len(hist)))
             ax.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
-            ax.xaxis.set_major_locator(MaxNLocator(nbins=10))
-            # ax.set_xlim((min_tuple[0], min_tuple[0] + len(hist)))
+            
+            locs = ax.get_xticks().tolist()
+            labels=[x.get_text() for x in ax.get_xticklabels()]
+            
+            step_size = len(labels) // 10+1
+            
+            reduced_labels = labels[::step_size]
+            reduced_locs = locs[::step_size]
+            
+            reduced_labels.append('0.0')
+            reduced_locs.append(0.0 + len(hist)/2)
+            
+            new_locs = sorted(reduced_locs)
+            new_labels = sorted(reduced_labels, key=float)
+            
+            index = min(range(len(new_labels)), key=lambda i: abs(float(new_labels[i])))
+            
+            left = float (new_labels[index-1])
+            right = float(new_labels[index+1])
+            
+            if abs(left) < abs(right):
+                del new_labels[index-1]
+                del new_locs[index-1]
+            else:
+                del new_labels[index+1]
+                del new_locs[index+1]
+
+            ax.xaxis.set_major_locator(FixedLocator(new_locs))
+            ax.set_xticklabels(new_labels)
+            
+            # new_labels = sorted(labels, key=float)
+            
+            # ax.xaxis.set_major_locator(FixedLocator(locs))
+            # ax.set_xticklabels(new_labels)
+    
 
         if self.zoom2 is not None:
             ax2.set_xlim(self.zoom2[0])
