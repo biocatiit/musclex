@@ -232,7 +232,6 @@ class EquatorImage:
         """
         Subtract the original image with blank image and set pixels in mask below the mask threshold
         """
-        
         # Temporary code to fill sensor gaps in the image if toggled
         if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
             img = self.fill_sensor_gaps_propagate(self.orig_img, self.info['fillGapLinesThreshold'])

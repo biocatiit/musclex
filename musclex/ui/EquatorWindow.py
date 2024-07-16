@@ -50,6 +50,30 @@ from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 from skimage.morphology import binary_dilation
+from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from queue import Queue
+
+class Worker(QRunnable):
+
+    def __init__(self, bioImg, settings, paramInfo, callback):
+        super().__init__()
+        self.bioImg = bioImg
+        self.settings = settings
+        self.paramInfo = paramInfo
+        self.callback = callback
+        
+    def run(self):
+        self.bioImg.process(self.settings, self.paramInfo)
+        self.callback(self.bioImg)
+
+    def process(self):
+        self.bioImg.process(self.flags)
+        self.finished.emit(self.bioImg)
+    
+    # Not sure if this is needed right now
+    def update(self, bioImg1, flags1):
+        self.bioImg = bioImg1
+        self.flags = flags1
 
 
 class EquatorWindow(QMainWindow):
@@ -90,7 +114,14 @@ class EquatorWindow(QMainWindow):
         self.doubleZoomPt = None
         self.chordpoints = []
         self.chordLines = []
-        self.quadFold = None
+        
+        self.threadPool = QThreadPool()
+        self.tasksQueue = Queue()
+        self.loop = QEventLoop()
+        self.currentTask = None
+        self.worker = None
+        self.tasksDone = 0
+        self.totalFiles = 1
 
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
         if self.imgList is None or len(self.imgList) == 0:
@@ -3414,10 +3445,12 @@ class EquatorWindow(QMainWindow):
                 #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
             # If QF box checked, get center from QF
             # self.getCenterFromQF()
-            if settings['find_oritation']:
-                self.brightSpotClicked()
+            # if settings['find_oritation']:
+            #     self.brightSpotClicked()
 
-            self.bioImg.process(settings, paramInfo)
+            # self.bioImg.process(settings, paramInfo)
+            
+            self.addTask(paramInfo)
 
         except Exception:
             QApplication.restoreOverrideCursor()
@@ -3432,6 +3465,38 @@ class EquatorWindow(QMainWindow):
             errMsg.exec_()
             raise
 
+        # self.updateParams()
+        # self.csvManager.writeNewData(self.bioImg)
+        # self.csvManager.writeNewData2(self.bioImg)
+        # self.resetUI()
+        # self.refreshStatusbar()
+        # self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
+        # QApplication.restoreOverrideCursor()
+        
+    def addTask(self, paramInfo=None):
+        self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))
+        
+        # If there's no task currently running, start the next task
+        if self.currentTask is None:
+            self.startNextTask()
+            
+    def startNextTask(self):
+        if not self.tasksQueue.empty():
+            print("starting new task")
+            bioImg, settings, paramInfo = self.tasksQueue.get()
+            
+            if settings['find_oritation']:
+                self.brightSpotClicked()
+
+            self.currentTask = Worker(bioImg, settings, paramInfo, self.onProcessingFinished)
+            self.threadPool.start(self.currentTask)
+            self.loop.exec_()
+        
+    def onProcessingFinished(self, bioImg):
+        print("Processing finished")
+        self.bioImg = bioImg
+        self.tasksDone += 1
+        
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager.writeNewData2(self.bioImg)
@@ -3439,6 +3504,11 @@ class EquatorWindow(QMainWindow):
         self.refreshStatusbar()
         self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
+        
+        self.loop.quit()
+        self.currentTask = None
+        print(self.tasksQueue.qsize())
+        self.startNextTask()
 
     def setLeftStatus(self, s):
         """
@@ -3669,7 +3739,10 @@ class EquatorWindow(QMainWindow):
         Draw all UI in image tab
         """
         info = copy.copy(self.bioImg.info)
-        img = self.bioImg.getRotatedImage()
+        if self.fillGapLinesChkbx.isChecked():
+            img = self.bioImg.getRotatedImage(img=self.bioImg.orig_img)
+        else:
+            img = self.bioImg.getRotatedImage()
         #disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         hulls = info['hulls']['all']
         center = info['center']
