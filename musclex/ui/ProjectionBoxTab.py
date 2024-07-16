@@ -221,7 +221,7 @@ class ProjectionBoxTab(QWidget):
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(QLabel("<h3>Fitting Results</h3>"))
         self.optionsLayout.addWidget(self.resultTable1)
-        self.optionsLayout.addWidget(QLabel("<h3>Other Results</h3>"))
+        self.optionsLayout.addWidget(QLabel("<h3>Peak Information</h3>"))
         self.optionsLayout.addWidget(self.resultTable2)
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.pnButtons)
@@ -709,6 +709,9 @@ class ProjectionBoxTab(QWidget):
 
         ax2 = self.graphAxes2
         ax2.cla()
+        
+        ax.set_title("Projection")
+        ax2.set_title("Background Subtracted Projection")
 
         if self.histChkBx.isChecked():
             ax.plot(hist, color='k')

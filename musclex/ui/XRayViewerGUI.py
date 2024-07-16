@@ -233,6 +233,7 @@ class XRayViewerGUI(QMainWindow):
         
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
+        self.resetZoomButton = QPushButton("Reset Zoom")
         
         self.processFolderButton2 = QPushButton("Play")
         self.processFolderButton2.setStyleSheet(pfss)
@@ -247,13 +248,14 @@ class XRayViewerGUI(QMainWindow):
         self.nextFileButton2.setToolTip('Next H5 File in this Folder')
         self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit2 = QLineEdit()
-        self.bottomLayout2.addWidget(self.measureDist2, 0, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processFolderButton2, 1, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 2, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 2, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 3, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 3, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 4, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.resetZoomButton, 0, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.measureDist2, 1, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.processFolderButton2, 2, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.prevButton2, 3, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextButton2, 3, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.prevFileButton2, 4, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextFileButton2, 4, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 5, 0, 1, 2)
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(250)
@@ -357,6 +359,7 @@ class XRayViewerGUI(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('figure_leave_event', self.leavePlot)
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
         self.measureDist2.clicked.connect(self.measureDistChecked2)
+        self.resetZoomButton.clicked.connect(self.resetZoomClicked)
         self.checkableButtons.append(self.measureDist2)
 
     def keyPressEvent(self, event):
@@ -593,6 +596,10 @@ class XRayViewerGUI(QMainWindow):
         ax.set_xlim(self.graph_zoom[0])
         ax.set_ylim(self.graph_zoom[1])
         self.fittingCanvas.draw_idle()
+        
+    def resetZoomClicked(self):
+        self.graph_zoom = None
+        self.updateFittingTab(self.xrayViewer.hist)
 
     def imageZoomIn(self):
         """
