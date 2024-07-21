@@ -145,6 +145,76 @@ class BoxDetails(QDialog):
             return str(self.boxName.text()), self.bgChoice.currentIndex(), None
         else:
             return str(self.boxName.text()), self.bgChoice.currentIndex(), self.axisChoice.currentIndex()
+        
+class EditBoxDetails(QDialog):
+    
+    def __init__(self, all_boxes, box_types):
+        super().__init__(None)
+        self.all_boxes = all_boxes
+        self.box_types = box_types
+        self.setWindowTitle("Edit a Box")
+        print(all_boxes)
+        self.initUI()
+        
+    def initUI(self):
+        self.boxLayout = QGridLayout(self)
+        self.boxNames = QComboBox()
+        for key in self.all_boxes.keys():
+            self.boxNames.addItem(key)
+            
+        self.box_height = QDoubleSpinBox()
+        self.box_height.setDecimals(14)
+        self.box_height.setMinimum(0)
+        self.box_height.setMaximum(10000)
+        self.box_width = QDoubleSpinBox()
+        self.box_width.setDecimals(14)
+        self.box_width.setMinimum(0)
+        self.box_width.setMaximum(10000)
+        
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+                                              Qt.Horizontal, self)
+        self.bottons.accepted.connect(self.okClicked)
+        self.bottons.rejected.connect(self.reject)
+        self.bottons.setFixedWidth(200)
+        
+        self.boxLayout.addWidget(QLabel("Box name : "), 0, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxNames, 0, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Box Height : "), 1, 0, 1, 1)
+        self.boxLayout.addWidget(self.box_height, 1, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Box Width : "), 2, 0, 1, 1)
+        self.boxLayout.addWidget(self.box_width, 2, 1, 1, 1)
+        self.boxLayout.addWidget(self.bottons, 3, 0, 1, 2, Qt.AlignCenter)
+        
+        self.boxNames.currentIndexChanged.connect(self.updateBoxInfo)
+        
+        self.updateBoxInfo()
+        
+    def updateBoxInfo(self):
+        box_name = str(self.boxNames.currentText())
+        box = self.all_boxes[box_name]
+        if box_name in self.box_types.keys():
+            if self.box_types[box_name] == 'oriented':
+                self.box_height.setValue(box[4])
+                self.box_width.setValue(box[3])
+            else:
+                x1,x2 = box[0]
+                width = abs(x1 - x2)
+                y1, y2 = box[1]
+                height = abs(y1 - y2)
+                print(height, width)
+                self.box_height.setValue(height)
+                self.box_width.setValue(width)
+        
+        
+    def okClicked(self):
+        """
+        Triggered when OK is clicked
+        """
+        self.current_box = str(self.boxNames.currentText())
+        self.new_height = self.box_height.value()
+        self.new_width = self.box_width.value()
+        self.accept()
+        
 
 class ProjectionTracesGUI(QMainWindow):
     """
@@ -283,6 +353,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.addOrientedBoxButton.setCheckable(True)
         self.addCenterOrientedBoxButton = QPushButton("Add Centered Oriented Box")
         self.addCenterOrientedBoxButton.setCheckable(True)
+        self.editBoxButton = QPushButton('Edit Boxes')
         self.clearBoxButton = QPushButton('Clear All Boxes')
         self.checkableButtons.append(self.addBoxButton)
         self.checkableButtons.append(self.addOrientedBoxButton)
@@ -290,6 +361,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxesLayout.addWidget(self.addBoxButton)
         self.boxesLayout.addWidget(self.addOrientedBoxButton)
         self.boxesLayout.addWidget(self.addCenterOrientedBoxButton)
+        self.boxesLayout.addWidget(self.editBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
 
         # Peaks Selection
@@ -483,6 +555,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.addBoxButton.clicked.connect(self.addABox)
         self.addOrientedBoxButton.clicked.connect(self.addOrientedBox)
         self.addCenterOrientedBoxButton.clicked.connect(self.addOrientedBox)
+        self.editBoxButton.clicked.connect(self.editBoxes)
         self.clearBoxButton.clicked.connect(self.clearBoxes)
 
         # select peaks
@@ -1118,7 +1191,63 @@ class ProjectionTracesGUI(QMainWindow):
             self.addCenterOrientedBoxButton.setChecked(False)
             self.addOrientedBoxButton.setChecked(False)
             self.resetUI()
-
+            
+    def editBoxes(self):
+        if len(self.allboxes) > 0:
+            dialog = EditBoxDetails(self.allboxes, self.boxtypes)
+            if dialog.exec_():
+                height = dialog.new_height
+                width = dialog.new_width
+                target_box = dialog.current_box
+                self.updateBoxDetails(target_box, height, width)
+        else:
+            errMsg = QMessageBox()
+            errMsg.setText('No boxes to edit.')
+            msg = 'Please add a box before editing.'
+            errMsg.setInformativeText(msg)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.setFixedWidth(600)
+            errMsg.exec_()
+            
+    def updateBoxDetails(self, box_name, height, width):
+        box = self.allboxes[box_name]
+        if self.boxtypes[box_name] == 'oriented':
+            bx, by = box[2]
+            current_width = box[3]
+            current_height = box[4]
+            height_diff = height - current_height
+            width_diff = width - current_width
+            angle = box[5]
+            cx, cy = box[6]
+            new_point = rotatePoint((cx, cy), (bx, by), -np.radians(angle))
+            if height_diff != 0 or width_diff != 0:
+                translated_point = (new_point[0] - width_diff/2, new_point[1] - height_diff/2)
+                new_bl = rotatePoint((cx,cy), (translated_point[0], translated_point[1]), np.radians(angle))
+                x1, y1 = translated_point
+                x2 = x1 + width
+                y2 = y1 + height
+                self.allboxes[box_name] = ((x1, x2), (y1, y2), new_bl, width, height, angle, (cx,cy))         
+        else:
+            x1,x2 = box[0]
+            y1,y2 = box[1]
+            current_width = abs(x1 - x2)
+            current_height = abs(y1 - y2)
+            height_diff = height - current_height
+            width_diff = width - current_width
+            
+            if height_diff != 0 or width_diff != 0:
+                self.allboxes[box_name] = [(x1 - width_diff/2, x2 + width_diff/2), (y1-height_diff/2, y2 + height_diff/2)]
+                
+                
+        for artist in self.boxes_on_img[box_name].values():
+            artist.remove()
+        del self.boxes_on_img[box_name]     
+        self.boxes_on_img[box_name] = self.genBoxArtists(box_name, self.allboxes[box_name], self.boxtypes[box_name])
+        self.processImage()
+            
+        
+            
     def keyPressEvent(self, event):
         """
         Manage key press event on keyboard

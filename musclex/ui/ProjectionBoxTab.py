@@ -192,7 +192,17 @@ class ProjectionBoxTab(QWidget):
 
         self.resultTable1 = QTableWidget()
         self.resultTable1.setColumnCount(4)
-        self.resultTable1.setHorizontalHeaderLabels(["Max Peak", "Gauss Center", "Gauss Sigma", "Gauss Area"])
+        self.resultTable1.setHorizontalHeaderLabels(["Peak Location", "Gauss Center", "Gauss Sigma", "Gauss Area"])
+        tooltips1 = ["Location of the peak relative to the center of the projection",
+                     "Center of the Gaussian fitted per peak", 
+                     "The Gauss Sigma is the standard deviation of the distribution",
+                     "Area of the Gaussian of the Peak"]
+        for i, tooltip in enumerate(tooltips1):
+            item = self.resultTable1.horizontalHeaderItem(i)
+            if item is None:  # If the header item does not exist, create it
+                item = QTableWidgetItem()
+                self.resultTable1.setHorizontalHeaderItem(i, item)
+            item.setToolTip(tooltip)
         self.resultTable1.horizontalHeader().setStretchLastSection(True)
         self.resultTable1.setColumnWidth(0, 75)
         self.resultTable1.setColumnWidth(1, 75)
@@ -203,6 +213,16 @@ class ProjectionBoxTab(QWidget):
         self.resultTable2 = QTableWidget()
         self.resultTable2.setColumnCount(4)
         self.resultTable2.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width", "Area"])
+        tooltips2 = ["By default, the baseline of the peak is the half-height of the peak",
+                     "The centroid of the peak is calculated by taking the dot product of the distance from the center and the projected intensity in the range of left and right intersections.\n The result will then be divided by the projected intensity along the range",
+                     "The width of the peak",
+                     "The area underneath the peak."]
+        for i, tooltip in enumerate(tooltips2):
+            item = self.resultTable2.horizontalHeaderItem(i)
+            if item is None:  # If the header item does not exist, create it
+                item = QTableWidgetItem()
+                self.resultTable2.setHorizontalHeaderItem(i, item)
+            item.setToolTip(tooltip)
         self.resultTable2.horizontalHeader().setStretchLastSection(True)
         self.resultTable2.setColumnWidth(0, 75)
         self.resultTable2.setColumnWidth(1, 75)
@@ -219,9 +239,9 @@ class ProjectionBoxTab(QWidget):
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingGroup)
         self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(QLabel("<h3>Fitting Results</h3>"))
+        self.optionsLayout.addWidget(QLabel("<h3>Model Peak Information</h3>"))
         self.optionsLayout.addWidget(self.resultTable1)
-        self.optionsLayout.addWidget(QLabel("<h3>Peak Information</h3>"))
+        self.optionsLayout.addWidget(QLabel("<h3>Actual Peak Information</h3>"))
         self.optionsLayout.addWidget(self.resultTable2)
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.pnButtons)
@@ -867,6 +887,10 @@ class ProjectionBoxTab(QWidget):
             ax2.set_ylim(self.zoom2[1])
         else:
             ax2.set_xlim((0, len(hist)))
+            ax2.set_xticks(np.arange(0, len(hist)))
+            ax2.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
+            ax2.xaxis.set_major_locator(FixedLocator(new_locs))
+            ax2.set_xticklabels(new_labels)
 
         if self.graphMaxBound is None:
             self.graphMaxBound = [ax.get_xlim(), ax.get_ylim()]

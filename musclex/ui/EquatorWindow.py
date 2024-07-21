@@ -3507,7 +3507,6 @@ class EquatorWindow(QMainWindow):
         
         self.loop.quit()
         self.currentTask = None
-        print(self.tasksQueue.qsize())
         self.startNextTask()
 
     def setLeftStatus(self, s):
