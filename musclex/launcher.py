@@ -165,7 +165,9 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         """
         Main function for the launcher
         """
-        app = QApplication(sys.argv)
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
         window = LauncherForm()
         window.show()
         sys.exit(app.exec_())
