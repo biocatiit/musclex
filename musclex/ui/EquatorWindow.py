@@ -3738,10 +3738,10 @@ class EquatorWindow(QMainWindow):
         Draw all UI in image tab
         """
         info = copy.copy(self.bioImg.info)
-        if self.fillGapLinesChkbx.isChecked():
-            img = self.bioImg.getRotatedImage(img=self.bioImg.orig_img)
-        else:
-            img = self.bioImg.getRotatedImage()
+        # if self.fillGapLinesChkbx.isChecked():
+        #     img = self.bioImg.getRotatedImage(img=self.bioImg.orig_img)
+        # else:
+        img = self.bioImg.getRotatedImage()
         #disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         hulls = info['hulls']['all']
         center = info['center']

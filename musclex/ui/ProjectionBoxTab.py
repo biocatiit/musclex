@@ -215,7 +215,7 @@ class ProjectionBoxTab(QWidget):
         self.resultTable2.setHorizontalHeaderLabels(["Baseline", "Centroid", "Width", "Area"])
         tooltips2 = ["By default, the baseline of the peak is the half-height of the peak",
                      "The centroid of the peak is calculated by taking the dot product of the distance from the center and the projected intensity in the range of left and right intersections.\n The result will then be divided by the projected intensity along the range",
-                     "The width of the peak",
+                     "The width of the baseline",
                      "The area underneath the peak."]
         for i, tooltip in enumerate(tooltips2):
             item = self.resultTable2.horizontalHeaderItem(i)
