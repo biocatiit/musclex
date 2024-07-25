@@ -163,11 +163,11 @@ class EditBoxDetails(QDialog):
             self.boxNames.addItem(key)
             
         self.box_height = QDoubleSpinBox()
-        self.box_height.setDecimals(14)
+        self.box_height.setDecimals(2)
         self.box_height.setMinimum(0)
         self.box_height.setMaximum(10000)
         self.box_width = QDoubleSpinBox()
-        self.box_width.setDecimals(14)
+        self.box_width.setDecimals(2)
         self.box_width.setMinimum(0)
         self.box_width.setMaximum(10000)
         
