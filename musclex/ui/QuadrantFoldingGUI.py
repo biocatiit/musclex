@@ -3103,6 +3103,8 @@ class QuadrantFoldingGUI(QMainWindow):
             settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
         if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
             settings['fixed_roi_rad'] = self.quadFold.info['fixed_roi_rad']
+        if self.quadFold is not None and 'bgsub' in self.quadFold.info:
+            settings['bgsub'] = self.quadFold.info['bgsub']
         filename = getSaveFile(os.path.join("musclex", "settings", "qfsettings.json"), None)
         if filename != "":
             with open(filename, 'w') as f:
