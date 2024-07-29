@@ -225,7 +225,7 @@ class EquatorImage:
         convolved_image = cv2.filter2D(output_image, -1, kernel)
         output_image = np.where(dilated_mask, convolved_image, image)
 
-        return output_image
+        return np.array(output_image, dtype='float32')
             
 
     def applyBlankAndMask(self):

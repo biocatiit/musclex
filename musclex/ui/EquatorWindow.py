@@ -839,13 +839,21 @@ class EquatorWindow(QMainWindow):
         
     def fillGapLinesChanged(self):
         if self.fillGapLinesChkbx.isChecked():
-            self.fillGapLinesThreshold.setEnabled(True)
+            # self.fillGapLinesThreshold.setEnabled(True)
+            # self.bioImg.info['fillGapLines'] = True
+            # self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
+            self.fixedAngleChkBx.setChecked(False)
+            self.fixedRminChkBx.setChecked(False)
+            self.fixedRmaxChkBx.setChecked(False)
+            self.fixedIntAreaChkBx.setChecked(False)
+            self.bioImg.removeInfo()
+            self.bioImg.delCache()
             self.bioImg.info['fillGapLines'] = True
             self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
         else:
-            self.fillGapLinesThreshold.setEnabled(False)
-            self.bioImg.info['fillGapLines'] = False
-        self.processImage()
+            self.resetAll()
+        self.refitting()
+        # self.processImage()
         
     def fittingErrorChanged(self):
         self.bioImg.fitting_error = self.fittingErrorThreshold.value()
