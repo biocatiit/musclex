@@ -55,7 +55,6 @@ def displayImage(imageArray, minInt, maxInt):
     return scaledPixmap
 
 
-
 class ImageMaskerWindow(QDialog):
     def __init__(self, dir_path, imagePath, minInt, maxInt):
         super().__init__()

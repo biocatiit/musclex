@@ -426,21 +426,30 @@ class ProjectionProcessor:
                 # params.add('bg_line', 0, min=0)
                 int_vars['bg_line'] = 0
 
-                # Init background params
-                params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
-                params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
-
-                if self.info['merid_bg'][name]:
-                    # Init Meridian params1
-                    params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
-                    params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
+                    params.add('bg_sigma', self.info['main_peak_info'][name]['bg_sigma'], min=1, max=len(hist)*2+1.)
+                    params.add('bg_amplitude', self.info['main_peak_info'][name]['bg_amplitude'], min=-1, max=sum(hist)+1.)
+                    params.add('center_sigma1', self.info['main_peak_info'][name]['center_sigma1'], min=1, max=len(hist)+1.)
+                    params.add('center_amplitude1', self.info['main_peak_info'][name]['center_amplitude1'], min=-1, max=sum(hist) + 1.)
+                    params.add('center_sigma2', self.info['main_peak_info'][name]['center_sigma2'], min=1, max=len(hist)+1.)
+                    params.add('center_amplitude2', self.info['main_peak_info'][name]['center_amplitude2'], min=-1, max=sum(hist)+1.)
+                    
                 else:
-                    int_vars['center_sigma1'] = 1
-                    int_vars['center_amplitude1'] = 0
+                # Init background params
+                    params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
+                    params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
 
-                # Init Meridian params2
-                params.add('center_sigma2',5 , min=1, max=len(hist)+1.)
-                params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
+                    if self.info['merid_bg'][name]:
+                        # Init Meridian params1
+                        params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
+                        params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                    else:
+                        int_vars['center_sigma1'] = 1
+                        int_vars['center_amplitude1'] = 0
+
+                    # Init Meridian params2
+                    params.add('center_sigma2',5 , min=1, max=len(hist)+1.)
+                    params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
 
             # Init peaks params
             for j,p in enumerate(peaks):

@@ -34,6 +34,82 @@ from .pyqt_utils import *
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground
 from ..utils.image_processor import getNewZoom
 
+class EditPeakDetails(QDialog):
+    
+    def __init__(self, info):
+        super().__init__(None)
+        self.info = info
+        self.setWindowTitle("Edit Peak Information")
+        self.initUI()
+        
+    def initUI(self):
+        self.boxLayout = QGridLayout(self)
+        
+        self.bgsigma = QDoubleSpinBox()
+        self.bgamp = QDoubleSpinBox()
+        self.csigma1 = QDoubleSpinBox()
+        self.camp1 = QDoubleSpinBox()
+        self.csigma2 = QDoubleSpinBox()
+        self.camp2 = QDoubleSpinBox()
+        
+        
+        self.bgsigma.setRange(-1e10, 1e10)
+        self.bgamp.setRange(-1e10, 1e10)
+        self.csigma1.setRange(-1e10, 1e10)
+        self.camp1.setRange(-1e10, 1e10)
+        self.csigma2.setRange(-1e10, 1e10)
+        self.camp2.setRange(-1e10, 1e10)
+        
+        self.bgsigma.setDecimals(2)
+        self.bgamp.setDecimals(2)
+        self.csigma1.setDecimals(2)
+        self.camp1.setDecimals(2)
+        self.csigma2.setDecimals(2)
+        self.camp2.setDecimals(2)
+        
+        self.bgsigma.setValue(self.info['bg_sigma'])
+        self.bgamp.setValue(self.info['bg_amplitude'])
+        self.csigma1.setValue(self.info['center_sigma1'])
+        self.camp1.setValue(self.info['center_amplitude1'])
+        self.csigma2.setValue(self.info['center_sigma2'])
+        self.camp2.setValue(self.info['center_amplitude2'])
+        
+        
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+                                              Qt.Horizontal, self)
+        self.bottons.accepted.connect(self.okClicked)
+        self.bottons.rejected.connect(self.reject)
+        self.bottons.setFixedWidth(200)
+        
+        self.boxLayout.addWidget(QLabel("Background Sigma (blue)"), 0, 0,1,1)
+        self.boxLayout.addWidget(self.bgsigma, 0, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Background Amplitude (blue)"), 1, 0, 1, 1)
+        self.boxLayout.addWidget(self.bgamp, 1, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Meridian Background Sigma (yellow)"), 2, 0, 1, 1)
+        self.boxLayout.addWidget(self.csigma1, 2, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Meridian Amplitude (yellow)"), 3, 0, 1, 1)
+        self.boxLayout.addWidget(self.camp1, 3, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Meridian Sigma (red)"), 4, 0, 1, 1)
+        self.boxLayout.addWidget(self.csigma2, 4, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Meridian Amplitude (red)"), 5, 0, 1, 1)
+        self.boxLayout.addWidget(self.camp2, 5, 1, 1, 1)
+        self.boxLayout.addWidget(self.bottons, 6, 0, 1, 2)
+        
+        
+    def okClicked(self):
+        """
+        Triggered when OK is clicked
+        """
+        self.newinfo = {
+            'bg_sigma': self.bgsigma.value(),
+            'bg_amplitude': self.bgamp.value(),
+            'center_sigma1': self.csigma1.value(),
+            'center_amplitude1': self.camp1.value(),
+            'center_sigma2': self.csigma2.value(),
+            'center_amplitude2': self.camp2.value()
+        }
+        self.accept()
+
 class ProjectionBoxTab(QWidget):
     """
     Fitting Tabs : left or right
@@ -156,13 +232,15 @@ class ProjectionBoxTab(QWidget):
         self.dispOptLayout.addWidget(self.zoomOutButton, 6, 1, 1, 1)
         self.dispOptLayout.addWidget(self.fullButton, 7, 0, 1, 2)
 
-        self.settingGroup = QGroupBox("Setting")
+        self.settingGroup = QGroupBox("Settings")
         self.settingLayout = QGridLayout(self.settingGroup)
         self.peaksButton = QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
         self.meridBckGrndChkBx = QCheckBox("Meridian Background Peak")
         self.meridBckGrndChkBx.setChecked(True)
         self.meridBckGrndChkBx.setHidden(self.parent.bgsubs[self.name]!=0)
+        self.editMainPeakButton = QPushButton("Edit Main Peak")
+        self.editMainPeakButton.setEnabled(False)
         self.checkableButtons.append(self.peaksButton)
         self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
@@ -187,6 +265,7 @@ class ProjectionBoxTab(QWidget):
             self.settingLayout.addWidget(QLabel("End"), 2, 1, 1, 1, Qt.AlignCenter)
         self.settingLayout.addWidget(self.startHull, 3, 0, 1, 1)
         self.settingLayout.addWidget(self.endHull, 3, 1, 1, 1)
+        self.settingLayout.addWidget(self.editMainPeakButton, 4, 0, 1, 2)
 
         self.results_text = QLabel()
 
@@ -282,6 +361,7 @@ class ProjectionBoxTab(QWidget):
         self.hullRangeButton.clicked.connect(self.setManualHullRange)
         self.startHull.valueChanged.connect(self.hullRangeChanged)
         self.endHull.valueChanged.connect(self.hullRangeChanged)
+        self.editMainPeakButton.clicked.connect(self.editMainPeak)
 
         self.resultTable1.itemClicked.connect(self.handleTable1Event)
         self.resultTable2.itemClicked.connect(self.handleTable2Event)
@@ -301,6 +381,17 @@ class ProjectionBoxTab(QWidget):
         self.graphFigure1.canvas.mpl_connect('button_press_event', self.on_press)
         self.graphFigure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
+    
+    def editMainPeak(self):
+        # print(self.parent.projProc.info['fit_results'][self.name])
+        dialog = EditPeakDetails(self.parent.projProc.info['fit_results'][self.name])
+        if dialog.exec_():
+            newinfo = dialog.newinfo
+            self.parent.projProc.removeInfo(self.name, 'fit_results')
+            if 'main_peak_info' not in self.parent.projProc.info:
+                self.parent.projProc.info['main_peak_info'] = {}
+            self.parent.projProc.info['main_peak_info'][self.name] = newinfo
+            self.parent.processImage()    
 
     def meridBckGrndChanged(self):
         """
@@ -740,6 +831,7 @@ class ProjectionBoxTab(QWidget):
             self.meridBckGrndChkBx.setChecked(merid_bgs[name])
 
         if name in fit_results:
+            self.editMainPeakButton.setEnabled(True)
             xs = np.arange(0, len(hist))
             model = info['fit_results'][name]
             convex_hull = hist - info['hists2'][name]
@@ -844,37 +936,37 @@ class ProjectionBoxTab(QWidget):
             # pairs = [item for item in info['boxes'][name] if isinstance(item, tuple) and len(item) == 2]
             # min_tuple = min(pairs, key=lambda x: x[0])
             ax.set_xlim((0, len(hist)))
-            ax.set_xticks(np.arange(0, len(hist)))
-            ax.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
+            # ax.set_xticks(np.arange(0, len(hist)))
+            # ax.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
             
-            locs = ax.get_xticks().tolist()
-            labels=[x.get_text() for x in ax.get_xticklabels()]
+            # locs = ax.get_xticks().tolist()
+            # labels=[x.get_text() for x in ax.get_xticklabels()]
             
-            step_size = len(labels) // 10+1
+            # step_size = len(labels) // 10+1
             
-            reduced_labels = labels[::step_size]
-            reduced_locs = locs[::step_size]
+            # reduced_labels = labels[::step_size]
+            # reduced_locs = locs[::step_size]
             
-            reduced_labels.append('0.0')
-            reduced_locs.append(0.0 + len(hist)/2)
+            # reduced_labels.append('0.0')
+            # reduced_locs.append(0.0 + len(hist)/2)
             
-            new_locs = sorted(reduced_locs)
-            new_labels = sorted(reduced_labels, key=float)
+            # new_locs = sorted(reduced_locs)
+            # new_labels = sorted(reduced_labels, key=float)
             
-            index = min(range(len(new_labels)), key=lambda i: abs(float(new_labels[i])))
+            # index = min(range(len(new_labels)), key=lambda i: abs(float(new_labels[i])))
             
-            left = float (new_labels[index-1])
-            right = float(new_labels[index+1])
+            # left = float (new_labels[index-1])
+            # right = float(new_labels[index+1])
             
-            if abs(left) < abs(right):
-                del new_labels[index-1]
-                del new_locs[index-1]
-            else:
-                del new_labels[index+1]
-                del new_locs[index+1]
+            # if abs(left) < abs(right):
+            #     del new_labels[index-1]
+            #     del new_locs[index-1]
+            # else:
+            #     del new_labels[index+1]
+            #     del new_locs[index+1]
 
-            ax.xaxis.set_major_locator(FixedLocator(new_locs))
-            ax.set_xticklabels(new_labels)
+            # ax.xaxis.set_major_locator(FixedLocator(new_locs))
+            # ax.set_xticklabels(new_labels)
             
             # new_labels = sorted(labels, key=float)
             
@@ -887,10 +979,10 @@ class ProjectionBoxTab(QWidget):
             ax2.set_ylim(self.zoom2[1])
         else:
             ax2.set_xlim((0, len(hist)))
-            ax2.set_xticks(np.arange(0, len(hist)))
-            ax2.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
-            ax2.xaxis.set_major_locator(FixedLocator(new_locs))
-            ax2.set_xticklabels(new_labels)
+            # ax2.set_xticks(np.arange(0, len(hist)))
+            # ax2.set_xticklabels(np.arange(-len(hist)/2, len(hist)/2))
+            # ax2.xaxis.set_major_locator(FixedLocator(new_locs))
+            # ax2.set_xticklabels(new_labels)
 
         if self.graphMaxBound is None:
             self.graphMaxBound = [ax.get_xlim(), ax.get_ylim()]

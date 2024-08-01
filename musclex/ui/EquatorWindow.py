@@ -53,28 +53,34 @@ from skimage.morphology import binary_dilation
 from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
 from queue import Queue
 
+
+class WorkerSignals(QObject):
+    
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+
+
 class Worker(QRunnable):
 
-    def __init__(self, bioImg, settings, paramInfo, callback):
+    def __init__(self, bioImg, settings, paramInfo):
         super().__init__()
         self.bioImg = bioImg
         self.settings = settings
         self.paramInfo = paramInfo
-        self.callback = callback
+        self.signals = WorkerSignals()
         
+    @pyqtSlot()
     def run(self):
-        self.bioImg.process(self.settings, self.paramInfo)
-        self.callback(self.bioImg)
-
-    def process(self):
-        self.bioImg.process(self.flags)
-        self.finished.emit(self.bioImg)
-    
-    # Not sure if this is needed right now
-    def update(self, bioImg1, flags1):
-        self.bioImg = bioImg1
-        self.flags = flags1
-
+        try:
+            self.bioImg.process(self.settings, self.paramInfo)
+        except:
+            traceback.print_exc()
+            self.signals.error.emit((traceback.format_exc()))
+        else:
+            self.signals.result.emit(self.bioImg)
+        finally:
+            self.signals.finished.emit()
 
 class EquatorWindow(QMainWindow):
     """
@@ -103,6 +109,7 @@ class EquatorWindow(QMainWindow):
         self.update_plot = {'img': True, 'graph' :True, 'results': True}  # update status of each tab
         self.in_batch_process = False
         self.fixedIntArea = None
+        self.first = True
         self.orientationModel = None
         self.modeOrientation = None
         self.doubleZoomAxes = None
@@ -157,7 +164,7 @@ class EquatorWindow(QMainWindow):
         self.setH5Mode(str(filename))
         self.processImage()
         self.show()
-        self.init_logging()
+        # self.init_logging()
         # focused_widget = QApplication.focusWidget()
         # if focused_widget != None:
         #     focused_widget.clearFocus()
@@ -764,6 +771,7 @@ class EquatorWindow(QMainWindow):
         self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
         self.fillGapLinesChkbx.stateChanged.connect(self.fillGapLinesChanged)
+        self.fillGapLinesThreshold.editingFinished.connect(self.fillGapLinesChanged)
         self.brightSpot.clicked.connect(self.brightSpotClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
@@ -839,19 +847,17 @@ class EquatorWindow(QMainWindow):
         
     def fillGapLinesChanged(self):
         if self.fillGapLinesChkbx.isChecked():
-            # self.fillGapLinesThreshold.setEnabled(True)
-            # self.bioImg.info['fillGapLines'] = True
-            # self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
-            self.fixedAngleChkBx.setChecked(False)
-            self.fixedRminChkBx.setChecked(False)
-            self.fixedRmaxChkBx.setChecked(False)
-            self.fixedIntAreaChkBx.setChecked(False)
-            self.bioImg.removeInfo()
-            self.bioImg.delCache()
+            self.fillGapLinesThreshold.setEnabled(True)
             self.bioImg.info['fillGapLines'] = True
             self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
         else:
-            self.resetAll()
+            self.fillGapLinesThreshold.setEnabled(False)
+            self.bioImg.info['fillGapLines'] = False
+        
+        if 'center' in self.bioImg.info:
+            del self.bioImg.info['center']
+        if 'rotationAngle' in self.bioImg.info:
+            del self.bioImg.info['rotationAngle']
         self.refitting()
         # self.processImage()
         
@@ -1843,6 +1849,7 @@ class EquatorWindow(QMainWindow):
             self.fixedRminChkBx.setChecked(False)
             self.fixedRmaxChkBx.setChecked(False)
             self.fixedIntAreaChkBx.setChecked(False)
+            self.fillGapLinesChkbx.setChecked(False)
             self.bioImg.removeInfo()
             self.bioImg.delCache()
             self.processImage()
@@ -3446,11 +3453,12 @@ class EquatorWindow(QMainWindow):
         print("Settings in processImage:")
         print(settings)
         try:
-                # if self.quadFold.initImg is not None:
-                #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = [True, self.quadFold.initImg.shape]
-                #     self.bioImg.info['qfMetaData'] = [True, self.quadFold.initImg.shape]
-                # else:
-                #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
+            # This section was already commented out before multithreading
+            # if self.quadFold.initImg is not None:
+            #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = [True, self.quadFold.initImg.shape]
+            #     self.bioImg.info['qfMetaData'] = [True, self.quadFold.initImg.shape]
+            # else:
+            #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
             # If QF box checked, get center from QF
             # self.getCenterFromQF()
             # if settings['find_oritation']:
@@ -3488,6 +3496,10 @@ class EquatorWindow(QMainWindow):
         if self.currentTask is None:
             self.startNextTask()
             
+    def thread_done(self, bioImg):
+        self.bioImg = bioImg
+        print("thread done")
+                    
     def startNextTask(self):
         if not self.tasksQueue.empty():
             print("starting new task")
@@ -3496,13 +3508,12 @@ class EquatorWindow(QMainWindow):
             if settings['find_oritation']:
                 self.brightSpotClicked()
 
-            self.currentTask = Worker(bioImg, settings, paramInfo, self.onProcessingFinished)
+            self.currentTask = Worker(bioImg, settings, paramInfo)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.onProcessingFinished)
             self.threadPool.start(self.currentTask)
-            self.loop.exec_()
         
-    def onProcessingFinished(self, bioImg):
-        print("Processing finished")
-        self.bioImg = bioImg
+    def onProcessingFinished(self):
         self.tasksDone += 1
         
         self.updateParams()
@@ -3513,9 +3524,12 @@ class EquatorWindow(QMainWindow):
         self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
         
-        self.loop.quit()
         self.currentTask = None
-        self.startNextTask()
+        if self.first:
+            self.init_logging()
+            self.first = False
+        else:
+            self.startNextTask()
 
     def setLeftStatus(self, s):
         """

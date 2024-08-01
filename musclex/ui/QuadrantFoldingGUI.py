@@ -48,26 +48,32 @@ from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
 
+class WorkerSignals(QObject):
+    
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+
+
 class Worker(QRunnable):
 
-    def __init__(self, quadFold, flags, callback):
+    def __init__(self, quadFold, flags):
         super().__init__()
         self.quadFold = quadFold
         self.flags = flags
-        self.callback = callback
+        self.signals = WorkerSignals()
         
+    @pyqtSlot()
     def run(self):
-        self.quadFold.process(self.flags)
-        self.callback(self.quadFold)
-
-    # def process(self):
-    #     self.quadFold.process(self.flags)
-    #     self.finished.emit(self.quadFold)
-        
-    # def update(self, quadFold1, flags1):
-    #     self.quadFold = quadFold1
-    #     self.flags = flags1
-
+        try:
+            self.quadFold.process(self.flags)
+        except:
+            traceback.print_exc()
+            self.signals.error.emit((traceback.format_exc()))
+        else:
+            self.signals.result.emit(self.quadFold)
+        finally:
+            self.signals.finished.emit()
 
 class QuadrantFoldingGUI(QMainWindow):
     """
@@ -2606,16 +2612,20 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.currentTask is None:
             self.startNextTask()
             
+    def thread_done(self, quadFold):
+        self.quadFold = quadFold
+        print("thread done")
+            
     def startNextTask(self):
         if not self.tasksQueue.empty():
             quadFold, flags = self.tasksQueue.get()
-            self.currentTask = Worker(quadFold, flags, self.onProcessingFinished)
+            self.currentTask = Worker(quadFold, flags)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.onProcessingFinished)
             self.threadPool.start(self.currentTask)
-            self.loop.exec_()
         
-    def onProcessingFinished(self, quadFold):
+    def onProcessingFinished(self):
         print("Processing finished")
-        self.quadFold = quadFold
         self.tasksDone += 1
         
         self.updateParams()
@@ -2625,7 +2635,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.saveResults()
         QApplication.restoreOverrideCursor()
-        self.loop.quit()
         self.currentTask = None
         self.startNextTask()
         
