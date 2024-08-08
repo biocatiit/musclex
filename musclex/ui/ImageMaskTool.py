@@ -12,6 +12,7 @@ from PIL import Image
 import fabio
 from ..utils.file_manager import createFolder
 from .pyqt_utils import *
+import threading
 
 def read_edf_to_numpy(file_path):
     # Load the EDF file
@@ -56,7 +57,7 @@ def displayImage(imageArray, minInt, maxInt):
 
 
 class ImageMaskerWindow(QDialog):
-    def __init__(self, dir_path, imagePath, minInt, maxInt):
+    def __init__(self, dir_path, imagePath, minInt, maxInt, isHDF5=False):
         super().__init__()
         self.dir_path = dir_path
         self.imagePath = imagePath
@@ -64,6 +65,7 @@ class ImageMaskerWindow(QDialog):
         self.maxInt = maxInt # Max Intensity from AISE user Input
         self.blankImagePath = None
         self.blankImageData = None
+        self.isHDF5 = isHDF5
         self.imageData = None  # Attribute to store the loaded image data
         self.maskData = None  # Stores the mask data (computed + drawn mask data)
         self.maskedImage = None # Attribute to store the masked image data (original image + mask data) usually for displaying
@@ -296,37 +298,54 @@ class ImageMaskerWindow(QDialog):
     def drawMask(self):
         if self.dir_path:
             # Assuming pyFAI-drawmask can be called directly from the command line
-            if self.showBlankImageChkbx.isChecked():
-                command = f'pyFAI-drawmask "{self.blankImagePath}"'
-                self.maskPath = self.blankImagePath.rsplit('.', 1)[0] + '-mask.edf'
-            else:
-                command = f'pyFAI-drawmask "{self.imagePath}"'
-                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
-            subprocess.run(command, shell=True)
-
-            # draw_dialog = MaskImageWidget(self.selected, self.maskData)
-            # result = draw_dialog.exec_()
-            
-            # Assuming the mask file follows a naming convention like originalFileName-mask.edf
-            self.loadMask(self.maskPath)   
-            if self.maskData is not None:
-                
-                thresholdValue = np.max(self.maskData)  # This works for images where the mask is full white for mask-out regions
-                self.maskData = np.where(self.maskData < thresholdValue, 1, 0)
-                self.drawnMaskData = self.maskData
-                
-                self.maskThresh.setEnabled(True)
-                self.showMaskChkBx.setEnabled(True)
-                self.drawnMask = True
-                self.applyMask()
-                # scaledPixmap=displayImage(self.maskData)
-                # self.imageLabel.setPixmap(scaledPixmap)
-                
-                os.remove(self.maskPath) # remove the mask file generated as we save a file in the settings folder
-            
+            thread = threading.Thread(target=self._run_drawmask_command)
+            thread.start()
         else:
             print("No input file to draw on.")
+            
+    def _run_drawmask_command(self):
+        # Assuming pyFAI-drawmask can be called directly from the command line
         
+        
+        if self.showBlankImageChkbx.isChecked():
+            command = f'pyFAI-drawmask "{self.blankImagePath}"'
+            self.maskPath = self.blankImagePath.rsplit('.', 1)[0] + '-mask.edf'
+        else:
+            if self.isHDF5:
+                fabio_img = fabio.open(self.imagePath)
+                data = fabio_img.data.astype(np.int32)
+                data[data==4294967295] = -1
+                tif_img = fabio.pilatusimage.pilatusimage(data=data, header=fabio_img.getheader())
+                tif_file_name = self.imagePath + 'temp.tif'
+                tif_img.write(tif_file_name)
+                
+                command = f'pyFAI-drawmask "{tif_file_name}"'
+            else:
+                command = f'pyFAI-drawmask "{self.imagePath}"'
+            self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
+        subprocess.run(command, shell=True)
+
+        # draw_dialog = MaskImageWidget(self.selected, self.maskData)
+        # result = draw_dialog.exec_()
+
+        # Assuming the mask file follows a naming convention like originalFileName-mask.edf
+        self.loadMask(self.maskPath)
+        if self.maskData is not None:
+            thresholdValue = np.max(self.maskData)  # This works for images where the mask is full white for mask-out regions
+            self.maskData = np.where(self.maskData < thresholdValue, 1, 0)
+            self.drawnMaskData = self.maskData
+
+            self.maskThresh.setEnabled(True)
+            self.showMaskChkBx.setEnabled(True)
+            self.drawnMask = True
+            self.applyMask()
+            # scaledPixmap=displayImage(self.maskData)
+            # self.imageLabel.setPixmap(scaledPixmap)
+
+            os.remove(self.maskPath) # remove the mask file generated as we save a file in the settings folder
+        if self.isHDF5:
+            os.remove(tif_file_name)
+            
     def computeCombinedMask(self):
         # Check if self.computedMaskData is None and initialize it to ones if so
         if self.computedMaskData is None:

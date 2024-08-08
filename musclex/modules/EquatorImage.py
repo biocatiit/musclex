@@ -50,6 +50,10 @@ except: # for coverage
     from utils.image_processor import *
 from collections import deque
 
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
+from scipy.interpolate import BSpline, make_interp_spline
+
 class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
@@ -441,7 +445,48 @@ class EquatorImage:
             img = self.getRotatedImage()
             self.info['hist'] = np.sum(img[int_area[0]:int_area[1], :], axis=0)
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
+            
+        if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
+            y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), self.info['hist'],smoothing_window=11, sampling_interval=10, spline_degree=3)
+            
+            # Plotting
+            # plt.figure(figsize=(15, 10))
 
+            # # Original Histogram
+            # plt.subplot(3, 2, 1)
+            # plt.plot(self.info['hist'], label='Original Histogram')
+            # plt.title('Original Histogram')
+            # plt.legend()
+
+            # # Filled Histogram
+            # plt.subplot(3, 2, 2)
+            # plt.plot(y_filled, label='Filled Histogram')
+            # plt.title('Filled Histogram')
+            # plt.legend()
+
+            # # Smoothed Histogram
+            # plt.subplot(3, 2, 3)
+            # plt.plot(y_smoothed, label='Smoothed Histogram')
+            # plt.title('Smoothed Histogram')
+            # plt.legend()
+
+            # # Interpolated Histogram
+            # plt.subplot(3, 2, 4)
+            # plt.plot(y_interpolated, label='Interpolated Histogram')
+            # plt.title('Interpolated Histogram')
+            # plt.legend()
+            
+            # plt.subplot(3, 2, 5)
+            # plt.scatter(interp_x, interp_y, label='interp x/y scatter')
+            # plt.title('interp x/y scatter')
+            # plt.legend()
+            
+
+            # plt.tight_layout()
+            # plt.show()
+            
+            self.info['hist'] = y_interpolated
+        
         print("Done.")
 
     def applyConvexhull(self):
@@ -510,8 +555,60 @@ class EquatorImage:
                                   'all': hist}
 
             self.removeInfo('tmp_peaks') # Remove temp peaks from info dict to make it be re-calculated
+            
 
         print("Done.")
+        
+    def custom_smooth(self, y_with_gaps, window_length=51, polyorder=3):
+        """Smooth the signal while ignoring gaps."""
+        y_smoothed = np.zeros_like(y_with_gaps)
+        non_zero_indices = np.where(y_with_gaps != 0)[0]
+
+        # Apply smoothing only on non-gap sections
+        y_smoothed_non_zero = savgol_filter(y_with_gaps[non_zero_indices], window_length, polyorder)
+
+        # Insert the smoothed values back into the full array
+        y_smoothed[non_zero_indices] = y_smoothed_non_zero
+
+        return y_smoothed
+
+    def interpolate_sensor_gap(self, x, y_with_gaps, smoothing_window=51, smoothing_polyorder=3, sampling_interval=10, spline_degree=3):
+        """Interpolate sensor gaps using B-spline interpolation."""
+        # Smooth the profile, ignoring gaps
+        y_smoothed = self.custom_smooth(y_with_gaps, window_length=smoothing_window, polyorder=smoothing_polyorder)
+
+        # Find gap regions
+        gaps = np.where(y_with_gaps < 0)[0]
+        gap_start_indices = np.unique(np.hstack([np.where(np.diff(gaps) > 1)[0] + 1, [0]]))
+        gap_ends = np.unique(np.hstack([[len(gaps)-1], np.where(np.diff(gaps) > 1)[0]]))
+
+        gap_starts = gaps[gap_start_indices]
+        gap_ends = gaps[gap_ends]
+
+        # Sample points from the smoothed signal, avoiding gaps
+        sample_indices = []
+        for i in range(0, len(x), sampling_interval):
+            if all((i < start or i > end) for start, end in zip(gap_starts, gap_ends)):
+                sample_indices.append(i)
+
+        interp_x = x[sample_indices]
+        interp_y = y_smoothed[sample_indices]
+
+        # Use B-spline interpolation on the sampled points
+        bspline = make_interp_spline(interp_x, interp_y, k=spline_degree)
+
+        # Create the fully interpolated signal based only on the B-spline
+        y_interpolated = bspline(x)
+
+        # Fill the gaps using the B-spline interpolation
+        y_filled = y_with_gaps.copy()
+        for start, end in zip(gap_starts, gap_ends):
+            y_filled[start:end + 1] = bspline(x[start:end + 1])
+
+        return y_filled, y_smoothed, y_interpolated, interp_x, interp_y
+
+
+    # y_filled, y_smoothed, y_interpolated, interp_x, interp_y = interpolate_sensor_gap(x, y_with_gaps, sampling_interval=10, spline_degree=3)
 
     def getPeaks(self):
         """

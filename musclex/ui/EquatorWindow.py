@@ -25,7 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-
+import time
 import sys
 import copy
 import os
@@ -52,7 +52,6 @@ from .BlankImageSettings import BlankImageSettings
 from skimage.morphology import binary_dilation
 from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
 from queue import Queue
-
 
 class WorkerSignals(QObject):
     
@@ -523,6 +522,8 @@ class EquatorWindow(QMainWindow):
         self.use_previous_fit_chkbx = QCheckBox("Use Previous Fit")
         self.k_layout.addWidget(self.k_chkbx)
         self.k_layout.addWidget(self.k_spnbx)
+        
+        self.use_smooth_alg = QCheckBox("Use Interp Algorithm")
 
         self.refittingB = QPushButton("Refit current image")
         self.refitAllButton = QPushButton("Refit current folder")
@@ -566,6 +567,7 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
+        self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
         self.fittingOptionsLayout2.addWidget(self.refitAllButton)
         self.fittingOptionsLayout2.addStretch()
@@ -838,12 +840,19 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.editingFinished.connect(self.kChanged)
         self.refittingB.clicked.connect(self.refitting)
         self.refitAllButton.toggled.connect(self.refitAllBtnToggled)
+        self.use_smooth_alg.clicked.connect(self.useSmoothClicked)
 
         #### Parameter Editor Tab
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
-        self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+        self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)\
+        
+    def useSmoothClicked(self):
+        self.bioImg.info['use_smooth_alg'] = self.use_smooth_alg.isChecked()
+        del self.bioImg.info['hulls']
+        del self.bioImg.info['hist']
+        self.refitting()
         
     def fillGapLinesChanged(self):
         if self.fillGapLinesChkbx.isChecked():
@@ -3447,6 +3456,8 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None:
             return
+        self.tabWidget.tabBar().setEnabled(False)
+        self.tabWidget.tabBar().setToolTip("Tab switching is disabled while processing")
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
         settings = self.getSettings()
@@ -3461,12 +3472,13 @@ class EquatorWindow(QMainWindow):
             #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
             # If QF box checked, get center from QF
             # self.getCenterFromQF()
-            # if settings['find_oritation']:
-            #     self.brightSpotClicked()
-
-            # self.bioImg.process(settings, paramInfo)
             
-            self.addTask(paramInfo)
+            if settings['find_oritation']:
+                self.brightSpotClicked()
+
+            self.bioImg.process(settings, paramInfo)
+            
+            # self.addTask(paramInfo)
 
         except Exception:
             QApplication.restoreOverrideCursor()
@@ -3481,13 +3493,15 @@ class EquatorWindow(QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.updateParams()
-        # self.csvManager.writeNewData(self.bioImg)
-        # self.csvManager.writeNewData2(self.bioImg)
-        # self.resetUI()
-        # self.refreshStatusbar()
-        # self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
-        # QApplication.restoreOverrideCursor()
+        self.updateParams()
+        self.csvManager.writeNewData(self.bioImg)
+        self.csvManager.writeNewData2(self.bioImg)
+        self.resetUI()
+        self.refreshStatusbar()
+        self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
+        QApplication.restoreOverrideCursor()
+        self.tabWidget.tabBar().setEnabled(True)
+        self.tabWidget.tabBar().setToolTip("")
         
     def addTask(self, paramInfo=None):
         self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))

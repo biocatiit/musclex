@@ -433,7 +433,7 @@ class ProjectionProcessor:
                     params.add('center_amplitude1', self.info['main_peak_info'][name]['center_amplitude1'], min=-1, max=sum(hist) + 1.)
                     params.add('center_sigma2', self.info['main_peak_info'][name]['center_sigma2'], min=1, max=len(hist)+1.)
                     params.add('center_amplitude2', self.info['main_peak_info'][name]['center_amplitude2'], min=-1, max=sum(hist)+1.)
-                    
+                
                 else:
                 # Init background params
                     params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
@@ -474,6 +474,21 @@ class ProjectionProcessor:
                 int_vars.pop('x')
                 result_dict.update(int_vars)
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
+                
+                if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
+                    if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
+                        result_dict['bg_sigma'] = self.info['main_peak_info'][name]['bg_sigma']
+                    if self.info['main_peak_info'][name]['bg_amplitude_lock'] == True:
+                        result_dict['bg_amplitude'] = self.info['main_peak_info'][name]['bg_amplitude']
+                    if self.info['main_peak_info'][name]['center_sigma1_lock'] == True:
+                        result_dict['center_sigma1'] = self.info['main_peak_info'][name]['center_sigma1']   
+                    if self.info['main_peak_info'][name]['center_amplitude1_lock'] == True:
+                        result_dict['center_amplitude1'] = self.info['main_peak_info'][name]['center_amplitude1']
+                    if self.info['main_peak_info'][name]['center_sigma2_lock'] == True:
+                        result_dict['center_sigma2'] = self.info['main_peak_info'][name]['center_sigma2']
+                    if self.info['main_peak_info'][name]['center_amplitude2_lock'] == True:
+                        result_dict['center_amplitude2'] = self.info['main_peak_info'][name]['center_amplitude2']
+                
                 self.info['fit_results'][name] = result_dict
                 self.removeInfo(name, 'subtracted_hists')
                 for i in self.fixed_center:

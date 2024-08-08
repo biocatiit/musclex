@@ -578,7 +578,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 file_name = self.file_name
             else:
                 file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
-            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value())
+            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value(), self.isHdf5)
         if self.imageMaskingTool.exec_():
             if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
                 print("mask found!!")

@@ -171,6 +171,15 @@ class EditBoxDetails(QDialog):
         self.box_width.setMinimum(0)
         self.box_width.setMaximum(10000)
         
+        self.boxWidthLabel = QLabel("Box Width Mode : ")
+        self.boxWidthMode = QComboBox()
+        width_modes = ['Center', 'Left', 'Right']
+        self.boxWidthMode.addItems(width_modes)
+        self.boxHeightLabel = QLabel("Box Height Mode : ")
+        self.boxHeightMode = QComboBox()
+        height_modes = ['Center', 'Top', 'Bottom']
+        self.boxHeightMode.addItems(height_modes)
+        
         self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
                                               Qt.Horizontal, self)
         self.bottons.accepted.connect(self.okClicked)
@@ -181,9 +190,13 @@ class EditBoxDetails(QDialog):
         self.boxLayout.addWidget(self.boxNames, 0, 1, 1, 1)
         self.boxLayout.addWidget(QLabel("Box Height : "), 1, 0, 1, 1)
         self.boxLayout.addWidget(self.box_height, 1, 1, 1, 1)
-        self.boxLayout.addWidget(QLabel("Box Width : "), 2, 0, 1, 1)
-        self.boxLayout.addWidget(self.box_width, 2, 1, 1, 1)
-        self.boxLayout.addWidget(self.bottons, 3, 0, 1, 2, Qt.AlignCenter)
+        self.boxLayout.addWidget(self.boxHeightLabel, 2, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxHeightMode, 2, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Box Width : "), 3, 0, 1, 1)
+        self.boxLayout.addWidget(self.box_width, 3, 1, 1, 1)
+        self.boxLayout.addWidget(self.boxWidthLabel, 4, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxWidthMode, 4, 1, 1, 1)
+        self.boxLayout.addWidget(self.bottons, 5, 0, 1, 2, Qt.AlignCenter)
         
         self.boxNames.currentIndexChanged.connect(self.updateBoxInfo)
         
@@ -196,6 +209,12 @@ class EditBoxDetails(QDialog):
             if self.box_types[box_name] == 'oriented':
                 self.box_height.setValue(box[4])
                 self.box_width.setValue(box[3])
+                
+                # self.boxWidthLabel.setVisible(False)
+                # self.boxWidthMode.setVisible(False)
+                # self.boxHeightLabel.setVisible(False)
+                # self.boxHeightMode.setVisible(False)
+                
             else:
                 x1,x2 = box[0]
                 width = abs(x1 - x2)
@@ -204,6 +223,14 @@ class EditBoxDetails(QDialog):
                 print(height, width)
                 self.box_height.setValue(height)
                 self.box_width.setValue(width)
+                
+                # self.boxWidthLabel.setVisible(True)
+                # self.boxWidthMode.setVisible(True)
+                # self.boxHeightLabel.setVisible(True)
+                # self.boxHeightMode.setVisible(True)
+                
+        self.boxHeightMode.setCurrentIndex(0)
+        self.boxWidthMode.setCurrentIndex(0)
         
         
     def okClicked(self):
@@ -213,6 +240,8 @@ class EditBoxDetails(QDialog):
         self.current_box = str(self.boxNames.currentText())
         self.new_height = self.box_height.value()
         self.new_width = self.box_width.value()
+        self.height_mode = self.boxHeightMode.currentText()
+        self.width_mode = self.boxWidthMode.currentText()
         self.accept()
         
 
@@ -1199,7 +1228,9 @@ class ProjectionTracesGUI(QMainWindow):
                 height = dialog.new_height
                 width = dialog.new_width
                 target_box = dialog.current_box
-                self.updateBoxDetails(target_box, height, width)
+                height_mode = dialog.height_mode
+                width_mode = dialog.width_mode
+                self.updateBoxDetails(target_box, height, width, height_mode, width_mode)
         else:
             errMsg = QMessageBox()
             errMsg.setText('No boxes to edit.')
@@ -1210,7 +1241,84 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.setFixedWidth(600)
             errMsg.exec_()
             
-    def updateBoxDetails(self, box_name, height, width):
+    def updateBoxDetails(self, box_name, height, width, height_mode, width_mode):
+    
+        box = self.allboxes[box_name]
+
+        if self.boxtypes[box_name] == 'oriented':
+            bx, by = box[2]
+            current_width = box[3]
+            current_height = box[4]
+            angle = box[5]
+            cx, cy = box[6]
+
+            # Determine new points for each side based on the modes
+            bl = rotatePoint((cx, cy), (bx, by), -np.radians(angle))
+            br = (bl[0] + current_width, bl[1])
+            tl = (bl[0], bl[1] + current_height)
+            tr = (bl[0] + current_width, bl[1] + current_height)
+            
+            print(bl, br, tl, tr)
+
+            if height_mode == 'Center':
+                bl = (bl[0], bl[1] - (height - current_height) / 2)
+                tl = (tl[0], tl[1] + (height - current_height) / 2)
+            elif height_mode == 'Top':
+                tl = (tl[0], tl[1] + (height - current_height))
+                tr = (tr[0], tr[1] + (height - current_height))
+            elif height_mode == 'Bottom':
+                bl = (bl[0], bl[1] - (height - current_height))
+                br = (br[0], br[1] - (height - current_height))
+
+            if width_mode == 'Center':
+                bl = (bl[0] - (width - current_width) / 2, bl[1])
+                br = (br[0] + (width - current_width) / 2, br[1])
+            elif width_mode == 'Left':
+                bl = (bl[0] - (width - current_width), bl[1])
+                tl = (tl[0] - (width - current_width), tl[1])
+            elif width_mode == 'Right':
+                br = (br[0] + (width - current_width), br[1])
+                tr = (tr[0] + (width - current_width), tr[1])
+
+            # Rotate the updated points back to the original orientation
+            bl_rot = rotatePoint((cx, cy), bl, np.radians(angle))
+            br_rot = rotatePoint((cx, cy), br, np.radians(angle))
+            tl_rot = rotatePoint((cx, cy), tl, np.radians(angle))
+            tr_rot = rotatePoint((cx, cy), tr, np.radians(angle))
+            
+            (bl_rot, br_rot, tl_rot, tr_rot)
+
+            # Update the box with the new points
+            self.allboxes[box_name] = [bl_rot, br_rot, tl_rot, tr_rot, width, height, angle, (cx, cy)]
+        else:
+            # Handle non-oriented box (as in your original code)
+            x1, x2 = box[0]
+            y1, y2 = box[1]
+            current_width = abs(x1 - x2)
+            current_height = abs(y1 - y2)
+            height_diff = height - current_height
+            width_diff = width - current_width
+
+            if height_diff != 0 or width_diff != 0:
+                if height_mode == 'Center':
+                    y1 = y1 - height_diff/2
+                    y2 = y2 + height_diff/2
+                elif height_mode == 'Top':
+                    y1 = y1 - height_diff
+                elif height_mode == 'Bottom':
+                    y2 = y2 + height_diff
+
+                if width_mode == 'Center':
+                    x1 = x1 - width_diff/2
+                    x2 = x2 + width_diff/2
+                elif width_mode == 'Left':
+                    x1 = x1 - width_diff
+                elif width_mode == 'Right':
+                    x2 = x2 + width_diff
+
+                self.allboxes[box_name] = [(x1, x2), (y1, y2)]
+            
+    def updateBoxDetails2(self, box_name, height, width, height_mode, width_mode):
         box = self.allboxes[box_name]
         if self.boxtypes[box_name] == 'oriented':
             bx, by = box[2]
@@ -1237,7 +1345,25 @@ class ProjectionTracesGUI(QMainWindow):
             width_diff = width - current_width
             
             if height_diff != 0 or width_diff != 0:
-                self.allboxes[box_name] = [(x1 - width_diff/2, x2 + width_diff/2), (y1-height_diff/2, y2 + height_diff/2)]
+                print(height_mode)
+                print(width_mode)
+                if height_mode == 'Center':
+                    y1 = y1 - height_diff/2
+                    y2 = y2 + height_diff/2
+                elif height_mode == 'Top':
+                    y1 = y1 - height_diff   
+                elif height_mode == 'Bottom':
+                    y2 = y2 + height_diff
+        
+                if width_mode == 'Center':
+                    x1 = x1 - width_diff/2
+                    x2 = x2 + width_diff/2
+                elif width_mode == 'Left':
+                    x1 = x1 - width_diff
+                elif width_mode == 'Right':
+                    x2 = x2 + width_diff
+    
+                self.allboxes[box_name] = [(x1, x2), (y1, y2)]
                 
                 
         for artist in self.boxes_on_img[box_name].values():
