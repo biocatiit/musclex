@@ -214,6 +214,9 @@ class CalibrationSettings(QDialog):
         self.misSettingChkBx = QCheckBox("Correct Mis-Setting Angles")
         self.misSettingChkBx.setEnabled(False)
         self.misSettingChkBx.setToolTip("Not yet implemented")
+        
+        self.useCalibratedUnits = QCheckBox("Use Calibrated Units")
+        self.useCalibratedUnits.setEnabled(False)
 
         if center is not None:
             self.centerX.setValue(center[0])
@@ -263,6 +266,7 @@ class CalibrationSettings(QDialog):
         self.mainLayout.addWidget(self.manDetector)
         self.mainLayout.addWidget(self.detectorChoice)
         self.mainLayout.addWidget(self.misSettingChkBx)
+        self.mainLayout.addWidget(self.useCalibratedUnits)
         self.mainLayout.addWidget(self.buttons)
         self.mainLayout.setAlignment(Qt.AlignCenter)
         self.mainLayout.setAlignment(self.buttons, Qt.AlignCenter)
@@ -588,6 +592,7 @@ class CalibrationSettings(QDialog):
                 "radius": cali_radius
             }
 
+        self.useCalibratedUnits.setEnabled(True)
         self.updateImage()
 
     def updateImage(self):
@@ -665,6 +670,7 @@ class CalibrationSettings(QDialog):
         React to the OK button.
         """
         self.saveSettings()
+        print(self.calSettings)
         self.accept()
 
     def getValues(self):

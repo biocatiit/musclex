@@ -47,6 +47,12 @@ from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
+from threading import Lock
+
+class QuadFoldParams:
+    def __init__(self, quadFold, flags):
+        self.quadFold = quadFold
+        self.flags = flags
 
 class WorkerSignals(QObject):
     
@@ -57,10 +63,10 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, quadFold, flags):
+    def __init__(self, params):
         super().__init__()
-        self.quadFold = quadFold
-        self.flags = flags
+        self.quadFold = params.quadFold
+        self.flags = params.flags
         self.signals = WorkerSignals()
         
     @pyqtSlot()
@@ -117,11 +123,11 @@ class QuadrantFoldingGUI(QMainWindow):
         
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
-        self.loop = QEventLoop()
         self.currentTask = None
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
+        self.lock = Lock()
         
         self.rotationAngle = None
 
@@ -2606,23 +2612,26 @@ class QuadrantFoldingGUI(QMainWindow):
     #     #     self.tasksDone = 0
     
     def addTask(self):
-        self.tasksQueue.put((self.quadFold, self.getFlags()))
+        params = QuadFoldParams(self.quadFold, self.getFlags())
+        self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
-        if self.currentTask is None:
-            self.startNextTask()
+        self.startNextTask()
             
     def thread_done(self, quadFold):
         self.quadFold = quadFold
         print("thread done")
             
     def startNextTask(self):
-        if not self.tasksQueue.empty():
-            quadFold, flags = self.tasksQueue.get()
-            self.currentTask = Worker(quadFold, flags)
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
+            params = self.tasksQueue.get()
+            self.currentTask = Worker(params)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.onProcessingFinished)
             self.threadPool.start(self.currentTask)
+
+        if self.tasksQueue.empty():
+            self.csvManager.sortCSV()
         
     def onProcessingFinished(self):
         print("Processing finished")
@@ -2631,8 +2640,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.updateParams()
         self.refreshAllTabs()
         
+        if self.lock is not None:
+            self.lock.acquire()
         self.csvManager.writeNewData(self.quadFold)
-
+        if self.lock is not None:
+            self.lock.release()
+        
         self.saveResults()
         QApplication.restoreOverrideCursor()
         self.currentTask = None

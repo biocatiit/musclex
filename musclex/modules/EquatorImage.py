@@ -485,7 +485,27 @@ class EquatorImage:
             # plt.tight_layout()
             # plt.show()
             
-            self.info['hist'] = y_interpolated
+        
+            # y_replaced = self.info['hist'].copy()
+            # y_replaced[self.info['hist'] < 0] = y_filled[self.info['hist'] < 0]
+            
+            y_replaced = self.fill_gaps(self.info['hist'], y_filled, margin=100)
+            
+            # # Plotting
+            # plt.figure(figsize=(10, 6))
+
+            # # Original Histogram
+            # plt.plot(self.info['hist'], label='Original Histogram', color='red')
+
+            # # Filled Histogram
+            # plt.plot(y_replaced, label='Filled Histogram', color='purple', linestyle='--')
+            
+
+            # plt.xlim(400, 600)
+            # plt.legend()
+            # plt.show()
+            
+            self.info['hist'] = y_replaced
         
         print("Done.")
 
@@ -606,6 +626,33 @@ class EquatorImage:
             y_filled[start:end + 1] = bspline(x[start:end + 1])
 
         return y_filled, y_smoothed, y_interpolated, interp_x, interp_y
+    
+    def fill_gaps(self, y_with_gaps, y_filled, margin=0):
+        # Convert to numpy arrays for easier manipulation
+        y_with_gaps = np.array(y_with_gaps)
+        y_filled = np.array(y_filled)
+
+        # Find the indices where the gaps are (values are 0)
+        gap_indices = np.where(y_with_gaps <= 0)[0]
+
+        if len(gap_indices) == 0:
+            # No gaps found, return the original y_with_gaps
+            return y_with_gaps
+
+        # Iterate through each gap index
+        for idx in gap_indices:
+            # Determine the start and end indices for copying with the margin
+            start_idx = max(0, idx - margin)
+            end_idx = min(len(y_with_gaps), idx + margin + 1)
+
+            # Copy the region from y_filled to y_with_gaps
+            y_with_gaps[start_idx:end_idx] = y_filled[start_idx:end_idx]
+            
+        
+        np.savetxt("/home/vboxuser/with_gaps.txt", y_with_gaps, delimiter=",")
+        # Return the filled y_with_gaps
+
+        return y_with_gaps
 
 
     # y_filled, y_smoothed, y_interpolated, interp_x, interp_y = interpolate_sensor_gap(x, y_with_gaps, sampling_interval=10, spline_degree=3)

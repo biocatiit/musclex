@@ -25,7 +25,6 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-
 from os import makedirs
 from os.path import exists
 import hashlib
@@ -130,3 +129,9 @@ class QF_CSVManager:
         :return:
         """
         self.dataframe = self.dataframe[self.dataframe["Filename"] != img_name]
+        
+    def sortCSV(self):
+        if exists(self.filename):
+            df = pd.read_csv(self.filename)
+            df.sort_values(by='Filename', inplace=True)
+            df.to_csv(self.filename, index=False)

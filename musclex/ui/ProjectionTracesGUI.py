@@ -36,6 +36,7 @@ from os.path import exists, splitext, join
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
+from threading import Lock
 import numpy as np
 import cv2
 from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
@@ -50,27 +51,37 @@ from ..csv_manager import PT_CSVManager
 from .BlankImageSettings import BlankImageSettings
 from .pyqt_utils import *
 
+class ProjectionParams:
+    def __init__(self, projProc, flags):
+        self.projProc = projProc
+        self.flags = flags
+
+class WorkerSignals(QObject):
+    
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+
+
 class Worker(QRunnable):
 
-    def __init__(self, projProc, settings, callback):
+    def __init__(self, params):
         super().__init__()
-        print("new worker")
-        self.projProc = projProc
-        self.settings = settings
-        self.callback = callback
+        self.projProc = params.projProc
+        self.flags = params.flags
+        self.signals = WorkerSignals()
         
+    @pyqtSlot()
     def run(self):
-        print("processing")
-        self.projProc.process(self.settings)
-        self.callback(self.projProc)
-
-    def process(self):
-        self.quadFold.process(self.flags)
-        self.finished.emit(self.quadFold)
-        
-    def update(self, quadFold1, flags1):
-        self.quadFold = quadFold1
-        self.flags = flags1
+        try:
+            self.projProc.process(self.flags)
+        except:
+            traceback.print_exc()
+            self.signals.error.emit((traceback.format_exc()))
+        else:
+            self.signals.result.emit(self.projProc)
+        finally:
+            self.signals.finished.emit()
 
 class BoxDetails(QDialog):
     """
@@ -125,11 +136,6 @@ class BoxDetails(QDialog):
             errMsg.setText('Adding a box Error')
             errMsg.setInformativeText('Please specify the box name')
             errMsg.setStandardButtons(QMessageBox.Ok)
-            errMsg.setIcon(QMessageBox.Warning)
-            errMsg.exec_()
-        elif box_name in self.box_names:
-            errMsg = QMessageBox()
-            errMsg.setText('Adding a box Error')
             errMsg.setInformativeText(box_name+' has already been added. Please select another name')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
@@ -297,6 +303,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
+        self.lock = Lock()
         
         self.initUI()
         self.setConnections()
@@ -1241,7 +1248,7 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.setFixedWidth(600)
             errMsg.exec_()
             
-    def updateBoxDetails(self, box_name, height, width, height_mode, width_mode):
+    def updateBoxDetails2(self, box_name, height, width, height_mode, width_mode):
     
         box = self.allboxes[box_name]
 
@@ -1318,7 +1325,7 @@ class ProjectionTracesGUI(QMainWindow):
 
                 self.allboxes[box_name] = [(x1, x2), (y1, y2)]
             
-    def updateBoxDetails2(self, box_name, height, width, height_mode, width_mode):
+    def updateBoxDetails(self, box_name, height, width, height_mode, width_mode):
         box = self.allboxes[box_name]
         if self.boxtypes[box_name] == 'oriented':
             bx, by = box[2]
@@ -1330,7 +1337,24 @@ class ProjectionTracesGUI(QMainWindow):
             cx, cy = box[6]
             new_point = rotatePoint((cx, cy), (bx, by), -np.radians(angle))
             if height_diff != 0 or width_diff != 0:
-                translated_point = (new_point[0] - width_diff/2, new_point[1] - height_diff/2)
+                if height_mode == 'Center':
+                    new_height = new_point[1] - height_diff/2
+                elif height_mode == 'Top':
+                    new_height = new_point[1] - height_diff
+                    cy = cy - height_diff/2
+                elif height_mode == 'Bottom':
+                    new_height = new_point[1]
+                    cy = cy + height_diff/2
+                if width_mode == 'Center':
+                    new_width = new_point[0] - width_diff/2
+                elif width_mode == 'Left':
+                    new_width = new_point[0] - width_diff
+                    cx = cx - width_diff/2
+                elif width_mode == 'Right':
+                    new_width = new_point[0]
+                    cx = cx + width_diff/2
+                translated_point = (new_width, new_height)
+                
                 new_bl = rotatePoint((cx,cy), (translated_point[0], translated_point[1]), np.radians(angle))
                 x1, y1 = translated_point
                 x2 = x1 + width
@@ -1897,8 +1921,17 @@ class ProjectionTracesGUI(QMainWindow):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            if self.calSettings is not None and self.calSettings:
+                center = self.calSettings['center']
+                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+                constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                calib_distance = mouse_distance * 1.0/constant
+                calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.calSettings is not None and self.calSettings:
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(calib_distance) + "nm-1")
+                else:
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
@@ -2442,10 +2475,9 @@ class ProjectionTracesGUI(QMainWindow):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        settings = self.getSettings()
+        # settings = self.getSettings()
         try:
             # self.projProc.process(settings)
-            print("adding task")
             self.addTask()
         except Exception:
             QApplication.restoreOverrideCursor()
@@ -2460,46 +2492,48 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.exec_()
             raise
 
-        self.resetUI()
-        self.refreshStatusbar()
-        self.cacheBoxesAndPeaks()
-        self.csvManager.setColumnNames(self.allboxes, self.peaks)
-        self.csvManager.writeNewData(self.projProc)
-        self.exportHistograms()
-        QApplication.restoreOverrideCursor()
+        # self.resetUI()
+        # self.refreshStatusbar()
+        # self.cacheBoxesAndPeaks()
+        # self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        # self.csvManager.writeNewData(self.projProc)
+        # self.exportHistograms()
+        # QApplication.restoreOverrideCursor()
+    
+    def thread_done(self, projProc):
+        self.projProc = projProc
+        print("thread done")
         
     def addTask(self):
-        self.tasksQueue.put((self.projProc, self.getSettings()))
+        params = ProjectionParams(self.projProc, self.getSettings())
+        self.tasksQueue.put(params)
         print("added task")
         
         # If there's no task currently running, start the next task
-        if self.currentTask is None:
-            self.startNextTask()
+        self.startNextTask()
             
     def startNextTask(self):
-        if not self.tasksQueue.empty():
-            print("starting new task")
-            projProc, settings = self.tasksQueue.get()
-            self.currentTask = Worker(projProc, settings, self.onProcessingFinished)
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount()/2:
+            params = self.tasksQueue.get()
+            self.currentTask = Worker(params)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.onProcessingFinished)
             self.threadPool.start(self.currentTask)
-            self.loop.exec_()
         
-    def onProcessingFinished(self, projProc):
+    def onProcessingFinished(self):
         print("Processing finished")
-        self.projProc = projProc
         self.tasksDone += 1
         
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
+        
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         
         QApplication.restoreOverrideCursor()
-        self.loop.quit()
         self.currentTask = None
-        print(self.tasksQueue.qsize())
         self.startNextTask()
 
     def exportHistograms(self):

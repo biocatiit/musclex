@@ -36,6 +36,7 @@ import pickle
 import numpy as np
 import cv2
 import csv
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hdf5plugin # for some reason this is needed even though never coded
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -962,6 +963,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     self.nextGrpClicked()
                 else:
                     break
+            
             self.progressBar.setValue(self.nbOfGroups)
             self.progressBar.setVisible(False)
             self.statusPrint("")
