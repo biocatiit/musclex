@@ -146,3 +146,9 @@ class PT_CSVManager:
         :return:
         """
         self.dataframe = self.dataframe[self.dataframe["Filename"] != file_name]
+        
+    def sortCSV(self):
+        if exists(self.filename):
+            df = pd.read_csv(self.filename)
+            df.sort_values(by='Filename', inplace=True)
+            df.to_csv(self.filename, index=False)

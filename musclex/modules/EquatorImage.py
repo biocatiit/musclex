@@ -447,65 +447,26 @@ class EquatorImage:
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
             
         if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
-            y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), self.info['hist'],smoothing_window=11, sampling_interval=10, spline_degree=3)
-            
-            # Plotting
-            # plt.figure(figsize=(15, 10))
-
-            # # Original Histogram
-            # plt.subplot(3, 2, 1)
-            # plt.plot(self.info['hist'], label='Original Histogram')
-            # plt.title('Original Histogram')
-            # plt.legend()
-
-            # # Filled Histogram
-            # plt.subplot(3, 2, 2)
-            # plt.plot(y_filled, label='Filled Histogram')
-            # plt.title('Filled Histogram')
-            # plt.legend()
-
-            # # Smoothed Histogram
-            # plt.subplot(3, 2, 3)
-            # plt.plot(y_smoothed, label='Smoothed Histogram')
-            # plt.title('Smoothed Histogram')
-            # plt.legend()
-
-            # # Interpolated Histogram
-            # plt.subplot(3, 2, 4)
-            # plt.plot(y_interpolated, label='Interpolated Histogram')
-            # plt.title('Interpolated Histogram')
-            # plt.legend()
-            
-            # plt.subplot(3, 2, 5)
-            # plt.scatter(interp_x, interp_y, label='interp x/y scatter')
-            # plt.title('interp x/y scatter')
-            # plt.legend()
-            
-
-            # plt.tight_layout()
-            # plt.show()
+            y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), self.info['hist'],smoothing_window=11, sampling_interval=10, spline_degree=3, margin=3)
             
         
             # y_replaced = self.info['hist'].copy()
             # y_replaced[self.info['hist'] < 0] = y_filled[self.info['hist'] < 0]
             
-            y_replaced = self.fill_gaps(self.info['hist'], y_filled, margin=100)
+            # y_replaced = self.fill_gaps(self.info['hist'], y_filled, margin=100)
             
-            # # Plotting
             # plt.figure(figsize=(10, 6))
-
-            # # Original Histogram
             # plt.plot(self.info['hist'], label='Original Histogram', color='red')
-
-            # # Filled Histogram
-            # plt.plot(y_replaced, label='Filled Histogram', color='purple', linestyle='--')
-            
-
+            # plt.plot(y_filled, label='Replaced Data', linestyle='--')
+            # plt.plot(y_interpolated, label='Interpolated Data', linestyle='-.')
             # plt.xlim(400, 600)
+            # plt.xlabel('Index')
+            # plt.ylabel('Value')
+            # plt.title('Filled Gaps in Data')
             # plt.legend()
             # plt.show()
             
-            self.info['hist'] = y_replaced
+            self.info['hist'] = y_filled
         
         print("Done.")
 
@@ -592,7 +553,7 @@ class EquatorImage:
 
         return y_smoothed
 
-    def interpolate_sensor_gap(self, x, y_with_gaps, smoothing_window=51, smoothing_polyorder=3, sampling_interval=10, spline_degree=3):
+    def interpolate_sensor_gap(self, x, y_with_gaps, smoothing_window=51, smoothing_polyorder=3, sampling_interval=10, spline_degree=3, margin=0):
         """Interpolate sensor gaps using B-spline interpolation."""
         # Smooth the profile, ignoring gaps
         y_smoothed = self.custom_smooth(y_with_gaps, window_length=smoothing_window, polyorder=smoothing_polyorder)
@@ -623,13 +584,14 @@ class EquatorImage:
         # Fill the gaps using the B-spline interpolation
         y_filled = y_with_gaps.copy()
         for start, end in zip(gap_starts, gap_ends):
-            y_filled[start:end + 1] = bspline(x[start:end + 1])
+            y_filled[start-margin:end + 1 + margin] = bspline(x[start - margin:end + 1 + margin])
 
         return y_filled, y_smoothed, y_interpolated, interp_x, interp_y
     
     def fill_gaps(self, y_with_gaps, y_filled, margin=0):
         # Convert to numpy arrays for easier manipulation
         y_with_gaps = np.array(y_with_gaps)
+        y_with_gaps_copy = y_with_gaps.copy()
         y_filled = np.array(y_filled)
 
         # Find the indices where the gaps are (values are 0)
@@ -644,10 +606,22 @@ class EquatorImage:
             # Determine the start and end indices for copying with the margin
             start_idx = max(0, idx - margin)
             end_idx = min(len(y_with_gaps), idx + margin + 1)
+            
+            print(start_idx, end_idx)
 
             # Copy the region from y_filled to y_with_gaps
             y_with_gaps[start_idx:end_idx] = y_filled[start_idx:end_idx]
-            
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(y_with_gaps, label='Filled Data')
+        plt.plot(y_with_gaps_copy, label='Original Data', linestyle='--')
+        plt.plot(y_filled, label='Interpolated Data', linestyle='-.')
+        plt.xlim(400, 600)
+        plt.xlabel('Index')
+        plt.ylabel('Value')
+        plt.title('Filled Gaps in Data')
+        plt.legend()
+        plt.show()
         
         np.savetxt("/home/vboxuser/with_gaps.txt", y_with_gaps, delimiter=",")
         # Return the filled y_with_gaps

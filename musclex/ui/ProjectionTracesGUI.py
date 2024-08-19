@@ -52,9 +52,12 @@ from .BlankImageSettings import BlankImageSettings
 from .pyqt_utils import *
 
 class ProjectionParams:
-    def __init__(self, projProc, flags):
-        self.projProc = projProc
-        self.flags = flags
+    def __init__(self, dir_path, img_name, fileList, ext, settings):
+        self.settings = settings
+        self.dir_path = dir_path
+        self.img_name = img_name
+        self.fileList = fileList
+        self.ext = ext
 
 class WorkerSignals(QObject):
     
@@ -65,16 +68,35 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params):
+    def __init__(self, params=None, projProc=None, settings=None):
         super().__init__()
-        self.projProc = params.projProc
-        self.flags = params.flags
+        self.settings = settings if settings is not None else (params.settings if params else None)
+        self.params = params
+        self.projProc = projProc
         self.signals = WorkerSignals()
+        self.lock = Lock()
+    
+    @classmethod
+    def fromProjProc(cls, projProc, settings):
+        return cls(projProc=projProc, settings=settings)
+    
+    @classmethod
+    def fromParams(cls, params):
+        return cls(params=params)
         
     @pyqtSlot()
     def run(self):
         try:
-            self.projProc.process(self.flags)
+            if self.projProc is None and self.params:
+                self.projProc = ProjectionProcessor(self.params.dir_path, self.params.img_name, self.params.fileList, self.params.ext)
+            self.projProc.process(self.settings)
+            
+            if self.lock is not None:
+                self.lock.acquire()
+            with open(self.projProc.dir_path + "/pt_results/tasks_done.txt", "a") as file:
+                file.write(self.projProc.filename + " finished processing"+ "\n")
+            if self.lock is not None:
+                self.lock.release()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -1078,10 +1100,12 @@ class ProjectionTracesGUI(QMainWindow):
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                QApplication.processEvents()
-                self.nextClicked()
-            self.progressBar.setVisible(False)
+                self.addTask(i)
+                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                # QApplication.processEvents()
+                # self.nextClicked()
+            # self.startNextTask()
+            # self.progressBar.setVisible(False)
         
         self.processFolderButton.setChecked(False)
         if self.ext in ['.h5', '.hdf5']:
@@ -1924,14 +1948,25 @@ class ProjectionTracesGUI(QMainWindow):
             if self.calSettings is not None and self.calSettings:
                 center = self.calSettings['center']
                 mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
-                constant = self.calSettings["silverB"] * self.calSettings["radius"]
-                calib_distance = mouse_distance * 1.0/constant
-                calib_distance = f"{calib_distance:.4f}"
+                scale = self.calSettings['scale']
+                d = mouse_distance / scale
+                if (d > 0.01):
+                    q = 1.0/d
+                    unit = "nm^-1"
+                else:
+                    q = mouse_distance
+                    unit = "pix"
+                q = f"{q:.4f}"
+                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                # calib_distance = mouse_distance * 1.0/constant
+                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
                 if self.calSettings is not None and self.calSettings:
-                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(calib_distance) + "nm-1")
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
-                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                    mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
+                    mouse_distance = f"{mouse_distance:.4f}"
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) +"px")
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
@@ -2475,10 +2510,13 @@ class ProjectionTracesGUI(QMainWindow):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        # settings = self.getSettings()
+        settings = self.getSettings()
         try:
-            # self.projProc.process(settings)
-            self.addTask()
+            self.projProc.process(settings)
+            # self.currentTask = Worker.fromProjProc(self.projProc, settings)
+            # self.currentTask.signals.result.connect(self.thread_done)
+            # self.currentTask.signals.finished.connect(self.thread_finished)
+            # self.threadPool.start(self.currentTask)
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
@@ -2492,49 +2530,68 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.resetUI()
-        # self.refreshStatusbar()
-        # self.cacheBoxesAndPeaks()
-        # self.csvManager.setColumnNames(self.allboxes, self.peaks)
-        # self.csvManager.writeNewData(self.projProc)
-        # self.exportHistograms()
-        # QApplication.restoreOverrideCursor()
-    
-    def thread_done(self, projProc):
-        self.projProc = projProc
-        print("thread done")
-        
-    def addTask(self):
-        params = ProjectionParams(self.projProc, self.getSettings())
-        self.tasksQueue.put(params)
-        print("added task")
-        
-        # If there's no task currently running, start the next task
-        self.startNextTask()
-            
-    def startNextTask(self):
-        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount()/2:
-            params = self.tasksQueue.get()
-            self.currentTask = Worker(params)
-            self.currentTask.signals.result.connect(self.thread_done)
-            self.currentTask.signals.finished.connect(self.onProcessingFinished)
-            self.threadPool.start(self.currentTask)
-        
-    def onProcessingFinished(self):
-        print("Processing finished")
-        self.tasksDone += 1
-        
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
+        self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        self.csvManager.writeNewData(self.projProc)
+        self.exportHistograms()
+        QApplication.restoreOverrideCursor()
+
+    def thread_done(self, projProc):
+        if self.lock is not None:
+            print("placing lock")
+            self.lock.acquire()
+        self.projProc = projProc
         
+        self.onProcessingFinished()
+        
+        if self.lock is not None:
+            print("releasing lock")
+            self.lock.release()
+        
+    # placeholder method 
+    def thread_finished(self):
+        print("thread finished")
+        if self.progressBar.isVisible():
+            self.tasksDone += 1
+            self.progressBar.setValue(int(100. / self.numberOfFiles * self.tasksDone))
+        
+        if not self.tasksQueue.empty():
+            self.startNextTask()
+        else:
+            if self.threadPool.activeThreadCount() == 0:
+                print("all threads are done")
+                self.progressBar.setVisible(False)
+                self.csvManager.sortCSV()
+    
+    def addTask(self, i):
+        params = ProjectionParams(self.dir_path, self.imgList[i], self.fileList, self.ext, self.getSettings())
+        self.tasksQueue.put(params)
+        
+        self.startNextTask()
+            
+    def startNextTask(self):
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
+            params = self.tasksQueue.get()
+            self.currentTask = Worker.fromParams(params)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.thread_finished)
+            self.threadPool.start(self.currentTask)
+    
+    
+    def onProcessingFinished(self):
+        self.resetUI()
+        self.refreshStatusbar()
+        self.cacheBoxesAndPeaks()
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         
         QApplication.restoreOverrideCursor()
         self.currentTask = None
-        self.startNextTask()
+        print("all done")
+        
 
     def exportHistograms(self):
         """
@@ -2664,9 +2721,12 @@ class ProjectionTracesGUI(QMainWindow):
         self.setLeftStatus( "(" + str(self.current_file + 1) + "/" + str(len(self.imgList)) + ") " + fullPath(self.dir_path,
                                                                                             self.projProc.filename))
         img = self.projProc.orig_img
-        self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
+        if self.calSettings is not None and not self.calSettings:
+            self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
+        elif self.calSettings is not None and self.calSettings:
+            self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype) + " " + "(Image Calibrated)")
         self.pixel_detail.setText("")
-        QApplication.processEvents()
+        # QApplication.processEvents()
 
     def setLeftStatus(self, s):
         """
@@ -2674,7 +2734,7 @@ class ProjectionTracesGUI(QMainWindow):
         :param s: input text (str)
         """
         self.left_status.setText(s)
-        QApplication.processEvents()
+        # QApplication.processEvents()
 
     def resetUI(self):
         """

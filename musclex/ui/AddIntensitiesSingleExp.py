@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import time
 import json
 from os.path import join
 from datetime import datetime
@@ -36,7 +37,7 @@ import pickle
 import numpy as np
 import cv2
 import csv
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import concurrent.futures
 import hdf5plugin # for some reason this is needed even though never coded
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -956,6 +957,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.img_grps = self.img_grps_copy
 
             print('Start merging...')
+            start_time = time.time()
             for i, imgs in enumerate(self.img_grps):
                 if len(imgs) > 0 and not self.stop_process:
                     self.progressBar.setValue(i)
@@ -970,6 +972,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             print("writing to csv file..")
             self.writeToCSV()
             print("Done. All result images have been saved to "+output)
+            endtime = time.time()
+            print("Time taken: ", endtime - start_time)
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Sum Images")
@@ -1038,6 +1042,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
                 print(details)
                 self.statusPrint('Merging...')
+                # self.parallel_process_and_add()
                 self.generateAvgImg()
                 # if self.calibrationChkBx.isChecked():
                 #     images = self.matchCenters(self.orig_imgs)
@@ -1122,7 +1127,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                     img = resizeImage(img, sum_img.shape)
                 sum_img += img
             self.avg_img = sum_img
-    
+            
     # CSV Line in format: ['Filename', 'Date', 'Original Image Intensity (Total)', 'Masked Image Intensity (Total)', 'Number of Pixels Not Masked', 'Masked Image Intensity (Average)', 'Blank Image Weight', 'Binning Factor', 'Drawn Mask', 'Computed Mask']
     def generateCSVLine(self, filename):
         nonmaskedPixels = 0
@@ -1167,6 +1172,49 @@ class AddIntensitiesSingleExp(QMainWindow):
                 writer.writerow(line)
         
         self.csvInfo = []
+        
+        
+    def process_and_add_pair(self, image_pair):
+        img1, img2 = image_pair
+        if not isinstance(img1, int) and (img2.shape[0] > img1.shape[0] or img2.shape[1] > img1.shape[1]):
+            img1 = resizeImage(img1, img2.shape)
+        elif not isinstance(img1, int):
+            img2 = resizeImage(img2, img1.shape)
+        
+        img1 += img2
+        return img1
+        
+        
+    def parallel_process_and_add(self, max_workers=4):
+        
+        if self.calibrationChkBx.isChecked():
+            images = self.matchCenters(self.orig_imgs)
+        else:
+            images = self.orig_imgs
+        
+        if self.avgInsteadOfSum.isChecked():
+            # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
+            ##todo homogenize
+            if 'detector' in self.info:
+                self.avg_img = averageImages(images, preprocessed=True, man_det=self.info['detector'])
+            else:
+                self.avg_img = averageImages(images, preprocessed=True)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                while len(images) > 1:
+                    # Split the images into pairs
+                    pairs = [(images[i], images[i + 1]) for i in range(0, len(images) - 1, 2)]
+                    results = list(executor.map(self.process_and_add_pair, pairs))
+
+                    # If there's an odd image out, it needs to be added back to the list
+                    if len(images) % 2 == 1:
+                        results.append(images[-1])
+
+                    # Update the images list with the results
+                    images = results
+
+            # Final result is the single processed and summed image
+            self.avg_img = images[0]
 
     def refreshAllTab(self):
         """
@@ -2404,7 +2452,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))
-        # self.processGroup() // dont need to process every image
+        # self.processGroup() # this was commented out
         self.generateAvgImg()
         self.refreshAllTab()
         self.initialWidgets(self.orig_imgs[0], self.avg_img)

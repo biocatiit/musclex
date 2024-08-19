@@ -50,9 +50,13 @@ from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 
 class QuadFoldParams:
-    def __init__(self, quadFold, flags):
-        self.quadFold = quadFold
+    def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         self.flags = flags
+        self.fileName = fileName
+        self.filePath = filePath
+        self.ext = ext
+        self.fileList = fileList
+        self.parent = parent
 
 class WorkerSignals(QObject):
     
@@ -65,14 +69,23 @@ class Worker(QRunnable):
 
     def __init__(self, params):
         super().__init__()
-        self.quadFold = params.quadFold
         self.flags = params.flags
+        self.params = params
         self.signals = WorkerSignals()
+        self.lock = Lock()
         
     @pyqtSlot()
     def run(self):
         try:
+            self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
+            self.quadFold.info = {}
             self.quadFold.process(self.flags)
+            if self.lock is not None:
+                self.lock.acquire()
+            with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
+                file.write(self.quadFold.img_name + " saving image"+ "\n")
+            if self.lock is not None:
+                self.lock.release()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -2341,8 +2354,9 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        # if reprocess:
-        #     self.quadFold.info = {}
+        if reprocess:
+            self.quadFold.info = {}
+            self.quadFold.info['reprocess'] = True
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -2512,7 +2526,7 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.quadFold.info['manual_center']
         else:
             center = self.quadFold.orig_image_center
-
+            
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
         return extent, center
 
@@ -2572,13 +2586,11 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            #flags = self.getFlags()
+            flags = self.getFlags()
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                # self.quadFold.process(flags)
-                # self.threadingProcess(quadFold_copy, flags)
-                self.addTask()
+                self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2592,64 +2604,76 @@ class QuadrantFoldingGUI(QMainWindow):
                 errMsg.setFixedWidth(300)
                 errMsg.exec_()
                 raise
-            
-            # self.updateParams()
-            # self.refreshAllTabs()
-            # self.csvManager.writeNewData(self.quadFold)
 
-            # self.saveResults()
-            # QApplication.restoreOverrideCursor()
+            self.updateParams()
+            self.refreshAllTabs()
+            self.csvManager.writeNewData(self.quadFold)
+
+            self.saveResults()
+            QApplication.restoreOverrideCursor()
             
-    # def threadingProcess(self, quadFold, flags):
-        
-    #     if self.processClicked == False:
-    #         self.startNewThread()
-            
-    #     # if self.thread is not None and self.thread.isRunning():
-    #     #     self.tasks.append((quadFold, flags))
-    #     # else:
-    #     #     self.startNewThread(quadFold, flags)
-    #     #     self.tasksDone = 0
     
-    def addTask(self):
-        params = QuadFoldParams(self.quadFold, self.getFlags())
+    def addTask(self, i):
+        # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
+        params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
         self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
         self.startNextTask()
             
     def thread_done(self, quadFold):
+        
+        if self.lock is not None:
+            self.lock.acquire()
+            
         self.quadFold = quadFold
-        print("thread done")
+            
+        self.onProcessingFinished()
+        
+        if self.lock is not None:
+            self.lock.release()
+    
+    # placeholder method
+    def thread_finished(self):
+        
+        self.tasksDone += 1
+        self.progressBar.setValue(int(100. / self.numberOfFiles * self.tasksDone))
+        
+        if not self.tasksQueue.empty():
+            self.startNextTask()
+        else:
+            if self.threadPool.activeThreadCount() == 0:
+                print("All threads are complete")
+                self.currentFileNumber = 0
+                self.progressBar.setVisible(False)
+                self.filenameLineEdit.setEnabled(True)
+                self.filenameLineEdit2.setEnabled(True)
+                self.csvManager.sortCSV()
             
     def startNextTask(self):
+        self.progressBar.setVisible(True)
+        self.filenameLineEdit.setEnabled(False)
+        self.filenameLineEdit2.setEnabled(False)
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
             self.currentTask = Worker(params)
             self.currentTask.signals.result.connect(self.thread_done)
-            self.currentTask.signals.finished.connect(self.onProcessingFinished)
+            self.currentTask.signals.finished.connect(self.thread_finished)
+            
             self.threadPool.start(self.currentTask)
 
-        if self.tasksQueue.empty():
-            self.csvManager.sortCSV()
         
     def onProcessingFinished(self):
-        print("Processing finished")
-        self.tasksDone += 1
         
         self.updateParams()
         self.refreshAllTabs()
+        self.resetStatusbar2()
         
-        if self.lock is not None:
-            self.lock.acquire()
         self.csvManager.writeNewData(self.quadFold)
-        if self.lock is not None:
-            self.lock.release()
-        
         self.saveResults()
+        
         QApplication.restoreOverrideCursor()
         self.currentTask = None
-        self.startNextTask()
         
         
             
@@ -2687,16 +2711,17 @@ class QuadrantFoldingGUI(QMainWindow):
                     result_file += '_folded_cropped.tif'
                     fabio.tifimage.tifimage(data=img).write(result_file)
             else:
-                print("SAVING IMAGE")
-                if self.compressFoldedImageChkBx.isChecked():
-                    result_file += '_folded_compressed.tif'
-                    tif_img = Image.fromarray(img)
-                    tif_img.save(result_file, compression='tiff_lzw')
-                else:
-                    result_file += '_folded.tif'
-                    fabio.tifimage.tifimage(data=img).write(result_file)
+                try:
+                    if self.compressFoldedImageChkBx.isChecked():
+                        result_file += '_folded_compressed.tif'
+                        tif_img = Image.fromarray(img)
+                        tif_img.save(result_file, compression='tiff_lzw')
+                    else:
+                        result_file += '_folded.tif'
+                        fabio.tifimage.tifimage(data=img).write(result_file)
+                except Exception as e:
             # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
-
+                    print("Error saving image", e)
             self.saveBackground()
 
     def saveBackground(self):
@@ -2774,6 +2799,17 @@ class QuadrantFoldingGUI(QMainWindow):
         fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(self.currentFileNumber + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
+        
+    def resetStatusbar2(self):
+        """
+        Reset the status bar, but search using self.quadFold.info
+        """
+        index = self.imgList.index(self.quadFold.img_name)
+        fileFullPath = fullPath(self.filePath, self.imgList[index])
+        self.imgPathOnStatusBar.setText(
+            'Current File (' + str(index + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
+        self.filenameLineEdit.setText(self.quadFold.img_name)
+        self.filenameLineEdit2.setText(self.quadFold.img_name)
 
     def getFlags(self):
         """
@@ -3007,22 +3043,20 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-            self.progressBar.setVisible(True)
-            self.progressBar.setValue(0)
+            # self.progressBar.setVisible(True)
+            # self.progressBar.setValue(0)
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                QApplication.processEvents()
-                self.nextClicked(reprocess=True)
-                # if i == self.numberOfFiles - 1:
-                #     self.tasks_done = 0
-                #     self.startNewThread()
+                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                # QApplication.processEvents()
+                # self.nextClicked(reprocess=True)
+                self.addTask(i)
                 
-            self.progressBar.setVisible(False)
+            # self.progressBar.setVisible(False)
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)

@@ -193,9 +193,14 @@ class EquatorWindow(QMainWindow):
         """
         Initial all GUIs including : image tab, fitting tab, results tab, menu bar, and status bar
         """
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
+
+        self.scrollArea.setWidget(self.centralWidget)
         self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
+        
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
@@ -414,8 +419,8 @@ class EquatorWindow(QMainWindow):
 
         self.imageOptionsFrame = QFrame()
         self.imageOptionsFrame.setFixedWidth(550)
+        
         self.imageOptionsLayout = QVBoxLayout()
-
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
         # self.imageOptionsLayout.addSpacing(10)
         self.imageOptionsLayout.addWidget(self.imgDispOptionGrp)
@@ -677,10 +682,10 @@ class EquatorWindow(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
 
         self.mainLayout.addWidget(self.tabWidget)
-        self.mainLayout.addWidget(self.statusBar)
+        self.setStatusBar(self.statusBar)
 
-        self.setMinimumHeight(1000)
-        self.setMinimumWidth(1400)
+        # self.setMinimumHeight(1000)
+        # self.setMinimumWidth(1400)
 
     def setAllToolTips(self):
         """
@@ -1437,6 +1442,7 @@ class EquatorWindow(QMainWindow):
         """
         This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out
         """
+        
         if self.bioImg is None or event.xdata is None or event.ydata is None:
             return
 
