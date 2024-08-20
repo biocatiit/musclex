@@ -218,6 +218,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.frameNb.setToolTip("Choose the number of frames per group you would like.")
         self.frameNb.setKeyboardTracking(False)
         self.frameNb.setValue(2)
+        self.frameNb.setMinimum(2)
         self.selectImageChkBx = QCheckBox('Sum Image Ranges')
         self.sumImagesButton = QPushButton("Select Image Subsets")
         self.sumImagesButton.setEnabled(False)
