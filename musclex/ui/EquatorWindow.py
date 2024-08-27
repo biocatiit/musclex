@@ -121,6 +121,7 @@ class EquatorWindow(QMainWindow):
         self.chordpoints = []
         self.chordLines = []
         
+        self.del_hist = False
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
         self.loop = QEventLoop()
@@ -531,13 +532,27 @@ class EquatorWindow(QMainWindow):
         self.k_layout.addWidget(self.k_spnbx)
         
         
-        self.smooth_layout = QHBoxLayout()
         self.use_smooth_alg = QCheckBox("Interp Algorithm")
         self.use_smooth_spnbx = QSpinBox()
         self.use_smooth_spnbx.setValue(3)
-        
-        self.smooth_layout.addWidget(self.use_smooth_alg)
-        self.smooth_layout.addWidget(self.use_smooth_spnbx)
+
+        self.marginLayout = QHBoxLayout()
+        self.marginLabel = QLabel("Margin: ")
+        self.marginLayout.addWidget(self.marginLabel)
+        self.marginLayout.addWidget(self.use_smooth_spnbx)
+
+        self.smoothingWindowLayout = QHBoxLayout()
+        self.smoothing_window = QSpinBox()
+        self.smoothing_window.setValue(11)
+        self.smoothing_window.setRange(3, 101)
+        self.smoothing_label = QLabel("Smoothing Window: ")
+        self.smoothingWindowLayout.addWidget(self.smoothing_label)
+        self.smoothingWindowLayout.addWidget(self.smoothing_window)
+
+        self.marginLabel.setVisible(False)
+        self.use_smooth_spnbx.setVisible(False)
+        self.smoothing_label.setVisible(False)
+        self.smoothing_window.setVisible(False)
         
         self.addGapsButton = QPushButton("Add Gaps")
         self.addGapsButton.setCheckable(True)
@@ -589,7 +604,8 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
         self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
-        self.fittingOptionsLayout2.addLayout(self.smooth_layout)
+        self.fittingOptionsLayout2.addLayout(self.marginLayout)
+        self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
         self.fittingOptionsLayout2.addWidget(self.addGapsButton)
         self.fittingOptionsLayout2.addWidget(self.clearGapsButton)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
@@ -867,6 +883,7 @@ class EquatorWindow(QMainWindow):
         self.refitAllButton.toggled.connect(self.refitAllBtnToggled)
         self.use_smooth_alg.stateChanged.connect(self.useSmoothClicked)
         self.use_smooth_spnbx.editingFinished.connect(self.useSmoothSpnboxChanged)
+        self.smoothing_window.editingFinished.connect(self.smoothingWindowChanged)
         self.addGapsButton.clicked.connect(self.addGaps)
         self.clearGapsButton.clicked.connect(self.clearGaps)
 
@@ -886,23 +903,32 @@ class EquatorWindow(QMainWindow):
                 self.bioImg.info['gaps'] = []
         else:
             self.function = None
-        
+
+    
+    def smoothingWindowChanged(self):
+        self.bioImg.info['smoothing_window'] = self.smoothing_window.value()
+    
     def useSmoothSpnboxChanged(self):
         self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
-        del self.bioImg.info['hulls']
-        del self.bioImg.info['hist']
-        if (self.use_smooth_alg.isChecked()):
-            self.refitting()
+        # del self.bioImg.info['hulls']
+        # del self.bioImg.info['hist']
+        # if (self.use_smooth_alg.isChecked()):
+        #     self.refitting()
         
     def useSmoothClicked(self):
         self.addGapsButton.setVisible(self.use_smooth_alg.isChecked())
         self.clearGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        self.marginLabel.setVisible(self.use_smooth_alg.isChecked())
+        self.use_smooth_spnbx.setVisible(self.use_smooth_alg.isChecked())
+        self.smoothing_label.setVisible(self.use_smooth_alg.isChecked())
+        self.smoothing_window.setVisible(self.use_smooth_alg.isChecked())
         self.bioImg.info['use_smooth_alg'] = self.use_smooth_alg.isChecked()
         self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
-        if 'hulls' in self.bioImg.info:
-            del self.bioImg.info['hulls']
-        if 'hist' in self.bioImg.info:
-            del self.bioImg.info['hist']
+        self.bioImg.info['smoothing_window'] = self.smoothing_window.value()
+        # if 'hulls' in self.bioImg.info:
+        #     del self.bioImg.info['hulls']
+        # if 'hist' in self.bioImg.info:
+        #     del self.bioImg.info['hist']
         # self.refitting()
         
     def fillGapLinesChanged(self):
@@ -959,6 +985,12 @@ class EquatorWindow(QMainWindow):
         Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated and Recalculate
         :return:
         """
+        if 'use_smooth_alg' in self.bioImg.info:
+            if 'hist' in self.bioImg.info:
+                del self.bioImg.info['hist']
+            if 'hulls' in self.bioImg.info:
+                del self.bioImg.info['hulls']
+
         self.refreshAllFittingParams()
         if self.use_previous_fit_chkbx.isChecked() and self.bioImg is not None:
             print("Using previous fit")

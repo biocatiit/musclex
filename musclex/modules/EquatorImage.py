@@ -445,16 +445,18 @@ class EquatorImage:
             img = self.getRotatedImage()
             self.info['hist'] = np.sum(img[int_area[0]:int_area[1], :], axis=0)
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
-            
+        
         if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
+            margin = self.info['smooth_margin']
+            smoothing_window = self.info['smoothing_window']
+
             y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), 
-                                                                                                   self.info['hist'],smoothing_window=11, 
+                                                                                                   self.info['hist'],smoothing_window=smoothing_window, 
                                                                                                    sampling_interval=10, 
                                                                                                    spline_degree=3, 
-                                                                                                   margin=3)
+                                                                                                   margin=margin)
             
 
-            np.savetxt("/home/vboxuser/interp.csv", y_interpolated, delimiter=",")
             
             # y_replaced = self.info['hist'].copy()
             # y_replaced[self.info['hist'] < 0] = y_filled[self.info['hist'] < 0]
