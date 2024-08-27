@@ -74,7 +74,6 @@ class Worker(QRunnable):
         self.params = params
         self.projProc = projProc
         self.signals = WorkerSignals()
-        self.lock = Lock()
     
     @classmethod
     def fromProjProc(cls, projProc, settings):
@@ -90,13 +89,6 @@ class Worker(QRunnable):
             if self.projProc is None and self.params:
                 self.projProc = ProjectionProcessor(self.params.dir_path, self.params.img_name, self.params.fileList, self.params.ext)
             self.projProc.process(self.settings)
-            
-            if self.lock is not None:
-                self.lock.acquire()
-            with open(self.projProc.dir_path + "/pt_results/tasks_done.txt", "a") as file:
-                file.write(self.projProc.filename + " finished processing"+ "\n")
-            if self.lock is not None:
-                self.lock.release()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -335,9 +327,13 @@ class ProjectionTracesGUI(QMainWindow):
         Initial all GUI
         """
         #### Image Tab ####
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
+
+        self.scrollArea.setWidget(self.centralWidget)
         self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
@@ -822,15 +818,15 @@ class ProjectionTracesGUI(QMainWindow):
             print("New Center ", new_center)
             self.centerx = int(round(new_center[0]))
             self.centery = int(round(new_center[1]))
-            self.projProc.info['centerx'] = self.centerx
-            self.projProc.info['centery'] = self.centery
+            self.projProc.info['centerx'] = int(round(new_center[0]))
+            self.projProc.info['centery'] = int(round(new_center[1]))
             self.projProc.info['orig_center'] = (self.centerx, self.centery)
+            
             self.setCentByPerp.setChecked(False)
             self.center_func = 'manual'
             self.rotated = True
             self.updateCenter()
             self.removeAllTabs()
-            print("set center by perp")
             self.processImage()
             self.addBoxTabs()
             self.updateImage()
@@ -1945,8 +1941,12 @@ class ProjectionTracesGUI(QMainWindow):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            unit = "px"
             if self.calSettings is not None and self.calSettings:
-                center = self.calSettings['center']
+                if 'center' in self.calSettings and self.calSettings['center'] is not None:
+                    center = self.calSettings['center']
+                else:
+                    center = (self.projProc.info['centerx'], self.projProc.info['centery'])
                 mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
                 scale = self.calSettings['scale']
                 d = mouse_distance / scale
@@ -1955,7 +1955,7 @@ class ProjectionTracesGUI(QMainWindow):
                     unit = "nm^-1"
                 else:
                     q = mouse_distance
-                    unit = "pix"
+        
                 q = f"{q:.4f}"
                 # constant = self.calSettings["silverB"] * self.calSettings["radius"]
                 # calib_distance = mouse_distance * 1.0/constant
@@ -1966,7 +1966,7 @@ class ProjectionTracesGUI(QMainWindow):
                 else:
                     mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
-                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) +"px")
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
@@ -2529,7 +2529,9 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.setFixedWidth(300)
             errMsg.exec_()
             raise
-
+        
+        print("after")
+        print(self.projProc.info['centerx'], self.projProc.info['centery'])
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
@@ -2701,9 +2703,9 @@ class ProjectionTracesGUI(QMainWindow):
                 self.projProc.info['centery'] = self.calSettings["center"][1]
                 self.projProc.info['centerx'] = self.calSettings["center"][0]
             else:
-                if 'centerx' in self.projProc.info:
+                if 'centerx' in self.projProc.info and self.center_func != 'manual':
                     del self.projProc.info['centerx']
-                if 'centery' in self.projProc.info:
+                if 'centery' in self.projProc.info and self.center_func != 'manual':
                     del self.projProc.info['centery']
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]

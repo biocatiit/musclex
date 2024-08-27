@@ -117,10 +117,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.setWindowTitle("Muscle X Add Intensities Single Experiment v." + __version__)
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
-        self.setCentralWidget(self.centralWidget)
-        self.mainLayout = QHBoxLayout(self.centralWidget)
 
+        self.scrollArea.setWidget(self.centralWidget)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
+        
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
@@ -503,8 +507,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         helpMenu.addAction(aboutAct)
 
         self.show()
-        self.setMinimumHeight(900)
-        self.setMinimumWidth(1500)
+        # self.setMinimumHeight(900)
+        # self.setMinimumWidth(1500)
+        self.resize(1500, 900)
 
     def setConnections(self):
         """

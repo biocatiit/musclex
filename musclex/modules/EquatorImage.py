@@ -447,9 +447,15 @@ class EquatorImage:
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
             
         if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
-            y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), self.info['hist'],smoothing_window=11, sampling_interval=10, spline_degree=3, margin=3)
+            y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), 
+                                                                                                   self.info['hist'],smoothing_window=11, 
+                                                                                                   sampling_interval=10, 
+                                                                                                   spline_degree=3, 
+                                                                                                   margin=3)
             
-        
+
+            np.savetxt("/home/vboxuser/interp.csv", y_interpolated, delimiter=",")
+            
             # y_replaced = self.info['hist'].copy()
             # y_replaced[self.info['hist'] < 0] = y_filled[self.info['hist'] < 0]
             
@@ -540,10 +546,61 @@ class EquatorImage:
 
         print("Done.")
         
-    def custom_smooth(self, y_with_gaps, window_length=51, polyorder=3):
+    def find_gaps(self, y_with_gaps, margin=3):
+        # Find gap regions
+        gaps = []
+        n = len(y_with_gaps)
+        
+        if 'gaps' in self.info:
+            for gap in self.info['gaps']:
+                gaps.append(gap)
+
+        # Identify indices where the signal is negative
+        negative_indices = np.where(y_with_gaps < 0)[0]
+
+        if len(negative_indices) == 0:
+            return gaps
+
+        # Initialize the first gap
+        start_idx = negative_indices[0]
+        end_idx = start_idx
+
+        # Iterate over negative indices to find contiguous gaps
+        for i in range(1, len(negative_indices)):
+            if negative_indices[i] == negative_indices[i - 1] + 1:
+                end_idx = negative_indices[i]
+            else:
+                # Expand the current gap using the margin
+                expanded_start = max(0, start_idx - margin)
+                expanded_end = min(n - 1, end_idx + margin)
+                gaps.append((expanded_start, expanded_end))
+
+                # Start a new gap
+                start_idx = negative_indices[i]
+                end_idx = start_idx
+
+        # Add the last gap
+        expanded_start = max(0, start_idx - margin)
+        expanded_end = min(n - 1, end_idx + margin)
+        gaps.append((expanded_start, expanded_end))
+
+        return gaps
+    
+    def create_mask(self, gaps):
+        mask = []
+
+        for gap in gaps:
+            # Add all integers from start to end (inclusive) to the mask
+            mask.extend(range(gap[0], gap[1] + 1))
+
+        return np.array(mask)
+    
+    def custom_smooth(self, y_with_gaps, gaps, window_length=51, polyorder=3):
         """Smooth the signal while ignoring gaps."""
         y_smoothed = np.zeros_like(y_with_gaps)
-        non_zero_indices = np.where(y_with_gaps != 0)[0]
+        # non_zero_indices = np.where(y_with_gaps != 0)[0]
+        zero_indices = self.create_mask(gaps)
+        non_zero_indices = np.setdiff1d(np.arange(len(y_with_gaps)), zero_indices)
 
         # Apply smoothing only on non-gap sections
         y_smoothed_non_zero = savgol_filter(y_with_gaps[non_zero_indices], window_length, polyorder)
@@ -555,17 +612,27 @@ class EquatorImage:
 
     def interpolate_sensor_gap(self, x, y_with_gaps, smoothing_window=51, smoothing_polyorder=3, sampling_interval=10, spline_degree=3, margin=0):
         """Interpolate sensor gaps using B-spline interpolation."""
+        
+        gaps = self.find_gaps(y_with_gaps, margin=margin)
+        
+        gap_starts = np.array([start for start, end in gaps])
+        gap_ends = np.array([end for start, end in gaps])
+        
+        print(gaps)
+        
         # Smooth the profile, ignoring gaps
-        y_smoothed = self.custom_smooth(y_with_gaps, window_length=smoothing_window, polyorder=smoothing_polyorder)
+        y_smoothed = self.custom_smooth(y_with_gaps, gaps, window_length=smoothing_window, polyorder=smoothing_polyorder)
 
         # Find gap regions
-        gaps = np.where(y_with_gaps < 0)[0]
-        gap_start_indices = np.unique(np.hstack([np.where(np.diff(gaps) > 1)[0] + 1, [0]]))
-        gap_ends = np.unique(np.hstack([[len(gaps)-1], np.where(np.diff(gaps) > 1)[0]]))
+        # gaps = np.where(y_with_gaps < 0)[0]
+        # gap_start_indices = np.unique(np.hstack([np.where(np.diff(gaps) > 1)[0] + 1, [0]]))
+        # gap_ends = np.unique(np.hstack([[len(gaps)-1], np.where(np.diff(gaps) > 1)[0]]))
 
-        gap_starts = gaps[gap_start_indices]
-        gap_ends = gaps[gap_ends]
-
+        # gap_starts = gaps[gap_start_indices]
+        # gap_ends = gaps[gap_ends]
+        
+        # print(gap_starts, gap_ends)
+        
         # Sample points from the smoothed signal, avoiding gaps
         sample_indices = []
         for i in range(0, len(x), sampling_interval):

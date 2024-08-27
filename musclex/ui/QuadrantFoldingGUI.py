@@ -152,7 +152,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
-        self.setMinimumHeight(900)
+        # self.setMinimumHeight(900)
+        self.resize(1200, 900)
         self.newImgDimension = None
         self.browseFile()
 
@@ -1435,11 +1436,31 @@ class QuadrantFoldingGUI(QMainWindow):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            unit = "px"
+            if self.calSettings is not None and self.calSettings:
+                center = self.calSettings['center']
+                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+                scale = self.calSettings['scale']
+                d = mouse_distance / scale
+                if (d > 0.01):
+                    q = 1.0/d
+                    unit = "nm^-1"
+                else:
+                    q = mouse_distance
+                q = f"{q:.4f}"
+                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                # calib_distance = mouse_distance * 1.0/constant
+                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
                 extent = self.extent
                 sx = x + extent[0]
                 sy = y + extent[1]
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]))
+                if self.calSettings is not None and self.calSettings:
+                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(q) + unit)
+                else:
+                    mouse_distance = np.sqrt((self.quadFold.info['center'][0] - x) ** 2 + (self.quadFold.info['center'][1] - y) ** 2)
+                    mouse_distance = f"{mouse_distance:.4f}"
+                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and sx>10 and sx<img.shape[1]-10 and sy>10 and sy<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(sy - 10):int(sy + 10), int(sx - 10):int(sx + 10)]
@@ -2361,8 +2382,11 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
         original_image = self.quadFold.orig_img
-        self.imgDetailOnStatusBar.setText(
-            str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
+        if self.calSettings is not None and not self.calSettings:
+            self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
+        elif self.calSettings is not None and self.calSettings:
+            self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype) + " (Image Calibrated)")
+        self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
         self.initialWidgets(original_image, previnfo)
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']

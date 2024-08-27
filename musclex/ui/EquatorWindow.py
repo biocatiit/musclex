@@ -128,6 +128,8 @@ class EquatorWindow(QMainWindow):
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
+        
+        self.gap_lines = []
 
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
         if self.imgList is None or len(self.imgList) == 0:
@@ -528,7 +530,21 @@ class EquatorWindow(QMainWindow):
         self.k_layout.addWidget(self.k_chkbx)
         self.k_layout.addWidget(self.k_spnbx)
         
-        self.use_smooth_alg = QCheckBox("Use Interp Algorithm")
+        
+        self.smooth_layout = QHBoxLayout()
+        self.use_smooth_alg = QCheckBox("Interp Algorithm")
+        self.use_smooth_spnbx = QSpinBox()
+        self.use_smooth_spnbx.setValue(3)
+        
+        self.smooth_layout.addWidget(self.use_smooth_alg)
+        self.smooth_layout.addWidget(self.use_smooth_spnbx)
+        
+        self.addGapsButton = QPushButton("Add Gaps")
+        self.addGapsButton.setCheckable(True)
+        self.addGapsButton.setVisible(False)
+        
+        self.clearGapsButton = QPushButton("Clear Gaps")
+        self.clearGapsButton.setVisible(False)
 
         self.refittingB = QPushButton("Refit current image")
         self.refitAllButton = QPushButton("Refit current folder")
@@ -573,6 +589,9 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
         self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
+        self.fittingOptionsLayout2.addLayout(self.smooth_layout)
+        self.fittingOptionsLayout2.addWidget(self.addGapsButton)
+        self.fittingOptionsLayout2.addWidget(self.clearGapsButton)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
         self.fittingOptionsLayout2.addWidget(self.refitAllButton)
         self.fittingOptionsLayout2.addStretch()
@@ -684,6 +703,7 @@ class EquatorWindow(QMainWindow):
         self.mainLayout.addWidget(self.tabWidget)
         self.setStatusBar(self.statusBar)
 
+        self.resize(1400, 1000)
         # self.setMinimumHeight(1000)
         # self.setMinimumWidth(1400)
 
@@ -845,19 +865,45 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.editingFinished.connect(self.kChanged)
         self.refittingB.clicked.connect(self.refitting)
         self.refitAllButton.toggled.connect(self.refitAllBtnToggled)
-        self.use_smooth_alg.clicked.connect(self.useSmoothClicked)
+        self.use_smooth_alg.stateChanged.connect(self.useSmoothClicked)
+        self.use_smooth_spnbx.editingFinished.connect(self.useSmoothSpnboxChanged)
+        self.addGapsButton.clicked.connect(self.addGaps)
+        self.clearGapsButton.clicked.connect(self.clearGaps)
 
         #### Parameter Editor Tab
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
-        self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)\
+        self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+    
+    def clearGaps(self):
+        self.bioImg.info['gaps'] = []
+    
+    def addGaps(self):
+        if self.addGapsButton.isChecked():
+            self.function = ['addGaps']
+            if 'gaps' not in self.bioImg.info:
+                self.bioImg.info['gaps'] = []
+        else:
+            self.function = None
         
-    def useSmoothClicked(self):
-        self.bioImg.info['use_smooth_alg'] = self.use_smooth_alg.isChecked()
+    def useSmoothSpnboxChanged(self):
+        self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
         del self.bioImg.info['hulls']
         del self.bioImg.info['hist']
-        self.refitting()
+        if (self.use_smooth_alg.isChecked()):
+            self.refitting()
+        
+    def useSmoothClicked(self):
+        self.addGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        self.clearGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        self.bioImg.info['use_smooth_alg'] = self.use_smooth_alg.isChecked()
+        self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
+        if 'hulls' in self.bioImg.info:
+            del self.bioImg.info['hulls']
+        if 'hist' in self.bioImg.info:
+            del self.bioImg.info['hist']
+        # self.refitting()
         
     def fillGapLinesChanged(self):
         if self.fillGapLinesChkbx.isChecked():
@@ -1261,6 +1307,24 @@ class EquatorWindow(QMainWindow):
                 else:
                     ax.text(x+5, hist[x], "right", fontsize=10)
                 self.fittingCanvas.draw_idle()
+            elif func[0] == 'addGaps':
+                x = int(round(x))
+                func.append(x)
+                ax = self.fittingAxes
+                line = ax.axvline(x, linewidth=2, color='r')
+                self.gap_lines.append(line)
+                self.fittingCanvas.draw_idle()
+                if len(func) == 3:
+                    gap_start = func[1]
+                    gap_end = func[2]
+                    self.bioImg.info['gaps'].append((gap_start, gap_end))
+                    self.addGapsButton.setChecked(False)
+                    print(self.bioImg.info['gaps'])
+                    self.function = None
+                    for line in self.gap_lines:
+                        line.remove()
+                    self.gap_lines.clear()
+                    
 
     def plotOnMotion(self, event):
         """
@@ -2822,8 +2886,32 @@ class EquatorWindow(QMainWindow):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            unit = "px"
+            if self.calSettings is not None and self.calSettings:
+                if 'center' in self.calSettings and self.calSettings['center'] is not None:
+                    center = self.calSettings['center']
+                else:
+                    center = (self.bioImg.info['centerx'], self.bioImg.info['centery'])
+                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+                scale = self.calSettings['scale']
+                d = mouse_distance / scale
+                if (d > 0.01):
+                    q = 1.0/d
+                    unit = "nm^-1"
+                else:
+                    q = mouse_distance
+        
+                q = f"{q:.4f}"
+                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                # calib_distance = mouse_distance * 1.0/constant
+                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.calSettings is not None and self.calSettings:
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
+                else:
+                    mouse_distance = np.sqrt((self.bioImg.info['center'][0] - x) ** 2 + (self.bioImg.info['center'][1] - y) ** 2)
+                    mouse_distance = f"{mouse_distance:.4f}"
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x > 10 and x < img.shape[1]-10 and y > 10 and y < img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[y - 10:y + 10, x - 10:x + 10]
