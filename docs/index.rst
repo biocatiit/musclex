@@ -25,6 +25,15 @@ assist with analyzing diffraction X-ray images.
 - Current stable version: 1.23.1
 - :ref:`Get Muscle X <install>`
 
+
+.. rubric:: Read the paper
+
+MuscleX: data analysis software for fiber diffraction patterns from muscle
+
+- https://journals.iucr.org/s/issues/2024/05/00/tv5064/tv5064.pdf
+- https:///doi.org/10.1107/S1600577524006167 
+
+
 .. rubric:: Support
 
 If you are having issues, please let us know.  
