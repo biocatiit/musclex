@@ -131,6 +131,7 @@ class EquatorWindow(QMainWindow):
         self.totalFiles = 1
         
         self.gap_lines = []
+        self.gaps = []
 
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
         if self.imgList is None or len(self.imgList) == 0:
@@ -1353,9 +1354,6 @@ class EquatorWindow(QMainWindow):
                     self.addGapsButton.setChecked(False)
                     print(self.bioImg.info['gaps'])
                     self.function = None
-                    for line in self.gap_lines:
-                        line.remove()
-                    self.gap_lines.clear()
                     
 
     def plotOnMotion(self, event):
@@ -4000,6 +3998,20 @@ class EquatorWindow(QMainWindow):
         if self.hullChkBx.isChecked():
             # Draw background subtracted histogram
             ax.plot(hull, color = 'g')
+        if self.gap_lines is not None:
+            for line in self.gap_lines:
+                line.remove()
+            self.gap_lines.clear()
+        if 'gaps' in self.bioImg.info and self.bioImg.info['gaps']:
+            for gap in self.bioImg.info['gaps']:
+                rect = patches.Rectangle((gap[0], 0), gap[1] - gap[0], 1, linewidth=1, edgecolor='r', facecolor='r', alpha=0.2, transform=ax.get_xaxis_transform())
+                ax.add_patch(rect)
+                self.gaps.append(rect)
+        else:
+            for rect in self.gaps:
+                rect.remove()
+            self.gaps.clear()
+                    
 
         if 'fit_results' in info:
             fit_result = info['fit_results']

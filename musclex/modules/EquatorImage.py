@@ -616,11 +616,11 @@ class EquatorImage:
         """Interpolate sensor gaps using B-spline interpolation."""
         
         gaps = self.find_gaps(y_with_gaps, margin=margin)
+        self.info['gaps'] = gaps
         
         gap_starts = np.array([start for start, end in gaps])
         gap_ends = np.array([end for start, end in gaps])
         
-        print(gaps)
         
         # Smooth the profile, ignoring gaps
         y_smoothed = self.custom_smooth(y_with_gaps, gaps, window_length=smoothing_window, polyorder=smoothing_polyorder)
