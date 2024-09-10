@@ -44,6 +44,7 @@ import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 from PIL import Image
 import fabio
+import collections
 #from .image_masker import image_masker
 
 from .AISEImageSelectionWindow import AISEImageSelectionWindow
@@ -52,7 +53,7 @@ from .ImageMaskTool import ImageMaskerWindow
 from .CalibrationDialog import CalibrationDialog
 from musclex import __version__
 from .pyqt_utils import *
-from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly, validateImage
+from ..utils.file_manager import ifHdfReadConvertless, createFolder, getFilesAndHdf, fullPath, getBlankImageAndMask, getMaskOnly, validateImage, isImg
 from ..utils.image_processor import calcSlope, getIntersectionOfTwoLines, getPerpendicularLineHomogenous, processImageForIntCenter, getRotationAngle, getCenter, getNewZoom, rotateImage, averageImages
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.detect_unaligned_images import *
@@ -94,7 +95,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.function = None
         self.imageAxes = None
         self.isHdf5 = False
-        self.fileList = None
         self.chordLines = []
         self.info = {}
         self.orig_image_center = None
@@ -108,6 +108,19 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.computedMask = False
         self.csvInfo = []
         self.calibrationDialog = None
+        
+        self.isAime = False
+        self.fileList = []
+        self.folder_paths = []
+        self.numberToFilesMap = None
+        self.imageAxes2 = None
+        self.imageAxes3 = None
+        self.imageAxes4 = None
+        self.imageAxes5 = None
+        self.imageAxes6 = None
+        self.imageAxes7 = None
+        self.imageAxes8 = None
+        
         self.initUI()
         self.setConnections()
 
@@ -258,16 +271,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.avgInsteadOfSum = QCheckBox("Compute Average Instead of Sum")
         self.compressChkBx = QCheckBox('Compress the Resulting Images')
 
-        self.calibrationDrpDwn = QComboBox()
-        self.calibrationDrpDwn.addItems(['Use Computed Center and Orientation', 'Use Calibration Center', 'Use Computed Center', 'Use Calibration Center and Computed Orientation'])
-        self.calibrationDrpDwn.setVisible(False)
         self.calibrationButton = QPushButton("Calibration Settings")
         self.calibrationButton.setVisible(False)
 
         self.operationGroupLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 4)
         self.operationGroupLayout.addWidget(self.compressChkBx, 2, 0, 1, 4)
         # self.operationGroupLayout.addWidget(self.calibrationChkBx, 3, 0, 1, 2)
-        self.operationGroupLayout.addWidget(self.calibrationDrpDwn, 4, 0, 1, 4)
         self.operationGroupLayout.addWidget(self.calibrationButton, 5, 0, 1, 4)
 
         #self.calibrationLayout = QGridLayout(self.calibrationChkBx)
@@ -305,37 +314,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         # self.setCentByPerp.setEnabled(False)
         # self.setFitRegion.setEnabled(False)
         # self.doubleZoom.setEnabled(False)
-
-        # Image Correction Group Box
-        self.correctionGroup = QGroupBox("Correct Image Center and Orientation")
-        self.correctionGroup.setStyleSheet("QGroupBox {font-weight: bold;}")
-        self.correctionGroupLayout = QGridLayout()
-        self.correctionGroup.setLayout(self.correctionGroupLayout)
-
-        self.correctionLabel = QLabel("Correction Method")
-        self.correctionDrpDown = QComboBox()
-        self.correctionDrpDown.addItems(['None', 'Set Center by Chords', 'Set Center by Perpendiculars'])
-        self.setCenterByChordsBtn = QPushButton("Set Center by Chords")
-        self.setCenterByPerpBtn = QPushButton("Set Center by Perpendiculars")
-        self.setCenterByChordsBtn.setVisible(False)
-        self.setCenterByChordsBtn.setCheckable(True)
-        self.setCenterByPerpBtn.setCheckable(True)
-        self.setCenterByPerpBtn.setVisible(False)
-        # self.correctCenterButton = QPushButton("Correct Center")
-        # self.correctCenterButton.setCheckable(True)
-        # self.correctOrientationButton = QPushButton("Correct Orientation")
-        # self.correctOrientationButton.setVisible(False) # doesnt currently do anything, will need to update
-
-        self.correctionGroup.setVisible(False)
-        self.correctionGroup.setEnabled(False)
-
-        self.correctionGroupLayout.addWidget(self.correctionLabel, 0, 0, 1, 3)
-        self.correctionGroupLayout.addWidget(self.correctionDrpDown, 0, 3, 1, 2)
-        self.correctionGroupLayout.addWidget(self.setCenterByChordsBtn, 1, 0, 1, 4)
-        self.correctionGroupLayout.addWidget(self.setCenterByPerpBtn, 2, 0, 1, 4)
-        # self.correctionGroupLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
-        # self.correctionGroupLayout.addWidget(self.correctCenterButton, 4, 0, 1, 2)
-        # self.correctionGroupLayout.addWidget(self.correctOrientationButton, 4, 2, 1, 3)
 
 
         # Review Images Group
@@ -383,8 +361,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.optionsLayout.addWidget(self.imgOperationGrp)
         self.optionsLayout.addSpacing(5)
         self.optionsLayout.addWidget(self.operationGroup)
-        self.optionsLayout.addSpacing(5)
-        self.optionsLayout.addWidget(self.correctionGroup)
         self.optionsLayout.addSpacing(5)
         # self.optionsLayout.addWidget(self.calibrationChkBx)  
         self.optionsLayout.addWidget(self.reviewImageGroup)
@@ -532,12 +508,11 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.binFactorChkBox.clicked.connect(self.binFactorChecked)
         self.selectImageChkBx.clicked.connect(self.selectImageChecked)
-        self.calibrationDrpDwn.currentIndexChanged.connect(self.calibrationDrpDownChanged)
-        self.correctionDrpDown.currentIndexChanged.connect(self.correctionDrpDownChanged)
+        #self.correctionDrpDown.currentIndexChanged.connect(self.correctionDrpDownChanged)
         self.frameSteppingSelection.currentTextChanged.connect(self.stepComboBoxChanged)
 
-        self.setCenterByChordsBtn.clicked.connect(self.setCenterByChordsClicked)
-        self.setCenterByPerpBtn.clicked.connect(self.setCenterByPerpClicked)
+        # self.setCenterByChordsBtn.clicked.connect(self.setCenterByChordsClicked)
+        # self.setCenterByPerpBtn.clicked.connect(self.setCenterByPerpClicked)
 
         # self.nextGrpButton.clicked.connect(self.nextGrpClicked)
         # self.prevGrpButton.clicked.connect(self.prevGrpClicked)
@@ -550,7 +525,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calibrationChkBx.clicked.connect(self.setCalibrationActive)
 
         self.calibrationButton.clicked.connect(self.calibrationClicked)
-        # self.correctCenterButton.clicked.connect(self.correctCenterButtonClicked)
         self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
         self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
 
@@ -610,40 +584,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calibrationDialog = CalibrationDialog(self.dir_path, file_name)
         self.calibrationDialog.show()
 
-    def correctCenterButtonClicked(self):
-        QMessageBox.information(self, "Match Centers", "Program will now match centers automticallly")
-
-    def calibrationDrpDownChanged(self, value):
-        if (value == 0):
-            print("computed center and orientation")
-        elif (value == 1):
-            print("calibration image center")
-        elif (value == 2):
-            print("computed center only")
-        elif (value == 3):
-            print("calibration center and computed orientation")
-
-    def correctionDrpDownChanged(self, value):
-        if (value == 0):
-            self.function = None
-            self.setCenterByChordsBtn.setVisible(False)
-            self.setCenterByPerpBtn.setVisible(False)
-        elif (value == 1):
-            if (self.function is None):
-                self.info = {'manual_rotationAngle': [None] * self.nbOfFrames,
-                    'rotationAngle': [0] * self.nbOfFrames,
-                    'center': [None] * self.nbOfFrames,
-                    'manual_center': [None] * self.nbOfFrames}
-                self.setCenterByChordsBtn.setVisible(True)
-                self.setCenterByPerpBtn.setVisible(False)
-        elif (value == 2):
-            if (self.function is None):
-                self.info = {'manual_rotationAngle': [None] * self.nbOfFrames,
-                    'rotationAngle': [0] * self.nbOfFrames,
-                    'center': [None] * self.nbOfFrames,
-                    'manual_center': [None] * self.nbOfFrames}
-                self.setCenterByPerpBtn.setVisible(True)
-                self.setCenterByChordsBtn.setVisible(False)
         
     def binFactorChecked(self):
         if self.binFactorChkBox.isChecked():
@@ -780,7 +720,6 @@ class AddIntensitiesSingleExp(QMainWindow):
                             grps = list(set(grps).difference(self.misaligned_images)) #don't think this works right now
                         self.onGroupChanged()
 
-
     def compressChanged(self):
         """
         Triggered when the button is clicked
@@ -905,18 +844,65 @@ class AddIntensitiesSingleExp(QMainWindow):
         Change the number of images to add. Will also change the display consequently
         """
         self.nbOfFrames = self.frameNb.value()
-        self.currentFrameNumber = 0
-        self.currentGroupNumber = 0
-        self.currentFileNumber = 0
-        if self.customImageSequence is False:
-            self.updateImageGroups()
-        self.nbOfGroups = len(self.img_grps)
-        self.filenameLineEdit.setMaximum(self.nbOfGroups)
-        self.filenameLineEdit2.setMaximum(self.nbOfGroups)
-        self.info['manual_rotationAngle'] = [None] * self.nbOfFrames
-        self.info['rotationAngle'] = [0] * self.nbOfFrames
-        self.info['manual_center'] = [None] * self.nbOfFrames
-        self.info['center'] = [None] * self.nbOfFrames
+        if not self.isAime:
+            self.currentFrameNumber = 0
+            self.currentGroupNumber = 0
+            self.currentFileNumber = 0
+            if self.customImageSequence is False:
+                self.updateImageGroups()
+            self.nbOfGroups = len(self.img_grps)
+            self.filenameLineEdit.setMaximum(self.nbOfGroups)
+            self.filenameLineEdit2.setMaximum(self.nbOfGroups)
+            self.info['manual_rotationAngle'] = [None] * self.nbOfFrames
+            self.info['rotationAngle'] = [0] * self.nbOfFrames
+            self.info['manual_center'] = [None] * self.nbOfFrames
+            self.info['center'] = [None] * self.nbOfFrames
+        else:
+            self.imageAxes.cla()
+            self.imageFigure.clear()
+            print("NB OF FRAMES= " , self.nbOfFrames)
+            if self.nbOfFrames == 2 or self.nbOfFrames == 0:
+                self.imageAxes = self.imageFigure.add_subplot(121)
+                self.imageAxes2 = self.imageFigure.add_subplot(122)
+            elif self.nbOfFrames == 3:
+                self.imageAxes = self.imageFigure.add_subplot(221)
+                self.imageAxes2 = self.imageFigure.add_subplot(222)
+                self.imageAxes3 = self.imageFigure.add_subplot(223)
+            elif self.nbOfFrames == 4:
+                self.imageAxes = self.imageFigure.add_subplot(221)
+                self.imageAxes2 = self.imageFigure.add_subplot(222)
+                self.imageAxes3 = self.imageFigure.add_subplot(223)
+                self.imageAxes4 = self.imageFigure.add_subplot(224)
+            elif self.nbOfFrames == 5:
+                self.imageAxes = self.imageFigure.add_subplot(231)
+                self.imageAxes2 = self.imageFigure.add_subplot(232)
+                self.imageAxes3 = self.imageFigure.add_subplot(233)
+                self.imageAxes4 = self.imageFigure.add_subplot(234)
+                self.imageAxes5 = self.imageFigure.add_subplot(235)
+            elif self.nbOfFrames == 6:
+                self.imageAxes = self.imageFigure.add_subplot(231)
+                self.imageAxes2 = self.imageFigure.add_subplot(232)
+                self.imageAxes3 = self.imageFigure.add_subplot(233)
+                self.imageAxes4 = self.imageFigure.add_subplot(234)
+                self.imageAxes5 = self.imageFigure.add_subplot(235)
+                self.imageAxes6 = self.imageFigure.add_subplot(236)
+            elif self.nbOfFrames == 7:
+                self.imageAxes = self.imageFigure.add_subplot(241)
+                self.imageAxes2 = self.imageFigure.add_subplot(242)
+                self.imageAxes3 = self.imageFigure.add_subplot(243)
+                self.imageAxes4 = self.imageFigure.add_subplot(244)
+                self.imageAxes5 = self.imageFigure.add_subplot(245)
+                self.imageAxes6 = self.imageFigure.add_subplot(246)
+                self.imageAxes7 = self.imageFigure.add_subplot(247)
+            elif self.nbOfFrames == 8:
+                self.imageAxes = self.imageFigure.add_subplot(241)
+                self.imageAxes2 = self.imageFigure.add_subplot(242)
+                self.imageAxes3 = self.imageFigure.add_subplot(243)
+                self.imageAxes4 = self.imageFigure.add_subplot(244)
+                self.imageAxes5 = self.imageFigure.add_subplot(245)
+                self.imageAxes6 = self.imageFigure.add_subplot(246)
+                self.imageAxes7 = self.imageFigure.add_subplot(247)
+                self.imageAxes8 = self.imageFigure.add_subplot(248)
         self.onGroupChanged()
         self.resetStatusbar()
 
@@ -980,6 +966,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             print("Done. All result images have been saved to "+output)
             endtime = time.time()
             print("Time taken: ", endtime - start_time)
+
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton.setText("Sum Images")
@@ -1050,26 +1037,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.statusPrint('Merging...')
                 # self.parallel_process_and_add()
                 self.generateAvgImg()
-                # if self.calibrationChkBx.isChecked():
-                #     images = self.matchCenters(self.orig_imgs)
-                # else:
-                #     images = self.orig_imgs
-                # if self.avgInsteadOfSum.isChecked():
-                #     # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-                #     ##todo homogenize
-                #     if 'detector' in self.info:
-                #         self.avg_img = averageImages(images, preprocessed=True, man_det=self.info['detector'])
-                #     else:
-                #         self.avg_img = averageImages(images, preprocessed=True)
-                # else:
-                #     sum_img = 0
-                #     for img in images:
-                #         if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
-                #             sum_img = resizeImage(sum_img, img.shape)
-                #         elif not isinstance(sum_img, int):
-                #             img = resizeImage(img, sum_img.shape)
-                #         sum_img += img
-                #     self.avg_img = sum_img
+
                 if self.blankImageSettings is not None:
                     if self.blankImageSettings['subtractBlank'] == True:
                         raw_filepath = r"{}".format(self.blankImageSettings['path'])
@@ -1256,9 +1224,14 @@ class AddIntensitiesSingleExp(QMainWindow):
             max_frame = len(self.img_list)%self.nbOfFrames
         else:
             max_frame = self.nbOfFrames
-        self.imgPathOnStatusBar.setText(
-            'Current Frame (' + str(self.currentFrameNumber + 1) + '/' + str(max_frame) + '), Current Group ('
-            + str(self.currentGroupNumber + 1) + '/' + str(self.nbOfGroups) + ') : ' + self.img_list[self.currentFileNumber])
+        if self.isAime:
+            self.imgPathOnStatusBar.setText(
+                'Current Group ('
+                + str(self.currentGroupNumber + 1) + '/' + str(len(self.numberToFilesMap)) + ') : ')
+        else:
+            self.imgPathOnStatusBar.setText(
+                'Current Frame (' + str(self.currentFrameNumber + 1) + '/' + str(max_frame) + '), Current Group ('
+                + str(self.currentGroupNumber + 1) + '/' + str(self.nbOfGroups) + ') : ' + self.img_list[self.currentFileNumber])
 
     def ableToProcess(self):
         """
@@ -2060,7 +2033,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             # self.setCentByChords.setEnabled(True)
             # self.setCentByPerp.setEnabled(True)
             # self.setFitRegion.setEnabled(True)
-            # self.calibrationDrpDwn.setVisible(True)
             # self.doubleZoom.setEnabled(True)
             _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
         else:
@@ -2071,7 +2043,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             # self.setCentByChords.setEnabled(False)
             # self.setCentByPerp.setEnabled(False)
             # self.setFitRegion.setEnabled(False)
-            # self.calibrationDrpDwn.setVisible(False)
             # self.doubleZoom.setEnabled(False)
             # self.doubleZoom.setChecked(False)
         # self.onGroupChanged()
@@ -2239,7 +2210,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self.orig_image_center is None:
             self.findCenter(orig_img, index)
             self.statusPrint("Done.")
-        if 'calib_center' in self.info and (self.calibrationDrpDwn.currentText() == "Use Calibration Center" or self.calibrationDrpDwn.currentText() == "Use Calibration Center and Computed Orientation"):
+        if 'calib_center' in self.info:
             center = self.info['calib_center']
         elif self.info['manual_center'][index] is not None:
             center = self.info['manual_center'][index]
@@ -2260,7 +2231,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.statusPrint("Finding Center...")
         if self.info['center'][index] is not None:
             return
-        if 'calib_center' in self.info and (self.calibrationDrpDwn.currentText() == "Use Calibration Center" or self.calibrationDrpDwn.currentText() == "Use Calibration Center and Computed Orientation"):
+        if 'calib_center' in self.info:
             self.info['center'][index] = self.info['calib_center']
             return
         if self.info['manual_center'][index] is not None:
@@ -2327,9 +2298,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calibrationChkBx.setEnabled(True)
         self.maskImageButton.setEnabled(True)
         self.checkImagesButton.setEnabled(True)
-        self.correctionGroup.setEnabled(True)
         self.imageCanvas.setHidden(False)
-        self.frameNb.setMaximum(len(self.img_list))
+        if self.isAime:
+            self.frameNb.setMaximum(len(self.numberToFilesMap[1]) if len(self.numberToFilesMap[1]) <= 8 else 8)
+            self.frameNbChanged()
+        else:
+            self.frameNb.setMaximum(len(self.img_list))
         self.nbOfGroups = len(self.img_grps)
         self.filenameLineEdit.setMaximum(self.nbOfGroups)
         self.filenameLineEdit2.setMaximum(self.nbOfGroups)
@@ -2392,10 +2366,29 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         Get all image names in the selected folder
         """
-        imgs, _ = getFilesAndHdf(self.dir_path)
-        self.img_list = sorted(imgs)
-        self.validateFolder()
-        self.updateImageGroups()
+        subfolders = [os.path.join(self.dir_path, d) for d in os.listdir(self.dir_path) 
+                  if os.path.isdir(os.path.join(self.dir_path, d)) and not d.endswith('_results')]
+        
+        if(len(subfolders) == 0):
+            imgs, _ = getFilesAndHdf(self.dir_path)
+            self.img_list = sorted(imgs)
+            self.validateFolder()
+            self.updateImageGroups()
+        else:
+            self.isAime = True
+            self.fileList = []
+            self.folder_paths = []
+            self.numberToFilesMap = collections.defaultdict(list)
+            for folder in subfolders:
+                folder_path = os.path.join(self.dir_path, folder)
+                self.folder_paths.append(folder_path)
+                i = 0
+                for fname in os.listdir(folder_path):
+                    image_path = os.path.join(folder_path, fname)
+                    if isImg(image_path):
+                        self.numberToFilesMap[i].append(image_path)
+                        i += 1
+            self.updateImageGroups()
         
     def validateFolder(self):
         for img in self.img_list:
@@ -2427,11 +2420,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         Split images into groups
         :return: list of group
         """
-        imgs = self.img_list
-        frames = self.nbOfFrames
         grps = []
-        for i in range(0, len(imgs), frames):
-            grps.append(imgs[i:i + frames])
+        if self.isAime:
+            for i in range(len(self.numberToFilesMap)):
+                grps.append(self.numberToFilesMap[i])
+        else:
+            imgs = self.img_list
+            frames = self.nbOfFrames
+            
+            for i in range(0, len(imgs), frames):
+                grps.append(imgs[i:i + frames])
 
         return grps
 
@@ -2444,16 +2442,31 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.statusPrint("Processing...")
         self.filenameLineEdit.setValue(self.currentGroupNumber + 1)
         self.orig_imgs = []
-        start = self.nbOfFrames*(self.currentGroupNumber)
-        end = min(len(self.img_list), start + self.nbOfFrames)
-        for i in range(start, end):
-            if self.isHdf5:
-                with fabio.open(self.file_name) as series:
-                    frame = series.get_frame(i).data
-                self.orig_imgs.append(ifHdfReadConvertless(self.img_list[i], frame).astype(np.float32))
+        if not self.isAime:
+            start = self.nbOfFrames*(self.currentGroupNumber)
+            end = min(len(self.img_list), start + self.nbOfFrames)
+            for i in range(start, end):
+                if self.isHdf5:
+                    with fabio.open(self.file_name) as series:
+                        frame = series.get_frame(i).data
+                    self.orig_imgs.append(ifHdfReadConvertless(self.img_list[i], frame).astype(np.float32))
+                else:
+                    filePath = os.path.join(self.dir_path, self.img_list[i])
+                    self.orig_imgs.append(fabio.open(filePath).data.astype(np.float32))
+                    
+        else:
+            self.orig_img_names = []
+            if self.nbOfFrames == 0:
+                value = 2
             else:
-                filePath = os.path.join(self.dir_path, self.img_list[i])
-                self.orig_imgs.append(fabio.open(filePath).data.astype(np.float32))
+                value = self.nbOfFrames
+            for i in range(value):
+                if self.isHdf5:
+                    print("do this later")
+                else:
+                    image = fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data.astype(np.float32)
+                    self.orig_imgs.append(image)
+                    self.orig_img_names.append(os.path.basename(self.numberToFilesMap[self.currentFileNumber][i]))
           
         self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
@@ -2517,8 +2530,30 @@ class AddIntensitiesSingleExp(QMainWindow):
         """
         if not self.updated['img']:
             self.uiUpdating = True
+            
+            if self.isAime:
+                if self.calibrationChkBx.isChecked():
+                    _, center = self.getExtentAndCenter(self.orig_imgs[0])
+                else:
+                    _, center = [0, 0], (0, 0)
 
-            self.plotImages(self.imageAxes, self.orig_imgs[self.currentFrameNumber], self.currentFrameNumber)
+                self.plotImages(self.imageAxes, self.orig_imgs[0], 0, self.orig_img_names[0])
+                self.plotImages(self.imageAxes2, self.orig_imgs[1], 1, self.orig_img_names[1])
+
+                if self.nbOfFrames >= 3:
+                    self.plotImages(self.imageAxes3, self.orig_imgs[2], 2, self.orig_img_names[2])
+                if self.nbOfFrames >= 4:
+                    self.plotImages(self.imageAxes4, self.orig_imgs[3], 3, self.orig_img_names[3])
+                if self.nbOfFrames >= 5:
+                    self.plotImages(self.imageAxes5, self.orig_imgs[4], 4, self.orig_img_names[4])
+                if self.nbOfFrames >= 6:
+                    self.plotImages(self.imageAxes6, self.orig_imgs[5], 5, self.orig_img_names[5])
+                if self.nbOfFrames >= 7:
+                    self.plotImages(self.imageAxes7, self.orig_imgs[6], 6, self.orig_img_names[6])
+                if self.nbOfFrames >= 8:
+                    self.plotImages(self.imageAxes8, self.orig_imgs[7], 7, self.orig_img_names[7])
+            else:
+                self.plotImages(self.imageAxes, self.orig_imgs[self.currentFrameNumber], self.currentFrameNumber)
 
             if self.calSettingsDialog is not None:
                 self.calSettingsDialog.centerX.setValue(center[0])
@@ -2572,7 +2607,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.updated['res'] = True
             self.uiUpdating = False
 
-    def plotImages(self, imageAxes, img, index):
+    def plotImages(self, imageAxes, img, index, name=None):
         """
         Displays the image
         """
@@ -2590,6 +2625,9 @@ class AddIntensitiesSingleExp(QMainWindow):
             ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
         ax.set_facecolor('black')
 
+        if self.isAime:
+            ax.set_xlabel(name)
+        
         # Set Zoom in location
         if self.img_zoom is not None and len(self.img_zoom) == 2:
             ax.set_xlim(self.img_zoom[0])

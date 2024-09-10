@@ -12,6 +12,7 @@ hooks/hook-pandas.py
 hooks/hook-pyFAI.py
 hooks/hook-pywt.py
 hooks/hook-scipy.py
+hooks/hook-silx.py
 hooks/hook-sklearn.py
 hooks/hook-tifffile.py
 hooks/pre_safe_import_module/hook-PyMca5.PyMca.py
@@ -28,6 +29,8 @@ musclex.egg-info/requires.txt
 musclex.egg-info/top_level.txt
 musclex/CalibrationSettings/CalibrationSettings.py
 musclex/CalibrationSettings/__init__.py
+musclex/converted_fortran/__init__.py
+musclex/converted_fortran/converted_fortran.py
 musclex/csv_manager/DC_CSVManager.py
 musclex/csv_manager/DI_CSVManager.py
 musclex/csv_manager/EQ_CSVManager.py
@@ -145,19 +148,24 @@ musclex/tests/test_images/di_test_data/di_results/rcd_rings.csv
 musclex/tests/test_images/di_test_data/di_results/rcd_summary.csv
 musclex/tests/test_images/hdf_record/hdfdata_record.p
 musclex/tests/test_logs/release.log
+musclex/ui/AISEImageSelectionWindow.py
+musclex/ui/AddIntensitiesExp.py
 musclex/ui/AddIntensitiesMultExp.py
 musclex/ui/AddIntensitiesSingleExp.py
 musclex/ui/BlankImageSettings.py
+musclex/ui/CalibrationDialog.py
 musclex/ui/DIBatchWindow.py
 musclex/ui/DIImageWindow.py
 musclex/ui/EQStartWindow.py
 musclex/ui/EQ_FittingTab.py
 musclex/ui/EquatorWindow.py
+musclex/ui/ImageMaskTool.py
 musclex/ui/LogTraceViewer.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py
 musclex/ui/ScanningDiffractionGUI.py
+musclex/ui/UnalignedImagesDialog.py
 musclex/ui/XRayViewerGUI.py
 musclex/ui/__init__.py
 musclex/ui/ddf_processor.py
@@ -165,6 +173,7 @@ musclex/ui/diffraction_centroids.py
 musclex/ui/pyqt_utils.py
 musclex/ui/ui_launcherform.py
 musclex/utils/__init__.py
+musclex/utils/detect_unaligned_images.py
 musclex/utils/exception_handler.py
 musclex/utils/file_manager.py
 musclex/utils/hdf5_manager.py
@@ -173,6 +182,7 @@ musclex/utils/histogram_processor.py
 musclex/utils/image_processor.py
 musclex/utils/logger.py
 musclex/utils/rec2sq.py
+musclex/utils/strong_image_creation.py
 musclex/utils/tif_compressor.py
 musclex/utils/tiff_metadata.py
 musclex/utils/zip_download.py

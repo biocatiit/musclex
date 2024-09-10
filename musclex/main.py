@@ -93,6 +93,11 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             myapp = AddIntensitiesMultExp()
             sys.exit(app.exec_())
+        elif prog =='aie':
+            from musclex.ui.AddIntensitiesExp import AIStartWindow
+            app = QApplication(sys.argv)
+            myapp = AIStartWindow()
+            sys.exit(app.exec_())
         elif prog == 'xv':
             from musclex.ui.XRayViewerGUI import XRayViewerGUI
             app = QApplication(sys.argv)

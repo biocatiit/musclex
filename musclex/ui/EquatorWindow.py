@@ -533,11 +533,15 @@ class EquatorWindow(QMainWindow):
         self.k_layout.addWidget(self.k_spnbx)
         
         
-        self.use_smooth_alg = QCheckBox("Interp Algorithm")
+        self.use_smooth_alg = QCheckBox("Interpolate Gaps")
         self.use_smooth_spnbx = QSpinBox()
         self.use_smooth_spnbx.setValue(3)
 
+        self.gaps_grp_bx = QGroupBox()
+        self.gaps_grp_bx_layout = QVBoxLayout()
+        self.gaps_grp_bx.setLayout(self.gaps_grp_bx_layout)
         self.marginLayout = QHBoxLayout()
+        
         self.marginLabel = QLabel("Margin: ")
         self.marginLayout.addWidget(self.marginLabel)
         self.marginLayout.addWidget(self.use_smooth_spnbx)
@@ -550,17 +554,24 @@ class EquatorWindow(QMainWindow):
         self.smoothingWindowLayout.addWidget(self.smoothing_label)
         self.smoothingWindowLayout.addWidget(self.smoothing_window)
 
-        self.marginLabel.setVisible(False)
-        self.use_smooth_spnbx.setVisible(False)
-        self.smoothing_label.setVisible(False)
-        self.smoothing_window.setVisible(False)
+        # self.marginLabel.setVisible(False)
+        # self.use_smooth_spnbx.setVisible(False)
+        # self.smoothing_label.setVisible(False)
+        # self.smoothing_window.setVisible(False)
         
         self.addGapsButton = QPushButton("Add Gaps")
         self.addGapsButton.setCheckable(True)
-        self.addGapsButton.setVisible(False)
+        # self.addGapsButton.setVisible(False)
         
         self.clearGapsButton = QPushButton("Clear Gaps")
-        self.clearGapsButton.setVisible(False)
+        # self.clearGapsButton.setVisible(False)
+        
+        self.gaps_grp_bx_layout.addLayout(self.marginLayout)
+        self.gaps_grp_bx_layout.addLayout(self.smoothingWindowLayout)
+        self.gaps_grp_bx_layout.addWidget(self.addGapsButton)
+        self.gaps_grp_bx_layout.addWidget(self.clearGapsButton)
+        
+        self.gaps_grp_bx.setVisible(False)
 
         self.refittingB = QPushButton("Refit current image")
         self.refitAllButton = QPushButton("Refit current folder")
@@ -605,10 +616,11 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
         self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
-        self.fittingOptionsLayout2.addLayout(self.marginLayout)
-        self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
-        self.fittingOptionsLayout2.addWidget(self.addGapsButton)
-        self.fittingOptionsLayout2.addWidget(self.clearGapsButton)
+        # self.fittingOptionsLayout2.addLayout(self.marginLayout)
+        # self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
+        # self.fittingOptionsLayout2.addWidget(self.addGapsButton)
+        # self.fittingOptionsLayout2.addWidget(self.clearGapsButton)
+        self.fittingOptionsLayout2.addWidget(self.gaps_grp_bx)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
         self.fittingOptionsLayout2.addWidget(self.refitAllButton)
         self.fittingOptionsLayout2.addStretch()
@@ -917,12 +929,13 @@ class EquatorWindow(QMainWindow):
         #     self.refitting()
         
     def useSmoothClicked(self):
-        self.addGapsButton.setVisible(self.use_smooth_alg.isChecked())
-        self.clearGapsButton.setVisible(self.use_smooth_alg.isChecked())
-        self.marginLabel.setVisible(self.use_smooth_alg.isChecked())
-        self.use_smooth_spnbx.setVisible(self.use_smooth_alg.isChecked())
-        self.smoothing_label.setVisible(self.use_smooth_alg.isChecked())
-        self.smoothing_window.setVisible(self.use_smooth_alg.isChecked())
+        # self.addGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        # self.clearGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        # self.marginLabel.setVisible(self.use_smooth_alg.isChecked())
+        # self.use_smooth_spnbx.setVisible(self.use_smooth_alg.isChecked())
+        # self.smoothing_label.setVisible(self.use_smooth_alg.isChecked())
+        # self.smoothing_window.setVisible(self.use_smooth_alg.isChecked())
+        self.gaps_grp_bx.setVisible(self.use_smooth_alg.isChecked())
         self.bioImg.info['use_smooth_alg'] = self.use_smooth_alg.isChecked()
         self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
         self.bioImg.info['smoothing_window'] = self.smoothing_window.value()

@@ -150,6 +150,20 @@ Diffraction data taken on integrating detectors such as CCD detectors will have 
 
 The use previous fit checkbox allows the user to reuse the fitting values while refitting the model. For example, if 3 peaks are to be fitted, if use previous fit is checked, the fitting parameters currently obtained for 2 peaks is used as initial guess while fitting the model.
 
+##### Interpolate Gaps
+
+Checking this option will tell the program to do a 1D interpolation on the histogram to remove any potential gaps identified. To see the refits, the user must click "Refit Image" after the box has been checked. The following options will appear once "Interpolate Gaps" has been checked.
+
+![-](../../images/BM/add_gaps_options.png)
+
+The **Margin** parameter controls the margin on the gap. For example, if the gap has been identified to be at indexes 233 to 255, a 3 margin will tell the program to include the interpolated histogram from indexes 230 to 258. This was introduced to make the gap replacement smoother.
+
+The **Smoothing Window** paramter controls the smoothing window in the Savitzky-Golay filter we apply to the histogram for smoothing.
+
+The **Add Gaps** button will allow the user to add a custom gap if they think the automatically detected gaps missed it. To use this, click the button, then select the start and end of the gap on the histogram. Once that is done, the program will include that as a gap and display it after the next "Refit Image"
+
+The **Clear Gaps** button removes all the gaps.
+
 ### Results
 Important fitting results are shown in this tab. If the calibration parameters are set, the program will also show d<sub>10</sub>. 
 
