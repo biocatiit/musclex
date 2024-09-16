@@ -22,10 +22,11 @@
 3. Create release tag and enter release notes on Github.
 4. Update DOI on Zenodo (if it was not done automatically).
 5. Create pip distribution and upload to PyPI.
-6. Create docker distribution.
-7. Update documentation on Readthedocs.
-8. Create AppImage, Deb, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only).
-9. Test release on each distribution.
+6. Create conda distribution and upload it to Anaconda Cloud.
+7. Create docker distribution.
+8. Update documentation on Readthedocs.
+9. Create AppImage, Deb, Windows, and Mac standalone distributions and upload to Sourceforge (major releases only).
+10. Test release on each distribution.
 
 ## Prepare a Release
 ### Generate pickle testing files (deprecated)
