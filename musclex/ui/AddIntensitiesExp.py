@@ -58,6 +58,41 @@ from ..utils.image_processor import calcSlope, getIntersectionOfTwoLines, getPer
 from ..CalibrationSettings import CalibrationSettings
 from ..utils.detect_unaligned_images import *
 
+class SelectionWindow(QWidget):
+    closed = pyqtSignal(list)  # Signal to emit when the window is closed
+    
+    def __init__(self, files):
+        super().__init__()
+        self.files = files
+        self.selected_files = []
+        self.initUI()
+        
+    def initUI(self):
+        layout = QVBoxLayout()
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.MultiSelection)
+        for file in self.files:
+            print(file)
+            QListWidgetItem(file, self.list_widget)
+            
+        self.confirmButton = QPushButton("Confirm")
+        layout.addWidget(self.list_widget)
+        layout.addWidget(self.confirmButton)
+        self.confirmButton.clicked.connect(self.saveSelections)
+        self.setLayout(layout)
+        self.setWindowTitle("Select Experiments")
+        # self.show()
+        
+    def saveSelections(self):
+        self.selected_files = [(self.list_widget.row(item), item.text()) for item in self.list_widget.selectedItems()]
+        if len(self.selected_files) < 2:
+            QMessageBox.critical(self, "Error", "Please select at least 2 files.")
+        else:
+            self.close()
+
+    def closeEvent(self, event):
+        self.closed.emit(self.selected_files)  # Emit the signal with the selected files
+        event.accept()  # Accept the close event
 
 class AIStartWindow(QWidget):
     def __init__(self):
@@ -103,7 +138,9 @@ class AddIntensitiesExp(QMainWindow):
             self.numberToFilesMap = None
             self.orig_img_names = []
             
-            self.nbOfExposures = 0
+            self.experimentSelectionDialog = None
+            self.customSelection = False
+            self.nbOfExposures = 2
             self.imageAxes2 = None
             self.imageAxes3 = None
             self.imageAxes4 = None
@@ -124,14 +161,13 @@ class AddIntensitiesExp(QMainWindow):
             self.img_list = []
             self.img_grps = []
             self.img_grps_copy = []
-            self.misaligned_images = []
+            
             self.file_name = '' 
             self.orig_avg_img = None
             self.currentFrameNumber = 0
             self.currentGroupNumber = 0
             self.imageSequenceDialog = None
-            self.unalignedImagesDialog = None
-            self.imageMaskingTool = None
+            
             self.customImageSequence = False  # If we are using a custom sequence by the user himself
             self.nbOfFrames = 2 # This controls binning factor 
             self.nbOfGroups = 1
@@ -156,10 +192,12 @@ class AddIntensitiesExp(QMainWindow):
         self.calSettingsDialog = None
         self.dir_path = ""
         self.stop_process = False
-        
+        self.unalignedImagesDialog = None
         self.imageAxes = None
         self.resultAxes = None
         
+        self.imageMaskingTool = None
+        self.misaligned_images = []
         self.function = None
         self.currentFileNumber = 0
         self.center_before_rotation = None
@@ -266,6 +304,7 @@ class AddIntensitiesExp(QMainWindow):
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
+        self.showSeparator = QCheckBox("Show Quadrant Separator")
         self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 1)
         self.dispOptLayout.addWidget(self.spminInt, 1, 1, 1, 1)
         self.dispOptLayout.addWidget(self.maxIntLabel, 2, 0, 1, 1)
@@ -275,6 +314,7 @@ class AddIntensitiesExp(QMainWindow):
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
         self.dispOptLayout.addWidget(self.persistIntensity, 5, 0, 1, 2)
         self.dispOptLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.showSeparator, 7, 0, 1, 2)
         self.displayOptGrpBx.setLayout(self.dispOptLayout)
 
         # Image Operations Group Box
@@ -295,35 +335,36 @@ class AddIntensitiesExp(QMainWindow):
             self.frameNb.setToolTip("Choose the number of frames per group you would like.")
             self.selectImageChkBx = QCheckBox('Sum Image Ranges')
             self.sumImagesButton = QPushButton("Select Image Subsets")
-            self.sumImagesButton.setEnabled(False)
-            self.useMaskChkBx = QCheckBox('Use Mask')
-            self.useMaskChkBx.setEnabled(False)
-            self.maskImageButton = QPushButton("Specify Empty Cell and Mask Images")
-            self.maskImageButton.setEnabled(False)
-            self.calibrationChkBx = QCheckBox("Align Images")
-            self.specifyCenterAndOrientationButton = QPushButton("Correct Center and Orientation")
-            self.specifyCenterAndOrientationButton.setEnabled(False)
-            
-            self.checkImagesButton = QPushButton("Detect Misaligned Images")
-            self.checkImagesButton.setToolTip("Check all images for misalignment")
-            self.checkImagesButton.setEnabled(False)
-            
-            self.imgOperationLayout.addWidget(self.factorBx, 0, 0, 1, 2)
-            self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
-            self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
-            self.imgOperationLayout.addWidget(self.sumImagesButton, 1, 3, 1, 1)
-            self.imgOperationLayout.addWidget(self.useMaskChkBx, 2, 0, 1, 2)
-            self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 4)
-            self.imgOperationLayout.addWidget(self.calibrationChkBx, 4, 0, 1, 2)
-            self.imgOperationLayout.addWidget(self.specifyCenterAndOrientationButton, 5, 0, 1, 4)
-            self.imgOperationLayout.addWidget(self.checkImagesButton, 6, 0, 1, 4)
         else:
             self.frameNb.setToolTip("Choose the number of exposures (images) you would like to add.")
             self.frameNb.setMaximum(8)
+            self.factorBx = QLabel('Experiment Runs')
+            self.selectImageChkBx = QCheckBox("Custom Sequence")
+            self.sumImagesButton = QPushButton("Select Experiments")
             
-            self.imgOperationLayout.addWidget(QLabel('Exposures'), 0, 0, 1, 2)
-            self.imgOperationLayout.addWidget(self.frameNb, 0, 1, 1, 1)
         
+        self.sumImagesButton.setEnabled(False)
+        self.useMaskChkBx = QCheckBox('Use Mask')
+        self.useMaskChkBx.setEnabled(False)
+        self.maskImageButton = QPushButton("Specify Empty Cell and Mask Images")
+        self.maskImageButton.setEnabled(False)
+        self.calibrationChkBx = QCheckBox("Align Images")
+        self.specifyCenterAndOrientationButton = QPushButton("Correct Center and Orientation")
+        self.specifyCenterAndOrientationButton.setEnabled(False)
+        
+        self.checkImagesButton = QPushButton("Detect Misaligned Images")
+        self.checkImagesButton.setToolTip("Check all images for misalignment")
+        self.checkImagesButton.setEnabled(False)
+        
+        self.imgOperationLayout.addWidget(self.factorBx, 0, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
+        self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.sumImagesButton, 1, 3, 1, 1)
+        self.imgOperationLayout.addWidget(self.useMaskChkBx, 2, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 4)
+        self.imgOperationLayout.addWidget(self.calibrationChkBx, 4, 0, 1, 2)
+        self.imgOperationLayout.addWidget(self.specifyCenterAndOrientationButton, 5, 0, 1, 4)
+        self.imgOperationLayout.addWidget(self.checkImagesButton, 6, 0, 1, 4)
         
         # Operation Options Group Box
 
@@ -338,45 +379,41 @@ class AddIntensitiesExp(QMainWindow):
         self.operationGroupLayout.addWidget(self.avgInsteadOfSum, 1, 0, 1, 4)
         self.operationGroupLayout.addWidget(self.compressChkBx, 2, 0, 1, 4)
         
-        if self.mode == 'aime':
-            self.calibrationChkBx = QGroupBox("Calibrate images")
-            self.calibrationChkBx.setCheckable(True)
-            self.calibrationChkBx.setChecked(False)
-            self.calibrationLayout = QGridLayout(self.calibrationChkBx)
-            self.calibrationButton = QPushButton("Calibration Settings")
-            self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
-            self.setCenterRotationButton.setCheckable(True)
-            self.setCentByChords = QPushButton("Set Center by Chords")
-            self.setCentByChords.setCheckable(True)
-            self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
-            self.setCentByPerp.setCheckable(True)
-            self.setRotationButton = QPushButton("Set Manual Rotation")
-            self.setRotationButton.setCheckable(True)
-            self.setFitRegion = QPushButton("Set Region of Interest")
-            self.setFitRegion.setCheckable(True)
+        # if self.mode == 'aime':
+        #     self.calibrationChkBx = QGroupBox("Calibrate images")
+        #     self.calibrationChkBx.setCheckable(True)
+        #     self.calibrationChkBx.setChecked(False)
+        #     self.calibrationLayout = QGridLayout(self.calibrationChkBx)
+        #     self.calibrationButton = QPushButton("Calibration Settings")
+        #     self.setCenterRotationButton = QPushButton("Set Manual Center and Rotation")
+        #     self.setCenterRotationButton.setCheckable(True)
+        #     self.setCentByChords = QPushButton("Set Center by Chords")
+        #     self.setCentByChords.setCheckable(True)
+        #     self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
+        #     self.setCentByPerp.setCheckable(True)
+        #     self.setRotationButton = QPushButton("Set Manual Rotation")
+        #     self.setRotationButton.setCheckable(True)
+        #     self.setFitRegion = QPushButton("Set Region of Interest")
+        #     self.setFitRegion.setCheckable(True)
 
-            self.showSeparator = QCheckBox("Show Quadrant Separator")
-
-            self.centerWoRotateChkBx = QCheckBox("Calibrate Center Without Rotation")
-            self.centerWoRotateChkBx.setChecked(True)
             
-            self.calibrationLayout.addWidget(self.calibrationButton, 1, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.setRotationButton, 3, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.setCentByChords, 4, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.setCentByPerp, 5, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.setFitRegion, 6, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.centerWoRotateChkBx, 7, 0, 1, 2)
-            self.calibrationLayout.addWidget(self.showSeparator, 8, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.calibrationButton, 1, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.setRotationButton, 3, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.setCentByChords, 4, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.setCentByPerp, 5, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.setFitRegion, 6, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.centerWoRotateChkBx, 7, 0, 1, 2)
+        #     self.calibrationLayout.addWidget(self.showSeparator, 8, 0, 1, 2)
 
-            self.calibrationButton.setEnabled(False)
-            self.setCenterRotationButton.setEnabled(False)
-            self.setRotationButton.setEnabled(False)
-            self.setCentByChords.setEnabled(False)
-            self.setCentByPerp.setEnabled(False)
-            self.setFitRegion.setEnabled(False)
-            self.showSeparator.setEnabled(False)
-            self.centerWoRotateChkBx.setEnabled(False)
+        #     self.calibrationButton.setEnabled(False)
+        #     self.setCenterRotationButton.setEnabled(False)
+        #     self.setRotationButton.setEnabled(False)
+        #     self.setCentByChords.setEnabled(False)
+        #     self.setCentByPerp.setEnabled(False)
+        #     self.setFitRegion.setEnabled(False)
+        #     self.showSeparator.setEnabled(False)
+        #     self.centerWoRotateChkBx.setEnabled(False)
 
         # Review Images Group
         self.reviewImageGroup = QGroupBox("Review Images")
@@ -420,10 +457,7 @@ class AddIntensitiesExp(QMainWindow):
         self.optionsLayout.addSpacing(5)
         self.optionsLayout.addWidget(self.imgOperationGrp)
         self.optionsLayout.addSpacing(5)
-        if self.mode == 'aise':
-            self.optionsLayout.addWidget(self.operationGroup)
-        else:
-            self.optionsLayout.addWidget(self.calibrationChkBx)
+        self.optionsLayout.addWidget(self.operationGroup)
         self.optionsLayout.addSpacing(5)
         self.optionsLayout.addWidget(self.reviewImageGroup)
         self.optionsLayout.addSpacing(5)
@@ -581,27 +615,19 @@ class AddIntensitiesExp(QMainWindow):
         self.avgInsteadOfSum.stateChanged.connect(self.avgInsteadOfSumChanged)
         self.compressChkBx.stateChanged.connect(self.avgInsteadOfSumChanged)
         self.calibrationChkBx.clicked.connect(self.setCalibrationActive)
+        self.checkImagesButton.clicked.connect(self.checkImages)
+        self.showSeparator.stateChanged.connect(self.refreshImageTab)
+        self.selectImageChkBx.clicked.connect(self.selectImageChecked)
+        self.sumImagesButton.clicked.connect(self.selectImageSequence)
+        self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
+        self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
         if self.mode == 'aise':
-            self.checkImagesButton.clicked.connect(self.checkImages)
             self.factorBx.clicked.connect(self.binFactorChecked)
-            self.selectImageChkBx.clicked.connect(self.selectImageChecked)
-            #self.correctionDrpDown.currentIndexChanged.connect(self.correctionDrpDownChanged)
-            self.frameSteppingSelection.currentTextChanged.connect(self.stepComboBoxChanged)
-            self.sumImagesButton.clicked.connect(self.selectImageSequence)
-            self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
-            self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
             self.frameNb.valueChanged.connect(self.frameNbChanged)
+            self.frameSteppingSelection.currentTextChanged.connect(self.stepComboBoxChanged)
         else:
-            self.calibrationButton.clicked.connect(self.calibrationClicked)
-            self.showSeparator.stateChanged.connect(self.refreshImageTab)
-            self.centerWoRotateChkBx.stateChanged.connect(self.centerWoRotateChanged)
             self.filenameLineEdit.valueChanged.connect(self.fileNameChanged)
             self.frameNb.valueChanged.connect(self.exposureNbChanged)
-            self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
-            self.setRotationButton.clicked.connect(self.setRotation)
-            self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-            self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
-            self.setFitRegion.clicked.connect(self.setFitRegionClicked)
             
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
@@ -623,146 +649,6 @@ class AddIntensitiesExp(QMainWindow):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
         
-    def setCenterRotation(self):
-        """
-        Trigger when set center and rotation angle button is pressed
-        """
-        if self.setCenterRotationButton.isChecked():
-            self.axClicked = None
-            # clear plot
-            self.imgPathOnStatusBar.setText(
-                "Click on an exposure to select it (ESC to cancel)")
-            self.imageCanvas.draw_idle()
-            self.function = ["im_center_rotate"]
-        else:
-            self.function = None
-            self.resetStatusbar()
-    
-    def setRotation(self):
-        """
-        Trigger when set rotation angle button is pressed
-        """
-        if self.setRotationButton.isChecked():
-            self.axClicked = None
-            # clear plot
-            self.imgPathOnStatusBar.setText(
-                "Click on an exposure to select it (ESC to cancel)")
-            # _, center = self.getExtentAndCenter(self.orig_imgs[0])
-            # self.info['center'] = center
-            self.imageCanvas.draw_idle()
-            self.function = ["im_rotate"]
-        else:
-            self.function = None
-            self.resetStatusbar()
-            
-    def setCenterByChordsClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting chords
-        """
-        if self.setCentByChords.isChecked():
-            self.axClicked = None
-            self.imgPathOnStatusBar.setText(
-                "Click on an exposure to select it (ESC to cancel)")
-            self.chordLines = []
-            self.imageCanvas.draw_idle()
-            self.function = ["chords_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            print("Finding Chords center ...")
-            centers = []
-            for i, line1 in enumerate(self.chordLines):
-                for line2 in self.chordLines[i + 1:]:
-                    if line1[0] == line2[0]:
-                        continue  # parallel lines
-                    if line1[0] == float('inf'):
-                        xcent = line1[1]
-                        ycent = line2[0] * xcent + line2[1]
-                    elif line2[0] == float('inf'):
-                        xcent = line2[1]
-                        ycent = line1[0] * xcent + line1[1]
-                    else:
-                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
-                        ycent = line1[0] * xcent + line1[1]
-                    center = [xcent, ycent]
-                    print("CenterCalc ", center)
-
-                    centers.append(center)
-
-            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
-            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            if self.info['rotationAngle'][self.index] is None:
-                M = cv2.getRotationMatrix2D(tuple(self.info['center'][self.index]), 0, 1)
-            else:
-                M = cv2.getRotationMatrix2D(tuple(self.info['center'][self.index]), self.info['rotationAngle'][self.index], 1)
-            invM = cv2.invertAffineTransform(M)
-            homo_coords = [cx, cy, 1.]
-            new_center = np.dot(invM, homo_coords)
-            print("New center ", new_center)
-            # Set new center
-            self.info['manual_center'][self.index] = (int(round(new_center[0])), int(round(new_center[1])))
-            self.info['center'][self.index] = (int(round(new_center[0])), int(round(new_center[1])))
-            self.setCentByChords.setChecked(False)
-            self.onGroupChanged()
-            
-    def setCenterByPerpClicked(self):
-        """
-        Prepare for manual center selection using perpendicular peaks
-        :return:
-        """
-        if self.setCentByPerp.isChecked():
-            self.axClicked = None
-            self.imgPathOnStatusBar.setText(
-                "Click on an exposure to select it (ESC to cancel)")
-            self.imageCanvas.draw_idle()
-            self.function = ["perp_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-
-            func = self.function
-            horizontalLines = []
-            verticalLines = []
-            intersections = []
-            for i in range(1, len(func) - 1, 2):
-                slope = calcSlope(func[i], func[i + 1])
-                if abs(slope) > 1:
-                    verticalLines.append((func[i], func[i + 1]))
-                else:
-                    horizontalLines.append((func[i], func[i + 1]))
-            for line1 in verticalLines:
-                for line2 in horizontalLines:
-                    cx, cy = getIntersectionOfTwoLines(line1, line2)
-                    print("Intersection ", (cx, cy))
-                    intersections.append((cx, cy))
-            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
-            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
-
-            print("Center calc ", (cx, cy))
-
-            extent, _ = self.getExtentAndCenter(self.orig_imgs[self.index])
-            new_center = [cx, cy]  # np.dot(invM, homo_coords)
-            # Set new center and rotaion angle , re-calculate R-min
-            print("New Center ", new_center)
-            self.info['manual_center'][self.index] = (
-                int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
-            self.info['center'][self.index] = (
-                int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
-            print("New center after extent ", self.info['manual_center'][self.index])
-            self.setCentByPerp.setChecked(False)
-            self.onGroupChanged()
-            
-    def setFitRegionClicked(self):
-        """
-        Triggered when the Set fit region button is clicked
-        """
-        if self.setFitRegion.isChecked():
-            self.axClicked = None
-            self.imgPathOnStatusBar.setText(
-                "Click on an exposure to select it (ESC to cancel)")
-            self.imageCanvas.draw_idle()
-            self.function = ['fit_region']
-        else:
-            self.function = None
-            self.resetStatusbar()
             
     def drawPerpendiculars(self, ax):
         """
@@ -799,34 +685,14 @@ class AddIntensitiesExp(QMainWindow):
                 self.specifyCenterAndOrientationButton.setEnabled(False)
         else:
             if self.calibrationChkBx.isChecked():
-                self.calibrationButton.setEnabled(True)
-                self.setCenterRotationButton.setEnabled(True)
-                self.setRotationButton.setEnabled(True)
-                self.setCentByChords.setEnabled(True)
-                self.setCentByPerp.setEnabled(True)
-                self.setFitRegion.setEnabled(True)
-                self.doubleZoom.setEnabled(True)
-                self.showSeparator.setEnabled(True)
-                self.centerWoRotateChkBx.setEnabled(True)
+                self.specifyCenterAndOrientationButton.setEnabled(True)
                 _, self.orig_image_center = self.getExtentAndCenter(self.orig_imgs[0])
-                self.showSeparator.setChecked(True)
             else:
-                self.calibrationButton.setEnabled(False)
-                self.setCenterRotationButton.setEnabled(False)
-                self.setRotationButton.setEnabled(False)
-                self.setCentByChords.setEnabled(False)
-                self.setCentByPerp.setEnabled(False)
-                self.setFitRegion.setEnabled(False)
-                self.doubleZoom.setEnabled(False)
-                self.doubleZoom.setChecked(False)
-                self.showSeparator.setEnabled(False)
-                self.showSeparator.setChecked(False)
-                self.centerWoRotateChkBx.setEnabled(False)
                 self.info = {'manual_rotationAngle': [None] * 8,
                             'rotationAngle': [0] * 8,
                             'center': [None] * 8,
                             'manual_center': [None] * 8}
-                self.onGroupChanged()
+                self.specifyCenterAndOrientationButton.setEnabled(False)
             
     def batchProcBtnToggled(self):
         """
@@ -879,6 +745,7 @@ class AddIntensitiesExp(QMainWindow):
                     if len(imgs) > 0 and not self.stop_process:
                         self.progressBar.setValue(i)
                         self.processGroup()
+                        QApplication.processEvents()
                         self.nextGrpClicked()
                     else:
                         break
@@ -1070,9 +937,11 @@ class AddIntensitiesExp(QMainWindow):
         Same as browse files but allow the user to select a folder instead of a file.
         """
         self.dir_path = getAFolder()
-        
+        self.folder_paths = []
+        self.ignore_files = ['_results', 'settings']
         self.fileList = []
         if self.dir_path != "":
+            self.imgPathOnStatusBar.setText("Preprocessing Folder...")
             if self.mode == 'aime':
                 self.numberToFilesMap = collections.defaultdict(list)
                 self.isHdf5 = False
@@ -1080,6 +949,7 @@ class AddIntensitiesExp(QMainWindow):
                     isDataFile = True
                     f = os.path.join(self.dir_path, fname)
                     if isImg(f):
+                        self.folder_paths.append(fname)
                         i = -1
                         name = fname.split('.')[0]
                         number = name.split('_')[i]
@@ -1101,10 +971,21 @@ class AddIntensitiesExp(QMainWindow):
                                         namefile = os.path.split(frame.file_container.filename)[1].split('.')
                                         temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
                                         self.numberToFilesMap[frame.index].append(temp_filename)
+                                        QApplication.processEvents()
                             else:
                                 self.numberToFilesMap[int(number) - 1].append(f)
                             self.numberToFilesMap[int(number) - 1].sort()
-                print(self.fileList)
+                    else:
+                        if not any(ignore_str in fname for ignore_str in self.ignore_files):
+                            temp_path = os.path.join(self.dir_path, fname)
+                            self.folder_paths.append(temp_path)
+                            if os.path.isdir(temp_path):
+                                i = 0
+                                for fname2 in os.listdir(temp_path):
+                                    if isImg(fname2):
+                                        self.numberToFilesMap[i].append(fname2)
+                                    i += 1
+                                QApplication.processEvents()
                 self.onNewFileSelected()
             else:
                 self.isHdf5 = False
@@ -1135,6 +1016,8 @@ class AddIntensitiesExp(QMainWindow):
         if (self.mode == 'aime'):
             createFolder(os.path.join(self.dir_path, 'aime_results'))
             self.frameNb.setMaximum(len(self.numberToFilesMap[1]) if len(self.numberToFilesMap[1]) <= 8 else 8)
+            self.maskImageButton.setEnabled(True)
+            self.checkImagesButton.setEnabled(True)
             self.filenameLineEdit.setMaximum(len(self.numberToFilesMap))
             self.filenameLineEdit2.setMaximum(len(self.numberToFilesMap))
             self.exposureNbChanged()
@@ -1202,7 +1085,8 @@ class AddIntensitiesExp(QMainWindow):
         """
         Change the number of images to add. Will also change the display consequently
         """
-        self.nbOfExposures = self.frameNb.value()
+        if not self.customSelection:
+            self.nbOfExposures = self.frameNb.value()
         self.imageFigure.clear()
         if self.nbOfExposures == 2:
             self.imageAxes = self.imageFigure.add_subplot(121)
@@ -1270,16 +1154,37 @@ class AddIntensitiesExp(QMainWindow):
                     self.orig_imgs.append(fabio.open(filePath).data.astype(np.float32))
         else:
             self.filenameLineEdit.setValue(self.currentFileNumber + 1)
-            for i in range(self.nbOfExposures):
+            if self.customSelection:
                 if self.isHdf5:
-                    with fabio.open(self.fileList[i]) as series:
-                        frame = series.get_frame(self.currentFileNumber).data
-                    image = ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], frame)
-                    self.orig_imgs.append(image.astype(np.float32))
-                    self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
+                    for line in self.selected_files:
+                        i = line[0]
+                        file = line[1]
+                        path = os.path.join(self.dir_path, file)
+                        with fabio.open(path) as series:
+                            frame = series.get_frame(self.currentFileNumber).data
+                        image = ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], frame)
+                        self.orig_imgs.append(image.astype(np.float32))
+                        self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
                 else:
-                    self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data.astype(np.float32))
-                    self.orig_img_names.append(os.path.split(self.numberToFilesMap[self.currentFileNumber][i])[1])
+                    for line in self.selected_files:
+                        i = line[0]
+                        folder = line[1]
+                        image = fabio.open(os.path.join(folder, self.numberToFilesMap[self.currentFileNumber][i])).data.astype(np.float32)
+                        self.orig_imgs.append(image)
+                        self.orig_img_names.append(os.path.basename(folder) + "/" + self.numberToFilesMap[self.currentFileNumber][i])
+            else:
+                for i in range(self.nbOfExposures):
+                    if self.isHdf5:
+                        with fabio.open(self.fileList[i]) as series:
+                            frame = series.get_frame(self.currentFileNumber).data
+                        image = ifHdfReadConvertless(self.numberToFilesMap[self.currentFileNumber][i], frame)
+                        self.orig_imgs.append(image.astype(np.float32))
+                        self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
+                    else:
+                        folder = self.folder_paths[i]
+                        image = fabio.open(os.path.join(folder, self.numberToFilesMap[self.currentFileNumber][i])).data.astype(np.float32)
+                        self.orig_imgs.append(image)
+                        self.orig_img_names.append(os.path.basename(folder) + "/" + self.numberToFilesMap[self.currentFileNumber][i])
           
         self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
@@ -1525,7 +1430,7 @@ class AddIntensitiesExp(QMainWindow):
         if self.ableToProcess():
             if self.calibrationChkBx.isChecked():
                 self.getExtentAndCenter(self.orig_imgs[0])
-                if not self.centerWoRotateChkBx.isChecked() or any(mra is not None for mra in self.info['manual_rotationAngle']):
+                if any(mra is not None for mra in self.info['manual_rotationAngle']):
                     for i in range(self.nbOfExposures):
                         self.rotateImg(i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
@@ -1538,25 +1443,7 @@ class AddIntensitiesExp(QMainWindow):
         Add Intensity of one set of files (main function).
         :param imgs, dir_path, key:
         """
-        createFolder(fullPath(dir_path, "aime_results"))
-        # if self.calibrationChkBx.isChecked():
-        #     imgs = self.matchCenters(imgs)
-        # if self.avgInsteadOfSum.isChecked():
-        #     # WARNING: in averageImages, we are using preprocessed instead of rotate because rotate is a black box and we already calibrated the images
-        #     ##todo homogenize
-        #     if 'detector' in self.info:
-        #         sum_img = averageImages(imgs, preprocessed=True, man_det=self.info['detector'])
-        #     else:
-        #         sum_img = averageImages(imgs, preprocessed=True)
-        # else:
-        #     sum_img = 0
-        #     for img in imgs:
-        #         if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
-        #             sum_img = resizeImage(sum_img, img.shape)
-        #         elif not isinstance(sum_img, int):
-        #             img = resizeImage(img, sum_img.shape)
-        #         sum_img += img
-        
+        createFolder(fullPath(dir_path, "aime_results")) 
         sum_img = self.generateSumImg(imgs)
 
         first = self.orig_img_names[0].split('.')[0]
@@ -1603,17 +1490,6 @@ class AddIntensitiesExp(QMainWindow):
                 sum_img += img
             return sum_img
         
-    def centerWoRotateChanged(self):
-        """
-        Triggered when the button is clicked
-        """
-        if self.centerWoRotateChkBx.isChecked():
-            self.info['manual_rotationAngle'] = [None] * 8
-            self.info['rotationAngle'] = [0] * 8
-            self.info['center'] = [None] * 8
-            self.info['manual_center'] = [None] * 8
-        self.onGroupChanged()
-    
     def fileNameChanged(self):
         """
         Triggered when the name of the current file is changed
@@ -2129,110 +2005,11 @@ class AddIntensitiesExp(QMainWindow):
                     self.function = None
                     self.imgZoomInB.setChecked(False)
                     self.refreshAllTab()
-            elif func[0] == "fit_region" and self.axClicked is not None:
-                if len(func) == 1:
-                    # width selected
-                    func.append(abs(int(x)))
-                    self.imgPathOnStatusBar.setText(
-                        "Drag mouse pointer to select height, click on the image to accept (ESC to cancel)")
-                else:
-                    # both width and height selected
-                    extent, center = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
-                    half_width = abs(func[1] - center[0])
-                    half_height = abs(abs(int(y)) - center[1])
-                    print("Selected Fit Reg W/2 x H/2 ", (half_width, half_height))
-
-                    initImg = self.orig_imgs[self.index]
-                    croppedImage = initImg[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)]
-                    new_img = np.zeros(initImg.shape)
-                    # Placing cropped image in new image such that size of original image matches new image
-                    new_img[int(center[1] - half_height):int(center[1] + half_height), int(center[0] - half_width):int(center[0] + half_width)] = croppedImage
-                    print("Cropped Image shape ", croppedImage.shape)
-                    print("New Image shape ", new_img.shape)
-                    self.orig_imgs[self.index] = new_img
-                    # self.deleteInfo(['center', 'rotationAngle', 'manual_center', 'manual_rotationAngle'])
-                    self.setFitRegion.setChecked(False)
-                    self.processImage()
-            elif func[0] == "chords_center":
-                if len(func) == 1:
-                    if len(ax.lines) > 0:
-                        for i in range(len(ax.lines) - 1, -1, -1):
-                            ax.lines[i].remove()
-                if self.axClicked is None:
-                    self.imgPathOnStatusBar.setText(
-                        "Click to place a point (need 3 points), then click on the button to process (ESC to cancel)")
-                else:
-                    axis_size = 5
-                    self.function.append([x, y])
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    if len(self.function) >= 4:
-                        self.drawPerpendiculars(ax)
-                    self.imageCanvas.draw_idle()
-            elif func[0] == "perp_center" and self.axClicked is not None:
-                axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
-                    start_pt = func[len(func) - 1]
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                self.imageCanvas.draw_idle()
-                func.append((x, y))
-            elif func[0] == "im_center_rotate" and self.axClicked is not None:
-                # set center and rotation angle
-                axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                self.imageCanvas.draw_idle()
-                func.append((x, y))
-                if len(func) == 3:
-                    if func[1][0] < func[2][0]:
-                        x1, y1 = func[1]
-                        x2, y2 = func[2]
-                    else:
-                        x1, y1 = func[2]
-                        x2, y2 = func[1]
-
-                    if abs(x2 - x1) == 0:
-                        new_angle = -90
-                    else:
-                        new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-
-                    extent, _ = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
-
-                    cx = int(round((x1 + x2) / 2.) + extent[0])
-                    cy = int(round((y1 + y2) / 2.) + extent[1])
-                    new_center = [cx, cy]
-                    cx = int(round(new_center[0]))
-                    cy = int(round(new_center[1]))
-                    self.info['manual_center'][self.index] = (cx, cy)
-                    self.info['center'][self.index] = (cx, cy)
-                    # self.orig_image_center = self.info['manual_center']
-                    self.info['manual_rotationAngle'][self.index] = self.info['rotationAngle'][self.index] + new_angle
-                    self.setCenterRotationButton.setChecked(False)
-                    self.processImage()
-            elif func[0] == "im_rotate" and self.axClicked is not None:
-                # set rotation angle
-                _, center = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
-
-                if center[0] < x:
-                    x1 = center[0]
-                    y1 = center[1]
-                    x2 = x
-                    y2 = y
-                else:
-                    x1 = x
-                    y1 = y
-                    x2 = center[0]
-                    y2 = center[1]
-
-                if abs(x2 - x1) == 0:
-                    new_angle = -90
-                else:
-                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                self.info['manual_rotationAngle'][self.index] = self.info['rotationAngle'][self.index] + new_angle
-                self.setRotationButton.setChecked(False)
-                self.onGroupChanged()
+            elif func[0] == 'specify_image':
+                self.specifyCenterAndOrientationClicked()
+            elif func[0] == 'specify_image_mask':
+                self.maskImageButtonClicked()
+                
         if self.mode == 'aime':
             self.axClicked = ax
             
@@ -2337,227 +2114,7 @@ class AddIntensitiesExp(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
-        elif func[0] == "fit_region" and self.axClicked is not None:
-            self.imgPathOnStatusBar.setText(
-                "Drag mouse pointer to select width, click on the image to accept (ESC to cancel)")
-            if self.calSettings is None or 'center' not in self.calSettings:
-                self.calSettings = {}
-                _, self.calSettings['center'] = self.getExtentAndCenter(self.orig_imgs[self.index])
-            center = self.calSettings['center']
-            if len(func) == 2:
-                # width selected, change height as cursor moves
-                if not self.doubleZoom.isChecked():
-                    if len(ax.patches) > 0:
-                        for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches[i].remove()
-                    hei = 2*abs(y-center[1])
-                    wei = 2*abs(func[1] - center[0])
-                    sq = getRectanglePatch(center, wei, hei)
-                    ax.add_patch(sq)
-                else: 
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    elif self.doubleZoomMode:
-                        if len(ax.patches) > 0:
-                            for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches[i].remove()
-                        hei = 2*abs(y-center[1])
-                        wei = 2*abs(func[1] - center[0])
-                        sq = getRectanglePatch(center, wei, hei)
-                        ax.add_patch(sq)
-            else:
-                # nothing is selected, start by changing width
-                if not self.doubleZoom.isChecked():
-                    if len(ax.patches) > 0:
-                        for i in range(len(ax.patches) - 1, -1, -1):
-                            ax.patches[i].remove()
-                    wei = 2 * abs(x - center[0])
-                    sq = getRectanglePatch(center, wei, 50)
-                    ax.add_patch(sq)
-                else: 
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    elif self.doubleZoomMode:
-                        if len(ax.patches) > 0:
-                            for i in range(len(ax.patches) - 1, -1, -1):
-                                ax.patches[i].remove()
-                        wei = 2 * abs(x - center[0])
-                        sq = getRectanglePatch(center, wei, 50)
-                        ax.add_patch(sq)
-            self.imageCanvas.draw_idle()
 
-        elif func[0] == "im_center_rotate" and self.axClicked is not None:
-            self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            # draw X on points and a line between points
-            axis_size = 5
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    for i in range(len(ax.lines) - 1, 1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.imageCanvas.draw_idle()
-
-        elif func[0] == "perp_center" and self.axClicked is not None:
-            self.imgPathOnStatusBar.setText("Click to create a point (2 points for a line), then click on the button to process (ESC to cancel)")
-            # draw X on points and a line between points
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    for i in range(len(ax.lines) - 1, 1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) % 2 != 0:
-                if len(ax.lines) > 0:
-                    n = (len(func)-1)*5//2 + 2
-                    for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) % 2 == 0:
-                start_pt = func[-1]
-                if len(ax.lines) > 3:
-                    n = len(func) * 5 // 2 - 1
-                    for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.imageCanvas.draw_idle()
-
-        elif func[0] == "chords_center":
-            if self.doubleZoom.isChecked():
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.imageCanvas.draw_idle()
-
-        elif func[0] == "im_rotate" and self.axClicked is not None:
-            self.imgPathOnStatusBar.setText(
-                "Rotate the line to the pattern equator (ESC to cancel)")
-            # draw line as angle
-            _, center = self.getExtentAndCenter(self.orig_imgs[self.index], self.index)
-            deltax = x - center[0]
-            deltay = y - center[1]
-            x2 = center[0] - deltax
-            y2 = center[1] - deltay
-            if not self.doubleZoom.isChecked():
-                for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
-                ax.plot([x, x2], [y, y2], color="g")
-            else:
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                elif self.doubleZoomMode:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
-                    ax.plot([x, x2], [y, y2], color="g")
-            self.imageCanvas.draw_idle()
             
     def imageReleased(self, event):
         """
@@ -2744,13 +2301,25 @@ class AddIntensitiesExp(QMainWindow):
         self.resultCanvas.draw_idle()
         
     def maskImageButtonClicked(self):
+        
         if self.imageMaskingTool is None:
-            if self.isHdf5:
-                file_name = self.file_name
+            if self.mode == 'aise':
+                if self.isHdf5:
+                    file_name = self.file_name
+                else:
+                    file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
+                self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value(), self.isHdf5)
             else:
-                file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
-            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value(), self.isHdf5)
-        if self.imageMaskingTool.exec_():
+                if self.function is None:
+                    self.function = ["specify_image_mask"]
+                    QMessageBox.information(self, "Select Image", "Select Image to Mask")
+                else:
+                    self.function = None
+                    file_name = self.numberToFilesMap[self.currentFileNumber][self.index]
+                    path_name = os.path.join(self.dir_path, self.folder_paths[self.index] + '/' + file_name)
+                    self.imageMaskingTool = ImageMaskerWindow(self.dir_path , path_name, self.spminInt.value(), self.spmaxInt.value(), self.isHdf5)
+                
+        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
             if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
                 print("mask found!!")
                 self.maskPath = join(join(self.dir_path, 'settings'), 'mask.tif')
@@ -2765,13 +2334,25 @@ class AddIntensitiesExp(QMainWindow):
             self.imageMaskingTool = None
 
     def specifyCenterAndOrientationClicked(self):
-        if self.isHdf5:
-            file_name = self.file_name
+        if self.mode == 'aise':
+            if self.isHdf5:
+                file_name = self.file_name
+            else:
+                file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
+            
+            self.calibrationDialog = CalibrationDialog(self.dir_path, file_name, self.mode)
+            self.calibrationDialog.show()
         else:
-            file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
-        
-        self.calibrationDialog = CalibrationDialog(self.dir_path, file_name)
-        self.calibrationDialog.show()
+            if self.function is None:
+                self.function = ["specify_image"]
+                QMessageBox.information(self, "Select Image", "Select Image to Calibrate")
+            else:
+                self.function = None
+                file_name = self.numberToFilesMap[self.currentFileNumber][self.index]
+                path_name = os.path.join(self.dir_path, self.folder_paths[self.index] + '/' + file_name)
+                self.calibrationDialog = CalibrationDialog(self.dir_path, path_name, self.mode)
+                self.calibrationDialog.show()
+                
         
     def setCalibrationImage(self, force=False):
         """
@@ -2842,24 +2423,40 @@ class AddIntensitiesExp(QMainWindow):
     
     def selectImageChecked(self):
         if self.selectImageChkBx.isChecked():
+            if self.mode == 'aise':
+                self.factorBx.setChecked(False)
             self.frameNb.setEnabled(False)
-            self.factorBx.setChecked(False)
             self.sumImagesButton.setEnabled(True)
 
     def selectImageSequence(self):
-        if self.imageSequenceDialog is None:
-            if self.isHdf5:
-                file_path = self.file_name
-            else:
-                file_path = self.dir_path
-            self.imageSequenceDialog = AISEImageSelectionWindow(file_path, self.img_list, self.img_grps, self.misaligned_images, self.isHdf5)
-        self.imageSequenceLists = None
-        if self.imageSequenceDialog.exec_():
-            self.customImageSequence = True
-            if self.imageSequenceDialog.img_grps:
-                self.img_grps = self.imageSequenceDialog.img_grps
-                self.nbOfGroups = len(self.img_grps)
-                self.frameNb.setValue(len(self.img_grps[0]))
+        if self.mode == 'aise':
+            if self.imageSequenceDialog is None:
+                if self.isHdf5:
+                    file_path = self.file_name
+                else:
+                    file_path = self.dir_path
+                self.imageSequenceDialog = AISEImageSelectionWindow(file_path, self.img_list, self.img_grps, self.misaligned_images, self.isHdf5)
+            self.imageSequenceLists = None
+            if self.imageSequenceDialog.exec_():
+                self.customImageSequence = True
+                if self.imageSequenceDialog.img_grps:
+                    self.img_grps = self.imageSequenceDialog.img_grps
+                    self.nbOfGroups = len(self.img_grps)
+                    self.frameNb.setValue(len(self.img_grps[0]))
+        else:
+            self.experimentSelectionDialog = SelectionWindow(self.folder_paths)
+            self.experimentSelectionDialog.closed.connect(self.handleSelection)
+            self.experimentSelectionDialog.show()
+                
+    
+    def handleSelection(self, selected_files):
+        self.selected_files = sorted(selected_files)
+        if len(self.selected_files) == 0:
+            return
+        self.nbOfExposures = len(self.selected_files)
+        self.customSelection = True
+        self.exposureNbChanged()
+        self.onGroupChanged()
         
     def stepComboBoxChanged(self, value):
         if (value == 'Step through all images'):
@@ -2921,34 +2518,100 @@ class AddIntensitiesExp(QMainWindow):
                 processData = True
                 infoCache = []
             print(processData)
-
-            self.progressBar.setRange(0, len(self.img_list)+1)
+            
+            if self.mode == 'aise':
+                self.progressBar.setRange(0, len(self.img_list)+1)
+            else:
+                self.progressBar.setRange(0, len(self.numberToFilesMap)+1)
             self.progressBar.setVisible(True)
-            tiff_files = glob.glob(os.path.join(self.dir_path, '*.tif'))
-            max_intensities = []
-            for i, tiff_file in enumerate(tiff_files):
-                image = fabio.open(tiff_file).data.astype(np.float32)
-                max_intensities.append(np.max(image))
-                if self.unalignedImagesDialog.distance_mode != 1: # Don't calculate if image mode has been selected
-                    if processData == True:
-                        center = getCenter(image)
-                        angle = getRotationAngle(image, center)
-                    else:
-                        info = self.searchInfoCache(tiff_file, infoCache)
-                        center = info[1]
-                        angle = info[2]
-                    addImages(image, center, angle, tiff_file)
-                    currentList = [tiff_file, center, angle]
-                    infoCache.append(currentList)
+            
+            if not self.isHdf5:
+                if self.mode == 'aise':
+                    tiff_files = glob.glob(os.path.join(self.dir_path, '*.tif'))
                 else:
-                    center = 0
-                    angle = 0
-                    addImages(image, center, angle, tiff_file)
-                self.progressBar.setValue(i)
+                    tiff_files = []
+                    for folder in self.folder_paths:
+                        tiff_files.extend(glob.glob(os.path.join(self.dir_path, folder, '*.tif')))
+                print(tiff_files)
+                max_intensities = []
+                for i, tiff_file in enumerate(tiff_files):
+                    image = fabio.open(tiff_file).data.astype(np.float32)
+                    max_intensities.append(np.max(image))
+                    if self.unalignedImagesDialog.distance_mode != 1: # Don't calculate if image mode has been selected
+                        if processData == True:
+                            center = getCenter(image)
+                            angle = getRotationAngle(image, center)
+                        else:
+                            info = self.searchInfoCache(tiff_file, infoCache)
+                            center = info[1]
+                            angle = info[2]
+                        addImages(image, center, angle, tiff_file)
+                        currentList = [tiff_file, center, angle]
+                        infoCache.append(currentList)
+                    else:
+                        center = 0
+                        angle = 0
+                        addImages(image, center, angle, tiff_file)
+                    self.progressBar.setValue(i)
+            else:
+                max_intensities = []
+                file_names = []
+                if self.mode == 'aise':
+                    with fabio.open(self.file_name) as series:
+                        for frame in series.frames():
+                            image = frame.data.astype(np.float32)
+                            max_intensities.append(np.max(image))
+                            namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                            temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                            file_names.append(temp_filename)
+                            if self.unalignedImagesDialog.distance_mode != 1: # Don't calculate if image mode has been selected
+                                if processData == True:
+                                    center = getCenter(image)
+                                    angle = getRotationAngle(image, center)
+                                else:
+                                    info = self.searchInfoCache(temp_filename, infoCache)
+                                    center = info[1]
+                                    angle = info[2]
+                                addImages(image, center, angle, tiff_file)
+                                currentList = [temp_filename, center, angle]
+                                infoCache.append(currentList)
+                            else:
+                                center = 0
+                                angle = 0
+                                addImages(image, center, angle, temp_filename)
+                            self.progressBar.setValue(frame.index)
+                else:
+                    for i in range(self.nbOfExposures):
+                        with fabio.open(self.fileList[i]) as series:
+                            for frame in series.frames():
+                                image = frame.data.astype(np.float32)
+                                max_intensities.append(np.max(image))
+                                namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                                temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                                file_names.append(temp_filename)
+                                if self.unalignedImagesDialog.distance_mode != 1: # Don't calculate if image mode has been selected
+                                    if processData == True:
+                                        center = getCenter(image)
+                                        angle = getRotationAngle(image, center)
+                                    else:
+                                        info = self.searchInfoCache(temp_filename, infoCache)
+                                        center = info[1]
+                                        angle = info[2]
+                                    addImages(image, center, angle, tiff_file)
+                                    currentList = [temp_filename, center, angle]
+                                    infoCache.append(currentList)
+                                else:
+                                    center = 0
+                                    angle = 0
+                                    addImages(image, center, angle, temp_filename)
+                                self.progressBar.setValue(frame.index)
 
             
             inconsistent_images = detectImages(self.dir_path, int(np.percentile(max_intensities, 95)), self.unalignedImagesDialog.distance_mode, { 'image': imageCo, 'center': centerCo, 'angle': angleCo})
-            self.progressBar.setValue(len(self.img_list)+1)
+            if self.mode == 'aise':
+                self.progressBar.setValue(len(self.img_list)+1)
+            else:
+                self.progressBar.setValue(len(self.numberToFilesMap)+1)
             self.progressBar.setVisible(False)
 
             if self.unalignedImagesDialog.distance_mode != 1: # Dont save cache as distance_mode 1 (image) does not calculate anything so no info needs to be saved
@@ -2959,15 +2622,20 @@ class AddIntensitiesExp(QMainWindow):
             else:
                 for image in inconsistent_images:
                     self.misaligned_images.append(image.getName())
-                items = ['Review selected images', 'Ignore all misaligned images']
-                item, ok = QInputDialog.getItem(self, "Select Option", "Misaligned images found, what would you like to do?",  items, 0, False)
-                if ok and item:
-                    if item == 'Review selected images':
-                        self.selectImageSequence()
-                    else:
-                        for grps in self.img_grps:
-                            grps = list(set(grps).difference(self.misaligned_images)) #don't think this works right now
-                        self.onGroupChanged()
+                if self.mode == 'aise':
+                    items = ['Review selected images', 'Ignore all misaligned images']
+                    item, ok = QInputDialog.getItem(self, "Select Option", "Misaligned images found, what would you like to do?",  items, 0, False)
+                    if ok and item:
+                        if item == 'Review selected images':
+                            self.selectImageSequence()
+                                
+                        else:
+                            for grps in self.img_grps:
+                                grps = list(set(grps).difference(self.misaligned_images)) #don't think this works right now
+                            self.onGroupChanged()
+                else:
+                    misaligned_images_str = "\n".join(self.misaligned_images)
+                    QMessageBox.information(self, "Misaligned Images", f"The following images are misaligned:\n{misaligned_images_str}")
                         
     def keyPressEvent(self, event):
         """
