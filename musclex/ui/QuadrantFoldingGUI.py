@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 from musclex import __version__
-from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
 import fabio
 from ..utils.file_manager import *
@@ -60,9 +60,9 @@ class QuadFoldParams:
 
 class WorkerSignals(QObject):
     
-    finished = pyqtSignal()
-    error = pyqtSignal(tuple)
-    result = pyqtSignal(object)
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
 
 
 class Worker(QRunnable):
@@ -103,7 +103,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Initial window
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.imgList = [] # all images name in current directory
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0

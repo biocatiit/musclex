@@ -50,7 +50,7 @@ class OffMeridianTab(QWidget):
         :param mainwin: main window
         :param off_mer: off-meridian settings (dict)
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.mainwin = mainwin
         self.off_mer = off_mer
         self.fixed_hull_range = None
@@ -312,7 +312,7 @@ class DiffractionTab(QWidget):
         :param dif_side : "top" or "bottom"
         :param fix_ranges: fixed peak ranges
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.mainwin = mainwin
         self.fixRanges = fix_ranges
         self.dif_side = dif_side
@@ -900,7 +900,7 @@ class DiffractionCentroidProcessWindow(QMainWindow):
         :param groupList: list of list of images
         :param settings: settings from main window
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.mainWindow = mainwin # ptr to main window
         self.dir_path = dir_path # current directory path
         self.groupList = groupList # list of list of images
@@ -2120,7 +2120,7 @@ class DiffractionCentroidStartWindow(QMainWindow):
     A Class for startup window
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.windowList = []
         self.groupList = []
         self.imgList = []

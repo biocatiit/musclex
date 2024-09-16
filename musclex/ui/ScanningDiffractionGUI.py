@@ -37,9 +37,9 @@ class ScanningDiffractionGUI(QMainWindow):
     """
     A class for window displaying all information of a selected image.
     """
-    resizeCompleted = pyqtSignal()
+    resizeCompleted = Signal()
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.widgetList = []
         self.initUI()
 

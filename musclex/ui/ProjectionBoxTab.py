@@ -157,7 +157,7 @@ class ProjectionBoxTab(QWidget):
     Display fitting graph and providing options
     """
     def __init__(self, parent, name):
-        QWidget.__init__(self)
+        super().__init__()
         self.parent = parent
         self.name = name
         self.function = None

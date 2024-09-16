@@ -39,7 +39,7 @@ from matplotlib.colors import LogNorm, Normalize
 from threading import Lock
 import numpy as np
 import cv2
-from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
@@ -61,9 +61,9 @@ class ProjectionParams:
 
 class WorkerSignals(QObject):
     
-    finished = pyqtSignal()
-    error = pyqtSignal(tuple)
-    result = pyqtSignal(object)
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
 
 
 class Worker(QRunnable):
@@ -270,7 +270,7 @@ class ProjectionTracesGUI(QMainWindow):
     This class is for Projection Traces GUI Object
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.setWindowTitle("Muscle X Projection Traces v." + __version__)
         self.current_file = 0
         self.dir_path = ""

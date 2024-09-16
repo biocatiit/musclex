@@ -64,7 +64,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     A class for GUI of Image Merger
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.orig_imgs = []
         self.img_list = []
         self.img_grps = []

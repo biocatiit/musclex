@@ -45,12 +45,12 @@ class XRayViewerGUI(QMainWindow):
     A class for window displaying all information of a selected image.
     This window contains 2 tabs : image, and graph
     """
-    currSaved = pyqtSignal(int)
+    currSaved = Signal(int)
     def __init__(self):
         """
         Initial window
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.imgList = [] # all images name in current directory
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0
