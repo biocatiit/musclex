@@ -1552,6 +1552,9 @@ class EquatorWindow(QMainWindow):
         
         if self.bioImg is None or event.xdata is None or event.ydata is None:
             return
+        
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         direction = event.button
         x = event.xdata
@@ -1606,6 +1609,9 @@ class EquatorWindow(QMainWindow):
         ax.set_ylim(self.img_zoom[1])
         ax.invert_yaxis()
         self.displayImgCanvas.draw_idle()
+        
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def browseFile(self):
         """
@@ -2930,7 +2936,7 @@ class EquatorWindow(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             unit = "px"
-            if self.calSettings is not None and self.calSettings:
+            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                 if 'center' in self.calSettings and self.calSettings['center'] is not None:
                     center = self.calSettings['center']
                 else:
@@ -2949,7 +2955,7 @@ class EquatorWindow(QMainWindow):
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                if self.calSettings is not None and self.calSettings:
+                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
                     mouse_distance = np.sqrt((self.bioImg.info['center'][0] - x) ** 2 + (self.bioImg.info['center'][1] - y) ** 2)
@@ -3613,9 +3619,9 @@ class EquatorWindow(QMainWindow):
             if settings['find_oritation']:
                 self.brightSpotClicked()
 
-            self.bioImg.process(settings, paramInfo)
+            # self.bioImg.process(settings, paramInfo)
             
-            # self.addTask(paramInfo)
+            self.addTask(paramInfo)
 
         except Exception:
             QApplication.restoreOverrideCursor()
@@ -3630,15 +3636,15 @@ class EquatorWindow(QMainWindow):
             errMsg.exec_()
             raise
 
-        self.updateParams()
-        self.csvManager.writeNewData(self.bioImg)
-        self.csvManager.writeNewData2(self.bioImg)
-        self.resetUI()
-        self.refreshStatusbar()
-        self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
-        QApplication.restoreOverrideCursor()
-        self.tabWidget.tabBar().setEnabled(True)
-        self.tabWidget.tabBar().setToolTip("")
+        # self.updateParams()
+        # self.csvManager.writeNewData(self.bioImg)
+        # self.csvManager.writeNewData2(self.bioImg)
+        # self.resetUI()
+        # self.refreshStatusbar()
+        # self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
+        # QApplication.restoreOverrideCursor()
+        # self.tabWidget.tabBar().setEnabled(True)
+        # self.tabWidget.tabBar().setToolTip("")
         
     def addTask(self, paramInfo=None):
         self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))
@@ -3674,6 +3680,8 @@ class EquatorWindow(QMainWindow):
         self.refreshStatusbar()
         self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
+        self.tabWidget.tabBar().setEnabled(True)
+        self.tabWidget.tabBar().setToolTip("")
         
         self.currentTask = None
         if self.first:
@@ -4016,6 +4024,10 @@ class EquatorWindow(QMainWindow):
                 line.remove()
             self.gap_lines.clear()
         if 'gaps' in self.bioImg.info and self.bioImg.info['gaps']:
+            if self.gaps is not None and self.gaps:
+                for rect in self.gaps:
+                    rect.remove()
+                self.gaps.clear()
             for gap in self.bioImg.info['gaps']:
                 rect = patches.Rectangle((gap[0], 0), gap[1] - gap[0], 1, linewidth=1, edgecolor='r', facecolor='r', alpha=0.2, transform=ax.get_xaxis_transform())
                 ax.add_patch(rect)

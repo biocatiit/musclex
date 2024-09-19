@@ -1198,7 +1198,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.setLeftStatus("Add a box to the image by drawing a rectangle (ESC to cancel)")
                 self.function = ['box']
                 ax = self.displayImgAxes
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 self.addBoxButton.setChecked(False)
@@ -1222,7 +1223,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.setLeftStatus("Select a pivot point indicating the box center (ESC to cancel)")
                 self.function = ['oriented_box']
                 ax = self.displayImgAxes
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 self.addOrientedBoxButton.setChecked(False)
@@ -1237,7 +1239,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.function = ['center_oriented_box']
                 self.function.append((self.projProc.info['centerx'], self.projProc.info['centery']))
                 ax = self.displayImgAxes
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 self.addOrientedBoxButton.setChecked(False)
@@ -1643,7 +1646,8 @@ class ProjectionTracesGUI(QMainWindow):
                 deltay = y - pivot[1]
                 x2 = pivot[0] - deltax
                 y2 = pivot[1] - deltay
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 ax.plot([x, x2], [y, y2], color="r")
                 self.displayImgCanvas.draw_idle()
 
@@ -1660,7 +1664,8 @@ class ProjectionTracesGUI(QMainWindow):
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
 
                 box_angle = func[2][4]
                 angle = np.radians(90 - box_angle)
@@ -1942,7 +1947,7 @@ class ProjectionTracesGUI(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             unit = "px"
-            if self.calSettings is not None and self.calSettings:
+            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                 if 'center' in self.calSettings and self.calSettings['center'] is not None:
                     center = self.calSettings['center']
                 else:
@@ -1961,7 +1966,7 @@ class ProjectionTracesGUI(QMainWindow):
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                if self.calSettings is not None and self.calSettings:
+                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
                     mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
@@ -2021,7 +2026,8 @@ class ProjectionTracesGUI(QMainWindow):
         elif func[0] == 'box':
             if len(func) == 1:
                 # cross lines
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 ax.axhline(y, color='y', linestyle='dotted')
                 ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
@@ -2031,7 +2037,8 @@ class ProjectionTracesGUI(QMainWindow):
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 start_pt = func[-1]
                 w = abs(start_pt[0] - x)
                 h = abs(start_pt[1] - y)
@@ -2042,7 +2049,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
-            ax.lines.clear()
+            for line in list(ax.lines):
+                    line.remove()
             if len(func) == 1:
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2456,7 +2464,7 @@ class ProjectionTracesGUI(QMainWindow):
                     self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
                     self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
 
-        self.maskThresSpnBx.disconnect() # Avoid an extra run at launch
+        self.maskThresSpnBx.valueChanged.disconnect(self.maskThresChanged) # Avoid an extra run at launch
         if 'mask_thres' in self.projProc.info:
             self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
         elif self.maskThresSpnBx.value() == -999:
@@ -2476,7 +2484,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
             self.centerx, self.centery = center
             if self.qfChkBx.isChecked():
-                self.qfChkBx.disconnect() # Avoid second runs at launch
+                self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked) # Avoid second runs at launch
                 self.qfChkBx.setChecked(False)
                 self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         elif self.center_func == 'quadrant_fold': # default to quadrant folded
@@ -2487,11 +2495,11 @@ class ProjectionTracesGUI(QMainWindow):
             self.centery = self.projProc.info['centery']
             if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
                 self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
-                self.qfChkBx.disconnect()
+                self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
                 self.qfChkBx.setChecked(False)
                 self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         elif self.center_func == 'manual':
-            self.qfChkBx.disconnect()
+            self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
             self.qfChkBx.setChecked(False)
             self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
 

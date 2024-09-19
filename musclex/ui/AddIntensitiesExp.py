@@ -942,6 +942,8 @@ class AddIntensitiesExp(QMainWindow):
         self.fileList = []
         if self.dir_path != "":
             self.imgPathOnStatusBar.setText("Preprocessing Folder...")
+            self.progressBar.setVisible(True)
+            self.progressBar.setRange(0, len(os.listdir(self.dir_path)))
             if self.mode == 'aime':
                 self.numberToFilesMap = collections.defaultdict(list)
                 self.isHdf5 = False
@@ -986,6 +988,8 @@ class AddIntensitiesExp(QMainWindow):
                                         self.numberToFilesMap[i].append(fname2)
                                     i += 1
                                 QApplication.processEvents()
+                    self.progressBar.setValue(self.progressBar.value() + 1)
+                self.progressBar.setVisible(False)
                 self.onNewFileSelected()
             else:
                 self.isHdf5 = False
@@ -1435,6 +1439,7 @@ class AddIntensitiesExp(QMainWindow):
                         self.rotateImg(i)
                         self.orig_imgs[i] = self.getRotatedImage(i)
 
+            
             self.sum_img = self.addIntensity(self.orig_imgs, self.dir_path, self.currentFileNumber + 1)
             self.refreshAllTab()
             
@@ -2517,7 +2522,6 @@ class AddIntensitiesExp(QMainWindow):
             if infoCache is None:
                 processData = True
                 infoCache = []
-            print(processData)
             
             if self.mode == 'aise':
                 self.progressBar.setRange(0, len(self.img_list)+1)
@@ -2532,7 +2536,6 @@ class AddIntensitiesExp(QMainWindow):
                     tiff_files = []
                     for folder in self.folder_paths:
                         tiff_files.extend(glob.glob(os.path.join(self.dir_path, folder, '*.tif')))
-                print(tiff_files)
                 max_intensities = []
                 for i, tiff_file in enumerate(tiff_files):
                     image = fabio.open(tiff_file).data.astype(np.float32)
@@ -2636,6 +2639,8 @@ class AddIntensitiesExp(QMainWindow):
                 else:
                     misaligned_images_str = "\n".join(self.misaligned_images)
                     QMessageBox.information(self, "Misaligned Images", f"The following images are misaligned:\n{misaligned_images_str}")
+                    
+                    
                         
     def keyPressEvent(self, event):
         """

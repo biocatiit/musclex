@@ -38,6 +38,7 @@ from musclex.utils.exception_handler import handlers
 from musclex.tests.module_test import MuscleXTest
 from musclex.tests.musclex_tester import MuscleXGlobalTester
 from musclex.tests.environment_tester import EnvironmentTester
+from musclex import stylesheet
 
 if sys.platform in handlers:
     sys.excepthook = handlers[sys.platform]
@@ -47,22 +48,24 @@ def main(arguments=None):
     h5_types = ['.h5', '.hdf5']
     if arguments is None:
         arguments = sys.argv
-
     run = True
     if len(arguments) == 2:
         prog = arguments[1]
         if prog == 'eq':
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.EQStartWindow import EQStartWindow
             myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
             sys.exit(app.exec_())
         elif prog == 'qf':
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()
             sys.exit(app.exec_())
         elif prog == 'di':
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.ScanningDiffractionGUI import \
                 ScanningDiffractionGUI
             myapp = ScanningDiffractionGUI()
@@ -71,41 +74,49 @@ def main(arguments=None):
             from musclex.ui.diffraction_centroids import \
                 DiffractionCentroidStartWindow
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             myapp = DiffractionCentroidStartWindow()
             sys.exit(app.exec_())
         elif prog == 'ddf':
             from musclex.ui.ddf_processor import DDFWindow
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             myapp = DDFWindow()
             sys.exit(app.exec_())
         elif prog == 'pt':
             from musclex.ui.ProjectionTracesGUI import ProjectionTracesGUI
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
-        elif prog == 'aise':
-            from musclex.ui.AddIntensitiesSingleExp import AddIntensitiesSingleExp
-            app = QApplication(sys.argv)
-            myapp = AddIntensitiesSingleExp()
-            sys.exit(app.exec_())
-        elif prog == 'aime':
-            from musclex.ui.AddIntensitiesMultExp import AddIntensitiesMultExp
-            app = QApplication(sys.argv)
-            myapp = AddIntensitiesMultExp()
-            sys.exit(app.exec_())
-        elif prog =='aie':
+        # elif prog == 'aise':
+        #     from musclex.ui.AddIntensitiesSingleExp import AddIntensitiesSingleExp
+        #     app = QApplication(sys.argv)
+        #     app.setStyleSheet(stylesheet.stylesheet)
+        #     myapp = AddIntensitiesSingleExp()
+        #     sys.exit(app.exec_())
+        # elif prog == 'aime':
+        #     from musclex.ui.AddIntensitiesMultExp import AddIntensitiesMultExp
+        #     app = QApplication(sys.argv)
+        #     app.setStyleSheet(stylesheet.stylesheet)
+        #     myapp = AddIntensitiesMultExp()
+        #     sys.exit(app.exec_())
+        elif prog =='aisme':
             from musclex.ui.AddIntensitiesExp import AIStartWindow
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             myapp = AIStartWindow()
             sys.exit(app.exec_())
         elif prog == 'xv':
             from musclex.ui.XRayViewerGUI import XRayViewerGUI
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             myapp = XRayViewerGUI()
             sys.exit(app.exec_())
         elif prog == 'gui':
             from musclex.launcher import LauncherForm
             app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
             myapp = LauncherForm.main()
             sys.exit(app.exec_())
         elif prog == 'test_global':
