@@ -74,7 +74,7 @@ class Worker(QRunnable):
         self.signals = WorkerSignals()
         self.lock = Lock()
         
-    @pyqtSlot()
+    @Slot()
     def run(self):
         try:
             self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)

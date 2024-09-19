@@ -69,7 +69,7 @@ class Worker(QRunnable):
         self.paramInfo = paramInfo
         self.signals = WorkerSignals()
         
-    @pyqtSlot()
+    @Slot()
     def run(self):
         try:
             self.bioImg.process(self.settings, self.paramInfo)

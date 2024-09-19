@@ -83,7 +83,7 @@ class Worker(QRunnable):
     def fromParams(cls, params):
         return cls(params=params)
         
-    @pyqtSlot()
+    @Slot()
     def run(self):
         try:
             if self.projProc is None and self.params:

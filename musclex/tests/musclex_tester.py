@@ -48,6 +48,10 @@ except: # for coverage
     from headless.ProjectionTracesh import ProjectionTracesh
 
 N = 4 # number of significant digits
+ignore_columns = []  # Columns to ignore, 1-based index
+sort_key = 1  # Column to sort by, 1-based index
+rtol = 1e-03
+atol = 1e-06
 
 class MuscleXGlobalTester(unittest.TestCase):
     """
@@ -97,12 +101,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(mar_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "MARimages", "eq_results", "summary2.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(3) # Rounds up to 3 decimals to avoid computer errors
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(3)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(3) # Rounds up to 3 decimals to avoid computer errors
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(3)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting Equator on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -129,12 +134,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "eq_results", "summary2.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(1)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(1)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(1)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(1)
+        # res = pd.merge(file1, file2)
+        
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
         if not pass_test:
             print(f"\nTesting Equator on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -161,12 +167,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless Equator is equivalent to GUI Equator\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "eq_results", "summary2.csv")
         release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "eq_results", "summary2.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(2)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(1)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(2)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(1)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting Equator on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -194,12 +201,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(mar_dir, "qf_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "MARimages", "qf_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting QuadrantFolder on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -226,12 +234,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "qf_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "qf_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting QuadrantFolder on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -258,12 +267,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless QuadrantFolder is equivalent to GUI QuadrantFolder\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "qf_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "qf_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting QuadrantFolder on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -291,12 +301,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(mar_dir, "di_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "MARimages", "di_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting Diffraction on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -323,12 +334,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "di_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "di_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting Diffraction on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -355,12 +367,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless Diffraction is equivalent to GUI Diffraction\033[0;3140m")
         generated_results = os.path.join(pilatus_dir, "di_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "di_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting Diffraction on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -388,12 +401,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
         generated_results = os.path.join(mar_dir, "pt_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "MARimages", "pt_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=atol)
         if not pass_test:
             print(f"\nTesting ProjectionTraces on {mar_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -420,12 +434,13 @@ class MuscleXGlobalTester(unittest.TestCase):
         print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
         generated_results = os.path.join(eiger_dir, "pt_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "EIGERimages", "pt_results", "summary.csv")
-        pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # pass_test = True
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=atol)
         if not pass_test:
             print(f"\nTesting ProjectionTraces on {eiger_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -453,11 +468,12 @@ class MuscleXGlobalTester(unittest.TestCase):
         generated_results = os.path.join(pilatus_dir, "pt_results", "summary.csv")
         release_results = os.path.join(self.currdir, "testResults", "PILATUSimages", "pt_results", "summary.csv")
         pass_test = True
-        file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
-        file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
-        res = pd.merge(file1, file2)
-        if len(res.index) != len(file1.index):
-            pass_test = False
+        # file1 = pd.read_csv(generated_results).applymap(custom_round) # .round(4)
+        # file2 = pd.read_csv(release_results).applymap(custom_round) # .round(4)
+        # res = pd.merge(file1, file2)
+        # if len(res.index) != len(file1.index):
+        #     pass_test = False
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=1e-3)
         if not pass_test:
             print(f"\nTesting ProjectionTraces on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \
@@ -495,6 +511,56 @@ def custom_round(x):
                 return x
     else:
         return x
+    
+def compare_csv_files(file1, file2, ignore_columns=None, sort_key=None, rtol=1e-03, atol=1e-05):
+    # Read the CSV files into DataFrames
+    df1 = pd.read_csv(file1)
+    df2 = pd.read_csv(file2)
+
+    # Ensure both DataFrames have the same shape
+    if df1.shape != df2.shape:
+        return False
+
+    # Ensure both DataFrames have the same columns
+    if list(df1.columns) != list(df2.columns):
+        return False
+
+    # Adjust for ignore_columns starting from 1
+    if ignore_columns:
+        ignore_columns = [col - 1 for col in ignore_columns]
+
+    # Sort by the specified sort key if provided (convert 1-based to 0-based index)
+    if sort_key:
+        sort_key -= 1
+        if sort_key < 0 or sort_key >= df1.shape[1]:
+            raise ValueError("sort_key is out of range.")
+        df1 = df1.sort_values(by=df1.columns[sort_key]).reset_index(drop=True)
+        df2 = df2.sort_values(by=df2.columns[sort_key]).reset_index(drop=True)
+
+    # Compare each column
+    for idx, column in enumerate(df1.columns):
+        if ignore_columns and idx in ignore_columns:
+            continue
+
+        if column not in df2.columns:
+            print("column not in df2", column)
+            return False
+
+        # Check if the column is numeric
+        if pd.api.types.is_numeric_dtype(df1[column]) and pd.api.types.is_numeric_dtype(df2[column]):
+            # Handle NaN values by treating them as equal
+            if not np.allclose(df1[column].fillna(0).values, df2[column].fillna(0).values, rtol=rtol, atol=atol):
+                print("NAN", column)
+                return False
+        else:
+            # Handle non-numeric columns, treating NaNs as equal
+            df1[column] = df1[column].astype(str).fillna('')
+            df2[column] = df2[column].astype(str).fillna('')
+            if not df1[column].equals(df2[column]):
+                print("notequal", column)
+                return False
+
+    return True
 
 if __name__=="__main__":
     unittest.main(verbosity=2)

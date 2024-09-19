@@ -177,7 +177,7 @@ class TestDialog(QDialog):
     Qt Class definition for the TestDialog window.
     """
     def __init__(self):
-        super(QWidget, self).__init__()
+        super().__init__()
         # self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         if getattr(sys, 'frozen', False):
