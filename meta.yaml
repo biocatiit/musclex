@@ -26,7 +26,7 @@ requirements:
     - python >=3.10
     - pip
     - wheel
-    - numpy ==1.26.4
+    - numpy==1.26.4
     - cython <=0.29.37
     - scikit-image
     - scikit-learn
@@ -44,7 +44,7 @@ requirements:
     - scipy ==1.11.4
     - matplotlib-base ==3.9.2
     - opencv-python-headless==4.10.0.84
-    - pyside6 == 6.7.2
+    - pyside6 ==6.7.2
     - pyfai <=2024.1.0
     - distro <=1.8.0
     - numba ==0.60.0
