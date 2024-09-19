@@ -76,7 +76,7 @@ setup(
         'scipy<=1.10.1',
         'matplotlib<3.7,>=3.6.3',
         'opencv-python-headless<=4.7.0.72',
-        'PyQt5<=5.15.9',
+        'PySide6<=6.7.2',
         'pyFAI<=2023.2.0',
         'distro<=1.8.0',
         'PyMca5<=5.8.1',

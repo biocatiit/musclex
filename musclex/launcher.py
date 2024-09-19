@@ -53,7 +53,7 @@ class LauncherForm(QWidget):
     programs = ['xv', 'eq', 'qf', 'pt', 'di', 'ddf', 'aise', 'aime', 'aie'] # 'dc',
 
     def __init__(self):
-        super(QWidget, self).__init__()
+        super().__init__()
 
         # Set up the user interface from Designer.
         self.ui = Ui_LauncherForm()

@@ -59,7 +59,7 @@ from ..CalibrationSettings import CalibrationSettings
 from ..utils.detect_unaligned_images import *
 
 class SelectionWindow(QWidget):
-    closed = pyqtSignal(list)  # Signal to emit when the window is closed
+    closed = Signal(list)  # Signal to emit when the window is closed
     
     def __init__(self, files):
         super().__init__()
@@ -130,7 +130,7 @@ class AIStartWindow(QWidget):
         
 class AddIntensitiesExp(QMainWindow):
     def __init__(self, checked_boxes):
-        QWidget.__init__(self)
+        super().__init__()
         self.checked_boxes = checked_boxes
         if self.checked_boxes['aime'] == True:
             self.mode = 'aime'

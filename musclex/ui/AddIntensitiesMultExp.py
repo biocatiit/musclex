@@ -52,7 +52,7 @@ class AddIntensitiesMultExp(QMainWindow):
     in the selected directory.
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.numberToFilesMap = None
         self.orig_imgs = []
         self.orig_img_names = []

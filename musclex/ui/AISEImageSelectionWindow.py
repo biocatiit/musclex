@@ -4,11 +4,11 @@ import numpy as np
 import glob
 import fabio
 from functools import partial
-from PyQt5.QtWidgets import (QGroupBox, QDialog, QWidget,
+from PySide6.QtWidgets import (QGroupBox, QDialog, QWidget,
 QScrollArea, QGridLayout, QLabel, QCheckBox, QVBoxLayout,
 QDoubleSpinBox, QPushButton, QHBoxLayout, QSizePolicy, QMessageBox)
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt
+from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtCore import Qt
 from .XRayViewerGUI import XRayViewerGUI
 
 

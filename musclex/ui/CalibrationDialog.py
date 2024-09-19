@@ -17,7 +17,7 @@ from ..utils.image_processor import *
 
 class CalibrationDialog(QMainWindow):
     def __init__(self, dir_path, imagePath, mode):
-        QWidget.__init__(self)
+        super().__init__()
         self.dir_path = dir_path
         self.orig_image = None
         self.image = None

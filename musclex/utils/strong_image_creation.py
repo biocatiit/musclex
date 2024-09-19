@@ -33,7 +33,7 @@ import tifffile
 import fabio
 import argparse
 import sys
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication,
     QWidget,
     QVBoxLayout,
@@ -47,8 +47,8 @@ from PyQt5.QtWidgets import (
     QDialog,
     QDialogButtonBox
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHBoxLayout
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QHBoxLayout
 
 
 class SumFramesGUI(QWidget):

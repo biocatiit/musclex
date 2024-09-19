@@ -50,14 +50,14 @@ from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 from skimage.morphology import binary_dilation
-from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
 
 class WorkerSignals(QObject):
     
-    finished = pyqtSignal()
-    error = pyqtSignal(tuple)
-    result = pyqtSignal(object)
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
 
 
 class Worker(QRunnable):
@@ -92,7 +92,7 @@ class EquatorWindow(QMainWindow):
         :param mainWin: main window object
         :param filename: selected file name
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.mainWindow = mainWin
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0
