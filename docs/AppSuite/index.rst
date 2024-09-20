@@ -10,8 +10,7 @@ Application Suite
    ProjectionTraces/index
    ScanningDiffraction/index
    DDFProcessor/index
-   AddIntensitiesSE/index
-   AddIntensitiesME/index
+   AddIntensitiesSME/index
    Calibration-Settings
    Image-Processing-Functions
    WorkingWithHdf5Images/index
