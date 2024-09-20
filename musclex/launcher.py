@@ -50,10 +50,10 @@ class LauncherForm(QWidget):
     """
     Qt class definition for the GUI launcher
     """
-    programs = ['xv', 'eq', 'qf', 'pt', 'di', 'ddf', 'aise', 'aime'] # 'dc',
+    programs = ['xv', 'eq', 'qf', 'pt', 'di', 'ddf', 'aisme',] # 'dc',
 
     def __init__(self):
-        super(QWidget, self).__init__()
+        super().__init__()
 
         # Set up the user interface from Designer.
         self.ui = Ui_LauncherForm()
@@ -165,7 +165,9 @@ https://www.github.com/biocatiit/musclex/issues</a>.""")
         """
         Main function for the launcher
         """
-        app = QApplication(sys.argv)
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
         window = LauncherForm()
         window.show()
         sys.exit(app.exec_())
@@ -175,7 +177,7 @@ class TestDialog(QDialog):
     Qt Class definition for the TestDialog window.
     """
     def __init__(self):
-        super(QWidget, self).__init__()
+        super().__init__()
         # self.setWindowFlags(Qt.WindowStaysOnTopHint)
         # Fixed path to the test log
         if getattr(sys, 'frozen', False):

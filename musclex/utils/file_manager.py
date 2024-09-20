@@ -32,7 +32,7 @@ import numpy as np
 import fabio
 #from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
-from PyQt5.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 

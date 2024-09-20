@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
 from musclex import __version__
-from PyQt5.QtCore import QRunnable, QThreadPool, QEventLoop, pyqtSignal
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
 import fabio
 from ..utils.file_manager import *
@@ -47,27 +47,52 @@ from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from ..CalibrationSettings import CalibrationSettings
+from threading import Lock
+
+class QuadFoldParams:
+    def __init__(self, flags, fileName, filePath, ext, fileList, parent):
+        self.flags = flags
+        self.fileName = fileName
+        self.filePath = filePath
+        self.ext = ext
+        self.fileList = fileList
+        self.parent = parent
+
+class WorkerSignals(QObject):
+    
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+
 
 class Worker(QRunnable):
 
-    def __init__(self, quadFold, flags, callback):
+    def __init__(self, params):
         super().__init__()
-        self.quadFold = quadFold
-        self.flags = flags
-        self.callback = callback
+        self.flags = params.flags
+        self.params = params
+        self.signals = WorkerSignals()
+        self.lock = Lock()
         
+    @Slot()
     def run(self):
-        self.quadFold.process(self.flags)
-        self.callback(self.quadFold)
-
-    # def process(self):
-    #     self.quadFold.process(self.flags)
-    #     self.finished.emit(self.quadFold)
-        
-    # def update(self, quadFold1, flags1):
-    #     self.quadFold = quadFold1
-    #     self.flags = flags1
-
+        try:
+            self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
+            self.quadFold.info = {}
+            self.quadFold.process(self.flags)
+            if self.lock is not None:
+                self.lock.acquire()
+            with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
+                file.write(self.quadFold.img_name + " saving image"+ "\n")
+            if self.lock is not None:
+                self.lock.release()
+        except:
+            traceback.print_exc()
+            self.signals.error.emit((traceback.format_exc()))
+        else:
+            self.signals.result.emit(self.quadFold)
+        finally:
+            self.signals.finished.emit()
 
 class QuadrantFoldingGUI(QMainWindow):
     """
@@ -78,7 +103,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Initial window
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.imgList = [] # all images name in current directory
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0
@@ -111,11 +136,11 @@ class QuadrantFoldingGUI(QMainWindow):
         
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
-        self.loop = QEventLoop()
         self.currentTask = None
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
+        self.lock = Lock()
         
         self.rotationAngle = None
 
@@ -127,7 +152,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
-        self.setMinimumHeight(900)
+        # self.setMinimumHeight(900)
+        self.resize(1200, 900)
         self.newImgDimension = None
         self.browseFile()
 
@@ -1364,6 +1390,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.deleteInfo(['avg_fold'])
                     self.newImgDimension = None
                     self.setCenterRotationButton.setChecked(False)
+                    self.persistRotations.setVisible(True)
                     self.processImage()
             elif func[0] == "im_rotate":
                 # set rotation angle
@@ -1409,11 +1436,31 @@ class QuadrantFoldingGUI(QMainWindow):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            unit = "px"
+            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                center = self.calSettings['center']
+                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+                scale = self.calSettings['scale']
+                d = mouse_distance / scale
+                if (d > 0.01):
+                    q = 1.0/d
+                    unit = "nm^-1"
+                else:
+                    q = mouse_distance
+                q = f"{q:.4f}"
+                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                # calib_distance = mouse_distance * 1.0/constant
+                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
                 extent = self.extent
                 sx = x + extent[0]
                 sy = y + extent[1]
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]))
+                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(q) + unit)
+                else:
+                    mouse_distance = np.sqrt((self.quadFold.info['center'][0] - x) ** 2 + (self.quadFold.info['center'][1] - y) ** 2)
+                    mouse_distance = f"{mouse_distance:.4f}"
+                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and sx>10 and sx<img.shape[1]-10 and sy>10 and sy<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(sy - 10):int(sy + 10), int(sx - 10):int(sx + 10)]
@@ -2328,14 +2375,18 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        # if reprocess:
-        #     self.quadFold.info = {}
+        if reprocess:
+            self.quadFold.info = {}
+            self.quadFold.info['reprocess'] = True
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
         original_image = self.quadFold.orig_img
-        self.imgDetailOnStatusBar.setText(
-            str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
+        if self.calSettings is not None and not self.calSettings:
+            self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
+        elif self.calSettings is not None and self.calSettings:
+            self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype) + " (Image Calibrated)")
+        self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
         self.initialWidgets(original_image, previnfo)
         if 'ignore_folds' in self.quadFold.info:
             self.ignoreFolds = self.quadFold.info['ignore_folds']
@@ -2499,7 +2550,7 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.quadFold.info['manual_center']
         else:
             center = self.quadFold.orig_image_center
-
+            
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
         return extent, center
 
@@ -2559,13 +2610,11 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.ableToProcess():
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            #flags = self.getFlags()
+            flags = self.getFlags()
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                # self.quadFold.process(flags)
-                # self.threadingProcess(quadFold_copy, flags)
-                self.addTask()
+                self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2579,54 +2628,76 @@ class QuadrantFoldingGUI(QMainWindow):
                 errMsg.setFixedWidth(300)
                 errMsg.exec_()
                 raise
-            
-            # self.updateParams()
-            # self.refreshAllTabs()
-            # self.csvManager.writeNewData(self.quadFold)
 
-            # self.saveResults()
-            # QApplication.restoreOverrideCursor()
+            self.updateParams()
+            self.refreshAllTabs()
+            self.csvManager.writeNewData(self.quadFold)
+
+            self.saveResults()
+            QApplication.restoreOverrideCursor()
             
-    # def threadingProcess(self, quadFold, flags):
-        
-    #     if self.processClicked == False:
-    #         self.startNewThread()
-            
-    #     # if self.thread is not None and self.thread.isRunning():
-    #     #     self.tasks.append((quadFold, flags))
-    #     # else:
-    #     #     self.startNewThread(quadFold, flags)
-    #     #     self.tasksDone = 0
     
-    def addTask(self):
-        self.tasksQueue.put((self.quadFold, self.getFlags()))
+    def addTask(self, i):
+        # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
+        params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
+        self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
-        if self.currentTask is None:
+        self.startNextTask()
+            
+    def thread_done(self, quadFold):
+        
+        if self.lock is not None:
+            self.lock.acquire()
+            
+        self.quadFold = quadFold
+            
+        self.onProcessingFinished()
+        
+        if self.lock is not None:
+            self.lock.release()
+    
+    # placeholder method
+    def thread_finished(self):
+        
+        self.tasksDone += 1
+        self.progressBar.setValue(int(100. / self.numberOfFiles * self.tasksDone))
+        
+        if not self.tasksQueue.empty():
             self.startNextTask()
+        else:
+            if self.threadPool.activeThreadCount() == 0:
+                print("All threads are complete")
+                self.currentFileNumber = 0
+                self.progressBar.setVisible(False)
+                self.filenameLineEdit.setEnabled(True)
+                self.filenameLineEdit2.setEnabled(True)
+                self.csvManager.sortCSV()
             
     def startNextTask(self):
-        if not self.tasksQueue.empty():
-            quadFold, flags = self.tasksQueue.get()
-            self.currentTask = Worker(quadFold, flags, self.onProcessingFinished)
+        self.progressBar.setVisible(True)
+        self.filenameLineEdit.setEnabled(False)
+        self.filenameLineEdit2.setEnabled(False)
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
+            params = self.tasksQueue.get()
+            self.currentTask = Worker(params)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.thread_finished)
+            
             self.threadPool.start(self.currentTask)
-            self.loop.exec_()
+
         
-    def onProcessingFinished(self, quadFold):
-        print("Processing finished")
-        self.quadFold = quadFold
-        self.tasksDone += 1
+    def onProcessingFinished(self):
         
         self.updateParams()
         self.refreshAllTabs()
+        self.resetStatusbar2()
         
         self.csvManager.writeNewData(self.quadFold)
-
         self.saveResults()
+        
         QApplication.restoreOverrideCursor()
-        self.loop.quit()
         self.currentTask = None
-        self.startNextTask()
         
         
             
@@ -2664,16 +2735,17 @@ class QuadrantFoldingGUI(QMainWindow):
                     result_file += '_folded_cropped.tif'
                     fabio.tifimage.tifimage(data=img).write(result_file)
             else:
-                print("SAVING IMAGE")
-                if self.compressFoldedImageChkBx.isChecked():
-                    result_file += '_folded_compressed.tif'
-                    tif_img = Image.fromarray(img)
-                    tif_img.save(result_file, compression='tiff_lzw')
-                else:
-                    result_file += '_folded.tif'
-                    fabio.tifimage.tifimage(data=img).write(result_file)
+                try:
+                    if self.compressFoldedImageChkBx.isChecked():
+                        result_file += '_folded_compressed.tif'
+                        tif_img = Image.fromarray(img)
+                        tif_img.save(result_file, compression='tiff_lzw')
+                    else:
+                        result_file += '_folded.tif'
+                        fabio.tifimage.tifimage(data=img).write(result_file)
+                except Exception as e:
             # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
-
+                    print("Error saving image", e)
             self.saveBackground()
 
     def saveBackground(self):
@@ -2696,6 +2768,7 @@ class QuadrantFoldingGUI(QMainWindow):
             resultImg = np.rot90(resultImg)
 
         method = info['bgsub']
+        print(method)
         if method != 'None':
             
             filename = self.imgList[self.currentFileNumber]
@@ -2750,6 +2823,17 @@ class QuadrantFoldingGUI(QMainWindow):
         fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(self.currentFileNumber + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
+        
+    def resetStatusbar2(self):
+        """
+        Reset the status bar, but search using self.quadFold.info
+        """
+        index = self.imgList.index(self.quadFold.img_name)
+        fileFullPath = fullPath(self.filePath, self.imgList[index])
+        self.imgPathOnStatusBar.setText(
+            'Current File (' + str(index + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
+        self.filenameLineEdit.setText(self.quadFold.img_name)
+        self.filenameLineEdit2.setText(self.quadFold.img_name)
 
     def getFlags(self):
         """
@@ -2809,22 +2893,34 @@ class QuadrantFoldingGUI(QMainWindow):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
         if self.filePath is not None and self.imgList is not None and self.imgList:
-            self.csvManager = QF_CSVManager(self.filePath)
-            self.numberOfFiles = len(self.imgList)
-            
-            self.ignoreFolds = set()
-            self.selectImageButton.setHidden(True)
-            self.selectFolder.setHidden(True)
-            self.imageCanvas.setHidden(False)
-            self.resetWidgets()
-            QApplication.restoreOverrideCursor()
-            if self.h5List == []:
-                fileName = self.imgList[self.currentFileNumber]
-                self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-                self.setCalibrationImage()
-            self.h5List = []
-            self.setH5Mode(str(newFile))
-            self.onImageChanged()
+            try:
+                self.csvManager = QF_CSVManager(self.filePath)
+            except Exception:
+                msg = QMessageBox()
+                msg.setInformativeText(
+                    "Permission denied when creating a folder at " + self.filePath + ". Please check the folder permissions.")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.setWindowTitle("Error Creating CSVManager")
+                msg.setStyleSheet("QLabel{min-width: 500px;}")
+                msg.exec_()
+            if self.csvManager is not None:
+                self.numberOfFiles = len(self.imgList)
+                self.ignoreFolds = set()
+                self.selectImageButton.setHidden(True)
+                self.selectFolder.setHidden(True)
+                self.imageCanvas.setHidden(False)
+                self.resetWidgets()
+                QApplication.restoreOverrideCursor()
+                if self.h5List == []:
+                    fileName = self.imgList[self.currentFileNumber]
+                    self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+                    self.setCalibrationImage()
+                self.h5List = []
+                self.setH5Mode(str(newFile))
+                self.onImageChanged()
+            else:
+                QApplication.restoreOverrideCursor()
+                self.browseFile()
         else:
             QApplication.restoreOverrideCursor()
             self.browseFile()
@@ -2971,22 +3067,20 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-            self.progressBar.setVisible(True)
-            self.progressBar.setValue(0)
+            # self.progressBar.setVisible(True)
+            # self.progressBar.setValue(0)
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                QApplication.processEvents()
-                self.nextClicked(reprocess=True)
-                # if i == self.numberOfFiles - 1:
-                #     self.tasks_done = 0
-                #     self.startNewThread()
+                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                # QApplication.processEvents()
+                # self.nextClicked(reprocess=True)
+                self.addTask(i)
                 
-            self.progressBar.setVisible(False)
+            # self.progressBar.setVisible(False)
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
@@ -3055,13 +3149,13 @@ class QuadrantFoldingGUI(QMainWindow):
                 for i in range(self.numberOfFiles):
                     if self.stop_process:
                         break
-                    #self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
+                    self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
                     QApplication.processEvents()
                     self.nextClicked(reprocess=True)
                 if self.stop_process:
                     break
                 self.nextFileClicked()
-            #self.progressBar.setVisible(False)
+            self.progressBar.setVisible(False)
 
         self.processH5FolderButton.setChecked(False)
         self.processH5FolderButton2.setChecked(False)
@@ -3089,6 +3183,8 @@ class QuadrantFoldingGUI(QMainWindow):
             settings['compressed'] = self.compressFoldedImageChkBx.isChecked()
         if self.quadFold is not None and 'fixed_roi_rad' in self.quadFold.info:
             settings['fixed_roi_rad'] = self.quadFold.info['fixed_roi_rad']
+        if self.quadFold is not None and 'bgsub' in self.quadFold.info:
+            settings['bgsub'] = self.quadFold.info['bgsub']
         filename = getSaveFile(os.path.join("musclex", "settings", "qfsettings.json"), None)
         if filename != "":
             with open(filename, 'w') as f:
@@ -3132,7 +3228,7 @@ class QuadrantFoldingGUI(QMainWindow):
         :param text: text to print
         :return: -
         """
-        # self.statusReport.setText(text) // will fix later with different threads
+        self.statusReport.setText(text) # will fix later with different threads
         print(text)
         QApplication.processEvents()
 

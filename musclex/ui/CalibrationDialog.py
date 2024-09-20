@@ -16,8 +16,8 @@ from ..CalibrationSettings import CalibrationSettings
 from ..utils.image_processor import *
 
 class CalibrationDialog(QMainWindow):
-    def __init__(self, dir_path, imagePath):
-        QWidget.__init__(self)
+    def __init__(self, dir_path, imagePath, mode):
+        super().__init__()
         self.dir_path = dir_path
         self.orig_image = None
         self.image = None
@@ -32,6 +32,7 @@ class CalibrationDialog(QMainWindow):
         self.center_before_rotation = None
         self.centImgTransMat = None
         self.expandImg = 1
+        self.mode = mode
         
         self.info = {
             'center' : None,
@@ -82,6 +83,10 @@ class CalibrationDialog(QMainWindow):
         self.applyCurrentImage.setChecked(True)
         self.modeLayout.addWidget(self.applyCurrentImage)
         self.modeLayout.addWidget(self.applyAllImage)
+        if self.mode == 'aime':
+            self.applyToSequence = QCheckBox("Apply to Sequence")
+            self.modeButtonGroup.addButton(self.applyToSequence)
+            self.modeLayout.addWidget(self.applyToSequence)
         self.modeGroup.setLayout(self.modeLayout)
         
         # Display Options
@@ -362,8 +367,14 @@ class CalibrationDialog(QMainWindow):
         path = join(self.dir_path, 'settings')
         createFolder(path)
         path = join(path, 'calibrationDialog.json')
-        
-        if self.applyAllImage.isChecked():
+        if self.mode == 'aime':
+            if self.applyToSequence.isChecked():
+                self.info['applyToSequence'] = True
+            elif self.applyAllImage.isChecked():
+                self.info['applyAll'] = True
+            elif self.applyCurrentImage.isChecked():
+                self.info['applyAll'] = False
+        elif self.applyAllImage.isChecked():
             self.info['applyAll'] = True
         elif self.applyCurrentImage.isChecked():
             self.info['applyAll'] = False

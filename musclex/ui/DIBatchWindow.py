@@ -229,7 +229,7 @@ class DIBatchWindow(QMainWindow):
     A class to process Scanning diffraction on folders
     """
     def __init__(self, mainWin=None, dir_path=""):
-        QWidget.__init__(self)
+        super().__init__()
         self.filePath = dir_path
         self.widgetList = []
         self.intesityRange = [0, 1, 1, 2]

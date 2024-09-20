@@ -48,6 +48,11 @@ except: # for coverage
     from utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from utils.histogram_processor import *
     from utils.image_processor import *
+from collections import deque
+
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
+from scipy.interpolate import BSpline, make_interp_spline
 
 class EquatorImage:
     """
@@ -163,12 +168,79 @@ class EquatorImage:
         if 'fixed_rmax' in self.info:
             self.info['rmax'] = self.info['fixed_rmax']
             print("R-max is fixed as " + str(self.info['rmax']))
+            
+    def fill_sensor_gaps_propagate(self, image, threshold):
+        if isinstance(image, str):
+            image = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
+
+        # Create a binary mask for sensor gaps
+        mask = image <= threshold
+
+        # Dilate the sensor gap mask using a 3x3 kernel twice
+        kernel = np.ones((3, 3), np.uint8)
+        dilated_mask = cv2.dilate(mask.astype(np.uint8), kernel, iterations=2)
+
+        # Create a difference mask by subtracting the original sensor gap mask from the dilated one
+        difference_mask = dilated_mask - mask
+
+        # Multiply the original image by the difference mask
+        masked_image = image * difference_mask
+        dialated_masked_image = image * difference_mask
+
+        # Convolve this masked image by a 3x3 smoothing filter but only within the difference mask
+        kernel = np.ones((3, 3), np.float32) / 9 * 2
+        convolved_image = cv2.filter2D(masked_image, -1, kernel)
+        convolved_image = convolved_image * difference_mask
+
+        # Prepare the output image
+        output_image = np.copy(image)
+
+        # A mask to keep track of filled areas
+        filled_mask = np.zeros_like(image, dtype=bool)
+
+        # Initialize a queue for flood fill propagation
+        queue = deque()
+        # Enqueue all the seed points
+        seeds = np.argwhere((difference_mask == 1))
+
+        for seed in seeds:
+            queue.append((seed[0], seed[1]))
+            filled_mask[seed[0], seed[1]] = True
+            output_image[seed[0]-1:seed[0]+2, seed[1]-1:seed[1]+2] = convolved_image[seed[0], seed[1]]
+            output_image[seed[0]-2:seed[0]+3, seed[1]-2:seed[1]+3] = convolved_image[seed[0], seed[1]]
+
+        # Directions for the 8-connected neighborhood
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+        # Propagate the fill
+        while queue:
+            x, y = queue.popleft()
+
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < image.shape[0] and 0 <= ny < image.shape[1]:
+                    if not filled_mask[nx, ny] and mask[nx, ny]:
+                        output_image[nx, ny] = output_image[x, y]
+                        filled_mask[nx, ny] = True
+                        queue.append((nx, ny))
+
+        # Perform final smoothing
+        kernel = np.ones((5, 5), np.float32) / 25
+        convolved_image = cv2.filter2D(output_image, -1, kernel)
+        output_image = np.where(dilated_mask, convolved_image, image)
+
+        return np.array(output_image, dtype='float32')
+            
 
     def applyBlankAndMask(self):
         """
         Subtract the original image with blank image and set pixels in mask below the mask threshold
         """
-        img = np.array(self.orig_img, dtype='float32')
+        # Temporary code to fill sensor gaps in the image if toggled
+        if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
+            img = self.fill_sensor_gaps_propagate(self.orig_img, self.info['fillGapLinesThreshold'])
+        else:
+            img = np.array(self.orig_img, dtype='float32')
         if self.info['blank_mask']:
             blank, mask = getBlankImageAndMask(self.dir_path)
             maskOnly = getMaskOnly(self.dir_path)
@@ -199,7 +271,10 @@ class EquatorImage:
                 print("Using Calibration Center")
                 self.info['center'] = self.info['calib_center']
                 return
-            self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
+            if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
+                self.image, self.info['center'] = processImageForIntCenter(self.image, getCenter(self.image))
+            else:
+                self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
             self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
         else:
             if self.rotMat is not None:
@@ -254,7 +329,10 @@ class EquatorImage:
 
         print("R-min is being calculated...")
         if 'rmin' not in self.info:
-            img = copy.copy(self.orig_img)
+            if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
+                img = copy.copy(self.image)
+            else:
+                img = copy.copy(self.orig_img)
             center = self.info['center']
 
             if 'detector' in self.info:
@@ -367,7 +445,37 @@ class EquatorImage:
             img = self.getRotatedImage()
             self.info['hist'] = np.sum(img[int_area[0]:int_area[1], :], axis=0)
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
+        
+        if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
+            margin = self.info['smooth_margin']
+            smoothing_window = self.info['smoothing_window']
 
+            y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), 
+                                                                                                   self.info['hist'],smoothing_window=smoothing_window, 
+                                                                                                   sampling_interval=10, 
+                                                                                                   spline_degree=3, 
+                                                                                                   margin=margin)
+            
+
+            
+            # y_replaced = self.info['hist'].copy()
+            # y_replaced[self.info['hist'] < 0] = y_filled[self.info['hist'] < 0]
+            
+            # y_replaced = self.fill_gaps(self.info['hist'], y_filled, margin=100)
+            
+            # plt.figure(figsize=(10, 6))
+            # plt.plot(self.info['hist'], label='Original Histogram', color='red')
+            # plt.plot(y_filled, label='Replaced Data', linestyle='--')
+            # plt.plot(y_interpolated, label='Interpolated Data', linestyle='-.')
+            # plt.xlim(400, 600)
+            # plt.xlabel('Index')
+            # plt.ylabel('Value')
+            # plt.title('Filled Gaps in Data')
+            # plt.legend()
+            # plt.show()
+            
+            self.info['hist'] = y_filled
+        
         print("Done.")
 
     def applyConvexhull(self):
@@ -406,16 +514,20 @@ class EquatorImage:
             #     self.info['mask_thres'] = histo[1][max_ind]
             # else:
             #     self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
-            ignore = np.array([any(img_area[:, i] <= self.info['mask_thres']) for i in range(img_area.shape[1])])
-            if any(ignore):
-                left_ignore = ignore[:int(center[0])]
-                left_ignore = left_ignore[::-1]
-                right_ignore = ignore[int(center[0]):]
+            if 'use_smooth_alg' not in self.info or self.info['use_smooth_alg'] == False:
+                ignore = np.array([any(img_area[:, i] <= (self.info['mask_thres'])) for i in range(img_area.shape[1])])
+                if any(ignore):
+                    left_ignore = ignore[:int(center[0])]
+                    left_ignore = left_ignore[::-1]
+                    right_ignore = ignore[int(center[0]):]
+                else:
+                    left_ignore = None
+                    right_ignore = None
+                if all(ignore):
+                    print('Failed to select ignored gaps: using original histogram for convexhull')
+                    left_ignore = None
+                    right_ignore = None
             else:
-                left_ignore = None
-                right_ignore = None
-            if all(ignore):
-                print('Failed to select ignored gaps: using original histogram for convexhull')
                 left_ignore = None
                 right_ignore = None
 
@@ -436,8 +548,159 @@ class EquatorImage:
                                   'all': hist}
 
             self.removeInfo('tmp_peaks') # Remove temp peaks from info dict to make it be re-calculated
-
+            
         print("Done.")
+        
+    def find_gaps(self, y_with_gaps, margin=3):
+        # Find gap regions
+        gaps = []
+        n = len(y_with_gaps)
+        
+        if 'gaps' in self.info:
+            for gap in self.info['gaps']:
+                gaps.append(gap)
+
+        # Identify indices where the signal is negative
+        negative_indices = np.where(y_with_gaps < 0)[0]
+
+        if len(negative_indices) == 0:
+            return gaps
+
+        # Initialize the first gap
+        start_idx = negative_indices[0]
+        end_idx = start_idx
+
+        # Iterate over negative indices to find contiguous gaps
+        for i in range(1, len(negative_indices)):
+            if negative_indices[i] == negative_indices[i - 1] + 1:
+                end_idx = negative_indices[i]
+            else:
+                # Expand the current gap using the margin
+                expanded_start = max(0, start_idx - margin)
+                expanded_end = min(n - 1, end_idx + margin)
+                gaps.append((expanded_start, expanded_end))
+
+                # Start a new gap
+                start_idx = negative_indices[i]
+                end_idx = start_idx
+
+        # Add the last gap
+        expanded_start = max(0, start_idx - margin)
+        expanded_end = min(n - 1, end_idx + margin)
+        gaps.append((expanded_start, expanded_end))
+
+        return gaps
+    
+    def create_mask(self, gaps):
+        mask = []
+
+        for gap in gaps:
+            # Add all integers from start to end (inclusive) to the mask
+            mask.extend(range(gap[0], gap[1] + 1))
+
+        return np.array(mask)
+    
+    def custom_smooth(self, y_with_gaps, gaps, window_length=51, polyorder=3):
+        """Smooth the signal while ignoring gaps."""
+        y_smoothed = np.zeros_like(y_with_gaps)
+        # non_zero_indices = np.where(y_with_gaps != 0)[0]
+        zero_indices = self.create_mask(gaps)
+        non_zero_indices = np.setdiff1d(np.arange(len(y_with_gaps)), zero_indices)
+
+        # Apply smoothing only on non-gap sections
+        y_smoothed_non_zero = savgol_filter(y_with_gaps[non_zero_indices], window_length, polyorder)
+
+        # Insert the smoothed values back into the full array
+        y_smoothed[non_zero_indices] = y_smoothed_non_zero
+
+        return y_smoothed
+
+    def interpolate_sensor_gap(self, x, y_with_gaps, smoothing_window=51, smoothing_polyorder=3, sampling_interval=10, spline_degree=3, margin=0):
+        """Interpolate sensor gaps using B-spline interpolation."""
+        
+        gaps = self.find_gaps(y_with_gaps, margin=margin)
+        self.info['gaps'] = gaps
+        
+        gap_starts = np.array([start for start, end in gaps])
+        gap_ends = np.array([end for start, end in gaps])
+        
+        
+        # Smooth the profile, ignoring gaps
+        y_smoothed = self.custom_smooth(y_with_gaps, gaps, window_length=smoothing_window, polyorder=smoothing_polyorder)
+
+        # Find gap regions
+        # gaps = np.where(y_with_gaps < 0)[0]
+        # gap_start_indices = np.unique(np.hstack([np.where(np.diff(gaps) > 1)[0] + 1, [0]]))
+        # gap_ends = np.unique(np.hstack([[len(gaps)-1], np.where(np.diff(gaps) > 1)[0]]))
+
+        # gap_starts = gaps[gap_start_indices]
+        # gap_ends = gaps[gap_ends]
+        
+        # print(gap_starts, gap_ends)
+        
+        # Sample points from the smoothed signal, avoiding gaps
+        sample_indices = []
+        for i in range(0, len(x), sampling_interval):
+            if all((i < start or i > end) for start, end in zip(gap_starts, gap_ends)):
+                sample_indices.append(i)
+
+        interp_x = x[sample_indices]
+        interp_y = y_smoothed[sample_indices]
+
+        # Use B-spline interpolation on the sampled points
+        bspline = make_interp_spline(interp_x, interp_y, k=spline_degree)
+
+        # Create the fully interpolated signal based only on the B-spline
+        y_interpolated = bspline(x)
+
+        # Fill the gaps using the B-spline interpolation
+        y_filled = y_with_gaps.copy()
+        for start, end in zip(gap_starts, gap_ends):
+            y_filled[start-margin:end + 1 + margin] = bspline(x[start - margin:end + 1 + margin])
+
+        return y_filled, y_smoothed, y_interpolated, interp_x, interp_y
+    
+    def fill_gaps(self, y_with_gaps, y_filled, margin=0):
+        # Convert to numpy arrays for easier manipulation
+        y_with_gaps = np.array(y_with_gaps)
+        y_with_gaps_copy = y_with_gaps.copy()
+        y_filled = np.array(y_filled)
+
+        # Find the indices where the gaps are (values are 0)
+        gap_indices = np.where(y_with_gaps <= 0)[0]
+
+        if len(gap_indices) == 0:
+            # No gaps found, return the original y_with_gaps
+            return y_with_gaps
+
+        # Iterate through each gap index
+        for idx in gap_indices:
+            # Determine the start and end indices for copying with the margin
+            start_idx = max(0, idx - margin)
+            end_idx = min(len(y_with_gaps), idx + margin + 1)
+            
+            print(start_idx, end_idx)
+
+            # Copy the region from y_filled to y_with_gaps
+            y_with_gaps[start_idx:end_idx] = y_filled[start_idx:end_idx]
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(y_with_gaps, label='Filled Data')
+        plt.plot(y_with_gaps_copy, label='Original Data', linestyle='--')
+        plt.plot(y_filled, label='Interpolated Data', linestyle='-.')
+        plt.xlim(400, 600)
+        plt.xlabel('Index')
+        plt.ylabel('Value')
+        plt.title('Filled Gaps in Data')
+        plt.legend()
+        plt.show()
+        
+        # Return the filled y_with_gaps
+
+        return y_with_gaps
+
+
+    # y_filled, y_smoothed, y_interpolated, interp_x, interp_y = interpolate_sensor_gap(x, y_with_gaps, sampling_interval=10, spline_degree=3)
 
     def getPeaks(self):
         """

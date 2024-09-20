@@ -42,7 +42,7 @@ class LogTraceViewer(QMainWindow):
         """
         Initial window
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.currentFileNumber = currentFileNumber
         self.filePath = "" # current directory
         self.parentSig = parent.currSaved

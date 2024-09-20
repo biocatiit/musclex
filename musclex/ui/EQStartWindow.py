@@ -38,7 +38,7 @@ class EQStartWindow(QMainWindow):
     A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.dir_path = ""
         self.setWindowTitle("Bio-Muscle v."+__version__)
         self.windowList = [] # use this list to keep EquatorWindow objects to prevent python delete it

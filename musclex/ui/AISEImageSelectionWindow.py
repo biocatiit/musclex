@@ -4,11 +4,11 @@ import numpy as np
 import glob
 import fabio
 from functools import partial
-from PyQt5.QtWidgets import (QGroupBox, QDialog, QWidget,
+from PySide6.QtWidgets import (QGroupBox, QDialog, QWidget,
 QScrollArea, QGridLayout, QLabel, QCheckBox, QVBoxLayout,
 QDoubleSpinBox, QPushButton, QHBoxLayout, QSizePolicy, QMessageBox)
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt
+from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtCore import Qt
 from .XRayViewerGUI import XRayViewerGUI
 
 
@@ -256,7 +256,86 @@ class AISEImageSelectionWindow(QDialog):
 
         # List all TIFF files in the folder
         if self.isHDF5:
-            print("handle this")
+            try:
+                with fabio.open(folder_path) as series:
+                    for frame in series.frames():
+                        label = QLabel(self)
+                        widget = QWidget()
+                        
+                        checkbox = QCheckBox("Select")
+                        checkbox.setEnabled(False)
+                        checkbox.clicked.connect(partial(self.checkboxChecked, frame.index))
+                        
+                        namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                        temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                        short_filename = (temp_filename[:10] + '...') if len(temp_filename) > 10 else temp_filename
+                        file_label = QLabel(short_filename)
+                        file_label.setToolTip(temp_filename)
+                        
+                        if any(self.img_list[frame.index] in sublist for sublist in self.img_grps):
+                            checkbox.setChecked(True)
+                            
+                        if temp_filename in self.misaligned_images:
+                            widget.setStyleSheet("border: 4px solid red")
+                            
+                        self.checkbox_list.append(checkbox)
+                        
+                        if (self.toggleThumbnailChkBx.isChecked()):
+                            image = frame.data.astype(np.float32)
+                            min_val = image.min()
+                            max_val = image.max()
+                            self.spmaxInt.setRange(min_val, max_val)
+                            self.spminInt.setRange(min_val, max_val)
+                            self.spmaxInt.setValue(max_val * .5)
+                            self.spminInt.setValue(min_val)
+
+                            self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
+                            self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
+
+                            vbox = QVBoxLayout()
+                            image = self.normalizeImage(image, None, None)
+                            q_image = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Indexed8)
+                            pixmap = QPixmap.fromImage(q_image)            
+                            label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio))
+                            self.thumbnail_labels.append(label)  # Add label to the list
+                            vbox.addWidget(label)
+                            vbox.addWidget(file_label)
+                            vbox.addWidget(checkbox)
+                            vbox.addStretch()
+                            self.qlabel_list.append(label)
+                            label.setProperty("fileName", temp_filename)
+                            label.mousePressEvent = lambda event, i=frame.index, label=label: self.onLabelClicked(event, i, label)
+                            widget.setLayout(vbox)
+                            row = frame.index // 3  # Change '3' to the desired number of columns
+                            column = frame.index % 3  # Change '3' to the desired number of columns
+                            self.grid_layout.addWidget(widget, row, column)
+                        else:
+                            hbox = QHBoxLayout()
+                            file_label.setProperty("fileName", temp_filename)
+                            file_label.mousePressEvent = lambda event, i=frame.index, label=file_label: self.onLabelClicked(event, i, label)
+                            
+                            #TODO figure out why the text is still being truncated
+                            file_label.setFixedHeight(20)
+                            checkbox.setFixedHeight(20)
+                            file_label.setAlignment(Qt.AlignLeft)
+                            file_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                            
+                            hbox.addWidget(file_label)
+                            hbox.addWidget(checkbox)
+                            widget.setLayout(hbox)
+                            widget.setFixedHeight(30)
+                            
+                            self.vertical_layout.setSpacing(0)
+                            self.vertical_layout.setContentsMargins(0, 0, 0, 0)
+                            self.vertical_layout.addWidget(widget)
+            except Exception as e:
+                infMsg = QMessageBox()
+                infMsg.setText('Error opening file: ' + folder_path)
+                infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.")
+                infMsg.setStandardButtons(QMessageBox.Ok)
+                infMsg.setIcon(QMessageBox.Information)
+                print(e)
+                infMsg.exec_()
         else:
             tiff_files = glob.glob(os.path.join(folder_path, '*.tif'))
             for i, tiff_file in enumerate(tiff_files):
@@ -344,7 +423,12 @@ class AISEImageSelectionWindow(QDialog):
                 self.XRayViewer.close()
             self.XRayViewer = XRayViewerGUI()
             self.XRayViewer.show()
-            self.XRayViewer.onNewFileSelected(label.property("fileName"))
+            if self.isHDF5:
+                self.XRayViewer.onNewFileSelected(self.dir_path)
+                self.XRayViewer.currentFileNumber = index
+                self.XRayViewer.onImageChanged()
+            else:
+                self.XRayViewer.onNewFileSelected(label.property("fileName"))
     
 
     def load_checkboxes(self, editing):

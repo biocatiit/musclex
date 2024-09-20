@@ -70,6 +70,7 @@ class ProjectionProcessor:
         self.masked = False
         self.fixed_sigma = {}
         cache = self.loadCache()
+        self.fixed_center = {}
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         if cache is None:
             # info dictionary will save all results
@@ -425,29 +426,43 @@ class ProjectionProcessor:
                 # params.add('bg_line', 0, min=0)
                 int_vars['bg_line'] = 0
 
-                # Init background params
-                params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
-                params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
-
-                if self.info['merid_bg'][name]:
-                    # Init Meridian params1
-                    params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
-                    params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
+                    params.add('bg_sigma', self.info['main_peak_info'][name]['bg_sigma'], min=1, max=len(hist)*2+1.)
+                    params.add('bg_amplitude', self.info['main_peak_info'][name]['bg_amplitude'], min=-1, max=sum(hist)+1.)
+                    params.add('center_sigma1', self.info['main_peak_info'][name]['center_sigma1'], min=1, max=len(hist)+1.)
+                    params.add('center_amplitude1', self.info['main_peak_info'][name]['center_amplitude1'], min=-1, max=sum(hist) + 1.)
+                    params.add('center_sigma2', self.info['main_peak_info'][name]['center_sigma2'], min=1, max=len(hist)+1.)
+                    params.add('center_amplitude2', self.info['main_peak_info'][name]['center_amplitude2'], min=-1, max=sum(hist)+1.)
+                
                 else:
-                    int_vars['center_sigma1'] = 1
-                    int_vars['center_amplitude1'] = 0
+                # Init background params
+                    params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
+                    params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
 
-                # Init Meridian params2
-                params.add('center_sigma2',5 , min=1, max=len(hist)+1.)
-                params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
+                    if self.info['merid_bg'][name]:
+                        # Init Meridian params1
+                        params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
+                        params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
+                    else:
+                        int_vars['center_sigma1'] = 1
+                        int_vars['center_amplitude1'] = 0
+
+                    # Init Meridian params2
+                    params.add('center_sigma2',5 , min=1, max=len(hist)+1.)
+                    params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
 
             # Init peaks params
             for j,p in enumerate(peaks):
+                # if j in self.fixed_center:
+                #     params.add('p_' + str(j), self.fixed_center[j])
+                # else:
                 params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
                 if j in self.fixed_sigma:
                     params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
                 else:
                     params.add('sigma' + str(j), 10, min=1, max=50.)
+                # if j in self.fixed_center:
+                #     params.add('fix' + str(j), self.fixed_center[j])
                 params.add('amplitude' + str(j), sum(hist)/10., min=-1)
                 # params.add('gamma' + str(j), 0. , min=0., max=30)
 
@@ -459,8 +474,26 @@ class ProjectionProcessor:
                 int_vars.pop('x')
                 result_dict.update(int_vars)
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
+                
+                if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
+                    if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
+                        result_dict['bg_sigma'] = self.info['main_peak_info'][name]['bg_sigma']
+                    if self.info['main_peak_info'][name]['bg_amplitude_lock'] == True:
+                        result_dict['bg_amplitude'] = self.info['main_peak_info'][name]['bg_amplitude']
+                    if self.info['main_peak_info'][name]['center_sigma1_lock'] == True:
+                        result_dict['center_sigma1'] = self.info['main_peak_info'][name]['center_sigma1']   
+                    if self.info['main_peak_info'][name]['center_amplitude1_lock'] == True:
+                        result_dict['center_amplitude1'] = self.info['main_peak_info'][name]['center_amplitude1']
+                    if self.info['main_peak_info'][name]['center_sigma2_lock'] == True:
+                        result_dict['center_sigma2'] = self.info['main_peak_info'][name]['center_sigma2']
+                    if self.info['main_peak_info'][name]['center_amplitude2_lock'] == True:
+                        result_dict['center_amplitude2'] = self.info['main_peak_info'][name]['center_amplitude2']
+                
                 self.info['fit_results'][name] = result_dict
                 self.removeInfo(name, 'subtracted_hists')
+                for i in self.fixed_center:
+                    if 'p_'+str(i) in self.info['fit_results'][name]:
+                        self.info['fit_results'][name]['p_'+str(i)] = self.fixed_center[i]
                 print("Box : "+ str(name))
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
@@ -545,6 +578,12 @@ class ProjectionProcessor:
                 print("Box : "+ str(name))
                 print("Centroid Result : " + str(results))
                 print("---")
+
+    def setGaussCenter(self, box_name, peak_num, new_center):
+        new_center = float(str(new_center))
+        self.fixed_center[peak_num] = new_center
+        self.removeInfo(box_name, 'fit_results')
+        #self.fitModel()
 
     def setGaussSig(self, box_name, peak_num, new_sigma):
         """

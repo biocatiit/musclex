@@ -25,7 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
-
+import time
 import sys
 import copy
 import os
@@ -50,6 +50,36 @@ from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 from skimage.morphology import binary_dilation
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
+from queue import Queue
+
+class WorkerSignals(QObject):
+    
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+
+
+class Worker(QRunnable):
+
+    def __init__(self, bioImg, settings, paramInfo):
+        super().__init__()
+        self.bioImg = bioImg
+        self.settings = settings
+        self.paramInfo = paramInfo
+        self.signals = WorkerSignals()
+        
+    @Slot()
+    def run(self):
+        try:
+            self.bioImg.process(self.settings, self.paramInfo)
+        except:
+            traceback.print_exc()
+            self.signals.error.emit((traceback.format_exc()))
+        else:
+            self.signals.result.emit(self.bioImg)
+        finally:
+            self.signals.finished.emit()
 
 class EquatorWindow(QMainWindow):
     """
@@ -62,7 +92,7 @@ class EquatorWindow(QMainWindow):
         :param mainWin: main window object
         :param filename: selected file name
         """
-        QWidget.__init__(self)
+        super().__init__()
         self.mainWindow = mainWin
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0
@@ -78,6 +108,7 @@ class EquatorWindow(QMainWindow):
         self.update_plot = {'img': True, 'graph' :True, 'results': True}  # update status of each tab
         self.in_batch_process = False
         self.fixedIntArea = None
+        self.first = True
         self.orientationModel = None
         self.modeOrientation = None
         self.doubleZoomAxes = None
@@ -89,7 +120,18 @@ class EquatorWindow(QMainWindow):
         self.doubleZoomPt = None
         self.chordpoints = []
         self.chordLines = []
-        self.quadFold = None
+        
+        self.del_hist = False
+        self.threadPool = QThreadPool()
+        self.tasksQueue = Queue()
+        self.loop = QEventLoop()
+        self.currentTask = None
+        self.worker = None
+        self.tasksDone = 0
+        self.totalFiles = 1
+        
+        self.gap_lines = []
+        self.gaps = []
 
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
         if self.imgList is None or len(self.imgList) == 0:
@@ -125,7 +167,7 @@ class EquatorWindow(QMainWindow):
         self.setH5Mode(str(filename))
         self.processImage()
         self.show()
-        self.init_logging()
+        # self.init_logging()
         # focused_widget = QApplication.focusWidget()
         # if focused_widget != None:
         #     focused_widget.clearFocus()
@@ -155,9 +197,14 @@ class EquatorWindow(QMainWindow):
         """
         Initial all GUIs including : image tab, fitting tab, results tab, menu bar, and status bar
         """
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
+
+        self.scrollArea.setWidget(self.centralWidget)
         self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
+        
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
@@ -250,6 +297,13 @@ class EquatorWindow(QMainWindow):
         self.setRmaxB.setCheckable(True)
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
+        
+        self.fillGapLinesChkbx = QCheckBox("Fill Gap Lines")
+        self.fillGapLinesChkbx.setChecked(False)
+        self.fillGapLinesLabel = QLabel("Threshold: ")
+        self.fillGapLinesThreshold = QSpinBox()
+        self.fillGapLinesThreshold.setEnabled(False)
+        
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
@@ -314,25 +368,28 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setRmaxB, 3, 2, 1, 2)
         self.imgProcLayout.addWidget(self.setIntAreaB, 4, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.brightSpot, 5, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.applyBlank, 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.blankSettings, 6, 3, 1, 1)
-        self.imgProcLayout.addWidget(self.doubleZoom, 7, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 7, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 8, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 9, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 9, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 10, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 10, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 11, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmax, 11, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 12, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 12, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 13, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 13, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 14, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 14, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fillGapLinesChkbx, 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fillGapLinesLabel, 5, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fillGapLinesThreshold, 5, 3, 1, 1)
+        self.imgProcLayout.addWidget(self.brightSpot, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.applyBlank, 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.blankSettings, 7, 3, 1, 1)
+        self.imgProcLayout.addWidget(self.doubleZoom, 8, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 9, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 10, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 10, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 11, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 11, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 12, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmax, 12, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 13, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 13, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 14, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 14, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 15, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 15, 2, 1, 2)
 
         self.imgProcLayout.addWidget(self.resetAllB, 15, 0, 1, 4)
 
@@ -366,8 +423,8 @@ class EquatorWindow(QMainWindow):
 
         self.imageOptionsFrame = QFrame()
         self.imageOptionsFrame.setFixedWidth(550)
+        
         self.imageOptionsLayout = QVBoxLayout()
-
         self.imageOptionsLayout.setAlignment(Qt.AlignTop)
         # self.imageOptionsLayout.addSpacing(10)
         self.imageOptionsLayout.addWidget(self.imgDispOptionGrp)
@@ -461,7 +518,7 @@ class EquatorWindow(QMainWindow):
         self.fittingTabWidget.addTab(self.right_fitting_tab, "Right")
         self.fittingTabWidget.setStyleSheet("QTabBar::tab { width: 100px; }")
 
-        self.k_chkbx = QCheckBox("Background K : ")
+        self.k_chkbx = QCheckBox("Fixed Background K : ")
         self.k_chkbx.setChecked(True)
         self.k_spnbx = QDoubleSpinBox()
         self.k_spnbx.setObjectName('k_spnbx')
@@ -474,6 +531,47 @@ class EquatorWindow(QMainWindow):
         self.use_previous_fit_chkbx = QCheckBox("Use Previous Fit")
         self.k_layout.addWidget(self.k_chkbx)
         self.k_layout.addWidget(self.k_spnbx)
+        
+        
+        self.use_smooth_alg = QCheckBox("Interpolate Gaps")
+        self.use_smooth_spnbx = QSpinBox()
+        self.use_smooth_spnbx.setValue(3)
+
+        self.gaps_grp_bx = QGroupBox()
+        self.gaps_grp_bx_layout = QVBoxLayout()
+        self.gaps_grp_bx.setLayout(self.gaps_grp_bx_layout)
+        self.marginLayout = QHBoxLayout()
+        
+        self.marginLabel = QLabel("Margin: ")
+        self.marginLayout.addWidget(self.marginLabel)
+        self.marginLayout.addWidget(self.use_smooth_spnbx)
+
+        self.smoothingWindowLayout = QHBoxLayout()
+        self.smoothing_window = QSpinBox()
+        self.smoothing_window.setValue(11)
+        self.smoothing_window.setRange(3, 101)
+        self.smoothing_label = QLabel("Smoothing Window: ")
+        self.smoothingWindowLayout.addWidget(self.smoothing_label)
+        self.smoothingWindowLayout.addWidget(self.smoothing_window)
+
+        # self.marginLabel.setVisible(False)
+        # self.use_smooth_spnbx.setVisible(False)
+        # self.smoothing_label.setVisible(False)
+        # self.smoothing_window.setVisible(False)
+        
+        self.addGapsButton = QPushButton("Add Gaps")
+        self.addGapsButton.setCheckable(True)
+        # self.addGapsButton.setVisible(False)
+        
+        self.clearGapsButton = QPushButton("Clear Gaps")
+        # self.clearGapsButton.setVisible(False)
+        
+        self.gaps_grp_bx_layout.addLayout(self.marginLayout)
+        self.gaps_grp_bx_layout.addLayout(self.smoothingWindowLayout)
+        self.gaps_grp_bx_layout.addWidget(self.addGapsButton)
+        self.gaps_grp_bx_layout.addWidget(self.clearGapsButton)
+        
+        self.gaps_grp_bx.setVisible(False)
 
         self.refittingB = QPushButton("Refit current image")
         self.refitAllButton = QPushButton("Refit current folder")
@@ -517,6 +615,12 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
+        self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
+        # self.fittingOptionsLayout2.addLayout(self.marginLayout)
+        # self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
+        # self.fittingOptionsLayout2.addWidget(self.addGapsButton)
+        # self.fittingOptionsLayout2.addWidget(self.clearGapsButton)
+        self.fittingOptionsLayout2.addWidget(self.gaps_grp_bx)
         self.fittingOptionsLayout2.addWidget(self.refittingB)
         self.fittingOptionsLayout2.addWidget(self.refitAllButton)
         self.fittingOptionsLayout2.addStretch()
@@ -626,10 +730,11 @@ class EquatorWindow(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
 
         self.mainLayout.addWidget(self.tabWidget)
-        self.mainLayout.addWidget(self.statusBar)
+        self.setStatusBar(self.statusBar)
 
-        self.setMinimumHeight(1000)
-        self.setMinimumWidth(1400)
+        self.resize(1400, 1000)
+        # self.setMinimumHeight(1000)
+        # self.setMinimumWidth(1400)
 
     def setAllToolTips(self):
         """
@@ -721,6 +826,8 @@ class EquatorWindow(QMainWindow):
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
+        self.fillGapLinesChkbx.stateChanged.connect(self.fillGapLinesChanged)
+        self.fillGapLinesThreshold.editingFinished.connect(self.fillGapLinesChanged)
         self.brightSpot.clicked.connect(self.brightSpotClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
@@ -787,12 +894,72 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.editingFinished.connect(self.kChanged)
         self.refittingB.clicked.connect(self.refitting)
         self.refitAllButton.toggled.connect(self.refitAllBtnToggled)
+        self.use_smooth_alg.stateChanged.connect(self.useSmoothClicked)
+        self.use_smooth_spnbx.editingFinished.connect(self.useSmoothSpnboxChanged)
+        self.smoothing_window.editingFinished.connect(self.smoothingWindowChanged)
+        self.addGapsButton.clicked.connect(self.addGaps)
+        self.clearGapsButton.clicked.connect(self.clearGaps)
 
         #### Parameter Editor Tab
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
         self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+    
+    def clearGaps(self):
+        self.bioImg.info['gaps'] = []
+    
+    def addGaps(self):
+        if self.addGapsButton.isChecked():
+            self.function = ['addGaps']
+            if 'gaps' not in self.bioImg.info:
+                self.bioImg.info['gaps'] = []
+        else:
+            self.function = None
+
+    
+    def smoothingWindowChanged(self):
+        self.bioImg.info['smoothing_window'] = self.smoothing_window.value()
+    
+    def useSmoothSpnboxChanged(self):
+        self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
+        # del self.bioImg.info['hulls']
+        # del self.bioImg.info['hist']
+        # if (self.use_smooth_alg.isChecked()):
+        #     self.refitting()
+        
+    def useSmoothClicked(self):
+        # self.addGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        # self.clearGapsButton.setVisible(self.use_smooth_alg.isChecked())
+        # self.marginLabel.setVisible(self.use_smooth_alg.isChecked())
+        # self.use_smooth_spnbx.setVisible(self.use_smooth_alg.isChecked())
+        # self.smoothing_label.setVisible(self.use_smooth_alg.isChecked())
+        # self.smoothing_window.setVisible(self.use_smooth_alg.isChecked())
+        self.gaps_grp_bx.setVisible(self.use_smooth_alg.isChecked())
+        self.bioImg.info['use_smooth_alg'] = self.use_smooth_alg.isChecked()
+        self.bioImg.info['smooth_margin'] = self.use_smooth_spnbx.value()
+        self.bioImg.info['smoothing_window'] = self.smoothing_window.value()
+        # if 'hulls' in self.bioImg.info:
+        #     del self.bioImg.info['hulls']
+        # if 'hist' in self.bioImg.info:
+        #     del self.bioImg.info['hist']
+        # self.refitting()
+        
+    def fillGapLinesChanged(self):
+        if self.fillGapLinesChkbx.isChecked():
+            self.fillGapLinesThreshold.setEnabled(True)
+            self.bioImg.info['fillGapLines'] = True
+            self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
+        else:
+            self.fillGapLinesThreshold.setEnabled(False)
+            self.bioImg.info['fillGapLines'] = False
+        
+        if 'center' in self.bioImg.info:
+            del self.bioImg.info['center']
+        if 'rotationAngle' in self.bioImg.info:
+            del self.bioImg.info['rotationAngle']
+        self.refitting()
+        # self.processImage()
         
     def fittingErrorChanged(self):
         self.bioImg.fitting_error = self.fittingErrorThreshold.value()
@@ -832,6 +999,12 @@ class EquatorWindow(QMainWindow):
         Fixed Value Changed. Remove fit_results from info dict to make it be re-calculated and Recalculate
         :return:
         """
+        if 'use_smooth_alg' in self.bioImg.info:
+            if 'hist' in self.bioImg.info:
+                del self.bioImg.info['hist']
+            if 'hulls' in self.bioImg.info:
+                del self.bioImg.info['hulls']
+
         self.refreshAllFittingParams()
         if self.use_previous_fit_chkbx.isChecked() and self.bioImg is not None:
             print("Using previous fit")
@@ -1180,6 +1353,21 @@ class EquatorWindow(QMainWindow):
                 else:
                     ax.text(x+5, hist[x], "right", fontsize=10)
                 self.fittingCanvas.draw_idle()
+            elif func[0] == 'addGaps':
+                x = int(round(x))
+                func.append(x)
+                ax = self.fittingAxes
+                line = ax.axvline(x, linewidth=2, color='r')
+                self.gap_lines.append(line)
+                self.fittingCanvas.draw_idle()
+                if len(func) == 3:
+                    gap_start = func[1]
+                    gap_end = func[2]
+                    self.bioImg.info['gaps'].append((gap_start, gap_end))
+                    self.addGapsButton.setChecked(False)
+                    print(self.bioImg.info['gaps'])
+                    self.function = None
+                    
 
     def plotOnMotion(self, event):
         """
@@ -1361,8 +1549,12 @@ class EquatorWindow(QMainWindow):
         """
         This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out
         """
+        
         if self.bioImg is None or event.xdata is None or event.ydata is None:
             return
+        
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         direction = event.button
         x = event.xdata
@@ -1417,6 +1609,9 @@ class EquatorWindow(QMainWindow):
         ax.set_ylim(self.img_zoom[1])
         ax.invert_yaxis()
         self.displayImgCanvas.draw_idle()
+        
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def browseFile(self):
         """
@@ -1583,12 +1778,12 @@ class EquatorWindow(QMainWindow):
             for i in range(nImg):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(i)
+                # self.progressBar.setValue(i)
                 QApplication.processEvents()
                 self.nextImageFitting(True)
             self.in_batch_process = False
 
-        self.progressBar.setVisible(False)
+        # self.progressBar.setVisible(False)
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
         if self.ext in ['.h5', '.hdf5']:
@@ -1782,6 +1977,7 @@ class EquatorWindow(QMainWindow):
             self.fixedRminChkBx.setChecked(False)
             self.fixedRmaxChkBx.setChecked(False)
             self.fixedIntAreaChkBx.setChecked(False)
+            self.fillGapLinesChkbx.setChecked(False)
             self.bioImg.removeInfo()
             self.bioImg.delCache()
             self.processImage()
@@ -2614,7 +2810,8 @@ class EquatorWindow(QMainWindow):
             self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] - new_angle
             self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
             self.log_changes('rotationAngle', obj=self.fixedAngle)
-            self.bioImg.removeInfo('rmin')
+            # self.bioImg.removeInfo('rmin')
+            self.bioImg.removeInfo('int_area')
             self.setAngleB.setChecked(False)
             self.processImage()
         # elif func[0]=="bright":
@@ -2732,14 +2929,39 @@ class EquatorWindow(QMainWindow):
         x = event.xdata
         y = event.ydata
 
-        img = self.bioImg.getRotatedImage()
+        # img = self.bioImg.getRotatedImage()
+        img = self.bioImg.image
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            unit = "px"
+            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                if 'center' in self.calSettings and self.calSettings['center'] is not None:
+                    center = self.calSettings['center']
+                else:
+                    center = (self.bioImg.info['centerx'], self.bioImg.info['centery'])
+                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+                scale = self.calSettings['scale']
+                d = mouse_distance / scale
+                if (d > 0.01):
+                    q = 1.0/d
+                    unit = "nm^-1"
+                else:
+                    q = mouse_distance
+        
+                q = f"{q:.4f}"
+                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                # calib_distance = mouse_distance * 1.0/constant
+                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
+                else:
+                    mouse_distance = np.sqrt((self.bioImg.info['center'][0] - x) ** 2 + (self.bioImg.info['center'][1] - y) ** 2)
+                    mouse_distance = f"{mouse_distance:.4f}"
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x > 10 and x < img.shape[1]-10 and y > 10 and y < img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[y - 10:y + 10, x - 10:x + 10]
@@ -3378,23 +3600,29 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None:
             return
+        self.tabWidget.tabBar().setEnabled(False)
+        self.tabWidget.tabBar().setToolTip("Tab switching is disabled while processing")
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
         settings = self.getSettings()
         print("Settings in processImage:")
         print(settings)
         try:
-                # if self.quadFold.initImg is not None:
-                #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = [True, self.quadFold.initImg.shape]
-                #     self.bioImg.info['qfMetaData'] = [True, self.quadFold.initImg.shape]
-                # else:
-                #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
+            # This section was already commented out before multithreading
+            # if self.quadFold.initImg is not None:
+            #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = [True, self.quadFold.initImg.shape]
+            #     self.bioImg.info['qfMetaData'] = [True, self.quadFold.initImg.shape]
+            # else:
+            #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
             # If QF box checked, get center from QF
             # self.getCenterFromQF()
-            if settings['find_oritation']:
-                self.brightSpotClicked()
+            
+            # if settings['find_oritation']:
+            #     self.brightSpotClicked()
 
-            self.bioImg.process(settings, paramInfo)
+            # self.bioImg.process(settings, paramInfo)
+            
+            self.addTask(paramInfo)
 
         except Exception:
             QApplication.restoreOverrideCursor()
@@ -3409,6 +3637,45 @@ class EquatorWindow(QMainWindow):
             errMsg.exec_()
             raise
 
+        # self.updateParams()
+        # self.csvManager.writeNewData(self.bioImg)
+        # self.csvManager.writeNewData2(self.bioImg)
+        # self.resetUI()
+        # self.refreshStatusbar()
+        # self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
+        # QApplication.restoreOverrideCursor()
+        # self.tabWidget.tabBar().setEnabled(True)
+        # self.tabWidget.tabBar().setToolTip("")
+        
+    def addTask(self, paramInfo=None):
+        self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))
+        
+        # If there's no task currently running, start the next task
+        if self.currentTask is None:
+            self.startNextTask()
+            
+    def thread_done(self, bioImg):
+        self.bioImg = bioImg
+        print("thread done")
+                    
+    def startNextTask(self):
+        if not self.tasksQueue.empty():
+            print("starting new task")
+            bioImg, settings, paramInfo = self.tasksQueue.get()
+            
+            if settings['find_oritation']:
+                self.brightSpotClicked()
+
+            self.currentTask = Worker(bioImg, settings, paramInfo)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.onProcessingFinished)
+            self.threadPool.start(self.currentTask)
+        else:
+            self.progressBar.setVisible(False)
+        
+    def onProcessingFinished(self):
+        self.tasksDone += 1
+        self.progressBar.setValue(self.progressBar.value() + 1)
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager.writeNewData2(self.bioImg)
@@ -3416,6 +3683,15 @@ class EquatorWindow(QMainWindow):
         self.refreshStatusbar()
         self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
+        self.tabWidget.tabBar().setEnabled(True)
+        self.tabWidget.tabBar().setToolTip("")
+        
+        self.currentTask = None
+        if self.first:
+            self.init_logging()
+            self.first = False
+        else:
+            self.startNextTask()
 
     def setLeftStatus(self, s):
         """
@@ -3548,6 +3824,9 @@ class EquatorWindow(QMainWindow):
             self.minIntSpnBx.setValue(min_val)
             self.maxIntSpnBx.setValue(max_val * 0.20)
         self.syncUI = False
+        
+        self.fillGapLinesThreshold.setMinimum(int(min_val))
+        self.fillGapLinesThreshold.setValue(-1)
 
     def refreshGraph(self):
         """
@@ -3643,6 +3922,9 @@ class EquatorWindow(QMainWindow):
         Draw all UI in image tab
         """
         info = copy.copy(self.bioImg.info)
+        # if self.fillGapLinesChkbx.isChecked():
+        #     img = self.bioImg.getRotatedImage(img=self.bioImg.orig_img)
+        # else:
         img = self.bioImg.getRotatedImage()
         #disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         hulls = info['hulls']['all']
@@ -3740,6 +4022,24 @@ class EquatorWindow(QMainWindow):
         if self.hullChkBx.isChecked():
             # Draw background subtracted histogram
             ax.plot(hull, color = 'g')
+        if self.gap_lines is not None:
+            for line in self.gap_lines:
+                line.remove()
+            self.gap_lines.clear()
+        if 'gaps' in self.bioImg.info and self.bioImg.info['gaps']:
+            if self.gaps is not None and self.gaps:
+                for rect in self.gaps:
+                    rect.remove()
+                self.gaps.clear()
+            for gap in self.bioImg.info['gaps']:
+                rect = patches.Rectangle((gap[0], 0), gap[1] - gap[0], 1, linewidth=1, edgecolor='r', facecolor='r', alpha=0.2, transform=ax.get_xaxis_transform())
+                ax.add_patch(rect)
+                self.gaps.append(rect)
+        else:
+            for rect in self.gaps:
+                rect.remove()
+            self.gaps.clear()
+                    
 
         if 'fit_results' in info:
             fit_result = info['fit_results']

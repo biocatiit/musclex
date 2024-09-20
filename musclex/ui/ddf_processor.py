@@ -36,7 +36,7 @@ class DDFWindow(QMainWindow):
     DDF Processor is a program which is able to average data points for ddf file.
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.setWindowTitle("Muscle X DDF-Processor v." + __version__)
         self.current_file = ""
         self.data = None

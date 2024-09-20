@@ -35,7 +35,7 @@ class EQ_FittingTab(QWidget):
     Display fitting graph and providing options
     """
     def __init__(self, parent, side):
-        QWidget.__init__(self)
+        super().__init__()
         self.parent = parent
         self.side = side
         self.syncUI = False

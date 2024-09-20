@@ -158,10 +158,12 @@ class Ui_LauncherForm(object):
         # item.setText(_translate("LauncherForm", "Diffraction Centroids"))
         item = self.listWidget.item(5)
         item.setText(_translate("LauncherForm", "DDF Processor"))
+        # item = self.listWidget.item(6)
+        # item.setText(_translate("LauncherForm", "Add Intensities Single Experiment"))
+        # item = self.listWidget.item(7)
+        # item.setText(_translate("LauncherForm", "Add Intensities Multiple Experiments"))
         item = self.listWidget.item(6)
-        item.setText(_translate("LauncherForm", "Add Intensities Single Experiment"))
-        item = self.listWidget.item(7)
-        item.setText(_translate("LauncherForm", "Add Intensities Multiple Experiments"))
+        item.setText(_translate("LauncherForm", "Add Intensities Single/Multiple Experiment(s)"))
         self.listWidget.setSortingEnabled(__sortingEnabled)
         self.textBrowser_0.setMarkdown(_translate("LauncherForm", "**X-Ray Viewer** is a small program used to display tif and h5 files and able to\n"
 "play images in a folder (or h5 file) as a video. A second tab shows a selected\n"
@@ -220,25 +222,25 @@ class Ui_LauncherForm(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">DDF Processor</span> is a program which is able to average data points for ddf file.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/DDFProcessor</span></a> for details.</p></body></html>"))
-        self.textBrowser_7.setMarkdown(_translate("LauncherForm", "**Add Intensities Single Experiment** (former Image Merger) is a program which is\n"
-"designed to be used with a series of images with sequential file names taken in\n"
-"a time resolved experiment. "))
+        self.textBrowser_7.setMarkdown(_translate("LauncherForm", "**Add Intensities Single/Multiple Experiment(s)** (former Image Merger) is a program which is\n"
+"designed to be used with a series of images with sequential file names or a series of images placed\n"
+" across multiple folders taken in a time resolved experiment. "))
         self.textBrowser_7.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Add Intensities Single Experiment</span> (former Image Merger) is a program which is designed to be used with a series of images with sequential file names taken in a time resolved experiment.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/AddIntensitiesSE\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/AddIntensitiesSE</span></a> for details.</p></body></html>"))
-        self.textBrowser_8.setMarkdown(_translate("LauncherForm", "**Add Intensities Multiple Experiments** (former Add Intensities) is a program\n"
-"which is designed to be used with a series of images placed across multiple\n"
-"folders. It takes the sum of the images in each folder which have the same\n"
-"number (For example, F_001.tif in Folder A will map to FP_001.tif in folder B).\n"
-"The matched images are then summed together and the resultant sum image is\n"
-"stored in `aime_results` folder in the selected directory. "))
-        self.textBrowser_8.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Add Intensities Multiple Experiments</span> (former Add Intensities) is a program which is designed to be used with a series of images placed across multiple folders. It takes the sum of the images in each folder which have the same number (For example, F_001.tif in Folder A will map to FP_001.tif in folder B). The matched images are then summed together and the resultant sum image is stored in <span style=\" font-family:\'monospace\';\">aime_results</span> folder in the selected directory.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/AddIntensitiesME\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/AddIntensitiesME</span></a> for details.</p></body></html>"))
+#         self.textBrowser_8.setMarkdown(_translate("LauncherForm", "**Add Intensities Multiple Experiments** (former Add Intensities) is a program\n"
+# "which is designed to be used with a series of images placed across multiple\n"
+# "folders. It takes the sum of the images in each folder which have the same\n"
+# "number (For example, F_001.tif in Folder A will map to FP_001.tif in folder B).\n"
+# "The matched images are then summed together and the resultant sum image is\n"
+# "stored in `aime_results` folder in the selected directory. "))
+#         self.textBrowser_8.setHtml(_translate("LauncherForm", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+# "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+# "p, li { white-space: pre-wrap; }\n"
+# "</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
+# "<p style=\" margin-top:6px; margin-bottom:6px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Add Intensities Multiple Experiments</span> (former Add Intensities) is a program which is designed to be used with a series of images placed across multiple folders. It takes the sum of the images in each folder which have the same number (For example, F_001.tif in Folder A will map to FP_001.tif in folder B). The matched images are then summed together and the resultant sum image is stored in <span style=\" font-family:\'monospace\';\">aime_results</span> folder in the selected directory.<br /><br />See <a href=\"https://musclex.readthedocs.io/en/latest/AppSuite/AddIntensitiesME\"><span style=\" color:#0000ff;\">https://musclex.readthedocs.io/en/latest/AppSuite/AddIntensitiesME</span></a> for details.</p></body></html>"))
         self.quitButton.setText(_translate("LauncherForm", "Quit"))
         self.runButton.setText(_translate("LauncherForm", "Run"))
         self.testButton.setText(_translate("LauncherForm", "Run Tests"))

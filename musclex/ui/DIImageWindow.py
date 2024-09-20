@@ -183,7 +183,7 @@ class DIImageWindow(QMainWindow):
     A class to process Scanning diffraction on a file
     """
     def __init__(self, mainWin = None, image_name = "", dir_path = "", process_folder = False, imgList = None):
-        QWidget.__init__(self)
+        super().__init__()
         self.setWindowTitle(image_name)
         self.fileName = image_name
         self.filePath = dir_path

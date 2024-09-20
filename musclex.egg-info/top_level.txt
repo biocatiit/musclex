@@ -1,5 +1,6 @@
 AppImageBuilder
 Data
+build
 dev_docs
 dist
 docs

@@ -52,7 +52,7 @@ class AddIntensitiesMultExp(QMainWindow):
     in the selected directory.
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.numberToFilesMap = None
         self.orig_imgs = []
         self.orig_img_names = []
@@ -519,6 +519,7 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         self.nbOfExposures = self.exposureNb.value()
         self.imageFigure.clear()
+        print(self.nbOfExposures)
         if self.nbOfExposures == 2:
             self.imageAxes = self.imageFigure.add_subplot(121)
             self.imageAxes2 = self.imageFigure.add_subplot(122)
@@ -1774,6 +1775,7 @@ class AddIntensitiesMultExp(QMainWindow):
         """
         self.dir_path = getAFolder()
         self.fileList = []
+        self.folder_paths = []
         if self.dir_path != "":
             self.numberToFilesMap = collections.defaultdict(list)
             self.isHdf5 = False
@@ -1805,6 +1807,17 @@ class AddIntensitiesMultExp(QMainWindow):
                         else:
                             self.numberToFilesMap[int(number) - 1].append(f)
                         self.numberToFilesMap[int(number) - 1].sort()
+                else:
+                    temp_path = os.path.join(self.dir_path, fname)
+                    self.folder_paths.append(temp_path)
+                    if os.path.isdir(temp_path):
+                        i = 0
+                        for fname in os.listdir(temp_path):
+                            if isImg(fname):
+                                self.numberToFilesMap[i].append(fname)
+                            i += 1
+                        
+            print(self.numberToFilesMap)
             self.onNewFileSelected()
 
             # addIntensities(self.numberToFilesMap, dir_path)
@@ -1834,8 +1847,10 @@ class AddIntensitiesMultExp(QMainWindow):
                 self.orig_imgs.append(image.astype(np.float32))
                 self.orig_img_names.append(self.numberToFilesMap[self.currentFileNumber][i])
             else:
-                self.orig_imgs.append(fabio.open(self.numberToFilesMap[self.currentFileNumber][i]).data.astype(np.float32))
-                self.orig_img_names.append(os.path.split(self.numberToFilesMap[self.currentFileNumber][i])[1])
+                folder = self.folder_paths[i]
+                image = fabio.open(os.path.join(folder, self.numberToFilesMap[self.currentFileNumber][i])).data.astype(np.float32)
+                self.orig_imgs.append(image)
+                self.orig_img_names.append(os.path.basename(folder) + "/" + self.numberToFilesMap[self.currentFileNumber][i])
         self.init_imgs = copy.copy(self.orig_imgs)
         self.imgDetailOnStatusBar.setText(
             str(self.orig_imgs[0].shape[0]) + 'x' + str(self.orig_imgs[0].shape[1]) + ' : ' + str(self.orig_imgs[0].dtype))
@@ -2096,7 +2111,7 @@ class AddIntensitiesMultExp(QMainWindow):
         msgBox.setWindowTitle("About")
         msgBox.setTextFormat(Qt.RichText)
         msgBox.setText("<br><br><br>" +
-                       "Add Itensities Multiple Experiments (former Add Intensities) is running under" +
+                       "Add Intensities Multiple Experiments (former Add Intensities) is running under" +
                        "<h2>Muscle X v" +
                        __version__ +
                        "</h2><br><br>" +

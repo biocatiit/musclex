@@ -205,6 +205,8 @@ Use the following commands to build your package:
 conda build .
 ```
 
+Note: The conda package currently depends on the pip package, so the pip package should be built and uploaded on PyPi first.
+
 #### 4. Test the Package Locally
 
 Create and activate a test environment:

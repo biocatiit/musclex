@@ -30,7 +30,8 @@ from numba import jit, cuda
 from math import exp, sqrt, floor, ceil, atan
 import numpy as np
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshold):
     result = np.zeros((fold_height, fold_width))
     if nQuadrant > 0:
@@ -61,7 +62,8 @@ def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshol
                     result[y,x] = sum_val/n_fold
     return result
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def createAngularBG(width, height, subtr, nBins):
     backgound = np.zeros((height, width), dtype = np.float32)
     centerX = width - 1
@@ -128,7 +130,8 @@ def createAngularBG(width, height, subtr, nBins):
 
     return backgound
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def createCircularlySymBG(width, height, spline):
     backgound = np.zeros((height, width), dtype = np.float32)
     centerX = width - 0.5
@@ -153,7 +156,8 @@ def createCircularlySymBG(width, height, spline):
             backgound[y, x] = alpha*spline[ifloor] + beta*spline[iceil]
     return backgound
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def replaceRmin(img, rmin, val):
     height = img.shape[0]
     width = img.shape[1]
@@ -171,7 +175,8 @@ def replaceRmin(img, rmin, val):
                 img[y, x] = replace_val
     return img
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def getCircularDiscreteBackground(img, rmin, start_p, end_p, radial_bin, nBin, max_pts):
     height = img.shape[0]
     width = img.shape[1]
@@ -216,7 +221,8 @@ def getCircularDiscreteBackground(img, rmin, start_p, end_p, radial_bin, nBin, m
         xs[bin] = (d1+d2)/2.
     return xs, ys
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax):
     backgound = np.zeros((height, width), dtype = np.float32)
     zero = 0.0
@@ -264,7 +270,8 @@ def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax)
                                   + beta * (alpha_rad * pchipLines[iceil, pos1] + beta_rad * pchipLines[iceil, pos2])
     return backgound
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def combine_bgsub_float32(img1, img2, center_x, center_y, sigmoid_k, radius):
     img_height = img1.shape[0]
     img_width = img1.shape[1]
@@ -280,10 +287,12 @@ def combine_bgsub_float32(img1, img2, center_x, center_y, sigmoid_k, radius):
             result[y,x] = tophat_val+radial_val
     return result
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def qfdistance(x1, y1, x2, y2):
     return sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
-@jit(target_backend='cuda', nopython=True)
+#@jit(target_backend='cuda', nopython=True)
+@jit
 def sigmoid(k, x0, x):
     return 1.0 / (1.0 + exp(-k * (x - x0)))

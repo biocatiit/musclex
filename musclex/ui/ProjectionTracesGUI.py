@@ -36,8 +36,11 @@ from os.path import exists, splitext, join
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
+from threading import Lock
 import numpy as np
 import cv2
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
+from queue import Queue
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
@@ -47,6 +50,52 @@ from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CSVManager
 from .BlankImageSettings import BlankImageSettings
 from .pyqt_utils import *
+
+class ProjectionParams:
+    def __init__(self, dir_path, img_name, fileList, ext, settings):
+        self.settings = settings
+        self.dir_path = dir_path
+        self.img_name = img_name
+        self.fileList = fileList
+        self.ext = ext
+
+class WorkerSignals(QObject):
+    
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+
+
+class Worker(QRunnable):
+
+    def __init__(self, params=None, projProc=None, settings=None):
+        super().__init__()
+        self.settings = settings if settings is not None else (params.settings if params else None)
+        self.params = params
+        self.projProc = projProc
+        self.signals = WorkerSignals()
+    
+    @classmethod
+    def fromProjProc(cls, projProc, settings):
+        return cls(projProc=projProc, settings=settings)
+    
+    @classmethod
+    def fromParams(cls, params):
+        return cls(params=params)
+        
+    @Slot()
+    def run(self):
+        try:
+            if self.projProc is None and self.params:
+                self.projProc = ProjectionProcessor(self.params.dir_path, self.params.img_name, self.params.fileList, self.params.ext)
+            self.projProc.process(self.settings)
+        except:
+            traceback.print_exc()
+            self.signals.error.emit((traceback.format_exc()))
+        else:
+            self.signals.result.emit(self.projProc)
+        finally:
+            self.signals.finished.emit()
 
 class BoxDetails(QDialog):
     """
@@ -101,11 +150,6 @@ class BoxDetails(QDialog):
             errMsg.setText('Adding a box Error')
             errMsg.setInformativeText('Please specify the box name')
             errMsg.setStandardButtons(QMessageBox.Ok)
-            errMsg.setIcon(QMessageBox.Warning)
-            errMsg.exec_()
-        elif box_name in self.box_names:
-            errMsg = QMessageBox()
-            errMsg.setText('Adding a box Error')
             errMsg.setInformativeText(box_name+' has already been added. Please select another name')
             errMsg.setStandardButtons(QMessageBox.Ok)
             errMsg.setIcon(QMessageBox.Warning)
@@ -121,13 +165,112 @@ class BoxDetails(QDialog):
             return str(self.boxName.text()), self.bgChoice.currentIndex(), None
         else:
             return str(self.boxName.text()), self.bgChoice.currentIndex(), self.axisChoice.currentIndex()
+        
+class EditBoxDetails(QDialog):
+    
+    def __init__(self, all_boxes, box_types):
+        super().__init__(None)
+        self.all_boxes = all_boxes
+        self.box_types = box_types
+        self.setWindowTitle("Edit a Box")
+        print(all_boxes)
+        self.initUI()
+        
+    def initUI(self):
+        self.boxLayout = QGridLayout(self)
+        self.boxNames = QComboBox()
+        for key in self.all_boxes.keys():
+            self.boxNames.addItem(key)
+            
+        self.box_height = QDoubleSpinBox()
+        self.box_height.setDecimals(2)
+        self.box_height.setMinimum(0)
+        self.box_height.setMaximum(10000)
+        self.box_width = QDoubleSpinBox()
+        self.box_width.setDecimals(2)
+        self.box_width.setMinimum(0)
+        self.box_width.setMaximum(10000)
+        
+        self.boxWidthLabel = QLabel("Box Width Mode : ")
+        self.boxWidthMode = QComboBox()
+        width_modes = ['Center', 'Left', 'Right']
+        self.boxWidthMode.addItems(width_modes)
+        self.boxHeightLabel = QLabel("Box Height Mode : ")
+        self.boxHeightMode = QComboBox()
+        height_modes = ['Center', 'Top', 'Bottom']
+        self.boxHeightMode.addItems(height_modes)
+        
+        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+                                              Qt.Horizontal, self)
+        self.bottons.accepted.connect(self.okClicked)
+        self.bottons.rejected.connect(self.reject)
+        self.bottons.setFixedWidth(200)
+        
+        self.boxLayout.addWidget(QLabel("Box name : "), 0, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxNames, 0, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Box Height : "), 1, 0, 1, 1)
+        self.boxLayout.addWidget(self.box_height, 1, 1, 1, 1)
+        self.boxLayout.addWidget(self.boxHeightLabel, 2, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxHeightMode, 2, 1, 1, 1)
+        self.boxLayout.addWidget(QLabel("Box Width : "), 3, 0, 1, 1)
+        self.boxLayout.addWidget(self.box_width, 3, 1, 1, 1)
+        self.boxLayout.addWidget(self.boxWidthLabel, 4, 0, 1, 1)
+        self.boxLayout.addWidget(self.boxWidthMode, 4, 1, 1, 1)
+        self.boxLayout.addWidget(self.bottons, 5, 0, 1, 2, Qt.AlignCenter)
+        
+        self.boxNames.currentIndexChanged.connect(self.updateBoxInfo)
+        
+        self.updateBoxInfo()
+        
+    def updateBoxInfo(self):
+        box_name = str(self.boxNames.currentText())
+        box = self.all_boxes[box_name]
+        if box_name in self.box_types.keys():
+            if self.box_types[box_name] == 'oriented':
+                self.box_height.setValue(box[4])
+                self.box_width.setValue(box[3])
+                
+                # self.boxWidthLabel.setVisible(False)
+                # self.boxWidthMode.setVisible(False)
+                # self.boxHeightLabel.setVisible(False)
+                # self.boxHeightMode.setVisible(False)
+                
+            else:
+                x1,x2 = box[0]
+                width = abs(x1 - x2)
+                y1, y2 = box[1]
+                height = abs(y1 - y2)
+                print(height, width)
+                self.box_height.setValue(height)
+                self.box_width.setValue(width)
+                
+                # self.boxWidthLabel.setVisible(True)
+                # self.boxWidthMode.setVisible(True)
+                # self.boxHeightLabel.setVisible(True)
+                # self.boxHeightMode.setVisible(True)
+                
+        self.boxHeightMode.setCurrentIndex(0)
+        self.boxWidthMode.setCurrentIndex(0)
+        
+        
+    def okClicked(self):
+        """
+        Triggered when OK is clicked
+        """
+        self.current_box = str(self.boxNames.currentText())
+        self.new_height = self.box_height.value()
+        self.new_width = self.box_width.value()
+        self.height_mode = self.boxHeightMode.currentText()
+        self.width_mode = self.boxWidthMode.currentText()
+        self.accept()
+        
 
 class ProjectionTracesGUI(QMainWindow):
     """
     This class is for Projection Traces GUI Object
     """
     def __init__(self):
-        QWidget.__init__(self)
+        super().__init__()
         self.setWindowTitle("Muscle X Projection Traces v." + __version__)
         self.current_file = 0
         self.dir_path = ""
@@ -166,6 +309,16 @@ class ProjectionTracesGUI(QMainWindow):
         self.chordpoints = []
         # self.setStyleSheet(getStyleSheet())
         self.checkableButtons = []
+        
+        self.threadPool = QThreadPool()
+        self.tasksQueue = Queue()
+        self.loop = QEventLoop()
+        self.currentTask = None
+        self.worker = None
+        self.tasksDone = 0
+        self.totalFiles = 1
+        self.lock = Lock()
+        
         self.initUI()
         self.setConnections()
 
@@ -174,9 +327,13 @@ class ProjectionTracesGUI(QMainWindow):
         Initial all GUI
         """
         #### Image Tab ####
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
+
+        self.scrollArea.setWidget(self.centralWidget)
         self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
@@ -250,6 +407,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.addOrientedBoxButton.setCheckable(True)
         self.addCenterOrientedBoxButton = QPushButton("Add Centered Oriented Box")
         self.addCenterOrientedBoxButton.setCheckable(True)
+        self.editBoxButton = QPushButton('Edit Boxes')
         self.clearBoxButton = QPushButton('Clear All Boxes')
         self.checkableButtons.append(self.addBoxButton)
         self.checkableButtons.append(self.addOrientedBoxButton)
@@ -257,6 +415,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxesLayout.addWidget(self.addBoxButton)
         self.boxesLayout.addWidget(self.addOrientedBoxButton)
         self.boxesLayout.addWidget(self.addCenterOrientedBoxButton)
+        self.boxesLayout.addWidget(self.editBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
 
         # Peaks Selection
@@ -450,6 +609,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.addBoxButton.clicked.connect(self.addABox)
         self.addOrientedBoxButton.clicked.connect(self.addOrientedBox)
         self.addCenterOrientedBoxButton.clicked.connect(self.addOrientedBox)
+        self.editBoxButton.clicked.connect(self.editBoxes)
         self.clearBoxButton.clicked.connect(self.clearBoxes)
 
         # select peaks
@@ -501,6 +661,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
             self.projProc.info['hists'] = {}
             self.masked = False
+            print("Blank checked")
             self.processImage()
 
     def blankSettingClicked(self):
@@ -511,6 +672,7 @@ class ProjectionTracesGUI(QMainWindow):
         result = dlg.exec_()
         if result == 1 and self.projProc is not None:
             self.masked = False
+            print("Blank setting clicked")
             self.processImage()
 
     def maskThresChanged(self):
@@ -519,6 +681,7 @@ class ProjectionTracesGUI(QMainWindow):
         """
         if self.projProc is not None:
             self.projProc.info['hists'] = {}
+            print("Mask threshold changed")
             self.processImage()
 
     def calibrationClicked(self):
@@ -531,6 +694,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.rotated = False
             self.projProc.rotMat = None
             self.updateImage()
+            print("calibration clicked")
             self.processImage()
 
     def launchCalibrationSettings(self, force=False):
@@ -607,6 +771,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.rotated = True
             self.updateCenter()
             self.removeAllTabs()
+            print("set center by chords")
             self.processImage()
             self.addBoxTabs()
             self.updateImage()
@@ -653,9 +818,10 @@ class ProjectionTracesGUI(QMainWindow):
             print("New Center ", new_center)
             self.centerx = int(round(new_center[0]))
             self.centery = int(round(new_center[1]))
-            self.projProc.info['centerx'] = self.centerx
-            self.projProc.info['centery'] = self.centery
+            self.projProc.info['centerx'] = int(round(new_center[0]))
+            self.projProc.info['centery'] = int(round(new_center[1]))
             self.projProc.info['orig_center'] = (self.centerx, self.centery)
+            
             self.setCentByPerp.setChecked(False)
             self.center_func = 'manual'
             self.rotated = True
@@ -799,6 +965,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.center_func = 'automatic'
             self.rotated = True
         self.updateCenter()
+        print("qfbox")
         self.processImage()
         self.addBoxTabs()
         self.updateImage()
@@ -857,6 +1024,7 @@ class ProjectionTracesGUI(QMainWindow):
                 for name in peaks.keys():
                     self.updatePeaks(name, peaks[name])
 
+            print("peaks")
             self.processImage()
 
     def batchProcBtnToggled(self):
@@ -928,10 +1096,12 @@ class ProjectionTracesGUI(QMainWindow):
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
-                self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                QApplication.processEvents()
-                self.nextClicked()
-            self.progressBar.setVisible(False)
+                self.addTask(i)
+                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
+                # QApplication.processEvents()
+                # self.nextClicked()
+            # self.startNextTask()
+            # self.progressBar.setVisible(False)
         
         self.processFolderButton.setChecked(False)
         if self.ext in ['.h5', '.hdf5']:
@@ -1028,7 +1198,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.setLeftStatus("Add a box to the image by drawing a rectangle (ESC to cancel)")
                 self.function = ['box']
                 ax = self.displayImgAxes
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 self.addBoxButton.setChecked(False)
@@ -1052,7 +1223,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.setLeftStatus("Select a pivot point indicating the box center (ESC to cancel)")
                 self.function = ['oriented_box']
                 ax = self.displayImgAxes
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 self.addOrientedBoxButton.setChecked(False)
@@ -1067,7 +1239,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.function = ['center_oriented_box']
                 self.function.append((self.projProc.info['centerx'], self.projProc.info['centery']))
                 ax = self.displayImgAxes
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
                 self.addOrientedBoxButton.setChecked(False)
@@ -1077,7 +1250,177 @@ class ProjectionTracesGUI(QMainWindow):
             self.addCenterOrientedBoxButton.setChecked(False)
             self.addOrientedBoxButton.setChecked(False)
             self.resetUI()
+            
+    def editBoxes(self):
+        if len(self.allboxes) > 0:
+            dialog = EditBoxDetails(self.allboxes, self.boxtypes)
+            if dialog.exec_():
+                height = dialog.new_height
+                width = dialog.new_width
+                target_box = dialog.current_box
+                height_mode = dialog.height_mode
+                width_mode = dialog.width_mode
+                self.updateBoxDetails(target_box, height, width, height_mode, width_mode)
+        else:
+            errMsg = QMessageBox()
+            errMsg.setText('No boxes to edit.')
+            msg = 'Please add a box before editing.'
+            errMsg.setInformativeText(msg)
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.setFixedWidth(600)
+            errMsg.exec_()
+            
+    def updateBoxDetails2(self, box_name, height, width, height_mode, width_mode):
+    
+        box = self.allboxes[box_name]
 
+        if self.boxtypes[box_name] == 'oriented':
+            bx, by = box[2]
+            current_width = box[3]
+            current_height = box[4]
+            angle = box[5]
+            cx, cy = box[6]
+
+            # Determine new points for each side based on the modes
+            bl = rotatePoint((cx, cy), (bx, by), -np.radians(angle))
+            br = (bl[0] + current_width, bl[1])
+            tl = (bl[0], bl[1] + current_height)
+            tr = (bl[0] + current_width, bl[1] + current_height)
+            
+            print(bl, br, tl, tr)
+
+            if height_mode == 'Center':
+                bl = (bl[0], bl[1] - (height - current_height) / 2)
+                tl = (tl[0], tl[1] + (height - current_height) / 2)
+            elif height_mode == 'Top':
+                tl = (tl[0], tl[1] + (height - current_height))
+                tr = (tr[0], tr[1] + (height - current_height))
+            elif height_mode == 'Bottom':
+                bl = (bl[0], bl[1] - (height - current_height))
+                br = (br[0], br[1] - (height - current_height))
+
+            if width_mode == 'Center':
+                bl = (bl[0] - (width - current_width) / 2, bl[1])
+                br = (br[0] + (width - current_width) / 2, br[1])
+            elif width_mode == 'Left':
+                bl = (bl[0] - (width - current_width), bl[1])
+                tl = (tl[0] - (width - current_width), tl[1])
+            elif width_mode == 'Right':
+                br = (br[0] + (width - current_width), br[1])
+                tr = (tr[0] + (width - current_width), tr[1])
+
+            # Rotate the updated points back to the original orientation
+            bl_rot = rotatePoint((cx, cy), bl, np.radians(angle))
+            br_rot = rotatePoint((cx, cy), br, np.radians(angle))
+            tl_rot = rotatePoint((cx, cy), tl, np.radians(angle))
+            tr_rot = rotatePoint((cx, cy), tr, np.radians(angle))
+            
+            (bl_rot, br_rot, tl_rot, tr_rot)
+
+            # Update the box with the new points
+            self.allboxes[box_name] = [bl_rot, br_rot, tl_rot, tr_rot, width, height, angle, (cx, cy)]
+        else:
+            # Handle non-oriented box (as in your original code)
+            x1, x2 = box[0]
+            y1, y2 = box[1]
+            current_width = abs(x1 - x2)
+            current_height = abs(y1 - y2)
+            height_diff = height - current_height
+            width_diff = width - current_width
+
+            if height_diff != 0 or width_diff != 0:
+                if height_mode == 'Center':
+                    y1 = y1 - height_diff/2
+                    y2 = y2 + height_diff/2
+                elif height_mode == 'Top':
+                    y1 = y1 - height_diff
+                elif height_mode == 'Bottom':
+                    y2 = y2 + height_diff
+
+                if width_mode == 'Center':
+                    x1 = x1 - width_diff/2
+                    x2 = x2 + width_diff/2
+                elif width_mode == 'Left':
+                    x1 = x1 - width_diff
+                elif width_mode == 'Right':
+                    x2 = x2 + width_diff
+
+                self.allboxes[box_name] = [(x1, x2), (y1, y2)]
+            
+    def updateBoxDetails(self, box_name, height, width, height_mode, width_mode):
+        box = self.allboxes[box_name]
+        if self.boxtypes[box_name] == 'oriented':
+            bx, by = box[2]
+            current_width = box[3]
+            current_height = box[4]
+            height_diff = height - current_height
+            width_diff = width - current_width
+            angle = box[5]
+            cx, cy = box[6]
+            new_point = rotatePoint((cx, cy), (bx, by), -np.radians(angle))
+            if height_diff != 0 or width_diff != 0:
+                if height_mode == 'Center':
+                    new_height = new_point[1] - height_diff/2
+                elif height_mode == 'Top':
+                    new_height = new_point[1] - height_diff
+                    cy = cy - height_diff/2
+                elif height_mode == 'Bottom':
+                    new_height = new_point[1]
+                    cy = cy + height_diff/2
+                if width_mode == 'Center':
+                    new_width = new_point[0] - width_diff/2
+                elif width_mode == 'Left':
+                    new_width = new_point[0] - width_diff
+                    cx = cx - width_diff/2
+                elif width_mode == 'Right':
+                    new_width = new_point[0]
+                    cx = cx + width_diff/2
+                translated_point = (new_width, new_height)
+                
+                new_bl = rotatePoint((cx,cy), (translated_point[0], translated_point[1]), np.radians(angle))
+                x1, y1 = translated_point
+                x2 = x1 + width
+                y2 = y1 + height
+                self.allboxes[box_name] = ((x1, x2), (y1, y2), new_bl, width, height, angle, (cx,cy))         
+        else:
+            x1,x2 = box[0]
+            y1,y2 = box[1]
+            current_width = abs(x1 - x2)
+            current_height = abs(y1 - y2)
+            height_diff = height - current_height
+            width_diff = width - current_width
+            
+            if height_diff != 0 or width_diff != 0:
+                print(height_mode)
+                print(width_mode)
+                if height_mode == 'Center':
+                    y1 = y1 - height_diff/2
+                    y2 = y2 + height_diff/2
+                elif height_mode == 'Top':
+                    y1 = y1 - height_diff   
+                elif height_mode == 'Bottom':
+                    y2 = y2 + height_diff
+        
+                if width_mode == 'Center':
+                    x1 = x1 - width_diff/2
+                    x2 = x2 + width_diff/2
+                elif width_mode == 'Left':
+                    x1 = x1 - width_diff
+                elif width_mode == 'Right':
+                    x2 = x2 + width_diff
+    
+                self.allboxes[box_name] = [(x1, x2), (y1, y2)]
+                
+                
+        for artist in self.boxes_on_img[box_name].values():
+            artist.remove()
+        del self.boxes_on_img[box_name]     
+        self.boxes_on_img[box_name] = self.genBoxArtists(box_name, self.allboxes[box_name], self.boxtypes[box_name])
+        self.processImage()
+            
+        
+            
     def keyPressEvent(self, event):
         """
         Manage key press event on keyboard
@@ -1303,7 +1646,8 @@ class ProjectionTracesGUI(QMainWindow):
                 deltay = y - pivot[1]
                 x2 = pivot[0] - deltax
                 y2 = pivot[1] - deltay
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 ax.plot([x, x2], [y, y2], color="r")
                 self.displayImgCanvas.draw_idle()
 
@@ -1320,7 +1664,8 @@ class ProjectionTracesGUI(QMainWindow):
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
 
                 box_angle = func[2][4]
                 angle = np.radians(90 - box_angle)
@@ -1601,8 +1946,32 @@ class ProjectionTracesGUI(QMainWindow):
         if x is not None and y is not None:
             x = int(round(x))
             y = int(round(y))
+            unit = "px"
+            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                if 'center' in self.calSettings and self.calSettings['center'] is not None:
+                    center = self.calSettings['center']
+                else:
+                    center = (self.projProc.info['centerx'], self.projProc.info['centery'])
+                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+                scale = self.calSettings['scale']
+                d = mouse_distance / scale
+                if (d > 0.01):
+                    q = 1.0/d
+                    unit = "nm^-1"
+                else:
+                    q = mouse_distance
+        
+                q = f"{q:.4f}"
+                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                # calib_distance = mouse_distance * 1.0/constant
+                # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
+                else:
+                    mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
+                    mouse_distance = f"{mouse_distance:.4f}"
+                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
@@ -1657,7 +2026,8 @@ class ProjectionTracesGUI(QMainWindow):
         elif func[0] == 'box':
             if len(func) == 1:
                 # cross lines
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 ax.axhline(y, color='y', linestyle='dotted')
                 ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
@@ -1667,7 +2037,8 @@ class ProjectionTracesGUI(QMainWindow):
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
                         ax.patches[i].remove()
                     # ax.patches = ax.patches[:len(self.allboxes.keys())]
-                ax.lines.clear()
+                for line in list(ax.lines):
+                    line.remove()
                 start_pt = func[-1]
                 w = abs(start_pt[0] - x)
                 h = abs(start_pt[1] - y)
@@ -1678,7 +2049,8 @@ class ProjectionTracesGUI(QMainWindow):
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
-            ax.lines.clear()
+            for line in list(ax.lines):
+                    line.remove()
             if len(func) == 1:
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2092,7 +2464,7 @@ class ProjectionTracesGUI(QMainWindow):
                     self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
                     self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
 
-        self.maskThresSpnBx.disconnect() # Avoid an extra run at launch
+        self.maskThresSpnBx.valueChanged.disconnect(self.maskThresChanged) # Avoid an extra run at launch
         if 'mask_thres' in self.projProc.info:
             self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
         elif self.maskThresSpnBx.value() == -999:
@@ -2112,7 +2484,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
             self.centerx, self.centery = center
             if self.qfChkBx.isChecked():
-                self.qfChkBx.disconnect() # Avoid second runs at launch
+                self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked) # Avoid second runs at launch
                 self.qfChkBx.setChecked(False)
                 self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         elif self.center_func == 'quadrant_fold': # default to quadrant folded
@@ -2123,11 +2495,11 @@ class ProjectionTracesGUI(QMainWindow):
             self.centery = self.projProc.info['centery']
             if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
                 self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
-                self.qfChkBx.disconnect()
+                self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
                 self.qfChkBx.setChecked(False)
                 self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         elif self.center_func == 'manual':
-            self.qfChkBx.disconnect()
+            self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
             self.qfChkBx.setChecked(False)
             self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
 
@@ -2149,6 +2521,10 @@ class ProjectionTracesGUI(QMainWindow):
         settings = self.getSettings()
         try:
             self.projProc.process(settings)
+            # self.currentTask = Worker.fromProjProc(self.projProc, settings)
+            # self.currentTask.signals.result.connect(self.thread_done)
+            # self.currentTask.signals.finished.connect(self.thread_finished)
+            # self.threadPool.start(self.currentTask)
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()
@@ -2161,7 +2537,9 @@ class ProjectionTracesGUI(QMainWindow):
             errMsg.setFixedWidth(300)
             errMsg.exec_()
             raise
-
+        
+        print("after")
+        print(self.projProc.info['centerx'], self.projProc.info['centery'])
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
@@ -2169,6 +2547,61 @@ class ProjectionTracesGUI(QMainWindow):
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         QApplication.restoreOverrideCursor()
+
+    def thread_done(self, projProc):
+        if self.lock is not None:
+            print("placing lock")
+            self.lock.acquire()
+        self.projProc = projProc
+        
+        self.onProcessingFinished()
+        
+        if self.lock is not None:
+            print("releasing lock")
+            self.lock.release()
+        
+    # placeholder method 
+    def thread_finished(self):
+        print("thread finished")
+        if self.progressBar.isVisible():
+            self.tasksDone += 1
+            self.progressBar.setValue(int(100. / self.numberOfFiles * self.tasksDone))
+        
+        if not self.tasksQueue.empty():
+            self.startNextTask()
+        else:
+            if self.threadPool.activeThreadCount() == 0:
+                print("all threads are done")
+                self.progressBar.setVisible(False)
+                self.csvManager.sortCSV()
+    
+    def addTask(self, i):
+        params = ProjectionParams(self.dir_path, self.imgList[i], self.fileList, self.ext, self.getSettings())
+        self.tasksQueue.put(params)
+        
+        self.startNextTask()
+            
+    def startNextTask(self):
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
+            params = self.tasksQueue.get()
+            self.currentTask = Worker.fromParams(params)
+            self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.finished.connect(self.thread_finished)
+            self.threadPool.start(self.currentTask)
+    
+    
+    def onProcessingFinished(self):
+        self.resetUI()
+        self.refreshStatusbar()
+        self.cacheBoxesAndPeaks()
+        self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        self.csvManager.writeNewData(self.projProc)
+        self.exportHistograms()
+        
+        QApplication.restoreOverrideCursor()
+        self.currentTask = None
+        print("all done")
+        
 
     def exportHistograms(self):
         """
@@ -2278,8 +2711,10 @@ class ProjectionTracesGUI(QMainWindow):
                 self.projProc.info['centery'] = self.calSettings["center"][1]
                 self.projProc.info['centerx'] = self.calSettings["center"][0]
             else:
-                del self.projProc.info['centerx']
-                del self.projProc.info['centery']
+                if 'centerx' in self.projProc.info and self.center_func != 'manual':
+                    del self.projProc.info['centerx']
+                if 'centery' in self.projProc.info and self.center_func != 'manual':
+                    del self.projProc.info['centery']
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]
 
@@ -2296,9 +2731,12 @@ class ProjectionTracesGUI(QMainWindow):
         self.setLeftStatus( "(" + str(self.current_file + 1) + "/" + str(len(self.imgList)) + ") " + fullPath(self.dir_path,
                                                                                             self.projProc.filename))
         img = self.projProc.orig_img
-        self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
+        if self.calSettings is not None and not self.calSettings:
+            self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
+        elif self.calSettings is not None and self.calSettings:
+            self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype) + " " + "(Image Calibrated)")
         self.pixel_detail.setText("")
-        QApplication.processEvents()
+        # QApplication.processEvents()
 
     def setLeftStatus(self, s):
         """
@@ -2306,7 +2744,7 @@ class ProjectionTracesGUI(QMainWindow):
         :param s: input text (str)
         """
         self.left_status.setText(s)
-        QApplication.processEvents()
+        # QApplication.processEvents()
 
     def resetUI(self):
         """
