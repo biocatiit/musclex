@@ -2550,14 +2550,12 @@ class ProjectionTracesGUI(QMainWindow):
 
     def thread_done(self, projProc):
         if self.lock is not None:
-            print("placing lock")
             self.lock.acquire()
         self.projProc = projProc
         
         self.onProcessingFinished()
         
         if self.lock is not None:
-            print("releasing lock")
             self.lock.release()
         
     # placeholder method 

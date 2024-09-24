@@ -372,6 +372,28 @@ def main(arguments=None):
                 for proc in procs:
                     proc.join()
                     sys.exit()
+                    
+    # elif len(arguments) >= 5 and arguments[1]=='aisme' and arguments[2]=='-h':
+    #     i = 3
+    #     run = True
+    #     while i < len(arguments):
+    #         if arguments[i] == '-s':
+    #             i=i+1
+    #             print("settings file")
+    #         elif arguments[i] == '-f':
+    #             i=i+1
+    #             folder_name = arguments[i]
+    #         elif arguments[i] == '-i':
+    #             i=i+1
+    #             print("file")
+    #         elif arguments[i] == '-g':
+    #             i=i+1
+    #             group_size = int(arguments[i])
+    #         i=i+1
+        
+    #     from musclex.headless.AddIntensitiesExph import AddIntensitiesExph
+    #     if run:
+    #         AddIntensitiesExph(folder_name, group_size)
 
     else:
         run = False

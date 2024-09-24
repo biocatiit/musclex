@@ -49,6 +49,7 @@ from ..modules.EquatorImage import EquatorImage, getCardiacGraph
 from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
+from .ImageMaskTool import ImageMaskerWindow
 from skimage.morphology import binary_dilation
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
@@ -124,11 +125,11 @@ class EquatorWindow(QMainWindow):
         self.del_hist = False
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
-        self.loop = QEventLoop()
         self.currentTask = None
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
+        self.imageMaskingTool = None
         
         self.gap_lines = []
         self.gaps = []
@@ -298,12 +299,6 @@ class EquatorWindow(QMainWindow):
         self.setIntAreaB = QPushButton("Set Box Width")
         self.setIntAreaB.setCheckable(True)
         
-        self.fillGapLinesChkbx = QCheckBox("Fill Gap Lines")
-        self.fillGapLinesChkbx.setChecked(False)
-        self.fillGapLinesLabel = QLabel("Threshold: ")
-        self.fillGapLinesThreshold = QSpinBox()
-        self.fillGapLinesThreshold.setEnabled(False)
-        
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         # self.setIntAreaB.setFixedHeight(45)
@@ -368,9 +363,6 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(self.setRmaxB, 3, 2, 1, 2)
         self.imgProcLayout.addWidget(self.setIntAreaB, 4, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.fillGapLinesChkbx, 5, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fillGapLinesLabel, 5, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fillGapLinesThreshold, 5, 3, 1, 1)
         self.imgProcLayout.addWidget(self.brightSpot, 6, 0, 1, 2)
         self.imgProcLayout.addWidget(self.applyBlank, 7, 0, 1, 2)
         self.imgProcLayout.addWidget(self.blankSettings, 7, 3, 1, 1)
@@ -826,8 +818,6 @@ class EquatorWindow(QMainWindow):
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
-        self.fillGapLinesChkbx.stateChanged.connect(self.fillGapLinesChanged)
-        self.fillGapLinesThreshold.editingFinished.connect(self.fillGapLinesChanged)
         self.brightSpot.clicked.connect(self.brightSpotClicked)
         self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
@@ -945,21 +935,6 @@ class EquatorWindow(QMainWindow):
         #     del self.bioImg.info['hist']
         # self.refitting()
         
-    def fillGapLinesChanged(self):
-        if self.fillGapLinesChkbx.isChecked():
-            self.fillGapLinesThreshold.setEnabled(True)
-            self.bioImg.info['fillGapLines'] = True
-            self.bioImg.info['fillGapLinesThreshold'] = self.fillGapLinesThreshold.value()
-        else:
-            self.fillGapLinesThreshold.setEnabled(False)
-            self.bioImg.info['fillGapLines'] = False
-        
-        if 'center' in self.bioImg.info:
-            del self.bioImg.info['center']
-        if 'rotationAngle' in self.bioImg.info:
-            del self.bioImg.info['rotationAngle']
-        self.refitting()
-        # self.processImage()
         
     def fittingErrorChanged(self):
         self.bioImg.fitting_error = self.fittingErrorThreshold.value()
@@ -1243,9 +1218,31 @@ class EquatorWindow(QMainWindow):
         """
         Trigger when Set Blank Image and Mask clicked
         """
-        dlg = BlankImageSettings(self.dir_path)
-        result = dlg.exec_()
-        if result == 1 and self.bioImg is not None:
+        # dlg = BlankImageSettings(self.dir_path)
+        # result = dlg.exec_()
+        # if result == 1 and self.bioImg is not None:
+        #     self.resetAll()
+        
+        if self.imageMaskingTool is None:
+            isH5 = False
+            if self.h5List:
+                fileName = self.h5List[self.h5index]
+                isH5 = True
+            else:
+                fileName = self.imgList[self.currentImg]
+            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , os.path.join(self.dir_path, fileName), self.minIntSpnBx.value(), self.maxIntSpnBx.value(), isH5)
+            
+        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
+            if os.path.exists(os.path.join(os.path.join(self.dir_path, 'settings'), 'blank_image_settings.json')):
+                with open(os.path.join(os.path.join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
+                    info = json.load(f)
+                    if 'path' in info:
+                        img = fabio.open(info['path']).data
+                        fabio.tifimage.tifimage(data=img).write(os.path.join(os.path.join(self.dir_path, 'settings'),'blank.tif'))    
+            else:
+                if os.path.exists(os.path.join(os.path.join(self.dir_path, 'settings'), 'mask.tif')):
+                    os.rename(os.path.join(os.path.join(self.dir_path, 'settings'), 'mask.tif'), os.path.join(os.path.join(self.dir_path, 'settings'), 'maskonly.tif'))
+                    
             self.resetAll()
 
     def graphZoomIn(self):
@@ -1977,7 +1974,6 @@ class EquatorWindow(QMainWindow):
             self.fixedRminChkBx.setChecked(False)
             self.fixedRmaxChkBx.setChecked(False)
             self.fixedIntAreaChkBx.setChecked(False)
-            self.fillGapLinesChkbx.setChecked(False)
             self.bioImg.removeInfo()
             self.bioImg.delCache()
             self.processImage()
@@ -3825,8 +3821,6 @@ class EquatorWindow(QMainWindow):
             self.maxIntSpnBx.setValue(max_val * 0.20)
         self.syncUI = False
         
-        self.fillGapLinesThreshold.setMinimum(int(min_val))
-        self.fillGapLinesThreshold.setValue(-1)
 
     def refreshGraph(self):
         """
@@ -3922,9 +3916,7 @@ class EquatorWindow(QMainWindow):
         Draw all UI in image tab
         """
         info = copy.copy(self.bioImg.info)
-        # if self.fillGapLinesChkbx.isChecked():
-        #     img = self.bioImg.getRotatedImage(img=self.bioImg.orig_img)
-        # else:
+
         img = self.bioImg.getRotatedImage()
         #disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         hulls = info['hulls']['all']

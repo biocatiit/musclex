@@ -101,7 +101,7 @@ class EquatorImage:
         if cache is None:
             # info dictionary will save all results
             self.info = {
-                "mask_thres" : -0.01 #getMaskThreshold(self.orig_img)
+                "mask_thres" : 0 #getMaskThreshold(self.orig_img)
             }
         else:
             self.info = cache
@@ -236,22 +236,19 @@ class EquatorImage:
         """
         Subtract the original image with blank image and set pixels in mask below the mask threshold
         """
-        # Temporary code to fill sensor gaps in the image if toggled
-        if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
-            img = self.fill_sensor_gaps_propagate(self.orig_img, self.info['fillGapLinesThreshold'])
-        else:
-            img = np.array(self.orig_img, dtype='float32')
-        if self.info['blank_mask']:
+        img = np.array(self.orig_img, dtype='float32')
+        if 'blank_mask' in self.info and self.info['blank_mask']:
             blank, mask = getBlankImageAndMask(self.dir_path)
             maskOnly = getMaskOnly(self.dir_path)
-            # print(maskOnly)
             if blank is not None:
                 img = img - blank
             if mask is not None:
-                img[mask>0] = self.info['mask_thres']-1
+                # img[mask>0] = self.info['mask_thres']-1
+                img = img * mask
             if maskOnly is not None:
                 print("Applying mask only image")
-                img[maskOnly>0] = self.info['mask_thres']-1
+                # img[maskOnly>0] = self.info['mask_thres']-1
+                img = img * maskOnly
 
         self.image = img
 

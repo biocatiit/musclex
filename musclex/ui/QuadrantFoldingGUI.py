@@ -46,6 +46,7 @@ from ..modules.QuadrantFolder import QuadrantFolder
 from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
+from .ImageMaskTool import ImageMaskerWindow
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 
@@ -141,6 +142,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
+        self.imageMaskingTool = None
         
         self.rotationAngle = None
 
@@ -916,14 +918,43 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Trigger when Set Blank Image and Mask clicked
         """
-        dlg = BlankImageSettings(self.filePath)
-        result = dlg.exec_()
-        if result == 1 and self.quadFold is not None:
+        # dlg = BlankImageSettings(self.filePath)
+        # result = dlg.exec_()
+        # if result == 1 and self.quadFold is not None:
+        #     self.quadFold.delCache()
+        #     fileName = self.imgList[self.currentFileNumber]
+        #     self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+        #     self.masked = False
+        #     self.processImage()
+        
+        if self.imageMaskingTool is None:
+            isH5 = False
+            if self.h5List:
+                fileName = self.h5List[self.h5index]
+                isH5 = True
+            else:
+                fileName = self.imgList[self.currentFileNumber]
+            
+            self.imageMaskingTool = ImageMaskerWindow(self.filePath , join(self.filePath, fileName), self.spminInt.value(), self.spmaxInt.value(), isH5)
+            
+            
+        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
+            if os.path.exists(join(join(self.filePath, 'settings'), 'blank_image_settings.json')):
+                with open(join(join(self.filePath, 'settings'), 'blank_image_settings.json'), 'r') as f:
+                    info = json.load(f)
+                    if 'path' in info:
+                        img = fabio.open(info['path']).data
+                        fabio.tifimage.tifimage(data=img).write(join(join(self.filePath, 'settings'),'blank.tif'))    
+            else:
+                if os.path.exists(join(join(self.filePath, 'settings'), 'mask.tif')):
+                    os.rename(join(join(self.filePath, 'settings'), 'mask.tif'), join(join(self.filePath, 'settings'), 'maskonly.tif'))
+                    
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
             self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.masked = False
             self.processImage()
+                
 
     def getRectanglePatch(self, center, w, h):
         """
