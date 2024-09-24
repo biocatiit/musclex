@@ -37,7 +37,7 @@ import fabio
 # import pygpufit.gpufit as gf
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel
-from scipy.integrate import simps
+from scipy.integrate import simpson as simps
 from sklearn.metrics import r2_score
 from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
