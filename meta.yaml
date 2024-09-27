@@ -53,18 +53,18 @@ requirements:
     - PyMca ==5.9.3
     - setuptools<60.0.0
     - numexpr ==2.8.4
-# test:
-#   imports:
-#     - dev_docs
-#     - docs
-#     - hooks
-#     - musclex
-#   commands: 
-#     - pip check 
-#     - musclex --help
-#     - musclex-launcher --help
-#   requires:
-#     - pip
+test:
+  imports:
+    - dev_docs
+    - docs
+    - hooks
+    - musclex
+  commands: 
+    - pip check 
+    - musclex --help
+    - musclex-launcher --help
+  requires:
+    - pip
 
 about:
   home: https://github.com/biocatiit/musclex
