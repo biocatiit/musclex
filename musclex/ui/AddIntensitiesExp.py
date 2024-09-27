@@ -579,13 +579,20 @@ class AddIntensitiesExp(QMainWindow):
         selectFolderAction = QAction('Select a Folder...', self)
         selectFolderAction.setShortcut('Ctrl+F')
         selectFolderAction.triggered.connect(self.browseFolder)
+        
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+        
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectFolderAction)
+        fileMenu.addAction(saveSettingsAction)
         aboutAct = QAction('About', self)
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
+        
         
         # AISE/AIME Differences here
         if self.mode == 'aime':
@@ -649,6 +656,46 @@ class AddIntensitiesExp(QMainWindow):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
         
+    def saveSettings(self):
+        settings = {}
+        if self.customImageSequence:
+            print("handle custom")
+        else:
+            settings['nbOfFrames'] = self.nbOfFrames
+            
+        if self.useMaskChkBx.isChecked():
+            settings['maskPath'] = self.maskPath
+            settings['drawnMask'] = self.drawnMask
+            settings['computedMask'] = self.computedMask    
+            
+        if self.blankImageSettings is not None:
+            settings['blankImageSettings'] = self.blankImageSettings
+            
+        if self.calSettings is not None:
+            settings['calSettings'] = self.calSettings
+            
+        if self.compressChkBx.isChecked():
+            settings['compress'] = True
+        else:
+            settings['compress'] = False
+            
+        if self.avgInsteadOfSum.isChecked():
+            settings['avgInsteadOfSum'] = True
+        else:
+            settings['avgInsteadOfSum'] = False
+            
+        if self.calibrationChkBx.isChecked():
+            if os.path.exists(join(join(self.dir_path, 'settings'), 'calibrationDialog.json')):
+                with open(join(join(self.dir_path, 'settings'), 'calibrationDialog.json'), 'r') as f:
+                    self.calSettings = json.load(f)
+                    
+                settings['calSettings'] = self.calSettings 
+        
+        print(settings)
+        filename = getSaveFile(os.path.join("musclex", "settings", "aismesettings.json"), None)
+        if filename != "":
+            with open(filename, 'w') as f:
+                json.dump(settings, f)
             
     def drawPerpendiculars(self, ax):
         """

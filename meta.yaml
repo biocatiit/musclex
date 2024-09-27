@@ -1,5 +1,5 @@
 {% set name = "musclex" %}
-{% set version = "1.24.1" %}
+{% set version = "1.24.0" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/musclex-{{ version }}.tar.gz
-  sha256: 3272d8896aa0ff25f26212a6ee45a38af6e61e96ea71f9ec3ca8b42e765650d8
+  sha256: aa382cb65b18d74e985833f58112df6a8c29e9041a65d226fd7cec6aa1670220
 
 build:
   entry_points:
