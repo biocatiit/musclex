@@ -1,8 +1,9 @@
 import sys
 import json
 import os
-from os.path import splitext, join, exists
+from os.path import splitext, join, exists, dirname
 import traceback
+import collections
 import fabio
 import multiprocessing
 import csv
@@ -24,10 +25,11 @@ def init(l):
     
 
 class AddIntensitiesExph:
-    def __init__(self, path, settings_path, mode):
+    def __init__(self, path, settings_path, type, mode):
         self.path = path
         self.settings_path = settings_path
         self.mode = mode
+        self.type = type
         self.settings = None
         
         # Settings
@@ -37,6 +39,8 @@ class AddIntensitiesExph:
         
         
         self.image_files = []
+        self.file_names = []
+        self.file_name_groups = []
         self.added_images = []
 
         self.loadSettings()
@@ -54,105 +58,157 @@ class AddIntensitiesExph:
                 self.calSettings = self.settings['calSettings']
             if 'blankImageSettings' in self.settings:
                 self.blankImageSettings = self.settings['blankImageSettings']
-            self.nbOfFrames = self.settings['nbOfFrames']
+                
+            if 'custom' in self.settings:
+                print("handle custom")
+            else:
+                self.nbOfFrames = self.settings['nbOfFrames']
             
             
     def loadImages(self):
-        if self.mode == 'folder':
-            self.image_files = sorted([f for f in os.listdir(self.path) if f.endswith(('tif', 'tiff'))])
+        if self.mode == 'aise':
+            if self.type == 'folder':
+                self.image_files = sorted([f for f in os.listdir(self.path) if f.endswith(('tif', 'tiff'))])
+                self.file_name_groups = [[] for _ in range(len(self.image_files))]
+            elif self.type == 'file':
+                with fabio.open(self.path) as series:
+                    for frame in series.frames():
+                        self.image_files.append(ifHdfReadConvertless(self.path, frame.data).astype(np.float32))
+                        namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                        temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                        self.file_names.append(temp_filename)
+                self.file_name_groups = [self.file_names[i:i+self.nbOfFrames] for i in range(0, len(self.file_names), self.nbOfFrames)]
         
-        if len(self.image_files) % self.nbOfFrames != 0:
-            print(f"Warning: Total number of images ({len(self.image_files)}) is not a multiple of the group size ({self.nbOfFrames}). Some images will be excluded.")
-    
-        self.image_groups = [self.image_files[i:i+self.nbOfFrames] for i in range(0, len(self.image_files), self.nbOfFrames)]
-        print(self.image_groups)
-        # self.added_images = []
+            if len(self.image_files) % self.nbOfFrames != 0:
+                print(f"\nWarning: Total number of images ({len(self.image_files)}) is not a multiple of the group size ({self.nbOfFrames}). Some images will be excluded.")
         
-        # for group in image_groups:
-        #     sum_img = 0
-        #     for image in group:
-        #         img = fabio.open(join(self.path, image)).data.astype(np.float32)
-        #         if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
-        #             sum_img = resizeImage(sum_img, img.shape)
-        #         elif not isinstance(sum_img, int):
-        #             img = resizeImage(img, sum_img.shape)
-        #         sum_img += img
-        #     self.added_images.append(sum_img)
-        # self.saveImages()
+            self.image_groups = [self.image_files[i:i+self.nbOfFrames] for i in range(0, len(self.image_files), self.nbOfFrames)]
+            
+            if self.type == 'folder':
+                grps = self.image_groups
+            else:
+                grps = self.file_name_groups
+            detail = "Available Groups : \n"
+            if len(grps) >= 1:
+                for (i, grp) in enumerate(grps):
+                    detail += "Group "+ str(i+1)+ " : " + str(grp[0]) + " ... " + str(grp[-1]) + '\n'
+
+            print(detail)
+        else:
+            self.folder_paths = []
+            self.fileList = []
+            self.orig_imgs = []
+            self.ignore_files = ['_results', 'settings']
+            self.numberToFilesMap = collections.defaultdict(list)
+            self.numberToFilesMapPath = collections.defaultdict(list)
+            self.isHdf5 = False
+            for fname in os.listdir(self.path):
+                isDataFile = True
+                f = os.path.join(self.path, fname)
+                if isImg(f):
+                    self.folder_paths.append(fname)
+                    i = -1
+                    name = fname.split('.')[0]
+                    number = name.split('_')[i]
+                    if fname.split('.')[1] in ['h5', 'hdf5']:
+                        self.isHdf5 = True
+                        isDataFile = False
+                    while not number.isnumeric():
+                        i -= 1
+                        number = name.split('_')[i]
+                    if self.isHdf5:
+                        for n in name.split('_'):
+                            if n == 'data':
+                                isDataFile = True
+                    if isDataFile:
+                        if self.isHdf5:
+                            self.fileList.append(f)
+                            with fabio.open(f) as series:
+                                for frame in series.frames():
+                                    namefile = os.path.split(frame.file_container.filename)[1].split('.')
+                                    temp_filename = namefile[0] + '_%05i.' %(frame.index + 1) + namefile[1]
+                                    self.numberToFilesMap[frame.index].append(temp_filename)
+                                    self.numberToFilesMapPath[frame.index].append(ifHdfReadConvertless(self.path, frame.data).astype(np.float32))
+                        else:
+                            self.numberToFilesMap[int(number) - 1].append(f)
+                        self.numberToFilesMap[int(number) - 1].sort()
+                else:
+                    if not any(ignore_str in fname for ignore_str in self.ignore_files):
+                        temp_path = os.path.join(self.path, fname)
+                        self.folder_paths.append(temp_path)
+                        if os.path.isdir(temp_path):
+                            i = 0
+                            for fname2 in os.listdir(temp_path):
+                                if isImg(fname2):
+                                    self.numberToFilesMap[i].append(fname2)
+                                    self.numberToFilesMapPath[i].append(os.path.join(temp_path, fname2))
+                                i += 1
         
     def startProcessing(self):
-        output_dir = join(self.path, 'aise_results')
-        createFolder(output_dir)
-        l = multiprocessing.Lock()
-        with multiprocessing.Pool(initializer=init, initargs=(l,) , processes=multiprocessing.cpu_count()) as pool:
-            pool.map(addImageChunk, [(group, self.settings, self.path, output_dir, i) for i, group in enumerate(self.image_groups)])
         
-        # Sort the CSV when its done
-        
-        file_path = join(output_dir, 'intensities.csv')
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-            df = df.sort_values(by=['Filename'])
-            df.to_csv(file_path, index=False)
-        
-        
-    def processImage(self):
-        print("placeholder")
+        if self.mode == 'aise':
+            if self.type == 'folder':
+                output_dir = join(self.path, 'aise_results')
+            else:
+                output_dir = join(dirname(self.path), 'aise_results')
+            createFolder(output_dir)
+            l = multiprocessing.Lock()
             
-    def saveImages(self):
-        folder_path = join(self.path, 'aise_results')
-        createFolder(folder_path)
-        for i, img in enumerate(self.added_images):
-            file_name = "output_" + str(i) + ".tif"
-            result_path = join(folder_path, file_name)
+            with multiprocessing.Pool(initializer=init, initargs=(l,) , processes=multiprocessing.cpu_count()) as pool:
+                pool.map(addImageChunk, [(group, self.settings, self.path, output_dir, i, self.file_name_groups[i], self.mode) for i, group in enumerate(self.image_groups)])
             
-            tiff_image = fabio.tifimage.tifimage(data=img)
-            tiff_image.write(result_path)
+            # Sort the CSV when its done
+            
+            file_path = join(output_dir, 'intensities.csv')
+            if os.path.exists(file_path):
+                df = pd.read_csv(file_path)
+                df = df.sort_values(by=['Filename'])
+                df.to_csv(file_path, index=False)
+                
+            print("Processing done. Results saved in aise_results")
+        else:
+            output_dir = join(self.path, 'aime_results')
+            createFolder(output_dir)
+            l = multiprocessing.Lock()
+            if self.isHdf5:
+                with multiprocessing.Pool(initializer=init, initargs=(l,) , processes=multiprocessing.cpu_count()) as pool:
+                    pool.map(addImageChunk, [ (group, self.settings, self.path, output_dir, i, [5,6,7,8], self.mode) for (i, group) in self.numberToFilesMapPath.items()])
+            else:
+                with multiprocessing.Pool(initializer=init, initargs=(l,) , processes=multiprocessing.cpu_count()) as pool:
+                    pool.map(addImageChunk, [ (group, self.settings, self.path, output_dir, i, [], self.mode) for (i, group) in self.numberToFilesMapPath.items()])
+
+            print("Processing done. Results saved in aime_results")
             
 def addImageChunk(args):
-    chunk, settings, path, output, index = args
+    chunk, settings, path, output, index, filenames, mode = args
     
     if len(chunk) > 0:
-        first = chunk[0]
-        last = chunk[-1]
-        f_ind1 = first.rfind('_')
-        f_ind2 = first.rfind('.')
-        l_ind1 = last.rfind('_')
-        l_ind2 = last.rfind('.')
-
-        if f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1 or first[:f_ind1] != last[:l_ind1]:
-            filename = "group_"+str(index + 1).zfill(5)+'.tif'
-        else:
-            filename = first[:f_ind1] + "_"
-            filename += first[f_ind1 + 1:f_ind2]
-            filename += "_"
-            filename += last[l_ind1 + 1:l_ind2]
-            filename += '.tif'
-
-        sum_img = 0
-        orig_img = None
-        mask = None
-        
-        if settings['avgInsteadOfSum'] == True:
-            images = []
-            for img_path in chunk:
-                img = fabio.open(join(path, img_path)).data.astype(np.float32)
-                images.append(img)
-            
-            if 'detector' in settings:
-                sum_img = averageImages(images, preprocessed=True, man_det=settings['detector'])
+        if mode == 'aise':
+            if len(filenames) > 0:
+                first = filenames[0]
+                last = filenames[-1]
             else:
-                sum_img = averageImages(images, preprocessed=True)
-            
+                first = chunk[0]
+                last = chunk[-1]
+            f_ind1 = first.rfind('_')
+            f_ind2 = first.rfind('.')
+            l_ind1 = last.rfind('_')
+            l_ind2 = last.rfind('.')
+
+            if f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1 or first[:f_ind1] != last[:l_ind1]:
+                filename = "group_"+str(index + 1).zfill(5)+'.tif'
+            else:
+                filename = first[:f_ind1] + "_"
+                filename += first[f_ind1 + 1:f_ind2]
+                filename += "_"
+                filename += last[l_ind1 + 1:l_ind2]
+                filename += '.tif'
         else:
-            for img_path in chunk:
-                img = fabio.open(join(path, img_path)).data.astype(np.float32)
-                
-                if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
-                    sum_img = resizeImage(sum_img, img.shape)
-                elif not isinstance(sum_img, int):
-                    img = resizeImage(img, sum_img.shape)
-                sum_img += img
+            filename = "result_group_" + str(index + 1).zfill(5) + ".tif"
+
+        sum_img = generateSumIng(chunk, settings, path, filenames, mode)
+        orig_img = None
+        mask = None 
 
         if 'blankImageSettings' in settings:
             if settings['blankImageSettings']['subtractBlank'] == True:
@@ -188,44 +244,82 @@ def addImageChunk(args):
                 fabio.tifimage.tifimage(orig_img).write(os.path.join(output, filename))
             else:
                 fabio.tifimage.tifimage(sum_img).write(os.path.join(output, filename))
+        
+        
+        if mode == 'aise':
+            # Generate CSV data
+            nonmaskedPixels = 0
+            orig_img_intensity = 0
+            img_with_mask_intensity = 0
+            weight = 0
                 
-        # Generate CSV data
-        nonmaskedPixels = 0
-        orig_img_intensity = 0
-        img_with_mask_intensity = 0
-        weight = 0
+            if orig_img is not None:
+                orig_img_intensity = np.sum(orig_img)
+            else:
+                orig_img_intensity = np.sum(sum_img)
+                
+            if mask is not None:
+                nonmaskedPixels = np.sum(mask == 1)
+                img_with_mask_intensity = np.sum(sum_img)
+            else:
+                img_with_mask_intensity = orig_img_intensity
             
-        if orig_img is not None:
-            orig_img_intensity = np.sum(orig_img)
-        else:
-            orig_img_intensity = np.sum(sum_img)
+            dateString = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
             
-        if mask is not None:
-            nonmaskedPixels = np.sum(mask == 1)
-            img_with_mask_intensity = np.sum(sum_img)
-        else:
-            img_with_mask_intensity = orig_img_intensity
-        
-        dateString = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        
-        # Masked Image Intensity (average) = Masked Image Intensity (Total) / Number of Pixels Not Masked
-        average_mask = img_with_mask_intensity / nonmaskedPixels
-        
-        if 'blankImageSettings' in settings:
-            weight = settings['blankImageSettings']['weight']
+            # Masked Image Intensity (average) = Masked Image Intensity (Total) / Number of Pixels Not Masked
+            average_mask = img_with_mask_intensity / nonmaskedPixels
             
-        if 'drawnMask' in settings:
-            drawnMask = settings['drawnMask']
-        else:
-            drawnMask = False
+            if 'blankImageSettings' in settings:
+                weight = settings['blankImageSettings']['weight']
+                
+            if 'drawnMask' in settings:
+                drawnMask = settings['drawnMask']
+            else:
+                drawnMask = False
+                
+            if 'computedMask' in settings:
+                computedMask = settings['computedMask']
+            else:
+                computedMask = False
             
-        if 'computedMask' in settings:
-            computedMask = settings['computedMask']
-        else:
-            computedMask = False
+            data = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, average_mask, weight, settings['nbOfFrames'], drawnMask, computedMask]
+            writeCSV(output, data)
         
-        data = [filename, dateString, orig_img_intensity, img_with_mask_intensity, nonmaskedPixels, average_mask, weight, settings['nbOfFrames'], drawnMask, computedMask]
-        writeCSV(output, data)
+def generateSumIng(chunk, settings, path, filenames, mode):
+    sum_img = 0
+    img = 0
+    if settings['avgInsteadOfSum'] == True:
+        images = []
+        if len(filenames) > 0:
+            images = chunk
+        else:
+            for img_path in chunk:
+                img = fabio.open(join(path, img_path)).data.astype(np.float32)
+                images.append(img)
+        
+        if 'detector' in settings:
+            sum_img = averageImages(images, preprocessed=True, man_det=settings['detector'])
+        else:
+            sum_img = averageImages(images, preprocessed=True)
+        
+    else:
+        for img_path in chunk:
+            if len(filenames) > 0:
+                img = img_path
+            else:
+                if mode == 'aise':
+                    img = fabio.open(join(path, img_path)).data.astype(np.float32)
+                elif mode == 'aime':
+                    img = fabio.open(img_path).data.astype(np.float32)
+            
+            if not isinstance(sum_img, int) and (img.shape[0] > sum_img.shape[0] or img.shape[1] > sum_img.shape[1]):
+                sum_img = resizeImage(sum_img, img.shape)
+            elif not isinstance(sum_img, int):
+                img = resizeImage(img, sum_img.shape)
+            sum_img += img
+            
+    return sum_img
+            
         
 def writeCSV(output_dir, data):
     file_path = join(output_dir, 'intensities.csv')

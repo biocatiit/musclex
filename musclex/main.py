@@ -376,6 +376,7 @@ def main(arguments=None):
     elif len(arguments) >= 5 and arguments[1]=='aisme' and arguments[2]=='-h':
         i = 3
         run = True
+        type = ''
         mode = ''
         settings_file = None
         while i < len(arguments):
@@ -385,11 +386,14 @@ def main(arguments=None):
             elif arguments[i] == '-f':
                 i=i+1
                 paths = arguments[i]
-                mode = 'folder'
+                type = 'folder'
             elif arguments[i] == '-i':
                 i=i+1
                 paths = arguments[i]
-                mode = 'file'
+                type = 'file'
+            elif arguments[i] == '-m':
+                i=i+1
+                mode = arguments[i]
             i=i+1
         
         if settings_file is None:
@@ -397,7 +401,7 @@ def main(arguments=None):
         
         from musclex.headless.AddIntensitiesExph import AddIntensitiesExph
         if run:
-            AddIntensitiesExph(paths, settings_file, mode)
+            AddIntensitiesExph(paths, settings_file, type, mode)
 
     else:
         run = False

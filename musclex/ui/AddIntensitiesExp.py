@@ -175,10 +175,6 @@ class AddIntensitiesExp(QMainWindow):
             
             self.info = {}
             self.orig_image_center = None
-            self.maskData = None
-            self.blankImageSettings = None
-            self.drawnMask = False
-            self.computedMask = False
             self.csvInfo = []
             self.calibrationDialog = None
         
@@ -197,6 +193,11 @@ class AddIntensitiesExp(QMainWindow):
         self.resultAxes = None
         
         self.imageMaskingTool = None
+        self.maskData = None
+        self.blankImageSettings = None
+        self.drawnMask = False
+        self.computedMask = False
+        
         self.misaligned_images = []
         self.function = None
         self.currentFileNumber = 0
@@ -658,10 +659,16 @@ class AddIntensitiesExp(QMainWindow):
         
     def saveSettings(self):
         settings = {}
-        if self.customImageSequence:
-            print("handle custom")
-        else:
-            settings['nbOfFrames'] = self.nbOfFrames
+        if self.mode == 'aise':
+            if self.customImageSequence:
+                print("handle custom")
+            else:
+                settings['nbOfFrames'] = self.nbOfFrames
+        elif self.mode == 'aime':
+            if self.customSelection:
+                print("handle custom")
+            else:
+                settings['nbOfFrames'] = self.nbOfExposures
             
         if self.useMaskChkBx.isChecked():
             settings['maskPath'] = self.maskPath

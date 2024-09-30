@@ -1,0 +1,4 @@
+Filename,Date,Original Image Intensity (Total),Masked Image Intensity (Total),Number of Pixels Not Masked,Masked Image Intensity (Average),Blank Image Weight,Binning Factor,Drawn Mask,Computed Mask
+P40_1_3_00000_00001.tif,09/30/2024 15:14:55,5055912.0,5055912.0,0,inf,0,2,False,False
+P40_1_3_00002_00003.tif,09/30/2024 15:14:56,4798515.0,4798515.0,0,inf,0,2,False,False
+P40_1_3_00004_00005.tif,09/30/2024 15:14:56,4896810.0,4896810.0,0,inf,0,2,False,False

@@ -41,11 +41,13 @@ try:
     from ..headless.QuadrantFoldingh import QuadrantFoldingh
     from ..headless.DIImageWindowh import DIImageWindowh
     from ..headless.ProjectionTracesh import ProjectionTracesh
+    from ..headless.AddIntensitiesExph import AddIntensitiesExph
 except: # for coverage
     from headless.EQStartWindowh import EQStartWindowh
     from headless.QuadrantFoldingh import QuadrantFoldingh
     from headless.DIImageWindowh import DIImageWindowh
     from headless.ProjectionTracesh import ProjectionTracesh
+    from headless.AddIntensitiesExph import AddIntensitiesExph
 
 N = 4 # number of significant digits
 ignore_columns = []  # Columns to ignore, 1-based index
@@ -487,12 +489,41 @@ class MuscleXGlobalTester(unittest.TestCase):
         # Remove cache folders
         if os.path.exists(os.path.join(pilatus_dir, "pt_cache")):
             shutil.rmtree(os.path.join(pilatus_dir, "pt_cache"))
+            
+    def testHeadlessAISE(self):
+        aise_dir = os.path.join(self.currdir, "test_images")
+        aise_settings = os.path.join(self.currdir, "test_images", "aismesettings.json")
+        
+        AddIntensitiesExph(aise_dir, aise_settings, 'folder', 'aise')
+        
+        print(f"\033[3;33m\nVerifying that generated headless AISE is equivalent to GUI AISE\033[0;3140m")
+        generated_results = os.path.join(aise_dir, "aise_results", "intensities.csv")
+        release_results = os.path.join(self.currdir, "testResults", "AISEimages", "intensities.csv")
+        
+        pass_test = True
+        
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=[2], sort_key=sort_key, rtol=1, atol=1e-3)
+        
+        if not pass_test:
+            print(f"\nTesting AISEHeadless on {aise_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
+        else:
+            print(f"Testing AISEHeadless on {aise_dir} ..... \033[0;32mPASSED\033[0;3140m")
+            
+        self.log_results(pass_test, "AISE Results")
+        self.assertTrue(pass_test,"AISE Image Headless Test for images failed.")
+        
+        results_dir = os.path.join(aise_dir, "aise_results")
+        if os.path.exists(results_dir):
+            shutil.rmtree(results_dir)
 
     ############################
     def log_results(self, pass_test, testname):
         """
         Save the result in the log file
-        """
+        """ 
         if pass_test:
             result = 'pass'
         else:
