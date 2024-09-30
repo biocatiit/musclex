@@ -26,7 +26,7 @@ requirements:
     - python 3.10.*
     - pip
     - wheel
-    - numpy==1.26.4
+    - numpy==1.26.4, <2
     - cython <=0.29.37
     - scikit-image
     - scikit-learn
@@ -53,18 +53,12 @@ requirements:
     - PyMca ==5.9.3
     - setuptools<60.0.0
     - numexpr ==2.8.4
-# test:
-#   imports:
-#     - dev_docs
-#     - docs
-#     - hooks
-#     - musclex
-#   commands: 
-#     - pip check 
-#     - musclex --help
-#     - musclex-launcher --help
-#   requires:
-#     - pip
+test:
+  imports:
+
+  commands: 
+
+  requires:
 
 about:
   home: https://github.com/biocatiit/musclex
