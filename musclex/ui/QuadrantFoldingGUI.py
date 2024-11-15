@@ -68,18 +68,29 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params):
+    def __init__(self, params, fixed_center_checked, persist_center):
         super().__init__()
         self.flags = params.flags
         self.params = params
         self.signals = WorkerSignals()
         self.lock = Lock()
+
+        #NA
+        self.fixedCenterChecked = fixed_center_checked
+        self.persist_center = persist_center
         
     @Slot()
     def run(self):
         try:
             self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
             self.quadFold.info = {}
+
+            #NA
+            if self.persist_center is not None:
+                print("PREVIOUS INFO:" + str(self.persist_center))
+                self.quadFold.info['calib_center'] = self.persist_center
+
+
             self.quadFold.process(self.flags)
             if self.lock is not None:
                 self.lock.acquire()
@@ -151,6 +162,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.dontShowAgainDoubleZoomMessageResult = False
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
+
+        #NA
+        #Used for when the same center needs to be used to process a folder
+        self.persistedCenter = None
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
@@ -2678,15 +2693,17 @@ class QuadrantFoldingGUI(QMainWindow):
             
     def thread_done(self, quadFold):
         
-        if self.lock is not None:
-            self.lock.acquire()
+        #NA
+        #if self.lock is not None:
+            #self.lock.acquire()
             
         self.quadFold = quadFold
             
         self.onProcessingFinished()
         
-        if self.lock is not None:
-            self.lock.release()
+        #NA
+        #if self.lock is not None:
+            #self.lock.release()
     
     # placeholder method
     def thread_finished(self):
@@ -2711,7 +2728,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setEnabled(False)
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params)
+            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             
@@ -3058,8 +3075,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
         flags = self.getFlags()
         text += "\nCurrent Settings"
-        if 'center' in flags:
-            text += "\n  - Center : " + str(flags["center"])
+
+        #Print Center on popup window
+        if self.calSettingsDialog.fixedCenter.isChecked() and self.calSettings['center'] is not None:
+            self.persistedCenter = self.calSettings['center']
+            text += "\n  - Center : " + str(self.persistedCenter)
+
         if len(self.ignoreFolds) > 0:
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
