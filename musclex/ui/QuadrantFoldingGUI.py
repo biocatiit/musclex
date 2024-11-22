@@ -50,6 +50,9 @@ from .ImageMaskTool import ImageMaskerWindow
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 
+import time
+import random
+
 class QuadFoldParams:
     def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         self.flags = flags
@@ -68,7 +71,7 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params, fixed_center_checked, persist_center):
+    def __init__(self, params, fixed_center_checked, persist_center, qf_lock):
         super().__init__()
         self.flags = params.flags
         self.params = params
@@ -78,6 +81,9 @@ class Worker(QRunnable):
         #NA
         self.fixedCenterChecked = fixed_center_checked
         self.persist_center = persist_center
+
+        #NA
+        self.qf_lock = qf_lock
         
     @Slot()
     def run(self):
@@ -85,19 +91,20 @@ class Worker(QRunnable):
             self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
             self.quadFold.info = {}
 
-            #NA
-            if self.persist_center is not None:
-                print("PREVIOUS INFO:" + str(self.persist_center))
-                self.quadFold.info['calib_center'] = self.persist_center
-
+            #NICK ALLISON
+            #pass persisted center data to quadfold object
+            if self.fixedCenterChecked:
+                self.quadFold.fixedCenterX = self.persist_center[0]
+                self.quadFold.fixedCenterY = self.persist_center[1]
 
             self.quadFold.process(self.flags)
-            if self.lock is not None:
-                self.lock.acquire()
+
+            if self.qf_lock is not None:
+                self.qf_lock.acquire()
             with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
                 file.write(self.quadFold.img_name + " saving image"+ "\n")
-            if self.lock is not None:
-                self.lock.release()
+            if self.qf_lock is not None:
+                self.qf_lock.release()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -153,6 +160,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
+        self.qf_lock = Lock()
         self.imageMaskingTool = None
         
         self.rotationAngle = None
@@ -2587,16 +2595,19 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.quadFold is None:
             return [0,0], (0,0)
-        if self.quadFold.orig_image_center is None:
+        if self.quadFold.orig_image_center is None and (self.quadFold.fixedCenterX is None or self.quadFold.fixedCenterY is None):
             self.quadFold.findCenter()
             self.statusPrint("Done.")
-        if 'calib_center' in self.quadFold.info:
+        if self.quadFold.fixedCenterX is not None and self.quadFold.fixedCenterY is not None:
+            center = []
+            center.append(self.quadFold.fixedCenterX)
+            center.append(self.quadFold.fixedCenterY)
+        elif 'calib_center' in self.quadFold.info:
             center = self.quadFold.info['calib_center']
         elif 'manual_center' in self.quadFold.info:
             center = self.quadFold.info['manual_center']
         else:
             center = self.quadFold.orig_image_center
-            
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
         return extent, center
 
@@ -2693,17 +2704,15 @@ class QuadrantFoldingGUI(QMainWindow):
             
     def thread_done(self, quadFold):
         
-        #NA
-        #if self.lock is not None:
-            #self.lock.acquire()
+        if self.lock is not None:
+            self.lock.acquire()
             
         self.quadFold = quadFold
-            
+
         self.onProcessingFinished()
         
-        #NA
-        #if self.lock is not None:
-            #self.lock.release()
+        if self.lock is not None:
+            self.lock.release()
     
     # placeholder method
     def thread_finished(self):
@@ -2728,7 +2737,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setEnabled(False)
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter)
+            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter, self.qf_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             
@@ -2740,7 +2749,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.updateParams()
         self.refreshAllTabs()
         self.resetStatusbar2()
-        
         self.csvManager.writeNewData(self.quadFold)
         self.saveResults()
         
@@ -2753,6 +2761,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Save result to folder qf_results
         """
+        print("SAVE RESULTS")
         if 'resultImg' in self.quadFold.imgCache:
             result_path = fullPath(self.filePath, 'qf_results')
             createFolder(result_path)
@@ -2848,21 +2857,28 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Update the parameters
         """
-        info = self.quadFold.info
-        if 'orientation_model' in info:
-            self.orientationModel = info['orientation_model']
-        if self.calSettings is not None and 'center' in self.calSettings and 'calib_center' in info:
-            # Update cal settings center with the corresponding coordinate in original (or initial) image
-            # so that it persists correctly on moving to next image
-            self.calSettings['center'] = info['calib_center']
-        if not self.zoomOutClicked:
-            _, center = self.getExtentAndCenter()
-            cx, cy = center
-            cxr, cyr = self.quadFold.info['center']
-            xlim, ylim = self.quadFold.initImg.shape
-            xlim, ylim = int(xlim/2), int(ylim/2)
-            self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
-            self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
+        try:
+            info = self.quadFold.info
+            if 'orientation_model' in info:
+                self.orientationModel = info['orientation_model']
+            if self.calSettings is not None and 'center' in self.calSettings and 'calib_center' in info:
+                # Update cal settings center with the corresponding coordinate in original (or initial) image
+                # so that it persists correctly on moving to next image
+                self.calSettings['center'] = info['calib_center']
+            if not self.zoomOutClicked and self.quadFold.initImg is not None:
+                _, center = self.getExtentAndCenter()
+                print(center)
+                cx, cy = center
+                cxr, cyr = self.quadFold.info['center']
+                print(self.quadFold.initImg)
+                xlim, ylim = self.quadFold.initImg.shape
+                xlim, ylim = int(xlim/2), int(ylim/2)
+                self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
+                self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
+        except:
+            print("EXCEPTION IN UPDATE PARAMS")
+        else:
+            print("UPDATE PARAMS SUCCESS")
 
     def resetStatusbar(self):
         """
@@ -2876,7 +2892,9 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Reset the status bar, but search using self.quadFold.info
         """
+        
         index = self.imgList.index(self.quadFold.img_name)
+        #DOES NOT GET HERE
         fileFullPath = fullPath(self.filePath, self.imgList[index])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(index + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
@@ -3076,8 +3094,13 @@ class QuadrantFoldingGUI(QMainWindow):
         flags = self.getFlags()
         text += "\nCurrent Settings"
 
-        #Print Center on popup window
+        #NICK ALLISON
+        #If the fixed center box is checked, then:
+        #Print message
+        #store the current center in the quadfoldgui object
+        #Display Center on popup window
         if self.calSettingsDialog.fixedCenter.isChecked() and self.calSettings['center'] is not None:
+            print("USING PERSISTED CENTER")
             self.persistedCenter = self.calSettings['center']
             text += "\n  - Center : " + str(self.persistedCenter)
 

@@ -97,6 +97,12 @@ class QuadrantFolder:
         else:
             self.info = {}
 
+        #Nick Allison
+        #Used for persisting the center when processing a folder of images that
+        #need to have the same center.
+        self.fixedCenterX = None
+        self.fixedCenterY = None
+
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
@@ -180,6 +186,7 @@ class QuadrantFolder:
         if "no_cache" not in flags:
             self.cacheInfo()
 
+
         self.parent.statusPrint("")
 
     def updateInfo(self, flags):
@@ -236,6 +243,15 @@ class QuadrantFolder:
         Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
         """
         self.parent.statusPrint("Finding Center...")
+        #Nick Allison
+        #if the center needs to be persisted when doing a whole folder
+        #, then use the persisted center
+        if self.fixedCenterX is not None and self.fixedCenterY is not None:
+            self.info['center'] = []
+            self.info['center'].append(self.fixedCenterX)
+            self.info['center'].append(self.fixedCenterY)
+            self.centerChanged = False
+            return
         if 'mask_thres' not in self.info:
             self.initParams()
         if 'center' in self.info:
@@ -292,17 +308,21 @@ class QuadrantFolder:
         """
         if self is None:
             return [0,0], (0,0)
-        if self.orig_image_center is None:
+        if self.orig_image_center is None and (self.fixedCenterX == None or self.fixedCenterY == None):
             self.findCenter()
             self.statusPrint("Done.")
-        if 'calib_center' in self.info:
+        if self.fixedCenterX is not None and self.fixedCenterY is not None:
+            center = []
+            center.append(self.fixedCenterX)
+            center.append(self.fixedCenterY)
+        elif 'calib_center' in self.info:
             center = self.info['calib_center']
         elif 'manual_center' in self.info:
             center = self.info['manual_center']
         else:
             center = self.orig_image_center
-
         extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
+
 
         return extent, center
 

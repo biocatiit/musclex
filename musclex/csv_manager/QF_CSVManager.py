@@ -95,7 +95,11 @@ class QF_CSVManager:
             data['comment'] = "REJECTED"
         else:
             failed = False
-            if 'calib_center' in quadFold.info:
+            if quadFold.fixedCenterX is not None and quadFold.fixedCenterY is not None:
+                center = []
+                center.append(quadFold.fixedCenterX)
+                center.append(quadFold.fixedCenterY)
+            elif 'calib_center' in quadFold.info:
                 center = quadFold.info['calib_center']
             elif 'manual_center' in quadFold.info:
                 center = quadFold.info['manual_center']
