@@ -103,6 +103,9 @@ class QuadrantFolder:
         self.fixedCenterX = None
         self.fixedCenterY = None
 
+        #Same thing for rotation
+        self.fixedRot = None
+
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
@@ -160,7 +163,7 @@ class QuadrantFolder:
         sigmoid - merging gradient
         other backgound subtraction params - cirmin, cirmax, nbins, tophat1, tophat2
         """
-        print(str(self.img_name) + " is being processed...")
+        print(str(self.img_name) + " is being processed...") 
         self.updateInfo(flags)
         self.initParams()
         self.applyBlankImageAndMask()
@@ -280,7 +283,11 @@ class QuadrantFolder:
         Once the rotation angle is calculated, the average fold will be re-calculated, so self.info["avg_fold"] is deleted
         """
         self.parent.statusPrint("Finding Rotation Angle...")
-        if 'manual_rotationAngle' in self.info:
+        #NickA: First if is for if the Fixed Rotation Angle GUI box is checked.
+        if self.fixedRot is not None:
+            self.info['rotationAngle'] = self.fixedRot
+            self.deleteFromDict(self.info, 'avg_fold')
+        elif 'manual_rotationAngle' in self.info:
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
             del self.info['manual_rotationAngle']
             self.deleteFromDict(self.info, 'avg_fold')

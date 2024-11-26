@@ -71,7 +71,7 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params, fixed_center_checked, persist_center, qf_lock):
+    def __init__(self, params, fixed_center_checked, persist_center, persist_rot, qf_lock):
         super().__init__()
         self.flags = params.flags
         self.params = params
@@ -83,7 +83,11 @@ class Worker(QRunnable):
         self.persist_center = persist_center
 
         #NA
-        self.qf_lock = qf_lock
+        self.persist_rot = persist_rot
+
+        #NA
+        #self.qf_lock = qf_lock
+        self.qf_lock = Lock()
         
     @Slot()
     def run(self):
@@ -96,6 +100,10 @@ class Worker(QRunnable):
             if self.fixedCenterChecked:
                 self.quadFold.fixedCenterX = self.persist_center[0]
                 self.quadFold.fixedCenterY = self.persist_center[1]
+
+            #Pass the persisted rotation to the quadfold object
+            if self.persist_rot is not None:
+                self.quadFold.fixedRot = self.persist_rot
 
             self.quadFold.process(self.flags)
 
@@ -172,8 +180,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.doubleZoomAxes = None
 
         #NA
-        #Used for when the same center needs to be used to process a folder
+        #Used for when the same center/rotation needs to be used to process a folder
         self.persistedCenter = None
+        self.persistedRotation = None
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
@@ -322,6 +331,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
 
+        self.fixedRotationChkBx = QCheckBox("Fixed Rotation")
+        self.fixedRotationChkBx.setChecked(False)
+
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 4)
         self.settingsLayout.addWidget(self.setCentByChords, 1, 0, 1, 2)
         self.settingsLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
@@ -338,6 +350,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 8, 0, 1, 4)
         self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 4)
         self.settingsLayout.addWidget(self.toggleFoldImage, 10, 0, 1, 4)
+        self.settingsLayout.addWidget(self.fixedRotationChkBx, 11, 0, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
@@ -814,6 +827,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
+        self.fixedRotationChkBx.stateChanged.connect(self.onFixedRotationChkBxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
@@ -2462,6 +2476,25 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
             self.processImage()
 
+
+    def onFixedRotationChkBxToggled(self):
+        """
+        Toggles whether the current rotation is persisted in the QuadrantFolderGUI object.
+        If there is no current rotation angle known, calculates it.
+        """
+
+        if self.fixedRotationChkBx.isChecked():
+            try:
+                if 'rotationAngle' not in self.quadFold.info:
+                    self.processImage()
+
+                self.persistedRotation = self.quadFold.info['rotationAngle']
+            except:
+                print("Error trying to fix rotation")
+        else:
+            self.persistedRotation = None
+
+
     def closeEvent(self, ev):
         """
         Close the event
@@ -2697,6 +2730,7 @@ class QuadrantFoldingGUI(QMainWindow):
     def addTask(self, i):
         # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
+
         self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
@@ -2710,9 +2744,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.quadFold = quadFold
 
         self.onProcessingFinished()
-        
+
         if self.lock is not None:
-            self.lock.release()
+            self.lock.release() 
     
     # placeholder method
     def thread_finished(self):
@@ -2737,7 +2771,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setEnabled(False)
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter, self.qf_lock)
+            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter, self.persistedRotation, self.qf_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             
@@ -3104,6 +3138,11 @@ class QuadrantFoldingGUI(QMainWindow):
             self.persistedCenter = self.calSettings['center']
             text += "\n  - Center : " + str(self.persistedCenter)
 
+        #Same thing for rotation
+        if self.persistedRotation is not None:
+            print("USING PERSISTED ROTATION ANGLE")
+            text += "\n  - Rotation Angle : " + str(self.persistedRotation)
+
         if len(self.ignoreFolds) > 0:
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
@@ -3147,6 +3186,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
+            print("NUMBER OF FILES:" + str(self.numberOfFiles)) #DEBUG
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
