@@ -1592,6 +1592,10 @@ class ProjectionTracesGUI(QMainWindow):
             self.doubleZoomMode = False
             return
 
+        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+            x, y = self.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomMode = True
+
         func = self.function
 
         # Provide different behavior depending on current active function

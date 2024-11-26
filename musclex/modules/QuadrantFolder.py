@@ -114,6 +114,8 @@ class QuadrantFolder:
         cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name + ".info")
         createFolder(fullPath(self.img_path, "qf_cache"))
         self.info['program_version'] = self.version
+
+
         with open(cache_file, "wb") as c:
             pickle.dump(self.info, c)
 

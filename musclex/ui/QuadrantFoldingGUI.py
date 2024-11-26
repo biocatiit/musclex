@@ -2731,6 +2731,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
 
+
         self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
@@ -2744,6 +2745,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.quadFold = quadFold
 
         self.onProcessingFinished()
+
 
         if self.lock is not None:
             self.lock.release() 
@@ -3186,7 +3188,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
-            print("NUMBER OF FILES:" + str(self.numberOfFiles)) #DEBUG
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break
