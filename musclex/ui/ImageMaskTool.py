@@ -316,13 +316,15 @@ class ImageMaskerWindow(QDialog):
                 data = fabio_img.data.astype(np.int32)
                 data[data==4294967295] = -1
                 tif_img = fabio.pilatusimage.pilatusimage(data=data, header=fabio_img.getheader())
-                tif_file_name = self.imagePath + 'temp.tif'
+                tif_file_name = self.imagePath + '.tif'
                 tif_img.write(tif_file_name)
                 
                 command = f'pyFAI-drawmask "{tif_file_name}"'
+
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '.h5-mask.edf'
             else:
                 command = f'pyFAI-drawmask "{self.imagePath}"'
-            self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
         subprocess.run(command, shell=True)
 
         # draw_dialog = MaskImageWidget(self.selected, self.maskData)
