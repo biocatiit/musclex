@@ -13,6 +13,7 @@ import fabio
 from ..utils.file_manager import createFolder
 from .pyqt_utils import *
 import threading
+from scipy.ndimage import rotate
 
 def read_edf_to_numpy(file_path):
     # Load the EDF file
@@ -23,15 +24,16 @@ def read_edf_to_numpy(file_path):
     return np_array
 
 
-def displayImage(imageArray, minInt, maxInt):
+def displayImage(imageArray, minInt, maxInt, rot=0):
 
     if imageArray is None:
       print("Empty image")
       return
 
     # Flip the image horizontally
-    # flippedImageArray = np.flipud(imageArray)
-    flippedImageArray = imageArray
+    flippedImageArray = rotate(np.flipud(imageArray), -rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
+    #flippedImageArray = np.ascontiguousarray(np.rot90(imageArray, k=-1))
+    #flippedImageArray = imageArray
     
     # Normalize the flipped image to the 0-255 range for display
     if np.max(flippedImageArray) == np.min(flippedImageArray):
@@ -57,7 +59,7 @@ def displayImage(imageArray, minInt, maxInt):
 
 
 class ImageMaskerWindow(QDialog):
-    def __init__(self, dir_path, imagePath, minInt, maxInt, isHDF5=False):
+    def __init__(self, dir_path, imagePath, minInt, maxInt, rot_angle = 0, isHDF5=False):
         super().__init__()
         self.dir_path = dir_path
         self.imagePath = imagePath
@@ -76,6 +78,8 @@ class ImageMaskerWindow(QDialog):
         self.computedMask = False
         self.initUI()
         self.loadImage(self.imagePath)
+
+        self.rot_angle = rot_angle
 
     def initUI(self):
         self.setWindowTitle('Mask and Empty Cell Specification')
@@ -204,7 +208,7 @@ class ImageMaskerWindow(QDialog):
             self.loadImage(self.blankImagePath)
         else:
             if self.maskedImage is not None:
-                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt)
+                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt, self.rot_angle)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
                 self.loadImage(self.imagePath)
@@ -254,11 +258,11 @@ class ImageMaskerWindow(QDialog):
             # reload non-subtracted image
             if self.maskedImage is not None:
                 min_value = np.min(self.maskedImage)
-                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt)
+                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt, self.rot_angle)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
                 min_value = np.min(self.imageData)
-                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
+                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, self.rot_angle)
                 self.imageLabel.setPixmap(scaledPixmap)    
             if min_value < 0:
                 self.negativeValuesLabel.setText("Negative Values in Image (Min: {}) ".format(min_value))
@@ -292,8 +296,9 @@ class ImageMaskerWindow(QDialog):
         raw_filepath = r"{}".format(filePath)
         image = fabio.open(raw_filepath)
         self.imageData = image.data
-        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
+        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt) ##FIGURE OUT WHY I CANT ADD ROT HERE
         self.imageLabel.setPixmap(scaledPixmap)
+
 
     def drawMask(self):
         if self.dir_path:
@@ -304,26 +309,108 @@ class ImageMaskerWindow(QDialog):
             print("No input file to draw on.")
             
     def _run_drawmask_command(self):
-        # Assuming pyFAI-drawmask can be called directly from the command line
+        """
+        Run the pyFAI-drawmask command with rotation support for better UX.
+        Rotate the image for editing, and rotate the mask back to its original orientation.
         
-        
+        Parameters:
+            rotation_angle (float): The angle to rotate the image for editing.
+        """
+
+        rotation_angle = self.rot_angle
+
+        def crop_to_original_size(mask, target_shape):
+            y, x = mask.shape
+            target_y, target_x = target_shape
+            start_y = (y - target_y) // 2
+            start_x = (x - target_x) // 2
+            return mask[start_y:start_y + target_y, start_x:start_x + target_x]
+
+        def rotate_image(image_path, angle):
+            """Rotate the image and save as a temporary file."""
+            fabio_img = fabio.open(image_path)
+            data = fabio_img.data
+
+            # Rotate the image
+            rotated_data = rotate(data, angle, reshape=False, order=1)  # Bilinear interpolation
+            rotated_image_path = os.path.splitext(image_path)[0] + f'_rotated.tif'
+
+            # Save the rotated image
+            tif_img = fabio.pilatusimage.pilatusimage(data=rotated_data, header=fabio_img.getheader())
+            tif_img.write(rotated_image_path)
+
+            return rotated_image_path
+
+        def rotate_mask_back(mask_path, angle, final_mask_path, target_shape=(3072, 3072)):
+            fabio_mask = fabio.open(mask_path)
+            mask_data = fabio_mask.data
+
+            # Rotate the mask back
+            unrotated_mask_data = rotate(mask_data, -angle, reshape=False, order=0)
+
+            # Crop to original size
+            cropped_mask = crop_to_original_size(unrotated_mask_data, target_shape)
+
+            # Save the cropped mask
+            unrotated_mask = fabio.edfimage.edfimage(data=cropped_mask, header=fabio_mask.getheader())
+            unrotated_mask.write(final_mask_path)
+
+
+        # Main command logic
         if self.showBlankImageChkbx.isChecked():
-            command = f'pyFAI-drawmask "{self.blankImagePath}"'
+            # Handle blank image case
+            rotated_image_path = rotate_image(self.blankImagePath, rotation_angle)
+            command = f'pyFAI-drawmask "{rotated_image_path}"'
             self.maskPath = self.blankImagePath.rsplit('.', 1)[0] + '-mask.edf'
+
+            # Run pyFAI-drawmask
+            os.system(command)
+
+            # Rotate the mask back to the original orientation
+            rotate_mask_back(rotated_image_path.rsplit('.', 1)[0] + '-mask.edf', rotation_angle, self.maskPath)
+
+            # Cleanup temporary rotated file
+            os.remove(rotated_image_path)
+
         else:
             if self.isHDF5:
                 fabio_img = fabio.open(self.imagePath)
                 data = fabio_img.data.astype(np.int32)
-                data[data==4294967295] = -1
+                data[data == 4294967295] = -1
+
                 tif_img = fabio.pilatusimage.pilatusimage(data=data, header=fabio_img.getheader())
-                tif_file_name = self.imagePath + 'temp.tif'
+                tif_file_name = self.imagePath + '.tif'
                 tif_img.write(tif_file_name)
-                
-                command = f'pyFAI-drawmask "{tif_file_name}"'
+
+                # Rotate the HDF5-converted TIFF image
+                rotated_image_path = rotate_image(tif_file_name, rotation_angle)
+                command = f'pyFAI-drawmask "{rotated_image_path}"'
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '.h5-mask.edf'
+
+                # Run pyFAI-drawmask
+                os.system(command)
+
+                # Rotate the mask back to the original orientation
+                rotate_mask_back(rotated_image_path.rsplit('.', 1)[0] + '-mask.edf', rotation_angle, self.maskPath)
+
+                # Cleanup temporary rotated files
+                os.remove(rotated_image_path)
+                os.remove(tif_file_name)
+
             else:
-                command = f'pyFAI-drawmask "{self.imagePath}"'
-            self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
-        subprocess.run(command, shell=True)
+                # Handle standard image case
+                rotated_image_path = rotate_image(self.imagePath, rotation_angle)
+                command = f'pyFAI-drawmask "{rotated_image_path}"'
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
+
+                # Run pyFAI-drawmask
+                os.system(command)
+
+                # Rotate the mask back to the original orientation
+                rotate_mask_back(rotated_image_path.rsplit('.', 1)[0] + '-mask.edf', rotation_angle, self.maskPath)
+
+                # Cleanup temporary rotated file
+                os.remove(rotated_image_path)
 
         # draw_dialog = MaskImageWidget(self.selected, self.maskData)
         # result = draw_dialog.exec_()
@@ -362,7 +449,7 @@ class ImageMaskerWindow(QDialog):
 
     def showMask(self):
         self.computeCombinedMask()
-        scaledPixmap=displayImage(self.maskData, -1, -1)
+        scaledPixmap=displayImage(self.maskData, -1, -1, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)
 
     def applyMask(self):
@@ -389,7 +476,7 @@ class ImageMaskerWindow(QDialog):
                 bytesPerLine = width
 
             self.maskedImage = maskedImageArray
-            scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt)
+            scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt, self.rot_angle)
             self.imageLabel.setPixmap(scaledPixmap)
 
             # Compute the number of pixels to mask out (where the value is 0)
@@ -451,5 +538,5 @@ class ImageMaskerWindow(QDialog):
         else:
             self.negativeValuesLabel.setVisible(False)
         self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
-        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
+        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)

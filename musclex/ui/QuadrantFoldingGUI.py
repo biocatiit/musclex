@@ -32,7 +32,7 @@ import traceback
 import copy
 from os.path import split, splitext
 import matplotlib.patches as patches
-from matplotlib.colors import LogNorm, Normalize
+from matplotlib.colors import LogNorm, Normalize, ListedColormap
 import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
@@ -972,7 +972,9 @@ class QuadrantFoldingGUI(QMainWindow):
             else:
                 fileName = self.imgList[self.currentFileNumber]
             
-            self.imageMaskingTool = ImageMaskerWindow(self.filePath , join(self.filePath, fileName), self.spminInt.value(), self.spmaxInt.value(), isH5)
+
+            rot_ang = None if 'rotationAngle' not in self.quadFold.info else self.quadFold.info['rotationAngle']
+            self.imageMaskingTool = ImageMaskerWindow(self.filePath , join(self.filePath, fileName), self.spminInt.value(), self.spmaxInt.value(), rot_ang, isH5)
             
             
         if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
@@ -1586,7 +1588,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
-                ax.invert_yaxis()
+                #ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate":
@@ -1817,7 +1819,7 @@ class QuadrantFoldingGUI(QMainWindow):
         ax = self.imageAxes
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
-        ax.invert_yaxis()
+        #ax.invert_yaxis()
         self.imageCanvas.draw_idle()
 
     def RminRmaxChanged(self):
@@ -2004,7 +2006,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.result_zoom = getNewZoom(self.result_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.result_zoom[0])
                 ax.set_ylim(self.result_zoom[1])
-                ax.invert_yaxis()
+                #ax.invert_yaxis()
                 self.resultCanvas.draw_idle()
 
     def resultReleased(self, event):
@@ -2567,14 +2569,15 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
+
             extent, center = self.getExtentAndCenter()
             self.img = img
             self.extent = extent
             # img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
             else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
             ax.set_facecolor('black')
 
             self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
@@ -2603,6 +2606,18 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.plot([center[0], img.shape[1] - extent[0]], [center[1], img.shape[0] - extent[1]], color="w")
                         ax.plot([center[0], img.shape[1] - extent[0]], [img.shape[0] - extent[1], center[1]], color="w")
 
+            #Show the masked image in the image tab
+            #NICKAA
+            if self.blankImageGrp.isChecked() and self.imageMaskingTool is not None:
+
+                if self.imageMaskingTool.maskData is not None:
+
+                    display_mask = np.rot90(self.imageMaskingTool.maskData, k=-1)
+
+                    colors = [(1, 0, 0, alpha) for alpha in np.linspace(0, 1, 256)]
+                    custom_cmap = ListedColormap(colors)
+                    ax.imshow(display_mask, cmap=custom_cmap, interpolation='none')
+
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
                 ax.set_xlim(self.img_zoom[0])
@@ -2615,7 +2630,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
 
             self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
-            ax.invert_yaxis()
+            #ax.invert_yaxis()
             self.imageFigure.tight_layout()
             self.imageCanvas.draw()
 
@@ -2686,7 +2701,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim((0, img.shape[0]))
 
             self.result_zoom = [ax.get_xlim(), ax.get_ylim()]
-            ax.invert_yaxis()
+            #ax.invert_yaxis()
             self.resultFigure.tight_layout()
             self.resultCanvas.draw()
 
@@ -2731,7 +2746,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
 
-
         self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
@@ -2744,8 +2758,8 @@ class QuadrantFoldingGUI(QMainWindow):
             
         self.quadFold = quadFold
 
-        self.onProcessingFinished()
 
+        self.onProcessingFinished()
 
         if self.lock is not None:
             self.lock.release() 
@@ -2858,6 +2872,7 @@ class QuadrantFoldingGUI(QMainWindow):
         resultImg = self.quadFold.makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
+            #pass
             resultImg = np.rot90(resultImg)
 
         method = info['bgsub']
