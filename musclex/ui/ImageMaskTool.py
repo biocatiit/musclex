@@ -76,10 +76,10 @@ class ImageMaskerWindow(QDialog):
         self.subtractedImage = None # Attribute to store the subtracted image data
         self.drawnMask = False
         self.computedMask = False
+        self.rot_angle = rot_angle
+
         self.initUI()
         self.loadImage(self.imagePath)
-
-        self.rot_angle = rot_angle
 
     def initUI(self):
         self.setWindowTitle('Mask and Empty Cell Specification')
@@ -296,7 +296,7 @@ class ImageMaskerWindow(QDialog):
         raw_filepath = r"{}".format(filePath)
         image = fabio.open(raw_filepath)
         self.imageData = image.data
-        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt) ##FIGURE OUT WHY I CANT ADD ROT HERE
+        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)
 
 
@@ -342,14 +342,19 @@ class ImageMaskerWindow(QDialog):
             return rotated_image_path
 
         def rotate_mask_back(mask_path, angle, final_mask_path, target_shape=(3072, 3072)):
+
             fabio_mask = fabio.open(mask_path)
             mask_data = fabio_mask.data
 
+            #invert mask
+            inverted_mask_data = 1 - mask_data
+
             # Rotate the mask back
-            unrotated_mask_data = rotate(mask_data, -angle, reshape=False, order=0)
+            unrotated_mask_data = rotate(inverted_mask_data, -angle, reshape=False, order=0, cval=1)
 
             # Crop to original size
-            cropped_mask = crop_to_original_size(unrotated_mask_data, target_shape)
+            #cropped_mask = crop_to_original_size(unrotated_mask_data, target_shape)
+            cropped_mask = unrotated_mask_data
 
             # Save the cropped mask
             unrotated_mask = fabio.edfimage.edfimage(data=cropped_mask, header=fabio_mask.getheader())
@@ -480,9 +485,9 @@ class ImageMaskerWindow(QDialog):
             self.imageLabel.setPixmap(scaledPixmap)
 
             # Compute the number of pixels to mask out (where the value is 0)
-            masked_out_pixels = np.sum(maskArray == 0)
+            masked_out_pixels = np.sum(maskArray == 1)
             print(f"Number of pixels to mask out: {masked_out_pixels}")
-            non_masked_pixels = np.sum(maskArray == 1)
+            non_masked_pixels = np.sum(maskArray == 0)
 
             # Compute the total intensity of the masked image
             total_intensity = np.sum(maskedImageArray)

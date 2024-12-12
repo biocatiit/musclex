@@ -49,6 +49,7 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
+from scipy.ndimage import rotate
 
 import time
 import random
@@ -1180,7 +1181,8 @@ class QuadrantFoldingGUI(QMainWindow):
             # for i in range(len(ax.patches)-1,-1,-1):
             #     ax.patches[i].remove()
             _, center = self.getExtentAndCenter()
-            self.quadFold.info['center'] = center
+            if self.quadFold.fixedCenterX is None and self.quadFold.fixedCenterY is None:
+                self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
             self.function = ["im_rotate"]
         else:
@@ -2610,13 +2612,15 @@ class QuadrantFoldingGUI(QMainWindow):
             #NICKAA
             if self.blankImageGrp.isChecked() and self.imageMaskingTool is not None:
 
-                if self.imageMaskingTool.maskData is not None:
 
-                    display_mask = np.rot90(self.imageMaskingTool.maskData, k=-1)
+                mask = self.quadFold.getRotatedMask()
 
-                    colors = [(1, 0, 0, alpha) for alpha in np.linspace(0, 1, 256)]
-                    custom_cmap = ListedColormap(colors)
-                    ax.imshow(display_mask, cmap=custom_cmap, interpolation='none')
+                colors = [(1, 0, 0, alpha) for alpha in np.linspace(0, 1, 256)]
+                custom_cmap = ListedColormap(colors)
+
+                ax.imshow(mask, cmap=custom_cmap, extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                #ax.imshow(mask, cmap=custom_cmap)
+            
 
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -2758,7 +2762,6 @@ class QuadrantFoldingGUI(QMainWindow):
             
         self.quadFold = quadFold
 
-
         self.onProcessingFinished()
 
         if self.lock is not None:
@@ -2801,7 +2804,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resetStatusbar2()
         self.csvManager.writeNewData(self.quadFold)
         self.saveResults()
-        
+
         QApplication.restoreOverrideCursor()
         self.currentTask = None
         

@@ -115,7 +115,6 @@ class QuadrantFolder:
         createFolder(fullPath(self.img_path, "qf_cache"))
         self.info['program_version'] = self.version
 
-
         with open(cache_file, "wb") as c:
             pickle.dump(self.info, c)
 
@@ -399,6 +398,7 @@ class QuadrantFolder:
         #     translated_Img[translated_mask > 0] = mask_thres
         # else:
         cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
+
         translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
 
         self.orig_img = translated_Img
@@ -424,10 +424,50 @@ class QuadrantFolder:
         bnew, lnew = rotImg.shape
         db, dl = (bnew - b)//2, (lnew-l)//2
         final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
-        self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        if self.fixedCenterX is None and self.fixedCenterY is None:
+            self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
         self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
         return final_rotImg
+    
+    def getRotatedMask(self):
+        """
+        Get rotated mask by angle while mask is loaded from getMaskOnly function and angle = self.info["rotationAngle"]
+        """
+        mask = getMaskOnly(self.img_path)
+        width, height = self.orig_img.shape
+        center = (width / 2, height / 2)
+
+        b, l = mask.shape
+
+        new_mask= np.zeros((width,height)).astype("float32")
+        
+        try:
+            new_mask[0:b,0:l] = mask
+        except:
+            print("Masking error : Dimension mismatched. Please report error and the steps leading up to it.")
+    
+        M = self.centImgTransMat
+        translated_mask = cv2.warpAffine(new_mask,M,(width,height))
+
+        if self.center_before_rotation is not None:
+            center = self.center_before_rotation
+        else:
+            self.center_before_rotation = center
+
+        rotMsk, newCenter, self.rotMat = rotateImage(translated_mask, center, self.info["rotationAngle"])
+
+        b, l = rotMsk.shape
+
+        # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
+        bnew, lnew = rotMsk.shape
+        db, dl = (bnew - b)//2, (lnew-l)//2
+
+        final_rotMsk = rotMsk[db:bnew-db, dl:lnew-dl]
+        #self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        #self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
+
+        return final_rotMsk
 
     def getFoldNumber(self, x, y):
         """
