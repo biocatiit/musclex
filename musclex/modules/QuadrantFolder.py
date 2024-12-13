@@ -1041,7 +1041,7 @@ class QuadrantFolder:
             integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
-            self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
+            self.info['rmin'] = int(round(getFirstVallay(totalI) - 10))
             self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
 
         self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
