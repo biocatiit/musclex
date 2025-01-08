@@ -13,6 +13,18 @@ import fabio
 from ..utils.file_manager import createFolder
 from .pyqt_utils import *
 import threading
+import cv2
+from scipy.ndimage import rotate
+
+try:
+    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from ..utils.histogram_processor import *
+    from ..utils.image_processor import *
+except: # for coverage
+    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from utils.histogram_processor import *
+    from utils.image_processor import *
+
 
 def read_edf_to_numpy(file_path):
     # Load the EDF file
@@ -23,15 +35,16 @@ def read_edf_to_numpy(file_path):
     return np_array
 
 
-def displayImage(imageArray, minInt, maxInt):
+def displayImage(imageArray, minInt, maxInt, rot=0):
 
     if imageArray is None:
       print("Empty image")
       return
 
     # Flip the image horizontally
-    # flippedImageArray = np.flipud(imageArray)
-    flippedImageArray = imageArray
+    flippedImageArray = rotate(np.flipud(imageArray), -rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
+    #flippedImageArray = np.ascontiguousarray(np.rot90(imageArray, k=-1))
+    #flippedImageArray = imageArray
     
     # Normalize the flipped image to the 0-255 range for display
     if np.max(flippedImageArray) == np.min(flippedImageArray):
@@ -56,8 +69,103 @@ def displayImage(imageArray, minInt, maxInt):
     return scaledPixmap
 
 
+def displayImageWithMasks(imageArray, minInt, maxInt, 
+                          lowMask, highMask, drawnMask, 
+                          rot=0):
+    """
+    Displays 'imageArray' in grayscale and overlays:
+      - lowMask (green)
+      - highMask (blue)
+      - drawnMask (red)
+    Each mask is assumed to be the same shape as imageArray,
+    and contains 0s and 1s.
+    Returns a QPixmap of size 500x500 (maintaining aspect ratio).
+    """
+    print("DISPLAY IMAGE WITH MASKS") #NICKA DEBUG
+
+    if imageArray is None:
+        print("Empty image")
+        return
+    
+    # 1) Flip the image
+    flippedImageArray = np.flipud(imageArray)
+    
+    # 2) Normalize to 0-255 for display
+    if np.max(flippedImageArray) == np.min(flippedImageArray):
+        normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
+    else:
+        if minInt == -1 and maxInt == -1:
+            # Use the array min/max
+            normFlippedImageArray = 255 * (
+                flippedImageArray - np.min(flippedImageArray)
+            ) / (np.max(flippedImageArray) - np.min(flippedImageArray))
+        else:
+            normFlippedImageArray = 255 * (
+                flippedImageArray - minInt
+            ) / (maxInt - minInt)
+
+        normFlippedImageArray = normFlippedImageArray.astype(np.uint8)
+
+    # 3) Convert grayscale to 3-channel RGB
+    #    shape: (height, width) -> (height, width, 3)
+    height, width = normFlippedImageArray.shape
+    colorImageArray = np.dstack([
+        normFlippedImageArray, 
+        normFlippedImageArray, 
+        normFlippedImageArray
+    ])
+
+    # 4) Overlay masks:
+    #    Assign mask color wherever mask == 1
+    #    Note: The order below determines overwrite precedence
+    #          if a pixel is in multiple masks
+    # Red mask (drawnMask)
+
+    if drawnMask is not None:
+        print("DRAWN MASK SHAPE: " + str(drawnMask.shape)) #NICKA DEBUG
+    else:
+        print("DRAWN MASK IS NONE") #NICKA DEBUG
+    if lowMask is not None:
+        print("LOW MASK SHAPE: " + str(lowMask.shape)) #NICKA DEBUG
+    else:
+        print("LOW MASK SHAPE IS NONE") #NICKA DEBUG
+    if highMask is not None:
+        print("HIGH MASK SHAPE: " + str(highMask.shape)) #NICKA DEBUG
+    else:
+        print("HIGH MASK SHAPE IS NONE") #NICKA DEBUG
+    
+    # Red mask (drawnMask)
+    if drawnMask is not None:
+        drawnMask = np.flipud(np.asarray(drawnMask))
+        colorImageArray[drawnMask == 0] = [255, 0, 0]
+    # Green mask (lowMask)
+    if lowMask is not None:
+        lowMask = np.flipud(np.asarray(lowMask))
+        colorImageArray[lowMask == 0]   = [0, 255, 0]
+    # Blue mask (highMask)
+    if highMask is not None:
+        highMask = np.flipud(np.asarray(highMask))
+        colorImageArray[highMask == 0] = [0, 0, 255]
+
+    # 5) Convert the color image (RGB) to QImage
+    #    Format_RGB888 expects the data in 24-bit RGB
+    qImg = QImage(colorImageArray.data, 
+                  width, 
+                  height, 
+                  colorImageArray.strides[0], 
+                  QImage.Format_RGB888)
+
+    # 6) Convert QImage to QPixmap
+    pixmap = QPixmap.fromImage(qImg)
+
+    # 7) Scale the pixmap to fit within 500x500 (maintain aspect ratio)
+    scaledPixmap = pixmap.scaled(500, 500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+    return scaledPixmap
+
+
 class ImageMaskerWindow(QDialog):
-    def __init__(self, dir_path, imagePath, minInt, maxInt, isHDF5=False):
+    def __init__(self, dir_path, imagePath, minInt, maxInt, max_val, trans_mat, orig_size, rot_angle = 0, isHDF5=False):
         super().__init__()
         self.dir_path = dir_path
         self.imagePath = imagePath
@@ -69,22 +177,34 @@ class ImageMaskerWindow(QDialog):
         self.imageData = None  # Attribute to store the loaded image data
         self.maskData = None  # Stores the mask data (computed + drawn mask data)
         self.maskedImage = None # Attribute to store the masked image data (original image + mask data) usually for displaying
+        self.lowThreshMaskData = None  # Attribute to store the mask created by the lower bound threshold
+        self.dilatedLowThreshMaskData = None  # Attribute to store the mask created by the lower bound threshold after dilation
+        self.highThreshMaskData = None  # Attribute to store the mask created by the upper bound threshold
+        self.dilatedHighThreshMaskData = None # Attribute to store the mask created by the upper bound threshold after dilation
         self.computedMaskData = None  # Attribute to store the computed mask data
         self.drawnMaskData = None  # Attribute to store the drawn mask data
         self.subtractedImage = None # Attribute to store the subtracted image data
         self.drawnMask = False
         self.computedMask = False
+        self.max_val = max_val # Maximum intensity value in the image
+        self.rot_angle = rot_angle # Rotation angle for the image
+        self.trans_mat = trans_mat # Transformation matrix for the image
+        self.orig_size = orig_size # Original size of the image before rotation
+
+        self.maskHighThreshVal = None
+        self.maskLowThreshVal = None
+
+        print("BEFORE INITUI IN IMW CONST") #NICKA DEBUG
         self.initUI()
+        print("BEFORE LOAD IMAGE IN IMW CONST") #NICKA DEBUG
         self.loadImage(self.imagePath)
+
+        print("SETTING SELF.ROT_ANGLE in IMW CONSTRUCTOR") #NICKA DEBUG
 
     def initUI(self):
         self.setWindowTitle('Mask and Empty Cell Specification')
 
         self.layout = QVBoxLayout()
-
-        self.buttonWidget = QWidget()
-        self.buttonLayout = QGridLayout()
-        self.buttonWidget.setLayout(self.buttonLayout)
 
         self.imageLabel = QLabel()
         self.imageLabel.setFixedSize(500, 500)  # Set the fixed size
@@ -92,6 +212,13 @@ class ImageMaskerWindow(QDialog):
         self.imageLabel.setStyleSheet("border: 1px solid black;")
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
+        self.buttonWidget = QWidget()
+        self.buttonLayout = QGridLayout()
+        self.buttonWidget.setLayout(self.buttonLayout)
+
+        self.scrollArea = QScrollArea(self)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setWidget(self.buttonWidget)
 
         self.selectBlankImg = QPushButton("Select Empty Cell Image(s)")
         self.selectBlankImg.clicked.connect(self.browseImage)
@@ -99,22 +226,82 @@ class ImageMaskerWindow(QDialog):
         self.showBlankImageChkbx = QCheckBox("Show Empty Cell Image")
         self.showBlankImageChkbx.setEnabled(False)
         self.showBlankImageChkbx.stateChanged.connect(self.showBlankImage)
-        self.maskThresChkbx = QCheckBox("Mask Threshold")
-        self.maskThresChkbx.stateChanged.connect(self.enableMaskThres)
+
+        self.maskLowThresChkbx = QCheckBox("Low Mask Threshold")
+        self.maskLowThresChkbx.stateChanged.connect(self.enableLowMaskThres)
         
-        self.maskThresh = QDoubleSpinBox()
-        self.maskThresh.setMinimum(-50)
-        self.maskThresh.setValue(-1)
-        self.maskThresh.setSingleStep(0.01)
+        self.maskLowThresh = QDoubleSpinBox()
+        self.maskLowThresh.setMinimum(-50)
+        self.maskLowThresh.setMaximum(10000)
+        self.maskLowThresh.setValue(-1)
+        self.maskLowThresh.setSingleStep(0.01)
         #self.maskThresh.setKeyboardTracking(False)
         
-        self.maskThresh.valueChanged.connect(self.maskThresholdChanged)
+        self.maskLowThresh.valueChanged.connect(self.maskLowThresholdChanged)
         
-        self.maskThresh.setEnabled(False)
+        self.maskLowThresh.setEnabled(False)
+
+        #Enable or disable dilation for lower bound mask
+        self.lowMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
+        self.lowMaskDilationChkbx.setEnabled(False)
+        self.lowMaskDilationChkbx.setVisible(False)
+        self.lowMaskDilationChkbx.stateChanged.connect(self.enableLowMaskDilation)
+
+        #Choose the kernel size for dilation (lower bound threshold)
+        self.lowDilComboBox = QComboBox()
+        self.lowDilComboBox.addItem("3x3 Kernel")
+        self.lowDilComboBox.addItem("5x5 Kernel")
+        self.lowDilComboBox.addItem("7x7 Kernel")
+        self.lowDilComboBox.setCurrentIndex(0)
+        self.lowDilComboBox.setVisible(False)
+        self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
+
+        self.maskHighThreshChkbx = QCheckBox("High Mask Threshold")
+        self.maskHighThreshChkbx.stateChanged.connect(self.enableHighMaskThres)
         
-        self.showMaskChkBx = QCheckBox("Show Mask")
-        self.showMaskChkBx.setEnabled(False)
-        self.showMaskChkBx.stateChanged.connect(self.onShowMaskClicked)
+        self.maskHighThresh = QDoubleSpinBox()
+        self.maskHighThresh.setMinimum(0)
+        self.maskHighThresh.setMaximum(self.max_val + 1.0)
+        self.maskHighThresh.setValue(self.max_val + 1.0)
+        self.maskHighThresh.setSingleStep(0.01)
+        #self.maskThresh.setKeyboardTracking(False)
+        
+        self.maskHighThresh.valueChanged.connect(self.maskHighThresholdChanged)
+    
+        self.maskHighThresh.setEnabled(False)
+
+        #Enable or disable dilation for upper bound mask
+        self.highMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
+        self.highMaskDilationChkbx.setEnabled(False)
+        self.highMaskDilationChkbx.setVisible(False)
+        self.highMaskDilationChkbx.stateChanged.connect(self.enableHighMaskDilation)
+
+        #Choose the kernel size for dilation (upper bound threshold)
+        self.highDilComboBox = QComboBox()
+        self.highDilComboBox.addItem("3x3 Kernel")
+        self.highDilComboBox.addItem("5x5 Kernel")
+        self.highDilComboBox.addItem("7x7 Kernel")
+        self.highDilComboBox.setCurrentIndex(0)
+        self.highDilComboBox.setVisible(False)
+        self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
+
+        self.showMaskComboBox = QComboBox()
+        self.showMaskComboBox.setEnabled(False)
+        self.showMaskComboBox.addItem("Show Image With Mask")
+        self.showMaskComboBox.addItem("Show Image Only")
+        self.showMaskComboBox.addItem("Show Mask Only")
+        self.showMaskComboBox.setCurrentIndex(0)
+        self.showMaskComboBox.currentIndexChanged.connect(self.onShowMaskClicked)
+
+        self.greenLabel = QLabel("Green: Low Mask Threshold")
+        self.greenLabel.setStyleSheet("color: green")
+        self.greenLabel.setVisible(False)
+        self.blueLabel = QLabel("Blue: High Mask Threshold")
+        self.blueLabel.setStyleSheet("color: blue")
+        self.blueLabel.setVisible(False)
+        self.redLabel = QLabel("Red: Drawn Mask")
+        self.redLabel.setStyleSheet("color: red")
+        self.redLabel.setVisible(False)
         
         self.subtractBlankChkbx = QCheckBox("Subtract Empty Cell Image")
         self.subtractBlankChkbx.setEnabled(False)
@@ -162,18 +349,33 @@ class ImageMaskerWindow(QDialog):
         self.buttonLayout.addWidget(self.selectBlankImg, 0, 0, 1, 2)
         self.buttonLayout.addWidget(self.showBlankImageChkbx, 0, 3, 1, 2)
         self.buttonLayout.addWidget(self.drawMaskBtn, 1, 0, 1, 2)
-        self.buttonLayout.addWidget(self.maskThresChkbx, 2, 0, 1, 2)
-        self.buttonLayout.addWidget(self.maskThresh, 2, 3, 1, 2)
-        self.buttonLayout.addWidget(self.showMaskChkBx, 3, 0, 1, 2)
-        self.buttonLayout.addWidget(self.subtractBlankChkbx, 4, 0, 1, 2)
+
+        self.buttonLayout.addWidget(self.maskLowThresChkbx, 2, 0, 1, 2)
+        self.buttonLayout.addWidget(self.maskLowThresh, 2, 3, 1, 2)
+
+        self.buttonLayout.addWidget(self.lowMaskDilationChkbx, 3, 1, 1, 2)
+        self.buttonLayout.addWidget(self.lowDilComboBox, 3, 3, 1, 1)
+
+        self.buttonLayout.addWidget(self.maskHighThreshChkbx, 4, 0, 1, 2)
+        self.buttonLayout.addWidget(self.maskHighThresh, 4, 3, 1, 2)
+
+        self.buttonLayout.addWidget(self.highMaskDilationChkbx, 5, 1, 1, 2)
+        self.buttonLayout.addWidget(self.highDilComboBox, 5, 3, 1, 1)
+
+        self.buttonLayout.addWidget(self.showMaskComboBox, 6, 0, 1, 2)
+        self.buttonLayout.addWidget(self.greenLabel, 6, 2, 1, 2)
+        self.buttonLayout.addWidget(self.blueLabel, 7, 0, 1, 2)
+        self.buttonLayout.addWidget(self.redLabel, 7, 2, 1, 2)
+
+        self.buttonLayout.addWidget(self.subtractBlankChkbx, 8, 0, 1, 2)
         # self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
-        self.buttonLayout.addWidget(self.subtractSliderText, 4, 3, 1, 2)
-        self.buttonLayout.addWidget(self.negativeValuesLabel, 5, 0, 1, 4)
-        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 6, 0, 1, 2)
-        self.buttonLayout.addWidget(self.bottons, 7, 1, 1, 2)
+        self.buttonLayout.addWidget(self.subtractSliderText, 8, 3, 1, 2)
+        self.buttonLayout.addWidget(self.negativeValuesLabel, 9, 0, 1, 4)
+        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 10, 0, 1, 2)
+        self.buttonLayout.addWidget(self.bottons, 11, 1, 1, 2)
 
         self.layout.addWidget(self.imageLabel)
-        self.layout.addWidget(self.buttonWidget)
+        self.layout.addWidget(self.scrollArea)
         self.setLayout(self.layout)
 
         self.drawMaskBtn.clicked.connect(self.drawMask)
@@ -204,7 +406,7 @@ class ImageMaskerWindow(QDialog):
             self.loadImage(self.blankImagePath)
         else:
             if self.maskedImage is not None:
-                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt)
+                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt, 0.0)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
                 self.loadImage(self.imagePath)
@@ -222,22 +424,143 @@ class ImageMaskerWindow(QDialog):
     #     self.subtractSliderText.setValue(value_changed)
     #     self.subtractSliderText.blockSignals(False)
 
+    def showLabels(self):
+        self.greenLabel.setVisible(True)
+        self.blueLabel.setVisible(True)
+        self.redLabel.setVisible(True)
+
+    def hideLabels(self):     
+        self.greenLabel.setVisible(False)
+        self.blueLabel.setVisible(False)
+        self.redLabel.setVisible(False)
         
-    def enableMaskThres(self):
-        if self.maskThresChkbx.isChecked():
+    def enableLowMaskThres(self):
+        if self.maskLowThresChkbx.isChecked():
+            self.lowMaskDilationChkbx.setVisible(True)
+            self.lowMaskDilationChkbx.setEnabled(True)
+            self.maskLowThresChkbx.setEnabled(True)
             self.computedMask = True
-            self.maskThresh.setEnabled(True)
-            self.showMaskChkBx.setEnabled(True)  
-            self.maskThresholdChanged()
+            self.maskLowThresh.setEnabled(True)
+            self.showMaskComboBox.setEnabled(True)
+            self.showLabels()
+            self.maskLowThresholdChanged()
         else:
-            self.maskThresh.setEnabled(False)
-            self.computedMask = False
-            self.computedMaskData = None
-            if self.drawnMaskData is not None:
-                self.maskData = self.drawnMaskData
-                self.applyMask()
+            self.lowMaskDilationChkbx.setVisible(False)
+            self.lowDilComboBox.setVisible(False)
+            self.maskLowThresh.setEnabled(False)
+            self.dilatedLowThreshMaskData = None
+            if self.highThreshMaskData is not None and self.maskHighThreshChkbx.isChecked():
+                self.computedMaskData = self.highThreshMaskData
             else:
-                self.loadImage(self.imagePath)
+                self.computedMask = False
+                self.computedMaskData = None
+                if self.drawnMaskData is None:
+                    self.hideLabels()
+                    self.showMaskComboBox.setEnabled(False)
+            self.refreshMask()
+
+    def enableHighMaskThres(self):
+        if self.maskHighThreshChkbx.isChecked():
+            self.highMaskDilationChkbx.setVisible(True)
+            self.highMaskDilationChkbx.setEnabled(True)
+            self.maskHighThresh.setEnabled(True)
+            self.computedMask = True
+            self.maskHighThresh.setEnabled(True)
+            self.showMaskComboBox.setEnabled(True)  
+            self.showLabels()
+            self.maskHighThresholdChanged()
+        else:
+            self.highMaskDilationChkbx.setVisible(False)
+            self.highDilComboBox.setVisible(False)
+            self.maskHighThresh.setEnabled(False)
+            self.dilatedHighThreshMaskData = None
+            if self.lowThreshMaskData is not None and self.maskLowThresChkbx.isChecked():
+                self.computedMaskData = self.lowThreshMaskData
+            else:
+                self.computedMask = False
+                self.computedMaskData = None
+                if self.drawnMaskData is None:
+                    self.hideLabels()
+                    self.showMaskComboBox.setEnabled(False)
+            self.refreshMask()
+
+
+    def getKernelSizes(self):
+        kernel_size_low, kernel_size_high = None, None
+
+        if self.lowDilComboBox.currentText() == "3x3 Kernel":
+            kernel_size_low = 3
+        elif self.lowDilComboBox.currentText() == "5x5 Kernel":
+            kernel_size_low = 5
+        elif self.lowDilComboBox.currentText() == "7x7 Kernel":
+            kernel_size_low = 7
+
+        if self.highDilComboBox.currentText() == "3x3 Kernel":
+            kernel_size_high = 3
+        elif self.highDilComboBox.currentText() == "5x5 Kernel":
+            kernel_size_high = 5
+        elif self.highDilComboBox.currentText() == "7x7 Kernel":
+            kernel_size_high = 7
+
+        return kernel_size_low, kernel_size_high
+
+    def dilateMask(self, mask, kernel_size):
+        kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
+        dilated_mask = cv2.erode(mask, kernel, iterations=1)
+        return dilated_mask
+
+    def computeThreshMaskData(self):
+        low_kernel, high_kernel = self.getKernelSizes()
+        originalImageArray = self.imageData
+
+        if self.maskLowThresChkbx.isChecked():
+            if self.lowMaskDilationChkbx.isChecked():
+                self.lowThreshMaskData = np.where(originalImageArray <= self.maskLowThreshVal, 0, 1).astype(np.uint8)
+                low_mask = self.dilateMask(self.lowThreshMaskData, low_kernel)
+                print("LOW MASK SHAPE: " + str(self.lowThreshMaskData.shape)) #NICKA DEBUG
+            else:
+                self.lowThreshMaskData = np.where(originalImageArray <= self.maskLowThreshVal, 0, 1).astype(np.uint8)
+                low_mask = self.lowThreshMaskData
+        else:
+            low_mask = np.ones_like(originalImageArray)
+
+        if self.maskHighThreshChkbx.isChecked():
+            if self.highMaskDilationChkbx.isChecked():
+                self.highThreshMaskData = np.where(originalImageArray >= self.maskHighThreshVal, 0, 1).astype(np.uint8)
+                high_mask = self.dilateMask(self.highThreshMaskData, high_kernel)
+            else:
+                self.highThreshMaskData = np.where(originalImageArray >= self.maskHighThreshVal, 0, 1).astype(np.uint8)
+                high_mask = self.highThreshMaskData
+        else:
+            high_mask = np.ones_like(originalImageArray)
+
+        self.computedMaskData = np.multiply(low_mask, high_mask)
+        self.dilatedLowThreshMaskData = low_mask
+        self.dilatedHighThreshMaskData = high_mask
+
+    def enableLowMaskDilation(self):
+        if self.lowMaskDilationChkbx.isChecked():
+            self.lowDilComboBox.setVisible(True)
+        else:
+            self.lowDilComboBox.setVisible(False)
+        self.computeThreshMaskData()
+        self.refreshMask()
+
+    def enableHighMaskDilation(self):
+        if self.highMaskDilationChkbx.isChecked():
+            self.highDilComboBox.setVisible(True)
+        else: 
+            self.highDilComboBox.setVisible(False)
+        self.computeThreshMaskData()
+        self.refreshMask()
+
+    def lowDilComboBoxChanged(self):
+        self.computeThreshMaskData()
+        self.refreshMask()
+
+    def highDilComboBoxChanged(self):
+        self.computeThreshMaskData()
+        self.refreshMask()
             
     def enableSubtractSlider(self):
         
@@ -254,21 +577,39 @@ class ImageMaskerWindow(QDialog):
             # reload non-subtracted image
             if self.maskedImage is not None:
                 min_value = np.min(self.maskedImage)
-                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt)
+                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt, 0.0)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
                 min_value = np.min(self.imageData)
-                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
+                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, 0.0)
                 self.imageLabel.setPixmap(scaledPixmap)    
             if min_value < 0:
                 self.negativeValuesLabel.setText("Negative Values in Image (Min: {}) ".format(min_value))
                 self.negativeValuesLabel.setVisible(True)
-            
-    def onShowMaskClicked(self):
-        if self.showMaskChkBx.isChecked():
+
+    def refreshMask(self):
+        if self.showMaskComboBox.currentText() == "Show Mask Only":
+            print("SHOW MASK    ") #NICKA DEBUG
             self.showMask()
-        else:
+            if self.showMaskComboBox.isEnabled():
+                self.hideLabels()
+        elif self.showMaskComboBox.currentText() == "Show Image Only":
+            print("SHOW IMAGE ONLY") #NICKA DEBUG
+            self.computeCombinedMask()
             self.applyMask()
+            if self.showMaskComboBox.isEnabled():
+                self.hideLabels()
+        elif self.showMaskComboBox.currentText() == "Show Image With Mask":
+            print("SHOW IMAGE WITH MASK") #NICKA DEBUG
+            self.computeCombinedMask()
+            self.applyMask()
+            scaledPixMap = displayImageWithMasks(self.imageData, self.minInt, self.maxInt, self.dilatedLowThreshMaskData, self.dilatedHighThreshMaskData, self.drawnMaskData)
+            self.imageLabel.setPixmap(scaledPixMap)
+            if self.showMaskComboBox.isEnabled():
+                self.showLabels()
+
+    def onShowMaskClicked(self):
+        self.refreshMask()
 
     def loadMask(self, filePath):
         raw_filepath = r"{}".format(filePath)
@@ -280,71 +621,202 @@ class ImageMaskerWindow(QDialog):
         else:
             print("File does not exist.")
             
-    def maskThresholdChanged(self):
-        value = self.maskThresh.value()
-        originalImageArray = self.imageData
-        self.computedMaskData = np.where(originalImageArray <= value, 0, 1).astype(np.uint8)
-        # scaledPixmap=displayImage(self.computedMaskData, -1, -1)
-        # self.imageLabel.setPixmap(scaledPixmap)
+    def maskLowThresholdChanged(self):
+        print("MASK LOW THRESHOLD CHANGED") #NICKA DEBUG
+        value = self.maskLowThresh.value()
+        print("VALUE: " + str(value)) #NICKA DEBUG
+        self.maskLowThreshVal = value
+        self.computeThreshMaskData()
+        self.refreshMask()
+
+    def maskHighThresholdChanged(self):
+        print("MASK HIGH THRESHOLD CHANGED") #NICKA DEBUG
+        value = self.maskHighThresh.value()
+        print("VALUE: " + str(value)) #NICKA DEBUG
+        self.maskHighThreshVal = value
+        self.computeThreshMaskData()
+        self.refreshMask()
+
 
     def loadImage(self, filePath):
         # Use fabio to open the image file and store its data
         raw_filepath = r"{}".format(filePath)
         image = fabio.open(raw_filepath)
         self.imageData = image.data
-        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt)
+        print("RIGHT BEFORE PROBLEM DISPLAY IMAGE CALL") #NICKA DEBUG
+        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, 0.0)
         self.imageLabel.setPixmap(scaledPixmap)
+
 
     def drawMask(self):
         if self.dir_path:
             # Assuming pyFAI-drawmask can be called directly from the command line
-            thread = threading.Thread(target=self._run_drawmask_command)
+            thread = threading.Thread(target=self._run_drawmask_command_and_refresh)
             thread.start()
         else:
             print("No input file to draw on.")
             
+    def _run_drawmask_command_and_refresh(self):
+        try:
+            # Run the command
+            self._run_drawmask_command()
+        finally:   # Ensure refreshMask is called in the main thread
+            print("MASK PATH: " + str(self.maskPath)) #NICKA DEBUG
+            self.loadMask(self.maskPath)
+
+            if os.path.exists(self.maskPath):
+                # Use fabio to open the drawn mask image file and store its data in memory
+                mask = fabio.open(self.maskPath)
+                print("MASK SHAPE: " + str(mask.data.shape)) #NICKA DEBUG
+                self.drawnMaskData = 1 - mask.data
+            else:
+                print("File does not exist.")
+
+            self.showMaskComboBox.setEnabled(True)
+
+            self.refreshMask()
+
     def _run_drawmask_command(self):
-        # Assuming pyFAI-drawmask can be called directly from the command line
-        
-        
-        if self.showBlankImageChkbx.isChecked():
-            command = f'pyFAI-drawmask "{self.blankImagePath}"'
-            self.maskPath = self.blankImagePath.rsplit('.', 1)[0] + '-mask.edf'
+        """
+        Run the pyFAI-drawmask command in a way that:
+        1) Applies intensity limits to produce a 'bounded' TIFF,
+        2) Calls pyFAI-drawmask on that TIFF,
+        3) Renames the resulting mask file so it matches the old naming convention: <original>.tif -> <original>-mask.edf
+        4) Removes the temporary bounded TIFF.
+        """
+
+        rotation_angle = self.rot_angle
+        print(f"DEBUG: rotation_angle={rotation_angle}")  #NICKA DEBUG
+        print(f"DEBUG: showBlankImageChkbx.isChecked()={self.showBlankImageChkbx.isChecked()}")  #NICKA DEBUG
+        print(f"DEBUG: isHDF5={self.isHDF5}")  #NICKA DEBUG
+        print(f"DEBUG: imagePath={self.imagePath}")  #NICKA DEBUG
+        print(f"DEBUG: blankImagePath={self.blankImagePath}")  #NICKA DEBUG
+        print(f"DEBUG: minInt={self.minInt}, maxInt={self.maxInt}")  #NICKA DEBUG
+
+        # Check if self.imageData is present
+        if hasattr(self, 'imageData'):
+            print("IMAGE DATA SHAPE: " + str(self.imageData.shape))  #NICKA DEBUG
+            print("IMAGE DATA DTYPE: " + str(self.imageData.dtype))  #NICKA DEBUG
         else:
+            print("DEBUG: self.imageData is not defined")  #NICKA DEBUG
+
+        if self.showBlankImageChkbx.isChecked():
+            print("DEBUG: Using blank image workflow")  #NICKA DEBUG
+            # The old code for blanks just used pyFAI-drawmask "<blankImagePath>"
+            # and final mask = <blankNoExt>-mask.edf
+            command = f'pyFAI-drawmask "{self.blankImagePath}"'
+            print(f"DEBUG: command={command}")  #NICKA DEBUG
+
+            base_blank = self.blankImagePath.rsplit('.', 1)[0]
+            self.maskPath = base_blank + '-mask.edf'
+            print(f"DEBUG: maskPath={self.maskPath}")  #NICKA DEBUG
+
+            ret_val = os.system(command)
+            print(f"DEBUG: os.system return code={ret_val}")  #NICKA DEBUG
+
+            if not os.path.exists(self.maskPath):
+                print(f"DEBUG: Mask file not found at {self.maskPath}")  #NICKA DEBUG
+            else:
+                print(f"DEBUG: Found mask file {self.maskPath}")  #NICKA DEBUG
+
+        else:
+            print("DEBUG: Using standard or HDF5 workflow")  #NICKA DEBUG
             if self.isHDF5:
+                print("DEBUG: HDF5 path detected")  #NICKA DEBUG
                 fabio_img = fabio.open(self.imagePath)
                 data = fabio_img.data.astype(np.int32)
-                data[data==4294967295] = -1
+                print(f"DEBUG: data.shape={data.shape}, data.dtype={data.dtype}")  #NICKA DEBUG
+
+                # Convert special value, then apply min/max
+                data[data == 4294967295] = -1
+                data[data < np.int32(self.minInt)] = np.int32(self.minInt)
+                data[data > np.int32(self.maxInt)] = np.int32(self.maxInt)
+
+                # Write the "bounded" version to a temporary file
+                bounded_file_name = self.imagePath.rsplit('.', 1)[0] + '_bounded.tif'
+                print(f"DEBUG: bounded_file_name={bounded_file_name}")  #NICKA DEBUG
+
                 tif_img = fabio.pilatusimage.pilatusimage(data=data, header=fabio_img.getheader())
-                tif_file_name = self.imagePath + 'temp.tif'
-                tif_img.write(tif_file_name)
-                
-                command = f'pyFAI-drawmask "{tif_file_name}"'
+                tif_img.write(bounded_file_name)
+                print("DEBUG: Wrote bounded TIFF file")  #NICKA DEBUG
+
+                # Run pyFAI-drawmask on the bounded TIFF
+                command = f'pyFAI-drawmask "{bounded_file_name}"'
+                print(f"DEBUG: command={command}")  #NICKA DEBUG
+
+                # pyFAI will produce something like <bounded_file_nameNoExt>-mask.edf
+                base_bounded = bounded_file_name.rsplit('.', 1)[0]  # e.g. "..._bounded"
+                temp_mask_path = base_bounded + '-mask.edf'         # e.g. "..._bounded-mask.edf"
+
+                ret_val = os.system(command)
+                print(f"DEBUG: os.system return code={ret_val}")  #NICKA DEBUG
+
+                if not os.path.exists(temp_mask_path):
+                    print(f"DEBUG: Temp mask not found at {temp_mask_path}")  #NICKA DEBUG
+                else:
+                    print(f"DEBUG: Found temp mask file {temp_mask_path}")  #NICKA DEBUG
+
+                # The final mask name should be <originalFileNoExt>.h5-mask.edf or something
+                # but based on your old code, let's do:
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '.h5-mask.edf'
+                print(f"DEBUG: final maskPath={self.maskPath}")  #NICKA DEBUG
+
+                # Rename or move the temp mask file to final maskPath
+                if os.path.exists(temp_mask_path):
+                    os.rename(temp_mask_path, self.maskPath)
+                    print(f"DEBUG: Renamed {temp_mask_path} to {self.maskPath}")  #NICKA DEBUG
+
+                # Cleanup the bounded TIFF
+                os.remove(bounded_file_name)
+                print("DEBUG: Removed bounded TIFF file")  #NICKA DEBUG
+
             else:
-                command = f'pyFAI-drawmask "{self.imagePath}"'
-            self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
-        subprocess.run(command, shell=True)
+                # Standard (non-HDF5) image case
+                print("DEBUG: Standard image path detected")  #NICKA DEBUG
+                fabio_img = fabio.open(self.imagePath)
+                data = fabio_img.data.astype(np.int32)
+                print(f"DEBUG: data.shape={data.shape}, data.dtype={data.dtype}")  #NICKA DEBUG
 
-        # draw_dialog = MaskImageWidget(self.selected, self.maskData)
-        # result = draw_dialog.exec_()
+                # Bound data by minInt, maxInt
+                data[data < np.int32(self.minInt)] = np.int32(self.minInt)
+                data[data > np.int32(self.maxInt)] = np.int32(self.maxInt)
 
-        # Assuming the mask file follows a naming convention like originalFileName-mask.edf
-        self.loadMask(self.maskPath)
-        if self.maskData is not None:
-            thresholdValue = np.max(self.maskData)  # This works for images where the mask is full white for mask-out regions
-            self.maskData = np.where(self.maskData < thresholdValue, 1, 0)
-            self.drawnMaskData = self.maskData
+                # Write a bounded TIFF, so we don't overwrite original
+                bounded_file_name = self.imagePath.rsplit('.', 1)[0] + '_bounded.tif'
+                print(f"DEBUG: bounded_file_name={bounded_file_name}")  #NICKA DEBUG
 
-            self.maskThresh.setEnabled(True)
-            self.showMaskChkBx.setEnabled(True)
-            self.drawnMask = True
-            self.applyMask()
-            # scaledPixmap=displayImage(self.maskData)
-            # self.imageLabel.setPixmap(scaledPixmap)
+                fabio.tifimage.tifimage(data=data).write(bounded_file_name)
+                print("DEBUG: Wrote bounded TIFF file")  #NICKA DEBUG
 
-            os.remove(self.maskPath) # remove the mask file generated as we save a file in the settings folder
-        if self.isHDF5:
-            os.remove(tif_file_name)
+                # Run pyFAI-drawmask on the bounded TIFF
+                command = f'pyFAI-drawmask "{bounded_file_name}"'
+                print(f"DEBUG: command={command}")  #NICKA DEBUG
+
+                # pyFAI output file name
+                base_bounded = bounded_file_name.rsplit('.', 1)[0]
+                temp_mask_path = base_bounded + '-mask.edf'
+
+                ret_val = os.system(command)
+                print(f"DEBUG: os.system return code={ret_val}")  #NICKA DEBUG
+
+                if not os.path.exists(temp_mask_path):
+                    print(f"DEBUG: Mask file not found at {temp_mask_path}")  #NICKA DEBUG
+                else:
+                    print(f"DEBUG: Found temp mask file {temp_mask_path}")  #NICKA DEBUG
+
+                # The final mask name in your old code was <originalFileNoExt>-mask.edf
+                self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
+                print(f"DEBUG: final maskPath={self.maskPath}")  #NICKA DEBUG
+
+                # Rename/move the temp mask file to the final name
+                if os.path.exists(temp_mask_path):
+                    os.rename(temp_mask_path, self.maskPath)
+                    print(f"DEBUG: Renamed {temp_mask_path} to {self.maskPath}")  #NICKA DEBUG
+
+                # Remove the bounded TIFF
+                os.remove(bounded_file_name)
+                print("DEBUG: Removed bounded_file_name")  #NICKA DEBUG
+
             
     def computeCombinedMask(self):
         # Check if self.computedMaskData is None and initialize it to ones if so
@@ -362,22 +834,34 @@ class ImageMaskerWindow(QDialog):
 
     def showMask(self):
         self.computeCombinedMask()
-        scaledPixmap=displayImage(self.maskData, -1, -1)
+        scaledPixmap=displayImage(self.maskData, -1, -1, 0.0)
         self.imageLabel.setPixmap(scaledPixmap)
 
     def applyMask(self):
         
         if self.dir_path:
+            try:
+                print("MASK DATA SHAPE: " + str(self.maskData.shape)) #NICKA DEBUG
+            except: 
+                print("MASK DATA IS NONE")
+
+            try:
+                print("IMAGE DATA SHAPE: " + str(self.imageData.shape)) #NICKA DEBUG
+            except:
+                print("IMAGE DATA IS NONE")
+
             maskArray=self.maskData
             originalImageArray = self.imageData
 
             # Check if the original image is grayscale or color
             if len(originalImageArray.shape) == 3:  # Color image
+                print("COLOR IMAGE") #NICKA DEBUG
                 # Apply the mask to each color channel
                 maskedImageArray = np.zeros_like(originalImageArray)
                 for i in range(3):  # Assuming RGB channels
                     maskedImageArray[:,:,i] = originalImageArray[:,:,i] * maskArray 
             else:  # Grayscale image
+                print("GRAYSCALE IMAGE") #NICKA DEBUG
                 maskedImageArray = originalImageArray * maskArray 
 
             # Convert the result to QImage for display
@@ -389,13 +873,19 @@ class ImageMaskerWindow(QDialog):
                 bytesPerLine = width
 
             self.maskedImage = maskedImageArray
-            scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt)
+
+            try:
+                print("MASKED IMAGE DATA TYPE: " + str(maskedImageArray.dtype)) #NICKA DEBUG
+            except:
+                print("MASKED IMAGE DATA IS NONE")
+
+            scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt, 0.0)
             self.imageLabel.setPixmap(scaledPixmap)
 
             # Compute the number of pixels to mask out (where the value is 0)
-            masked_out_pixels = np.sum(maskArray == 0)
+            masked_out_pixels = np.sum(maskArray == 1)
             print(f"Number of pixels to mask out: {masked_out_pixels}")
-            non_masked_pixels = np.sum(maskArray == 1)
+            non_masked_pixels = np.sum(maskArray == 0)
 
             # Compute the total intensity of the masked image
             total_intensity = np.sum(maskedImageArray)
@@ -421,7 +911,28 @@ class ImageMaskerWindow(QDialog):
             createFolder(path)
             if self.maskData is not None:
                 self.computeCombinedMask() # to ensure mask data is updated
-                fabio.tifimage.tifimage(data=self.maskData).write(join(path,'mask.tif'))
+                print("WIRTE4: " + str(join(path,'mask.tif'))) #NICKA DEBUG
+                print("MASK DATA SHAPE: " + str(self.maskData.shape)) #NICKA DEBUG
+
+                rot_mat = cv2.getRotationMatrix2D((self.maskData.shape[0]//2, self.maskData.shape[1]//2), -self.rot_angle, 1.0)
+                print("ROTATION MATRIX: " + str(rot_mat)) #NICKA DEBUG
+
+                width = self.maskData.shape[1]
+                height = self.maskData.shape[0]
+
+                rotated_mask = cv2.warpAffine(self.maskData.astype(np.uint8), rot_mat, (width, height))
+
+                inv_trans_mat = self.trans_mat.copy()
+                inv_trans_mat[0, 2] = -self.trans_mat[0, 2]
+                inv_trans_mat[1, 2] = -self.trans_mat[1, 2]
+
+                print("ROTATED MASK SHAPE: " + str(rotated_mask.shape)) #NICKA DEBUG
+                print("Translation matrix: " + str(inv_trans_mat)) #NICKA DEBUG
+                translated_mask = cv2.warpAffine(rotated_mask, inv_trans_mat, rotated_mask.shape)
+                print("TRANSLATED MASK SHAPE: " + str(translated_mask.shape)) #NICKA DEBUG
+                #fabio.tifimage.tifimage(data=translated_mask).write(join(path,'big_mask.tif'))
+                cropped_mask = translated_mask[0:self.orig_size[0], 0:self.orig_size[1]]
+                fabio.tifimage.tifimage(data=cropped_mask).write(join(path,'mask.tif'))
                 print("mask file saved")  
             if self.subtractBlankChkbx.isChecked():
                 dictionary = {
@@ -451,5 +962,5 @@ class ImageMaskerWindow(QDialog):
         else:
             self.negativeValuesLabel.setVisible(False)
         self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
-        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt)
+        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt, 0.0)
         self.imageLabel.setPixmap(scaledPixmap)

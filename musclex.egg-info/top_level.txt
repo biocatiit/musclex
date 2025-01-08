@@ -1,5 +1,6 @@
 AppImageBuilder
 Data
+New Folder
 build
 dev_docs
 dist

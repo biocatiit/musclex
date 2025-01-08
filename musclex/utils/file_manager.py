@@ -134,6 +134,14 @@ def getImgFiles(fullname, headless=False):
                 full_file_name = fullPath(dir_path, f)
                 if ext2 in ('.hdf5', '.h5'):
                     file_loader = loadFile(full_file_name)
+                    if file_loader[0] is None:
+                        infMsg = QMessageBox()
+                        infMsg.setText('Error opening file: ' + f)
+                        infMsg.setInformativeText("File is not a valid HDF5 file, is corrupted, or is an empty HDF5 Master file.  Skipping.")
+                        infMsg.setStandardButtons(QMessageBox.Ok)
+                        infMsg.setIcon(QMessageBox.Information)
+                        infMsg.exec_()
+                        continue
                     if len(file_loader[0]) == 1:
                         if failedcases is not None and file_loader[0][0] not in failedcases:
                             continue

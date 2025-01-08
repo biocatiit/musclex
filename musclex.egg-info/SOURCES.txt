@@ -1885,6 +1885,7 @@ musclex/csv_manager/XV_CSVManager.py
 musclex/csv_manager/__init__.py
 musclex/discontinued/AddIntensitiesMultExp.py
 musclex/discontinued/AddIntensitiesSingleExp.py
+musclex/headless/AddIntensitiesExph.py
 musclex/headless/DIBatchWindowh.py
 musclex/headless/DIImageWindowh.py
 musclex/headless/EQStartWindowh.py
@@ -1924,6 +1925,10 @@ musclex/tests/testImages/PILATUSimages/disettings.json
 musclex/tests/testImages/PILATUSimages/eqsettings.json
 musclex/tests/testImages/PILATUSimages/ptsettings.json
 musclex/tests/testImages/PILATUSimages/qfsettings.json
+musclex/tests/testResults/AISEimages/P40_1_3_00000_00001.tif
+musclex/tests/testResults/AISEimages/P40_1_3_00002_00003.tif
+musclex/tests/testResults/AISEimages/P40_1_3_00004_00005.tif
+musclex/tests/testResults/AISEimages/intensities.csv
 musclex/tests/testResults/EIGERimages/di_results/rings.csv
 musclex/tests/testResults/EIGERimages/di_results/summary.csv
 musclex/tests/testResults/EIGERimages/eq_results/summary2.csv
@@ -1981,6 +1986,7 @@ musclex/tests/test_images/P40_1_3_00002.tif
 musclex/tests/test_images/P40_1_3_00003.tif
 musclex/tests/test_images/P40_1_3_00004.tif
 musclex/tests/test_images/P40_1_3_00005.tif
+musclex/tests/test_images/aismesettings.json
 musclex/tests/test_images/di_test_data/Mn23-1_30umThick_20umStep_1s_diffScan_0167.tif
 musclex/tests/test_images/di_test_data/Mn23-1_30umThick_20umStep_1s_diffScan_0169.tif
 musclex/tests/test_images/di_test_data/Mn23-1_30umThick_20umStep_1s_diffScan_0173.tif

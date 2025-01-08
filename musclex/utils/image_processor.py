@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 import fabio
 from skimage.morphology import white_tophat
+from skimage.transform import rescale
 from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI.detectors import Detector
@@ -766,6 +767,13 @@ def rotateNonSquareImage(img, angle, center1):
     center1 = np.dot(rotation_mat, center1)
     center2 = (int(center1[0]), int(center1[1]))
 
+    print("RNSI HEIGHT: " + str(height)) #NICKA DEBUG
+    print("RNSI WIDTH: " + str(width)) #NICKA DEBUG
+    print("RNSI CENTER: " + str(center)) #NICKA DEBUG
+    print("RNSI ROT MAT: " + str(rotation_mat)) #NICKA DEBUG
+    print("RNSI maxB: " + str(maxB)) #NICKA DEBUG
+    print("RNSI CENTER1: " + str(center1)) #NICKA DEBUG
+
     # rotate image with the new bounds and translated rotation matrix
     rotated_img = cv2.warpAffine(img, rotation_mat, (maxB, maxB))
     return rotated_img, center2, rotation_mat
@@ -915,3 +923,56 @@ def getPerpendicularLineHomogenous(p1, p2):
     if b1 == float('inf'):
         return 0, chord_cent
     return -1 / b1, chord_cent
+
+
+def downsample(img, scale=4):
+    """
+    Downsample image by scale
+    """
+    h, w = img.shape
+    new_h = (h // scale) * scale
+    new_w = (w // scale) * scale
+    trimmed_arr = img[:new_h, :new_w]
+    return trimmed_arr.reshape(new_h//scale, scale, new_w//scale, scale).mean(axis=(1, 3))
+
+def upsample(img, scale=4):
+    """
+    Upsample image by scale
+    """
+    return rescale(img, scale, order=1)
+
+def pad_to_shape(img, out_shape):
+    """
+    Pad an array to a specified output shape by replicating edge pixels.
+    """
+    img_shape = img.shape
+    
+    pad_height = out_shape[0] - img_shape[0]
+    pad_width = out_shape[1] - img_shape[1]
+    
+    pad_top = pad_height // 2
+    pad_bottom = pad_height - pad_top
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+    
+    out_img = np.pad(
+        img, 
+        pad_width=((pad_top, pad_bottom), (pad_left, pad_right)), 
+        mode='edge'
+    )
+    return out_img
+
+def weighted_neighborhood_average(arr, weights = [0.25, 0.5, 0.25]):
+    """
+    Calculate weighted average for each vector with its 2 neighboring vectors.
+    """
+    result = np.zeros_like(arr)
+    
+    result[0] = arr[0] * 0.75 + arr[1] * 0.25
+    result[-1] = arr[-2] * 0.25 + arr[-1] * 0.75
+    
+    for i in range(1, arr.shape[0] - 1):
+        result[i] = (arr[i-1] * weights[0] + 
+                    arr[i] * weights[1] + 
+                    arr[i+1] * weights[2])
+    return result

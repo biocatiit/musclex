@@ -31,7 +31,9 @@ authorization from Illinois Institute of Technology.
 import os
 import re
 import traceback
+import hdf5plugin 
 import fabio
+import h5py
 
 ############################
 #--- ## Load image files: ##
@@ -754,10 +756,12 @@ def loadFile(filename, no_processing=False, return_all_images=True):
 
     if file_type == 'hdf5':
         try:
+            #print("FILENAME: " + str(filename)) #NICKA DEBUG
             hdf5_file = fabio.open(filename)
             file_type = 'image'
-        except Exception:
-            print("Error loading HDF5 file")
+        except Exception as e:
+            print("Error loading HDF5 file.  Error:", end=" ")
+            print(e)
             return None, None
             # pass
     else:

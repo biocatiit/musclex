@@ -2043,7 +2043,15 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+        try:
+            self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+        except Exception as e:
+            infMsg = QMessageBox()
+            infMsg.setText("Error trying to open " + str(fileName))
+            infMsg.setInformativeText("This usually means that the image is corrupted or missing.  Skipping this image.")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
         if reprocess:
             self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])

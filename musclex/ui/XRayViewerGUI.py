@@ -1266,7 +1266,15 @@ class XRayViewerGUI(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
 
-        self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
+        try:
+            self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
+        except:
+            infMsg = QMessageBox()
+            infMsg.setText("Error Opening File: " + str(fileName))
+            infMsg.setInformativeText("The file is likely corrupted or missing.")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
 
         if self.inpaintChkBx.isChecked():
             self.statusPrint("Inpainting...")
@@ -1473,8 +1481,16 @@ class XRayViewerGUI(QMainWindow):
         """
         file_name = getAFile()
         if file_name != "":
-            self.onNewFileSelected(str(file_name))
-            self.centralWidget.setMinimumSize(700, 500)
+            try:
+                self.onNewFileSelected(str(file_name))
+                self.centralWidget.setMinimumSize(700, 500)
+            except:
+                infMsg = QMessageBox()
+                infMsg.setText("Error Opening File: " + str(file_name))
+                infMsg.setInformativeText("The file is likely corrupted or missing.")
+                infMsg.setStandardButtons(QMessageBox.Ok)
+                infMsg.setIcon(QMessageBox.Information)
+                infMsg.exec_()
 
     def prevClicked(self):
         """

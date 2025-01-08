@@ -62,11 +62,17 @@ class QuadrantFolder:
         :param img_path: directory path of input image
         :param img_name: image file name
         """
+
+        print("QF constructor") #NICKA DEBUG
+
         if extension in ('.hdf5', '.h5'):
             index = next((i for i, item in enumerate(file_list[0]) if item == img_name), 0)
             self.orig_img = file_list[1][index]
         else:
-            self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+            try:
+                self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+            except:
+                exit
         self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
         self.orig_img = self.orig_img.astype("float32")
         self.orig_image_center = None
@@ -84,6 +90,8 @@ class QuadrantFolder:
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
         self.expandImg = 1
+        self.origSize = self.orig_img.shape
+
         if parent is not None:
             self.parent = parent
         else:
@@ -97,6 +105,15 @@ class QuadrantFolder:
         else:
             self.info = {}
 
+        #Nick Allison
+        #Used for persisting the center when processing a folder of images that
+        #need to have the same center.
+        self.fixedCenterX = None
+        self.fixedCenterY = None
+
+        #Same thing for rotation
+        self.fixedRot = None
+
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
@@ -105,6 +122,9 @@ class QuadrantFolder:
         cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name + ".info")
         createFolder(fullPath(self.img_path, "qf_cache"))
         self.info['program_version'] = self.version
+
+        print("CACH FILE NAME: " + str(cache_file)) #DEBUG
+
         with open(cache_file, "wb") as c:
             pickle.dump(self.info, c)
 
@@ -144,6 +164,20 @@ class QuadrantFolder:
         if delStr in dicto:
             del dicto[delStr]
 
+    def readMaskFile(self):
+        """
+        Reads from a file that contains an upper bound and lower bound for
+        pixel values.
+        :return: minimum value(int), maximum value(int)
+        """
+        try:
+            with open(os.path.join(self.img_path, "settings/maskthresh.txt"), "r") as file:
+                lst = file.readlines()
+            return float(lst[0]), float(lst[1])
+        except:
+            print("Ran into some problem reading from mask file.")
+            return -1.0, -1.0
+
     def process(self, flags):
         """
         All processing steps - all flags are provided by Quadrant Folding app as a dictionary
@@ -154,14 +188,46 @@ class QuadrantFolder:
         sigmoid - merging gradient
         other backgound subtraction params - cirmin, cirmax, nbins, tophat1, tophat2
         """
-        print(str(self.img_name) + " is being processed...")
+        print(str(self.img_name) + " is being processed...") 
+        try:
+            print("INFO[CENTER] b4 UPDATE INFO: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after update info")
         self.updateInfo(flags)
+        try:
+            print("INFO[CENTER] AFTER UPDATE INFO: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after update info")
         self.initParams()
+        try:
+            print("INFO[CENTER] AFTER init params: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after init params")
         self.applyBlankImageAndMask()
+        try:
+            print("INFO[CENTER] AFTER apply blank image and mask: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after blank image and mask")
         self.findCenter()
+        try:
+            print("INFO[CENTER] AFTER findcenter: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after findcenter")
         self.centerizeImage()
+        try:
+            print("INFO[CENTER] AFTER centerize: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after centerize")
         self.rotateImg()
+        try:
+            print("INFO[CENTER] AFTER rotate: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after rotateimg")
         self.calculateAvgFold()
+        try:
+            print("INFO[CENTER] AFTER calc avg: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after calcavgfold")
         if flags['fold_image'] == False:
             self.info['avg_fold'] = self.orig_img
             self.info['folded'] = False
@@ -173,12 +239,21 @@ class QuadrantFolder:
             # else:
             #     self.info['avg_fold'] = self.orig_img
         self.getRminmax()
+        try:
+            print("INFO[CENTER] AFTER getrminrmax: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after getrminrmax")
         self.applyBackgroundSubtraction()
+        try:
+            print("INFO[CENTER] AFTER apply background sub: " + str(self.info['center'])) #NICKA DEBUG
+        except:
+            print("info center not set after apply background sub")
         self.mergeImages()
         self.generateResultImage()
 
         if "no_cache" not in flags:
             self.cacheInfo()
+
 
         self.parent.statusPrint("")
 
@@ -218,14 +293,29 @@ class QuadrantFolder:
         if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
             img = np.array(self.orig_img, 'float32')
             blank, mask = getBlankImageAndMask(self.img_path)
+
+
+            try: #NICKA DEBUG
+                print("MASK SIZE" + str(mask.shape)) #NICKA DEBUG
+            except:
+                print("error mask")
+            try:
+                print("BLANK SIZE" + str(blank.shape)) #NICKA DEBUG
+            except:
+                print("blanke rror;;;bkcjfsbdj") #NICKA DEBUG
             maskOnly = getMaskOnly(self.img_path)
+            try: #NICKA DEBUG
+                print("MASK ONLY SIZE: " + str(maskOnly.shape)) #NICKA DEBUG
+            except:
+                print("ERROR mo")
+
             if blank is not None:
                 img = img - blank
             if mask is not None:
-                img[mask > 0] = self.info['mask_thres'] - 1.
+                img[mask == 0] = self.info['mask_thres'] - 1.
             if maskOnly is not None:
                 print("Applying mask only image")
-                img[maskOnly > 0] = self.info['mask_thres'] - 1
+                img[maskOnly == 0] = self.info['mask_thres'] - 1
 
             self.orig_img = img
             self.masked = True
@@ -236,6 +326,15 @@ class QuadrantFolder:
         Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
         """
         self.parent.statusPrint("Finding Center...")
+        #Nick Allison
+        #if the center needs to be persisted when doing a whole folder
+        #, then use the persisted center
+        if self.fixedCenterX is not None and self.fixedCenterY is not None:
+            self.info['center'] = []
+            self.info['center'].append(self.fixedCenterX)
+            self.info['center'].append(self.fixedCenterY)
+            self.centerChanged = False
+            return
         if 'mask_thres' not in self.info:
             self.initParams()
         if 'center' in self.info:
@@ -264,7 +363,11 @@ class QuadrantFolder:
         Once the rotation angle is calculated, the average fold will be re-calculated, so self.info["avg_fold"] is deleted
         """
         self.parent.statusPrint("Finding Rotation Angle...")
-        if 'manual_rotationAngle' in self.info:
+        #NickA: First if is for if the Fixed Rotation Angle GUI box is checked.
+        if self.fixedRot is not None:
+            self.info['rotationAngle'] = self.fixedRot
+            self.deleteFromDict(self.info, 'avg_fold')
+        elif 'manual_rotationAngle' in self.info:
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
             del self.info['manual_rotationAngle']
             self.deleteFromDict(self.info, 'avg_fold')
@@ -292,17 +395,21 @@ class QuadrantFolder:
         """
         if self is None:
             return [0,0], (0,0)
-        if self.orig_image_center is None:
+        if self.orig_image_center is None and (self.fixedCenterX == None or self.fixedCenterY == None):
             self.findCenter()
             self.statusPrint("Done.")
-        if 'calib_center' in self.info:
+        if self.fixedCenterX is not None and self.fixedCenterY is not None:
+            center = []
+            center.append(self.fixedCenterX)
+            center.append(self.fixedCenterY)
+        elif 'calib_center' in self.info:
             center = self.info['calib_center']
         elif 'manual_center' in self.info:
             center = self.info['manual_center']
         else:
             center = self.orig_image_center
-
         extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
+
 
         return extent, center
 
@@ -370,6 +477,12 @@ class QuadrantFolder:
         #     translated_Img[translated_mask > 0] = mask_thres
         # else:
         cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
+
+        print("TRANS MAT IN CENTERIZE: " + str(M)) #NICKA DEBUG
+        print("COLS IN CENTERIZE: " + str(cols)) #NICKA DEBUG
+        print("ROWS IN CENTERIZE: " + str(rows)) #NICKA DEBUG
+        print("new_img shape: " + str(new_img.shape)) #NICKA DEBUG
+
         translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
 
         self.orig_img = translated_Img
@@ -383,22 +496,208 @@ class QuadrantFolder:
         """
         img = np.array(self.orig_img, dtype="float32")
         center = self.info["center"]
+        print("GET ROTATED IMAGE CENTER: " + str(center)) #NICKA DEBUG
         if self.center_before_rotation is not None:
             center = self.center_before_rotation
         else:
             self.center_before_rotation = center
 
+        print("AFTER SWITCHEROO IN RIMG, CENTER: " + str(center)) #NICKA DEBUG
+        print("AFTER SWITCHEROO IN RIMG, CENTER_BEFORE_ROTATION: " + str(self.center_before_rotation)) #NICKA DEBUG
+
         b, l = img.shape
+        print("ABOUT TO CALL ROTATE IMAGE IN GET ROTATED IMAGE !!!!!") #NICKA DEBUG
         rotImg, newCenter, self.rotMat = rotateImage(img, center, self.info["rotationAngle"])
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
         bnew, lnew = rotImg.shape
         db, dl = (bnew - b)//2, (lnew-l)//2
         final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
-        self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        if self.fixedCenterX is None and self.fixedCenterY is None:
+            self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
         self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
         return final_rotImg
+    
+    def getRotatedMask(self):
+        """
+        Get rotated mask by angle while mask is loaded from getMaskOnly function and angle = self.info["rotationAngle"]
+        """
+        try:
+            mask = getMaskOnly(self.img_path)
+
+            if mask is None:
+                _, mask = getBlankImageAndMask(self.img_path)
+
+            width, height = self.orig_img.shape
+            center = (width / 2, height / 2)
+
+            b, l = mask.shape
+
+            new_mask= np.zeros((width,height)).astype("float32")
+            print("NEW MASK SHAPE: " + str(new_mask.shape)) #NICKA DEBUG
+            print("MASK SHAPE: " + str(mask.shape)) #NICKA DEBUG
+        except:
+            print("Error getting mask")
+        
+        try:
+            new_mask[0:b,0:l] = mask
+        except:
+            print("Masking error : Dimension mismatched. Please report error and the steps leading up to it.")
+    
+        M = self.centImgTransMat
+        translated_mask = cv2.warpAffine(new_mask,M,(width,height))
+
+        print("GETROTATED MAAASSSKKK GET ROTATED IMAGE CENTER: " + str(center)) #NICKA DEBUG
+        if self.center_before_rotation is not None:
+            center = self.center_before_rotation
+        else:
+            self.center_before_rotation = center
+
+        print("AFTER SWITCHEROO IN RMASK, CENTER: " + str(center)) #NICKA DEBUG
+        print("AFTER SWITCHEROO IN RMASK, CENTER_BEFORE_ROTATION: " + str(self.center_before_rotation)) #NICKA DEBUG
+        
+        print("GRM  ABOUT TO CALL ROTATE IMAGE IN GET ROTATED IMAGE !!!!!") #NICKA DEBUG
+        rotMsk, newCenter, self.rotMat = rotateImage(translated_mask, center, self.info["rotationAngle"])
+
+        b, l = rotMsk.shape
+
+        # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
+        bnew, lnew = rotMsk.shape
+        db, dl = (bnew - b)//2, (lnew-l)//2
+
+        print("BNEW: " + str(bnew)) #NICKA DEBUG
+        print("LNEW: " + str(lnew)) #NICKA DEBUG
+        print("db: " + str(db)) #NICKA DEBUG
+        print("dl: " + str(dl))
+
+        final_rotMsk = rotMsk[db:bnew-db, dl:lnew-dl]
+        #self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        #self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
+
+        return final_rotMsk
+
+    def getRotatedBlank(self):
+        """
+        Get rotated blank image mask by angle while blank is loaded from getBlankImageAndMask function and angle = self.info["rotationAngle"]
+        """
+        blank, _ = getBlankImageAndMask(self.img_path)
+        width, height = self.orig_img.shape
+        center = (width / 2, height / 2)
+
+        b, l = blank.shape
+
+        new_blank= np.zeros((width,height)).astype("float32")
+        print("NEW BLANK SHAPE: " + str(new_blank.shape)) #NICKA DEBUG
+        print("BLANK SHAPE: " + str(blank.shape)) #NICKA DEBUG
+        
+        try:
+            new_blank[0:b,0:l] = blank
+        except:
+            print("(BLANK)Masking error : Dimension mismatched. Please report error and the steps leading up to it.")
+    
+        M = self.centImgTransMat
+        translated_blank = cv2.warpAffine(new_blank,M,(width,height))
+
+        print("GETROTATED BLANNNNNNKKKK GET ROTATED Thresh CENTER: " + str(center)) #NICKA DEBUG
+        if self.center_before_rotation is not None:
+            center = self.center_before_rotation
+        else:
+            self.center_before_rotation = center
+
+        print("AFTER SWITCHEROO IN RTHRESH, CENTER: " + str(center)) #NICKA DEBUG
+        print("AFTER SWITCHEROO IN RTHRESH, CENTER_BEFORE_ROTATION: " + str(self.center_before_rotation)) #NICKA DEBUG
+        
+        print("GRM  ABOUT TO CALL ROTATE IMAGE IN GET ROTATED BLANK !!!!!") #NICKA DEBUG
+        rotBlnk, newCenter, self.rotMat = rotateImage(translated_blank, center, self.info["rotationAngle"])
+
+        b, l = rotBlnk.shape
+
+        # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
+        bnew, lnew = rotBlnk.shape
+        db, dl = (bnew - b)//2, (lnew-l)//2
+
+        print("BNEW: " + str(bnew)) #NICKA DEBUG
+        print("LNEW: " + str(lnew)) #NICKA DEBUG
+        print("db: " + str(db)) #NICKA DEBUG
+        print("dl: " + str(dl))
+
+        final_rotBlnk = rotBlnk[db:bnew-db, dl:lnew-dl]
+        #self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        #self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
+
+        return final_rotBlnk
+
+    def getRotatedThreshMask(self, thresh_mask):
+        """
+        Get rotated threshold image mask
+        """
+
+        if thresh_mask is None:
+            print("THRESH MASK IS NONE GET IN QF") #NICKA DEBUG
+            if self.orig_img is not None:
+                mask = self.orig_img
+            else:
+                print("No image data; can't calc green mask!")
+                return
+
+            new_mask = np.zeros_like(mask)
+
+            mask_min, mask_max = self.readMaskFile()
+            
+            if mask_min != -1:
+                new_mask[mask < mask_min] = 1
+            if mask_max != -1:
+                new_mask[mask > mask_max] = 1
+
+            thresh_mask = new_mask
+
+        width, height = self.orig_img.shape
+        center = (width / 2, height / 2)
+
+        b, l = thresh_mask.shape
+
+        new_thresh= np.zeros((width,height)).astype("float32")
+        print("NEW THRESH SHAPE: " + str(new_thresh.shape)) #NICKA DEBUG
+        print("THRESH SHAPE: " + str(thresh_mask.shape)) #NICKA DEBUG
+        
+        try:
+            new_thresh[0:b,0:l] = thresh_mask
+        except:
+            print("(THRESH)Masking error : Dimension mismatched. Please report error and the steps leading up to it.")
+    
+        M = self.centImgTransMat
+        #translated_thresh = cv2.warpAffine(new_thresh,M,(width,height))
+        translated_thresh = new_thresh
+
+        print("GETROTATED THRESHHSSHSHHS GET ROTATED IMAGE CENTER: " + str(center)) #NICKA DEBUG
+        if self.center_before_rotation is not None:
+            center = self.center_before_rotation
+        else:
+            self.center_before_rotation = center
+
+        print("AFTER SWITCHEROO IN RTHRESH, CENTER: " + str(center)) #NICKA DEBUG
+        print("AFTER SWITCHEROO IN RTHRESH, CENTER_BEFORE_ROTATION: " + str(self.center_before_rotation)) #NICKA DEBUG
+        
+        print("GRM  ABOUT TO CALL ROTATE IMAGE IN GET ROTATED THRESH !!!!!") #NICKA DEBUG
+        rotThrsh, newCenter, self.rotMat = rotateImage(translated_thresh, center, self.info["rotationAngle"])
+
+        b, l = rotThrsh.shape
+
+        # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
+        bnew, lnew = rotThrsh.shape
+        db, dl = (bnew - b)//2, (lnew-l)//2
+
+        print("BNEW: " + str(bnew)) #NICKA DEBUG
+        print("LNEW: " + str(lnew)) #NICKA DEBUG
+        print("db: " + str(db)) #NICKA DEBUG
+        print("dl: " + str(dl))
+
+        final_rotThrsh = rotThrsh[db:bnew-db, dl:lnew-dl]
+        #self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
+        #self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
+
+        return final_rotThrsh
 
     def getFoldNumber(self, x, y):
         """
@@ -972,7 +1271,8 @@ class QuadrantFolder:
             integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
-            self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
+            #self.info['rmin'] = int(round(self.getFirstPeak(totalI) * 1.5))
+            self.info['rmin'] = int(round(getFirstVallay(totalI) - 10))
             self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
 
         self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
@@ -983,11 +1283,20 @@ class QuadrantFolder:
         """
         Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgimg1']
         """
+        copy_img_orig = copy.copy(self.info['avg_fold'])
         copy_img = copy.copy(self.info['avg_fold'])
 
         rmin = self.info['rmin']
         rmax = self.info['rmax']
         center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
+
+        # Downsampling
+        scale=4
+        copy_img = downsample(copy_img, scale=scale)
+        base_img = np.ones((copy_img.shape[0], copy_img.shape[1]), dtype=np.uint8)
+        rmin = rmin // scale
+        rmax = rmax // scale
+        center = [center[0]//scale, center[1]//scale]
 
         hist_x = list(np.arange(rmin, rmax + 1))
         pchiplines = []
@@ -1000,11 +1309,23 @@ class QuadrantFolder:
         integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
         for deg in np.arange(180, 271, 1):
             if deg == 180 :
-                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 180.5))
+                #_, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 180.5))
+                start_deg = 180
+                end_deg = 180.5
             elif deg == 270:
-                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(269.5, 270))
+                #_, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(269.5, 270))
+                start_deg=269.5
+                end_deg=270
             else:
-                _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(deg-0.5, deg+0.5))
+                #_, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(deg-0.5, deg+0.5))
+                start_deg=deg-0.5
+                end_deg=deg+0.5
+
+            # Integrate the image and base image to get the volume
+            _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg))
+            _, Ib = ai.integrate1d(base_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg))
+            # Divide by the volume
+            I = np.divide(I, Ib, out=np.zeros_like(I), where=Ib!=0)
 
             hist_y = I[int(rmin):int(rmax+1)]
             hist_y = list(np.concatenate((hist_y, np.zeros(len(hist_x) - len(hist_y)))))
@@ -1018,8 +1339,11 @@ class QuadrantFolder:
         pchiplines = np.array(pchiplines, dtype="float32")
         pchiplines2 = convolve1d(pchiplines, [1,2,1], axis=0)/4.
 
+        # Smooth between neighboring histograms
+        pchiplines3 = weighted_neighborhood_average(pchiplines2, weights=[0.25, 0.5, 0.25])
+
         # Produce Background from each pchip line
-        background = qfu.make2DConvexhullBG2(pchiplines2, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax)
+        background = qfu.make2DConvexhullBG2(pchiplines3, copy_img.shape[1], copy_img.shape[0], center[0], center[1], rmin, rmax)
 
         # Smooth background image by gaussian filter
         s = 10
@@ -1027,8 +1351,11 @@ class QuadrantFolder:
         t = (((w - 1.) / 2.) - 0.5) / s
         background = gaussian_filter(background, sigma=s, truncate=t)
 
+        background = upsample(background)
+        background = pad_to_shape(background, copy_img_orig.shape)
+
         # Subtract original average fold by background
-        result = copy_img - background
+        result = copy_img_orig - background
 
         self.info['bgimg1'] = result
 

@@ -32,7 +32,7 @@ import traceback
 import copy
 from os.path import split, splitext
 import matplotlib.patches as patches
-from matplotlib.colors import LogNorm, Normalize
+from matplotlib.colors import LogNorm, Normalize, ListedColormap
 import matplotlib.pyplot as plt
 import pandas as pd
 from PIL import Image
@@ -49,6 +49,10 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
+from scipy.ndimage import rotate
+
+import time
+import random
 
 class QuadFoldParams:
     def __init__(self, flags, fileName, filePath, ext, fileList, parent):
@@ -68,7 +72,7 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params, fixed_center_checked, persist_center):
+    def __init__(self, params, fixed_center_checked, persist_center, persist_rot, qf_lock):
         super().__init__()
         self.flags = params.flags
         self.params = params
@@ -78,32 +82,54 @@ class Worker(QRunnable):
         #NA
         self.fixedCenterChecked = fixed_center_checked
         self.persist_center = persist_center
+
+        #NA
+        self.persist_rot = persist_rot
+
+        #NA
+        #self.qf_lock = qf_lock
+        self.qf_lock = Lock()
         
     @Slot()
     def run(self):
         try:
+            print("ABOUT TO CALL QF CONSTRUCTOR IN WORKER CLAEE") #NICKA DEBUG
             self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
             self.quadFold.info = {}
 
-            #NA
-            if self.persist_center is not None:
-                print("PREVIOUS INFO:" + str(self.persist_center))
-                self.quadFold.info['calib_center'] = self.persist_center
+            #NICK ALLISON
+            #pass persisted center data to quadfold object
+            if self.fixedCenterChecked:
+                self.quadFold.fixedCenterX = self.persist_center[0]
+                self.quadFold.fixedCenterY = self.persist_center[1]
 
+            #Pass the persisted rotation to the quadfold object
+            if self.persist_rot is not None:
+                self.quadFold.fixedRot = self.persist_rot
+
+            print("BEFORE PROCESS IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
 
             self.quadFold.process(self.flags)
-            if self.lock is not None:
-                self.lock.acquire()
+
+            print("AFTER PROCESS IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+
+            if self.qf_lock is not None:
+                self.qf_lock.acquire()
+                print("BEFORE TEXT FILE WRITE" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+                print("IMG_PATH: " + str(self.quadFold.img_path) + ";     ,     " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
                 file.write(self.quadFold.img_name + " saving image"+ "\n")
-            if self.lock is not None:
-                self.lock.release()
+            if self.qf_lock is not None:
+                self.qf_lock.release()
         except:
+            print("EXCEPTION IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
         else:
+            print("ELSE IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             self.signals.result.emit(self.quadFold)
         finally:
+            print("FINALLY IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             self.signals.finished.emit()
 
 class QuadrantFoldingGUI(QMainWindow):
@@ -115,6 +141,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Initial window
         """
+        print("QF GUI INIT")#NICKA DEBUG
+
         super().__init__()
         self.imgList = [] # all images name in current directory
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
@@ -153,19 +181,26 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
+        self.qf_lock = Lock()
         self.imageMaskingTool = None
         
         self.rotationAngle = None
 
         self.calSettingsDialog = None
         self.doubleZoomMode = False
+        self.mouseSensitivity = 1.0
         self.dontShowAgainDoubleZoomMessageResult = False
         self.doubleZoomPt = (0, 0)
         self.doubleZoomAxes = None
 
+        self.lastMousePos = None
+
         #NA
-        #Used for when the same center needs to be used to process a folder
+        #Used for when the same center/rotation needs to be used to process a folder
         self.persistedCenter = None
+        self.persistedRotation = None
+
+        self.thresh_mask = None
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgets
@@ -174,15 +209,28 @@ class QuadrantFoldingGUI(QMainWindow):
         self.newImgDimension = None
         self.browseFile()
 
+        self.mask_min = None
+        self.mask_max = None
+
     def initUI(self):
         """
         Open a file finder and return the name of the file selected
         """
+
         self.setWindowTitle("Muscle X Quadrant Folding v." + __version__)
 
+        self.scrollArea = QScrollArea()
+        #self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        #self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+
+        self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
-        self.setCentralWidget(self.centralWidget)
+
+        self.scrollArea.setWidget(self.centralWidget)
+        #self.setCentralWidget(self.centralWidget)
         self.mainHLayout = QHBoxLayout(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
@@ -198,8 +246,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tabWidget.addTab(self.imageTab, "Original Image")
 
         self.verImgLayout = QVBoxLayout()
-        # self.verImgLayout.setContentsMargins(0, 0, 0, 0)
+        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
         self.verImgLayout.setAlignment(Qt.AlignCenter)
+        
+        self.leftWidget = QWidget()
+        self.leftWidget.setLayout(self.verImgLayout)
+        self.leftWidget.setMinimumWidth(650)
+
         self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
         self.selectImageButton.setFixedWidth(300)
@@ -214,14 +267,21 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageAxes = self.imageFigure.add_subplot(111)
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
-        self.imageCanvas.setHidden(True)
-        self.imageTabLayout.addLayout(self.verImgLayout)
-        self.imageTabLayout.addWidget(self.imageCanvas)
 
-        self.displayOptGrpBx = QGroupBox()
-        self.displayOptGrpBx.setTitle("Display Options")
-        # self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        self.dispOptLayout = QGridLayout()
+        self.imageCanvas.setHidden(True)
+        self.imageTabLayout.addWidget(self.leftWidget)
+        self.imageTabLayout.addWidget(self.imageCanvas)
+        #self.imageTabLayout.addStretch()
+
+
+        self.rightImageFrame = QFrame()
+        self.rightImageLayout = QVBoxLayout(self.rightImageFrame)
+        
+        #self.rightImageFrame.setFixedWidth(500)
+        #self.rightImageFrame.setLayout(self.rightImageLayout)
+
+        self.displayOptGrpBx = QGroupBox("Display Options")
+        self.dispOptLayout = QGridLayout(self.displayOptGrpBx)
 
         self.spminInt = QDoubleSpinBox()
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
@@ -235,6 +295,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spmaxInt.setDecimals(0)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.persistIntensity = QCheckBox("Persist intensities")
+        #self.persistIntensity.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
@@ -247,6 +308,11 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
+
+        self.doubleZoom = QCheckBox("Double Zoom")
+        self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
+        self.cropFoldedImageChkBx.setChecked(False)
+
         self.dispOptLayout.addWidget(self.showSeparator, 0, 0, 1, 4)
         self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 2)
         self.dispOptLayout.addWidget(self.spminInt, 2, 0, 1, 2)
@@ -256,14 +322,27 @@ class QuadrantFoldingGUI(QMainWindow):
         self.dispOptLayout.addWidget(self.persistIntensity, 3, 2, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomInB, 4, 0, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomOutB, 4, 2, 1, 2)
+        self.dispOptLayout.addWidget(self.doubleZoom, 5, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.cropFoldedImageChkBx, 5, 2, 1, 2)
 
-        self.displayOptGrpBx.setLayout(self.dispOptLayout)
+        self.rightImageLayout.addWidget(self.displayOptGrpBx)
+        self.rightImageLayout.addSpacing(10)
+
+        #self.displayOptGrpBx.setFixedHeight(160)
+
+        #self.displayOptGrpBx.setLayout(self.dispOptLayout)
+        #self.rightImageLayout.addStretch(1)
 
         self.optionsLayout = QVBoxLayout()
         # self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
-        self.settingsLayout = QGridLayout()
-        self.settingsGroup.setLayout(self.settingsLayout)
+        self.settingsLayout = QGridLayout(self.settingsGroup)
+        #self.settingsLayout.setScaledContents(False)
+        #self.settingsLayout.setWidgetResizable(False)
+        #self.settingsGroup.setLayout(self.settingsLayout)
+        #self.settingsGroup.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        #self.settingsGroup.setFixedHeight(300)
+        #self.settingsGroup.setMinimumSize(400, 200)
 
         self.calibrationButton = QPushButton("Calibration Settings")
         self.setCenterRotationButton = QPushButton("Set Rotation Angle and Center")
@@ -294,7 +373,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
         self.orientationCmbBx.addItem("Herman Factor (Pi)")
 
-        self.modeAngleChkBx = QCheckBox("Mode orientation")
+        self.modeAngleChkBx = QCheckBox("Mode Orientation")
         self.modeAngleChkBx.setChecked(False)
 
         # self.expandImage = QCheckBox("Expand the Image")
@@ -305,14 +384,23 @@ class QuadrantFoldingGUI(QMainWindow):
         self.compressFoldedImageChkBx.setChecked(True)
         self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
 
-        self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
-        self.cropFoldedImageChkBx.setChecked(False)
+        #self.doubleZoom.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        self.doubleZoom = QCheckBox("Double Zoom")
         self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
+
+        self.sensitivitySlider = QSlider(Qt.Horizontal, self)
+        self.sensitivitySlider.setRange(1, 100)
+        self.sensitivitySlider.setValue(10)
+        self.sensitivitySlider.setTickInterval(10)
+        self.sensitivitySlider.setTickPosition(QSlider.TicksBelow)
+
+        self.sensitivityLabel = QLabel("Sensitivity: 1.0", self)
 
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
+
+        self.fixedOrientationChkBx = QCheckBox("Persistent Orientation")
+        self.fixedOrientationChkBx.setChecked(False)
 
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 4)
         self.settingsLayout.addWidget(self.setCentByChords, 1, 0, 1, 2)
@@ -320,24 +408,41 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.setCenterRotationButton, 2, 0, 1, 2)
         self.settingsLayout.addWidget(self.setRotationButton, 2, 2, 1, 2)
         self.settingsLayout.addWidget(self.persistRotations, 3, 0, 1, 4)
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 5, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, 5, 2, 1, 2)
-        self.settingsLayout.addWidget(self.modeAngleChkBx, 6, 0, 1, 4)
-        # self.settingsLayout.addWidget(self.expandImage, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 7, 0, 1, 4)
-        self.settingsLayout.addWidget(self.cropFoldedImageChkBx, 8, 0, 1, 4)
-        self.settingsLayout.addWidget(self.doubleZoom, 9, 0, 1, 4)
-        self.settingsLayout.addWidget(self.toggleFoldImage, 10, 0, 1, 4)
+        #self.settingsLayout.addWidget(QLabel("Lower Bound : "), 4, 0, 1, 2)
+        #self.settingsLayout.addWidget(self.minThreshField, 4, 2, 1, 2)
+        #self.settingsLayout.addWidget(QLabel("Upper Bound : "), 5, 0, 1, 2)
+        #self.settingsLayout.addWidget(self.maxThreshField, 5, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), 6, 0, 1, 2)
+        self.settingsLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), 7, 0, 1, 2)
+        self.settingsLayout.addWidget(self.orientationCmbBx, 7, 2, 1, 2)
+        self.settingsLayout.addWidget(self.modeAngleChkBx, 8, 0, 1, 4)
+        self.settingsLayout.addWidget(self.fixedOrientationChkBx, 8, 2, 1, 4)
+        
+
+        self.settingsLayout.addWidget(self.sensitivityLabel, 12, 0, 1, 4)
+        self.settingsLayout.addWidget(self.sensitivitySlider, 13, 0, 1, 4)
+        self.sensitivityLabel.setVisible(False)
+        self.sensitivitySlider.setVisible(False)
+
+        self.settingsLayout.addWidget(self.toggleFoldImage, 14, 0, 1, 4)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 14, 2, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
         self.blankImageGrp.setCheckable(True)
         self.blankImageGrp.setChecked(False)
-        self.blankImageLayout = QVBoxLayout(self.blankImageGrp)
+        self.blankImageLayout = QGridLayout(self.blankImageGrp)
         self.blankSettingButton = QPushButton("Set Blank Image and Mask")
-        self.blankImageLayout.addWidget(self.blankSettingButton)
+        self.blankImageLayout.addWidget(self.blankSettingButton, 1, 0, 1, 4)
+
+        self.rightImageLayout.addWidget(self.blankImageGrp)
+        self.rightImageLayout.addWidget(self.settingsGroup)
+
+        #self.blankImageGrp.setFixedHeight(200)
+
+        self.rightImageLayout.addStretch()
+
 
         # Result processing and background Subtraction
         self.resProcGrpBx = QGroupBox()
@@ -359,7 +464,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgChoice = QComboBox()
         self.bgChoice.setCurrentIndex(0)
         # self.bgChoice.setFixedHeight(40)
-        self.allBGChoices = ['None','Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar'] # '2D Convexhull',
+        self.allBGChoices = ['None','Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', '2D Convexhull']
         for c in self.allBGChoices:
             self.bgChoice.addItem(c)
 
@@ -622,7 +727,15 @@ class QuadrantFoldingGUI(QMainWindow):
         self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(500)
         self.frameOfKeys.setLayout(self.optionsLayout)
-        self.imageTabLayout.addWidget(self.frameOfKeys)
+        #self.imageTabLayout.addWidget(self.frameOfKeys)
+
+        self.scroll_areaImg = QScrollArea()
+        self.scroll_areaImg.setWidgetResizable(True)
+        self.scroll_areaImg.setWidget(self.frameOfKeys)
+
+        self.scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+        self.imageTabLayout.addWidget(self.scroll_areaImg)
 
         ##### Result Tab #####
         self.resultTab = QWidget()
@@ -806,6 +919,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
+        self.fixedOrientationChkBx.stateChanged.connect(self.onFixedRotationChkBxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
@@ -853,7 +967,28 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
+
+        #sensitivity slider
+        self.sensitivitySlider.valueChanged.connect(self.sensitivityChanged)
         
+
+    def updateLeftWidgetWidth(self):
+        if self.imageCanvas.isVisible():
+            # Remove the minimum width constraint
+            self.leftWidget.setMinimumWidth(0)
+        else:
+            # Set the minimum width for when the canvas is hidden
+            self.leftWidget.setMinimumWidth(650)
+
+
+    def sensitivityChanged(self, value):
+        """
+        Adjust mouse sensitivity based on slider value.
+        """
+        self.mouseSensitivity = value / 10.0  # Scale the value (e.g., 0.1 to 10.0)
+        print(f"Mouse sensitivity set to {self.mouseSensitivity}")
+
+
     def persistRotationsChecked(self):
         if self.persistRotations.isChecked():
             self.rotationAngle = self.quadFold.info['rotationAngle']
@@ -900,7 +1035,14 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and not self.uiUpdating:
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
+            print("ABOUT TO CALL QF CONSTRUCTOR IN BLANKCHECKED") #NICKA DEBUG
+            fix_x, fix_y = self.quadFold.fixedCenterX, self.quadFold.fixedCenterY
             self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+            print("FIX_X: " + str(fix_x)) #NICKA DEBUG
+            print("FIX_Y: " + str(fix_y)) #NICKA DEBUG
+            if fix_x is not None and fix_y is not None:
+                self.quadFold.fixedCenterX = fix_x
+                self.quadFold.fixedCenterY = fix_y
             self.masked = False
             self.processImage()
 
@@ -942,16 +1084,25 @@ class QuadrantFoldingGUI(QMainWindow):
         #     self.masked = False
         #     self.processImage()
         
-        if self.imageMaskingTool is None:
-            isH5 = False
-            if self.h5List:
-                fileName = self.h5List[self.h5index]
-                isH5 = True
-            else:
-                fileName = self.imgList[self.currentFileNumber]
+        try:
+            fabio.tifimage.tifimage(data=self.img).write(join(self.filePath,'settings/tempMaskFile.tif'))
+        except:
+            print("ERROR WITH SAVING THE IMAGE")
+
+        rot_ang = None if 'rotationAngle' not in self.quadFold.info else self.quadFold.info['rotationAngle']
+
+        isH5 = False
+        if self.h5List:
+            fileName = self.h5List[self.h5index]
+            isH5 = True
+        else:
+            fileName = self.imgList[self.currentFileNumber]
             
-            self.imageMaskingTool = ImageMaskerWindow(self.filePath , join(self.filePath, fileName), self.spminInt.value(), self.spmaxInt.value(), isH5)
-            
+        max_val = np.max(np.ravel(self.img))
+        trans_mat = self.quadFold.centImgTransMat if self.quadFold.centImgTransMat is not None else None  
+        orig_size = self.quadFold.origSize if self.quadFold.origSize is not None else None
+
+        self.imageMaskingTool = ImageMaskerWindow(self.filePath , join(self.filePath, "settings/tempMaskFile.tif"), self.spminInt.value(), self.spmaxInt.value(), max_val, trans_mat, orig_size, rot_ang, isH5)
             
         if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
             if os.path.exists(join(join(self.filePath, 'settings'), 'blank_image_settings.json')):
@@ -966,6 +1117,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
+            print("ABOUT TO CALL QF CONSTRUCTOR IN blankSettingClicked") #NICKA DEBUG
             self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.masked = False
             self.processImage()
@@ -1061,6 +1213,7 @@ class QuadrantFoldingGUI(QMainWindow):
             int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
             if 'center' in self.quadFold.info:
                 del self.quadFold.info['center']
+            
             print("New center after extent ", self.quadFold.info['manual_center'])
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
@@ -1156,7 +1309,8 @@ class QuadrantFoldingGUI(QMainWindow):
             # for i in range(len(ax.patches)-1,-1,-1):
             #     ax.patches[i].remove()
             _, center = self.getExtentAndCenter()
-            self.quadFold.info['center'] = center
+            if self.quadFold.fixedCenterX is None and self.quadFold.fixedCenterY is None:
+                self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
             self.function = ["im_rotate"]
         else:
@@ -1430,6 +1584,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.quadFold.info['manual_center'] = (cx, cy)
+                    print("ABOUT TO DELETE CENTER IN IMAGE CLICKED GUI FUNCTION") #NICKA DEBUG
                     if 'center' in self.quadFold.info:
                         del self.quadFold.info['center']
                     self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
@@ -1464,6 +1619,22 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.persistRotations.setVisible(True)
                 self.processImage()
 
+
+    def drawBlueDot(self, x, y, ax=None):
+        if ax is None:
+            ax = self.imageAxes
+
+        # Remove any existing lines or patches so they don't stack
+        if len(ax.lines) > 0:
+            for i in range(len(ax.lines)-1, -1, -1):
+                ax.lines[i].remove()
+        if len(ax.patches) > 0:
+            for i in range(len(ax.patches)-1, -1, -1):
+                ax.patches[i].remove()
+
+        # Plot a blue dot at the given coordinates
+        ax.plot(x, y, 'bo', markersize=5)
+
     def imageOnMotion(self, event):
         """
         Triggered when mouse presses on image in image tab
@@ -1480,6 +1651,37 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
+            
+            if self.doubleZoomMode:
+                if self.lastMousePos is None:
+                    self.lastMousePos = (x, y)
+                    return
+
+                # Calculate deltas with sensitivity
+                deltaX = (x - self.lastMousePos[0]) * self.mouseSensitivity
+                deltaY = (y - self.lastMousePos[1]) * self.mouseSensitivity
+
+                # Adjust x and y based on sensitivity
+                x = int(round(self.lastMousePos[0] + deltaX))
+                y = int(round(self.lastMousePos[1] + deltaY))
+
+                #Upper bound on x and y vals to avoid errors
+                if x + self.extent[0] > len(img[0]):
+                    x = len(img[0]) - self.extent[0] - 1
+                if y + self.extent[1] > len(img):
+                    y = len(img) - self.extent[1] - 1
+
+                #Lower bound on x and y to avoid errors
+                if x < 0:
+                    x = 0
+                if y < 0:
+                    y = 0
+
+                # Update last mouse position
+                self.lastMousePos = (x, y)
+
+                self.drawBlueDot(x, y)
+
             x = int(round(x))
             y = int(round(y))
             unit = "px"
@@ -1564,7 +1766,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
-                ax.invert_yaxis()
+                #ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate":
@@ -1795,7 +1997,7 @@ class QuadrantFoldingGUI(QMainWindow):
         ax = self.imageAxes
         ax.set_xlim(self.img_zoom[0])
         ax.set_ylim(self.img_zoom[1])
-        ax.invert_yaxis()
+        #ax.invert_yaxis()
         self.imageCanvas.draw_idle()
 
     def RminRmaxChanged(self):
@@ -1982,7 +2184,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.result_zoom = getNewZoom(self.result_zoom, move, img.shape[1], img.shape[0])
                 ax.set_xlim(self.result_zoom[0])
                 ax.set_ylim(self.result_zoom[1])
-                ax.invert_yaxis()
+                #ax.invert_yaxis()
                 self.resultCanvas.draw_idle()
 
     def resultReleased(self, event):
@@ -2202,6 +2404,13 @@ class QuadrantFoldingGUI(QMainWindow):
         Triggered when double zoom is checked
         """
         if self.doubleZoom.isChecked():
+
+            self.lastMousePos = None  # Reset mouse tracking
+
+            # Show the sensitivity slider and label
+            self.sensitivityLabel.setVisible(True)
+            self.sensitivitySlider.setVisible(True)
+
             print("Double zoom checked")
             self.doubleZoomAxes = self.imageFigure.add_subplot(333)
             self.doubleZoomAxes.axes.xaxis.set_visible(False)
@@ -2224,6 +2433,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 for i in range(len(ax1.patches)-1,-1,-1):
                     ax1.patches[i].remove()
         else:
+
+            # Hide the sensitivity slider and label
+            self.sensitivityLabel.setVisible(False)
+            self.sensitivitySlider.setVisible(False)
+
             self.imageFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomMode = False
         self.imageCanvas.draw_idle()
@@ -2264,6 +2478,7 @@ class QuadrantFoldingGUI(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
+            print("ABOUT TO CALL QF CONSTRUCTOR IN getModeRotation") #NICKA DEBUG
             quadFold = QuadrantFolder(self.filePath, f, self, self.fileList, self.ext)
             print(f'Getting angle {f}')
 
@@ -2420,6 +2635,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
+        print("ABOUT TO CALL QF CONSTRUCTOR IN onImageChanged") #NICKA DEBUG
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
         if reprocess:
             self.quadFold.info = {}
@@ -2454,6 +2670,25 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
             self.processImage()
 
+
+    def onFixedRotationChkBxToggled(self):
+        """
+        Toggles whether the current rotation is persisted in the QuadrantFolderGUI object.
+        If there is no current rotation angle known, calculates it.
+        """
+
+        if self.fixedRotationChkBx.isChecked():
+            try:
+                if 'rotationAngle' not in self.quadFold.info:
+                    self.processImage()
+
+                self.persistedRotation = self.quadFold.info['rotationAngle']
+            except:
+                print("Error trying to fix rotation")
+        else:
+            self.persistedRotation = None
+
+
     def closeEvent(self, ev):
         """
         Close the event
@@ -2464,6 +2699,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Deleting the center for appropriate recalculation
         """
+
+        print("MARK FIXED INFO FCTN IN GUI") #NICKA DEBUG
 
         if 'center' in currentInfo:
             del currentInfo['center']
@@ -2507,16 +2744,21 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Update current all widget in current tab , spinboxes, and refresh status bar
         """
+        print("NICKA CP NUM1") #NICKA DEBUG
         if self.ableToProcess():
+            print("NICKA CP NUM2") #NICKA DEBUG
             if self.tabWidget.currentIndex() == 0:
+                print("NICKA CP NUM3") #NICKA DEBUG
                 self.updateImageTab()
             elif self.tabWidget.currentIndex() == 1:
                 self.updateResultTab()
 
             for b in self.checkableButtons:
                 b.setChecked(False)
-
+    
+    
     def updateImageTab(self):
+        print("NICKA CP NUM4") #NICKA DEBUG
         """
         Display image in image tab, and draw lines
         """
@@ -2526,14 +2768,19 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
+
+            print("IMG SHAPE: " + str(img.shape)) #NICKA DEBUG
+
             extent, center = self.getExtentAndCenter()
             self.img = img
             self.extent = extent
             # img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                print("IN UPDATE IMAGE(LOG): EXTENT = " + str([0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])) #NICKA DEBUG
             else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                print("IN UPDATE IMAGE(REG): EXTENT = " + str([0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])) #NICKA DEBUG
             ax.set_facecolor('black')
 
             self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
@@ -2562,6 +2809,11 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.plot([center[0], img.shape[1] - extent[0]], [center[1], img.shape[0] - extent[1]], color="w")
                         ax.plot([center[0], img.shape[1] - extent[0]], [img.shape[0] - extent[1], center[1]], color="w")
 
+            #Show the masked image in the image tab
+            #NICKAA
+
+            print("AFTER MASK COLOR DISPLAY COND") #NICKA DEBUG
+
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
                 ax.set_xlim(self.img_zoom[0])
@@ -2574,7 +2826,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
 
             self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
-            ax.invert_yaxis()
+            #ax.invert_yaxis()
             self.imageFigure.tight_layout()
             self.imageCanvas.draw()
 
@@ -2587,17 +2839,21 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.quadFold is None:
             return [0,0], (0,0)
-        if self.quadFold.orig_image_center is None:
+        if self.quadFold.orig_image_center is None and (self.quadFold.fixedCenterX is None or self.quadFold.fixedCenterY is None):
             self.quadFold.findCenter()
             self.statusPrint("Done.")
-        if 'calib_center' in self.quadFold.info:
+        if self.quadFold.fixedCenterX is not None and self.quadFold.fixedCenterY is not None:
+            center = []
+            center.append(self.quadFold.fixedCenterX)
+            center.append(self.quadFold.fixedCenterY)
+        elif 'calib_center' in self.quadFold.info:
             center = self.quadFold.info['calib_center']
         elif 'manual_center' in self.quadFold.info:
             center = self.quadFold.info['manual_center']
         else:
             center = self.quadFold.orig_image_center
-            
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
+        print("QF GUI GET EXTENT + CENTER.  EXTENT: " + str(extent)) #NICKA DEBUG
         return extent, center
 
     def updateResultTab(self):
@@ -2642,7 +2898,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim((0, img.shape[0]))
 
             self.result_zoom = [ax.get_xlim(), ax.get_ylim()]
-            ax.invert_yaxis()
+            #ax.invert_yaxis()
             self.resultFigure.tight_layout()
             self.resultCanvas.draw()
 
@@ -2660,7 +2916,19 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                self.quadFold.process(flags)
+                print("BEFORE PROCESS IN PROCESS IMAGE") #NICKA DEBUG
+                print("FIXED CENTER: " + str(self.quadFold.fixedCenterX) + ", " + str(self.quadFold.fixedCenterY)) #NICKA DEBUG
+                print("Info: " + str(self.quadFold.info)) #NICKA DEBUG
+                if 'center' in self.calSettings:
+                    print("CALSETTINGS CENTER" + str(self.calSettings['center'])) #NICKA DEBUG
+                if self.calSettingsDialog.fixedCenter.isChecked():
+                    self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettings['center']
+                self.quadFold.process(flags)                    
+                print("AFTER PROCESS IN PROCESS IMAGE") #NICKA DEBUG
+                print("FIXED CENTER: " + str(self.quadFold.fixedCenterX) + ", " + str(self.quadFold.fixedCenterY)) #NICKA DEBUG
+                print("Info: " + str(self.quadFold.info)) #NICKA DEBUG
+                if 'center' in self.calSettings:
+                    print("CALSETTINGS CENTER" + str(self.calSettings['center'])) #NICKA DEBUG
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2686,6 +2954,9 @@ class QuadrantFoldingGUI(QMainWindow):
     def addTask(self, i):
         # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
+
+        print("ADDING TO THE QUEUE: " + str(self.imgList[i])) #DEBUG
+
         self.tasksQueue.put(params)
 
         # If there's no task currently running, start the next task
@@ -2693,17 +2964,24 @@ class QuadrantFoldingGUI(QMainWindow):
             
     def thread_done(self, quadFold):
         
-        #NA
-        #if self.lock is not None:
-            #self.lock.acquire()
+        if self.lock is not None:
+            print("PRE TD LOCK ACQ" + str(quadFold.img_name)[-8:-2]) #DEBUG
+            self.lock.acquire()
+            print("POST TD LOCK ACQ" + str(quadFold.img_name)[-8:-2]) #DEBUG
             
         self.quadFold = quadFold
-            
+
+        print("AFTER QF ASSIGNEMENT IN THREAD DONE" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+
         self.onProcessingFinished()
-        
-        #NA
-        #if self.lock is not None:
-            #self.lock.release()
+
+        print("AFTER OPF IN T_D" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+        print("ACTIVE THREADS: " + str(self.threadPool.activeThreadCount())) #DEBUG
+
+        if self.lock is not None:
+            self.lock.release() 
+            print("TD LOCK RELEASE" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+            print("LENGTH OF QUEUE: " + str(len(list(self.tasksQueue.queue)))) #DEBUG
     
     # placeholder method
     def thread_finished(self):
@@ -2728,7 +3006,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setEnabled(False)
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter)
+            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter, self.persistedRotation, self.qf_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             
@@ -2738,14 +3016,20 @@ class QuadrantFoldingGUI(QMainWindow):
     def onProcessingFinished(self):
         
         self.updateParams()
+        print("AFTER UPDATE PARAMS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.refreshAllTabs()
+        print("AFTER RAT" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.resetStatusbar2()
-        
+        print("AFTER RSB2" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.csvManager.writeNewData(self.quadFold)
+        print("AFTER CSVMAN" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.saveResults()
+        print("AFTER SAVERESULTS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         
         QApplication.restoreOverrideCursor()
+        print("RESTORE OVERRRIDE CURSOR" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.currentTask = None
+        print("AFTER SETCURRENT TASK" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         
         
             
@@ -2753,6 +3037,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Save result to folder qf_results
         """
+        print("SAVE RESULTS")
         if 'resultImg' in self.quadFold.imgCache:
             result_path = fullPath(self.filePath, 'qf_results')
             createFolder(result_path)
@@ -2813,6 +3098,7 @@ class QuadrantFoldingGUI(QMainWindow):
         resultImg = self.quadFold.makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
+            #pass
             resultImg = np.rot90(resultImg)
 
         method = info['bgsub']
@@ -2848,21 +3134,30 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Update the parameters
         """
-        info = self.quadFold.info
-        if 'orientation_model' in info:
-            self.orientationModel = info['orientation_model']
-        if self.calSettings is not None and 'center' in self.calSettings and 'calib_center' in info:
-            # Update cal settings center with the corresponding coordinate in original (or initial) image
-            # so that it persists correctly on moving to next image
-            self.calSettings['center'] = info['calib_center']
-        if not self.zoomOutClicked:
-            _, center = self.getExtentAndCenter()
-            cx, cy = center
-            cxr, cyr = self.quadFold.info['center']
-            xlim, ylim = self.quadFold.initImg.shape
-            xlim, ylim = int(xlim/2), int(ylim/2)
-            self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
-            self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
+        try:
+            info = self.quadFold.info
+            if 'orientation_model' in info:
+                self.orientationModel = info['orientation_model']
+            if self.calSettings is not None and 'center' in self.calSettings and 'calib_center' in info:
+                # Update cal settings center with the corresponding coordinate in original (or initial) image
+                # so that it persists correctly on moving to next image
+                self.calSettings['center'] = info['calib_center']
+            if not self.zoomOutClicked and self.quadFold.initImg is not None:
+                _, center = self.getExtentAndCenter()
+                print(center)
+                cx, cy = center
+                cxr, cyr = self.quadFold.info['center']
+                print(self.quadFold.initImg)
+                xlim, ylim = self.quadFold.initImg.shape
+                xlim, ylim = int(xlim/2), int(ylim/2)
+                self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
+                self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
+        except:
+            print("EXCEPTION IN UPDATE PARAMS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+            print("EXCEPTION IN UPDATE PARAMS")
+        else:
+            print("UPDATE PARAMS SUCESS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
+            print("UPDATE PARAMS SUCCESS")
 
     def resetStatusbar(self):
         """
@@ -2876,7 +3171,9 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Reset the status bar, but search using self.quadFold.info
         """
+        
         index = self.imgList.index(self.quadFold.img_name)
+        #DOES NOT GET HERE
         fileFullPath = fullPath(self.filePath, self.imgList[index])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(index + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
@@ -2957,12 +3254,23 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.selectImageButton.setHidden(True)
                 self.selectFolder.setHidden(True)
                 self.imageCanvas.setHidden(False)
+                self.updateLeftWidgetWidth()
                 self.resetWidgets()
                 QApplication.restoreOverrideCursor()
                 if self.h5List == []:
                     fileName = self.imgList[self.currentFileNumber]
-                    self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-                    self.setCalibrationImage()
+                    print("ABOUT TO CALL QF CONSTRUCTOR IN onNewFileSelected fctn") #NICKA DEBUG
+                    try:
+                        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+                        self.setCalibrationImage()
+                    except Exception as e:
+                        infMsg = QMessageBox()
+                        infMsg.setText("Error trying to open " + str(fileName))
+                        infMsg.setInformativeText("This usually means that the image is corrupted or missing.")
+                        infMsg.setStandardButtons(QMessageBox.Ok)
+                        infMsg.setIcon(QMessageBox.Information)
+                        infMsg.exec_()
+                        self.browseFile()
                 self.h5List = []
                 self.setH5Mode(str(newFile))
                 self.onImageChanged()
@@ -3021,6 +3329,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.selectImageButton.setHidden(True)
             self.selectFolder.setHidden(True)
             self.imageCanvas.setHidden(False)
+            self.updateLeftWidgetWidth()
             self.ignoreFolds = set()
             self.currentFileNumber = 0
             self.onImageChanged()
@@ -3076,10 +3385,20 @@ class QuadrantFoldingGUI(QMainWindow):
         flags = self.getFlags()
         text += "\nCurrent Settings"
 
-        #Print Center on popup window
+        #NICK ALLISON
+        #If the fixed center box is checked, then:
+        #Print message
+        #store the current center in the quadfoldgui object
+        #Display Center on popup window
         if self.calSettingsDialog.fixedCenter.isChecked() and self.calSettings['center'] is not None:
+            print("USING PERSISTED CENTER")
             self.persistedCenter = self.calSettings['center']
             text += "\n  - Center : " + str(self.persistedCenter)
+
+        #Same thing for rotation
+        if self.persistedRotation is not None:
+            print("USING PERSISTED ROTATION ANGLE")
+            text += "\n  - Rotation Angle : " + str(self.persistedRotation)
 
         if len(self.ignoreFolds) > 0:
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
@@ -3124,6 +3443,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
+            print("NUMBER OF FILES:" + str(self.numberOfFiles)) #DEBUG
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break

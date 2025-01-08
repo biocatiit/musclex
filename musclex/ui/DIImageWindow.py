@@ -1156,7 +1156,17 @@ class DIImageWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         fileFullPath = fullPath(self.filePath, fileName)
         self.updateStatusBar(fileFullPath+' ('+str(self.currentFileNumber+1)+'/'+str(self.numberOfFiles)+') is processing ...')
-        self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger)
+
+        try:
+            self.cirProj = ScanningDiffraction(self.filePath, fileName, self.fileList, self.ext, logger=self.logger)
+        except Exception as e:
+            infMsg = QMessageBox()
+            infMsg.setText("Error trying to open " + str(fileName))
+            infMsg.setInformativeText(str(e))
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+            return
 
         self.setMinMaxIntensity(self.cirProj.original_image, self.minInt, self.maxInt, self.minIntLabel, self.maxIntLabel)
         # Calculating grid lines to exclude in pixel data computation

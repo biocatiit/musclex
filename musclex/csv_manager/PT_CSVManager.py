@@ -76,8 +76,14 @@ class PT_CSVManager:
                     if i%2 == 1:
                         self.colnames.append("Box " + str(box_name) + " Average Centroid Area " + str(i//2))
                         self.colnames.append("Box " + str(box_name) + " Average Gaussian Area " + str(i//2))
-                self.colnames.append("Box " + str(box_name) + " error")
-                self.colnames.append("Box " + str(box_name) + " comments")
+                self.colnames.append ("Box " + str(box_name) + "Background Sigma")
+                self.colnames.append ("Box " + str(box_name) + "Background Amplitude")
+                self.colnames.append ("Box " + str(box_name) + "Meridian Background Sigma")
+                self.colnames.append ("Box " + str(box_name) + "Meridian Background Amplitude")
+                self.colnames.append ("Box " + str(box_name) + "Meridian Sigma")
+                self.colnames.append ("Box " + str(box_name) + "Meridian Amplitude")
+                self.colnames.append("Box " + str(box_name) + "Box " + str(box_name) + " error")
+                self.colnames.append("Box " + str(box_name) + "Box " + str(box_name) + " comments")
 
     def loadSummary(self):
         """
@@ -129,6 +135,13 @@ class PT_CSVManager:
                 new_data["Box " + str(bn) + " error"] = model['error']
                 if model['error'] > 0.15:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
+
+                new_data["Box " + str(bn) + "Background Sigma"] = info['fit_results'][bn]['bg_sigma']
+                new_data["Box " + str(bn) + "Background Amplitude"] = info['fit_results'][bn]['bg_amplitude']
+                new_data["Box " + str(bn) + "Meridian Background Sigma"] = info['fit_results'][bn]['center_sigma1']
+                new_data["Box " + str(bn) + "Meridian Background Amplitude"] = info['fit_results'][bn]['center_amplitude1']
+                new_data["Box " + str(bn) + "Meridian Sigma"] = info['fit_results'][bn]['center_sigma2']
+                new_data["Box " + str(bn) + "Meridian Amplitude"] = info['fit_results'][bn]['center_amplitude2']
 
         for col in self.colnames:
             if col not in new_data:

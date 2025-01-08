@@ -84,6 +84,14 @@ class EQStartWindow(QMainWindow):
         :param filename: input filename (str)
         :return:
         """
-        newWindow = EquatorWindow(self, filename)
+        try:
+            newWindow = EquatorWindow(self, filename)
+        except Exception as e:
+            infMsg = QMessageBox()
+            infMsg.setText("Error")
+            infMsg.setInformativeText(str(e))
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
         self.windowList.append(newWindow)
         self.hide()

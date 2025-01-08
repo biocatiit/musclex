@@ -50,7 +50,11 @@ class XRayViewer:
             index = next((i for i, item in enumerate(file_list[0]) if item == img_name), 0)
             self.orig_img = file_list[1][index]
         else:
-            self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+            try:
+                self.orig_img = fabio.open(fullPath(img_path, img_name)).data
+            except:
+                print("FABIO cannot open " + str(img_name)) #NICKA DEBUG
+                exit
         self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
         self.orig_img = self.orig_img.astype("float32")
         self.orig_image_center = None

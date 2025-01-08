@@ -284,10 +284,10 @@ class ProjectionBoxTab(QWidget):
         self.settingLayout = QGridLayout(self.settingGroup)
         self.peaksButton = QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
-        self.meridBckGrndChkBx = QCheckBox("Meridian Background Peak")
+        self.meridBckGrndChkBx = QCheckBox("Meridional Peak")
         self.meridBckGrndChkBx.setChecked(True)
         self.meridBckGrndChkBx.setHidden(self.parent.bgsubs[self.name]!=0)
-        self.editMainPeakButton = QPushButton("Edit Main Peak")
+        self.editMainPeakButton = QPushButton("Edit Meridional Peak")
         self.editMainPeakButton.setEnabled(False)
         self.refitButton = QPushButton("Refit")
         self.refitButton.setEnabled(False)
@@ -371,7 +371,7 @@ class ProjectionBoxTab(QWidget):
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(QLabel("<h3>Model Peak Information</h3>"))
         self.optionsLayout.addWidget(self.resultTable1)
-        self.optionsLayout.addWidget(QLabel("<h3>Actual Peak Information</h3>"))
+        self.optionsLayout.addWidget(QLabel("<h3>Centroid Peak Information</h3>"))
         self.optionsLayout.addWidget(self.resultTable2)
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.pnButtons)
@@ -808,7 +808,7 @@ class ProjectionBoxTab(QWidget):
             op_peaks = [-x for x in self.function[1]]
             peaks += op_peaks
             self.function = None
-            
+            print("PEAKS: " + str(peaks)) #NICKA DEBUG
             self.parent.addPeakstoBox(self.name, peaks)
 
     def keyPressEvent(self, event):

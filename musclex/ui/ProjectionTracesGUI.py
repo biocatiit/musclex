@@ -92,6 +92,12 @@ class Worker(QRunnable):
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
+            infMsg = QMessageBox()
+            infMsg.setText("Error trying to open " + str(self.params.img_name))
+            infMsg.setInformativeText("This usually means that the image is corrupted or missing.  Skipping this image")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
         else:
             self.signals.result.emit(self.projProc)
         finally:
@@ -342,12 +348,14 @@ class ProjectionTracesGUI(QMainWindow):
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 200px; }")
 
         self.imageTab = QWidget()
+        self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayer = QHBoxLayout(self.imageTab)
+
         self.displayImgFigure = plt.figure()
         self.displayImgAxes = self.displayImgFigure.add_subplot(111)
-        self.imageVLayout = QVBoxLayout()
+        #self.imageVLayout = QVBoxLayout()
         self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
-        self.imageVLayout.addWidget(self.displayImgCanvas)
+        #self.imageVLayout.addWidget(self.displayImgCanvas)
 
         self.imageLeftFrame = QFrame()
         self.imageLeftFrame.setFixedWidth(300)
@@ -534,22 +542,27 @@ class ProjectionTracesGUI(QMainWindow):
         self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
         self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
 
-        ### Status Bar ###
-        self.statusBar = QStatusBar()
-        self.left_status = QLabel()
+        ### Status Bars ###
+        self.upperStatusBar = QStatusBar()
+        
         self.right_status = QLabel()
         self.pixel_detail = QLabel()
         self.progressBar = QProgressBar()
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
-        self.statusBar.addWidget(self.left_status)
-        self.statusBar.addPermanentWidget(self.pixel_detail)
-        self.statusBar.addPermanentWidget(self.right_status)
-        self.statusBar.addPermanentWidget(self.progressBar)
+        
+        self.upperStatusBar.addPermanentWidget(self.pixel_detail)
+        self.upperStatusBar.addPermanentWidget(self.right_status)
+        self.upperStatusBar.addPermanentWidget(self.progressBar)
+
+        self.lowerStatusBar = QStatusBar()
+        self.left_status = QLabel()
+        self.lowerStatusBar.addWidget(self.left_status)
 
         self.mainLayout.addWidget(self.tabWidget)
-        self.mainLayout.addWidget(self.statusBar)
+        self.mainLayout.addWidget(self.upperStatusBar)
+        self.mainLayout.addWidget(self.lowerStatusBar)
 
         #### Menu Bar #####
         saveSettingsAction = QAction('Save Current Settings', self)
@@ -1188,11 +1201,14 @@ class ProjectionTracesGUI(QMainWindow):
         :return:
         """
         if self.projProc is None:
+            print("ADD A BOX 1") #NICKA DEBUG
             self.addBoxButton.setChecked(False)
             return
 
         if self.addBoxButton.isChecked():
+            print("ADD A BOX 2", end="") #NCIAK DEBUG
             if self.function is None:
+                print("A") #NICKA DEBUG
                 # Start function
                 self.addBoxButton.setText("Done")
                 self.setLeftStatus("Add a box to the image by drawing a rectangle (ESC to cancel)")
@@ -1202,6 +1218,7 @@ class ProjectionTracesGUI(QMainWindow):
                     line.remove()
                 self.displayImgCanvas.draw_idle()
             else:
+                print("B") #NICKA DBEUG
                 self.addBoxButton.setChecked(False)
                 self.function = None
                 return
@@ -1558,6 +1575,9 @@ class ProjectionTracesGUI(QMainWindow):
 
         x = event.xdata
         y = event.ydata
+        print("IMAGE CLICKED") #DEBUG
+        print("X: " + str(x)) #DEBUG
+        print("Y: " + str(y)) #DEBUG
         ax = self.displayImgAxes
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -1591,6 +1611,10 @@ class ProjectionTracesGUI(QMainWindow):
                 self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
             self.doubleZoomMode = False
             return
+
+        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
+            x, y = self.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomMode = True
 
         func = self.function
 
@@ -1935,6 +1959,7 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Triggered when mouse hovers on image in image tab
         """
+        print("IMAGE ON MOTION") #NICKA DEBUG
         if self.projProc is None:
             return
 
@@ -1944,6 +1969,7 @@ class ProjectionTracesGUI(QMainWindow):
         ax = self.displayImgAxes
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
+            print("SPOT 1") #NICKA DEBUG
             x = int(round(x))
             y = int(round(y))
             unit = "px"
@@ -1966,9 +1992,12 @@ class ProjectionTracesGUI(QMainWindow):
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
+                print("SPOT 2") #NICKA DEBUG
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                    print("a") #NICKA DEBUG
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
+                    print("b") #NCIKA DEBGU
                     mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
@@ -1988,6 +2017,7 @@ class ProjectionTracesGUI(QMainWindow):
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
+            print("SPOT 3") #NICKA DEBUG
             self.pixel_detail.setText("")
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
@@ -2024,7 +2054,9 @@ class ProjectionTracesGUI(QMainWindow):
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'box':
+            print("SPOT 5",end="") #NICKA DEBUG
             if len(func) == 1:
+                print("A") #NICKA DEBUG
                 # cross lines
                 for line in list(ax.lines):
                     line.remove()
@@ -2032,6 +2064,7 @@ class ProjectionTracesGUI(QMainWindow):
                 ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 2:
+                print("B") #NICKA DEBUG
                 # draw rectangle
                 if len(ax.patches) > 0:
                     for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
@@ -2049,6 +2082,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
+            print("SPOT 6") #NICKA DEBUG
             for line in list(ax.lines):
                     line.remove()
             if len(func) == 1:
@@ -2112,6 +2146,7 @@ class ProjectionTracesGUI(QMainWindow):
                     self.displayImgCanvas.draw_idle()
 
         elif func[0] == "im_move":
+            print("SPOT 7") #NICKA DEBUG
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
                 move = (func[1][0] - x, func[1][1] - y)
@@ -2122,6 +2157,7 @@ class ProjectionTracesGUI(QMainWindow):
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'box_move':
+            print("SPOT 8") #NICKA DEBUG
             box = self.boxes_on_img[func[1]]
             offset = (x - func[2][0], y - func[2][1])
             xy = box['rect'].get_xy()
@@ -2132,6 +2168,7 @@ class ProjectionTracesGUI(QMainWindow):
             func[2] = (x, y)
 
         elif func[0] == "perp_center":
+            print("spot 9") #NCIKA DEBUG
             # draw X on points and a line between points
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
@@ -2212,6 +2249,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "chords_center":
+            print("SPOT 10") #NICKA DEBUG
             if self.doubleZoom.isChecked():
                 if (not self.doubleZoomMode) and x < 200 and y < 200:
                     axis_size = 1
@@ -2224,6 +2262,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "angle_center":
+            print("SPOT 11") #NCIKA DEBUG
             # draw X on points and a line between points
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
@@ -2269,6 +2308,7 @@ class ProjectionTracesGUI(QMainWindow):
             self.displayImgCanvas.draw_idle()
         
         elif func[0] == "im_rotate":
+            print("SPOT 12") #NICKA DEBUG
             # draw line as angle
             center = self.projProc.info['orig_center']
             deltax = x - center[0]
@@ -2425,7 +2465,15 @@ class ProjectionTracesGUI(QMainWindow):
         This will create a new ProjectionProcessor object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
+        try:
+            self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
+        except Exception as e:
+            infMsg = QMessageBox()
+            infMsg.setText("Error")
+            infMsg.setInformativeText(str(e))
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
         # self.initSpinBoxes(self.projProc.info)
         self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
@@ -2543,6 +2591,8 @@ class ProjectionTracesGUI(QMainWindow):
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
+        print("PT INFO") #DEBUG
+        print(self.projProc.info) #DEBUG
         self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
