@@ -81,7 +81,6 @@ def displayImageWithMasks(imageArray, minInt, maxInt,
     and contains 0s and 1s.
     Returns a QPixmap of size 500x500 (maintaining aspect ratio).
     """
-    print("DISPLAY IMAGE WITH MASKS") #NICKA DEBUG
 
     if imageArray is None:
         print("Empty image")
@@ -121,18 +120,6 @@ def displayImageWithMasks(imageArray, minInt, maxInt,
     #          if a pixel is in multiple masks
     # Red mask (drawnMask)
 
-    if drawnMask is not None:
-        print("DRAWN MASK SHAPE: " + str(drawnMask.shape)) #NICKA DEBUG
-    else:
-        print("DRAWN MASK IS NONE") #NICKA DEBUG
-    if lowMask is not None:
-        print("LOW MASK SHAPE: " + str(lowMask.shape)) #NICKA DEBUG
-    else:
-        print("LOW MASK SHAPE IS NONE") #NICKA DEBUG
-    if highMask is not None:
-        print("HIGH MASK SHAPE: " + str(highMask.shape)) #NICKA DEBUG
-    else:
-        print("HIGH MASK SHAPE IS NONE") #NICKA DEBUG
     
     # Red mask (drawnMask)
     if drawnMask is not None:
@@ -194,12 +181,8 @@ class ImageMaskerWindow(QDialog):
         self.maskHighThreshVal = None
         self.maskLowThreshVal = None
 
-        print("BEFORE INITUI IN IMW CONST") #NICKA DEBUG
         self.initUI()
-        print("BEFORE LOAD IMAGE IN IMW CONST") #NICKA DEBUG
         self.loadImage(self.imagePath)
-
-        print("SETTING SELF.ROT_ANGLE in IMW CONSTRUCTOR") #NICKA DEBUG
 
     def initUI(self):
         self.setWindowTitle('Mask and Empty Cell Specification')
@@ -517,7 +500,6 @@ class ImageMaskerWindow(QDialog):
             if self.lowMaskDilationChkbx.isChecked():
                 self.lowThreshMaskData = np.where(originalImageArray <= self.maskLowThreshVal, 0, 1).astype(np.uint8)
                 low_mask = self.dilateMask(self.lowThreshMaskData, low_kernel)
-                print("LOW MASK SHAPE: " + str(self.lowThreshMaskData.shape)) #NICKA DEBUG
             else:
                 self.lowThreshMaskData = np.where(originalImageArray <= self.maskLowThreshVal, 0, 1).astype(np.uint8)
                 low_mask = self.lowThreshMaskData
@@ -589,18 +571,15 @@ class ImageMaskerWindow(QDialog):
 
     def refreshMask(self):
         if self.showMaskComboBox.currentText() == "Show Mask Only":
-            print("SHOW MASK    ") #NICKA DEBUG
             self.showMask()
             if self.showMaskComboBox.isEnabled():
                 self.hideLabels()
         elif self.showMaskComboBox.currentText() == "Show Image Only":
-            print("SHOW IMAGE ONLY") #NICKA DEBUG
             self.computeCombinedMask()
             self.applyMask()
             if self.showMaskComboBox.isEnabled():
                 self.hideLabels()
         elif self.showMaskComboBox.currentText() == "Show Image With Mask":
-            print("SHOW IMAGE WITH MASK") #NICKA DEBUG
             self.computeCombinedMask()
             self.applyMask()
             scaledPixMap = displayImageWithMasks(self.imageData, self.minInt, self.maxInt, self.dilatedLowThreshMaskData, self.dilatedHighThreshMaskData, self.drawnMaskData)
@@ -622,17 +601,13 @@ class ImageMaskerWindow(QDialog):
             print("File does not exist.")
             
     def maskLowThresholdChanged(self):
-        print("MASK LOW THRESHOLD CHANGED") #NICKA DEBUG
         value = self.maskLowThresh.value()
-        print("VALUE: " + str(value)) #NICKA DEBUG
         self.maskLowThreshVal = value
         self.computeThreshMaskData()
         self.refreshMask()
 
     def maskHighThresholdChanged(self):
-        print("MASK HIGH THRESHOLD CHANGED") #NICKA DEBUG
         value = self.maskHighThresh.value()
-        print("VALUE: " + str(value)) #NICKA DEBUG
         self.maskHighThreshVal = value
         self.computeThreshMaskData()
         self.refreshMask()
@@ -643,7 +618,6 @@ class ImageMaskerWindow(QDialog):
         raw_filepath = r"{}".format(filePath)
         image = fabio.open(raw_filepath)
         self.imageData = image.data
-        print("RIGHT BEFORE PROBLEM DISPLAY IMAGE CALL") #NICKA DEBUG
         scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, 0.0)
         self.imageLabel.setPixmap(scaledPixmap)
 
@@ -661,13 +635,11 @@ class ImageMaskerWindow(QDialog):
             # Run the command
             self._run_drawmask_command()
         finally:   # Ensure refreshMask is called in the main thread
-            print("MASK PATH: " + str(self.maskPath)) #NICKA DEBUG
             self.loadMask(self.maskPath)
 
             if os.path.exists(self.maskPath):
                 # Use fabio to open the drawn mask image file and store its data in memory
                 mask = fabio.open(self.maskPath)
-                print("MASK SHAPE: " + str(mask.data.shape)) #NICKA DEBUG
                 self.drawnMaskData = 1 - mask.data
             else:
                 print("File does not exist.")
@@ -686,46 +658,25 @@ class ImageMaskerWindow(QDialog):
         """
 
         rotation_angle = self.rot_angle
-        print(f"DEBUG: rotation_angle={rotation_angle}")  #NICKA DEBUG
-        print(f"DEBUG: showBlankImageChkbx.isChecked()={self.showBlankImageChkbx.isChecked()}")  #NICKA DEBUG
-        print(f"DEBUG: isHDF5={self.isHDF5}")  #NICKA DEBUG
-        print(f"DEBUG: imagePath={self.imagePath}")  #NICKA DEBUG
-        print(f"DEBUG: blankImagePath={self.blankImagePath}")  #NICKA DEBUG
-        print(f"DEBUG: minInt={self.minInt}, maxInt={self.maxInt}")  #NICKA DEBUG
 
         # Check if self.imageData is present
-        if hasattr(self, 'imageData'):
-            print("IMAGE DATA SHAPE: " + str(self.imageData.shape))  #NICKA DEBUG
-            print("IMAGE DATA DTYPE: " + str(self.imageData.dtype))  #NICKA DEBUG
-        else:
-            print("DEBUG: self.imageData is not defined")  #NICKA DEBUG
+
 
         if self.showBlankImageChkbx.isChecked():
-            print("DEBUG: Using blank image workflow")  #NICKA DEBUG
             # The old code for blanks just used pyFAI-drawmask "<blankImagePath>"
             # and final mask = <blankNoExt>-mask.edf
             command = f'pyFAI-drawmask "{self.blankImagePath}"'
-            print(f"DEBUG: command={command}")  #NICKA DEBUG
+
 
             base_blank = self.blankImagePath.rsplit('.', 1)[0]
             self.maskPath = base_blank + '-mask.edf'
-            print(f"DEBUG: maskPath={self.maskPath}")  #NICKA DEBUG
 
             ret_val = os.system(command)
-            print(f"DEBUG: os.system return code={ret_val}")  #NICKA DEBUG
-
-            if not os.path.exists(self.maskPath):
-                print(f"DEBUG: Mask file not found at {self.maskPath}")  #NICKA DEBUG
-            else:
-                print(f"DEBUG: Found mask file {self.maskPath}")  #NICKA DEBUG
 
         else:
-            print("DEBUG: Using standard or HDF5 workflow")  #NICKA DEBUG
             if self.isHDF5:
-                print("DEBUG: HDF5 path detected")  #NICKA DEBUG
                 fabio_img = fabio.open(self.imagePath)
                 data = fabio_img.data.astype(np.int32)
-                print(f"DEBUG: data.shape={data.shape}, data.dtype={data.dtype}")  #NICKA DEBUG
 
                 # Convert special value, then apply min/max
                 data[data == 4294967295] = -1
@@ -734,48 +685,34 @@ class ImageMaskerWindow(QDialog):
 
                 # Write the "bounded" version to a temporary file
                 bounded_file_name = self.imagePath.rsplit('.', 1)[0] + '_bounded.tif'
-                print(f"DEBUG: bounded_file_name={bounded_file_name}")  #NICKA DEBUG
 
                 tif_img = fabio.pilatusimage.pilatusimage(data=data, header=fabio_img.getheader())
                 tif_img.write(bounded_file_name)
-                print("DEBUG: Wrote bounded TIFF file")  #NICKA DEBUG
 
                 # Run pyFAI-drawmask on the bounded TIFF
                 command = f'pyFAI-drawmask "{bounded_file_name}"'
-                print(f"DEBUG: command={command}")  #NICKA DEBUG
 
                 # pyFAI will produce something like <bounded_file_nameNoExt>-mask.edf
                 base_bounded = bounded_file_name.rsplit('.', 1)[0]  # e.g. "..._bounded"
                 temp_mask_path = base_bounded + '-mask.edf'         # e.g. "..._bounded-mask.edf"
 
                 ret_val = os.system(command)
-                print(f"DEBUG: os.system return code={ret_val}")  #NICKA DEBUG
-
-                if not os.path.exists(temp_mask_path):
-                    print(f"DEBUG: Temp mask not found at {temp_mask_path}")  #NICKA DEBUG
-                else:
-                    print(f"DEBUG: Found temp mask file {temp_mask_path}")  #NICKA DEBUG
 
                 # The final mask name should be <originalFileNoExt>.h5-mask.edf or something
                 # but based on your old code, let's do:
                 self.maskPath = self.imagePath.rsplit('.', 1)[0] + '.h5-mask.edf'
-                print(f"DEBUG: final maskPath={self.maskPath}")  #NICKA DEBUG
 
                 # Rename or move the temp mask file to final maskPath
                 if os.path.exists(temp_mask_path):
                     os.rename(temp_mask_path, self.maskPath)
-                    print(f"DEBUG: Renamed {temp_mask_path} to {self.maskPath}")  #NICKA DEBUG
 
                 # Cleanup the bounded TIFF
                 os.remove(bounded_file_name)
-                print("DEBUG: Removed bounded TIFF file")  #NICKA DEBUG
 
             else:
                 # Standard (non-HDF5) image case
-                print("DEBUG: Standard image path detected")  #NICKA DEBUG
                 fabio_img = fabio.open(self.imagePath)
                 data = fabio_img.data.astype(np.int32)
-                print(f"DEBUG: data.shape={data.shape}, data.dtype={data.dtype}")  #NICKA DEBUG
 
                 # Bound data by minInt, maxInt
                 data[data < np.int32(self.minInt)] = np.int32(self.minInt)
@@ -783,39 +720,28 @@ class ImageMaskerWindow(QDialog):
 
                 # Write a bounded TIFF, so we don't overwrite original
                 bounded_file_name = self.imagePath.rsplit('.', 1)[0] + '_bounded.tif'
-                print(f"DEBUG: bounded_file_name={bounded_file_name}")  #NICKA DEBUG
 
                 fabio.tifimage.tifimage(data=data).write(bounded_file_name)
-                print("DEBUG: Wrote bounded TIFF file")  #NICKA DEBUG
 
                 # Run pyFAI-drawmask on the bounded TIFF
                 command = f'pyFAI-drawmask "{bounded_file_name}"'
-                print(f"DEBUG: command={command}")  #NICKA DEBUG
 
                 # pyFAI output file name
                 base_bounded = bounded_file_name.rsplit('.', 1)[0]
                 temp_mask_path = base_bounded + '-mask.edf'
 
                 ret_val = os.system(command)
-                print(f"DEBUG: os.system return code={ret_val}")  #NICKA DEBUG
 
-                if not os.path.exists(temp_mask_path):
-                    print(f"DEBUG: Mask file not found at {temp_mask_path}")  #NICKA DEBUG
-                else:
-                    print(f"DEBUG: Found temp mask file {temp_mask_path}")  #NICKA DEBUG
 
                 # The final mask name in your old code was <originalFileNoExt>-mask.edf
                 self.maskPath = self.imagePath.rsplit('.', 1)[0] + '-mask.edf'
-                print(f"DEBUG: final maskPath={self.maskPath}")  #NICKA DEBUG
 
                 # Rename/move the temp mask file to the final name
                 if os.path.exists(temp_mask_path):
                     os.rename(temp_mask_path, self.maskPath)
-                    print(f"DEBUG: Renamed {temp_mask_path} to {self.maskPath}")  #NICKA DEBUG
 
                 # Remove the bounded TIFF
                 os.remove(bounded_file_name)
-                print("DEBUG: Removed bounded_file_name")  #NICKA DEBUG
 
             
     def computeCombinedMask(self):
@@ -840,28 +766,17 @@ class ImageMaskerWindow(QDialog):
     def applyMask(self):
         
         if self.dir_path:
-            try:
-                print("MASK DATA SHAPE: " + str(self.maskData.shape)) #NICKA DEBUG
-            except: 
-                print("MASK DATA IS NONE")
-
-            try:
-                print("IMAGE DATA SHAPE: " + str(self.imageData.shape)) #NICKA DEBUG
-            except:
-                print("IMAGE DATA IS NONE")
 
             maskArray=self.maskData
             originalImageArray = self.imageData
 
             # Check if the original image is grayscale or color
             if len(originalImageArray.shape) == 3:  # Color image
-                print("COLOR IMAGE") #NICKA DEBUG
                 # Apply the mask to each color channel
                 maskedImageArray = np.zeros_like(originalImageArray)
                 for i in range(3):  # Assuming RGB channels
                     maskedImageArray[:,:,i] = originalImageArray[:,:,i] * maskArray 
             else:  # Grayscale image
-                print("GRAYSCALE IMAGE") #NICKA DEBUG
                 maskedImageArray = originalImageArray * maskArray 
 
             # Convert the result to QImage for display
@@ -873,11 +788,6 @@ class ImageMaskerWindow(QDialog):
                 bytesPerLine = width
 
             self.maskedImage = maskedImageArray
-
-            try:
-                print("MASKED IMAGE DATA TYPE: " + str(maskedImageArray.dtype)) #NICKA DEBUG
-            except:
-                print("MASKED IMAGE DATA IS NONE")
 
             scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt, 0.0)
             self.imageLabel.setPixmap(scaledPixmap)
@@ -911,11 +821,8 @@ class ImageMaskerWindow(QDialog):
             createFolder(path)
             if self.maskData is not None:
                 self.computeCombinedMask() # to ensure mask data is updated
-                print("WIRTE4: " + str(join(path,'mask.tif'))) #NICKA DEBUG
-                print("MASK DATA SHAPE: " + str(self.maskData.shape)) #NICKA DEBUG
 
                 rot_mat = cv2.getRotationMatrix2D((self.maskData.shape[0]//2, self.maskData.shape[1]//2), -self.rot_angle, 1.0)
-                print("ROTATION MATRIX: " + str(rot_mat)) #NICKA DEBUG
 
                 width = self.maskData.shape[1]
                 height = self.maskData.shape[0]
@@ -926,10 +833,7 @@ class ImageMaskerWindow(QDialog):
                 inv_trans_mat[0, 2] = -self.trans_mat[0, 2]
                 inv_trans_mat[1, 2] = -self.trans_mat[1, 2]
 
-                print("ROTATED MASK SHAPE: " + str(rotated_mask.shape)) #NICKA DEBUG
-                print("Translation matrix: " + str(inv_trans_mat)) #NICKA DEBUG
                 translated_mask = cv2.warpAffine(rotated_mask, inv_trans_mat, rotated_mask.shape)
-                print("TRANSLATED MASK SHAPE: " + str(translated_mask.shape)) #NICKA DEBUG
                 #fabio.tifimage.tifimage(data=translated_mask).write(join(path,'big_mask.tif'))
                 cropped_mask = translated_mask[0:self.orig_size[0], 0:self.orig_size[1]]
                 fabio.tifimage.tifimage(data=cropped_mask).write(join(path,'mask.tif'))

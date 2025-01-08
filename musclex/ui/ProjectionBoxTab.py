@@ -808,7 +808,6 @@ class ProjectionBoxTab(QWidget):
             op_peaks = [-x for x in self.function[1]]
             peaks += op_peaks
             self.function = None
-            print("PEAKS: " + str(peaks)) #NICKA DEBUG
             self.parent.addPeakstoBox(self.name, peaks)
 
     def keyPressEvent(self, event):

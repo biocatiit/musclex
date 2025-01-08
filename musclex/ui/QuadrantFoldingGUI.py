@@ -93,7 +93,6 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         try:
-            print("ABOUT TO CALL QF CONSTRUCTOR IN WORKER CLAEE") #NICKA DEBUG
             self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
             self.quadFold.info = {}
 
@@ -107,29 +106,22 @@ class Worker(QRunnable):
             if self.persist_rot is not None:
                 self.quadFold.fixedRot = self.persist_rot
 
-            print("BEFORE PROCESS IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
 
             self.quadFold.process(self.flags)
 
-            print("AFTER PROCESS IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
 
             if self.qf_lock is not None:
                 self.qf_lock.acquire()
-                print("BEFORE TEXT FILE WRITE" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
-                print("IMG_PATH: " + str(self.quadFold.img_path) + ";     ,     " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
                 file.write(self.quadFold.img_name + " saving image"+ "\n")
             if self.qf_lock is not None:
                 self.qf_lock.release()
         except:
-            print("EXCEPTION IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
         else:
-            print("ELSE IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             self.signals.result.emit(self.quadFold)
         finally:
-            print("FINALLY IN WORKER RUN  " + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             self.signals.finished.emit()
 
 class QuadrantFoldingGUI(QMainWindow):
@@ -141,7 +133,6 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Initial window
         """
-        print("QF GUI INIT")#NICKA DEBUG
 
         super().__init__()
         self.imgList = [] # all images name in current directory
@@ -1035,11 +1026,9 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and not self.uiUpdating:
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
-            print("ABOUT TO CALL QF CONSTRUCTOR IN BLANKCHECKED") #NICKA DEBUG
             fix_x, fix_y = self.quadFold.fixedCenterX, self.quadFold.fixedCenterY
             self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-            print("FIX_X: " + str(fix_x)) #NICKA DEBUG
-            print("FIX_Y: " + str(fix_y)) #NICKA DEBUG
+
             if fix_x is not None and fix_y is not None:
                 self.quadFold.fixedCenterX = fix_x
                 self.quadFold.fixedCenterY = fix_y
@@ -1117,7 +1106,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
-            print("ABOUT TO CALL QF CONSTRUCTOR IN blankSettingClicked") #NICKA DEBUG
             self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.masked = False
             self.processImage()
@@ -1584,7 +1572,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.quadFold.info['manual_center'] = (cx, cy)
-                    print("ABOUT TO DELETE CENTER IN IMAGE CLICKED GUI FUNCTION") #NICKA DEBUG
                     if 'center' in self.quadFold.info:
                         del self.quadFold.info['center']
                     self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
@@ -2478,7 +2465,6 @@ class QuadrantFoldingGUI(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            print("ABOUT TO CALL QF CONSTRUCTOR IN getModeRotation") #NICKA DEBUG
             quadFold = QuadrantFolder(self.filePath, f, self, self.fileList, self.ext)
             print(f'Getting angle {f}')
 
@@ -2635,7 +2621,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
         if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
             self.quadFold.delCache()
-        print("ABOUT TO CALL QF CONSTRUCTOR IN onImageChanged") #NICKA DEBUG
         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
         if reprocess:
             self.quadFold.info = {}
@@ -2700,7 +2685,6 @@ class QuadrantFoldingGUI(QMainWindow):
         Deleting the center for appropriate recalculation
         """
 
-        print("MARK FIXED INFO FCTN IN GUI") #NICKA DEBUG
 
         if 'center' in currentInfo:
             del currentInfo['center']
@@ -2744,11 +2728,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Update current all widget in current tab , spinboxes, and refresh status bar
         """
-        print("NICKA CP NUM1") #NICKA DEBUG
         if self.ableToProcess():
-            print("NICKA CP NUM2") #NICKA DEBUG
             if self.tabWidget.currentIndex() == 0:
-                print("NICKA CP NUM3") #NICKA DEBUG
                 self.updateImageTab()
             elif self.tabWidget.currentIndex() == 1:
                 self.updateResultTab()
@@ -2758,7 +2739,6 @@ class QuadrantFoldingGUI(QMainWindow):
     
     
     def updateImageTab(self):
-        print("NICKA CP NUM4") #NICKA DEBUG
         """
         Display image in image tab, and draw lines
         """
@@ -2769,7 +2749,6 @@ class QuadrantFoldingGUI(QMainWindow):
             ax.cla()
             img = self.quadFold.getRotatedImage()
 
-            print("IMG SHAPE: " + str(img.shape)) #NICKA DEBUG
 
             extent, center = self.getExtentAndCenter()
             self.img = img
@@ -2777,10 +2756,8 @@ class QuadrantFoldingGUI(QMainWindow):
             # img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
             if self.logScaleIntChkBx.isChecked():
                 ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
-                print("IN UPDATE IMAGE(LOG): EXTENT = " + str([0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])) #NICKA DEBUG
             else:
                 ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
-                print("IN UPDATE IMAGE(REG): EXTENT = " + str([0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])) #NICKA DEBUG
             ax.set_facecolor('black')
 
             self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
@@ -2812,7 +2789,6 @@ class QuadrantFoldingGUI(QMainWindow):
             #Show the masked image in the image tab
             #NICKAA
 
-            print("AFTER MASK COLOR DISPLAY COND") #NICKA DEBUG
 
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
@@ -2853,7 +2829,6 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             center = self.quadFold.orig_image_center
         extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
-        print("QF GUI GET EXTENT + CENTER.  EXTENT: " + str(extent)) #NICKA DEBUG
         return extent, center
 
     def updateResultTab(self):
@@ -2916,19 +2891,9 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                print("BEFORE PROCESS IN PROCESS IMAGE") #NICKA DEBUG
-                print("FIXED CENTER: " + str(self.quadFold.fixedCenterX) + ", " + str(self.quadFold.fixedCenterY)) #NICKA DEBUG
-                print("Info: " + str(self.quadFold.info)) #NICKA DEBUG
-                if 'center' in self.calSettings:
-                    print("CALSETTINGS CENTER" + str(self.calSettings['center'])) #NICKA DEBUG
                 if self.calSettingsDialog.fixedCenter.isChecked():
                     self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettings['center']
                 self.quadFold.process(flags)                    
-                print("AFTER PROCESS IN PROCESS IMAGE") #NICKA DEBUG
-                print("FIXED CENTER: " + str(self.quadFold.fixedCenterX) + ", " + str(self.quadFold.fixedCenterY)) #NICKA DEBUG
-                print("Info: " + str(self.quadFold.info)) #NICKA DEBUG
-                if 'center' in self.calSettings:
-                    print("CALSETTINGS CENTER" + str(self.calSettings['center'])) #NICKA DEBUG
             except Exception:
                 QApplication.restoreOverrideCursor()
                 errMsg = QMessageBox()
@@ -2955,7 +2920,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
         params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
 
-        print("ADDING TO THE QUEUE: " + str(self.imgList[i])) #DEBUG
 
         self.tasksQueue.put(params)
 
@@ -2965,23 +2929,16 @@ class QuadrantFoldingGUI(QMainWindow):
     def thread_done(self, quadFold):
         
         if self.lock is not None:
-            print("PRE TD LOCK ACQ" + str(quadFold.img_name)[-8:-2]) #DEBUG
             self.lock.acquire()
-            print("POST TD LOCK ACQ" + str(quadFold.img_name)[-8:-2]) #DEBUG
             
         self.quadFold = quadFold
 
-        print("AFTER QF ASSIGNEMENT IN THREAD DONE" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
 
         self.onProcessingFinished()
 
-        print("AFTER OPF IN T_D" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
-        print("ACTIVE THREADS: " + str(self.threadPool.activeThreadCount())) #DEBUG
 
         if self.lock is not None:
             self.lock.release() 
-            print("TD LOCK RELEASE" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
-            print("LENGTH OF QUEUE: " + str(len(list(self.tasksQueue.queue)))) #DEBUG
     
     # placeholder method
     def thread_finished(self):
@@ -3016,20 +2973,13 @@ class QuadrantFoldingGUI(QMainWindow):
     def onProcessingFinished(self):
         
         self.updateParams()
-        print("AFTER UPDATE PARAMS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.refreshAllTabs()
-        print("AFTER RAT" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.resetStatusbar2()
-        print("AFTER RSB2" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.csvManager.writeNewData(self.quadFold)
-        print("AFTER CSVMAN" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.saveResults()
-        print("AFTER SAVERESULTS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         
         QApplication.restoreOverrideCursor()
-        print("RESTORE OVERRRIDE CURSOR" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         self.currentTask = None
-        print("AFTER SETCURRENT TASK" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
         
         
             
@@ -3153,10 +3103,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
                 self.default_result_img_zoom = [(cxr-xlim, cxr+xlim), (cyr-ylim, cyr+ylim)]
         except:
-            print("EXCEPTION IN UPDATE PARAMS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             print("EXCEPTION IN UPDATE PARAMS")
         else:
-            print("UPDATE PARAMS SUCESS" + str(self.quadFold.img_name)[-8:-2]) #DEBUG
             print("UPDATE PARAMS SUCCESS")
 
     def resetStatusbar(self):
@@ -3259,7 +3207,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 QApplication.restoreOverrideCursor()
                 if self.h5List == []:
                     fileName = self.imgList[self.currentFileNumber]
-                    print("ABOUT TO CALL QF CONSTRUCTOR IN onNewFileSelected fctn") #NICKA DEBUG
                     try:
                         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
                         self.setCalibrationImage()
@@ -3443,7 +3390,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
-            print("NUMBER OF FILES:" + str(self.numberOfFiles)) #DEBUG
             for i in range(self.numberOfFiles):
                 if self.stop_process:
                     break

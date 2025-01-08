@@ -767,13 +767,6 @@ def rotateNonSquareImage(img, angle, center1):
     center1 = np.dot(rotation_mat, center1)
     center2 = (int(center1[0]), int(center1[1]))
 
-    print("RNSI HEIGHT: " + str(height)) #NICKA DEBUG
-    print("RNSI WIDTH: " + str(width)) #NICKA DEBUG
-    print("RNSI CENTER: " + str(center)) #NICKA DEBUG
-    print("RNSI ROT MAT: " + str(rotation_mat)) #NICKA DEBUG
-    print("RNSI maxB: " + str(maxB)) #NICKA DEBUG
-    print("RNSI CENTER1: " + str(center1)) #NICKA DEBUG
-
     # rotate image with the new bounds and translated rotation matrix
     rotated_img = cv2.warpAffine(img, rotation_mat, (maxB, maxB))
     return rotated_img, center2, rotation_mat
