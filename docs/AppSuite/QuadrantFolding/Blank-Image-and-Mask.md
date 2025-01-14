@@ -31,6 +31,7 @@ If you have additional area which you want to ignore, you can click "Draw Additi
 #### PyFAI Masking Tool Features
 The PyFAI masking tool offers several other features:
 
+#### PyFAI Top Menu
 ![-](../../images/BM/top-bar.png)
 1. Zoom in on mouse selection  
 2. Pan the view  
