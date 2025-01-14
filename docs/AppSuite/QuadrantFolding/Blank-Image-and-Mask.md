@@ -11,10 +11,7 @@ Once the window launches, you will see "Select Blank Image(s)" at the bottom. Th
 
 It is also possible to change the scale factor (in percent) of the blank image. Indeed, a blank image can sometimes be more (or less) intense than the main image, so this scale factor helps to change the intensity of the blank image to avoid oversubtracting (or undersubtracting).
 
-<img src="../../images/BM/blankimg1.png" alt="-" style="width:50%; height:auto;">
-<img src="../../images/BM/blankimg2.png" alt="-" style="width:50%; height:auto;">
-
-![-](../../images/BM/blankimg1.png)  ![-](../../images/BM/blankimg2.png)
+<img src="../../images/BM/blankimg1.png" alt="-" style="width:50%; height:auto;"><img src="../../images/BM/blankimg2.png" alt="-" style="width:50%; height:auto;">
 
 ## Additional Mask
 The mask threshold can create mask from the threshold value.  You will have the option to create masks using an upper bound(all pixels above some value become a mask) or a lower bound(all pixels below some value become a mask).  You can choose to add dilation to either of these masks by checking the 'Enable Dilation' box corresponding to either the upper bound mask or lower bound mask.  You can choose to use a 3x3 kernel, a 5x5 kernel, or a 7x7 kernel.  A 3x3 kernel will mask every pixel that is next to a masked pixel, the 5x5 kernel will mask any pixel that is 2 positions away or closer to a masked pixel, and a 7x7 kernel will mask any pixel that is 3 positions away or closer to a masked pixel.
@@ -22,6 +19,8 @@ The mask threshold can create mask from the threshold value.  You will have the 
 If you have additional area which you want to ignore,  you can click "Draw Additional Mask".  After the button is clicked, there will be a new window pops up. This dialog is a toolkit from [PyFai](https://pyfai.readthedocs.io/en/v2023.1/man/pyFAI-drawmask.html)
 
 ![-](../../images/BM/drawwidget.png)
+
+<br>
 
 The PyFAI masking tool offers several other features:
 
@@ -39,6 +38,8 @@ The PyFAI masking tool offers several other features:
 11. Change profiling mode
 12. Clear profile
 
+<br>
+
 ![-](../../images/BM/pyfai-mask.png)
 1. Load mask from file
 2. Save mask to file
@@ -48,6 +49,8 @@ The PyFAI masking tool offers several other features:
 6. Clear current mask level
 7. Set the transparency of the mask display
 
+<br>
+
 ![-](../../images/BM/pyfai-drawtools.png)
 1. Pan the view
 2. Rectangle selection tool (for selecting mask)
@@ -56,6 +59,8 @@ The PyFAI masking tool offers several other features:
 5. Freehand selection tool (for selecting mask)
 6. Drawing masks with current level
 7. Drawing unmasks with current level
+
+<br>
 
 ![-](../../images/BM/pyfai-threshold.png)
 PyFAI offers creating masks from a threshold as well, however this is redundant as the MuscleX threshold masking already discussed offers all of the same features and more.  It is also possible to use the 'Mask not finite values' button to mask Not a Number and infinite values.
