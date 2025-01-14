@@ -39,6 +39,7 @@ The PyFAI masking tool offers several other features:
 12. Clear profile
 
 <br>
+<br>
 
 ![-](../../images/BM/pyfai-mask.png)
 1. Load mask from file
@@ -49,6 +50,7 @@ The PyFAI masking tool offers several other features:
 6. Clear current mask level
 7. Set the transparency of the mask display
 
+<br>
 <br>
 
 ![-](../../images/BM/pyfai-drawtools.png)
@@ -61,8 +63,12 @@ The PyFAI masking tool offers several other features:
 7. Drawing unmasks with current level
 
 <br>
+<br>
 
 ![-](../../images/BM/pyfai-threshold.png)
+
+<br>
+
 PyFAI offers creating masks from a threshold as well, however this is redundant as the MuscleX threshold masking already discussed offers all of the same features and more.  It is also possible to use the 'Mask not finite values' button to mask Not a Number and infinite values.
 
 Pressing the 'Save mask and quit' button saves your drawn mask and closes the popup.
