@@ -11,6 +11,9 @@ Once the window launches, you will see "Select Blank Image(s)" at the bottom. Th
 
 It is also possible to change the scale factor (in percent) of the blank image. Indeed, a blank image can sometimes be more (or less) intense than the main image, so this scale factor helps to change the intensity of the blank image to avoid oversubtracting (or undersubtracting).
 
+<img src="../../images/BM/blankimg1.png" alt="-" style="width:50%; height:auto;">
+<img src="../../images/BM/blankimg2.png" alt="-" style="width:50%; height:auto;">
+
 ![-](../../images/BM/blankimg1.png)  ![-](../../images/BM/blankimg2.png)
 
 ## Additional Mask
