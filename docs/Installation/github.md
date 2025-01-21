@@ -83,7 +83,8 @@ pip install git+https://github.com/biocatiit/musclex
 
 ### Alternative: Install from the downloaded code and build it locally
 
-Simply [download the zip file from GitHub](https://github.com/biocatiit/musclex) and extract it or clone the repository on your computer.
+Simply [download the zip file from GitHub](https://github.com/biocatiit/musclex) and extract it or clone the repository on your computer. 
+ Replace <tag> below with the name of the tag for the version you would like to use.
 ```
 git clone https://github.com/biocatiit/musclex.git
 git checkout tags/<tag>
