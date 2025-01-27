@@ -452,16 +452,21 @@ class QuadrantFoldingGUI(QMainWindow):
         self.fixedRoi.setRange(1, 10000)
         self.fixedRoi.setEnabled(False)
 
-        self.bgChoice = QComboBox()
-        self.bgChoice.setCurrentIndex(0)
-        # self.bgChoice.setFixedHeight(40)
-        self.allBGChoices = ['None','Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', '2D Convexhull']
-        for c in self.allBGChoices:
-            self.bgChoice.addItem(c)
 
-        self.setRminmaxButton = QPushButton("Set Manual R-min and R-max")
-        self.setRminmaxButton.setCheckable(True)
-        self.checkableButtons.append(self.setRminmaxButton)
+        self.allBGChoices = ['None', 'Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', '2D Convexhull']
+        self.bgChoiceIn = QComboBox()
+        self.bgChoiceIn.setCurrentIndex(0)
+        for c in self.allBGChoices:
+            self.bgChoiceIn.addItem(c)
+
+        self.bgChoiceOut = QComboBox()
+        self.bgChoiceOut.setCurrentIndex(0)
+        for c in self.allBGChoices:
+            self.bgChoiceOut.addItem(c)
+
+        self.setRminButton = QPushButton("Set Manual R-min")
+        self.setRminButton.setCheckable(True)
+        self.checkableButtons.append(self.setRminButton)
 
         self.rminSpnBx = QSpinBox()
         self.rminSpnBx.setSingleStep(2)
@@ -470,14 +475,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rminSpnBx.setKeyboardTracking(False)
         self.rminLabel = QLabel("R-min")
 
-        self.rmaxSpnBx = QSpinBox()
-        self.rmaxSpnBx.setSingleStep(10)
-        self.rmaxSpnBx.setValue(-1)
-        self.rmaxSpnBx.setRange(-1, 3000)
-        self.rmaxSpnBx.setKeyboardTracking(False)
-        self.rmaxLabel = QLabel("R-max")
-        self.radiusLabel = QLabel("Radius Range : ")
-        self.fixedRadiusRangeChkBx = QCheckBox("Fixed Radius Range")
+        # self.radiusLabel = QLabel("Radius Range : ")
+        self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min")
 
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
         self.gaussFWHM = QSpinBox()
@@ -601,21 +600,26 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgLayout.addWidget(self.unsetRoi, 0, 3, 1, 1)
         self.bgLayout.addWidget(self.fixedRoiChkBx, 1, 0, 1, 2)
         self.bgLayout.addWidget(self.fixedRoi, 1, 2, 1, 2)
-        self.bgLayout.addWidget(QLabel("Background Subtraction :"), 2, 0, 1, 2)
-        self.bgLayout.addWidget(self.bgChoice, 2, 2, 1, 2)
+        self.bgLayout.addWidget(QLabel("Background Subtraction (In) :"), 2, 0, 1, 2)
+        self.bgLayout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
+        
 
-        # R-min R-max settings
+
+        # R-min settings
         self.rrangeSettingFrame = QFrame()
         self.rrangeSettingLayout = QGridLayout(self.rrangeSettingFrame)
         self.rrangeSettingLayout.setContentsMargins(0, 0, 0, 0)
-        self.rrangeSettingLayout.addWidget(self.setRminmaxButton, 0, 0, 1, 4)
-        self.rrangeSettingLayout.addWidget(self.radiusLabel, 1, 0, 2, 2)
-        self.rrangeSettingLayout.addWidget(self.rminLabel, 1, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rmaxLabel, 1, 3, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.rmaxSpnBx, 2, 3, 1, 1)
+        
+        self.rrangeSettingLayout.addWidget(self.setRminButton, 2, 2, 1, 2)
+        self.rrangeSettingLayout.addWidget(self.rminLabel, 2, 0, 1, 1)
+
+        self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
+
         self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 4)
+
         self.bgLayout.addWidget(self.rrangeSettingFrame, 3, 0, 3, 4)
+
+        
 
         # Gaussian FWHM
         self.bgLayout.addWidget(self.gaussFWHMLabel, 6, 0, 1, 2)
@@ -677,7 +681,11 @@ class QuadrantFoldingGUI(QMainWindow):
         # Apply button
         self.bgLayout.addWidget(self.applyBGButton, 20, 0, 1, 4)
 
+        self.bgLayout.addWidget(QLabel("Background Subtraction (Out) :"), 21, 0, 1, 2)
+        self.bgLayout.addWidget(self.bgChoiceOut, 21, 2, 1, 2)
+
         # self.bgLayout.setColumnStretch(0, 2)
+
 
         self.resProcGrpBx.setLayout(self.bgLayout)
 
@@ -874,7 +882,8 @@ class QuadrantFoldingGUI(QMainWindow):
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
 
-        self.bgChoiceChanged()
+        self.bgChoiceInChanged()
+        self.bgChoiceOutChanged()
         self.show()
 
     def setConnections(self):
@@ -948,12 +957,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.unsetRoi.clicked.connect(self.unsetRoiClicked)
         self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
         self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
-        self.bgChoice.currentIndexChanged.connect(self.bgChoiceChanged)
+        self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
+        self.bgChoiceOut.currentIndexChanged.connect(self.bgChoiceOutChanged)
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
-        self.setRminmaxButton.clicked.connect(self.setManualRminmax)
-        self.rminSpnBx.valueChanged.connect(self.RminRmaxChanged)
-        self.rmaxSpnBx.valueChanged.connect(self.RminRmaxChanged)
+
+        self.setRminButton.clicked.connect(self.setManualRmin)
+        self.rminSpnBx.valueChanged.connect(self.RminChanged)
+
         self.sigmoidSpnBx.valueChanged.connect(self.sigmoidChanged)
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
@@ -1987,27 +1998,24 @@ class QuadrantFoldingGUI(QMainWindow):
         #ax.invert_yaxis()
         self.imageCanvas.draw_idle()
 
-    def RminRmaxChanged(self):
+    def RminChanged(self):
         """
-        Triggered when R-min or R-max spinboxes changed
+        Triggered when R-min spinboxe changes
         :return:
         """
-        if self.rmaxSpnBx.value() > self.rminSpnBx.value() > 0 and not self.uiUpdating:
-            self.setRminRmax(self.rminSpnBx.value(), self.rmaxSpnBx.value())
+        if  self.rminSpnBx.value() > 0 and not self.uiUpdating:
+            self.setRmin(self.rminSpnBx.value())
 
-    def setRminRmax(self, rmin, rmax):
+    def setRmin(self, rmin):
         """
         Manual set R-max R-min
         :param rmin: r-min value in pixel
-        :param rmax: r-max value in pixel
         :return:
         """
         self.quadFold.info['rmin'] = rmin
-        self.quadFold.info['rmax'] = rmax
 
         self.uiUpdating = True
         self.rminSpnBx.setValue(rmin)
-        self.rmaxSpnBx.setValue(rmax)
         self.uiUpdating = False
 
         self.deleteInfo(['bgimg1'])  # delete bgimg1 to make QuadrantFolder recalculate
@@ -2068,10 +2076,10 @@ class QuadrantFoldingGUI(QMainWindow):
                     patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='solid'))
                 if len(func) == 3:
                     rmin = int(round(min(func[1:])))
-                    rmax = int(round(max(func[1:])))
-                    self.setRminRmax(rmin, rmax)
+
+                    self.setRmin(rmin)
                     self.function = None
-                    self.setRminmaxButton.setChecked(False)
+                    self.setRminButton.setChecked(False)
 
             elif func[0] == "fit_region":
                 # both width and height selected
@@ -2239,11 +2247,11 @@ class QuadrantFoldingGUI(QMainWindow):
         ax.invert_yaxis()
         self.resultCanvas.draw_idle()
 
-    def setManualRminmax(self):
+    def setManualRmin(self):
         """
-        Prepare for R-min and R-max settings after button clicked
+        Prepare for R-min settings after button clicked
         """
-        if self.setRminmaxButton.isChecked():
+        if self.setRminButton.isChecked():
             self.imgPathOnStatusBar.setText(
                 "Select R-min and R-max on the image (ESC to cancel)")
             self.function = ['rminmax'] # set active function
@@ -2253,7 +2261,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.resultCanvas.draw_idle()
         else:
             self.function = None
-            self.setRminmaxButton.setChecked(False)
+            self.setRminButton.setChecked(False)
             self.refreshResultTab()
             self.resetStatusbar()
 
@@ -2276,12 +2284,21 @@ class QuadrantFoldingGUI(QMainWindow):
             return
         # self.applyBGSub()
 
-    def bgChoiceChanged(self):
+    def bgChoiceOutChanged(self):
+        """
+        Trigger when background subtraction method 2 is changed
+        Available Choices : 'None', '2D Convexhull', 'Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar'
+        """
+        choice = self.bgChoiceOut.currentText()
+        pass
+
+
+    def bgChoiceInChanged(self):
         """
         Trigger when background subtraction method is changed
         Available Choices : 'None', '2D Convexhull', 'Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar'
         """
-        choice = self.bgChoice.currentText()
+        choice = self.bgChoiceIn.currentText()
 
         self.rrangeSettingFrame.setHidden(choice=='None')
 
@@ -2561,9 +2578,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         info = self.quadFold.info
         if "bgsub" in info:
-            self.bgChoice.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
+            self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
-                # self.bgChoice.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
+                # self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
                 self.tophat1SpnBx.setValue(info['tophat1'])
                 self.tophat2SpnBx.setValue(info['tophat2'])
                 self.sigmoidSpnBx.setValue(info["sigmoid"])
@@ -2574,10 +2591,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.tensionSpnBx.setValue(info['tension'])
                 if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
                     self.rminSpnBx.setValue(info['rmin'])
-                    self.rmaxSpnBx.setValue(info['rmax'])
                 else:
                     self.rminSpnBx.setValue(previnfo['rmin'])
-                    self.rmaxSpnBx.setValue(previnfo['rmax'])
                 self.winSizeX.setValue(info['win_size_x'])
                 self.winSizeY.setValue(info['win_size_y'])
                 self.winSepX.setValue(info['win_sep_x'])
@@ -2586,6 +2601,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.boxcarX.setValue(info['boxcar_x'])
                 self.boxcarY.setValue(info['boxcar_y'])
                 self.cycle.setValue(info['cycles'])
+
+        if "bgsub2" in info:
+            self.bgChoiceOut.setCurrentIndex(self.allBGChoices.index(info['bgsub2']))
+            if info['bgsub2'] != 'None':
+                pass
 
         if 'blank_mask' in info:
             self.blankImageGrp.setChecked(info['blank_mask'])
@@ -2845,7 +2865,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.spResultminInt.setRange(img.min(), img.max())
             self.spResultmaxInt.setRange(img.min(), img.max())
             self.rminSpnBx.setValue(self.quadFold.info['rmin'])
-            self.rmaxSpnBx.setValue(self.quadFold.info['rmax'])
+
             self.fixedRoiChkBx.setChecked('fixed_roi_rad' in self.quadFold.info)
             self.fixedRoi.setEnabled('fixed_roi_rad' in self.quadFold.info)
             if 'fixed_roi_rad' in self.quadFold.info:
@@ -3137,7 +3157,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         flags['orientation_model'] = self.orientationModel
         flags["ignore_folds"] = self.ignoreFolds
-        flags['bgsub'] = self.bgChoice.currentText()
+        flags['bgsub'] = self.bgChoiceIn.currentText()
+        flags['bgsub2'] = self.bgChoiceOut.currentText()
         flags["cirmin"] = self.minPixRange.value()
         flags["cirmax"] = self.maxPixRange.value()
         flags['win_size_x'] = self.winSizeX.value()
@@ -3164,9 +3185,8 @@ class QuadrantFoldingGUI(QMainWindow):
             if modeOrientation is not None:
                 flags["mode_angle"] = modeOrientation
 
-        if self.rmaxSpnBx.value() > self.rminSpnBx.value() > 0:
+        if self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()
-            flags['fixed_rmax'] = self.rmaxSpnBx.value()
 
         if self.fixedRoiChkBx.isChecked():
             flags['fixed_roi_rad'] = self.fixedRoi.value()
@@ -3261,7 +3281,6 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         self.uiUpdating = True
         self.rminSpnBx.setValue(-1)
-        self.rmaxSpnBx.setValue(-1)
         self.uiUpdating = False
 
     def browseFolder(self):
@@ -3351,12 +3370,12 @@ class QuadrantFoldingGUI(QMainWindow):
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
-        text += "\n  - Background Subtraction Method : "+ str(self.bgChoice.currentText())
+        text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
+        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
 
         if flags['bgsub'] != 'None':
             if 'fixed_rmin' in flags:
                 text += "\n  - R-min : " + str(flags["fixed_rmin"])
-                text += "\n  - R-max : " + str(flags["fixed_rmax"])
 
             if flags['bgsub'] in ['Circularly-symmetric', 'Roving Window']:
                 text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin"]) + "% - "+str(flags["cirmax"])+"%"
@@ -3425,12 +3444,12 @@ class QuadrantFoldingGUI(QMainWindow):
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
-        text += "\n  - Background Subtraction Method : "+ str(self.bgChoice.currentText())
+        text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
+        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
 
         if flags['bgsub'] != 'None':
             if 'fixed_rmin' in flags:
                 text += "\n  - R-min : " + str(flags["fixed_rmin"])
-                text += "\n  - R-max : " + str(flags["fixed_rmax"])
 
             if flags['bgsub'] in ['Circularly-symmetric', 'Roving Window']:
                 text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin"]) + "% - "+str(flags["cirmax"])+"%"
