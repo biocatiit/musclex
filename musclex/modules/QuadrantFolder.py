@@ -242,16 +242,7 @@ class QuadrantFolder:
             self.info['bgsub'] = 'None'
         if 'bgsub2' not in self.info:
             self.info['bgsub2'] = 'None'
-        if 'deg1' not in self.info:
-            self.info['deg1'] = 1
-        if 'deg2' not in self.info:
-            self.info['deg2'] = 0.5 # [IK] TODO  move to CH function
-        if 'transition_delta' not in self.info:
-            self.info['transition_delta'] = 100 # [IK] TODO decide on default values
-        if 'transition_radius' not in self.info:
-            self.info['transition_radius'] = self.orig_img.shape[0]//2 # take half by default
-        if 'sigmoid' not in self.info:
-            self.info['sigmoid'] = 0.05
+
 
     def applyBlankImageAndMask(self):
         """
@@ -789,29 +780,23 @@ class QuadrantFolder:
         # Prepare options and parameter values based on 'typ'
         if typ == "gauss":
             filter_type = 'gaussian'
-            if bgsub==2:
-                kernel_size = (self.info["fwhm2"], self.info["fwhm2"])
-            else:
-                kernel_size = (self.info["fwhm"], self.info["fwhm"])
+            kernel_size = (self.info["fwhm2"], self.info["fwhm2"]) if bgsub==2 else  (self.info["fwhm"], self.info["fwhm"])
             if kernel_size[0] % 2 == 0:
                 kernel_size = (kernel_size[0] + 1, kernel_size[1] + 1)
             sigmaX = 0
         else:
             filter_type = 'boxcar'
-            if bgsub==2:
-                kernel_size = (self.info["boxcar_x2"], self.info["boxcar_y2"])
-            else:
-                kernel_size = (self.info["boxcar_x"], self.info["boxcar_y"])
+            kernel_size = (self.info["boxcar_x2"], self.info["boxcar_y2"]) if bgsub==2 else (self.info["boxcar_x"], self.info["boxcar_y"])
             sigmaX = 0  # Set to zero for boxcar filter
 
         tension = None # Not used in the function
         edge_background = None  # You can provide edge background if available
-
+        cycles = self.info["cycles2"] if bgsub==2 else self.info["cycles"]
         # Call bcksmooth function
 
         res = replicate_bcksmooth(
             image=img,
-            max_iterations=self.info["cycles"],
+            max_iterations=cycles,
             filter_type=filter_type,
             kernel_size=kernel_size,
             sigmaX=sigmaX,
@@ -1056,12 +1041,11 @@ class QuadrantFolder:
             _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
 
             self.info['rmin'] = int(round(self.getFirstPeak(totalI) + 10))
-            # self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1) * .8))
+            self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1)))
 
         self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
         self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg2" from info to make it reprocess
-        print("Done. R-min is "+str(self.info['rmin']))
-        # print("Done. R-min is "+str(self.info['rmin']) + " and R-max is " + str(self.info['rmax']))
+        print("Done. R-min is "+str(self.info['rmin']) + " and R-max is set to max: " + str(self.info['rmax']))
 
     def apply2DConvexhull(self, copy_img, rmin, step=1):
         """
@@ -1070,7 +1054,7 @@ class QuadrantFolder:
         center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
         rmax = copy_img.shape[0] + 10
 
-        print(f"[IK] rmin {rmin}, rmax {rmax}, step deg: {step}")
+        # print(f"[IK] ConvexHull: rmin {rmin}, rmax {rmax}, step deg: {step}")
         hist_x = list(np.arange(rmin, rmax + 1))
         pchiplines = []
 
@@ -1092,7 +1076,6 @@ class QuadrantFolder:
             else:
                 start_deg=deg-step/2
                 end_deg=deg+step/2
-            # print(f"[IK] deg: {deg} start: {start_deg} end : {end_deg}")
 
             # Integrate the image and base image to get the volume
             _, I = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(start_deg, end_deg), correctSolidAngle=False)
@@ -1165,7 +1148,6 @@ class QuadrantFolder:
             self.get_avg_fold(quadrants,fold_height,fold_width)
             if 'resultImg' in self.imgCache:
                 del self.imgCache['resultImg']
-            
 
             print("Done.")
 
@@ -1200,6 +1182,7 @@ class QuadrantFolder:
         print("Background Subtraction is being processed...")
         method = self.info["bgsub"]
         method2 = self.info["bgsub2"]
+        # print(f"[IK] In method: {method}, Out method: {method2}.")
 
         # Produce bgimg1
         if "bgimg1" not in self.info:
@@ -1251,20 +1234,19 @@ class QuadrantFolder:
         :return:
         """
         self.parent.statusPrint("Merging Images...")
-        print("Merging images...")
 
         if "BgSubFold" not in self.imgCache:
             img1 = np.array(self.info["bgimg1"], dtype="float32")
             img2 = np.array(self.info["bgimg2"], dtype="float32")
-            sigmoid = self.info["sigmoid"]
+
             center = [img1.shape[1]-1, img1.shape[0]-1]
             rad = self.info["transition_radius"]
             delta = self.info["transition_delta"]
             
-            print(f"[IK] sigmoid: {sigmoid}, rad: {rad}, delta: {delta}")
+            # print(f"[IK] transition_radius: {rad}, transition_delta: {delta}")
 
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_img1.npy', img1)
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_img2.npy', img2)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_img1.npy', img1)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_img2.npy', img2)
             
             # Merge 2 images at merge radius using sigmoid as merge gradient
             # self.imgCache['BgSubFold'] = qfu.combine_bgsub_float32(img1, img2, center[0], center[1], sigmoid, rad)
@@ -1274,11 +1256,11 @@ class QuadrantFolder:
             result, debug1, debug2, debug3, debug4, debug5  = qfu.combine_bgsub_float32_debug_v2(img1, img2, center[0], center[1], rad, delta)
             self.imgCache['BgSubFold'] = result
 
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug1.npy', debug1)
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug2.npy', debug2)
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug3.npy', debug3)
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug4.npy', debug4)
-            np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug5.npy', debug5)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug1.npy', debug1)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug2.npy', debug2)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug3.npy', debug3)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug4.npy', debug4)
+            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug5.npy', debug5)
             self.deleteFromDict(self.imgCache, "resultImg")
 
         print("Done.")
