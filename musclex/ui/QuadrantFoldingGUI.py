@@ -207,7 +207,6 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Open a file finder and return the name of the file selected
         """
-
         self.setWindowTitle("Muscle X Quadrant Folding v." + __version__)
 
         self.scrollArea = QScrollArea()
@@ -453,7 +452,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.fixedRoi.setEnabled(False)
 
 
-        self.allBGChoices = ['None', 'Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', '2D Convexhull']
+        self.allBGChoices = ['None', '2D Convexhull', 'Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', 'Roving Window']
         self.bgChoiceIn = QComboBox()
         self.bgChoiceIn.setCurrentIndex(0)
         for c in self.allBGChoices:
@@ -571,29 +570,142 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tophat1SpnBx.setRange(1, 100)
         self.tophat1SpnBx.setValue(5)
         self.tophat1SpnBx.setKeyboardTracking(False)
-        self.tophat1Label = QLabel("Top-hat inside R-max : ")
+        self.tophat1Label = QLabel("Top-hat disk size: ")
 
         self.tophat2SpnBx = QSpinBox()
         self.tophat2SpnBx.setRange(1, 100)
         self.tophat2SpnBx.setValue(20)
         self.tophat2SpnBx.setKeyboardTracking(False)
-        self.tophat2Label = QLabel("Top-hat outside R-max : ")
+        self.tophat2Label = QLabel("Top-hat disk size : ")
+
+        self.gaussFWHM2Label = QLabel("Gaussian FWHM : ")
+        self.gaussFWHM2 = QSpinBox()
+        self.gaussFWHM2.setRange(1, 3000)
+        self.gaussFWHM2.setValue(10)
+        self.gaussFWHM2.setKeyboardTracking(False)
+
+        self.boxcar2Label = QLabel("Box car size : ")
+        self.boxcar2X = QSpinBox()
+        self.boxcar2X.setRange(1, 3000)
+        self.boxcar2X.setValue(10)
+        self.boxcar2X.setPrefix('X:')
+        self.boxcar2X.setKeyboardTracking(False)
+        self.boxcar2Y = QSpinBox()
+        self.boxcar2Y.setRange(1, 3000)
+        self.boxcar2Y.setValue(10)
+        self.boxcar2Y.setPrefix('Y:')
+        self.boxcar2Y.setKeyboardTracking(False)
+
+        self.cycle2Label = QLabel("Number of cycle : ")
+        self.cycle2 = QSpinBox()
+        self.cycle2.setValue(5)
+        self.cycle2.setKeyboardTracking(False)
+        self.cycle2.setRange(1, 3000)
+
+        self.windowSize2Label = QLabel("Window Size : ")
+        self.winSize2X = QSpinBox()
+        self.winSize2X.setPrefix('X:')
+        self.winSize2X.setKeyboardTracking(False)
+        self.winSize2X.setRange(1, 3000)
+        self.winSize2X.setValue(15)
+        self.winSize2Y = QSpinBox()
+        self.winSize2Y.setPrefix('Y:')
+        self.winSize2Y.setKeyboardTracking(False)
+        self.winSize2Y.setRange(1, 3000)
+        self.winSize2Y.setValue(15)
+
+        self.windowSep2Label = QLabel("Window Separation : ")
+        self.winSep2X = QSpinBox()
+        self.winSep2X.setPrefix('X:')
+        self.winSep2X.setKeyboardTracking(False)
+        self.winSep2X.setRange(1, 3000)
+        self.winSep2X.setValue(10)
+        self.winSep2Y = QSpinBox()
+        self.winSep2Y.setPrefix('Y:')
+        self.winSep2Y.setKeyboardTracking(False)
+        self.winSep2Y.setRange(1, 3000)
+        self.winSep2Y.setValue(10)
+
+        self.minPixRange2 = QDoubleSpinBox()
+        self.minPixRange2.setSuffix("%")
+        self.minPixRange2.setDecimals(2)
+        self.minPixRange2.setSingleStep(2)
+        self.minPixRange2.setValue(0)
+        self.minPixRange2.setRange(0, 100)
+        self.minPixRange2.setKeyboardTracking(False)
+
+        self.maxPixRange2 = QDoubleSpinBox()
+        self.maxPixRange2.setSuffix("%")
+        self.maxPixRange2.setDecimals(2)
+        self.maxPixRange2.setSingleStep(2)
+        self.maxPixRange2.setValue(25)
+        self.maxPixRange2.setRange(0, 100)
+        self.maxPixRange2.setKeyboardTracking(False)
+        self.pixRange2Label = QLabel("Pixel Range : ")
+
+        self.thetaBin2Label = QLabel("Bin Theta (deg) : ")
+        self.thetabinCB2 = QComboBox()
+        self.thetabinCB2.addItems(["3", "5", "10", "15", "30", "45", "90"])
+        self.thetabinCB2.setCurrentIndex(4)
+
+        self.deg1Label = QLabel("Step (deg) : ")
+        self.deg1CB = QComboBox()
+        self.deg1CB.addItems(["0.5", "1", "2", "3", "5", "9", "10", "15"])
+        self.deg1CB.setCurrentIndex(1)
+
+        self.deg2Label = QLabel("Step (deg) : ")
+        self.deg2CB = QComboBox()
+        self.deg2CB.addItems(["0.5","1", "2", "3", "5", "9", "10", "15"])
+        self.deg2CB.setCurrentIndex(2)
+
+        self.radialBin2SpnBx = QSpinBox()
+        self.radialBin2SpnBx.setRange(1, 100)
+        self.radialBin2SpnBx.setValue(10)
+        self.radialBin2SpnBx.setKeyboardTracking(False)
+        self.radialBin2SpnBx.setSuffix(" Pixel(s)")
+        self.radialBin2Label = QLabel("Radial Bin : ")
+
+        self.smooth2SpnBx = QDoubleSpinBox()
+        self.smooth2SpnBx.setRange(0, 10000)
+        self.smooth2SpnBx.setValue(0.1)
+        self.smooth2SpnBx.setKeyboardTracking(False)
+        self.smooth2Label = QLabel("Smoothing factor : ")
+
+        self.tension2SpnBx = QDoubleSpinBox()
+        self.tension2SpnBx.setRange(0, 100)
+        self.tension2SpnBx.setValue(1)
+        self.tension2SpnBx.setKeyboardTracking(False)
+        self.tension2Label = QLabel("Tension factor : ")
+
+        self.tranRSpnBx = QSpinBox()
+        self.tranRSpnBx.setRange(1, 5000)
+        self.tranRSpnBx.setValue(350)
+        self.tranRSpnBx.setKeyboardTracking(False)
+        self.tranRLabel = QLabel("Transition Radius : ")
+
+        self.tranDeltaSpnBx = QSpinBox()
+        self.tranDeltaSpnBx.setRange(1, 2000)
+        self.tranDeltaSpnBx.setValue(100)
+        self.tranDeltaSpnBx.setKeyboardTracking(False)
+        self.tranDeltaLabel = QLabel("Transition Delta : ")
 
         self.applyBGButton = QPushButton("Apply")
+        # self.applyBG2Button = QPushButton("Apply (Out)")
 
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         separator.setLineWidth(1)
-        self.mergeGradientLabel = QLabel("Merge Gradient :")
-        self.sigmoidSpnBx = QDoubleSpinBox()
-        self.sigmoidSpnBx.setDecimals(5)
-        self.sigmoidSpnBx.setSingleStep(2)
-        self.sigmoidSpnBx.setValue(0.1)
-        self.sigmoidSpnBx.setRange(0, 100)
-        self.sigmoidSpnBx.setKeyboardTracking(False)
 
-        self.tophat2Widgets = [self.tophat2SpnBx, self.tophat2Label, self.mergeGradientLabel, self.sigmoidSpnBx, separator]
+        separator_2 = QFrame()
+        separator_2.setFrameShape(QFrame.HLine)
+        separator_2.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        separator_2.setLineWidth(1)
+
+
+        self.showTranRadDeltaChkBx = QCheckBox("Show Transition Radius and Delta")
+
+        self.outBGWidgets = [self.tranDeltaSpnBx, self.tranDeltaLabel, self.tranRSpnBx, self.tranRLabel, self.showTranRadDeltaChkBx, separator, separator_2]
 
         self.bgLayout = QGridLayout()
         self.bgLayout.addWidget(self.setFitRoi, 0, 0, 1, 3)
@@ -658,34 +770,97 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgLayout.addWidget(self.maxPixRange, 13, 3, 1, 1)
 
         # Smooth
-        self.bgLayout.addWidget(self.smoothLabel, 14, 0, 1, 2)
-        self.bgLayout.addWidget(self.smoothSpnBx, 14, 2, 1, 2)
+        self.bgLayout.addWidget(self.smoothLabel, 14, 0, 1, 1)
+        self.bgLayout.addWidget(self.smoothSpnBx, 14, 1, 1, 1)
 
         # Tension
-        self.bgLayout.addWidget(self.tensionLabel, 15, 0, 1, 2)
-        self.bgLayout.addWidget(self.tensionSpnBx, 15, 2, 1, 2)
+        self.bgLayout.addWidget(self.tensionLabel, 14, 2, 1, 1)
+        self.bgLayout.addWidget(self.tensionSpnBx, 14, 3, 1, 1)
 
-        # White top hat (inside R-max)
+        # CH deg step
+        self.bgLayout.addWidget(self.deg1Label, 15, 0, 1, 2)
+        self.bgLayout.addWidget(self.deg1CB, 15, 2, 1, 2)
+
+        # White top hat 
         self.bgLayout.addWidget(self.tophat1Label, 16, 0, 1, 2)
         self.bgLayout.addWidget(self.tophat1SpnBx, 16, 2, 1, 2)
-        self.bgLayout.addWidget(separator, 17, 0, 1, 4)
+        
+        self.bgLayout.addWidget(separator, 20, 0, 1, 4)
 
-        # White top hat (outside R-max)
-        self.bgLayout.addWidget(self.tophat2Label, 18, 0, 1, 2)
-        self.bgLayout.addWidget(self.tophat2SpnBx, 18, 2, 1, 2)
+
+        self.bgLayout.addWidget(QLabel("Background Subtraction (Out) :"), 22, 0, 1, 2)
+        self.bgLayout.addWidget(self.bgChoiceOut, 22, 2, 1, 2)
+
+        # Gaussian FWHM
+        self.bgLayout.addWidget(self.gaussFWHM2Label, 25, 0, 1, 2)
+        self.bgLayout.addWidget(self.gaussFWHM2, 25, 2, 1, 2)
+
+        # Box car size
+        self.bgLayout.addWidget(self.boxcar2Label, 26, 0, 1, 2)
+        self.bgLayout.addWidget(self.boxcar2X, 26, 2, 1, 1)
+        self.bgLayout.addWidget(self.boxcar2Y, 26, 3, 1, 1)
+
+        # Number of cycles
+        self.bgLayout.addWidget(self.cycle2Label, 27, 0, 1, 2)
+        self.bgLayout.addWidget(self.cycle2, 27, 2, 1, 2)
+
+        # Theta bin
+        self.bgLayout.addWidget(self.thetaBin2Label, 28, 0, 1, 2)
+        self.bgLayout.addWidget(self.thetabinCB2, 28, 2, 1, 2)
+
+        # Radial bin
+        self.bgLayout.addWidget(self.radialBin2Label, 29, 0, 1, 2)
+        self.bgLayout.addWidget(self.radialBin2SpnBx, 29, 2, 1, 2)
+
+        # Window size
+        self.bgLayout.addWidget(self.windowSize2Label, 30, 0, 1, 2)
+        self.bgLayout.addWidget(self.winSize2X, 30, 2, 1, 1)
+        self.bgLayout.addWidget(self.winSize2Y, 30, 3, 1, 1)
+
+        # Window Seperation
+        self.bgLayout.addWidget(self.windowSep2Label, 31, 0, 1, 2)
+        self.bgLayout.addWidget(self.winSep2X, 31, 2, 1, 1)
+        self.bgLayout.addWidget(self.winSep2Y, 31, 3, 1, 1)
+
+        # Pixel ranges
+        self.bgLayout.addWidget(self.pixRange2Label, 32, 0, 1, 2)
+        self.bgLayout.addWidget(self.minPixRange2, 32, 2, 1, 1)
+        self.bgLayout.addWidget(self.maxPixRange2, 32, 3, 1, 1)
+
+        # Smooth
+        self.bgLayout.addWidget(self.smooth2Label, 33, 0, 1, 2)
+        self.bgLayout.addWidget(self.smooth2SpnBx, 33, 2, 1, 2)
+
+        # Tension
+        self.bgLayout.addWidget(self.tension2Label, 34, 0, 1, 2)
+        self.bgLayout.addWidget(self.tension2SpnBx, 34, 2, 1, 2)
+
+        # CH deg step
+        self.bgLayout.addWidget(self.deg2Label, 35, 0, 1, 2)
+        self.bgLayout.addWidget(self.deg2CB, 35, 2, 1, 2)
+
+        # White top hat 2
+        self.bgLayout.addWidget(self.tophat2Label, 36, 0, 1, 2)
+        self.bgLayout.addWidget(self.tophat2SpnBx, 36, 2, 1, 2)
+
+        self.bgLayout.addWidget(separator_2, 40, 0, 1, 4)
 
         # Merging params
-        self.bgLayout.addWidget(self.mergeGradientLabel, 19, 0, 1, 2)
-        self.bgLayout.addWidget(self.sigmoidSpnBx, 19, 2, 1, 2)
+        self.bgLayout.addWidget(self.tranRLabel, 42, 0, 1, 1)
+        self.bgLayout.addWidget(self.tranRSpnBx, 42, 1, 1, 1)
+
+        self.bgLayout.addWidget(self.tranDeltaLabel, 42, 2, 1, 1)
+        self.bgLayout.addWidget(self.tranDeltaSpnBx, 42, 3, 1, 1)
+
+        self.bgLayout.addWidget(self.showTranRadDeltaChkBx, 43, 0, 1, 4)
+
+        # Merging params
+        # self.bgLayout.addWidget(self.mergeGradientLabel, 41, 0, 1, 2)
 
         # Apply button
-        self.bgLayout.addWidget(self.applyBGButton, 20, 0, 1, 4)
-
-        self.bgLayout.addWidget(QLabel("Background Subtraction (Out) :"), 21, 0, 1, 2)
-        self.bgLayout.addWidget(self.bgChoiceOut, 21, 2, 1, 2)
+        self.bgLayout.addWidget(self.applyBGButton, 45, 0, 1, 4)
 
         # self.bgLayout.setColumnStretch(0, 2)
-
 
         self.resProcGrpBx.setLayout(self.bgLayout)
 
@@ -856,6 +1031,11 @@ class QuadrantFoldingGUI(QMainWindow):
         self.statusBar.addWidget(self.imgPathOnStatusBar)
         self.setStatusBar(self.statusBar)
 
+        # show transition radius and delta
+        self.circle_patch = None
+        self.circle_patch2 = None
+        self.circle_patch3 = None
+
 
         #### Menu Bar #####
         selectImageAction = QAction('Select an Image...', self)
@@ -885,6 +1065,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
         self.show()
+
 
     def setConnections(self):
         """
@@ -922,6 +1103,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.fixedOrientationChkBx.stateChanged.connect(self.onFixedRotationChkBxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
+
+        self.showTranRadDeltaChkBx.stateChanged.connect(self.toggleCircle)
+
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
@@ -965,7 +1149,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setRminButton.clicked.connect(self.setManualRmin)
         self.rminSpnBx.valueChanged.connect(self.RminChanged)
 
-        self.sigmoidSpnBx.valueChanged.connect(self.sigmoidChanged)
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
@@ -1020,6 +1203,56 @@ class QuadrantFoldingGUI(QMainWindow):
             # if 'roi_rad' in self.quadFold.info:
             #     del self.quadFold.info['roi_rad']
             self.processImage()
+
+    def toggleCircle(self):
+        print(f"[IK] enter toggle")
+        print(f"[IK] self.showTranRadDeltaChkBx.isChecked() : {self.showTranRadDeltaChkBx.isChecked()}")
+        
+        if self.showTranRadDeltaChkBx.isChecked(): 
+            # Remove existing circle if any
+            if self.circle_patch is not None:
+                self.circle_patch.remove()
+            if self.circle_patch2 is not None:
+                self.circle_patch2.remove()
+            if self.circle_patch3 is not None:
+                self.circle_patch3.remove()
+            
+            # Create new circle (adjust x, y, radius as needed)
+            radius = self.tranRSpnBx.value() 
+            delta = self.tranDeltaSpnBx.value()
+            center = self.quadFold.info['center']
+            print(f"[IK] radius: {radius}, delta: {delta}, center: {center}")
+            self.circle_patch = plt.Circle(center, radius, 
+                                        fill=False,
+                                        color='red',
+                                        linewidth=0.5)
+            self.circle_patch2 = plt.Circle(center, radius+delta, 
+                                        fill=False,
+                                        color='blue',
+                                        linewidth=1)
+            self.circle_patch3 = plt.Circle(center, radius-delta, 
+                                        fill=False,
+                                        color='blue',
+                                        linewidth=0.5)
+            
+            # Add the circle to the axes
+            self.resultAxes.add_patch(self.circle_patch)
+            self.resultAxes.add_patch(self.circle_patch2)
+            self.resultAxes.add_patch(self.circle_patch3)
+        else:
+            # Remove the circle if checkbox is unchecked
+            if self.circle_patch is not None:
+                self.circle_patch.remove()
+                self.circle_patch = None
+            if self.circle_patch2 is not None:
+                self.circle_patch2.remove()
+                self.circle_patch2 = None
+            if self.circle_patch3 is not None:
+                self.circle_patch3.remove()
+                self.circle_patch3 = None
+        
+        # Redraw the canvas to show changes
+        self.resultCanvas.draw()
 
     def fixedRoiChanged(self):
         """
@@ -2008,7 +2241,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def setRmin(self, rmin):
         """
-        Manual set R-max R-min
+        Manual set R-min
         :param rmin: r-min value in pixel
         :return:
         """
@@ -2290,7 +2523,38 @@ class QuadrantFoldingGUI(QMainWindow):
         Available Choices : 'None', '2D Convexhull', 'Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar'
         """
         choice = self.bgChoiceOut.currentText()
-        pass
+
+        self.tophat2SpnBx.setHidden(not choice == 'White-top-hats')
+        self.tophat2Label.setHidden(not choice == 'White-top-hats')
+        self.windowSize2Label.setHidden(not choice == 'Roving Window')
+        self.winSize2X.setHidden(not choice == 'Roving Window')
+        self.winSize2Y.setHidden(not choice == 'Roving Window')
+        self.windowSep2Label.setHidden(not choice == 'Roving Window')
+        self.winSep2X.setHidden(not choice == 'Roving Window')
+        self.winSep2Y.setHidden(not choice == 'Roving Window')
+        self.maxPixRange2.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+        self.minPixRange2.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+        self.pixRange2Label.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+        self.gaussFWHM2Label.setHidden(not choice == 'Smoothed-Gaussian')
+        self.gaussFWHM2.setHidden(not choice == 'Smoothed-Gaussian')
+        self.boxcar2Label.setHidden(not choice == 'Smoothed-BoxCar')
+        self.boxcar2X.setHidden(not choice == 'Smoothed-BoxCar')
+        self.boxcar2Y.setHidden(not choice == 'Smoothed-BoxCar')
+        self.deg2Label.setHidden(not choice == '2D Convexhull')
+        self.deg2CB.setHidden(not choice == '2D Convexhull')
+        self.cycle2Label.setHidden(not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        self.cycle2.setHidden(not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
+        self.thetaBin2Label.setHidden(True)
+        self.thetabinCB2.setHidden(True)
+        self.radialBin2SpnBx.setHidden(not choice == 'Circularly-symmetric')
+        self.radialBin2Label.setHidden(not choice == 'Circularly-symmetric')
+        self.smooth2Label.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+        self.smooth2SpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+        self.tension2Label.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+        self.tension2SpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+
+        if self.quadFold is not None and not self.uiUpdating:
+            self.applyBGSub()
 
 
     def bgChoiceInChanged(self):
@@ -2318,10 +2582,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.boxcarLabel.setHidden(not choice == 'Smoothed-BoxCar')
         self.boxcarX.setHidden(not choice == 'Smoothed-BoxCar')
         self.boxcarY.setHidden(not choice == 'Smoothed-BoxCar')
+        self.deg1Label.setHidden(not choice == '2D Convexhull')
+        self.deg1CB.setHidden(not choice == '2D Convexhull')
         self.cycleLabel.setHidden(not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
         self.cycle.setHidden(not choice in ('Smoothed-Gaussian', 'Smoothed-BoxCar'))
         self.thetaBinLabel.setHidden(True)
         self.thetabinCB.setHidden(True)
+
         self.radialBinSpnBx.setHidden(not choice == 'Circularly-symmetric')
         self.radialBinLabel.setHidden(not choice == 'Circularly-symmetric')
         self.smoothLabel.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
@@ -2329,23 +2596,15 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tensionLabel.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
         self.tensionSpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
 
-        hide_tophat2 = (choice == 'None')
 
-        for w in self.tophat2Widgets:
-            w.setHidden(hide_tophat2)
+        hide_outBG = (choice == 'None')
+        for w in self.outBGWidgets:
+            w.setHidden(hide_outBG)
 
         self.applyBGButton.setHidden(choice == 'None')
 
         if self.quadFold is not None and not self.uiUpdating:
             self.applyBGSub()
-
-    def sigmoidChanged(self):
-        """
-        Trigger when sigmoid param (merge gradient) is changed
-        """
-        if self.ableToProcess():
-            self.deleteImgCache(['BgSubFold'])
-            self.processImage()
 
     def updateImportedBG(self):
         """
@@ -2580,19 +2839,22 @@ class QuadrantFoldingGUI(QMainWindow):
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
-                # self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
+                self.tranRSpnBx.setValue(info['transition_radius'])
+                self.tranDeltaSpnBx.setValue(info['transition_delta'])
+
                 self.tophat1SpnBx.setValue(info['tophat1'])
-                self.tophat2SpnBx.setValue(info['tophat2'])
-                self.sigmoidSpnBx.setValue(info["sigmoid"])
                 self.maxPixRange.setValue(info["cirmax"])
                 self.minPixRange.setValue(info["cirmin"])
+
                 self.radialBinSpnBx.setValue(info['radial_bin'])
                 self.smoothSpnBx.setValue(info['smooth'])
                 self.tensionSpnBx.setValue(info['tension'])
+
                 if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
                     self.rminSpnBx.setValue(info['rmin'])
                 else:
                     self.rminSpnBx.setValue(previnfo['rmin'])
+
                 self.winSizeX.setValue(info['win_size_x'])
                 self.winSizeY.setValue(info['win_size_y'])
                 self.winSepX.setValue(info['win_sep_x'])
@@ -2601,11 +2863,33 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.boxcarX.setValue(info['boxcar_x'])
                 self.boxcarY.setValue(info['boxcar_y'])
                 self.cycle.setValue(info['cycles'])
+                self.deg1CB.setValue(info['deg1'])
+                
 
         if "bgsub2" in info:
             self.bgChoiceOut.setCurrentIndex(self.allBGChoices.index(info['bgsub2']))
             if info['bgsub2'] != 'None':
-                pass
+                self.tophat2SpnBx.setValue(info['tophat2'])
+                self.maxPixRange2.setValue(info["cirmax2"])
+                self.minPixRange2.setValue(info["cirmin2"])
+
+                self.radialBin2SpnBx.setValue(info['radial_bin2'])
+                self.smooth2SpnBx.setValue(info['smooth2'])
+                self.tension2SpnBx.setValue(info['tension2'])
+                
+                self.winSize2X.setValue(info['win_size_x2'])
+                self.winSize2Y.setValue(info['win_size_y2'])
+                self.winSep2X.setValue(info['win_sep_x2'])
+                self.winSep2Y.setValue(info['win_sep_y2'])
+
+                self.gaussFWHM2.setValue(info['fwhm2'])
+                self.boxcar2X.setValue(info['boxcar_x2'])
+                self.boxcar2Y.setValue(info['boxcar_y2'])
+
+                self.cycle2.setValue(info['cycles2'])
+                self.deg2CB.setValue(info['deg2'])
+
+                                           
 
         if 'blank_mask' in info:
             self.blankImageGrp.setChecked(info['blank_mask'])
@@ -2897,6 +3181,9 @@ class QuadrantFoldingGUI(QMainWindow):
             self.resultFigure.tight_layout()
             self.resultCanvas.draw()
 
+            print(f'[IK] toggle circ. update results page')
+            self.toggleCircle()
+
             self.updated['result'] = True
             self.uiUpdating = False
 
@@ -2931,6 +3218,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.updateParams()
             self.refreshAllTabs()
             self.csvManager.writeNewData(self.quadFold)
+
+            self.toggleCircle()
 
             self.saveResults()
             QApplication.restoreOverrideCursor()
@@ -3155,10 +3444,19 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         flags = {}
 
+        # image
         flags['orientation_model'] = self.orientationModel
         flags["ignore_folds"] = self.ignoreFolds
+        flags['mask_thres'] = self.maskThresSpnBx.value()
+
+        flags['blank_mask'] = self.blankImageGrp.isChecked()
+        flags['fold_image'] = self.toggleFoldImage.isChecked()
+
+        flags["transition_radius"] = self.tranRSpnBx.value()
+        flags["transition_delta"] = self.tranDeltaSpnBx.value()
+
+        # bg rm (in)
         flags['bgsub'] = self.bgChoiceIn.currentText()
-        flags['bgsub2'] = self.bgChoiceOut.currentText()
         flags["cirmin"] = self.minPixRange.value()
         flags["cirmax"] = self.maxPixRange.value()
         flags['win_size_x'] = self.winSizeX.value()
@@ -3170,15 +3468,30 @@ class QuadrantFoldingGUI(QMainWindow):
         flags['smooth'] = self.smoothSpnBx.value()
         flags['tension'] = self.tensionSpnBx.value()
         flags["tophat1"] = self.tophat1SpnBx.value()
-        flags["tophat2"] = self.tophat2SpnBx.value()
-        flags['mask_thres'] = self.maskThresSpnBx.value()
-        flags['sigmoid'] = self.sigmoidSpnBx.value()
         flags['fwhm'] = self.gaussFWHM.value()
         flags['boxcar_x'] = self.boxcarX.value()
         flags['boxcar_y'] = self.boxcarY.value()
         flags['cycles'] = self.cycle.value()
-        flags['blank_mask'] = self.blankImageGrp.isChecked()
-        flags['fold_image'] = self.toggleFoldImage.isChecked()
+        flags['deg1'] = float(self.deg1CB.currentText())
+
+        # bg rm (out)
+        flags['bgsub2'] = self.bgChoiceOut.currentText()
+        flags["cirmin2"] = self.minPixRange2.value()
+        flags["cirmax2"] = self.maxPixRange2.value()
+        flags['win_size_x2'] = self.winSize2X.value()
+        flags['win_size_y2'] = self.winSize2Y.value()
+        flags['win_sep_x2'] = self.winSep2X.value()
+        flags['win_sep_y2'] = self.winSep2Y.value()
+        flags['radial_bin2'] = self.radialBin2SpnBx.value()
+        flags['smooth2'] = self.smooth2SpnBx.value()
+        flags['tension2'] = self.tension2SpnBx.value()
+        flags["tophat2"] = self.tophat2SpnBx.value()
+        flags['fwhm2'] = self.gaussFWHM2.value()
+        flags['boxcar_x2'] = self.boxcar2X.value()
+        flags['boxcar_y2'] = self.boxcar2Y.value()
+        flags['cycles2'] = self.cycle2.value()
+        flags['deg2'] = float(self.deg2CB.currentText())
+
 
         if self.modeAngleChkBx.isChecked():
             modeOrientation = self.getModeRotation()
