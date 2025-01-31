@@ -2860,7 +2860,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.boxcarX.setValue(info['boxcar_x'])
                 self.boxcarY.setValue(info['boxcar_y'])
                 self.cycle.setValue(info['cycles'])
-                self.deg1CB.setValue(info['deg1'])
+                self.deg1CB.setCurrentIndex(1)
                 
 
         if "bgsub2" in info:
@@ -2884,7 +2884,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.boxcar2Y.setValue(info['boxcar_y2'])
 
                 self.cycle2.setValue(info['cycles2'])
-                self.deg2CB.setValue(info['deg2'])
+                self.deg2CB.setCurrentIndex(2)
 
                                            
 
@@ -3704,7 +3704,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
 
             text += "\n  - Tophat (outside R-max) : " + str(flags["tophat2"])
-            text += "\n  - Merge Gradient : " + str(flags["sigmoid"])
+            text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
+            text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
 
         text += '\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
@@ -3778,7 +3779,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
 
             text += "\n  - Tophat (outside R-max) : " + str(flags["tophat2"])
-            text += "\n  - Merge Gradient : " + str(flags["sigmoid"])
+            text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
+            text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
 
         text += '\n\nAre you sure you want to process ' + str(len(self.h5List)) + ' H5 file(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
