@@ -6,10 +6,10 @@ Release Date : XX/XX/2025
 
 - Bring Back 2D Convex Hull in QF
 - Fix integration in 2D Convex Hull, add more background smoothing
-- Add bg2 options 
-- Add transition radius and transition delta (in -h for now)
+- Add bg2 options (same algorithms as for bg1)
+- Add transition radius and transition delta (set to constant values for now)
 
 ToDo:
 - Add documentation page explaining background removal algorithms 
-- Add merge radius parameter to GUI
+
 
