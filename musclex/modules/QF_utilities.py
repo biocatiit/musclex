@@ -305,63 +305,6 @@ def combine_bgsub_linear_float32(img1, img2, center_x, center_y, rad, delta):
     return result
 
 
-@jit
-def combine_bgsub_float32_debug(img1, img2, center_x, center_y, sigmoid_k, radius):
-    img_height = img1.shape[0]
-    img_width = img1.shape[1]
-    result = np.zeros((img_height, img_width), dtype = np.float32)
-    debug1 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug2 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug3 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug4 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug5 = np.zeros((img_height, img_width), dtype = np.float32)
-
-    for x in range(img_width):
-        for y in range(img_height):
-            r = qfdistance(x, y, center_x, center_y)
-            tophat_ratio = sigmoid(sigmoid_k, radius, r)
-            radial_ratio = 1.0 - tophat_ratio
-            tophat_val = tophat_ratio * img2[y,x]
-            radial_val = radial_ratio * img1[y,x]
-            result[y,x] = tophat_val+radial_val
-
-            debug1[y,x] = tophat_ratio
-            debug2[y,x] = radial_ratio
-            debug3[y,x] = tophat_val
-            debug4[y,x] = radial_val
-            debug5[y,x] = r
-
-    return result, debug1, debug2, debug3, debug4, debug5
-
-@jit
-def combine_bgsub_float32_debug_v2(img1, img2, center_x, center_y, rad, delta):
-    img_height = img1.shape[0]
-    img_width = img1.shape[1]
-    result = np.zeros((img_height, img_width), dtype = np.float32)
-    debug1 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug2 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug3 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug4 = np.zeros((img_height, img_width), dtype = np.float32)
-    debug5 = np.zeros((img_height, img_width), dtype = np.float32)
-
-    for x in range(img_width):
-        for y in range(img_height):
-            r = qfdistance(x, y, center_x, center_y)
-            tophat_ratio = linear(rad, delta, r)
-            radial_ratio = 1.0 - tophat_ratio
-            tophat_val = tophat_ratio * img2[y,x]
-            radial_val = radial_ratio * img1[y,x]
-            result[y,x] = tophat_val+radial_val
-
-            debug1[y,x] = tophat_ratio
-            debug2[y,x] = radial_ratio
-            debug3[y,x] = tophat_val
-            debug4[y,x] = radial_val
-            debug5[y,x] = r
-
-    return result, debug1, debug2, debug3, debug4, debug5
-
-
 #@jit(target_backend='cuda', nopython=True)
 @jit
 def qfdistance(x1, y1, x2, y2):
