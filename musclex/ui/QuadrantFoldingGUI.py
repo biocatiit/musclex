@@ -1105,6 +1105,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
 
         self.showTranRadDeltaChkBx.stateChanged.connect(self.toggleCircle)
+        self.tranRSpnBx.valueChanged.connect(self.toggleCircle)
+        self.tranDeltaSpnBx.valueChanged.connect(self.toggleCircle)
 
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
@@ -2553,9 +2555,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tension2Label.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
         self.tension2SpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
 
-        if self.quadFold is not None and not self.uiUpdating:
-            self.applyBGSub()
-
 
     def bgChoiceInChanged(self):
         """
@@ -2603,8 +2602,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.applyBGButton.setHidden(choice == 'None')
 
-        if self.quadFold is not None and not self.uiUpdating:
-            self.applyBGSub()
 
     def updateImportedBG(self):
         """

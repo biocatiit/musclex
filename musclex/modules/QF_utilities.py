@@ -289,7 +289,7 @@ def combine_bgsub_float32(img1, img2, center_x, center_y, sigmoid_k, radius):
     return result
 
 @jit
-def combine_bgsub_float32_v2(img1, img2, center_x, center_y, rad, delta):
+def combine_bgsub_linear_float32(img1, img2, center_x, center_y, rad, delta):
     img_height = img1.shape[0]
     img_width = img1.shape[1]
     result = np.zeros((img_height, img_width), dtype = np.float32)
