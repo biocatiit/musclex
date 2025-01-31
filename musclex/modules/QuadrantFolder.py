@@ -1045,7 +1045,9 @@ class QuadrantFolder:
 
         self.deleteFromDict(self.info, 'bgimg1') # remove "bgimg1" from info to make it reprocess
         self.deleteFromDict(self.info, 'bgimg2') # remove "bgimg2" from info to make it reprocess
-        print("Done. R-min is "+str(self.info['rmin']) + " and R-max is set to max: " + str(self.info['rmax']))
+        print("Done. R-min is "+str(self.info['rmin']))
+        if 'rmax' in self.info:
+            print(" and R-max is set to max: " + str(self.info['rmax']))
 
     def apply2DConvexhull(self, copy_img, rmin, step=1):
         """
@@ -1243,24 +1245,9 @@ class QuadrantFolder:
             rad = self.info["transition_radius"]
             delta = self.info["transition_delta"]
             
-            # print(f"[IK] transition_radius: {rad}, transition_delta: {delta}")
+            # Merge 2 images at merge radius using transition radius and delta
+            self.imgCache['BgSubFold'] = qfu.combine_bgsub_linear_float32(img1, img2, center[0], center[1], rad, delta)
 
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_img1.npy', img1)
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_img2.npy', img2)
-            
-            # Merge 2 images at merge radius using sigmoid as merge gradient
-            # self.imgCache['BgSubFold'] = qfu.combine_bgsub_float32(img1, img2, center[0], center[1], sigmoid, rad)
-            # self.imgCache['BgSubFold'] = qfu.combine_bgsub_float32_v2(img1, img2, center[0], center[1], rad, delta)
-
-            # result, debug1, debug2, debug3, debug4, debug5  = qfu.combine_bgsub_float32_debug(img1, img2, center[0], center[1], sigmoid, rad)
-            result, debug1, debug2, debug3, debug4, debug5  = qfu.combine_bgsub_float32_debug_v2(img1, img2, center[0], center[1], rad, delta)
-            self.imgCache['BgSubFold'] = result
-
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug1.npy', debug1)
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug2.npy', debug2)
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug3.npy', debug3)
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug4.npy', debug4)
-            # np.save(f'{self.img_path}/qf_tmp/{self.img_name[:-4]}_merge_debug5.npy', debug5)
             self.deleteFromDict(self.imgCache, "resultImg")
 
         print("Done.")
