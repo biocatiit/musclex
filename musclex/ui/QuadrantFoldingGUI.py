@@ -474,6 +474,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rminSpnBx.setKeyboardTracking(False)
         self.rminLabel = QLabel("R-min")
 
+        self.showRminChkBx = QCheckBox("Show R-min")
         # self.radiusLabel = QLabel("Radius Range : ")
         self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min")
 
@@ -727,7 +728,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
 
-        self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 4)
+        self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 1)
+    
+        self.rrangeSettingLayout.addWidget(self.showRminChkBx, 3, 2, 1, 1)
 
         self.bgLayout.addWidget(self.rrangeSettingFrame, 3, 0, 3, 4)
 
@@ -1036,6 +1039,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.circle_patch2 = None
         self.circle_patch3 = None
 
+        # show rmin
+        self.circle_patch_rmin = None
+
 
         #### Menu Bar #####
         selectImageAction = QAction('Select an Image...', self)
@@ -1104,9 +1110,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
 
-        self.showTranRadDeltaChkBx.stateChanged.connect(self.toggleCircle)
-        self.tranRSpnBx.valueChanged.connect(self.toggleCircle)
-        self.tranDeltaSpnBx.valueChanged.connect(self.toggleCircle)
+        self.showRminChkBx.stateChanged.connect(self.toggleCircleRmin)
+        self.rminSpnBx.valueChanged.connect(self.toggleCircleRmin)
+
+        self.showTranRadDeltaChkBx.stateChanged.connect(self.toggleCircleTransition)
+        self.tranRSpnBx.valueChanged.connect(self.toggleCircleTransition)
+        self.tranDeltaSpnBx.valueChanged.connect(self.toggleCircleTransition)
 
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
@@ -1206,10 +1215,35 @@ class QuadrantFoldingGUI(QMainWindow):
             #     del self.quadFold.info['roi_rad']
             self.processImage()
 
-    def toggleCircle(self):
-        print(f"[IK] enter toggle")
-        print(f"[IK] self.showTranRadDeltaChkBx.isChecked() : {self.showTranRadDeltaChkBx.isChecked()}")
+    def toggleCircleRmin(self):
+        if self.showRminChkBx.isChecked(): 
+            # Remove existing circle if any
+            if self.circle_patch_rmin is not None:
+                self.circle_patch_rmin.remove()
+
+            # Create new circle (adjust x, y, radius as needed)
+            radius = self.rminSpnBx.value() 
+            center = self.quadFold.info['center']
+
+            self.circle_patch_rmin = plt.Circle(center, radius, 
+                                        fill=False,
+                                        color='green',
+                                        linestyle='-',
+                                        linewidth=1)
+            
+            
+            # Add the circle to the axes
+            self.resultAxes.add_patch(self.circle_patch_rmin)
+        else:
+            # Remove the circle if checkbox is unchecked
+            if self.circle_patch_rmin is not None:
+                self.circle_patch_rmin.remove()
+                self.circle_patch_rmin = None
         
+        # Redraw the canvas to show changes
+        self.resultCanvas.draw()
+
+    def toggleCircleTransition(self):
         if self.showTranRadDeltaChkBx.isChecked(): 
             # Remove existing circle if any
             if self.circle_patch is not None:
@@ -1223,19 +1257,22 @@ class QuadrantFoldingGUI(QMainWindow):
             radius = self.tranRSpnBx.value() 
             delta = self.tranDeltaSpnBx.value()
             center = self.quadFold.info['center']
-            print(f"[IK] radius: {radius}, delta: {delta}, center: {center}")
+
             self.circle_patch = plt.Circle(center, radius, 
                                         fill=False,
                                         color='red',
-                                        linewidth=0.5)
+                                        linestyle='-',
+                                        linewidth=1)
             self.circle_patch2 = plt.Circle(center, radius+delta, 
                                         fill=False,
-                                        color='blue',
+                                        color='orange',
+                                        linestyle='-.',
                                         linewidth=1)
             self.circle_patch3 = plt.Circle(center, radius-delta, 
                                         fill=False,
-                                        color='blue',
-                                        linewidth=0.5)
+                                        color='orange',
+                                        linestyle='-.',
+                                        linewidth=1)
             
             # Add the circle to the axes
             self.resultAxes.add_patch(self.circle_patch)
@@ -1384,7 +1421,7 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             self.function = None
             self.resetStatusbar()
-    
+        
     def unsetRoiClicked(self):
         """
         Triggered when the unset roi button is clicked
@@ -2253,8 +2290,17 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rminSpnBx.setValue(rmin)
         self.uiUpdating = False
 
-        self.deleteInfo(['bgimg1'])  # delete bgimg1 to make QuadrantFolder recalculate
-        self.processImage()
+        # self.deleteInfo(['bgimg1'])  # delete bgimg1 to make QuadrantFolder recalculate
+        # self.processImage()
+
+        self.highlightApply()
+
+    def highlightApply(self):
+        self.applyBGButton.setStyleSheet("background-color: yellow; color: black;")
+
+
+    def highlightApplyUndo(self):
+        self.applyBGButton.setStyleSheet("background-color: white; color: black;")
 
     def resultClicked(self, event):
         """
@@ -2517,7 +2563,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # Check value
             self.minPixRange.setValue(self.maxPixRange.value())
             return
-        # self.applyBGSub()
+        self.highlightApply()
 
     def bgChoiceOutChanged(self):
         """
@@ -2554,6 +2600,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.smooth2SpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
         self.tension2Label.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
         self.tension2SpnBx.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
+
+        self.highlightApply()
 
 
     def bgChoiceInChanged(self):
@@ -2602,6 +2650,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.applyBGButton.setHidden(choice == 'None')
 
+        self.highlightApply()
+
 
     def updateImportedBG(self):
         """
@@ -2624,6 +2674,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.deleteInfo(['bgimg2']) # delete bgimg2 to make QuadrantFolder reproduce background subrtacted image
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
+
+        self.highlightApplyUndo()
 
     def minIntChanged(self):
         """
@@ -3178,8 +3230,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.resultFigure.tight_layout()
             self.resultCanvas.draw()
 
-            print(f'[IK] toggle circ. update results page')
-            self.toggleCircle()
+            self.toggleCircleTransition()
+            self.toggleCircleRmin()
 
             self.updated['result'] = True
             self.uiUpdating = False
@@ -3216,7 +3268,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.refreshAllTabs()
             self.csvManager.writeNewData(self.quadFold)
 
-            self.toggleCircle()
+            self.toggleCircleTransition()
+            self.toggleCircleRmin()
 
             self.saveResults()
             QApplication.restoreOverrideCursor()
@@ -3681,8 +3734,7 @@ class QuadrantFoldingGUI(QMainWindow):
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
         text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
-        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
-
+        
         if flags['bgsub'] != 'None':
             if 'fixed_rmin' in flags:
                 text += "\n  - R-min : " + str(flags["fixed_rmin"])
@@ -3693,6 +3745,8 @@ class QuadrantFoldingGUI(QMainWindow):
             if flags['bgsub'] == 'Circularly-symmetric':
                 text += "\n  - Radial Bin : " + str(flags["radial_bin"])
                 text += "\n  - Smooth : " + str(flags["smooth"])
+            elif flags['bgsub'] == '2D Convexhull':
+                text += "\n  - Step (deg) : " + str(flags["deg1"])
             elif flags['bgsub'] == 'White-top-hats':
                 text += "\n  - Tophat (inside R-max) : " + str(flags["tophat1"])
             elif flags['bgsub'] == 'Smoothed-Gaussian':
@@ -3703,7 +3757,27 @@ class QuadrantFoldingGUI(QMainWindow):
                 text += "\n  - Box car height : " + str(flags["boxcar_y"])
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
 
-            text += "\n  - Tophat (outside R-max) : " + str(flags["tophat2"])
+        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
+        if flags['bgsub2'] != 'None':
+            if flags['bgsub2'] in ['Circularly-symmetric', 'Roving Window']:
+                text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin2"]) + "% - "+str(flags["cirmax2"])+"%"
+
+            if flags['bgsub2'] == 'Circularly-symmetric':
+                text += "\n  - Radial Bin : " + str(flags["radial_bin2"])
+                text += "\n  - Smooth : " + str(flags["smooth2"])
+            elif flags['bgsub2'] == '2D Convexhull':
+                text += "\n  - Step (deg) : " + str(flags["deg2"])
+            elif flags['bgsub2'] == 'White-top-hats':
+                text += "\n  - Tophat : " + str(flags["tophat2"])
+            elif flags['bgsub2'] == 'Smoothed-Gaussian':
+                text += "\n  - FWHM : " + str(flags["fwhm2"])
+                text += "\n  - Number of cycle : " + str(flags["cycles2"])
+            elif flags['bgsub2'] == 'Smoothed-BoxCar':
+                text += "\n  - Box car width : " + str(flags["boxcar_x2"])
+                text += "\n  - Box car height : " + str(flags["boxcar_y2"])
+                text += "\n  - Number of cycle : " + str(flags["cycles2"])
+
+
             text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
             text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
 
@@ -3732,12 +3806,15 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
+        self.highlightApplyUndo()
         if self.ext in ['.h5', '.hdf5']:
             self.processFolderButton.setText("Process Current H5 File")
             self.processFolderButton2.setText("Process Current H5 File")
         else:
             self.processFolderButton.setText("Process Current Folder")
             self.processFolderButton2.setText("Process Current Folder")
+
+        
 
     def processH5Folder(self):
         """
@@ -3756,8 +3833,7 @@ class QuadrantFoldingGUI(QMainWindow):
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
         text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
-        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
-
+        
         if flags['bgsub'] != 'None':
             if 'fixed_rmin' in flags:
                 text += "\n  - R-min : " + str(flags["fixed_rmin"])
@@ -3768,8 +3844,10 @@ class QuadrantFoldingGUI(QMainWindow):
             if flags['bgsub'] == 'Circularly-symmetric':
                 text += "\n  - Radial Bin : " + str(flags["radial_bin"])
                 text += "\n  - Smooth : " + str(flags["smooth"])
+            elif flags['bgsub'] == '2D Convexhull':
+                text += "\n  - Step (deg) : " + str(flags["deg1"])
             elif flags['bgsub'] == 'White-top-hats':
-                text += "\n  - Tophat (inside R-max) : " + str(flags["tophat1"])
+                text += "\n  - Tophat : " + str(flags["tophat1"])
             elif flags['bgsub'] == 'Smoothed-Gaussian':
                 text += "\n  - FWHM : " + str(flags["fwhm"])
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
@@ -3778,7 +3856,26 @@ class QuadrantFoldingGUI(QMainWindow):
                 text += "\n  - Box car height : " + str(flags["boxcar_y"])
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
 
-            text += "\n  - Tophat (outside R-max) : " + str(flags["tophat2"])
+        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
+
+        if flags['bgsub2'] != 'None':
+            if flags['bgsub2'] in ['Circularly-symmetric', 'Roving Window']:
+                text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin2"]) + "% - "+str(flags["cirmax2"])+"%"
+            if flags['bgsub2'] == 'Circularly-symmetric':
+                text += "\n  - Radial Bin : " + str(flags["radial_bin2"])
+                text += "\n  - Smooth : " + str(flags["smooth2"])
+            elif flags['bgsub2'] == '2D Convexhull':
+                text += "\n  - Step (deg) : " + str(flags["deg2"])
+            elif flags['bgsub2'] == 'White-top-hats':
+                text += "\n  - Tophat : " + str(flags["tophat2"])
+            elif flags['bgsub2'] == 'Smoothed-Gaussian':
+                text += "\n  - FWHM : " + str(flags["fwhm2"])
+                text += "\n  - Number of cycle : " + str(flags["cycles2"])
+            elif flags['bgsub2'] == 'Smoothed-BoxCar':
+                text += "\n  - Box car width : " + str(flags["boxcar_x2"])
+                text += "\n  - Box car height : " + str(flags["boxcar_y2"])
+                text += "\n  - Number of cycle : " + str(flags["cycles2"])
+
             text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
             text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
 
@@ -3808,6 +3905,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.processH5FolderButton.setChecked(False)
         self.processH5FolderButton2.setChecked(False)
+        self.highlightApplyUndo()
         self.processH5FolderButton.setText("Process All H5 Files")
         self.processH5FolderButton2.setText("Process All H5 Files")
 
