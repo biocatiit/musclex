@@ -679,14 +679,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tension2Label = QLabel("Tension factor : ")
 
         self.tranRSpnBx = QSpinBox()
-        self.tranRSpnBx.setRange(1, 5000)
-        self.tranRSpnBx.setValue(350)
+        self.tranRSpnBx.setRange(-1, 5000)
+        self.tranRSpnBx.setValue(-1)
         self.tranRSpnBx.setKeyboardTracking(False)
         self.tranRLabel = QLabel("Transition Radius : ")
 
         self.tranDeltaSpnBx = QSpinBox()
-        self.tranDeltaSpnBx.setRange(1, 2000)
-        self.tranDeltaSpnBx.setValue(100)
+        self.tranDeltaSpnBx.setRange(-1, 2000)
+        self.tranDeltaSpnBx.setValue(-1)
         self.tranDeltaSpnBx.setKeyboardTracking(False)
         self.tranDeltaLabel = QLabel("Transition Delta : ")
 
@@ -1219,7 +1219,10 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.showRminChkBx.isChecked(): 
             # Remove existing circle if any
             if self.circle_patch_rmin is not None:
-                self.circle_patch_rmin.remove()
+                try:
+                    self.circle_patch_rmin.remove()
+                except:
+                    self.circle_patch_rmin = None
 
             # Create new circle (adjust x, y, radius as needed)
             radius = self.rminSpnBx.value() 
@@ -1247,11 +1250,20 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.showTranRadDeltaChkBx.isChecked(): 
             # Remove existing circle if any
             if self.circle_patch is not None:
-                self.circle_patch.remove()
+                try:
+                    self.circle_patch.remove()
+                except:
+                    self.circle_patch = None
             if self.circle_patch2 is not None:
-                self.circle_patch2.remove()
+                try:
+                    self.circle_patch2.remove()
+                except:
+                    self.circle_patch3 = None
             if self.circle_patch3 is not None:
-                self.circle_patch3.remove()
+                try:
+                    self.circle_patch3.remove()
+                except:
+                    self.circle_patch3 = None
             
             # Create new circle (adjust x, y, radius as needed)
             radius = self.tranRSpnBx.value() 
@@ -3198,6 +3210,9 @@ class QuadrantFoldingGUI(QMainWindow):
             self.spResultminInt.setRange(img.min(), img.max())
             self.spResultmaxInt.setRange(img.min(), img.max())
             self.rminSpnBx.setValue(self.quadFold.info['rmin'])
+
+            self.tranRSpnBx.setValue(self.quadFold.info['transition_radius'])
+            self.tranDeltaSpnBx.setValue(self.quadFold.info['transition_delta'])
 
             self.fixedRoiChkBx.setChecked('fixed_roi_rad' in self.quadFold.info)
             self.fixedRoi.setEnabled('fixed_roi_rad' in self.quadFold.info)

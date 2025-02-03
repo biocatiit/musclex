@@ -242,6 +242,10 @@ class QuadrantFolder:
             self.info['bgsub'] = 'None'
         if 'bgsub2' not in self.info:
             self.info['bgsub2'] = 'None'
+        if 'transition_radius' not in self.info or self.info['transition_radius'] < 0:
+            self.info['transition_radius'] = self.orig_img.shape[0] // 6
+        if 'transition_delta' not in self.info or self.info['transition_delta'] < 0:
+            self.info['transition_delta'] = 100
 
 
     def applyBlankImageAndMask(self):
@@ -1181,10 +1185,10 @@ class QuadrantFolder:
         - bgimg2 : image after applying background subtraction OUTSIDE merge radius
         """
         self.parent.statusPrint("Applying Background Subtraction...")
-        print("Background Subtraction is being processed...")
         method = self.info["bgsub"]
         method2 = self.info["bgsub2"]
-        # print(f"[IK] In method: {method}, Out method: {method2}.")
+        print(f"Background Subtraction is being processed... In method: {method}, Out method: {method2}")
+
 
         # Produce bgimg1
         if "bgimg1" not in self.info:
