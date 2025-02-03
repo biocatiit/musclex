@@ -246,6 +246,7 @@ class QuadrantFolder:
             self.info['transition_radius'] = self.orig_img.shape[0] // 6
         if 'transition_delta' not in self.info or self.info['transition_delta'] < 0:
             self.info['transition_delta'] = 100
+        #test
 
 
     def applyBlankImageAndMask(self):
