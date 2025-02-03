@@ -242,6 +242,7 @@ class QuadrantFolder:
             self.info['bgsub'] = 'None'
         if 'bgsub2' not in self.info:
             self.info['bgsub2'] = 'None'
+        #test
 
 
     def applyBlankImageAndMask(self):
