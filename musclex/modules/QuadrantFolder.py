@@ -194,8 +194,21 @@ class QuadrantFolder:
         self.rotateImg()
         self.calculateAvgFold()
         if flags['fold_image'] == False:
-            self.info['avg_fold'] = self.orig_img
             self.info['folded'] = False
+
+            # get top left quandrant
+            rotate_img = copy.copy(self.getRotatedImage())
+            center = self.info['center']
+            center_x = int(center[0])
+            center_y = int(center[1])
+            img_height = rotate_img.shape[0]
+            img_width = rotate_img.shape[1]
+            fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
+            fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
+            top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
+
+            self.info['avg_fold'] = top_left
+
             
             #self.initImg = self.orig_img
             
