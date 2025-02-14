@@ -33,12 +33,14 @@ from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pyplot as plt
 from PIL import Image
 from musclex import __version__
+from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.XRayViewer import XRayViewer
 from ..csv_manager.XV_CSVManager import XV_CSVManager
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
+
 
 class XRayViewerGUI(QMainWindow):
     """
@@ -80,8 +82,10 @@ class XRayViewerGUI(QMainWindow):
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgetsF
-        self.setMinimumHeight(800)
-        self.setMinimumWidth(1000)
+        #self.setMinimumHeight(800)
+        #self.setMinimumWidth(1000)
+
+        self.browseFile()
 
     def initUI(self):
         """
@@ -89,26 +93,40 @@ class XRayViewerGUI(QMainWindow):
         """
         self.setWindowTitle("X-Ray Viewer v." + __version__)
 
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
+
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
         self.centralWidget = QWidget(self)
-        self.setCentralWidget(self.centralWidget)
-        self.mainHLayout = QHBoxLayout(self.centralWidget)
+        self.scrollArea.setWidget(self.centralWidget)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
+        
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
-        self.mainHLayout.addWidget(self.tabWidget)
+        self.mainLayout.addWidget(self.tabWidget)
 
         ##### Image Tab #####
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
+        #self.imageTabLayout.addStretch()
         self.tabWidget.addTab(self.imageTab, "Image")
 
         self.verImgLayout = QVBoxLayout()
         self.verImgLayout.setContentsMargins(0, 0, 0, 0)
         self.verImgLayout.setAlignment(Qt.AlignCenter)
+
+        self.leftWidget = QWidget()
+        self.leftWidget.setLayout(self.verImgLayout)
+        self.leftWidget.setMinimumWidth(650)
+
         self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
         self.selectImageButton.setFixedWidth(300)
@@ -119,13 +137,14 @@ class XRayViewerGUI(QMainWindow):
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
         self.imageCanvas.setHidden(True)
-        self.imageTabLayout.addLayout(self.verImgLayout)
+        self.imageTabLayout.addWidget(self.leftWidget)
         self.imageTabLayout.addWidget(self.imageCanvas)
 
         self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.dispOptLayout = QGridLayout()
+        #self.dispOptLayout.setRowStretch()
 
         self.spminInt = QDoubleSpinBox()
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
@@ -174,6 +193,7 @@ class XRayViewerGUI(QMainWindow):
         self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsLayout = QGridLayout()
+        #self.settingsLayout.setRowStretch()
         self.settingsGroup.setLayout(self.settingsLayout)
 
         self.openTrace = QPushButton("Open Trace Window")
@@ -213,6 +233,7 @@ class XRayViewerGUI(QMainWindow):
         self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit = QLineEdit()
         self.buttonsLayout = QGridLayout()
+        #self.buttonsLayout.setRowStretch()
         self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
         self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
         self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
@@ -227,12 +248,22 @@ class XRayViewerGUI(QMainWindow):
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.buttonsLayout)
         self.frameOfKeys = QFrame()
-        self.frameOfKeys.setFixedWidth(350)
+        self.frameOfKeys.setFixedWidth(400)
+        #self.frameOfKeys.addStretch() 
         self.frameOfKeys.setLayout(self.optionsLayout)
-        self.imageTabLayout.addWidget(self.frameOfKeys)
+
+        self.scroll_areaImg = QScrollArea()
+        self.scroll_areaImg.setWidgetResizable(True)
+        self.scroll_areaImg.setWidget(self.frameOfKeys)
+
+        self.imageTabLayout.addWidget(self.scroll_areaImg)
         
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
+
+        self.zoomInGraphButton = QPushButton("Zoom In")
+        self.zoomInGraphButton.setCheckable(True)
+
         self.resetZoomButton = QPushButton("Reset Zoom")
         
         self.processFolderButton2 = QPushButton("Play")
@@ -248,17 +279,18 @@ class XRayViewerGUI(QMainWindow):
         self.nextFileButton2.setToolTip('Next H5 File in this Folder')
         self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit2 = QLineEdit()
-        self.bottomLayout2.addWidget(self.resetZoomButton, 0, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.measureDist2, 1, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processFolderButton2, 2, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 3, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 3, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 4, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 4, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 5, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.resetZoomButton, 2, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.measureDist2, 3, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.processFolderButton2, 4, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.prevButton2, 5, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextButton2, 5, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.prevFileButton2, 6, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextFileButton2, 6, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 7, 0, 1, 2)
 
         self.fittingOptionsFrame2 = QFrame()
-        self.fittingOptionsFrame2.setFixedWidth(250)
+        self.fittingOptionsFrame2.setFixedWidth(250) 
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addStretch()
         self.fittingOptionsLayout2.addLayout(self.bottomLayout2)
@@ -295,7 +327,16 @@ class XRayViewerGUI(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addWidget(QLabel("    "))
         self.statusBar.addWidget(self.imgPathOnStatusBar)
-        self.setStatusBar(self.statusBar)
+
+        #Second Status bar for when graph tab is selected
+        self.scrollWheelStatusBar = QStatusBar()
+        self.scrollWheelStatusBar.addWidget(QLabel("    "))
+        self.scrollWheelStatusBar.addWidget(QLabel("Hint: Use the scroll wheel on your mouse to zoom in and out!"))
+        self.scrollWheelStatusBar.setVisible(False)
+
+        #Add both status bars
+        self.mainLayout.addWidget(self.scrollWheelStatusBar)
+        self.mainLayout.addWidget(self.statusBar)
 
         #### Menu Bar #####
         selectImageAction = QAction('Select an Image...', self)
@@ -312,6 +353,7 @@ class XRayViewerGUI(QMainWindow):
         helpMenu.addAction(aboutAct)
 
         self.show()
+        self.resize(1150, 700)
 
     def setConnections(self):
         """
@@ -360,7 +402,18 @@ class XRayViewerGUI(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
         self.measureDist2.clicked.connect(self.measureDistChecked2)
         self.resetZoomButton.clicked.connect(self.resetZoomClicked)
+        self.zoomInGraphButton.clicked.connect(self.zoomInGraphClicked)
         self.checkableButtons.append(self.measureDist2)
+
+
+    def updateLeftWidgetWidth(self):
+        if self.imageCanvas.isVisible():
+            # Remove the minimum width constraint
+            self.leftWidget.setMinimumWidth(0)
+        else:
+            # Set the minimum width for when the canvas is hidden
+            self.leftWidget.setMinimumWidth(650)
+
 
     def keyPressEvent(self, event):
         """
@@ -443,7 +496,7 @@ class XRayViewerGUI(QMainWindow):
                     p2 = func[2]
                     self.graph_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
                     self.function = None
-                    self.imgZoomInB.setChecked(False)
+                    self.zoomInGraphButton.setChecked(False)
                     self.refreshAllTabs()
             elif func[0] in ["dist"]:
                 func.append((x, y))
@@ -597,6 +650,17 @@ class XRayViewerGUI(QMainWindow):
         ax.set_ylim(self.graph_zoom[1])
         self.fittingCanvas.draw_idle()
         
+
+    def zoomInGraphClicked(self):
+        if self.zoomInGraphButton.isChecked():
+            self.imgPathOnStatusBar.setText(
+                "Draw a rectangle on the image to zoom in (ESC to cancel)")
+            self.function = ['g_zoomin']
+        else:
+            self.function = None
+            self.resetStatusbar()
+
+
     def resetZoomClicked(self):
         self.graph_zoom = None
         self.updateFittingTab(self.xrayViewer.hist)
@@ -940,7 +1004,15 @@ class XRayViewerGUI(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
+                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                    if 'center' in self.calSettings and self.calSettings['center'] is not None:
+                        center = self.calSettings['center']
+                    else:
+                        center = (self.projProc.info['centerx'], self.projProc.info['centery'])
+                    q, units = inverseNmFromCenter([x, y], center, self.calSettings['scale'])
+                else:
+                    q, units = [-1,""]
+                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(q) + units)
                 if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
@@ -1324,7 +1396,11 @@ class XRayViewerGUI(QMainWindow):
         """
         if self.ableToProcess():
             if self.tabWidget.currentIndex() == 0:
+                self.scrollWheelStatusBar.setVisible(False)
                 self.updateImageTab()
+            elif self.tabWidget.currentIndex() == 1 and self.xrayViewer.hist is not None:
+                self.scrollWheelStatusBar.setVisible(True)
+                self.updateFittingTab(self.xrayViewer.hist)
 
     def updateImageTab(self):
         """
@@ -1417,6 +1493,7 @@ class XRayViewerGUI(QMainWindow):
             self.csv_manager = XV_CSVManager(self.filePath)
             self.selectImageButton.setHidden(True)
             self.imageCanvas.setHidden(False)
+            self.updateLeftWidgetWidth()
             self.tabWidget.setTabEnabled(1, True)
             self.onImageChanged()
         QApplication.restoreOverrideCursor()
