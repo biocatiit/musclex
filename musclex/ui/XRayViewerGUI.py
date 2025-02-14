@@ -33,7 +33,6 @@ from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pyplot as plt
 from PIL import Image
 from musclex import __version__
-from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.XRayViewer import XRayViewer
