@@ -1003,6 +1003,7 @@ class XRayViewerGUI(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
+                """
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     if 'center' in self.calSettings and self.calSettings['center'] is not None:
                         center = self.calSettings['center']
@@ -1011,8 +1012,10 @@ class XRayViewerGUI(QMainWindow):
                     q, units = inverseNmFromCenter([x, y], center, self.calSettings['scale'])
                 else:
                     q, units = [-1,""]
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(q) + units)
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
+
+                """
+                #self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(q) + units)
+                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
                     ax1 = self.doubleZoomAxes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
