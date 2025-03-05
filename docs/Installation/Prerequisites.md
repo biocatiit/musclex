@@ -62,10 +62,10 @@ Only use venv if you are installing MuscleX via pip or GitHub, because installin
 
 1. **Verify Python Version**: Ensure you have Python 3.3 or newer by running `python --version`.
 
-2. **Create a New Environment**: Within your project directory:
+2. **Create a New Environment**: For an environment named `myenv` with Python 3.10, use this within your project directory:
 
    ```bash
-   python -m venv myenv
+   python3.10 -m venv myenv
    ```
 
 3. **Activate the Environment**:

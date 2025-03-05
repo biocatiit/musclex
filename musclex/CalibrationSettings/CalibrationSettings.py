@@ -42,6 +42,7 @@ class CalibrationSettings(QDialog):
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
     def __init__(self, dir_path,center=None):
+        print("CAlibration settings constrctor") #NICKA DEBUG
         super().__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.editableVars = {}
@@ -78,7 +79,7 @@ class CalibrationSettings(QDialog):
         self.setConnection()
         self.setAllToolTips()
 
-        if exists(self.calFile) and self.calImageGrp.isChecked():
+        if exists(self.calFile) and self.calImageGrpChkBox.isChecked():
             if self.calSettings is None:
                 self.calibrate()
             else:
@@ -108,6 +109,7 @@ class CalibrationSettings(QDialog):
                 center = self.calSettings["center"]
             if "detector" in self.calSettings:
                 detector = self.calSettings["detector"]
+
         self.mainLayout = QVBoxLayout(self)
 
         self.pathText = QLineEdit()
@@ -122,12 +124,12 @@ class CalibrationSettings(QDialog):
 
         self.minIntLabel = QLabel("Min intensity : ")
         self.minInt = QDoubleSpinBox()
-        self.minInt.setKeyboardTracking(False)
+        #self.minInt.setKeyboardTracking(False)
         self.minInt.setValue(0)
         self.minInt.setDecimals(2)
         self.maxIntLabel = QLabel("Max intensity : ")
         self.maxInt = QDoubleSpinBox()
-        self.maxInt.setKeyboardTracking(False)
+        #self.maxInt.setKeyboardTracking(False)
         self.maxInt.setValue(0)
         self.maxInt.setDecimals(2)
         self.minIntLabel.setHidden(True)
@@ -154,9 +156,11 @@ class CalibrationSettings(QDialog):
         self.buttons.setFixedWidth(100)
         # grpbox_ss = "QGroupBox::title { background-color: #323232 ; subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }"
         self.calImageGrp = QGroupBox("Setting by Calibration Image")
-        self.calImageGrp.setCheckable(True)
+        self.calImageGrp.setCheckable(False)
+        self.calImageGrpChkBox = QCheckBox("Enable Setting by Calibration Image") #Checkbox for the calImageGrp to avoid weird behavior
         # self.calImageGrp.setStyleSheet(grpbox_ss)
-        self.calImageGrp.setChecked(typ == "img")
+        self.calImageGrp.setEnabled(typ == "img")
+        self.calImageGrpChkBox.setChecked(typ == "img")
         self.calImageLayout = QGridLayout(self.calImageGrp)
         self.calImageLayout.addWidget(QLabel("Calibration File :") , 0, 0, 1, 1)
         self.calImageLayout.addWidget(self.pathText, 0, 1, 1, 1)
@@ -174,9 +178,11 @@ class CalibrationSettings(QDialog):
         self.calImageLayout.setRowStretch(1, 2)
 
         self.paramGrp = QGroupBox("Setting by Parameters")
-        self.paramGrp.setCheckable(True)
+        self.paramGrp.setCheckable(False)
+        self.paramGrpChkBx = QCheckBox("Enable Setting by Parameters") #Checkbox for the paramgrp to avoid weird behavior
         # self.paramGrp.setStyleSheet(grpbox_ss)
-        self.paramGrp.setChecked(typ == "cont")
+        self.paramGrpChkBx.setChecked(typ == "cont")
+        self.paramGrp.setEnabled(typ == "cont")
         self.paramLayout = QGridLayout(self.paramGrp)
 
         self.lambdaSpnBx = QDoubleSpinBox()
@@ -256,7 +262,9 @@ class CalibrationSettings(QDialog):
         self.paramLayout.addWidget(self.pixsSpnBx, 2, 1, 1, 1)
         self.paramLayout.addWidget(QLabel("mm"), 2, 2, 1, 1)
 
+        self.mainLayout.addWidget(self.calImageGrpChkBox)
         self.mainLayout.addWidget(self.calImageGrp)
+        self.mainLayout.addWidget(self.paramGrpChkBx)
         self.mainLayout.addWidget(self.paramGrp)
         self.mainLayout.addWidget(self.fixedCenter)
         self.mainLayout.addWidget(self.centerX)
@@ -271,7 +279,7 @@ class CalibrationSettings(QDialog):
         self.calImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.calImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
 
-        self.resize(5, 1)
+        #self.resize(5, 1)
 
     def setConnection(self):
         """
@@ -279,8 +287,10 @@ class CalibrationSettings(QDialog):
         """
         self.browseButton.clicked.connect(self.browseClicked)
         self.unsetButton.clicked.connect(self.unsetCalImg)
-        self.paramGrp.clicked.connect(self.paramChecked)
-        self.calImageGrp.clicked.connect(self.calImageChecked)
+        self.paramGrpChkBx.clicked.connect(self.paramChecked)
+        #self.paramGrp.clicked.connect(self.paramChecked)
+        self.calImageGrpChkBox.clicked.connect(self.calImageChecked)
+        #self.calImageGrp.clicked.connect(self.calImageChecked)
         self.minInt.valueChanged.connect(self.updateImage)
         self.maxInt.valueChanged.connect(self.updateImage)
         self.fixedCenter.stateChanged.connect(self.centerFixed)
@@ -299,14 +309,19 @@ class CalibrationSettings(QDialog):
         """
         Uncheck the other button and decalibrate when param is checked.
         """
-        self.calImageGrp.setChecked(not self.paramGrp.isChecked())
+        self.paramGrp.setEnabled(self.paramGrpChkBx.isChecked())
+        self.calImageGrpChkBox.setChecked(not self.paramGrpChkBx.isChecked())
+        self.calImageGrp.setEnabled(not self.paramGrpChkBx.isChecked())
         self.decalibrate()
 
     def calImageChecked(self):
         """
         Uncheck the other button and decalibrate when calImage is checked.
         """
-        self.paramGrp.setChecked(not self.calImageGrp.isChecked())
+        print("CAL IMAGE CHECKED FUNCTION") #NICKA DEBUG
+        self.calImageGrp.setEnabled(self.calImageGrpChkBox.isChecked())
+        self.paramGrpChkBx.setChecked(not self.calImageGrpChkBox.isChecked())
+        self.paramGrp.setEnabled(not self.calImageGrpChkBox.isChecked())
         self.decalibrate()
 
     def settingChanged(self, name, obj):
@@ -321,7 +336,7 @@ class CalibrationSettings(QDialog):
         """
         self.calSettings = None
         QApplication.processEvents()
-        if self.calImageGrp.isChecked() and exists(self.calFile):
+        if self.calImageGrpChkBox.isChecked() and exists(self.calFile):
             self.calibrate()
 
     def setAllToolTips(self):
@@ -474,7 +489,7 @@ class CalibrationSettings(QDialog):
         if self.calSettings is None:
             self.calSettings = {}
 
-        if self.paramGrp.isChecked():
+        if self.paramGrpChkBx.isChecked():
             self.calSettings = {
                 "lambda": self.lambdaSpnBx.value(),
                 "pixel_size": self.pixsSpnBx.value(),
@@ -482,7 +497,7 @@ class CalibrationSettings(QDialog):
                 "scale": (self.lambdaSpnBx.value() * self.sddSpnBx.value()) / self.pixsSpnBx.value() ,
                 "type": "cont"
             }
-        elif self.calImageGrp.isChecked():
+        elif self.calImageGrpChkBox.isChecked():
             self.calSettings["silverB"] = self.silverBehenate.value()
             self.calSettings["type"] = "img"
 
@@ -598,17 +613,22 @@ class CalibrationSettings(QDialog):
         """
         Update the image displayed with the calibration circle and center displayed on it.
         """
+        print("UI UPDATING") #NICKA DEBUG
         if self.uiUpdating:
+            print("UI UPDATING EARLY EXIT") #NICKA DEBUG
             return
 
         self.calImgFigure.clf()
         if self.calSettings is not None:
+            print("CALSETTINGS IS NOT NONE") #NICKA DEBUG
             if "center" in self.calSettings:
+                print("CENTER IN SELF> CALSETTINGS") #NICKA DEBUG
                 center = self.calSettings["center"]
                 self.fixedCenter.setChecked(True)
                 self.centerX.setValue(center[0])
                 self.centerY.setValue(center[1])
-            if self.calImageGrp.isChecked():
+            if self.calImageGrpChkBox.isChecked():
+                print("CAL IMG GROUP IS CHECKED 1: ", self.calImageGrpChkBox.isChecked()) #NICKA DEBUG
                 self.resize(500, 800)
                 self.calImgCanvas.setHidden(False)
                 self.minIntLabel.setHidden(False)
@@ -630,6 +650,7 @@ class CalibrationSettings(QDialog):
                 ax.invert_yaxis()
                 self.calImgFigure.tight_layout()
         else:
+            print("END ELSE ") #NICKA DEBUG
             self.resize(500, 1)
             self.calImgCanvas.setHidden(True)
 

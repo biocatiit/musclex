@@ -43,11 +43,11 @@ from pyFAI.method_registry import IntegrationMethod
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
 try:
-    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, ifHdfReadConvertless
+    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
 except: # for coverage
-    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, ifHdfReadConvertless
+    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from utils.histogram_processor import *
     from utils.image_processor import *
 
@@ -73,6 +73,7 @@ class ScanningDiffraction:
         self.version = __version__
         self.noBGImg = getImgAfterWhiteTopHat(self.original_image)
         self.info = self.loadCache()
+        self.masked = False
 
     def loadCache(self):
         """
@@ -121,6 +122,7 @@ class ScanningDiffraction:
         All processing steps
         """
         self.updateInfo(flags)
+        self.applyBlankImageAndMask()
         self.log("----------------------------------------------------------------------")
         self.log(fullPath(self.filepath, self.filename)+" is being processed ...")
         self.findCenter()
@@ -183,6 +185,32 @@ class ScanningDiffraction:
                     self.removeInfo(key)
                     break
         self.info.update(flags)
+
+    def applyBlankImageAndMask(self):
+        """
+        Apply the blank image and mask threshold on the orig_img
+        :return: -
+        """
+        print("FILEPATH: ", self.filepath) #NICKA DEBUG
+        if not self.masked:
+            img = np.array(self.original_image, 'float32')
+            blank, mask = getBlankImageAndMask(self.filepath)
+
+            maskOnly = getMaskOnly(self.filepath)
+
+
+            if blank is not None:
+                print("APPLYING BLANK IMAGE") #NICKA DEBUG
+                img = img - blank
+            if mask is not None:
+                print("APPLYING MASK") #NICKA DEBUG
+                img[mask == 0] = -1
+            if maskOnly is not None:
+                print("Applying mask only image") #NICKA DEBUG
+                img[maskOnly == 0] = -1
+
+            self.original_image = img
+            self.masked = True
 
     def findCenter(self):
         """

@@ -122,15 +122,25 @@ class EquatorImage:
         print("settings in process eqimg\n")
         print(settings)
         self.updateInfo(settings)
+        print("AFTER UPDATE INFO") #NICKA DEBUG
         self.applyBlankAndMask()
+        print("AFTER APPLY B+M") #NICKA DEBUG
         self.findCenter()
+        print("AFTER FIND CENTER") #NICKA DEBUG
         self.getRotationAngle()
+        print("AFTER UGETROTANG") #NICKA DEBUG
         self.calculateRmin()
+        print("AFTER CALC RMIN") #NICKA DEBUG
         self.getIntegrateArea()
+        print("AFTER GETINTAREA") #NICKA DEBUG
         self.getHistogram()
+        print("AFTER GETHISTOGRAM") #NICKA DEBUG
         self.applyConvexhull()
+        print("AFTER APPLYCONVEXHULL") #NICKA DEBUG
         self.getPeaks()
+        print("AFTER GETPEAKS") #NICKA DEBUG
         self.managePeaks()
+        print("AFTER MANGAGEPEAKS") #NICKA DEBUG
         if paramInfo is not None:
             self.processParameters(paramInfo)
         else:
@@ -257,6 +267,7 @@ class EquatorImage:
         Find center of the diffraction. The center will be kept in self.info["center"].
         Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
         """
+        print("FIND CENTER FUNCRION") #NICKA DEBUG
         if self.quadrant_folded:
             self.info['center'] = self.orig_img.shape[1] / 2, self.orig_img.shape[0] / 2
             print("QF Center is " + str(self.info['center']))
@@ -278,6 +289,7 @@ class EquatorImage:
                 center = self.info['center']
                 center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
                 self.info['orig_center'] = (center[0], center[1])
+                print("Original center is " + str(self.info['orig_center']))
         print("Done. Center is " + str(self.info['center']))
 
     def getRotationAngle(self):
@@ -355,8 +367,11 @@ class EquatorImage:
         :param angle: rotation angle
         :return: rotated image
         """
+        print("get rotatedimagefunction") #NICKA DEBUG
         if img is None:
+            print("Image is none")
             img = copy.copy(self.image)
+            print("self.image shape: ", self.image.shape) #NICKA DEBUG
         if angle is None:
             angle = self.info['rotationAngle']
         if '90rotation' in self.info and self.info['90rotation'] is True:
@@ -368,14 +383,16 @@ class EquatorImage:
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
 
             center = self.info["center"]
-            if "orig_center" in self.info:
+            print("center:",self.info['center']) #NICKA DEBUG
+            if "orig_center:" in self.info:
                 center = self.info["orig_center"]
-                # print("orig_center",self.info['orig_center'])
+                print("orig_center",self.info['orig_center']) #NICKA DEBUG
             else:
                 self.info["orig_center"] = center
 
             rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle)
             self.rotated_img = [self.info["center"], angle, img, rotImg]
+            print("self.rotatedimage: ", self.rotated_img) #NICKA DEBUG
 
         return self.rotated_img[3]
 
@@ -702,7 +719,7 @@ class EquatorImage:
     def getPeaks(self):
         """
         Finding Temp Peaks from background subtracted histogram. Temp peaks are just peaks which are found by algorithm.
-        This might miss some peaks or detect to many peaks because of noise. These peaks will be managed again in the next step.
+        This might miss some peaks or detect too many peaks because of noise. These peaks will be managed again in the next step.
         Temp peaks will be kept in self.info["tmp_peaks"].
         Once getting Temp peaks is done, the real peaks will be re-calculated, so self.info["peaks"] is deleted
         """

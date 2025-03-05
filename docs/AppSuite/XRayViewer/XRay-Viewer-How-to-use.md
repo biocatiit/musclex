@@ -40,3 +40,8 @@ In the case of a simple TIF image, those buttons will be replaced by a simple "P
 ## Display Options
 
 All options in Display Options will not affect any processing. These options allow users to see more detail in the image by setting minimal intensity, maximum intensity, and zooming. You can also choose whether or not to see the meridional and equatorial axes. To zoom in, the user needs to simply press the Zoom in button, and select the zoom region by drawing a rectangle as shown below. Once 'Zoom in' or 'Full' button is clicked, the current zoom level is persisted when moved to the next image. The check box 'Persist intensities' is used to persist the max and the min intensities when we move to the next image.
+
+There are also three ways to adjust zoom on the graph tab:
+1. Use the scroll bar to zoom in and out while the mouse is on the graph.
+2. Click the 'Zoom In' button, then draw a zoom region on the graph; the graph will resize to display the region you selected.
+3. Press the 'Reset Zoom' button.  This will reset the zoom and the graph will be displayed at its original size.

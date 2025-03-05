@@ -152,8 +152,20 @@ def displayImageWithMasks(imageArray, minInt, maxInt,
 
 
 class ImageMaskerWindow(QDialog):
-    def __init__(self, dir_path, imagePath, minInt, maxInt, max_val, trans_mat, orig_size, rot_angle = 0, isHDF5=False):
+    def __init__(self, dir_path, imagePath, minInt, maxInt, max_val, orig_size, trans_mat=None, rot_angle = 0, isHDF5=False):
         super().__init__()
+
+        print("IMAGEMASKERWINDOW CONSTRUCTOR") #NICKA DEBUG
+        print("dir_path: ", dir_path) #NICKA DEBUG
+        print("imagePath: ", imagePath) #NICKA DEBUG
+        print("minInt: ", minInt) #NICKA DEBUG
+        print("maxInt: ", maxInt)   #NICKA DEBUG
+        print("max_val: ", max_val) #NICKA DEBUG
+        print("trans mat: ", trans_mat) #NICKA DEBUG
+        print("orig_size: ", orig_size) #NICKA DEBUG
+        print("rot_angle: ", rot_angle) #NICKA DEBUG
+        print("isHDF5: ", isHDF5) #NICKA DEBUG
+
         self.dir_path = dir_path
         self.imagePath = imagePath
         self.minInt = minInt # Min Intensity from AISE User Input
@@ -235,6 +247,10 @@ class ImageMaskerWindow(QDialog):
         self.lowDilComboBox.addItem("3x3 Kernel")
         self.lowDilComboBox.addItem("5x5 Kernel")
         self.lowDilComboBox.addItem("7x7 Kernel")
+        self.lowDilComboBox.addItem("9x9 Kernel")
+        self.lowDilComboBox.addItem("11x11 Kernel")
+        self.lowDilComboBox.addItem("13x13 Kernel")
+
         self.lowDilComboBox.setCurrentIndex(0)
         self.lowDilComboBox.setVisible(False)
         self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
@@ -264,6 +280,9 @@ class ImageMaskerWindow(QDialog):
         self.highDilComboBox.addItem("3x3 Kernel")
         self.highDilComboBox.addItem("5x5 Kernel")
         self.highDilComboBox.addItem("7x7 Kernel")
+        self.highDilComboBox.addItem("9x9 Kernel")
+        self.highDilComboBox.addItem("11x11 Kernel")
+        self.highDilComboBox.addItem("13x13 Kernel")
         self.highDilComboBox.setCurrentIndex(0)
         self.highDilComboBox.setVisible(False)
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
@@ -477,6 +496,12 @@ class ImageMaskerWindow(QDialog):
             kernel_size_low = 5
         elif self.lowDilComboBox.currentText() == "7x7 Kernel":
             kernel_size_low = 7
+        elif self.lowDilComboBox.currentText() == "9x9 Kernel":
+            kernel_size_low = 9
+        elif self.lowDilComboBox.currentText() == "11x11 Kernel":
+            kernel_size_low = 11
+        elif self.lowDilComboBox.currentText() == "13x13 Kernel":
+            kernel_size_low = 13
 
         if self.highDilComboBox.currentText() == "3x3 Kernel":
             kernel_size_high = 3
@@ -484,6 +509,12 @@ class ImageMaskerWindow(QDialog):
             kernel_size_high = 5
         elif self.highDilComboBox.currentText() == "7x7 Kernel":
             kernel_size_high = 7
+        elif self.highDilComboBox.currentText() == "9x9 Kernel":
+            kernel_size_high = 9
+        elif self.highDilComboBox.currentText() == "11x11 Kernel":
+            kernel_size_high = 11
+        elif self.highDilComboBox.currentText() == "13x13 Kernel":
+            kernel_size_high = 13
 
         return kernel_size_low, kernel_size_high
 
@@ -809,6 +840,7 @@ class ImageMaskerWindow(QDialog):
                 print("No non-masked pixels found. Cannot compute average intensity.")
                 
     def okClicked(self):
+        print("OK CLICKED FUNCTION") #NICKA DEBUG
         if self.maskData is None and self.subtractBlankChkbx.isChecked() == False and self.computedMaskData is None and self.drawnMaskData is None:
             errMsg = QMessageBox()
             errMsg.setText('No mask data or blank image was provided. Please draw a mask or select a blank image.')
@@ -822,22 +854,53 @@ class ImageMaskerWindow(QDialog):
             if self.maskData is not None:
                 self.computeCombinedMask() # to ensure mask data is updated
 
+                if self.rot_angle is None:
+                    self.rot_angle = 0
+
+                print("mask data shape: ", self.maskData.shape) #NICKA DEBUG
+
                 rot_mat = cv2.getRotationMatrix2D((self.maskData.shape[0]//2, self.maskData.shape[1]//2), -self.rot_angle, 1.0)
+
+                print("ROTATION MATRIX: ", rot_mat) #NICKA DEBUG
 
                 width = self.maskData.shape[1]
                 height = self.maskData.shape[0]
 
+                print("WIDTH: ", width) #NICKA DEBUG
+                print("HEIGHT: ", height) #NICKA DEBUG
+
                 rotated_mask = cv2.warpAffine(self.maskData.astype(np.uint8), rot_mat, (width, height))
 
-                inv_trans_mat = self.trans_mat.copy()
+                print("ROTATED MASK SHAPE: ", rotated_mask.shape) #NICKA DEBUG
+
+                if self.trans_mat is not None:
+                    print("trans_mat IF statement:  Trans mat: ", self.trans_mat) #NICKA DEBUG
+                    inv_trans_mat = self.trans_mat.copy()
+                else:
+                    print("trans mat ELSE statement: Trans mat: ", self.trans_mat) #NICKA DEBUG
+                    self.trans_mat = np.float32([[1,0,0],[0,1,0]]) #transformation by 0,0 i.e. no transformation
+                    inv_trans_mat = self.trans_mat.copy()
+
                 inv_trans_mat[0, 2] = -self.trans_mat[0, 2]
                 inv_trans_mat[1, 2] = -self.trans_mat[1, 2]
 
-                translated_mask = cv2.warpAffine(rotated_mask, inv_trans_mat, rotated_mask.shape)
+                print("rotated_mask shape: ", rotated_mask.shape) #NICKA DEBUG
+                print("inv_trans_mat: ", inv_trans_mat) #NICKA DEBUG
+
+                (h, w) = rotated_mask.shape
+
+                translated_mask = cv2.warpAffine(rotated_mask, inv_trans_mat, (w,h))
+    
+                print("TRANSLATED MASK SHAPE: ", translated_mask.shape) #NICKA DEBUG
+
                 #fabio.tifimage.tifimage(data=translated_mask).write(join(path,'big_mask.tif'))
-                cropped_mask = translated_mask[0:self.orig_size[0], 0:self.orig_size[1]]
-                fabio.tifimage.tifimage(data=cropped_mask).write(join(path,'mask.tif'))
-                print("mask file saved")  
+                try:
+                    cropped_mask = translated_mask[0:self.orig_size[0], 0:self.orig_size[1]]
+                    print("CROPPED MASK SIZE: ",cropped_mask.shape) #NICKA DEBUG
+                    fabio.tifimage.tifimage(data=cropped_mask).write(join(path,'mask.tif'))
+                    print("mask file saved")  
+                except:
+                    print("Error saving mask file")
             if self.subtractBlankChkbx.isChecked():
                 dictionary = {
                     'subtractBlank': True, 

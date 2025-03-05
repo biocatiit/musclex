@@ -41,14 +41,17 @@ import numpy as np
 import cv2
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
+import fabio
 from musclex import __version__
+from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CSVManager
-from .BlankImageSettings import BlankImageSettings
+from .ImageMaskTool import ImageMaskerWindow
+from .DoubleZoomGUI import DoubleZoom
 from .pyqt_utils import *
 
 class ProjectionParams:
@@ -307,10 +310,7 @@ class ProjectionTracesGUI(QMainWindow):
         self.calSettingsDialog = None
         self.numberOfFiles = 0
         self.refit = False
-        self.doubleZoomMode = False
-        self.dontShowAgainDoubleZoomMessageResult = False
-        self.doubleZoomPt = (0, 0)
-        self.doubleZoomAxes = None
+
         self.chordLines = []
         self.chordpoints = []
         # self.setStyleSheet(getStyleSheet())
@@ -320,13 +320,17 @@ class ProjectionTracesGUI(QMainWindow):
         self.tasksQueue = Queue()
         self.loop = QEventLoop()
         self.currentTask = None
-        self.worker = None
+        self.worker = None 
         self.tasksDone = 0
         self.totalFiles = 1
         self.lock = Lock()
         
         self.initUI()
         self.setConnections()
+
+        self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
+
+        self.browseFile()
 
     def initUI(self):
         """
@@ -388,7 +392,6 @@ class ProjectionTracesGUI(QMainWindow):
         self.qfChkBx = QCheckBox("Quadrant Folded?")
         self.qfChkBx.setChecked(True)
         self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-10000)
         self.maskThresSpnBx.setMaximum(10000)
@@ -676,14 +679,54 @@ class ProjectionTracesGUI(QMainWindow):
             self.masked = False
             print("Blank checked")
             self.processImage()
+            self.updateImage
 
     def blankSettingClicked(self):
         """
         Trigger when Set Blank Image and Mask clicked
         """
-        dlg = BlankImageSettings(self.dir_path)
-        result = dlg.exec_()
-        if result == 1 and self.projProc is not None:
+
+        img = self.projProc.getRotatedImage()
+
+        try:
+            fabio.tifimage.tifimage(data=img).write(join(self.dir_path,'settings/tempMaskFile_pt.tif'))
+        except:
+            print("ERROR WITH SAVING THE IMAGE")
+
+        max_val = np.max(np.ravel(img))
+
+        ext = self.projProc.filename.split('.')[-1]
+
+        rot_ang = None if 'rotationAngle' not in self.projProc.info else self.projProc.info['rotationAngle']
+
+        trans_x = (img.shape[0] - self.projProc.orig_img.shape[0]) / 2
+        trans_y = (img.shape[1] - self.projProc.orig_img.shape[1]) / 2
+
+        trans_mat = np.float32([[1,0,trans_x],[0,1,trans_y]])
+
+        imageMaskingTool = ImageMaskerWindow(self.dir_path, 
+                                             os.path.join(self.dir_path, "settings/tempMaskFile_pt.tif"), 
+                                             self.minIntSpnBx.value(),
+                                             self.maxIntSpnBx.value(),
+                                             max_val,
+                                             orig_size=self.projProc.orig_img.shape,
+                                             trans_mat=trans_mat,                                            
+                                             rot_angle=rot_ang,
+                                             isHDF5= ext in ('hdf5', 'h5'),
+                                             )
+
+        if imageMaskingTool is not None and imageMaskingTool.exec_():
+            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
+                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
+                    info = json.load(f)
+                    if 'path' in info:
+                        img = fabio.open(info['path']).data
+                        fabio.tifimage.tifimage(data=img).write(join(join(self.dir_path, 'settings'),'blank.tif'))    
+            else:
+                if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
+                    os.rename(join(join(self.dir_path, 'settings'), 'mask.tif'), join(join(self.dir_path, 'settings'), 'maskonly.tif'))
+
+        if self.projProc is not None:
             self.masked = False
             print("Blank setting clicked")
             self.processImage()
@@ -899,32 +942,10 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Triggered when double zoom is checked
         """
-        if self.doubleZoom.isChecked():
-            print("Double zoom checked")
-            self.doubleZoomAxes = self.displayImgFigure.add_subplot(333)
-            self.doubleZoomAxes.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes.axes.yaxis.set_visible(False)
-            self.doubleZoomMode = True
-
-            img = self.projProc.getRotatedImage()
-            ax1 = self.doubleZoomAxes
-            x,y = (0, 0)
-            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomPt = (x, y)
-                ax1.imshow(imgScaled)
-                y, x = imgScaled.shape
-                # cy, cx = y // 2, x // 2
-                if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches[i].remove()
-        else:
-            self.displayImgFigure.delaxes(self.doubleZoomAxes)
-            self.doubleZoomMode = False
-        self.displayImgCanvas.draw_idle()
+        
+        self.doubleZoomGUI.doubleZoomChecked(img=self.projProc.getRotatedImage(),
+                                             canv=self.displayImgCanvas,
+                                             is_checked=self.doubleZoom.isChecked())
 
     def clearImage(self):
         """
@@ -1589,26 +1610,13 @@ class ProjectionTracesGUI(QMainWindow):
             x = min(x, xlim[1])
             y = max(y, 0)
             y = min(y, ylim[0])
-        elif self.doubleZoomMode:
-            # If x, y is inside figure and image is clicked for first time in double zoom mode
-            print(x,y)
-            if not self.dontShowAgainDoubleZoomMessageResult:
-                msg = QMessageBox()
-                msg.setInformativeText(
-                    "Please click on zoomed window on the top right")
-                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Double Zoom Guide")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
-                msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
-            self.doubleZoomMode = False
+        elif self.doubleZoomGUI.doubleZoomMode:
+            self.doubleZoomGUI.mouseClickBehavior(x, y)
             return
 
-        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-            x, y = self.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomMode = True
+        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
+            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomGUI.doubleZoomMode = True
 
         func = self.function
 
@@ -1815,9 +1823,9 @@ class ProjectionTracesGUI(QMainWindow):
 
         elif func[0] == "angle_center":
             axis_size = 5
-            if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-                x, y = self.doubleZoomToOrigCoord(x, y)
-                self.doubleZoomMode = True
+            if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
+                x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
+                self.doubleZoomGUI.doubleZoomMode = True
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             self.displayImgCanvas.draw_idle()
@@ -1962,6 +1970,9 @@ class ProjectionTracesGUI(QMainWindow):
         ax = self.displayImgAxes
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
+            if self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), (0,0), ax)
+
             x = int(round(x))
             y = int(round(y))
             unit = "px"
@@ -1970,16 +1981,7 @@ class ProjectionTracesGUI(QMainWindow):
                     center = self.calSettings['center']
                 else:
                     center = (self.projProc.info['centerx'], self.projProc.info['centery'])
-                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
-                scale = self.calSettings['scale']
-                d = mouse_distance / scale
-                if (d > 0.01):
-                    q = 1.0/d
-                    unit = "nm^-1"
-                else:
-                    q = mouse_distance
-        
-                q = f"{q:.4f}"
+                q, unit = inverseNmFromCenter([x, y], center, self.calSettings['scale'])
                 # constant = self.calSettings["silverB"] * self.calSettings["radius"]
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
@@ -1990,19 +1992,8 @@ class ProjectionTracesGUI(QMainWindow):
                     mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
-                    ax1 = self.doubleZoomAxes
-                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
-                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                        self.doubleZoomPt = (x,y)
-                        ax1.imshow(imgScaled)
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches[i].remove()
-                        self.displayImgCanvas.draw_idle()
+
+                self.doubleZoomGUI.mouseHoverBehavior(x, y, img, self.displayImgCanvas, self.doubleZoom.isChecked())
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -2026,53 +2017,79 @@ class ProjectionTracesGUI(QMainWindow):
         func = self.function
         if func is None:
             return
-        elif func[0] == "im_zoomin":
-            # draw rectangle
-            if len(func) < 2:
-                return
-            if len(ax.patches) > 0:
-                ax.patches[-1].remove()
-            start_pt = func[1]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-            self.displayImgCanvas.draw_idle()
-
-        elif func[0] == 'box':
-            if len(func) == 1:
-                # cross lines
-                for line in list(ax.lines):
-                    line.remove()
-                ax.axhline(y, color='y', linestyle='dotted')
-                ax.axvline(x, color='y', linestyle='dotted')
+        if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
+            print("DZ Zooming fucn-len = 1 case") #NICKA DEBUG
+            if not self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.updateAxes(x, y)
                 self.displayImgCanvas.draw_idle()
-            elif len(func) == 2:
-                # draw rectangle
+        if func[0] == "im_zoomin" and len(self.function) == 2:
+            print("Function is im_zoomin (len == 2)") #NICKA DEBUG
+            # draw rectangle            
+            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
-                        ax.patches[i].remove()
-                    # ax.patches = ax.patches[:len(self.allboxes.keys())]
-                for line in list(ax.lines):
-                    line.remove()
-                start_pt = func[-1]
+                    ax.patches[0].remove()
+                start_pt = func[1]    
                 w = abs(start_pt[0] - x)
                 h = abs(start_pt[1] - y)
                 x = min(start_pt[0], x)
                 y = min(start_pt[1], y)
                 ax.add_patch(patches.Rectangle((x, y), w, h,
-                                               linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+            else:
+                self.doubleZoomGUI.updateAxes(x, y)
+            self.displayImgCanvas.draw_idle()
+        elif func[0] == 'box':
+            if len(func) == 1:
+                # cross lines
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    for line in list(ax.lines):
+                        if line.get_label() != "Blue Dot":
+                            line.remove()
+                    ax.axhline(y, color='y', linestyle='dotted')
+                    ax.axvline(x, color='y', linestyle='dotted')
+                else:
+                    self.doubleZoomGUI.updateAxes(x,y)
+                self.displayImgCanvas.draw_idle()
+            elif len(func) == 2:
+                # draw rectangle
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.patches) > 0:
+                        for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
+                            ax.patches[i].remove()
+                        # ax.patches = ax.patches[:len(self.allboxes.keys())]
+                    for line in list(ax.lines):
+                        if line.get_label() != "Blue Dot":
+                            line.remove()
+                    start_pt = func[-1]
+                    w = abs(start_pt[0] - x)
+                    h = abs(start_pt[1] - y)
+                    x = min(start_pt[0], x)
+                    y = min(start_pt[1], y)
+                    ax.add_patch(patches.Rectangle((x, y), w, h,
+                                                linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+                else:
+                    self.doubleZoomGUI.updateAxes(x,y)
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
-            for line in list(ax.lines):
-                    line.remove()
             if len(func) == 1:
                 axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                for line in list(ax.lines):
+                    if line.get_label() != "Blue Dot":
+                        line.remove()
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    self.doubleZoomGUI.updateAxes(x, y)
+                    """
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                        if len(ax.lines) > 0:
+                            for i in range(len(ax.lines)-1,-1,-1):
+                                ax.lines[i].remove()
+                        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                        """
                 self.displayImgCanvas.draw_idle()
             if len(func) == 2:
                 # draw line as angle
@@ -2081,7 +2098,13 @@ class ProjectionTracesGUI(QMainWindow):
                 deltay = y - pivot[1]
                 x2 = pivot[0] - deltax
                 y2 = pivot[1] - deltay
-                ax.plot([x, x2], [y, y2], color="r")
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    for line in list(ax.lines):
+                        if line.get_label() != "Blue Dot":
+                            line.remove()
+                    ax.plot([x, x2], [y, y2], color="r")
+                else:
+                    self.doubleZoomGUI.updateAxes(x, y)
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 3: # get the width of the box
                 if len(ax.patches) > 0:
@@ -2117,16 +2140,22 @@ class ProjectionTracesGUI(QMainWindow):
                     x2_right= p_right[0] + height*np.cos(angle)
                     y2_right= p_right[1] + height*np.sin(angle)
 
-                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
+                    if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode: 
+                        for line in list(ax.lines):
+                            if line.get_label() != "Blue Dot":
+                                line.remove()
+                        ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
 
-                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
-                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+                        ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                        ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
 
-                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
-                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+                        ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                        ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
 
-                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
-                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+                        ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                        ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+                    else:
+                        self.doubleZoomGUI.updateAxes(x, y)
                     self.displayImgCanvas.draw_idle()
 
         elif func[0] == "im_move":
@@ -2156,39 +2185,24 @@ class ProjectionTracesGUI(QMainWindow):
 
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines) - 1, -1, -1):
+                    for i in range(len(ax.lines) - 1, 0, -1):
                         ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    for i in range(len(ax.lines) - 1, 1, -1):
+                    for i in range(len(ax.lines) - 1, 2, -1):
                         ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
@@ -2199,15 +2213,7 @@ class ProjectionTracesGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) % 2 == 0:
                 start_pt = func[-1]
                 if len(ax.lines) > 3:
@@ -2219,26 +2225,12 @@ class ProjectionTracesGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "chords_center":
             if self.doubleZoom.isChecked():
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "angle_center":
@@ -2249,41 +2241,27 @@ class ProjectionTracesGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
         
         elif func[0] == "im_rotate":
@@ -2295,20 +2273,16 @@ class ProjectionTracesGUI(QMainWindow):
             y2 = center[1] - deltay
             if not self.doubleZoom.isChecked():
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                elif self.doubleZoomMode:
+                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                    self.doubleZoomGUI.updateAxesInner(x, y)
+                elif self.doubleZoomGUI.doubleZoomMode:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                     ax.plot([x, x2], [y, y2], color="g")
             self.displayImgCanvas.draw_idle()
 
@@ -2797,7 +2771,11 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Update the UI
         """
+        print("UPDATE UI FUNCTION") #NICKA DEBUG
+        print("MAX-INT: ", self.maxIntSpnBx.value()) #NICKA DEBUG
         if self.projProc is not None and not self.syncUI:
+            print("SELF.PROJPROC IS NOT NONE AND NO SYNCUI")
+            print("MAX-INT: ", self.maxIntSpnBx.value()) #NICKA DEBUG
             ind = self.tabWidget.currentIndex()
             if ind == 0:
                 # if image tab is selected
@@ -2810,12 +2788,15 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Draw all UI in image tab
         """
+        print("UPDATE IMAGE TAB")
+        print("MAX-INT: ", self.maxIntSpnBx.value()) #NICKA DEBUG
         if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
         if self.rotated:
             img = self.projProc.getRotatedImage()
         else:
             img = self.projProc.orig_img
+        img = np.flipud(img)
         img = get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value())
         ax = self.displayImgAxes
         ax.cla()
@@ -2828,6 +2809,8 @@ class ProjectionTracesGUI(QMainWindow):
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
                 for name, aritists in self.boxes_on_img.items():
+                    print("NAME: ", name) #NICKA DEBUG
+                    print("ARITIST: ", aritists) #NICKA DEBUG
                     ax.add_patch(aritists['rect'])
                     ax.add_artist(aritists['text'])
 

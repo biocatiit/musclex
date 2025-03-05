@@ -61,6 +61,8 @@ class XRayViewer:
         self.hist = []
         self.dl, self.db = 0, 0
 
+        self.info = {}
+
     def getRotatedImage(self, angle, center):
         """
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
@@ -76,3 +78,12 @@ class XRayViewer:
         self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
         return final_rotImg
+
+    def findCenter(self):
+        print("FIND CENTER FUNCTION") #NICKA DEBUG
+        if 'center' in self.info:
+            return
+        print("Center is being calculated ... ")
+        self.orig_image_center = getCenter(self.orig_img)
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
+        print("Done. Center = "+str(self.info['center']))

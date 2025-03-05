@@ -284,6 +284,8 @@ class ProjectionBoxTab(QWidget):
         self.settingLayout = QGridLayout(self.settingGroup)
         self.peaksButton = QPushButton("Select Peaks")
         self.peaksButton.setCheckable(True)
+        self.clearPeakButton = QPushButton("Clear Peaks")
+        self.clearPeakButton.setVisible(True)
         self.meridBckGrndChkBx = QCheckBox("Meridional Peak")
         self.meridBckGrndChkBx.setChecked(True)
         self.meridBckGrndChkBx.setHidden(self.parent.bgsubs[self.name]!=0)
@@ -308,15 +310,16 @@ class ProjectionBoxTab(QWidget):
         self.endHull.setHidden(self.parent.bgsubs[self.name] != 1)
         self.checkableButtons.append(self.hullRangeButton)
         self.settingLayout.addWidget(self.peaksButton, 0, 0, 1, 2)
-        self.settingLayout.addWidget(self.meridBckGrndChkBx, 2, 0, 1, 2)
-        self.settingLayout.addWidget(self.hullRangeButton, 1, 0, 1, 2)
+        self.settingLayout.addWidget(self.clearPeakButton, 1, 0, 1, 2)
+        self.settingLayout.addWidget(self.meridBckGrndChkBx, 3, 0, 1, 2)
+        self.settingLayout.addWidget(self.hullRangeButton, 2, 0, 1, 2)
         if self.parent.bgsubs[self.name]== 1:
-            self.settingLayout.addWidget(QLabel("Start"), 2, 0, 1, 1, Qt.AlignCenter)
-            self.settingLayout.addWidget(QLabel("End"), 2, 1, 1, 1, Qt.AlignCenter)
-        self.settingLayout.addWidget(self.startHull, 3, 0, 1, 1)
-        self.settingLayout.addWidget(self.endHull, 3, 1, 1, 1)
-        self.settingLayout.addWidget(self.editMainPeakButton, 4, 0, 1, 2)
-        self.settingLayout.addWidget(self.refitButton, 5, 0, 1, 2)
+            self.settingLayout.addWidget(QLabel("Start"), 3, 0, 1, 1, Qt.AlignCenter)
+            self.settingLayout.addWidget(QLabel("End"), 3, 1, 1, 1, Qt.AlignCenter)
+        self.settingLayout.addWidget(self.startHull, 4, 0, 1, 1)
+        self.settingLayout.addWidget(self.endHull, 4, 1, 1, 1)
+        self.settingLayout.addWidget(self.editMainPeakButton, 5, 0, 1, 2)
+        self.settingLayout.addWidget(self.refitButton, 6, 0, 1, 2)
 
         self.results_text = QLabel()
 
@@ -379,6 +382,7 @@ class ProjectionBoxTab(QWidget):
         self.graphLayout = QVBoxLayout()
         self.graphLayout.addWidget(self.graphCanvas1)
         self.graphLayout.addWidget(self.graphCanvas2)
+        self.graphLayout.addWidget(QLabel("<h5>HINT: Use the 'Zoom in' and 'Zoom out' buttons in the top right to zoom in and out of either canvas.</h5>"))
         self.tabLayout.addLayout(self.graphLayout)
         self.tabLayout.addWidget(self.optionsFrame)
 
@@ -408,6 +412,7 @@ class ProjectionBoxTab(QWidget):
         self.fullButton.clicked.connect(self.fullClicked)
 
         self.peaksButton.clicked.connect(self.addPeaks)
+        self.clearPeakButton.clicked.connect(self.clearPeaks)
         self.meridBckGrndChkBx.stateChanged.connect(self.meridBckGrndChanged)
         self.hullRangeButton.clicked.connect(self.setManualHullRange)
         self.startHull.valueChanged.connect(self.hullRangeChanged)
@@ -801,14 +806,69 @@ class ProjectionBoxTab(QWidget):
         """
         if self.peaksButton.isChecked():
             self.peaksButton.setText("Accept Peaks")
+            #self.clearPeakButton.setVisible(True)
             self.function = ['peaks', []]
         else:
             self.peaksButton.setText("Select Peaks")
+            #self.clearPeakButton.setVisible(False)
             peaks = self.function[1]
             op_peaks = [-x for x in self.function[1]]
             peaks += op_peaks
             self.function = None
             self.parent.addPeakstoBox(self.name, peaks)
+
+    def refreshUI(self):
+        #clear the axes
+        self.need_update = True
+        self.updateUI()
+
+        #redraw the lines
+        center = self.getCenterX()
+
+        for distance in self.function[1]:
+            ax = self.graphAxes1
+            ax.axvline(center + distance, color='#ff630a', linewidth=2)
+            ax.axvline(center - distance, color='#ff630a', linewidth=2)
+
+            ax = self.graphAxes2
+            ax.axvline(center + distance, color='#ff630a', linewidth=2)
+            ax.axvline(center - distance, color='#ff630a', linewidth=2)
+
+        self.graphCanvas1.draw_idle()
+        self.graphCanvas2.draw_idle()
+
+    def clearPeaks(self):
+        """
+        Trigger when "Clear Peaks" is pressed
+        :return:
+        """
+        print("Name: ", self.name) #NICKA DEBUG
+        if self.function is None:
+            temp = self.parent.peaks[self.name]
+            curr_peaks = [temp[i] for i in range(int(len(temp) / 2) - 1)]
+        else:
+            curr_peaks = self.function[1]
+
+        print("SELF.FUNCTION: ", self.function) #NICKA DEBUG
+
+        print("CURR PEAKS BEFORE: ", curr_peaks) #NICKA DEBUG
+        if self.function is None:
+            print("FUNCTION IS NONE") #NICKA DEBUG
+            self.parent.addPeakstoBox(self.name, [])
+            self.function = ['peaks', curr_peaks]
+            self.refreshUI()
+            self.peaksButton.setText("Accept Peaks")
+            self.peaksButton.setChecked(True)
+            return
+
+        if self.function[0] == 'peaks' and curr_peaks != []:
+            #Remove the most recent peak
+            print("FUNCTION IS PEAKS") #NICKA DEBUG
+            self.function[1].pop()
+            self.refreshUI()
+
+        print("PEAKS AFTER: ", self.function[1]) #NICKA DEBUG
+        print("DONE PEAKES: ", self.parent.peaks) #NICKA DEBUG
 
     def keyPressEvent(self, event):
         """
@@ -829,6 +889,7 @@ class ProjectionBoxTab(QWidget):
         self.need_update = True
         self.function = None
         self.peaksButton.setText("Select Peaks")
+        #self.clearPeakButton.setVisible(False)
         for b in self.checkableButtons:
             self.syncUI = True
             b.setChecked(False)
@@ -848,6 +909,9 @@ class ProjectionBoxTab(QWidget):
         :return:
         """
         if self.parent.projProc is None or not self.need_update:
+            print("RETURN RIGHT AWAY IN UPDATE UI CONDITION ") #NICKA DEBUG
+            print("PARENT: ", self.parent.projProc) #NICKA DEBUG
+            print("SELF.UPDATENEEDED: ", self.need_update) #NICKA DEBUG
             return
 
         self.syncUI = True
@@ -1145,6 +1209,4 @@ class ProjectionBoxTab(QWidget):
         self.parent.processImage()
         
         self.graphFigure1.canvas.draw()  # Ensure the canvas is updated
-        
-        
         

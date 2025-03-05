@@ -51,6 +51,14 @@ def main(arguments=None):
     run = True
     if len(arguments) == 2:
         prog = arguments[1]
+        """
+        if prog == 'eq':
+            app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
+            from musclex.ui.EQStartWindow import EQStartWindow
+            myapp = EQStartWindow() # Even if 'myapp' isn't used after, it is necessary for the windows to show on the screen
+            sys.exit(app.exec_())
+        """
         if prog == 'eq':
             app = QApplication(sys.argv)
             app.setStyleSheet(stylesheet.stylesheet)
@@ -106,6 +114,12 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = AIStartWindow()
+            sys.exit(app.exec_())
+        elif prog== 'tdi':
+            from musclex.ui.TotalDisplayIntensity import TotalDisplayIntensity
+            app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
+            myapp = TotalDisplayIntensity()
             sys.exit(app.exec_())
         elif prog == 'xv':
             from musclex.ui.XRayViewerGUI import XRayViewerGUI

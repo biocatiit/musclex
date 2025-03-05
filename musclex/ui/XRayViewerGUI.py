@@ -31,14 +31,19 @@ import numpy as np
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pyplot as plt
+from matplotlib.text import Text
 from PIL import Image
 from musclex import __version__
+from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import *
 from ..utils.image_processor import *
 from ..modules.XRayViewer import XRayViewer
 from ..csv_manager.XV_CSVManager import XV_CSVManager
+from ..CalibrationSettings import CalibrationSettings
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
+from .DoubleZoomGUI import DoubleZoom
+
 
 class XRayViewerGUI(QMainWindow):
     """
@@ -57,6 +62,7 @@ class XRayViewerGUI(QMainWindow):
         self.windowList = []
         self.counter = 0
         self.filePath = "" # current directory
+        self.calSettings = None
         self.numberOfFiles = 0
         self.currentFileNumber = 0
         self.img_zoom = None # zoom location of original image (x,y range)
@@ -73,15 +79,16 @@ class XRayViewerGUI(QMainWindow):
         self.first_box = False
         self.saved_slice = None
         self.stop_process = False
-        
-        self.doubleZoomMode = False
-        self.dontShowAgainDoubleZoomMessageResult = False
-        
+        self.calSettingsDialog = None
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgetsF
-        self.setMinimumHeight(800)
-        self.setMinimumWidth(1000)
+        #self.setMinimumHeight(800)
+        #self.setMinimumWidth(1000)
+
+        self.doubleZoomGUI = DoubleZoom(self.imageFigure)
+
+        self.browseFile()
 
     def initUI(self):
         """
@@ -89,26 +96,40 @@ class XRayViewerGUI(QMainWindow):
         """
         self.setWindowTitle("X-Ray Viewer v." + __version__)
 
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
+
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
         self.centralWidget = QWidget(self)
-        self.setCentralWidget(self.centralWidget)
-        self.mainHLayout = QHBoxLayout(self.centralWidget)
+        self.scrollArea.setWidget(self.centralWidget)
+        self.mainLayout = QVBoxLayout(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
+        
 
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
-        self.mainHLayout.addWidget(self.tabWidget)
+        self.mainLayout.addWidget(self.tabWidget)
 
         ##### Image Tab #####
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
+        #self.imageTabLayout.addStretch()
         self.tabWidget.addTab(self.imageTab, "Image")
 
         self.verImgLayout = QVBoxLayout()
         self.verImgLayout.setContentsMargins(0, 0, 0, 0)
         self.verImgLayout.setAlignment(Qt.AlignCenter)
+
+        self.leftWidget = QWidget()
+        self.leftWidget.setLayout(self.verImgLayout)
+        self.leftWidget.setMinimumWidth(650)
+
         self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
         self.selectImageButton.setFixedWidth(300)
@@ -119,13 +140,14 @@ class XRayViewerGUI(QMainWindow):
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
         self.imageCanvas.setHidden(True)
-        self.imageTabLayout.addLayout(self.verImgLayout)
+        self.imageTabLayout.addWidget(self.leftWidget)
         self.imageTabLayout.addWidget(self.imageCanvas)
 
         self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.dispOptLayout = QGridLayout()
+        #self.dispOptLayout.setRowStretch()
 
         self.spminInt = QDoubleSpinBox()
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
@@ -153,7 +175,6 @@ class XRayViewerGUI(QMainWindow):
         self.checkableButtons.append(self.imgZoomInB)
         
         self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
@@ -174,8 +195,10 @@ class XRayViewerGUI(QMainWindow):
         self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsLayout = QGridLayout()
+        #self.settingsLayout.setRowStretch()
         self.settingsGroup.setLayout(self.settingsLayout)
 
+        self.calibrationButton = QPushButton("Calibration Settings")
         self.openTrace = QPushButton("Open Trace Window")
         self.measureDist = QPushButton("Measure a Distance")
         self.measureDist.setCheckable(True)
@@ -191,12 +214,13 @@ class XRayViewerGUI(QMainWindow):
         self.checkableButtons.append(self.setSlice)
         self.checkableButtons.append(self.setSliceBox)
         
-        self.settingsLayout.addWidget(self.openTrace, 0, 0, 1, 2)
-        self.settingsLayout.addWidget(self.measureDist, 1, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSlice, 2, 0, 1, 2)
-        self.settingsLayout.addWidget(self.setSliceBox, 3, 0, 1, 2)
-        self.settingsLayout.addWidget(self.saveGraphSlice, 4, 0, 1, 2)
-        self.settingsLayout.addWidget(self.inpaintChkBx, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
+        self.settingsLayout.addWidget(self.openTrace, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.measureDist, 2, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSlice, 3, 0, 1, 2)
+        self.settingsLayout.addWidget(self.setSliceBox, 4, 0, 1, 2)
+        self.settingsLayout.addWidget(self.saveGraphSlice, 5, 0, 1, 2)
+        self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Play")
@@ -213,6 +237,7 @@ class XRayViewerGUI(QMainWindow):
         self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit = QLineEdit()
         self.buttonsLayout = QGridLayout()
+        #self.buttonsLayout.setRowStretch()
         self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
         self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
         self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
@@ -227,12 +252,22 @@ class XRayViewerGUI(QMainWindow):
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.buttonsLayout)
         self.frameOfKeys = QFrame()
-        self.frameOfKeys.setFixedWidth(350)
+        self.frameOfKeys.setFixedWidth(400)
+        #self.frameOfKeys.addStretch() 
         self.frameOfKeys.setLayout(self.optionsLayout)
-        self.imageTabLayout.addWidget(self.frameOfKeys)
+
+        self.scroll_areaImg = QScrollArea()
+        self.scroll_areaImg.setWidgetResizable(True)
+        self.scroll_areaImg.setWidget(self.frameOfKeys)
+
+        self.imageTabLayout.addWidget(self.scroll_areaImg)
         
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
+
+        self.zoomInGraphButton = QPushButton("Zoom In")
+        self.zoomInGraphButton.setCheckable(True)
+
         self.resetZoomButton = QPushButton("Reset Zoom")
         
         self.processFolderButton2 = QPushButton("Play")
@@ -248,17 +283,18 @@ class XRayViewerGUI(QMainWindow):
         self.nextFileButton2.setToolTip('Next H5 File in this Folder')
         self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.filenameLineEdit2 = QLineEdit()
-        self.bottomLayout2.addWidget(self.resetZoomButton, 0, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.measureDist2, 1, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processFolderButton2, 2, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 3, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 3, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 4, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 4, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 5, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.resetZoomButton, 2, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.measureDist2, 3, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.processFolderButton2, 4, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.prevButton2, 5, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextButton2, 5, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.prevFileButton2, 6, 0, 1, 1)
+        self.bottomLayout2.addWidget(self.nextFileButton2, 6, 1, 1, 1)
+        self.bottomLayout2.addWidget(self.filenameLineEdit2, 7, 0, 1, 2)
 
         self.fittingOptionsFrame2 = QFrame()
-        self.fittingOptionsFrame2.setFixedWidth(250)
+        self.fittingOptionsFrame2.setFixedWidth(250) 
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addStretch()
         self.fittingOptionsLayout2.addLayout(self.bottomLayout2)
@@ -295,7 +331,16 @@ class XRayViewerGUI(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addWidget(QLabel("    "))
         self.statusBar.addWidget(self.imgPathOnStatusBar)
-        self.setStatusBar(self.statusBar)
+
+        #Second Status bar for when graph tab is selected
+        self.scrollWheelStatusBar = QStatusBar()
+        self.scrollWheelStatusBar.addWidget(QLabel("    "))
+        self.scrollWheelStatusBar.addWidget(QLabel("Hint: Use the scroll wheel on your mouse to zoom in and out!"))
+        self.scrollWheelStatusBar.setVisible(False)
+
+        #Add both status bars
+        self.mainLayout.addWidget(self.scrollWheelStatusBar)
+        self.mainLayout.addWidget(self.statusBar)
 
         #### Menu Bar #####
         selectImageAction = QAction('Select an Image...', self)
@@ -312,6 +357,7 @@ class XRayViewerGUI(QMainWindow):
         helpMenu.addAction(aboutAct)
 
         self.show()
+        self.resize(1150, 700)
 
     def setConnections(self):
         """
@@ -336,6 +382,7 @@ class XRayViewerGUI(QMainWindow):
         self.prevFileButton2.clicked.connect(self.prevFileClicked)
         self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
+        self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
         self.setSlice.clicked.connect(self.setSliceChecked)
@@ -360,7 +407,42 @@ class XRayViewerGUI(QMainWindow):
         self.fittingFigure.canvas.mpl_connect('scroll_event', self.plotScrolled)
         self.measureDist2.clicked.connect(self.measureDistChecked2)
         self.resetZoomButton.clicked.connect(self.resetZoomClicked)
+        self.zoomInGraphButton.clicked.connect(self.zoomInGraphClicked)
         self.checkableButtons.append(self.measureDist2)
+
+
+    def updateLeftWidgetWidth(self):
+        if self.imageCanvas.isVisible():
+            # Remove the minimum width constraint
+            self.leftWidget.setMinimumWidth(0)
+        else:
+            # Set the minimum width for when the canvas is hidden
+            self.leftWidget.setMinimumWidth(650)
+
+    def launchCalibrationSettings(self):
+        """
+        Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
+        :param force: force to popup the window
+        :return: True if calibration set, False otherwise
+        """
+
+        if self.calSettingsDialog is None:
+            self.calSettingsDialog = CalibrationSettings(self.filePath) if self.filePath is None else \
+                CalibrationSettings(self.filePath, center=self.xrayViewer.orig_image_center)
+        self.calSettings = None
+        cal_setting = self.calSettingsDialog.calSettings
+        if cal_setting is not None or force:
+            result = self.calSettingsDialog.exec_()
+            if result == 1:
+                self.calSettings = self.calSettingsDialog.getValues()
+                if self.calSettingsDialog.fixedCenter.isChecked():
+                    self.xrayViewer.info['center'] = self.calSettings['center']
+                else:
+                    if 'center' in self.xrayViewer.info:
+                        del self.xrayViewer.info['center']
+                self.xrayViewer.findCenter()
+                return True
+        return False
 
     def keyPressEvent(self, event):
         """
@@ -443,21 +525,17 @@ class XRayViewerGUI(QMainWindow):
                     p2 = func[2]
                     self.graph_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
                     self.function = None
-                    self.imgZoomInB.setChecked(False)
+                    self.zoomInGraphButton.setChecked(False)
                     self.refreshAllTabs()
             elif func[0] in ["dist"]:
                 func.append((x, y))
                 ax = self.fittingAxes
-                if len(func) == 3:
-                    self.measureDist2.setChecked(False)
-                    self.measureDistChecked2()
-                    for line in ax.lines:
-                        if line.get_marker() == 'x' or line.get_marker() == 'o':
-                            line.remove()
-                    self.fittingCanvas.draw_idle()
-                else:     
-                    ax.plot(event.xdata, event.ydata, 'o')
-                    self.fittingCanvas.draw_idle()
+                self.updateMeasureDistBox()
+                ax.plot(event.xdata, event.ydata, 'o')
+
+                self.fittingCanvas.draw_idle()   
+                if len(func) > 2 and len(func) % 2 != 0:
+                    ax.add_artist(self.makeText(func[-1], func[-2], str(int((len(func) - 1) / 2)), dist=20))
 
     def plotOnMotion(self, event):
         """
@@ -520,7 +598,53 @@ class XRayViewerGUI(QMainWindow):
                 ax.set_ylim(self.graph_zoom[1])
                 self.fittingCanvas.draw_idle()
         elif func[0] == "dist":
+            # draw X on points and a line between points
             ax = self.fittingAxes
+
+            axis_size = 5
+            if len(func) == 1:
+                if len(ax.lines) > 0:
+                    for i in range(len(ax.lines)-1,0,-1):
+                        ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    # first_cross = ax.lines[:2]
+                    for i in range(len(ax.lines)-1,1,-1):
+                        ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                
+            elif len(func) % 2 != 0:
+                if len(ax.lines) > 0:
+                    n = (len(func)-1)*5//2 + 2
+                
+                    for i in range(len(ax.lines)-1, n-1, -1):
+                        ax.lines[i].remove()
+
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                
+            elif len(func) % 2 == 0:
+                start_pt = func[-1]
+                if len(ax.lines) > 3:
+                    n = len(func) * 5 // 2 - 1
+
+
+                    for i in range(len(ax.lines) - 1, n - 1, -1):
+                        ax.lines[i].remove()
+
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+
+            self.imageCanvas.draw_idle()
+
+            """ ax = self.fittingAxes
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
             for line in ax.lines:
@@ -529,7 +653,7 @@ class XRayViewerGUI(QMainWindow):
             ax.plot(event.xdata, event.ydata, 'rx')
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
-            self.fittingCanvas.draw_idle()
+            self.fittingCanvas.draw_idle()"""
 
     def plotReleased(self, event):
         """
@@ -597,6 +721,17 @@ class XRayViewerGUI(QMainWindow):
         ax.set_ylim(self.graph_zoom[1])
         self.fittingCanvas.draw_idle()
         
+
+    def zoomInGraphClicked(self):
+        if self.zoomInGraphButton.isChecked():
+            self.imgPathOnStatusBar.setText(
+                "Draw a rectangle on the image to zoom in (ESC to cancel)")
+            self.function = ['g_zoomin']
+        else:
+            self.function = None
+            self.resetStatusbar()
+
+
     def resetZoomClicked(self):
         self.graph_zoom = None
         self.updateFittingTab(self.xrayViewer.hist)
@@ -632,32 +767,10 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when double zoom is checked
         """
-        if self.doubleZoom.isChecked():
-            print("Double zoom checked")
-            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
-            self.doubleZoomAxes.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes.axes.yaxis.set_visible(False)
-            self.doubleZoomMode = True
 
-            img = self.xrayViewer.orig_img
-            ax1 = self.doubleZoomAxes
-            x,y = (0, 0)
-            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomPt = (x, y)
-                ax1.imshow(imgScaled)
-                # y, x = imgScaled.shape
-                # cy, cx = y // 2, x // 2
-                if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches[i].remove()
-        else:
-            self.imageFigure.delaxes(self.doubleZoomAxes)
-            self.doubleZoomMode = False
-        self.imageCanvas.draw_idle()
+        self.doubleZoomGUI.doubleZoomChecked(img=self.xrayViewer.orig_img,
+                                             canv=self.imageCanvas,
+                                             is_checked=self.doubleZoom.isChecked())
         
 
     def measureDistChecked(self):
@@ -679,19 +792,35 @@ class XRayViewerGUI(QMainWindow):
                 "Draw a line on the image to measure a distance (ESC to cancel)")
             self.function = ["dist"]  # set current active function
         else:
-            if self.function is not None and self.function[0] == "dist":
-                func = self.function
-                if len(func) > 1:
-                    for i in range(1, len(func) - 1, 2):
-                        dist = math.dist(func[i], func[i+1])
-                    print("Distance:", str(round(dist,2)), "pixels")
-                    msg = QMessageBox()
-                    msg.setInformativeText("Distance: " + str(round(dist,2)) + " pixels")
-                    msg.setStandardButtons(QMessageBox.Ok)
-                    msg.setWindowTitle("Measure a Distance")
-                    msg.setStyleSheet("QLabel{min-width: 500px;}")
-                    msg.exec_()
             self.refreshAllTabs()
+
+    def updateMeasureDistBoxOkClicked(self):
+        self.measureDist.setChecked(False)
+        self.measureDist2.setChecked(False)
+        self.refreshAllTabs()
+
+    def updateMeasureDistBox(self):
+        func = self.function
+        if func[0] == "dist" and len(func) > 2:
+            if len(func) == 3:
+                dist = math.dist(func[1], func[2])
+                self.inf_text = "Distance 1: " + str(round(dist,2)) + " pixels"
+
+                self.measureDistanceBox = QMessageBox()
+                self.measureDistanceBox.setWindowModality(Qt.NonModal)  # Ensure it's non-modal
+                self.measureDistanceBox.setInformativeText(self.inf_text)
+                self.measureDistanceBox.setStandardButtons(QMessageBox.Ok)
+                self.measureDistanceBox.button(QMessageBox.Ok).clicked.connect(self.updateMeasureDistBoxOkClicked)
+                self.measureDistanceBox.setWindowTitle("Measure a Distance")
+                self.measureDistanceBox.setStyleSheet("QLabel{min-width: 500px;}")
+                self.measureDistanceBox.show()
+
+            elif len(func) % 2 != 0:
+                dist = math.dist
+                dist = math.dist(func[-1], func[-2])
+                self.inf_text += "\nDistance " + str(int((len(func) - 1) / 2)) + ": " + str(round(dist,2)) + " pixels"
+                self.measureDistanceBox.setInformativeText(self.inf_text)
+
     
     def measureDistChecked2(self):
         """
@@ -706,19 +835,7 @@ class XRayViewerGUI(QMainWindow):
                 "Draw a line on the image to measure a distance (ESC to cancel)")
             self.function = ["dist"]  # set current active function
         else:
-            if self.function is not None and self.function[0] == "dist":
-                func = self.function
-                for i in range(1, len(func) - 1, 2):
-                    print(func)
-                    dist = abs(func[i][0] - func[i+1][0])
-                print("Distance:", str(round(dist,2)), "pixels")
-                msg = QMessageBox()
-                msg.setInformativeText("Distance: " + str(round(dist,2)) + " pixels")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Measure a Distance")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.exec_()
-            self.refreshAllTabs()
+            self.updateMeasureDistBoxOkClicked()
 
     def setSliceChecked(self):
         """
@@ -846,26 +963,13 @@ class XRayViewerGUI(QMainWindow):
             y = min(y, ylim[0])
             x = int(round(x))
             y = int(round(y))
-        elif self.doubleZoomMode:
-            # If x, y is inside figure and image is clicked for first time in double zoom mode
-            print(x,y)
-            if not self.dontShowAgainDoubleZoomMessageResult:
-                msg = QMessageBox()
-                msg.setInformativeText(
-                    "Please click on zoomed window on the top right")
-                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Double Zoom Guide")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
-                msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
-            self.doubleZoomMode = False
+        elif self.doubleZoomGUI.doubleZoomMode:
+            self.doubleZoomGUI.mouseClickBehavior(x, y)
             return
             
-        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-            x, y = self.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomMode = True
+        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
+            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomGUI.doubleZoomMode = True
 
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
@@ -885,13 +989,23 @@ class XRayViewerGUI(QMainWindow):
                     self.function = None
                     self.imgZoomInB.setChecked(False)
                     self.refreshAllTabs()
-            elif func[0] in ["slice", "dist"]:
+            elif func[0] in ["slice"]:
                 ax = self.imageAxes
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
                 func.append((x, y))
+            elif func[0] in ["dist"]:
+                ax = self.imageAxes
+                axis_size = 5
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                self.imageCanvas.draw_idle()       
+                func.append((x, y))
+                self.updateMeasureDistBox()
+                if len(func) > 2 and len(func) % 2 != 0:
+                    ax.add_artist(self.makeText(func[-1], func[-2], str(int((len(func) - 1) / 2))))
             elif func[0] == "slice_box":
                 ax = self.imageAxes
                 axis_size = 5
@@ -909,7 +1023,7 @@ class XRayViewerGUI(QMainWindow):
                         new_angle = -180. * np.arctan((pivot[1] - y) / (pivot[0] - x)) / np.pi
 
                     func.append((x, x2, y, y2, new_angle))
-                    self.doubleZoom.setChecked(False)
+                    #self.doubleZoom.setChecked(False)
                 elif len(func) == 3:
                     p1 = np.asarray(func[1])
                     p2 = np.asarray((func[2][0],func[2][2]))
@@ -925,6 +1039,30 @@ class XRayViewerGUI(QMainWindow):
                     func.append((x, y))
                 self.imageCanvas.draw_idle()
 
+
+    def makeText(self, p1, p2, txt, dist=100):
+        middle = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+        if (p1[0] > p2[0] and p1[1] > p2[1]) or (p1[0] < p2[0] and p1[1] < p2[1]):
+            slope = 'pos'
+        else:
+            slope = 'neg'
+
+        diff_x = abs(p1[0] - p2[0])
+        diff_y = abs(p2[0] - p2[1])
+        total = diff_x + diff_y
+
+        diff_x_share = (diff_x / total) * dist
+        diff_y_share = (diff_y / total) * dist
+
+        if slope == 'neg':
+            x = middle[0] + diff_y_share
+            y = middle[1] + diff_x_share
+        else:
+            x = middle[0] - diff_y_share
+            y = middle[1] + diff_x_share
+
+        return Text(x=x, y=y, text=txt, color='red', ha='center', va='center')
+
     def imageOnMotion(self, event):
         """
         Triggered when mouse hovers on image in image tab
@@ -937,16 +1075,30 @@ class XRayViewerGUI(QMainWindow):
 
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
+
+            if self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), (0,0), self.imageAxes)
+
+
             x = int(round(x))
             y = int(round(y))
+            
             if x < img.shape[1] and y < img.shape[0]:
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
-                    ax1 = self.doubleZoomAxes
+                
+                if 'center' not in self.xrayViewer.info:
+                    q, units = [-1, ""]
+                elif self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                    q, units = inverseNmFromCenter([x, y], self.xrayViewer.info['center'], self.calSettings['scale'])
+                else:
+                    q, units = [-1,""]
+                
+                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(q) + units)
+                if self.doubleZoom.isChecked() and self.doubleZoomGUI.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
+                    ax1 = self.doubleZoomGUI.axes
                     imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                        self.doubleZoomPt = (x,y)
+                        self.doubleZoomGUI.doubleZoomPoint = (x,y)
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
@@ -979,17 +1131,24 @@ class XRayViewerGUI(QMainWindow):
             return
 
         func = self.function
+        if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
+            if not self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.updateAxes(x, y)
+                self.imageCanvas.draw_idle()
         if func[0] == "im_zoomin" and len(self.function) == 2:
             # draw rectangle
-            if len(ax.patches) > 0:
-                ax.patches[0].remove()
-            start_pt = func[1]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                if len(ax.patches) > 0:
+                    ax.patches[0].remove()
+                start_pt = func[1]
+                w = abs(start_pt[0] - x)
+                h = abs(start_pt[1] - y)
+                x = min(start_pt[0], x)
+                y = min(start_pt[1], y)
+                ax.add_patch(patches.Rectangle((x, y), w, h,
+                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+            else:
+                self.doubleZoomGUI.updateAxes(x, y)
             self.imageCanvas.draw_idle()
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
@@ -1000,22 +1159,24 @@ class XRayViewerGUI(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
-        elif func[0] in ["slice", "dist"]:
+        elif func[0] in ["slice"]:
             # draw X on points and a line between points
             ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
             if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
+
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.lines) > 0:
+                        for i in range(len(ax.lines)-1,-1,-1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
-                        ax1 = self.doubleZoomAxes
+                        ax1 = self.doubleZoomGUI.axes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines[i].remove()
@@ -1023,28 +1184,30 @@ class XRayViewerGUI(QMainWindow):
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
             elif len(func) == 2:
                 start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines[i].remove()
                     # ax.lines = first_cross
                 # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 # ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+
+                    if len(ax.lines) > 2:
+                        # first_cross = ax.lines[:2]
+                        for i in range(len(ax.lines)-1,1,-1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
-                        ax1 = self.doubleZoomAxes
+                        ax1 = self.doubleZoomGUI.axes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                        newX, newY = self.doubleZoomToOrigCoord(x, y)
+                        newX, newY = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
                         ax.plot((start_pt[0], newX), (start_pt[1], newY), color='r')
             elif len(func) >= 2:
                 ax = self.imageAxes
@@ -1056,11 +1219,9 @@ class XRayViewerGUI(QMainWindow):
                 if func[0] == "slice":
                     self.setSlice.setChecked(False)
                     self.setSliceChecked()
-                elif func[0] == "dist":
-                    self.measureDist.setChecked(False)
-                    self.measureDistChecked()
+
             self.imageCanvas.draw_idle()
-        elif func[0] == "slice_box":
+        elif func[0] in ["dist"]:
             # draw X on points and a line between points
             ax = self.imageAxes
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
@@ -1068,14 +1229,15 @@ class XRayViewerGUI(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
-                        ax1 = self.doubleZoomAxes
+                        ax1 = self.doubleZoomGUI.axes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines[i].remove()
@@ -1086,7 +1248,8 @@ class XRayViewerGUI(QMainWindow):
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                     # ax.lines = first_cross
                 # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
@@ -1096,59 +1259,145 @@ class XRayViewerGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
                         axis_size = 1
-                        ax1 = self.doubleZoomAxes
+                        ax1 = self.doubleZoomGUI.axes
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
                                 ax1.lines[i].remove()
                         ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                         ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                        newX, newY = self.doubleZoomToOrigCoord(x, y)
+                        newX, newY = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
                         ax.plot((start_pt[0], newX), (start_pt[1], newY), color='r')
-            elif len(func) == 3:
-                for i in range(len(ax.lines)-1,1,-1):
-                    ax.lines[i].remove()
-                angle = np.radians(90 - func[2][4])
-                p_mouse = np.array([x,y])
-                if func[2][0] < func[2][1]: # p1 is to the left
-                    p_left = np.array((func[2][0], func[2][2]))
-                    p_right = np.array((func[2][1], func[2][3]))
+            elif len(func) % 2 != 0:
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.lines) > 0:
+                        n = (len(func)-1)*5//2 + 2
+                    
+                        for i in range(len(ax.lines)-1, n-3, -1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    p_left = np.array((func[2][1], func[2][3]))
-                    p_right = np.array((func[2][0], func[2][2]))
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomGUI.axes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            elif len(func) % 2 == 0:
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    start_pt = func[-1]
+                    if len(ax.lines) > 3:
+                        n = len(func) * 5 // 2 - 1
 
-                v1 = p_left - p_right
-                v2 = p_mouse - p_right
-                u = v1/np.linalg.norm(v1)
-                n = (-u[1], u[0])
+                        for i in range(len(ax.lines) - 1, n-3, -1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
 
-                height = np.abs(np.dot(v2, n))
-                width = np.linalg.norm(p_left - p_right)
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomGUI.axes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                        #ax1.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.imageCanvas.draw_idle()
+        elif func[0] == "slice_box":
+            # draw X on points and a line between points
+            ax = self.imageAxes
+            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
+            axis_size = 5
+            if len(func) == 1:
+                if len(ax.lines) > 0:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                if not self.doubleZoom.isChecked():
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                else:
+                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                        axis_size = 1
+                        ax1 = self.doubleZoomGUI.axes
+                        if len(ax1.lines) > 0:
+                            for i in range(len(ax1.lines)-1,-1,-1):
+                                ax1.lines[i].remove()
+                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    # first_cross = ax.lines[:2]
+                    for i in range(len(ax.lines)-1,1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                    # ax.lines = first_cross
+                # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                # ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+                else:
+                    self.doubleZoomGUI.updateAxes(x, y)
+                    newX, newY = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
+                    ax.plot((start_pt[0], newX), (start_pt[1], newY), color='r')
+            elif len(func) == 3:
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    for i in range(len(ax.lines)-1,1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                    angle = np.radians(90 - func[2][4])
+                    p_mouse = np.array([x,y])
+                    if func[2][0] < func[2][1]: # p1 is to the left
+                        p_left = np.array((func[2][0], func[2][2]))
+                        p_right = np.array((func[2][1], func[2][3]))
+                    else:
+                        p_left = np.array((func[2][1], func[2][3]))
+                        p_right = np.array((func[2][0], func[2][2]))
 
-                # if height*2 < width:
+                    v1 = p_left - p_right
+                    v2 = p_mouse - p_right
+                    u = v1/np.linalg.norm(v1)
+                    n = (-u[1], u[0])
 
-                x1_left = p_left[0] - height*np.cos(angle)
-                y1_left = p_left[1] - height*np.sin(angle)
-                x2_left = p_left[0] + height*np.cos(angle)
-                y2_left = p_left[1] + height*np.sin(angle)
-                x1_right = p_right[0] - height*np.cos(angle)
-                y1_right = p_right[1] - height*np.sin(angle)
-                x2_right= p_right[0] + height*np.cos(angle)
-                y2_right= p_right[1] + height*np.sin(angle)
+                    height = np.abs(np.dot(v2, n))
+                    width = np.linalg.norm(p_left - p_right)
 
-                ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
+                    # if height*2 < width:
 
-                ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
-                ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+                    x1_left = p_left[0] - height*np.cos(angle)
+                    y1_left = p_left[1] - height*np.sin(angle)
+                    x2_left = p_left[0] + height*np.cos(angle)
+                    y2_left = p_left[1] + height*np.sin(angle)
+                    x1_right = p_right[0] - height*np.cos(angle)
+                    y1_right = p_right[1] - height*np.sin(angle)
+                    x2_right= p_right[0] + height*np.cos(angle)
+                    y2_right= p_right[1] + height*np.sin(angle)
 
-                ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
-                ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
 
-                ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
-                ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
-                # else:
-                    #print("TOO BIG")
+                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+
+                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+
+                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+                else:
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) >= 4:
                 ax = self.imageAxes
                 for i in range(len(ax.lines)-1,-1,-1):
@@ -1268,10 +1517,10 @@ class XRayViewerGUI(QMainWindow):
 
         try:
             self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
-        except:
+        except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error Opening File: " + str(fileName))
-            infMsg.setInformativeText("The file is likely corrupted or missing.")
+            infMsg.setInformativeText("The file is likely corrupted or missing.\nError: " + str(e))
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
@@ -1324,7 +1573,11 @@ class XRayViewerGUI(QMainWindow):
         """
         if self.ableToProcess():
             if self.tabWidget.currentIndex() == 0:
+                self.scrollWheelStatusBar.setVisible(False)
                 self.updateImageTab()
+            elif self.tabWidget.currentIndex() == 1 and self.xrayViewer.hist is not None:
+                self.scrollWheelStatusBar.setVisible(True)
+                self.updateFittingTab(self.xrayViewer.hist)
 
     def updateImageTab(self):
         """
@@ -1373,9 +1626,6 @@ class XRayViewerGUI(QMainWindow):
         func = self.function
         if func is None:
             func = self.saved_slice
-        print(func)
-        # coord1 = self.function[1]
-        # coord2 = self.function[2]
         if self.graph_zoom is not None and len(self.graph_zoom) == 2:
             ax.set_xlim(self.graph_zoom[0])
             ax.set_ylim(self.graph_zoom[1])
@@ -1417,8 +1667,10 @@ class XRayViewerGUI(QMainWindow):
             self.csv_manager = XV_CSVManager(self.filePath)
             self.selectImageButton.setHidden(True)
             self.imageCanvas.setHidden(False)
+            self.updateLeftWidgetWidth()
             self.tabWidget.setTabEnabled(1, True)
             self.onImageChanged()
+            self.launchCalibrationSettings()
         QApplication.restoreOverrideCursor()
             
 

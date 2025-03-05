@@ -1,6 +1,5 @@
 AppImageBuilder
 Data
-New Folder
 build
 dev_docs
 dist
@@ -8,3 +7,4 @@ docs
 docs_archive
 hooks
 musclex
+settings

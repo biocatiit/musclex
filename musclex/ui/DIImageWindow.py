@@ -44,7 +44,7 @@ from ..utils.file_manager import *
 from ..modules.ScanningDiffraction import *
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import DI_CSVManager
-from .BlankImageSettings import BlankImageSettings
+from .ImageMaskTool import ImageMaskerWindow
 
 class DSpacingScale(mscale.ScaleBase):
     """
@@ -250,9 +250,14 @@ class DIImageWindow(QMainWindow):
         Initialize the UI
         """
         self.setWindowTitle("Muscle X Scanning Diffraction v." + __version__)
+
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidgetResizable(True)
+
         self.centralWidget = QWidget(self)
+        self.scrollArea.setWidget(self.centralWidget)
         self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.centralWidget)
+        self.setCentralWidget(self.scrollArea)
 
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
@@ -551,8 +556,9 @@ class DIImageWindow(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
         self.mainLayout.addWidget(self.statusBar)
 
-        self.setMinimumWidth(1400)
+        #self.setMinimumWidth(1400)
         self.show()
+        self.resize(1500, 1000)
 
     def setConnections(self):
         """
@@ -621,12 +627,43 @@ class DIImageWindow(QMainWindow):
         """
         Set the blank image and mask threshold
         """
-        dialog = BlankImageSettings(self.filePath)
-        self.mask = None
-        result = dialog.exec_()
-        if result == 1 and self.cirProj is not None:
+
+        img = copy.copy(self.cirProj.original_image)
+
+        max_val = np.max(np.ravel(img))
+
+        ext = self.fileName.split('.')[-1]
+
+        try:
+            fabio.tifimage.tifimage(data=img).write(join(self.filePath,'settings/tempMaskFile_di.tif'))
+        except:
+            print("ERROR WITH SAVING THE IMAGE")
+        
+        imageMaskingTool = ImageMaskerWindow(self.filePath, 
+                                             os.path.join(self.filePath, "settings/tempMaskFile_di.tif"), 
+                                             self.minInt.value(),
+                                             self.maxInt.value(),
+                                             max_val,
+                                             img.shape,
+                                             isHDF5= ext in ('hdf5', 'h5'),
+                                        )
+
+        if imageMaskingTool is not None and imageMaskingTool.exec_():
+            if os.path.exists(join(join(self.filePath, 'settings'), 'blank_image_settings.json')):
+                with open(join(join(self.filePath, 'settings'), 'blank_image_settings.json'), 'r') as f:
+                    info = json.load(f)
+                    if 'path' in info:
+                        img = fabio.open(info['path']).data
+                        fabio.tifimage.tifimage(data=img).write(join(join(self.filePath, 'settings'),'blank.tif'))    
+            else:
+                if os.path.exists(join(join(self.filePath, 'settings'), 'mask.tif')):
+                    os.rename(join(join(self.filePath, 'settings'), 'mask.tif'), join(join(self.filePath, 'settings'), 'maskonly.tif'))
+
+
+        if self.cirProj is not None:
+            print("CIRCLE PROJ IS NOT NONE") #NICKA DEBUG
             self.cirProj.removeInfo('2dintegration')
-            self.processImage()
+            self.onImageChanged()
 
     def selectPeaksClicked(self):
         """
@@ -1133,7 +1170,7 @@ class DIImageWindow(QMainWindow):
         """
         Used when a new file is selected
         """
-        self.resize(600, 600)
+        #self.resize(600, 600)
         if imgList is not None:
             self.imgList = imgList
         else:
@@ -1182,7 +1219,9 @@ class DIImageWindow(QMainWindow):
         """
         Process the scanning diffraction
         """
+        print("PROCESS IN GUI") #NICKA DEBUG
         if self.cirProj is not None:
+            print("CIRCPROJ IS NOT NONE") #NICKA DEBUG
             QApplication.setOverrideCursor(Qt.WaitCursor)
             self.flags = self.getFlags(imgChanged)
             self.cirProj.process(self.flags)
@@ -1302,6 +1341,7 @@ class DIImageWindow(QMainWindow):
         """
         Update the UI
         """
+        print("UPDATING UI")
         if self.cirProj is None:
             return
 
@@ -1463,11 +1503,14 @@ class DIImageWindow(QMainWindow):
         Update the image tab
         """
         img = copy.copy(self.cirProj.original_image)
+        """
         if self.blankChkBx.isChecked():
             blank, _ = getBlankImageAndMask(self.filePath)
             if blank is not None:
                 img = img - blank
-
+                """
+        print("UPDATE IMAGE TAB") #NICKA DEBUG
+        img = np.flipud(img)
         #img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
         ax = self.displayImgAxes
         ax.cla()

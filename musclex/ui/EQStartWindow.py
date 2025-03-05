@@ -38,60 +38,53 @@ class EQStartWindow(QMainWindow):
     A class for start-up window or main window. Now, this is used for keep all EquatorWindow objects in a list
     """
     def __init__(self):
+        print("EQSTART init") #NICKA DEBUG
         super().__init__()
+        print("EQSTART AFTER SUPER INIT") #NICKA DEBUG
         self.dir_path = ""
         self.setWindowTitle("Bio-Muscle v."+__version__)
         self.windowList = [] # use this list to keep EquatorWindow objects to prevent python delete it
-        self.browseFile() # start program by browse a file
+        
+        #self.browseFile() # start program by browse a file
+        print("EQSTART INIT ABOUT TO CALL RUNBIOMUSCLE") #NICKA DEBUG
+        self.runBioMuscle()
 
     def childWindowClosed(self, childwin):
         """
         Remove child window from list
         :param childwin: EquatorWindow object
         """
+        print("EQSTART CHILD WINDOW CLOSED") #NICKA DEBUG
         if childwin in self.windowList:
+            print("WINDOWLIST REMOVE") #NICKA DEBUG
             self.windowList.remove(childwin)
 
         # If window list is empty, exit the program
         if len(self.windowList) == 0:
+            print("SELF.CLOSE")
             self.close()
 
-    def browseFile(self):
-        """
-        Popup an input file dialog. Users can select an image or .txt for failed cases list
-        """
-        file_name = getAFile(add_txt=True)
-        _, ext = os.path.splitext(str(file_name))
-        _, name = split(str(file_name))
-        if file_name != "":
-            if ext == ".txt" and not name == "failedcases.txt":
-                errMsg = QMessageBox()
-                errMsg.setText('Invalid Input')
-                errMsg.setInformativeText("Please select only failedcases.txt or image files\n\n")
-                errMsg.setStandardButtons(QMessageBox.Ok)
-                errMsg.setIcon(QMessageBox.Warning)
-                errMsg.exec_()
-                self.browseFile()
-            else:
-                # Run BioMuscle if the file is an image or failed cases list
-                self.runBioMuscle(str(file_name))
-        else:
-            sys.exit()
-
-    def runBioMuscle(self, filename):
+    def runBioMuscle(self):
         """
         Create a EquatorWindow object and launch the window
         :param filename: input filename (str)
         :return:
         """
+        print("runBIOMUSCLE") #NICKA DBEUG
         try:
-            newWindow = EquatorWindow(self, filename)
+            print("Tryblock") #NICKA DEBUG
+
+            newWindow = EquatorWindow(self)
+
         except Exception as e:
+            print("UH OH- EXCEPITON") #NICKA DEBUG
             infMsg = QMessageBox()
             infMsg.setText("Error")
             infMsg.setInformativeText(str(e))
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
+        print("Appending new window") #NICKA DEBUG
         self.windowList.append(newWindow)
+        print("Hiding self") #NICKA DEBUG
         self.hide()

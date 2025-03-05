@@ -345,10 +345,6 @@ class AddIntensitiesExp(QMainWindow):
             
         
         self.sumImagesButton.setEnabled(False)
-        self.useMaskChkBx = QCheckBox('Use Mask')
-        self.useMaskChkBx.setEnabled(False)
-        self.maskImageButton = QPushButton("Specify Empty Cell and Mask Images")
-        self.maskImageButton.setEnabled(False)
         self.calibrationChkBx = QCheckBox("Align Images")
         self.specifyCenterAndOrientationButton = QPushButton("Correct Center and Orientation")
         self.specifyCenterAndOrientationButton.setEnabled(False)
@@ -361,8 +357,6 @@ class AddIntensitiesExp(QMainWindow):
         self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
         self.imgOperationLayout.addWidget(self.selectImageChkBx, 1, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.sumImagesButton, 1, 3, 1, 1)
-        self.imgOperationLayout.addWidget(self.useMaskChkBx, 2, 0, 1, 2)
-        self.imgOperationLayout.addWidget(self.maskImageButton, 3, 0, 1, 4)
         self.imgOperationLayout.addWidget(self.calibrationChkBx, 4, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.specifyCenterAndOrientationButton, 5, 0, 1, 4)
         self.imgOperationLayout.addWidget(self.checkImagesButton, 6, 0, 1, 4)
@@ -627,7 +621,6 @@ class AddIntensitiesExp(QMainWindow):
         self.showSeparator.stateChanged.connect(self.refreshImageTab)
         self.selectImageChkBx.clicked.connect(self.selectImageChecked)
         self.sumImagesButton.clicked.connect(self.selectImageSequence)
-        self.maskImageButton.clicked.connect(self.maskImageButtonClicked)
         self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
         if self.mode == 'aise':
             self.factorBx.clicked.connect(self.binFactorChecked)
@@ -670,10 +663,6 @@ class AddIntensitiesExp(QMainWindow):
             else:
                 settings['nbOfFrames'] = self.nbOfExposures
             
-        if self.useMaskChkBx.isChecked():
-            settings['maskPath'] = self.maskPath
-            settings['drawnMask'] = self.drawnMask
-            settings['computedMask'] = self.computedMask    
             
         if self.blankImageSettings is not None:
             settings['blankImageSettings'] = self.blankImageSettings
@@ -846,10 +835,10 @@ class AddIntensitiesExp(QMainWindow):
                     self.updateImageGroups()
                     self.onNewFileSelected()
                     self.refreshAllTab()
-                except:
+                except Exception as e:
                     infMsg = QMessageBox()
                     infMsg.setText('Error opening file: ' + file_name)
-                    infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.")
+                    infMsg.setInformativeText("File is not a valid HDF5 file or corrupted.\nError: " + str(e))
                     infMsg.setStandardButtons(QMessageBox.Ok)
                     infMsg.setIcon(QMessageBox.Information)
                     infMsg.exec_()
@@ -1074,14 +1063,12 @@ class AddIntensitiesExp(QMainWindow):
         if (self.mode == 'aime'):
             createFolder(os.path.join(self.dir_path, 'aime_results'))
             self.frameNb.setMaximum(len(self.numberToFilesMap[1]) if len(self.numberToFilesMap[1]) <= 8 else 8)
-            self.maskImageButton.setEnabled(True)
             self.checkImagesButton.setEnabled(True)
             self.filenameLineEdit.setMaximum(len(self.numberToFilesMap))
             self.filenameLineEdit2.setMaximum(len(self.numberToFilesMap))
             self.exposureNbChanged()
         else:
             createFolder(os.path.join(self.dir_path, 'aise_results'))
-            self.maskImageButton.setEnabled(True)
             self.checkImagesButton.setEnabled(True)
             self.browseFileButton.setHidden(True)
             self.frameNb.setMaximum(len(self.img_list))
@@ -1312,14 +1299,6 @@ class AddIntensitiesExp(QMainWindow):
                         if self.blankImageSettings['clampNegativeValues'] == True:
                             self.sum_img = np.clip(self.sum_img, 0, None) 
                 
-                if self.useMaskChkBx.isChecked():
-                    self.maskData = fabio.open(self.maskPath).data
-                    self.orig_avg_img = self.sum_img
-                    self.sum_img = self.sum_img* self.maskData
-                    avg_intensity = np.sum(self.orig_avg_img) / np.sum(self.sum_img)
-                    print("Average masked intensity: ", avg_intensity)
-                    index = filename.rfind('.')
-                    masked_filename = filename[:index] + "_masked" + filename[index:]
                                    
                 self.generateCSVLine(filename)
                 print('Saving merged image...')
@@ -1327,20 +1306,10 @@ class AddIntensitiesExp(QMainWindow):
                 # Saving images
                 # If use mask is checked, then we save the masked image and the unmasked image
                 if self.compressChkBx.isChecked():
-                    if self.useMaskChkBx.isChecked():
-                        mask_tif_img = Image.fromarray(self.sum_img)
-                        mask_tif_img.save(os.path.join(output, masked_filename), compression='tiff_lzw')
-                        tif_img = Image.fromarray(self.orig_avg_img)
-                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
-                    else:
-                        tif_img = Image.fromarray(self.sum_img)
-                        tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
+                    tif_img = Image.fromarray(self.sum_img)
+                    tif_img.save(os.path.join(output, filename), compression='tiff_lzw')
                 else:
-                    if self.useMaskChkBx.isChecked():
-                        fabio.tifimage.tifimage(data=self.sum_img).write(os.path.join(output, masked_filename))
-                        fabio.tifimage.tifimage(data=self.orig_avg_img).write(os.path.join(output, filename))
-                    else:
-                        fabio.tifimage.tifimage(data=self.sum_img).write(os.path.join(output, filename))
+                    fabio.tifimage.tifimage(data=self.sum_img).write(os.path.join(output, filename))
 
             self.refreshAllTab()
             print("Done. Result image have been saved to "+output)
@@ -1434,6 +1403,26 @@ class AddIntensitiesExp(QMainWindow):
 
         self.uiUpdating = False
         
+    #apply masks to an image before plotting it.  This doesn't need to be a part of the class
+    def maskify(self, img, path):
+        #Get all maske
+        maskOnly = getMaskOnly(path)
+        blank, mask = getBlankImageAndMask(path)
+
+        #make sure not to change mask data(may not be necessary)
+        display_img = copy.copy(img)
+
+        #apply all existing masks to display_img
+        if blank is not None:
+            display_img = display_img - blank
+        if mask is not None:
+            display_img = display_img * mask
+        if maskOnly is not None:
+            display_img = display_img * maskOnly
+
+        #return the display image
+        return display_img
+
     def plotImages(self, imageAxes, img, index, name=None):
         """
         Displays the image
@@ -1447,9 +1436,9 @@ class AddIntensitiesExp(QMainWindow):
             extent, center = [0, 0], (0, 0)
 
         if self.logScaleIntChkBx.isChecked():
-            ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+            ax.imshow(self.maskify(img, self.dir_path), cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
         else:
-            ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
+            ax.imshow(self.maskify(img, self.dir_path), cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0] - extent[1], 0-extent[1]])
         ax.set_facecolor('black')
         
         if self.mode == 'aime':
@@ -2066,8 +2055,6 @@ class AddIntensitiesExp(QMainWindow):
                     self.refreshAllTab()
             elif func[0] == 'specify_image':
                 self.specifyCenterAndOrientationClicked()
-            elif func[0] == 'specify_image_mask':
-                self.maskImageButtonClicked()
                 
         if self.mode == 'aime':
             self.axClicked = ax
@@ -2359,38 +2346,6 @@ class AddIntensitiesExp(QMainWindow):
         ax.invert_yaxis()
         self.resultCanvas.draw_idle()
         
-    def maskImageButtonClicked(self):
-        
-        if self.imageMaskingTool is None:
-            if self.mode == 'aise':
-                if self.isHdf5:
-                    file_name = self.file_name
-                else:
-                    file_name = self.dir_path + '/' + self.img_list[self.currentFileNumber]
-                self.imageMaskingTool = ImageMaskerWindow(self.dir_path , file_name, self.spminInt.value(), self.spmaxInt.value(), self.isHdf5)
-            else:
-                if self.function is None:
-                    self.function = ["specify_image_mask"]
-                    QMessageBox.information(self, "Select Image", "Select Image to Mask")
-                else:
-                    self.function = None
-                    file_name = self.numberToFilesMap[self.currentFileNumber][self.index]
-                    path_name = os.path.join(self.dir_path, self.folder_paths[self.index] + '/' + file_name)
-                    self.imageMaskingTool = ImageMaskerWindow(self.dir_path , path_name, self.spminInt.value(), self.spmaxInt.value(), self.isHdf5)
-                
-        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
-            if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
-                print("mask found!!")
-                self.maskPath = join(join(self.dir_path, 'settings'), 'mask.tif')
-                self.useMaskChkBx.setChecked(True)
-                self.useMaskChkBx.setEnabled(True)
-            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
-                print("blank image found!")
-                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
-                    self.blankImageSettings = json.load(f)
-            self.drawnMask = self.imageMaskingTool.drawnMask
-            self.computedMask = self.imageMaskingTool.computedMask
-            self.imageMaskingTool = None
 
     def specifyCenterAndOrientationClicked(self):
         if self.mode == 'aise':

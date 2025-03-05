@@ -50,6 +50,7 @@ from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
+from .DoubleZoomGUI import DoubleZoom
 from skimage.morphology import binary_dilation
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
@@ -87,7 +88,8 @@ class EquatorWindow(QMainWindow):
     Window displaying all information of a selected image.
     This window contains 3 tabs : image, fitting, results
     """
-    def __init__(self, mainWin, filename):
+    def __init__(self, mainWin):
+        print("EQ Window Constructor") #NICKA DEBUG
         """
         Init window with main window object and selected file name
         :param mainWin: main window object
@@ -112,13 +114,9 @@ class EquatorWindow(QMainWindow):
         self.first = True
         self.orientationModel = None
         self.modeOrientation = None
-        self.doubleZoomAxes = None
-        self.doubleZoomMode = False
-        self.dontShowAgainDoubleZoomMessageResult = False
         self.newImgDimension = None
         self.plot_min = None
         self.stop_process = False
-        self.doubleZoomPt = None
         self.chordpoints = []
         self.chordLines = []
         
@@ -134,22 +132,31 @@ class EquatorWindow(QMainWindow):
         self.gap_lines = []
         self.gaps = []
 
-        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(filename))
+        self.initUI()  # Initial all UI
+
+        self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
+
+        self.setAllToolTips()  # Set tooltips for widgets
+        self.setConnections()  # Set interaction for widgets
+        print("EW CONSTRUCTOR: ABOUT TO SAY SHOW") #NICKA DEBUG
+        self.show()
+        self.browseFile()
+
+        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(self.fileName))
         if self.imgList is None or len(self.imgList) == 0:
             self.inputerror()
             return
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.setWindowTitle("Muscle X Equator v." + __version__)
         # self.setStyleSheet(getStyleSheet())
-        self.initUI()  # Initial all UI
-        self.setAllToolTips()  # Set tooltips for widgets
-        self.setConnections()  # Set interaction for widgets
-        #self.onImageChanged() # Toggle window to process current image
 
-        fileName = self.imgList[self.currentImg]
-        self.filenameLineEdit.setText(fileName)
-        self.filenameLineEdit2.setText(fileName)
-        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+        #self.onImageChanged() # Toggle window to process current image
+        
+
+        self.fileName = self.imgList[self.currentImg]
+        self.filenameLineEdit.setText(self.fileName)
+        self.filenameLineEdit2.setText(self.fileName)
+        self.bioImg = EquatorImage(self.dir_path, self.fileName, self, self.fileList, self.ext)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         if 'paramInfo' in self.bioImg.info:
@@ -165,9 +172,8 @@ class EquatorWindow(QMainWindow):
         self.setCalibrationImage()
         #    self.processImage()
 
-        self.setH5Mode(str(filename))
+        self.setH5Mode(str(self.fileName))
         self.processImage()
-        self.show()
         # self.init_logging()
         # focused_widget = QApplication.focusWidget()
         # if focused_widget != None:
@@ -333,9 +339,6 @@ class EquatorWindow(QMainWindow):
         self.fixedRmax.setEnabled(False)
         self.applyBlank = QCheckBox("Apply Blank Image and Mask")
         self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-        self.dontShowAgainDoubleZoomMessageResult = False
-        self.doubleZoomMode = False
         self.applyBlank.setChecked(False)
         self.doubleZoom.setChecked(False)
         self.blankSettings = QPushButton("Set")
@@ -1177,30 +1180,10 @@ class EquatorWindow(QMainWindow):
         """
         Triggered when double zoom toggle is checked
         """
-        if self.doubleZoom.isChecked():
-            print("Double zoom checked")
-            self.doubleZoomAxes = self.displayImgFigure.add_subplot(333)
-            self.doubleZoomAxes.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes.axes.yaxis.set_visible(False)
-            self.doubleZoomMode = True
-
-            img = self.bioImg.getRotatedImage()
-            ax1 = self.doubleZoomAxes
-            x,y = self.bioImg.info['center']
-            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomPt = (x, y)
-                ax1.imshow(imgScaled)
-                if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches[i].remove()
-        else:
-            self.displayImgFigure.delaxes(self.doubleZoomAxes)
-            self.doubleZoomMode = False
-        self.displayImgCanvas.draw_idle()
+        self.doubleZoomGUI.doubleZoomChecked(img=self.bioImg.getRotatedImage(),
+                                             canv=self.displayImgCanvas,
+                                             center=self.bioImg.info['center'],
+                                             is_checked=self.doubleZoom.isChecked())
 
     def quadrantFoldChecked(self):
         """
@@ -1223,14 +1206,46 @@ class EquatorWindow(QMainWindow):
         # if result == 1 and self.bioImg is not None:
         #     self.resetAll()
         
-        if self.imageMaskingTool is None:
-            isH5 = False
-            if self.h5List:
-                fileName = self.h5List[self.h5index]
-                isH5 = True
-            else:
-                fileName = self.imgList[self.currentImg]
-            self.imageMaskingTool = ImageMaskerWindow(self.dir_path , os.path.join(self.dir_path, fileName), self.minIntSpnBx.value(), self.maxIntSpnBx.value(), isH5)
+        isH5 = False
+        if self.h5List:
+            fileName = self.h5List[self.h5index]
+            isH5 = True
+        else:
+            fileName = self.imgList[self.currentImg]
+
+        img = self.bioImg.getRotatedImage()
+        print("IMAGE SHAPE: ", img.shape) #NICKA DEBUG
+
+        try:
+            fabio.tifimage.tifimage(data=img).write(os.path.join(self.dir_path,'settings/tempMaskFile_eq.tif'))
+        except:
+            print("ERROR WITH SAVING THE IMAGE") 
+
+        max_val =  np.max(np.ravel(img))
+
+        orig_size = self.bioImg.orig_img.shape
+        print("ORIG SIZE: ", orig_size) #NICKA DEBUG  
+
+        if 'rotationAngle' in self.bioImg.info:
+            rotationAngle = self.bioImg.info['rotationAngle']
+        else:
+            rotationAngle = 0
+
+        trans_x = (img.shape[0] - self.bioImg.orig_img.shape[0]) / 2
+        trans_y = (img.shape[1] - self.bioImg.orig_img.shape[1]) / 2
+
+        trans_mat = np.float32([[1,0,trans_x],[0,1,trans_y]])
+
+        print("MAX VAL: ", max_val) #NICKA DEBUG
+        self.imageMaskingTool = ImageMaskerWindow(self.dir_path , 
+                                                  os.path.join(self.dir_path, "settings/tempMaskFile_eq.tif"), 
+                                                  self.minIntSpnBx.value(), 
+                                                  self.maxIntSpnBx.value(), 
+                                                  max_val=max_val, 
+                                                  orig_size=orig_size, 
+                                                  trans_mat=trans_mat, 
+                                                  rot_angle=rotationAngle, 
+                                                  isHDF5=isH5)
             
         if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
             if os.path.exists(os.path.join(os.path.join(self.dir_path, 'settings'), 'blank_image_settings.json')):
@@ -1611,14 +1626,19 @@ class EquatorWindow(QMainWindow):
         self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def browseFile(self):
+        print("EQ WINDOW BROWSE FILE") #NICKA DEBUG
         """
         Popup an input file dialog. Users can select an image or .txt for failed cases list
         """
         file_name = getAFile(add_txt=True)
+        print("After GetAFILE IN EQ WINDOW BROWSEFILE") #NICKA DEBUG
+        print("FILE: ", file_name)
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
         if file_name != "":
+            print("EQ WINDOW: FILE NAME IS NOT EMPTY STR") #NICKA DEBUG
             if ext == ".txt" and not name == "failedcases.txt":
+                print("EQ WINDOW: EXTENSION IS TXT AND IT ISNT FAILEDCAES") #NICKA DEBUG
                 errMsg = QMessageBox()
                 errMsg.setText('Invalid Input')
                 errMsg.setInformativeText("Please select only failedcases.txt or an image\n\n")
@@ -1626,7 +1646,11 @@ class EquatorWindow(QMainWindow):
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
             else:
-                self.mainWindow.runBioMuscle(str(file_name))
+                print("EQ WINDOW: EXPECTED EXEC PATH") #NICKA DEBUG
+                #self.mainWindow.runBioMuscle()
+
+        self.fileName = file_name
+        print("END OF EQ WINDOW BROWSE.  SETTING SELF.FILENAME: ", self.fileName) #NICKA DEBUG
 
     def saveSettings(self):
         """
@@ -1898,6 +1922,7 @@ class EquatorWindow(QMainWindow):
         :return: True if calibration set, False otherwise
         """
         if self.calibSettingDialog is None:
+            print("CalibSettingsDialog is none")
             # if self.bioImg is not None:
             #     self.calibSettingDialog = CalibrationSettings(self.dir_path)
             # else:
@@ -1907,8 +1932,8 @@ class EquatorWindow(QMainWindow):
                 self.calibSettingDialog = CalibrationSettings(self.dir_path)
             else:
                 self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
-        else:
-            self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
+        #else:
+            #self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
 
         self.calSettings = None
         cal_setting = self.calibSettingDialog.calSettings
@@ -2605,17 +2630,6 @@ class EquatorWindow(QMainWindow):
         else:
             self.rotation90ChkBx.setEnabled(True)
 
-    def doubleZoomToOrigCoord(self, x, y):
-        """
-        Compute the new x and y for double zoom to orig coord
-        """
-        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
-        dzx, dzy = self.doubleZoomPt
-        x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx -10 + x
-        newY = dzy - 10 + y
-        return (newX, newY)
-
     def inrec(self, x, y, xmin, ymin, xmax, ymax):
         """
         inrec
@@ -2719,26 +2733,13 @@ class EquatorWindow(QMainWindow):
             y = max(y, 0)
             y = min(y, ylim[0])
 
-        elif self.doubleZoomMode:
-            # If x, y is inside figure and image is clicked for first time in double zoom mode
-            print(x,y)
-            if not self.dontShowAgainDoubleZoomMessageResult:
-                msg = QMessageBox()
-                msg.setInformativeText(
-                    "Please click on zoomed window on the top right")
-                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Double Zoom Guide")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
-                msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
-            self.doubleZoomMode = False
+        elif self.doubleZoomGUI.doubleZoomMode:
+            self.doubleZoomGUI.mouseClickBehavior(x, y)
             return
 
-        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-            x, y = self.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomMode = True
+        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
+            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomGUI.doubleZoomMode = True
 
         func = self.function
         # Provide different behavior depending on current active function
@@ -2936,8 +2937,14 @@ class EquatorWindow(QMainWindow):
         # img = self.bioImg.getRotatedImage()
         img = self.bioImg.image
 
+        ax = self.displayImgAxes
+
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
+
+            if self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), (0,0), self.displayImgAxes)
+
             x = int(round(x))
             y = int(round(y))
             unit = "px"
@@ -2966,12 +2973,12 @@ class EquatorWindow(QMainWindow):
                     mouse_distance = np.sqrt((self.bioImg.info['center'][0] - x) ** 2 + (self.bioImg.info['center'][1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x > 10 and x < img.shape[1]-10 and y > 10 and y < img.shape[0]-10:
-                    ax1 = self.doubleZoomAxes
+                if self.doubleZoom.isChecked() and self.doubleZoomGUI.doubleZoomMode and x > 10 and x < img.shape[1]-10 and y > 10 and y < img.shape[0]-10:
+                    ax1 = self.doubleZoomGUI.axes
                     imgCropped = img[y - 10:y + 10, x - 10:x + 10]
                     if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                         imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                        self.doubleZoomPt = (x,y)
+                        self.doubleZoomGUI.doubleZoomPoint = (x,y)
                         ax1.imshow(imgScaled)
                         if len(ax1.lines) > 0:
                             for i in range(len(ax1.lines)-1,-1,-1):
@@ -3005,18 +3012,23 @@ class EquatorWindow(QMainWindow):
         if func is None:
             return
         elif func[0] == "im_zoomin":
-            # draw rectangle
-            if len(func) < 2:
-                return
-            ax = self.displayImgAxes
-            ax.patches[-1].remove()
-            start_pt = func[1]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+
+            if len(func) == 1 and self.doubleZoom.isChecked():
+                if not self.doubleZoomGUI.doubleZoomMode:
+                    self.doubleZoomGUI.updateAxes(x, y)
+            elif len(func) == 2:
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.patches) > 0:
+                            ax.patches[0].remove()
+                    start_pt = func[1]    
+                    w = abs(start_pt[0] - x)
+                    h = abs(start_pt[1] - y)
+                    x = min(start_pt[0], x)
+                    y = min(start_pt[1], y)
+                    ax.add_patch(patches.Rectangle((x, y), w, h,
+                                                linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+                else:
+                    self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "angle":
@@ -3027,20 +3039,15 @@ class EquatorWindow(QMainWindow):
             x2 = center[0] - deltax
             y2 = center[1] - deltay
             ax = self.displayImgAxes
-            if not self.doubleZoom.isChecked():
+            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                elif self.doubleZoomMode:
+                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                    self.doubleZoomGUI.updateAxesInner(x, y)
+                elif self.doubleZoomGUI.doubleZoomMode:
                     for i in range(len(ax.lines)-1,-1,-1):
                         ax.lines[i].remove()
                     ax.plot([x, x2], [y, y2], color="g")
@@ -3048,23 +3055,18 @@ class EquatorWindow(QMainWindow):
         elif func[0] == "int_area":
             # draw horizontal lines
             ax = self.displayImgAxes
-            if not self.doubleZoom.isChecked():
+            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
                 if len(ax.lines) > len(func) - 1:
                     # line = ax.lines[:len(func) - 1]
                     for i in range(len(ax.lines)-1, len(func) - 2,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                     # ax.lines = line
                 ax.axhline(y, color='g')
             else: 
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                elif self.doubleZoomMode:
+                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                    self.doubleZoomGUI.updateAxesInner(x, y)
+                elif self.doubleZoomGUI.doubleZoomMode:
                     if len(ax.lines) > len(func) - 1:
                         # line = ax.lines[:len(func) - 1]
                         for i in range(len(ax.lines)-1, len(func) - 2,-1):
@@ -3083,15 +3085,9 @@ class EquatorWindow(QMainWindow):
                 ax.add_patch(
                     patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
             else: 
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                elif self.doubleZoomMode:
+                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                    self.doubleZoomGUI.updateAxesInner(x, y)
+                elif self.doubleZoomGUI.doubleZoomMode:
                     for i in range(len(ax.patches)-1,-1,-1):
                         ax.patches[i].remove()
                     ax.add_patch(
@@ -3106,40 +3102,27 @@ class EquatorWindow(QMainWindow):
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
                     for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
             # self.displayImgCanvas.flush_events()
         elif func[0] == "perp_center":
@@ -3148,96 +3131,61 @@ class EquatorWindow(QMainWindow):
             # ax2 = self.displayImgFigure.add_subplot(4,4,13)
             axis_size = 5
             if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.lines) > 0:
+                        for i in range(len(ax.lines)-1,-1,-1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) == 2:
                 start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        ax.lines[i].remove()
-                    # ax.lines = first_cross
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.lines) > 2:
+                        # first_cross = ax.lines[:2]
+                        for i in range(len(ax.lines)-1,1,-1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) % 2 != 0:
-                if len(ax.lines) > 0:
-                    n = (len(func)-1)*5//2 + 2
-                    # first_cross = ax.lines[:n]
-                    for i in range(len(ax.lines)-1,n-1,-1):
-                        ax.lines[i].remove()
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.lines) > 0:
+                        n = (len(func)-1)*5//2 + 2
+                        # first_cross = ax.lines[:n]
+                        for i in range(len(ax.lines)-1,n-1,-1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
                     # ax.lines = first_cross
-                if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) % 2 == 0:
                 start_pt = func[-1]
-                if len(ax.lines) > 3:
-                    n = len(func) * 5 // 2 - 1
-                    # first_cross = ax.lines[:n]
-                    for i in range(len(ax.lines)-1,n-1,-1):
-                        ax.lines[i].remove()
+                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                    if len(ax.lines) > 3:
+                        n = len(func) * 5 // 2 - 1
+                        # first_cross = ax.lines[:n]
+                        for i in range(len(ax.lines)-1,n-1,-1):
+                            if ax.lines[i].get_label() != "Blue Dot":
+                                ax.lines[i].remove()
                     # ax.lines = first_cross
-                if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "chords_center":
             if self.doubleZoom.isChecked():
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
 
         elif func[0] == "im_move":

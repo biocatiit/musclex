@@ -178,10 +178,10 @@ class ProjectionProcessor:
             if blank is not None:
                 img = img - blank
             if mask is not None:
-                img[mask > 0] = self.info['mask_thres'] - 1.
+                img[mask == 0] = self.info['mask_thres'] - 1.
             if maskOnly is not None:
                 print("Applying mask only image")
-                img[maskOnly > 0] = self.info['mask_thres'] - 1
+                img[maskOnly == 0] = self.info['mask_thres'] - 1
             
             self.info['hists'] = {}
             self.orig_img = img

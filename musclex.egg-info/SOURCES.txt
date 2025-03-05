@@ -2007,6 +2007,7 @@ musclex/ui/BlankImageSettings.py
 musclex/ui/CalibrationDialog.py
 musclex/ui/DIBatchWindow.py
 musclex/ui/DIImageWindow.py
+musclex/ui/DoubleZoomGUI.py
 musclex/ui/EQStartWindow.py
 musclex/ui/EQ_FittingTab.py
 musclex/ui/EquatorWindow.py
@@ -2016,6 +2017,7 @@ musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
 musclex/ui/QuadrantFoldingGUI.py
 musclex/ui/ScanningDiffractionGUI.py
+musclex/ui/TotalDisplayIntensity.py
 musclex/ui/UnalignedImagesDialog.py
 musclex/ui/XRayViewerGUI.py
 musclex/ui/__init__.py
@@ -2034,6 +2036,7 @@ musclex/utils/hdf5_to_tiffs.py
 musclex/utils/histogram_processor.py
 musclex/utils/image_processor.py
 musclex/utils/logger.py
+musclex/utils/misc_utils.py
 musclex/utils/rec2sq.py
 musclex/utils/strong_image_creation.py
 musclex/utils/tif_compressor.py

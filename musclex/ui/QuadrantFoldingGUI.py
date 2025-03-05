@@ -47,6 +47,7 @@ from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
+from .DoubleZoomGUI import DoubleZoom
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 from scipy.ndimage import rotate
@@ -72,7 +73,9 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params, fixed_center_checked, persist_center, persist_rot, qf_lock):
+    def __init__(self, params, fixed_center_checked, 
+                 persist_center, persist_rot, bgsub = 'Circularly-symmetric',
+                 bg_lock=None):
         super().__init__()
         self.flags = params.flags
         self.params = params
@@ -86,6 +89,8 @@ class Worker(QRunnable):
         #NA
         self.persist_rot = persist_rot
 
+        self.bgsub = bgsub
+
         #NA
         #self.qf_lock = qf_lock
         self.qf_lock = Lock()
@@ -93,8 +98,12 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         try:
-            self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, self.params.parent, self.params.fileList, self.params.ext)
+            self.quadFold = QuadrantFolder(self.params.filePath, self.params.fileName, 
+                                           self.params.parent, self.params.fileList, 
+                                           self.params.ext)
             self.quadFold.info = {}
+            self.quadFold.info['bgsub'] = self.bgsub
+            print("WORKER RUN: info-bgsub=",self.bgsub) #NICKA DEBUG
 
             #NICK ALLISON
             #pass persisted center data to quadfold object
@@ -108,6 +117,7 @@ class Worker(QRunnable):
 
 
             self.quadFold.process(self.flags)
+            self.saveBackground()
 
 
             if self.qf_lock is not None:
@@ -124,7 +134,69 @@ class Worker(QRunnable):
         finally:
             self.signals.finished.emit()
 
+
+    def saveBackground(self):
+        """
+        Save the background in the bg folder
+        """
+        info = self.quadFold.info
+        result = self.quadFold.imgCache["BgSubFold"]
+
+        avg_fold = info["avg_fold"]
+
+
+        print("Avg_fold total: ", np.sum(avg_fold)) #NICKA DEBUG
+        print("Result Shape: ", np.sum(result)) 
+
+
+        print("Avg_fold shape:")
+        print(avg_fold.shape)
+        print("result shape: ")
+        print(result.shape)
+        background = avg_fold-result
+        resultImg = self.quadFold.makeFullImage(background)
+
+        if 'rotate' in info and info['rotate']:
+            #pass
+            resultImg = np.rot90(resultImg)
+
+        method = info['bgsub']
+        print(method)
+        if method != 'None':
+            
+            filename = self.params.fileName
+            bg_path = fullPath(self.params.filePath, os.path.join("qf_results", "bg"))
+            result_path = fullPath(bg_path, filename + ".bg.tif")
+
+            # create bg folder
+            createFolder(bg_path)
+            resultImg = resultImg.astype("float32")
+            fabio.tifimage.tifimage(data=resultImg).write(result_path)
+
+            self.bgCSV(np.sum(resultImg), bg_path)
+
+
+
+    def bgCSV(self, total_inten, bg_path):
+            filename = self.params.fileName
+            csv_path = join(bg_path, f'background_sum_{self.params.fileName}.csv')
+
+                # create csv file to save total intensity for background
+            if exists(csv_path):
+                print("READING CSV_BG from CSV") #NICKA DEBUG
+                self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
+                self.csv_bg.loc[filename] = pd.Series({'Name': filename, 'Sum': total_inten})
+                self.csv_bg.to_csv(csv_path, mode='a', header=not os.path.exists(csv_path), index=False)
+                print("CSV DF: ", self.csv_bg) #NICKA DEBUG
+            else:
+                self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
+                self.csv_bg.loc[filename] = pd.Series({'Name': filename, 'Sum': total_inten})
+                self.csv_bg.to_csv(csv_path, mode='a')
+                print("ELSE CASE") #NICKA DEBUG
+                print("SELF>CSV_GB IN ELSE: ", self.csv_bg)
+
 class QuadrantFoldingGUI(QMainWindow):
+
     """
     A class for window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
@@ -178,13 +250,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rotationAngle = None
 
         self.calSettingsDialog = None
-        self.doubleZoomMode = False
-        self.mouseSensitivity = 1.0
-        self.dontShowAgainDoubleZoomMessageResult = False
-        self.doubleZoomPt = (0, 0)
-        self.doubleZoomAxes = None
-
-        self.lastMousePos = None
 
         #NA
         #Used for when the same center/rotation needs to be used to process a folder
@@ -194,6 +259,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.thresh_mask = None
 
         self.initUI() # initial all GUI
+
+        self.doubleZoomGUI = DoubleZoom(self.imageFigure)
+
         self.setConnections() # set triggered function for widgets
         # self.setMinimumHeight(900)
         self.resize(1200, 900)
@@ -202,6 +270,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.mask_min = None
         self.mask_max = None
+
+        self.last_executed = time.time() #Records when the handler was last executed
+        self.min_interval = 0.2 #Minimum miliseconds between handler function call
 
     def initUI(self):
         """
@@ -377,15 +448,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         #self.doubleZoom.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-
-        self.sensitivitySlider = QSlider(Qt.Horizontal, self)
-        self.sensitivitySlider.setRange(1, 100)
-        self.sensitivitySlider.setValue(10)
-        self.sensitivitySlider.setTickInterval(10)
-        self.sensitivitySlider.setTickPosition(QSlider.TicksBelow)
-
-        self.sensitivityLabel = QLabel("Sensitivity: 1.0", self)
+        #self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
@@ -410,11 +473,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.modeAngleChkBx, 8, 0, 1, 4)
         self.settingsLayout.addWidget(self.fixedOrientationChkBx, 8, 2, 1, 4)
         
-
-        self.settingsLayout.addWidget(self.sensitivityLabel, 12, 0, 1, 4)
-        self.settingsLayout.addWidget(self.sensitivitySlider, 13, 0, 1, 4)
-        self.sensitivityLabel.setVisible(False)
-        self.sensitivitySlider.setVisible(False)
 
         self.settingsLayout.addWidget(self.toggleFoldImage, 14, 0, 1, 4)
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 14, 2, 1, 4)
@@ -453,7 +511,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.fixedRoi.setEnabled(False)
 
         self.bgChoice = QComboBox()
-        self.bgChoice.setCurrentIndex(0)
+        self.bgChoice.setCurrentIndex(1)
         # self.bgChoice.setFixedHeight(40)
         self.allBGChoices = ['None','Circularly-symmetric', 'Roving Window', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', '2D Convexhull']
         for c in self.allBGChoices:
@@ -750,7 +808,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rightFrame = QFrame()
         self.rightFrame.setFixedWidth(500)
         self.rightFrame.setLayout(self.rightLayout)
-        self.resultTabLayout.addWidget(self.rightFrame)
+
+        self.res_scroll_areaImg = QScrollArea()
+        self.res_scroll_areaImg.setWidgetResizable(True)
+        self.res_scroll_areaImg.setWidget(self.rightFrame)
+
+        self.scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+        self.resultTabLayout.addWidget(self.res_scroll_areaImg)
 
         # Display Options
         self.resultDispOptGrp = QGroupBox("Display Options")
@@ -958,9 +1023,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
-
-        #sensitivity slider
-        self.sensitivitySlider.valueChanged.connect(self.sensitivityChanged)
         
 
     def updateLeftWidgetWidth(self):
@@ -970,14 +1032,6 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             # Set the minimum width for when the canvas is hidden
             self.leftWidget.setMinimumWidth(650)
-
-
-    def sensitivityChanged(self, value):
-        """
-        Adjust mouse sensitivity based on slider value.
-        """
-        self.mouseSensitivity = value / 10.0  # Scale the value (e.g., 0.1 to 10.0)
-        print(f"Mouse sensitivity set to {self.mouseSensitivity}")
 
 
     def persistRotationsChecked(self):
@@ -1091,7 +1145,15 @@ class QuadrantFoldingGUI(QMainWindow):
         trans_mat = self.quadFold.centImgTransMat if self.quadFold.centImgTransMat is not None else None  
         orig_size = self.quadFold.origSize if self.quadFold.origSize is not None else None
 
-        self.imageMaskingTool = ImageMaskerWindow(self.filePath , join(self.filePath, "settings/tempMaskFile.tif"), self.spminInt.value(), self.spmaxInt.value(), max_val, trans_mat, orig_size, rot_ang, isH5)
+        self.imageMaskingTool = ImageMaskerWindow(self.filePath, 
+                                                  join(self.filePath, "settings/tempMaskFile.tif"), 
+                                                  self.spminInt.value(), 
+                                                  self.spmaxInt.value(), 
+                                                  max_val, 
+                                                  orig_size,
+                                                  trans_mat,                                                    
+                                                  rot_ang, 
+                                                  isH5)
             
         if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
             if os.path.exists(join(join(self.filePath, 'settings'), 'blank_image_settings.json')):
@@ -1188,8 +1250,12 @@ class QuadrantFoldingGUI(QMainWindow):
                     cx, cy = getIntersectionOfTwoLines(line2, line1)
                     print("Intersection ", (cx, cy))
                     intersections.append((cx, cy))
-            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
-            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
+            if len(intersections) != 0:
+                cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
+                cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
+            else:
+                print("Can't Calculate Center Yet; no intersections found")
+                return
 
             print("Center calc ", (cx, cy))
 
@@ -1431,17 +1497,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.img_zoom = None
         self.refreshImageTab()
 
-    def doubleZoomToOrigCoord(self, x, y):
-        """
-        Compute the new x and y for double zoom to orig coord
-        """
-        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
-        dzx, dzy = self.doubleZoomPt
-        x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx -10 + x
-        newY = dzy - 10 + y
-        return (newX, newY)
-
     def imageClicked(self, event):
         """
         Triggered when mouse presses on image in image tab
@@ -1469,29 +1524,16 @@ class QuadrantFoldingGUI(QMainWindow):
             y = min(y, ylim[0])
             x = int(round(x))
             y = int(round(y))
-        elif self.doubleZoomMode:
-            # If x, y is inside figure and image is clicked for first time in double zoom mode
-            print(x,y)
-            if not self.dontShowAgainDoubleZoomMessageResult:
-                msg = QMessageBox()
-                msg.setInformativeText(
-                    "Please click on zoomed window on the top right")
-                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Double Zoom Guide")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
-                msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
-            self.doubleZoomMode = False
+        elif self.doubleZoomGUI.doubleZoomMode:
+            self.doubleZoomGUI.mouseClickBehavior(x, y)
             return
 
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
 
-        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-            x, y = self.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomMode = True
+        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
+            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
+            self.doubleZoomGUI.doubleZoomMode = True
 
         # Provide different behavior depending on current active function
         if self.function is None:
@@ -1606,26 +1648,32 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.persistRotations.setVisible(True)
                 self.processImage()
 
+    
+    def calcMouseMovement(self):
+        "Determines relatively how fast the mouse is moving around"
 
-    def drawBlueDot(self, x, y, ax=None):
-        if ax is None:
-            ax = self.imageAxes
+        mph = self.mousePosHist
+        if len(mph) < 2:
+            return 0
 
-        # Remove any existing lines or patches so they don't stack
-        if len(ax.lines) > 0:
-            for i in range(len(ax.lines)-1, -1, -1):
-                ax.lines[i].remove()
-        if len(ax.patches) > 0:
-            for i in range(len(ax.patches)-1, -1, -1):
-                ax.patches[i].remove()
-
-        # Plot a blue dot at the given coordinates
-        ax.plot(x, y, 'bo', markersize=5)
+        diffs = len(self.mousePosHist) - 1
+        total = 0
+        for i in range(diffs):
+            total += np.sqrt(((mph[i][0] - mph[i+1][0]) ** 2) + ((mph[i][1] - mph[i+1][1]) ** 2))
+            
+        return total / diffs
 
     def imageOnMotion(self, event):
         """
-        Triggered when mouse presses on image in image tab
+        Triggered when mouse hovers on image in image tab
         """
+        current_time = time.time()
+
+        if not current_time - self.last_executed >= self.min_interval:
+            return
+        else:
+            self.last_executed = current_time
+
         if not self.ableToProcess():
             return
 
@@ -1639,35 +1687,8 @@ class QuadrantFoldingGUI(QMainWindow):
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
             
-            if self.doubleZoomMode:
-                if self.lastMousePos is None:
-                    self.lastMousePos = (x, y)
-                    return
-
-                # Calculate deltas with sensitivity
-                deltaX = (x - self.lastMousePos[0]) * self.mouseSensitivity
-                deltaY = (y - self.lastMousePos[1]) * self.mouseSensitivity
-
-                # Adjust x and y based on sensitivity
-                x = int(round(self.lastMousePos[0] + deltaX))
-                y = int(round(self.lastMousePos[1] + deltaY))
-
-                #Upper bound on x and y vals to avoid errors
-                if x + self.extent[0] > len(img[0]):
-                    x = len(img[0]) - self.extent[0] - 1
-                if y + self.extent[1] > len(img):
-                    y = len(img) - self.extent[1] - 1
-
-                #Lower bound on x and y to avoid errors
-                if x < 0:
-                    x = 0
-                if y < 0:
-                    y = 0
-
-                # Update last mouse position
-                self.lastMousePos = (x, y)
-
-                self.drawBlueDot(x, y)
+            if self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), self.extent, self.imageAxes)
 
             x = int(round(x))
             y = int(round(y))
@@ -1695,20 +1716,12 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     mouse_distance = np.sqrt((self.quadFold.info['center'][0] - x) ** 2 + (self.quadFold.info['center'][1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
-                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(mouse_distance) + unit)
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and sx>10 and sx<img.shape[1]-10 and sy>10 and sy<img.shape[0]-10:
-                    ax1 = self.doubleZoomAxes
-                    imgCropped = img[int(sy - 10):int(sy + 10), int(sx - 10):int(sx + 10)]
-                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                        self.doubleZoomPt = (x,y)
-                        ax1.imshow(imgScaled)
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches[i].remove()
-                        self.imageCanvas.draw_idle()
+                    try:
+                        self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(mouse_distance) + unit)
+                    except:
+                        pass
+
+                self.doubleZoomGUI.mouseHoverBehavior(sx, sy, img, self.imageCanvas, self.doubleZoom.isChecked())
 
         ax = self.imageAxes
         # Calculate new x,y if cursor is outside figure
@@ -1730,24 +1743,31 @@ class QuadrantFoldingGUI(QMainWindow):
             x = int(round(x))
             y = int(round(y))
 
+
         if self.function is None:
             return
 
         func = self.function
+        if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
+            if not self.doubleZoomGUI.doubleZoomMode:
+                self.doubleZoomGUI.updateAxes(x, y)
+                self.imageCanvas.draw_idle()
         if func[0] == "im_zoomin" and len(self.function) == 2:
-            # draw rectangle
-            if len(ax.patches) > 0:
-                ax.patches[0].remove()
-            start_pt = func[1]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                           linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+            # draw rectangle            
+            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+                if len(ax.patches) > 0:
+                    ax.patches[0].remove()
+                start_pt = func[1]    
+                w = abs(start_pt[0] - x)
+                h = abs(start_pt[1] - y)
+                x = min(start_pt[0], x)
+                y = min(start_pt[1], y)
+                ax.add_patch(patches.Rectangle((x, y), w, h,
+                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+            else:
+                self.doubleZoomGUI.updateAxes(x, y)
             self.imageCanvas.draw_idle()
         elif func[0] == "im_move":
-            # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
                 move = (func[1][0] - x, func[1][1] - y)
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
@@ -1757,30 +1777,23 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate":
-            # draw X on points and a line between points
             axis_size = 5
             if len(func) == 1:
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
                     # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
+                    for i in range(len(ax.lines)-1,2,-1):
                         ax.lines[i].remove()
                     # ax.lines = first_cross
                 if not self.doubleZoom.isChecked():
@@ -1788,14 +1801,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
             self.imageCanvas.draw_idle()
 
         elif func[0] == "perp_center":
@@ -1806,92 +1812,109 @@ class QuadrantFoldingGUI(QMainWindow):
 
             if len(func) == 1:
                 if len(ax.lines) > 0:
-                    for i in range(len(ax.lines) - 1, -1, -1):
+
+                    for i in range(len(ax.lines) - 1, 0, -1):
                         ax.lines[i].remove()
+
+
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
+                    self.doubleZoomGUI.updateAxes(x, y)
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
-                    for i in range(len(ax.lines) - 1, 1, -1):
+
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print(ax.lines[i].get_label()) #NICKA DEBUG
+
+                    for i in range(len(ax.lines) - 1, 2, -1):
+                       # print("LEN = 2") #NICKA DEBUG
+                        #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
+
+                    print("Length of Function is 2 AFTER REMOVAL") #NICKA DEBUG
+                    print("AX.LINES (Last to first): ") #NICKA DEBUG
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print(ax.lines[i].get_label()) #NICKA DEBUG
+
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) % 2 != 0:
+                #print("LEN FUNC % 2 != 0") #NICKA DEBUG
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
+
+                    print(f"n = {n}")
+                    print("Length of Function % 2 is not 0 BEFORE REMOVAL") #NICKA DEBUG
+                    print("AX.LINES (Last to first): ") #NICKA DEBUG
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print(ax.lines[i].get_label()) #NICKA DEBUG
+
                     for i in range(len(ax.lines) - 1, n - 1, -1):
+                        #print("LEN % 2 != 0") #NICKA DEBUG
+                        #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
+
+                    print("Length of Function % 2 is not 0 AFTER REMOVAL") #NICKA DEBUG
+                    print("AX.LINES (Last to first): ") #NICKA DEBUG
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print(ax.lines[i].get_label()) #NICKA DEBUG
+
                 if not self.doubleZoom.isChecked():
+                    #print("NOT DOUBLE ZOOM 44") #NICKA DEBUG
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    #print("DOUBLE ZOOM 44") #NICKA DEBUG
+                    self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) % 2 == 0:
+                #print("LEN FUNC % 2 == 0") #NICKA DEBUG
                 start_pt = func[-1]
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
+
+                    print(f"n = {n}")
+                    print("Length of Function % 2 is not 0 BEFORE REMOVAL") #NICKA DEBUG
+                    print("AX.LINES (Last to first): ") #NICKA DEBUG
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print(ax.lines[i].get_label()) #NICKA DEBUG
+
                     for i in range(len(ax.lines) - 1, n - 1, -1):
+                        #print("LEN % 2 == 0") #NICKA DEBUG
+                        #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
+
+                    print("Length of Function % 2 is not 0 AFTER REMOVAL") #NICKA DEBUG
+                    print("AX.LINES (Last to first): ") #NICKA DEBUG
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print(ax.lines[i].get_label()) #NICKA DEBUG
+
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 else:
-                    if (not self.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomAxes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                    self.doubleZoomGUI.updateAxes(x, y)
+
             self.imageCanvas.draw_idle()
 
         elif func[0] == "chords_center":
+            #print("Function is chords_center") #NICKA DEBUG
             if self.doubleZoom.isChecked():
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                print("DOUBLE ZOOM IS CHECKED") #NICKA DEBUG
+                self.doubleZoomGUI.updateAxes(x, y)
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_rotate":
+            #print("Function is im_rotate") #NICKA DEBUG
             # draw line as angle
             if self.calSettings is None or 'center' not in self.calSettings:
                 self.calSettings = {}
@@ -1902,21 +1925,20 @@ class QuadrantFoldingGUI(QMainWindow):
             x2 = center[0] - deltax
             y2 = center[1] - deltay
             if not self.doubleZoom.isChecked():
+                #print("NOT DOUBLE ZOOM") #NICKA DEBUG
                 for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
-                if (not self.doubleZoomMode) and x < 200 and y < 200:
-                    axis_size = 1
-                    ax1 = self.doubleZoomAxes
-                    if len(ax1.lines) > 0:
-                        for i in range(len(ax1.lines)-1,-1,-1):
-                            ax1.lines[i].remove()
-                    ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                elif self.doubleZoomMode:
+                #print("DOUBLE ZOOM") #NICKA DEBUG
+                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
+                    self.doubleZoomGUI.updateAxesInner(x, y)
+                elif self.doubleZoomGUI.doubleZoomMode:
+                    for i in range(len(ax.lines) - 1, -1, -1):
+                        print("IN IMAGE ROTATE FUNC: ", ax.lines[i].get_label()) #NICKA DEBUG
                     for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
                     ax.plot([x, x2], [y, y2], color="g")
             self.imageCanvas.draw_idle()
 
@@ -2345,6 +2367,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Reprocess about background subtraction when some parameters are changed
         """
+        print("Apply BGSub Function") #NICKA DEBUG
         QApplication.processEvents()
         if self.ableToProcess():
             self.deleteInfo(['bgimg1']) # delete bgimg1 to make QuadrantFolder reproduce background subrtacted image
@@ -2390,69 +2413,16 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Triggered when double zoom is checked
         """
-        if self.doubleZoom.isChecked():
-
-            self.lastMousePos = None  # Reset mouse tracking
-
-            # Show the sensitivity slider and label
-            self.sensitivityLabel.setVisible(True)
-            self.sensitivitySlider.setVisible(True)
-
-            print("Double zoom checked")
-            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
-            self.doubleZoomAxes.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes.axes.yaxis.set_visible(False)
-            self.doubleZoomMode = True
-
-            img = self.quadFold.getRotatedImage()
-            ax1 = self.doubleZoomAxes
-            x,y = self.quadFold.info['center']
-            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomPt = (x, y)
-                ax1.imshow(imgScaled)
-                y, x = imgScaled.shape
-                # cy, cx = y // 2, x // 2
-                if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches[i].remove()
-        else:
-
-            # Hide the sensitivity slider and label
-            self.sensitivityLabel.setVisible(False)
-            self.sensitivitySlider.setVisible(False)
-
-            self.imageFigure.delaxes(self.doubleZoomAxes)
-            self.doubleZoomMode = False
-        self.imageCanvas.draw_idle()
+        self.doubleZoomGUI.doubleZoomChecked(img=self.quadFold.getRotatedImage() if self.quadFold is not None else None, 
+                                                                                  canv=self.imageCanvas, 
+                                                                                  center=self.quadFold.info['center'] if self.quadFold is not None else (0,0),
+                                                                                  is_checked=self.doubleZoom.isChecked())
 
     def modeAngleChecked(self):
         """
         Triggered when mode angle is checked or unchecked
         """
         print("Function executed", flush=True)
-
-        if self.quadFold is not None:
-
-            modeOrientation = self.getModeRotation()
-            if modeOrientation is not None:
-                if not self.modeAngleChkBx.isChecked():
-                    self.quadFold.deleteFromDict(self.quadFold.info, 'mode_angle')
-                    self.processImage()
-                else:
-                    self.processImage()
-            else:
-                self.modeAngleChkBx.setCheckState(Qt.Unchecked) # executes twice, setChecked executes once but button becomes unresponsive for one click
-
-                msg = QMessageBox()
-                msg.setInformativeText("All images in folder must be processed first, use Process Folder to process all images")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Mode Orientation Failed")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.exec_()
 
     def getModeRotation(self):
         """
@@ -2619,9 +2589,6 @@ class QuadrantFoldingGUI(QMainWindow):
         fileName = self.imgList[self.currentFileNumber]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        if self.quadFold is not None and 'saveCroppedImage' in self.quadFold.info and self.quadFold.info['saveCroppedImage'] != self.cropFoldedImageChkBx.isChecked():
-            self.quadFold.delCache()
-        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
         if reprocess:
             self.quadFold.info = {}
             self.quadFold.info['reprocess'] = True
@@ -2689,7 +2656,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if 'center' in currentInfo:
             del currentInfo['center']
 
-        if self.calSettingsDialog.fixedCenter.isChecked() and prevInfo is not None:
+        if self.calSettingsDialog.fixedCenter.isChecked() and prevInfo is not None and 'calib_center' in prevInfo:
             currentInfo['calib_center'] = prevInfo['calib_center']
             if 'manual_center' in currentInfo:
                 del currentInfo['manual_center']
@@ -2880,6 +2847,30 @@ class QuadrantFoldingGUI(QMainWindow):
             self.updated['result'] = True
             self.uiUpdating = False
 
+
+    def showProcessingFinishedMessage(self):
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Information)
+        msgBox.setWindowTitle("Processing Complete")
+        msgBox.setText("Folder finished processing")
+        msgBox.setInformativeText("Do you want to exit the application or just close this message?")
+        
+        # Add buttons
+        exitButton = msgBox.addButton("Exit", QMessageBox.ActionRole)
+        closeButton = msgBox.addButton("Close", QMessageBox.ActionRole)
+        
+        # (Optional) Set a fixed width if you like
+        # msgBox.setFixedWidth(300)
+        
+        msgBox.exec_()
+        
+        # Check which button was clicked
+        if msgBox.clickedButton() == exitButton:
+            sys.exit(0)  # Closes the entire application
+        elif msgBox.clickedButton() == closeButton:
+            # Just close the popup - do nothing more
+            pass
+
     def processImage(self):
         """
         Process Image by getting all flags and call process() of QuadrantFolder object
@@ -2949,21 +2940,25 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.tasksQueue.empty():
             self.startNextTask()
         else:
-            if self.threadPool.activeThreadCount() == 0:
+            if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.numberOfFiles:
                 print("All threads are complete")
                 self.currentFileNumber = 0
                 self.progressBar.setVisible(False)
                 self.filenameLineEdit.setEnabled(True)
                 self.filenameLineEdit2.setEnabled(True)
                 self.csvManager.sortCSV()
-            
+                self.showProcessingFinishedMessage()
+
     def startNextTask(self):
         self.progressBar.setVisible(True)
         self.filenameLineEdit.setEnabled(False)
         self.filenameLineEdit2.setEnabled(False)
+        bg_csv_lock = Lock()
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), self.persistedCenter, self.persistedRotation, self.qf_lock)
+            self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), 
+                                      self.persistedCenter, self.persistedRotation, self.bgChoice.currentText(), 
+                                      bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             
@@ -3039,6 +3034,11 @@ class QuadrantFoldingGUI(QMainWindow):
         result = self.quadFold.imgCache["BgSubFold"]
 
         avg_fold = info["avg_fold"]
+
+
+        print("Avg_fold total: ", np.sum(avg_fold)) #NICKA DEBUG
+        print("Result Shape: ", np.sum(result)) 
+
 
         print("Avg_fold shape:")
         print(avg_fold.shape)
