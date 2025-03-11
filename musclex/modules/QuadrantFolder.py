@@ -302,10 +302,12 @@ class QuadrantFolder:
             self.initParams()
         if 'center' in self.info:
             self.centerChanged = False
+            print("CENTER IN QFP") #NiCKA DEBUG
             return
         self.centerChanged = True
         if 'calib_center' in self.info:
             self.info['center'] = self.info['calib_center']
+            print("CALIB CENTER IN QFP") #NICKA DEBUG
             return
         if 'manual_center' in self.info:
             center = self.info['manual_center']
@@ -313,6 +315,7 @@ class QuadrantFolder:
                 center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0] + self.dl, center[1] + self.db, 1])
                 self.info['manual_center'] = center
             self.info['center'] = self.info['manual_center']
+            print("MANUSAL CENTER IN QFP") #NICKA DEBUG
             return
         print("Center is being calculated ... ")
         self.orig_image_center = getCenter(self.orig_img)
@@ -1159,29 +1162,23 @@ class QuadrantFolder:
             if img_width > center_x or img_height > center_y:
                 print("ALERT: THE CENTER IS NOT INSIDE OF THE IMAGE!  THIS WILL LIKELY CAUSE AN ERROR") #Make future debugging easier
 
-            print("IMG WIDTH: ", img_width) #NICKA DEBUG
-            print("IMG HEIGHT: ", img_height) #NICKA DEBUG
-
             # Get each fold, and flip them to the same direction
             top_left = rotate_img[max(center_y-fold_height,0):center_y, max(center_x-fold_width,0):center_x]
-            print("TOP LEFT: ", top_left) #NICKA DEBUG
+
             top_right = rotate_img[max(center_y-fold_height,0):center_y, center_x:center_x+fold_width]
             top_right = cv2.flip(top_right,1)
-            print("TOP RIGHT: ", top_right) #NICKA DEBUG
+
             buttom_left = rotate_img[center_y:center_y+fold_height, max(center_x-fold_width,0):center_x]
             buttom_left = cv2.flip(buttom_left,0)
-            print("BOTTOM LEFT: ", buttom_left) #NICKA DEBUG
+
             buttom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
             buttom_right = cv2.flip(buttom_right,1)
             buttom_right = cv2.flip(buttom_right,0)
-            print("BOTTOM RIGHT: ", buttom_right) #NICKA DEBUG
+
 
             # Add all folds which are not ignored
             quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * (self.info['mask_thres'] - 1.)
-            print("QUADRANTS SHAPE: ", quadrants.shape) #NICKA DEBUG
             for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
-                print("I: ", i) #NICKA DEBUG
-                print("QUAD: ", quad) #NICKA DEBUG
                 quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
             remained = np.ones(4, dtype=bool)
             remained[list(self.info["ignore_folds"])] = False

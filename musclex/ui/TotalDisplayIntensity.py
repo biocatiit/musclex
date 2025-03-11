@@ -218,6 +218,7 @@ class TotalDisplayIntensity(QMainWindow):
             self.ax.cla()
             self.masked_image = np.array(self.masked_image, dtype=np.float32)
             self.ax.imshow(self.masked_image, norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
+            self.ax.invert_yaxis()
             self.imgCanvas.draw()
 
     def buildMask(self):
@@ -241,7 +242,7 @@ class TotalDisplayIntensity(QMainWindow):
             self.currentFileNumber = (self.currentFileNumber + 1) % len(self.imgList)
             self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
             self.img = fabio.open(str(self.file_name)).data
-            self.maxInt.setValue(np.max(self.img))
+            self.maxInt.setValue(np.max(self.img) * 0.1)
             self.refreshImage()
 
     def prevFBClicked(self):

@@ -1670,7 +1670,7 @@ class XRayViewerGUI(QMainWindow):
             self.updateLeftWidgetWidth()
             self.tabWidget.setTabEnabled(1, True)
             self.onImageChanged()
-            self.launchCalibrationSettings()
+            #self.launchCalibrationSettings()
         QApplication.restoreOverrideCursor()
             
 

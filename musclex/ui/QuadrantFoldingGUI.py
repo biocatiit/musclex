@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 import sys
 import json
 import traceback
+import csv
 import copy
 from os.path import split, splitext
 import matplotlib.patches as patches
@@ -75,7 +76,8 @@ class Worker(QRunnable):
 
     def __init__(self, params, fixed_center_checked, 
                  persist_center, persist_rot, bgsub = 'Circularly-symmetric',
-                 bg_lock=None):
+                 bgDict = None, bg_lock=None):
+        
         super().__init__()
         self.flags = params.flags
         self.params = params
@@ -90,6 +92,8 @@ class Worker(QRunnable):
         self.persist_rot = persist_rot
 
         self.bgsub = bgsub
+
+        self.bgDict = bgDict
 
         #NA
         #self.qf_lock = qf_lock
@@ -173,8 +177,8 @@ class Worker(QRunnable):
             resultImg = resultImg.astype("float32")
             fabio.tifimage.tifimage(data=resultImg).write(result_path)
 
-            self.bgCSV(np.sum(resultImg), bg_path)
-
+            #self.bgCSV(np.sum(resultImg), bg_path)
+            self.bgDict[self.params.fileName] = np.sum(resultImg)
 
 
     def bgCSV(self, total_inten, bg_path):
@@ -273,6 +277,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.last_executed = time.time() #Records when the handler was last executed
         self.min_interval = 0.2 #Minimum miliseconds between handler function call
+
+        self.bgAsyncDict = {}
 
     def initUI(self):
         """
@@ -1253,6 +1259,7 @@ class QuadrantFoldingGUI(QMainWindow):
             if len(intersections) != 0:
                 cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
                 cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
+
             else:
                 print("Can't Calculate Center Yet; no intersections found")
                 return
@@ -1260,6 +1267,16 @@ class QuadrantFoldingGUI(QMainWindow):
             print("Center calc ", (cx, cy))
 
             extent, _ = self.getExtentAndCenter()
+
+            #Update the calsettingsdialogue object and the qf obj.
+            self.calSettingsDialog.fixedCenter.setChecked(False)
+            self.quadFold.fixedCenterX = None
+            self.quadFold.fixedCenterY = None
+            if 'calib_center' in self.quadFold.info:
+                del self.quadFold.info['calib_center']
+            if 'manual_center' in self.quadFold.info:
+                del self.quadFold.info['manual_center']
+
             new_center = [cx, cy]  # np.dot(invM, homo_coords)
             # Set new center and rotaion angle , re-calculate R-min
             print("New Center ", new_center)
@@ -1826,18 +1843,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 start_pt = func[1]
                 if len(ax.lines) > 2:
 
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print(ax.lines[i].get_label()) #NICKA DEBUG
-
                     for i in range(len(ax.lines) - 1, 2, -1):
                        # print("LEN = 2") #NICKA DEBUG
                         #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
-
-                    print("Length of Function is 2 AFTER REMOVAL") #NICKA DEBUG
-                    print("AX.LINES (Last to first): ") #NICKA DEBUG
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print(ax.lines[i].get_label()) #NICKA DEBUG
 
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -1851,21 +1860,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
 
-                    print(f"n = {n}")
-                    print("Length of Function % 2 is not 0 BEFORE REMOVAL") #NICKA DEBUG
-                    print("AX.LINES (Last to first): ") #NICKA DEBUG
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print(ax.lines[i].get_label()) #NICKA DEBUG
-
                     for i in range(len(ax.lines) - 1, n - 1, -1):
                         #print("LEN % 2 != 0") #NICKA DEBUG
                         #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
 
-                    print("Length of Function % 2 is not 0 AFTER REMOVAL") #NICKA DEBUG
-                    print("AX.LINES (Last to first): ") #NICKA DEBUG
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print(ax.lines[i].get_label()) #NICKA DEBUG
 
                 if not self.doubleZoom.isChecked():
                     #print("NOT DOUBLE ZOOM 44") #NICKA DEBUG
@@ -1881,21 +1880,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
 
-                    print(f"n = {n}")
-                    print("Length of Function % 2 is not 0 BEFORE REMOVAL") #NICKA DEBUG
-                    print("AX.LINES (Last to first): ") #NICKA DEBUG
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print(ax.lines[i].get_label()) #NICKA DEBUG
-
                     for i in range(len(ax.lines) - 1, n - 1, -1):
                         #print("LEN % 2 == 0") #NICKA DEBUG
                         #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
 
-                    print("Length of Function % 2 is not 0 AFTER REMOVAL") #NICKA DEBUG
-                    print("AX.LINES (Last to first): ") #NICKA DEBUG
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print(ax.lines[i].get_label()) #NICKA DEBUG
 
                 if not self.doubleZoom.isChecked():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
@@ -2795,7 +2784,10 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.quadFold.info['manual_center']
         else:
             center = self.quadFold.orig_image_center
-        extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
+        if 'center' not in self.quadFold.info:
+            extent = [0, 0]
+        else:
+            extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
         return extent, center
 
     def updateResultTab(self):
@@ -2947,6 +2939,15 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.filenameLineEdit.setEnabled(True)
                 self.filenameLineEdit2.setEnabled(True)
                 self.csvManager.sortCSV()
+                print("bgasyncdict: ", len(self.bgAsyncDict)) #NICKA DEBUG
+                with open(join(self.filePath, 'qf_results/bg/background_sum.csv'), 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+
+                    writer.writerow(['Name', 'Sum'])
+
+                    for name, sum in self.bgAsyncDict.items():
+                        writer.writerow([name, sum])
+
                 self.showProcessingFinishedMessage()
 
     def startNextTask(self):
@@ -2958,7 +2959,7 @@ class QuadrantFoldingGUI(QMainWindow):
             params = self.tasksQueue.get()
             self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), 
                                       self.persistedCenter, self.persistedRotation, self.bgChoice.currentText(), 
-                                      bg_lock=bg_csv_lock)
+                                      bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
             
@@ -3077,7 +3078,22 @@ class QuadrantFoldingGUI(QMainWindow):
             if filename in self.csv_bg.index:
                 self.csv_bg = self.csv_bg.drop(index=filename)
 
+
+            #TEMPORARY!! ONLY COUNT WHAT'S BETWEEN THE RMIN AND RMAX FOR RESULT IMAGE
+            ###########################################################################
+            csv_yc, csv_xc = background.shape
+
+            csv_h, csv_w = resultImg.shape
+            csv_y, csv_x = np.ogrid[:csv_h, :csv_w]
+
+            csv_dists = np.sqrt((csv_x - csv_xc) ** 2 + (csv_y - csv_yc) ** 2)
+
+            csv_mask = (csv_dists >= self.quadFold.info['rmin']) & (csv_dists <= self.quadFold.info['rmax'])
+
+            csv_total = np.sum(resultImg[csv_mask])
+
             self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
+            #self.csv_bg.loc[filename] = pd.Series({'Sum':total_inten})
             self.csv_bg.to_csv(csv_path)
 
     def updateParams(self):
