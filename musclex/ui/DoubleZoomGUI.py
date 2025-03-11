@@ -105,6 +105,7 @@ class DoubleZoom:
                     imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                     self.doubleZoomPoint = (x, y)
                     ax1.imshow(imgScaled)
+                    ax1.invert_yaxis()
                     y, x = imgScaled.shape
                     # cy, cx = y // 2, x // 2
                     if len(ax1.lines) > 0:
@@ -145,7 +146,7 @@ class DoubleZoom:
                 ax.patches[i].remove()
 
         # Plot a blue dot at the given coordinates
-        ax.plot(x, y, 'bo', markersize=5, label="Blue Dot")
+        ax.plot(x, y, 'bo', markersize=2, label="Blue Dot")
 
     def adjustXY(self, x, y):
         # Calculate deltas with sensitivity
@@ -209,6 +210,7 @@ class DoubleZoom:
                 imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 self.doubleZoomPoint = (x,y)
                 ax1.imshow(imgScaled)
+                ax1.invert_yaxis()
                 if len(ax1.lines) > 0:
                     for i in range(len(ax1.lines)-1,-1,-1):
                         ax1.lines[i].remove()
