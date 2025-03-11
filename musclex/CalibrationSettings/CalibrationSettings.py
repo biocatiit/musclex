@@ -359,13 +359,13 @@ class CalibrationSettings(QDialog):
             self.ax.cla()
             _, img = self.getImage()
             self.ax.imshow(img)
-            #self.ax.invert_yaxis()
+            self.ax.invert_yaxis()
             self.ax2 = self.calImgFigure.add_subplot(337)
             self.ax2.cla()
             self.ax2.imshow(img)
             self.ax2.set_yticklabels([])
             self.ax2.set_xticklabels([])
-            #self.ax.invert_yaxis()
+            self.ax2.invert_yaxis()
             self.calImgCanvas.draw_idle()
         else:
             if len(self.manualCalPoints) < 5:
@@ -411,7 +411,7 @@ class CalibrationSettings(QDialog):
             _, disp_img = self.getImage()
             self.ax.set_xlim((0, disp_img.shape[1]))
             self.ax.set_ylim((0, disp_img.shape[0]))
-            self.ax.invert_yaxis()
+            #self.ax.invert_yaxis()
             self.calImgCanvas.draw_idle()
 
     def imgOnMotion(self, event):
@@ -435,7 +435,7 @@ class CalibrationSettings(QDialog):
         else:
             self.ax2.set_xlim((x - zoom_size, x + zoom_size))
             self.ax2.set_ylim((y - zoom_size, y + zoom_size))
-            self.ax2.invert_yaxis()
+            #self.ax2.invert_yaxis()
         self.calImgCanvas.draw_idle()
 
     def unsetCalImg(self):
