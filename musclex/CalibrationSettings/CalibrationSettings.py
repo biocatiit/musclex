@@ -380,6 +380,7 @@ class CalibrationSettings(QDialog):
                 self.manualCal.setText("Set calibration by points selections")
                 self.calibrate()
                 self.manualCalPoints = None
+                self.fixedCenter.setChecked(False)
 
     def imgClicked(self, event):
         """
@@ -618,7 +619,7 @@ class CalibrationSettings(QDialog):
             print("UI UPDATING EARLY EXIT") #NICKA DEBUG
             return
 
-        self.calImgFigure.clf()
+        #self.calImgFigure.clf()
         if self.calSettings is not None:
             print("CALSETTINGS IS NOT NONE") #NICKA DEBUG
             if "center" in self.calSettings:

@@ -1393,8 +1393,11 @@ class QuadrantFoldingGUI(QMainWindow):
         Handle when Calibration Settings button is clicked
         :return:
         """
-        sucess = self.setCalibrationImage(force=True)
-        if sucess:
+        success = self.setCalibrationImage(force=True)
+        if not self.calSettingsDialog.fixedCenter.isChecked():
+            self.quadFold.fixedCenterX = None
+            self.quadFold.fixedCenterY = None
+        if success:
             self.deleteInfo(['rotationAngle'])
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
