@@ -969,3 +969,10 @@ def weighted_neighborhood_average(arr, weights = [0.25, 0.5, 0.25]):
                     arr[i] * weights[1] + 
                     arr[i+1] * weights[2])
     return result
+
+def get_transition_radius_from_M6_meridian_fold(img, gap=50):
+    arr = img[:, -gap:]
+    meridian = np.sum(arr, axis=1)
+    max_idx = np.argmax(meridian)
+    radius = 2 * (len(meridian) - max_idx )
+    return radius - 10

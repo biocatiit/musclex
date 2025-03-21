@@ -256,9 +256,9 @@ class QuadrantFolder:
         if 'bgsub2' not in self.info:
             self.info['bgsub2'] = 'None'
         if 'transition_radius' not in self.info or self.info['transition_radius'] < 0:
-            self.info['transition_radius'] = self.orig_img.shape[0] // 6
+            self.info['transition_radius'] = self.orig_img.shape[0] // 3
         if 'transition_delta' not in self.info or self.info['transition_delta'] < 0:
-            self.info['transition_delta'] = 100
+            self.info['transition_delta'] = 60
 
 
     def applyBlankImageAndMask(self):
@@ -1169,6 +1169,7 @@ class QuadrantFolder:
                 del self.imgCache['resultImg']
 
             print("Done.")
+            self.info['transition_radius'] = get_transition_radius_from_M6_meridian_fold(self.info['avg_fold'])
 
     def get_avg_fold(self, quadrants, fold_height, fold_width):
         """
