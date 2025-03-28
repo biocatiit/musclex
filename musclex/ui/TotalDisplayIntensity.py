@@ -31,6 +31,9 @@ import json
 import copy
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+import fabio
+
 from musclex import __version__
 from .pyqt_utils import *
 from ..utils.file_manager import *
@@ -39,9 +42,8 @@ from .ImageMaskTool import ImageMaskerWindow
 
 
 class TotalDisplayIntensity(QMainWindow):
-    
-    def __init__(self):
 
+    def __init__(self):
         super().__init__()
         
         self.dir_path = ""
@@ -51,6 +53,9 @@ class TotalDisplayIntensity(QMainWindow):
         self.mask = None
         self.masked_image = None
         self.total_intens_calcs = {}
+
+        self.h5List = []
+        self.h5Mode = False  # flag to indicate HDF5 mode
 
         self.initUI()
         self.setConnections()
@@ -72,7 +77,7 @@ class TotalDisplayIntensity(QMainWindow):
         self.drawMaskButton.clicked.connect(self.maskButtonClicked)
         self.drawMaskButton.setFixedHeight(60)
 
-        self.canvImgGroup = QGroupBox("Setting by Calibration Image")
+        self.canvImgGroup = QGroupBox("Image")
         self.canvImgGroup.setCheckable(False)
         self.canvImgLayout = QHBoxLayout(self.canvImgGroup)
         
@@ -114,7 +119,6 @@ class TotalDisplayIntensity(QMainWindow):
         self.intenLayout.addWidget(self.buttonGrp)
 
         self.processFolderButton = QPushButton("Process Folder")
-        
         self.intenLayout.addWidget(self.processFolderButton)
 
         self.canvImgLayout.addWidget(self.imgCanvas)
@@ -129,7 +133,6 @@ class TotalDisplayIntensity(QMainWindow):
         self.statusBar.addWidget(self.imgDetailOnStatusBar)
         self.setStatusBar(self.statusBar)
 
-        #Make this part make sense
         # Menubar
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
@@ -162,22 +165,32 @@ class TotalDisplayIntensity(QMainWindow):
         """
         Popup input dialog and set file selection
         """
+        print("Browse File")
         self.newProcess = True
         file_name = getAFile()
+        print("Get a file returns:", file_name)
+
         if file_name != "":
             self.file_name = file_name
             self.onNewFileSelected(str(file_name))
             self.centralWidget.setMinimumSize(700, 500)
 
     def onNewFileSelected(self, file_name):
+        # Retrieve directory and file list info
         self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(file_name))
+        # Clear any previous HDF5 list and set mode
+        self.h5List = []
+        self.setH5Mode(str(file_name))
+        # If in HDF5 mode, override imgList with h5List
+        if self.h5Mode:
+            self.imgList = self.h5List
 
-        self.imgList = [img for img in self.imgList if img.split(".")[1] != ".edf"]
-
+        # Clear the figure before adding a new subplot
+        self.imgFigure.clf()
         self.ax = self.imgFigure.add_subplot(111)
+        print("Opening file:", file_name)
         self.img = fabio.open(str(file_name)).data
 
-        
         max_inten = min(700, np.max(self.img) / 40)
         self.maxInt.setValue(max_inten)
 
@@ -187,32 +200,34 @@ class TotalDisplayIntensity(QMainWindow):
         print("SHOW ABOUT CLICKED")
 
     def maskButtonClicked(self):
-
-
-        self.imageMaskingTool = ImageMaskerWindow(self.dir_path, 
-                                                  self.file_name, 
-                                                  self.minInt.value(), 
-                                                  self.maxInt.value(), 
-                                                  max_val=np.max(np.ravel(self.img)), 
-                                                  orig_size=self.img.shape,
-                                                  trans_mat=None,                                                    
-                                                  rot_angle=None, 
-                                                  isHDF5=self.ext in ['h5', 'hdf5'])
+        self.imageMaskingTool = ImageMaskerWindow(
+            self.dir_path, 
+            self.file_name, 
+            self.minInt.value(), 
+            self.maxInt.value(), 
+            max_val=np.max(np.ravel(self.img)), 
+            orig_size=self.img.shape,
+            trans_mat=None,                                                    
+            rot_angle=None, 
+            isHDF5=self.ext.lower() in ['h5', 'hdf5']
+        )
         
         if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
-            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
-                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
+            settings_path = join(join(self.dir_path, 'settings'))
+            blank_json = join(settings_path, 'blank_image_settings.json')
+            if os.path.exists(blank_json):
+                with open(blank_json, 'r') as f:
                     info = json.load(f)
                     if 'path' in info:
                         img = fabio.open(info['path']).data
-                        fabio.tifimage.tifimage(data=img).write(join(join(self.dir_path, 'settings'),'blank.tif'))    
+                        fabio.tifimage.tifimage(data=img).write(join(settings_path, 'blank.tif'))
             else:
-                if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
-                    os.rename(join(join(self.dir_path, 'settings'), 'mask.tif'), join(join(self.dir_path, 'settings'), 'maskonly.tif'))
+                mask_tif = join(settings_path, 'mask.tif')
+                if os.path.exists(mask_tif):
+                    os.rename(mask_tif, join(settings_path, 'maskonly.tif'))
 
         self.buildMask()
             
-
     def refreshImage(self):
         if self.img is not None:
             self.imgDetailOnStatusBar.setText("Current File (" + str(self.currentFileNumber) + "/" + str(len(self.imgList)) + ") : " + self.file_name)
@@ -240,7 +255,7 @@ class TotalDisplayIntensity(QMainWindow):
         result_path = join(self.dir_path, 'tdi_results')
         if not exists(result_path):
             os.makedirs(result_path)
-        fabio.tifimage.tifimage(data=self.mask).write(join(result_path,'tdi_mask.tif'))
+        fabio.tifimage.tifimage(data=self.mask).write(join(result_path, 'tdi_mask.tif'))
 
     def applyMask(self):
         if self.mask is None:
@@ -249,20 +264,38 @@ class TotalDisplayIntensity(QMainWindow):
             self.masked_image = self.mask * copy.copy(self.img)
 
     def nextFBClicked(self):
-        if len(self.imgList) > 0:
-            self.currentFileNumber = (self.currentFileNumber + 1) % len(self.imgList)
-            self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
-            self.img = fabio.open(str(self.file_name)).data
-            self.maxInt.setValue(np.max(self.img) * 0.1)
-            self.refreshImage()
+        print("Next button clicked")
+        if self.h5Mode:
+            if len(self.h5List) > 1:
+                self.h5index = (self.h5index + 1) % len(self.h5List)
+                next_file = os.path.join(self.dir_path, self.h5List[self.h5index])
+                print("Switching to HDF5 file:", next_file)
+                self.onNewFileSelected(next_file)
+        else:  
+            if len(self.imgList) > 0:
+                self.currentFileNumber = (self.currentFileNumber + 1) % len(self.imgList)
+                self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
+                print("Switching to image file:", self.file_name)
+                self.img = fabio.open(str(self.file_name)).data
+                self.maxInt.setValue(np.max(self.img) * 0.1)
+                self.refreshImage()
 
     def prevFBClicked(self):
-        if len(self.imgList) > 0:
-            self.currentFileNumber = (self.currentFileNumber - 1) % len(self.imgList)
-            self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
-            self.img = fabio.open(str(self.file_name)).data
-            self.maxInt.setValue(np.max(self.img))
-            self.refreshImage()
+        print("Previous button clicked")
+        if self.h5Mode:
+            if len(self.h5List) > 1:
+                self.h5index = (self.h5index - 1) % len(self.h5List)
+                prev_file = os.path.join(self.dir_path, self.h5List[self.h5index])
+                print("Switching to HDF5 file:", prev_file)
+                self.onNewFileSelected(prev_file)
+        else:
+            if len(self.imgList) > 0:
+                self.currentFileNumber = (self.currentFileNumber - 1) % len(self.imgList)
+                self.file_name = join(self.dir_path, self.imgList[self.currentFileNumber])
+                print("Switching to image file:", self.file_name)
+                self.img = fabio.open(str(self.file_name)).data
+                self.maxInt.setValue(np.max(self.img))
+                self.refreshImage()
 
     def makeCSV(self):
         result_path = fullPath(self.dir_path, "tdi_results")
@@ -276,17 +309,21 @@ class TotalDisplayIntensity(QMainWindow):
 
         for img in self.imgList:
             self.file_name = join(self.dir_path, img)
+            if not os.path.exists(self.file_name):
+                print(f"File {self.file_name} not found. Skipping.")
+                continue
+
             self.img = fabio.open(str(self.file_name)).data
 
-            #If the shape of image is different than the shape of mask, skip.
+            # If the shape of image is different than the shape of mask, skip.
             try:
                 self.applyMask()
-            except:
-                print(f"Shape of {img} does not match the mask shape.  Skipping.")
+            except Exception as e:
+                print(f"Shape of {img} does not match the mask shape. Skipping. Exception: {e}")
                 continue
 
             total_intensity = np.sum(np.ravel(self.masked_image))
-            unmasked_pixels = self.masked_image.size - np.sum(np.ravel(1-self.mask))
+            unmasked_pixels = self.masked_image.size - np.sum(np.ravel(1 - self.mask))
 
             new_row = {"ImageName": img, "MaskFileName": 'tdi_mask.tif', 
                        "TotalIntensity": total_intensity, 
@@ -296,3 +333,19 @@ class TotalDisplayIntensity(QMainWindow):
 
         df = pd.DataFrame(rows)
         df.to_csv(csv_name, index=False, columns=colnames)
+
+    def setH5Mode(self, file_name):
+        """
+        Sets the HDF5 list of files and displays the right set of buttons depending on the file selected.
+        """
+        if self.ext.lower() in ['.h5', '.hdf5']:
+            self.h5Mode = True
+            for file in os.listdir(self.dir_path):
+                if file.endswith(".h5") or file.endswith(".hdf5"):
+                    self.h5List.append(file)
+            try:
+                self.h5index = self.h5List.index(os.path.split(file_name)[1])
+            except ValueError:
+                self.h5index = 0
+        else:
+            self.h5Mode = False
