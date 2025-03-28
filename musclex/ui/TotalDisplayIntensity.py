@@ -172,8 +172,14 @@ class TotalDisplayIntensity(QMainWindow):
     def onNewFileSelected(self, file_name):
         self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(file_name))
 
+        self.imgList = [img for img in self.imgList if img.split(".")[1] != ".edf"]
+
         self.ax = self.imgFigure.add_subplot(111)
         self.img = fabio.open(str(file_name)).data
+
+        
+        max_inten = min(700, np.max(self.img) / 40)
+        self.maxInt.setValue(max_inten)
 
         self.refreshImage()
 
@@ -205,7 +211,7 @@ class TotalDisplayIntensity(QMainWindow):
                     os.rename(join(join(self.dir_path, 'settings'), 'mask.tif'), join(join(self.dir_path, 'settings'), 'maskonly.tif'))
 
         self.buildMask()
-                    
+            
 
     def refreshImage(self):
         if self.img is not None:
@@ -217,7 +223,7 @@ class TotalDisplayIntensity(QMainWindow):
 
             self.ax.cla()
             self.masked_image = np.array(self.masked_image, dtype=np.float32)
-            self.ax.imshow(self.masked_image, norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
+            self.ax.imshow(self.masked_image, cmap='gray', norm=Normalize(vmin=self.minInt.value(), vmax=self.maxInt.value()))
             self.ax.invert_yaxis()
             self.imgCanvas.draw()
 
@@ -230,6 +236,11 @@ class TotalDisplayIntensity(QMainWindow):
         for m in [blank, mask, maskOnly]:
             if m is not None:
                 self.mask = self.mask * m
+
+        result_path = join(self.dir_path, 'tdi_results')
+        if not exists(result_path):
+            os.makedirs(result_path)
+        fabio.tifimage.tifimage(data=self.mask).write(join(result_path,'tdi_mask.tif'))
 
     def applyMask(self):
         if self.mask is None:
@@ -277,7 +288,7 @@ class TotalDisplayIntensity(QMainWindow):
             total_intensity = np.sum(np.ravel(self.masked_image))
             unmasked_pixels = self.masked_image.size - np.sum(np.ravel(1-self.mask))
 
-            new_row = {"ImageName": img, "MaskFileName": 'add this', 
+            new_row = {"ImageName": img, "MaskFileName": 'tdi_mask.tif', 
                        "TotalIntensity": total_intensity, 
                        "AvgIntensity": total_intensity / unmasked_pixels}
             

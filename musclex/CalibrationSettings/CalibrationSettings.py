@@ -61,6 +61,9 @@ class CalibrationSettings(QDialog):
         self.uiUpdating = False
         cache = self.loadSettings()
 
+        self.recalculate = False #This is so that if only the center coords are changed, QF
+        #Does not recalculate the image.
+
         if cache is not None:
             self.calFile = cache["path"]
             self.calSettings = cache["settings"]
@@ -230,8 +233,8 @@ class CalibrationSettings(QDialog):
             self.centerY.setValue(1000)
 
         self.fixedCenter.setChecked(False)
-        self.centerX.setEnabled(False)
-        self.centerY.setEnabled(False)
+        #self.centerX.setEnabled(False)
+        #self.centerY.setEnabled(False)
         self.centerX.setObjectName('centerX')
         self.editableVars[self.centerX.objectName()] = None
         self.centerY.setObjectName('centerY')
@@ -377,6 +380,7 @@ class CalibrationSettings(QDialog):
                 errMsg.exec_()
                 self.manualCal.setChecked(True)
             else:
+                self.recalculate = True
                 self.manualCal.setText("Set calibration by points selections")
                 self.calibrate()
                 self.manualCalPoints = None
@@ -661,12 +665,16 @@ class CalibrationSettings(QDialog):
         """
         React to the fixed center button.
         """
+
+        """
         if self.fixedCenter.isChecked():
             self.centerX.setEnabled(True)
             self.centerY.setEnabled(True)
         else:
             self.centerX.setEnabled(False)
             self.centerY.setEnabled(False)
+        """
+        pass
 
     def detectorClicked(self):
         """

@@ -104,13 +104,15 @@ class QuadrantFolder:
             self.info = {}
 
         #Nick Allison
-        #Used for persisting the center when processing a folder of images that
+        #Used for persistirng the center when processing a folder of images that
         #need to have the same center.
         self.fixedCenterX = None
         self.fixedCenterY = None
 
         #Same thing for rotation
         self.fixedRot = None
+
+        self.curr_dims = None
 
     def cacheInfo(self):
         """
@@ -292,14 +294,18 @@ class QuadrantFolder:
         #Nick Allison
         #if the center needs to be persisted when doing a whole folder
         #, then use the persisted center
+        """
         if self.fixedCenterX is not None and self.fixedCenterY is not None:
             self.info['center'] = []
             self.info['center'].append(self.fixedCenterX)
             self.info['center'].append(self.fixedCenterY)
             self.centerChanged = False
             return
+        """
+        print("quadfold info: ", self.info)
         if 'mask_thres' not in self.info:
             self.initParams()
+            print("mask_thres swithc in FC") #NICKA DEBUG
         if 'center' in self.info:
             self.centerChanged = False
             print("CENTER IN QFP") #NiCKA DEBUG
@@ -308,18 +314,25 @@ class QuadrantFolder:
         if 'calib_center' in self.info:
             self.info['center'] = self.info['calib_center']
             print("CALIB CENTER IN QFP") #NICKA DEBUG
+            self.fixedCenterX = self.info['calib_center'][0]
+            self.fixedCenterY = self.info['calib_center'][1]
             return
         if 'manual_center' in self.info:
             center = self.info['manual_center']
+            print("Manual center swithc in FC") #NICKA DEBUG
             if self.rotMat is not None:
+                print("Self.rotmat in FC") #NICKA DEBUG
                 center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0] + self.dl, center[1] + self.db, 1])
                 self.info['manual_center'] = center
             self.info['center'] = self.info['manual_center']
             print("MANUSAL CENTER IN QFP") #NICKA DEBUG
+            self.fixedCenterX = self.info['manual_center'][0]
+            self.fixedCenterY = self.info['manual_center'][1]
             return
         print("Center is being calculated ... ")
         self.orig_image_center = getCenter(self.orig_img)
         self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
+        self.fixedCenterX, self.fixedCenterY = None, None
         print("Done. Center = "+str(self.info['center']))
 
 
@@ -331,9 +344,11 @@ class QuadrantFolder:
         self.parent.statusPrint("Finding Rotation Angle...")
         #NickA: First if is for if the Fixed Rotation Angle GUI box is checked.
         if self.fixedRot is not None:
+            print("Using fixed rot: ", self.fixedRot) #NICKA DEBUG
             self.info['rotationAngle'] = self.fixedRot
             self.deleteFromDict(self.info, 'avg_fold')
         elif 'manual_rotationAngle' in self.info:
+            print("Using manual rotation") #NICKA DEBUG
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
             del self.info['manual_rotationAngle']
             self.deleteFromDict(self.info, 'avg_fold')
@@ -359,27 +374,36 @@ class QuadrantFolder:
         Give the extent and the center of the image in self.
         :return: extent, center
         """
+        print("GET EXTENT AND CENTER") #NICKA DEBUG
         if self is None:
             return [0,0], (0,0)
         if self.orig_image_center is None and (self.fixedCenterX == None or self.fixedCenterY == None):
             self.findCenter()
             self.statusPrint("Done.")
+        """
         if self.fixedCenterX is not None and self.fixedCenterY is not None:
             center = []
             center.append(self.fixedCenterX)
             center.append(self.fixedCenterY)
-        elif 'calib_center' in self.info:
+        """
+        if 'calib_center' in self.info:
+            print("USING CALIB CENTER") #NICKA DEBUG
             center = self.info['calib_center']
         elif 'manual_center' in self.info:
             center = self.info['manual_center']
+            print("USING MANUAL CENTER") #NICKA DEBUG
         else:
             center = self.orig_image_center
+            print("USING ORIGINAL IMAGE CENTER") #NICKA DEBUG
         extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
+        print("EXTENT=", extent)
+        print("CENTER=", center)
 
 
         return extent, center
 
     def centerizeImage(self):
+        print("CENTERIZE IMAGE FCTN") #NICKA DEBUG
         """
         Create an enlarged image such that image center is at the center of new image
         """
@@ -387,6 +411,7 @@ class QuadrantFolder:
         if not self.centerChanged:
             return
         center = self.info['center']
+        print("CENTER BEFORE TRANSFORMATION: ", center) #NICKA DEBUG
         if self.centImgTransMat is not None:
             # convert center in initial img coordinate system
             M = self.centImgTransMat
@@ -394,6 +419,7 @@ class QuadrantFolder:
             M[1,2] = -1*M[1,2]
             center = [center[0], center[1], 1]
             center = np.dot(M, center)
+            print("CENTER AFTER TRANSFROMATION: ", center) #NICKA DEBUG
             if 'manual_center' in self.info:
                 self.info['manual_center'] = (int(center[0]), int(center[1]))
             if 'calib_center' in self.info:
@@ -409,13 +435,17 @@ class QuadrantFolder:
 
         b, l = img.shape
         if self.parent.newImgDimension is None:
+            print("self.parent.newImgDim is none case") #NICKA DEBUG
             # This is the max dimension in the case beamline is in a corner and image rotated to 45 degrees
             qf_w, qf_h = 2.8*(l-center[0]), 2.8*(b-center[1])
             max_side = max(max(l,b), max(qf_w, qf_h))
             dim = int(self.expandImg*max_side)
             self.parent.newImgDimension = dim
+            print("DIM: ", dim) #NICKA DEBUG
         else:
             dim = self.parent.newImgDimension
+            print("ELSE CASE") #NICKA DEBUG
+            print("DIM: ", dim) #NICKA DEBUG
         new_img = np.zeros((dim,dim)).astype("float32")
         try:
             new_img[0:b,0:l] = img
@@ -427,6 +457,7 @@ class QuadrantFolder:
         transx = int(((dim/2) - center[0]))
         transy = int(((dim/2) - center[1]))
         M = np.float32([[1,0,transx],[0,1,transy]])
+        print("CALCULATED TRANS MAT: ", M) #NICKA DEBUG
         self.centImgTransMat = M
         rows, cols = new_img.shape
         # mask_thres = self.info["mask_thres"]
@@ -447,6 +478,7 @@ class QuadrantFolder:
         translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
 
         self.orig_img = translated_Img
+        print("Center towards the end: ", self.info['center']) #NICKA DEBUG
         self.info['center'] = (int(dim / 2), int(dim / 2))
         self.center_before_rotation = (int(dim / 2), int(dim / 2))
         print("Dimension of image after centerize ", self.orig_img.shape)
@@ -473,6 +505,7 @@ class QuadrantFolder:
             self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
         self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
 
+        self.curr_dims = final_rotImg.shape
         return final_rotImg
     
 
@@ -1159,7 +1192,7 @@ class QuadrantFolder:
             fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
             fold_height = max(int(center[1]), img_height-int(center[1])) # fold_width
 
-            if img_width > center_x or img_height > center_y:
+            if img_width < center_x or img_height < center_y:
                 print("ALERT: THE CENTER IS NOT INSIDE OF THE IMAGE!  THIS WILL LIKELY CAUSE AN ERROR") #Make future debugging easier
 
             # Get each fold, and flip them to the same direction

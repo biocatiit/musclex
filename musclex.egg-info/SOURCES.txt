@@ -2015,6 +2015,7 @@ musclex/ui/ImageMaskTool.py
 musclex/ui/LogTraceViewer.py
 musclex/ui/ProjectionBoxTab.py
 musclex/ui/ProjectionTracesGUI.py
+musclex/ui/QFCenterExamine.py
 musclex/ui/QuadrantFoldingGUI.py
 musclex/ui/ScanningDiffractionGUI.py
 musclex/ui/TotalDisplayIntensity.py

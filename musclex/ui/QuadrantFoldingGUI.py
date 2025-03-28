@@ -1268,15 +1268,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
             extent, _ = self.getExtentAndCenter()
 
-            #Update the calsettingsdialogue object and the qf obj.
-            self.calSettingsDialog.fixedCenter.setChecked(False)
-            self.quadFold.fixedCenterX = None
-            self.quadFold.fixedCenterY = None
-            if 'calib_center' in self.quadFold.info:
-                del self.quadFold.info['calib_center']
-            if 'manual_center' in self.quadFold.info:
-                del self.quadFold.info['manual_center']
-
             new_center = [cx, cy]  # np.dot(invM, homo_coords)
             # Set new center and rotaion angle , re-calculate R-min
             print("New Center ", new_center)
@@ -1289,6 +1280,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
             self.setCentByPerp.setChecked(False)
+            
             self.processImage()
 
     def setCenterByChordsClicked(self):
@@ -1393,14 +1385,44 @@ class QuadrantFoldingGUI(QMainWindow):
         Handle when Calibration Settings button is clicked
         :return:
         """
+
+        print("info dict before calsettings opened: ") #NICKA DEBUG
+        print(self.quadFold.info) #NICKA DEBUG
+
         success = self.setCalibrationImage(force=True)
-        if not self.calSettingsDialog.fixedCenter.isChecked():
+        """
+        if success:
+
             self.quadFold.fixedCenterX = None
             self.quadFold.fixedCenterY = None
-        if success:
+
+            print("Self.calsettings dialoge center: ", self.calSettingsDialog.centerX.value(), ",", self.calSettingsDialog.centerY.value()) #NICKA DEBUG
+            if 'center' in self.quadFold.info:
+                print("Quadfold info center: ", self.quadFold.info['center']) #NICKA DEBUG
+            else:
+                print("Center not in qf info") #NICKA DEBUG
+
             self.deleteInfo(['rotationAngle'])
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
+
+        print("info dict AFTER calsettings object: ")
+        print(self.quadFold.info)
+        """
+        
+        if success:
+            if self.calSettingsDialog.recalculate:
+                print("Recalculate") #NICKA DEBUG
+                self.deleteInfo(['rotationAngle'])
+                self.deleteImgCache(['BgSubFold'])
+                self.processImage()
+            else:
+                print("No recalculate") #NICKA DEBUG
+                self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()
+                self.quadFold.info['center'] = [self.quadFold.fixedCenterX, self.quadFold.fixedCenterY]
+                print("center: ", self.quadFold.fixedCenterX, ", ", self.quadFold.fixedCenterY) #NICKA DEBUG
+                self.redrawCenter()
+        
 
     def setCalibrationImage(self, force=False):
         """
@@ -1414,6 +1436,9 @@ class QuadrantFoldingGUI(QMainWindow):
             else:
                 self.calSettingsDialog =  CalibrationSettings(self.filePath, center=self.quadFold.orig_image_center)
         self.calSettings = None
+
+        self.calSettingsDialog.recalculate = False
+
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
             result = self.calSettingsDialog.exec_()
@@ -2712,7 +2737,13 @@ class QuadrantFoldingGUI(QMainWindow):
             extent, center = self.getExtentAndCenter()
             self.img = img
             self.extent = extent
+            print("EXTENT IN GUI SHOW: ", extent) #NICKA DEBUG
+            print("IMG SHAPE IN GUI SHOW: ", img.shape) #NICKA DEBUG
+            print("PLUGGED IN TO IMSHOW", [0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]]) #NICKA DEBUG
             # img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
+
+            print("Center: ", center) #NICK ADNEUG
+
             if self.logScaleIntChkBx.isChecked():
                 ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
             else:
@@ -2751,12 +2782,15 @@ class QuadrantFoldingGUI(QMainWindow):
 
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
+                print("Zoom case 1") #NICKA DEBUG
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
             elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+                print("Zoom Case 2") #NICKA DEBUG
                 ax.set_xlim(self.default_img_zoom[0])
                 ax.set_ylim(self.default_img_zoom[1])
             else:
+                print("Zoom case 3") #NICKA DEBGU
                 ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
                 ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
 
@@ -2767,6 +2801,37 @@ class QuadrantFoldingGUI(QMainWindow):
 
             self.updated['img'] = True
             self.uiUpdating = False
+
+    def redrawCenter(self):
+        ax = self.imageAxes
+        imshape = self.quadFold.curr_dims
+        center = [self.quadFold.fixedCenterX, self.quadFold.fixedCenterY]
+        extent = self.extent
+
+        for i in range(len(ax.lines)-1,-1,-1):
+            ax.lines[i].remove()
+
+        if self.showSeparator.isChecked():
+            # Draw quadrant separator
+            ax.axvline(center[0], color='y')
+            ax.axhline(center[1], color='y')
+        if len(self.quadFold.info["ignore_folds"]) > 0:
+            # Draw cross line in ignored quadrant
+            for fold in self.quadFold.info["ignore_folds"]:
+                if fold == 0:
+                    ax.plot([0, center[0]], [center[1], 0], color="w")
+                    ax.plot([0, center[0]], [0, center[1]], color="w")
+                if fold == 1:
+                    ax.plot([center[0], imshape[1] - extent[0]], [center[1], 0], color="w")
+                    ax.plot([center[0], imshape[1] - extent[0]], [0, center[1]], color="w")
+                if fold == 2:
+                    ax.plot([0, center[0]], [center[1], imshape[0] - extent[1]], color="w")
+                    ax.plot([0, center[0]], [imshape[0] - extent[1], center[1]], color="w")
+                if fold == 3:
+                    ax.plot([center[0], imshape[1] - extent[0]], [center[1], imshape[0] - extent[1]], color="w")
+                    ax.plot([center[0], imshape[1] - extent[0]], [imshape[0] - extent[1], center[1]], color="w")
+        
+
 
     def getExtentAndCenter(self):
         """
@@ -2878,6 +2943,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # quadFold_copy = copy.copy(self.quadFold)
             try:
                 if self.calSettingsDialog.fixedCenter.isChecked():
+                    print("FIXED CENTER CHANGED RIGHT BEFORE PROCESS: ", self.calSettings['center']) #NICKA DEBUG
                     self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettings['center']
                 self.quadFold.process(flags)                    
             except Exception:
