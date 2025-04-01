@@ -217,6 +217,7 @@ class QuadrantFolder:
             # else:
             #     self.info['avg_fold'] = self.orig_img
         self.getRminmax()
+        # self.getTransitionRad()
 
         self.applyBackgroundSubtraction()
         self.mergeImages()
@@ -299,7 +300,7 @@ class QuadrantFolder:
             self.centerChanged = False
             return
         if 'mask_thres' not in self.info:
-            self.initParams()
+            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
         if 'center' in self.info:
             self.centerChanged = False
             return
@@ -1066,6 +1067,21 @@ class QuadrantFolder:
         if 'rmax' in self.info:
             print(" and R-max is set to max: " + str(self.info['rmax']))
 
+    # def getTransitionRad(self):
+    #     rmin = self.info['rmin']
+    #     fold = self.info['avg_fold']
+    #     transition_radius = get_transition_radius_from_M6_meridian_fold(img=fold, gap=50, rmin=rmin)
+    #     if 'transition_radius' not in self.info or self.info['transition_radius']  < 0:
+    #         if transition_radius > 20:
+    #             self.info['transition_radius'] = transition_radius
+    #             self.info['transition_delta'] = transition_radius//3
+    #             print(f"[IK] calculated TR: {self.info['transition_radius']}")
+    #         else:
+    #             self.info['transition_radius'] = self.orig_img.shape[0] // 5
+    #             self.info['transition_delta'] = 60
+    #             print(f"[IK] keeping the default TR: {self.info['transition_radius'] }")
+    #     print(f"[IK] TR: {self.info['transition_radius']} TD: {self.info['transition_delta']}")
+
     def apply2DConvexhull(self, copy_img, rmin, step=1):
         """
         Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgimg1']
@@ -1169,9 +1185,6 @@ class QuadrantFolder:
                 del self.imgCache['resultImg']
 
             print("Done.")
-            transition_radius = get_transition_radius_from_M6_meridian_fold(self.info['avg_fold'])
-            if transition_radius > 100:
-                self.info['transition_radius'] = transition_radius
 
     def get_avg_fold(self, quadrants, fold_height, fold_width):
         """
