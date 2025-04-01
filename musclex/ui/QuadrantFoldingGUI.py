@@ -460,7 +460,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.bgChoiceOut = QComboBox()
         self.bgChoiceOut.setCurrentIndex(0)
-        for c in self.allBGChoices:
+        self.allBGChoicesOut = ['None', 'Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', 'Roving Window']
+        for c in self.allBGChoicesOut:
             self.bgChoiceOut.addItem(c)
 
         self.setRminButton = QPushButton("Set Manual R-min")
@@ -582,18 +583,18 @@ class QuadrantFoldingGUI(QMainWindow):
         self.gaussFWHM2Label = QLabel("Gaussian FWHM : ")
         self.gaussFWHM2 = QSpinBox()
         self.gaussFWHM2.setRange(1, 3000)
-        self.gaussFWHM2.setValue(10)
+        self.gaussFWHM2.setValue(20)
         self.gaussFWHM2.setKeyboardTracking(False)
 
         self.boxcar2Label = QLabel("Box car size : ")
         self.boxcar2X = QSpinBox()
         self.boxcar2X.setRange(1, 3000)
-        self.boxcar2X.setValue(10)
+        self.boxcar2X.setValue(20)
         self.boxcar2X.setPrefix('X:')
         self.boxcar2X.setKeyboardTracking(False)
         self.boxcar2Y = QSpinBox()
         self.boxcar2Y.setRange(1, 3000)
-        self.boxcar2Y.setValue(10)
+        self.boxcar2Y.setValue(20)
         self.boxcar2Y.setPrefix('Y:')
         self.boxcar2Y.setKeyboardTracking(False)
 
@@ -608,12 +609,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.winSize2X.setPrefix('X:')
         self.winSize2X.setKeyboardTracking(False)
         self.winSize2X.setRange(1, 3000)
-        self.winSize2X.setValue(15)
+        self.winSize2X.setValue(20)
         self.winSize2Y = QSpinBox()
         self.winSize2Y.setPrefix('Y:')
         self.winSize2Y.setKeyboardTracking(False)
         self.winSize2Y.setRange(1, 3000)
-        self.winSize2Y.setValue(15)
+        self.winSize2Y.setValue(20)
 
         self.windowSep2Label = QLabel("Window Separation : ")
         self.winSep2X = QSpinBox()
@@ -1166,6 +1167,41 @@ class QuadrantFoldingGUI(QMainWindow):
 
         #sensitivity slider
         self.sensitivitySlider.valueChanged.connect(self.sensitivityChanged)
+
+
+        # Change Apply Button Color when BG sub arguments are changed
+        self.tophat1SpnBx.valueChanged.connect(self.highlightApply)
+        self.winSizeX.valueChanged.connect(self.highlightApply)
+        self.winSizeY.valueChanged.connect(self.highlightApply)
+        self.maxPixRange.valueChanged.connect(self.highlightApply)
+        self.minPixRange.valueChanged.connect(self.highlightApply)
+        self.gaussFWHM.valueChanged.connect(self.highlightApply)
+        self.boxcarX.valueChanged.connect(self.highlightApply)
+        self.boxcarY.valueChanged.connect(self.highlightApply)
+        self.deg1CB.currentIndexChanged.connect(self.highlightApply)
+        self.cycle.valueChanged.connect(self.highlightApply)
+        self.radialBinSpnBx.valueChanged.connect(self.highlightApply)
+        self.smoothSpnBx.valueChanged.connect(self.highlightApply)
+        self.tensionSpnBx.valueChanged.connect(self.highlightApply)
+
+        self.tophat2SpnBx.valueChanged.connect(self.highlightApply)
+        self.winSize2X.valueChanged.connect(self.highlightApply)
+        self.winSize2Y.valueChanged.connect(self.highlightApply)
+        self.maxPixRange2.valueChanged.connect(self.highlightApply)
+        self.minPixRange2.valueChanged.connect(self.highlightApply)
+        self.gaussFWHM2.valueChanged.connect(self.highlightApply)
+        self.boxcar2X.valueChanged.connect(self.highlightApply)
+        self.boxcar2Y.valueChanged.connect(self.highlightApply)
+        self.deg2CB.currentIndexChanged.connect(self.highlightApply)
+        self.cycle2.valueChanged.connect(self.highlightApply)
+        self.radialBin2SpnBx.valueChanged.connect(self.highlightApply)
+        self.smooth2SpnBx.valueChanged.connect(self.highlightApply)
+        self.tension2SpnBx.valueChanged.connect(self.highlightApply)
+
+        self.tranRSpnBx.valueChanged.connect(self.highlightApply)
+        self.tranDeltaSpnBx.valueChanged.connect(self.highlightApply)
+
+
         
 
     def updateLeftWidgetWidth(self):
@@ -3369,7 +3405,6 @@ class QuadrantFoldingGUI(QMainWindow):
             result_file = str(join(result_path, self.quadFold.img_name))
             result_file, _ = splitext(result_file)
             img = self.quadFold.imgCache['resultImg']
-
             img = img.astype("float32")
 
             # metadata = json.dumps([True, self.quadFold.initImg.shape])
@@ -3411,9 +3446,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         info = self.quadFold.info
         result = self.quadFold.imgCache["BgSubFold"]
-
         avg_fold = info["avg_fold"]
-
         print("Avg_fold shape:")
         print(avg_fold.shape)
         print("result shape: ")
