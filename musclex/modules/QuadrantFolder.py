@@ -217,7 +217,7 @@ class QuadrantFolder:
             # else:
             #     self.info['avg_fold'] = self.orig_img
         self.getRminmax()
-        # self.getTransitionRad()
+        self.getTransitionRad()
 
         self.applyBackgroundSubtraction()
         self.mergeImages()
@@ -256,10 +256,6 @@ class QuadrantFolder:
             self.info['bgsub'] = 'None'
         if 'bgsub2' not in self.info:
             self.info['bgsub2'] = 'None'
-        if 'transition_radius' not in self.info or self.info['transition_radius'] < 0:
-            self.info['transition_radius'] = self.orig_img.shape[0] // 5
-        if 'transition_delta' not in self.info or self.info['transition_delta'] < 0:
-            self.info['transition_delta'] = 60
 
 
     def applyBlankImageAndMask(self):
@@ -1067,20 +1063,11 @@ class QuadrantFolder:
         if 'rmax' in self.info:
             print(" and R-max is set to max: " + str(self.info['rmax']))
 
-    # def getTransitionRad(self):
-    #     rmin = self.info['rmin']
-    #     fold = self.info['avg_fold']
-    #     transition_radius = get_transition_radius_from_M6_meridian_fold(img=fold, gap=50, rmin=rmin)
-    #     if 'transition_radius' not in self.info or self.info['transition_radius']  < 0:
-    #         if transition_radius > 20:
-    #             self.info['transition_radius'] = transition_radius
-    #             self.info['transition_delta'] = transition_radius//3
-    #             print(f"[IK] calculated TR: {self.info['transition_radius']}")
-    #         else:
-    #             self.info['transition_radius'] = self.orig_img.shape[0] // 5
-    #             self.info['transition_delta'] = 60
-    #             print(f"[IK] keeping the default TR: {self.info['transition_radius'] }")
-    #     print(f"[IK] TR: {self.info['transition_radius']} TD: {self.info['transition_delta']}")
+    def getTransitionRad(self):
+        if 'transition_radius' not in self.info or self.info['transition_radius']  < 0:
+            self.info['transition_radius'] = self.orig_img.shape[0] // 5
+            self.info['transition_delta'] = 60
+        print(f"[INFO] Transition Radius: {self.info['transition_radius']} Transition Delta: {self.info['transition_delta']}")
 
     def apply2DConvexhull(self, copy_img, rmin, step=1):
         """

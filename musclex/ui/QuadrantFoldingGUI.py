@@ -1161,6 +1161,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setRminButton.clicked.connect(self.setManualRmin)
         self.rminSpnBx.valueChanged.connect(self.RminChanged)
 
+        self.tranRSpnBx.valueChanged.connect(self.TranRChanged)
+        self.tranDeltaSpnBx.valueChanged.connect(self.TranDeltaChanged)
+
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
@@ -1198,8 +1201,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.smooth2SpnBx.valueChanged.connect(self.highlightApply)
         self.tension2SpnBx.valueChanged.connect(self.highlightApply)
 
-        self.tranRSpnBx.valueChanged.connect(self.highlightApply)
-        self.tranDeltaSpnBx.valueChanged.connect(self.highlightApply)
+        # self.tranRSpnBx.valueChanged.connect(self.highlightApply)
+        # self.tranDeltaSpnBx.valueChanged.connect(self.highlightApply)
+
+
 
 
         
@@ -2337,10 +2342,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.uiUpdating = True
         self.rminSpnBx.setValue(rmin)
         self.uiUpdating = False
+        self.highlightApply()
 
-        # self.deleteInfo(['bgimg1'])  # delete bgimg1 to make QuadrantFolder recalculate
-        # self.processImage()
+    def TranRChanged(self):
+        self.quadFold.info['transition_radius'] = self.tranRSpnBx.value()
+        self.highlightApply()
 
+    def TranDeltaChanged(self):
+        self.quadFold.info['transition_delta'] = self.tranDeltaSpnBx.value()
         self.highlightApply()
 
     def highlightApply(self):
@@ -3599,6 +3608,12 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()
 
+        if self.tranRSpnBx.value() > 0:
+            flags['transition_radius'] = self.tranRSpnBx.value()
+
+        if self.tranDeltaSpnBx.value() > 0:
+            flags['transition_delta'] = self.tranDeltaSpnBx.value()
+
         if self.fixedRoiChkBx.isChecked():
             flags['fixed_roi_rad'] = self.fixedRoi.value()
 
@@ -3692,6 +3707,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         self.uiUpdating = True
         self.rminSpnBx.setValue(-1)
+        self.tranRSpnBx.setValue(-1)
+        self.tranDeltaSpnBx.setValue(-1)
         self.uiUpdating = False
 
     def browseFolder(self):
