@@ -1239,9 +1239,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.blankImageGrp.clicked.connect(self.blankChecked)
 
-        #sensitivity slider
-        self.sensitivitySlider.valueChanged.connect(self.sensitivityChanged)
-
 
         # Change Apply Button Color when BG sub arguments are changed
         self.tophat1SpnBx.valueChanged.connect(self.highlightApply)
@@ -2935,31 +2932,37 @@ class QuadrantFoldingGUI(QMainWindow):
         if "bgsub" in info:
             self.bgChoiceIn.setCurrentIndex(self.allBGChoices.index(info['bgsub']))
             if info['bgsub'] != 'None':
-                self.tranRSpnBx.setValue(info['transition_radius'])
-                self.tranDeltaSpnBx.setValue(info['transition_delta'])
 
-                self.tophat1SpnBx.setValue(info['tophat1'])
-                self.maxPixRange.setValue(info["cirmax"])
-                self.minPixRange.setValue(info["cirmin"])
+                try:
+                    self.tranRSpnBx.setValue(info['transition_radius'])
+                    self.tranDeltaSpnBx.setValue(info['transition_delta'])
 
-                self.radialBinSpnBx.setValue(info['radial_bin'])
-                self.smoothSpnBx.setValue(info['smooth'])
-                self.tensionSpnBx.setValue(info['tension'])
+                    self.tophat1SpnBx.setValue(info['tophat1'])
+                    self.maxPixRange.setValue(info["cirmax"])
+                    self.minPixRange.setValue(info["cirmin"])
 
-                if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
-                    self.rminSpnBx.setValue(info['rmin'])
-                else:
-                    self.rminSpnBx.setValue(previnfo['rmin'])
+                    self.radialBinSpnBx.setValue(info['radial_bin'])
+                    self.smoothSpnBx.setValue(info['smooth'])
+                    self.tensionSpnBx.setValue(info['tension'])
 
-                self.winSizeX.setValue(info['win_size_x'])
-                self.winSizeY.setValue(info['win_size_y'])
-                self.winSepX.setValue(info['win_sep_x'])
-                self.winSepY.setValue(info['win_sep_y'])
-                self.gaussFWHM.setValue(info['fwhm'])
-                self.boxcarX.setValue(info['boxcar_x'])
-                self.boxcarY.setValue(info['boxcar_y'])
-                self.cycle.setValue(info['cycles'])
-                self.deg1CB.setCurrentIndex(1)
+                    if previnfo is None or not self.fixedRadiusRangeChkBx.isChecked():
+                        self.rminSpnBx.setValue(info['rmin'])
+                    else:
+                        self.rminSpnBx.setValue(previnfo['rmin'])
+
+                    self.winSizeX.setValue(info['win_size_x'])
+                    self.winSizeY.setValue(info['win_size_y'])
+                    self.winSepX.setValue(info['win_sep_x'])
+                    self.winSepY.setValue(info['win_sep_y'])
+                    self.gaussFWHM.setValue(info['fwhm'])
+                    self.boxcarX.setValue(info['boxcar_x'])
+                    self.boxcarY.setValue(info['boxcar_y'])
+                    self.cycle.setValue(info['cycles'])
+                    self.deg1CB.setCurrentIndex(1)
+
+                except:
+
+                    pass
                 
 
         if "bgsub2" in info:
