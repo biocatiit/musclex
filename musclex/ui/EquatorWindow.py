@@ -89,7 +89,6 @@ class EquatorWindow(QMainWindow):
     This window contains 3 tabs : image, fitting, results
     """
     def __init__(self, mainWin):
-        print("EQ Window Constructor") #NICKA DEBUG
         """
         Init window with main window object and selected file name
         :param mainWin: main window object
@@ -138,7 +137,6 @@ class EquatorWindow(QMainWindow):
 
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
-        print("EW CONSTRUCTOR: ABOUT TO SAY SHOW") #NICKA DEBUG
         self.show()
         self.browseFile()
 
@@ -1214,7 +1212,6 @@ class EquatorWindow(QMainWindow):
             fileName = self.imgList[self.currentImg]
 
         img = self.bioImg.getRotatedImage()
-        print("IMAGE SHAPE: ", img.shape) #NICKA DEBUG
 
         try:
             fabio.tifimage.tifimage(data=img).write(os.path.join(self.dir_path,'settings/tempMaskFile_eq.tif'))
@@ -1223,8 +1220,7 @@ class EquatorWindow(QMainWindow):
 
         max_val =  np.max(np.ravel(img))
 
-        orig_size = self.bioImg.orig_img.shape
-        print("ORIG SIZE: ", orig_size) #NICKA DEBUG  
+        orig_size = self.bioImg.orig_img.shape 
 
         if 'rotationAngle' in self.bioImg.info:
             rotationAngle = self.bioImg.info['rotationAngle']
@@ -1236,7 +1232,6 @@ class EquatorWindow(QMainWindow):
 
         trans_mat = np.float32([[1,0,trans_x],[0,1,trans_y]])
 
-        print("MAX VAL: ", max_val) #NICKA DEBUG
         self.imageMaskingTool = ImageMaskerWindow(self.dir_path , 
                                                   os.path.join(self.dir_path, "settings/tempMaskFile_eq.tif"), 
                                                   self.minIntSpnBx.value(), 
@@ -1626,31 +1621,25 @@ class EquatorWindow(QMainWindow):
         self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
     def browseFile(self):
-        print("EQ WINDOW BROWSE FILE") #NICKA DEBUG
         """
         Popup an input file dialog. Users can select an image or .txt for failed cases list
         """
         file_name = getAFile(add_txt=True)
-        print("After GetAFILE IN EQ WINDOW BROWSEFILE") #NICKA DEBUG
         print("FILE: ", file_name)
         _, ext = os.path.splitext(str(file_name))
         _, name = split(str(file_name))
         if file_name != "":
-            print("EQ WINDOW: FILE NAME IS NOT EMPTY STR") #NICKA DEBUG
+ 
             if ext == ".txt" and not name == "failedcases.txt":
-                print("EQ WINDOW: EXTENSION IS TXT AND IT ISNT FAILEDCAES") #NICKA DEBUG
                 errMsg = QMessageBox()
                 errMsg.setText('Invalid Input')
                 errMsg.setInformativeText("Please select only failedcases.txt or an image\n\n")
                 errMsg.setStandardButtons(QMessageBox.Ok)
                 errMsg.setIcon(QMessageBox.Warning)
                 errMsg.exec_()
-            else:
-                print("EQ WINDOW: EXPECTED EXEC PATH") #NICKA DEBUG
-                #self.mainWindow.runBioMuscle()
 
         self.fileName = file_name
-        print("END OF EQ WINDOW BROWSE.  SETTING SELF.FILENAME: ", self.fileName) #NICKA DEBUG
+
 
     def saveSettings(self):
         """

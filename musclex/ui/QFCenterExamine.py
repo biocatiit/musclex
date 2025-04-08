@@ -29,6 +29,7 @@ authorization from Illinois Institute of Technology.
 import os
 import json
 import copy
+import math
 import pandas as pd
 import matplotlib.pyplot as plt
 from musclex import __version__
@@ -61,6 +62,11 @@ class QFCenterExamine(QMainWindow):
         self.cent_img = None
         self.rot_img = None
         self.resized_img = None
+
+        self.master_min_int = None
+        self.master_max_int = None
+        self.master_center = None
+        self.master_rot_angle = None
 
         self.initUI()
         #self.setConnections()
@@ -139,6 +145,8 @@ class QFCenterExamine(QMainWindow):
         self.centerizeButton.clicked.connect(self.centerize)
 
         self.origFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
+        self.origFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
+
 
         self.centImageTab = QWidget()
         self.tabWidget.addTab(self.centImageTab, "Centerized Image")
@@ -166,6 +174,8 @@ class QFCenterExamine(QMainWindow):
         self.centControlLayout.addWidget(self.rotateButton)
         self.rotateButton.clicked.connect(self.rotateImage)
 
+        self.centFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
+
         self.rotatedImageTab = QWidget()
         self.tabWidget.addTab(self.rotatedImageTab, "Rotated Image")
 
@@ -175,14 +185,83 @@ class QFCenterExamine(QMainWindow):
         self.rotCanvas = FigureCanvas(self.rotFigure)
         self.rotImageTabLayout.addWidget(self.rotCanvas)
 
-        self.resizedImageTab = QWidget()
-        self.tabWidget.addTab(self.resizedImageTab, "Resized Image")
+        self.rotFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
 
-        self.resizImageTabLayout = QHBoxLayout(self.resizedImageTab)
-        self.resizFigure = plt.figure()
-        self.resizAxes = self.resizFigure.add_subplot(111)
-        self.resizCanvas = FigureCanvas(self.resizFigure)
-        self.resizImageTabLayout.addWidget(self.resizCanvas)
+        self.mastImageTab = QWidget()
+        self.tabWidget.addTab(self.mastImageTab, "Master Image")
+
+        self.mastImageTabLayout = QHBoxLayout(self.mastImageTab)
+        self.mastFigure = plt.figure()
+        self.mastAxes = self.mastFigure.add_subplot(111)
+        self.mastCanvas = FigureCanvas(self.mastFigure)
+        self.mastImageTabLayout.addWidget(self.mastCanvas)
+
+        self.mastControlGrp = QGroupBox("Master Image Controls")
+        self.mastControlLayout = QGridLayout(self.mastControlGrp)
+        self.mastImageTabLayout.addWidget(self.mastControlGrp)
+
+        self.mastMinInt = QDoubleSpinBox()
+        self.mastMinInt.setSingleStep(5)
+        self.mastMinInt.setDecimals(0)
+        self.mastMinInt.setMinimum(0)  # Allow 0 for min intensity
+        self.mastMinInt.setMaximum(9999999999999999999999999999)  # Allow large values for min intensity
+        self.mastControlLayout.addWidget(QLabel("Min Intensity:"), 0, 0, 1, 2)
+        self.mastControlLayout.addWidget(self.mastMinInt, 0, 3, 1, 2)
+        self.mastMinInt.valueChanged.connect(self.mastMinIntChanged)
+        self.clearMastMinIntBtn = QPushButton('Clear')
+        self.mastControlLayout.addWidget(self.clearMastMinIntBtn, 0, 5, 1, 2)
+        self.clearMastMinIntBtn.clicked.connect(self.clearMastMinInt)
+
+        self.mastMaxInt = QDoubleSpinBox()
+        self.mastMaxInt.setSingleStep(5)  # Allow larger steps for quicker testing
+        self.mastMaxInt.setDecimals(0)  # Set decimals to 0 for simplicity in testing
+        self.mastMaxInt.setMinimum(0)  # Allow 0 for max intensity
+        self.mastMaxInt.setMaximum(9999999999999999999999999999)  # Allow large values for max intensity
+        self.mastControlLayout.addWidget(QLabel("Max Intensity:"), 1, 0, 1, 2)
+        self.mastControlLayout.addWidget(self.mastMaxInt, 1, 3, 1, 2)
+        self.mastMaxInt.valueChanged.connect(self.mastMaxIntChanged)
+        self.clearMastMaxIntBtn = QPushButton('Clear')
+        self.mastControlLayout.addWidget(self.clearMastMaxIntBtn, 1, 5, 1, 2)
+        self.clearMastMaxIntBtn.clicked.connect(self.clearMastMaxInt)
+
+        self.mastCenterXBox = QDoubleSpinBox()
+        self.mastCenterXBox.setMinimum(0)  # Allow 0 for center
+        self.mastCenterXBox.setMaximum(9999999999999999999999999999)  # Allow large values for center
+        self.mastCenterXBox.setSingleStep(1)  # Set single step to 1 for easier testing
+        self.mastControlLayout.addWidget(QLabel("Center X"), 2, 0, 1, 2)
+        self.mastControlLayout.addWidget(self.mastCenterXBox, 2, 3, 1, 2)
+        self.mastCenterXBox.valueChanged.connect(self.mastCenterChanged)
+        self.clearMastCenterBtn = QPushButton('Clear')
+        self.mastControlLayout.addWidget(self.clearMastCenterBtn, 2, 5, 1, 2)
+        self.clearMastCenterBtn.clicked.connect(self.clearMastCenter)
+
+        self.mastCenterYBox = QDoubleSpinBox()
+        self.mastCenterYBox.setMinimum(0)
+        self.mastCenterYBox.setMaximum(9999999999999999999999999999)  # Allow large values for center
+        self.mastCenterYBox.setSingleStep(1)  # Set single step to 1 for easier testing
+        self.mastControlLayout.addWidget(QLabel("Center Y"), 3, 0, 1, 2)
+        self.mastControlLayout.addWidget(self.mastCenterYBox, 3, 3, 1, 2)
+        self.mastCenterYBox.valueChanged.connect(self.mastCenterChanged)
+        
+        self.mastRotationAngle = QDoubleSpinBox()
+        self.mastControlLayout.addWidget(QLabel("Rotation Angle:"), 4, 0, 1, 2)
+        self.mastControlLayout.addWidget(self.mastRotationAngle, 4, 3, 1, 2)
+        self.mastRotationAngle.valueChanged.connect(self.mastRotAngleChanged)
+        self.clearMastRotAngleBtn = QPushButton('Clear')
+        self.mastControlLayout.addWidget(self.clearMastRotAngleBtn, 4, 5, 1, 2)
+        self.clearMastRotAngleBtn.clicked.connect(self.clearMastRotAngle)
+
+        self.mastRecalc = QPushButton('Recalculate')
+        self.mastControlLayout.addWidget(self.mastRecalc)
+        self.mastRecalc.clicked.connect(self.recalculate)
+
+        self.mastFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
+
+        #STATUS BAR
+        self.statusBar = QStatusBar()
+        self.imgCoordOnStatusBar = QLabel()
+        self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
+        self.setStatusBar(self.statusBar)
 
         self.show()
         self.resize(1200, 900)
@@ -304,6 +383,11 @@ class QFCenterExamine(QMainWindow):
 
         self.centCanvas.draw_idle()
 
+        self.master_center = [dim/2, dim/2]
+        self.mastCenterXBox.setValue(dim/2)
+        self.mastCenterYBox.setValue(dim/2)
+        self.recalculate()
+
     def refreshCentImg(self):
         ax = self.centAxes
 
@@ -329,6 +413,165 @@ class QFCenterExamine(QMainWindow):
         self.centCanvas.draw_idle()
 
 
+    def recalculate(self):
+        print("RECALCULATE FUNCITON")
+        min_int = self.minIntOrig.value() if self.master_min_int is None else self.master_min_int
+        max_int = self.maxIntOrig.value() if self.master_max_int is None else self.master_max_int
+
+
+        center = self.center if self.master_center is None else self.master_center
+        rot_angle = self.rot_angle if self.master_rot_angle is None else self.master_rot_angle
+
+        """ print("We start with center = ", center)
+        print("and rot_angle = ", rot_angle)
+
+        R_w = cv2.getRotationMatrix2D((center[1], center[0]), -rot_angle, 1)
+
+        R_2x2 = np.array([[np.cos(-rot_angle), -np.sin(-rot_angle)],
+                [np.sin(-rot_angle),  np.cos(-rot_angle)]])
+        
+
+        R = np.zeros((2, 3))
+        R[:, :-1] = R_2x2
+
+        print("The inverse rotation matrix is: ", R)
+        print("The weird shit from getROtaitonMatrix2d (cv2) is: ", R_w)
+
+        dx = self.center[0] - center[0]
+        dy = self.center[1] - center[1]
+        T = np.float32([[1, 0, dx], [0, 1, dy]])
+
+        print("The inverse tranlation matrix is: ", T)
+
+        M = R
+        M[:, 2] = T[:, 2]
+
+        print("The combined transformation matrix is: ", M)
+
+        temp_c = [self.mastCenterXBox.value(), self.mastCenterXBox.value()]
+
+        print("The center specified is: ", temp_c)
+
+        #orig_center = np.dot(M, temp_c + [1])
+        pt = np.dot(temp_c, R_w)
+        print("pt: ", pt)
+        orig_center = np.dot(pt[:-1], T)
+
+        print("The specified center converted to original image coordinates is: ", orig_center)"""
+
+        dx = center[0] - self.center[0]
+        dy = center[1] - self.center[1]
+
+        print("Center: ", center)
+        print("self.center: ", self.center)
+
+        M = cv2.getRotationMatrix2D(center, -rot_angle, 1.0)
+
+        print("M: ", M)
+
+        M[:, 2] += np.array((dx, dy))
+
+        print("M with trans: ", M)
+
+        M_inv = cv2.invertAffineTransform(M)
+
+        print("M_inv: ", M_inv)
+
+        ui_x = self.mastCenterXBox.value()  # For example, x-coordinate from a widget
+        ui_y = self.mastCenterYBox.value()  # For example, y-coordinate from a widget
+        ui_point = np.array([ui_x, ui_y, 1])  # Homogeneous coordinate
+
+        print("ui_point: ", ui_point)
+
+        orig_center = np.dot(M_inv, ui_point)
+
+        print("orig_center: ", orig_center)
+
+        cent_img = self.recalculateCenterPart(orig_center)
+        rot_img = self.recalculateRotationPart(orig_center, rot_angle, cent_img)
+
+        displayImgToAxes(rot_img, self.mastAxes, min_int, max_int)
+
+        self.mastAxes.axvline(center[0], color='y')  # center line for x
+        self.mastAxes.axhline(center[1], color='y')  # center line for y
+
+        self.mastCanvas.draw_idle()
+
+    def recalculateCenterPart(self, center):
+        diff_x = abs(self.orig_center[0] - center[0])
+        diff_y = abs(self.orig_center[1] - center[1])
+
+        orig_x, orig_y = self.orig_img.shape
+
+        new_x, new_y = orig_x + abs(diff_x), orig_y + abs(diff_y)
+
+        trans_x = new_x/2 - center[0]
+        if trans_x < 0:
+            new_x += abs(trans_x)* 2
+            trans_x = 0
+
+        trans_y = new_y/2 - center[1]
+        if trans_y < 0:
+            new_y += abs(trans_y) * 2
+            trans_y = 0
+
+        dim = max(new_x, new_y)
+
+        if new_x < dim:
+            trans_x += (dim - new_x) / 2
+
+        if new_y < dim:
+            trans_y += (dim - new_y) / 2
+
+        trans_mat = np.array([[1, 0, trans_x],
+                             [0, 1, trans_y]], dtype=np.float32)
+
+        new_img = np.zeros((int(dim), int(dim))).astype("float32")
+        new_img[0:orig_x, 0:orig_y] = self.orig_img
+        ##ADD CONDITIONS TO PAD THE IMAGE IF EITHER OF THE TRANSFORMATIONS ARE NEG- THAT WAY THE WHOLE THING FITS IN
+
+        cent_img = cv2.warpAffine(new_img, trans_mat, (int(dim), int(dim)))
+        
+        return cent_img
+
+
+    def recalculateRotationPart(self, center, rot_angle, cent_img):
+        theta = rot_angle
+        center_1 = [cent_img.shape[0]/2, cent_img.shape[1]/2]
+
+        #Corners rotation matrix(for final image size determination)
+        theta_r = -np.deg2rad(theta) #Negative rot angle in radians
+        R = np.array([[np.cos(theta_r), -np.sin(theta_r)],
+                [np.sin(theta_r),  np.cos(theta_r)]])
+        
+        corners = [
+            [-center[0], -center[1]],
+            [-center[0], self.orig_img.shape[0] - center[1]],  # bottom left
+            [self.orig_img.shape[1] - center[0], -center[1]],  # top right
+            [self.orig_img.shape[1] - center[0], self.orig_img.shape[0] - center[1]],  # bottom right
+
+        ]
+
+        # Apply the rotation to the shifted corners
+        rotated_shifted = np.dot(corners, R.T)
+
+        cent = 2 * max([abs(i) for i in np.ravel(rotated_shifted)])
+        dim = math.ceil(cent)
+
+        #Image rotation Matrix
+        M = cv2.getRotationMatrix2D((int(cent/2), int(cent/2)), theta, 1.0)
+
+        new_img = np.zeros((dim, dim), dtype="float32")
+
+        diff_x = int(dim / 2 - center_1[0])
+        diff_y = int(dim / 2 - center_1[1])
+
+        new_img[diff_x:diff_x+int(center_1[0]*2), diff_y:diff_y+int(center_1[1]*2)] = cent_img
+
+        rot_img = cv2.warpAffine(new_img, M, (dim, dim))
+
+        return rot_img
+
     def imageClicked(self, event):
         """
         Triggered when mouse presses on image in original image tab
@@ -345,34 +588,103 @@ class QFCenterExamine(QMainWindow):
         theta = self.rot_angle
         center = [self.cent_img.shape[0]/2, self.cent_img.shape[1]/2]
 
-        #Image rotation Matrix
-        M = cv2.getRotationMatrix2D(center, theta, 1.0)
-
         #Corners rotation matrix(for final image size determination)
-        theta_r = np.deg2rad(theta) #Rot angle in radians
+        theta_r = -np.deg2rad(theta) #Negative rot angle in radians
         R = np.array([[np.cos(theta_r), -np.sin(theta_r)],
                 [np.sin(theta_r),  np.cos(theta_r)]])
         
         corners = [
-            [-center[0], -center[1]],
-            [-center[0], center[1]],
-            [center[0], center[1]],
-            [center[0], -center[1]]
+            [-self.center[0], -self.center[1]],
+            [-self.center[0], self.orig_img.shape[0] - self.center[1]],  # bottom left
+            [self.orig_img.shape[1] - self.center[0], -self.center[1]],  # top right
+            [self.orig_img.shape[1] - self.center[0], self.orig_img.shape[0] - self.center[1]],  # bottom right
+
         ]
         print("CORNERS: ", corners)
 
-        diff_x = self.orig_center[0] - self.center[0]
-        diff_y = self.orig_center[1] - self.center[1]
-
-        shifted = corners - np.array([diff_x, diff_y])
-
         # Apply the rotation to the shifted corners
-        rotated_shifted = np.dot(shifted, R.T)
-        dim = max([abs(i) for i in np.ravel(rotated_shifted)])
+        rotated_shifted = np.dot(corners, R.T)
+
+        print("ROTATED SHIFTED CORNERS: tl:", rotated_shifted[0], " bl:", rotated_shifted[1],
+              " tr:", rotated_shifted[2], " br:", rotated_shifted[3])
+
+        cent = 2 * max([abs(i) for i in np.ravel(rotated_shifted)])
+        dim = math.ceil(cent)
+
+        #Image rotation Matrix
+        M = cv2.getRotationMatrix2D((int(cent/2), int(cent/2)), theta, 1.0)
+
+        new_img = np.zeros((dim, dim), dtype="float32")
+
+        diff_x = int(dim / 2 - center[0])
+        diff_y = int(dim / 2 - center[1])
+
+        print("diff_x: ", diff_x)
+        print("diff_y: ", diff_y)
+
+        print("x_range: ", diff_x, ", ", dim-diff_x)
+        print("y_range: ", diff_y, ", ", dim-diff_y)
+
+        print("Cent_img shape: ", self.cent_img.shape)
+
+        new_img[diff_x:diff_x+int(center[0]*2), diff_y:diff_y+int(center[1]*2)] = self.cent_img
+
+        print("DIMENSION FOR ROTATED IMAGE: ", dim)
 
         print("Rotation Matrix: ", M)
 
-        self.rot_img = cv2.warpAffine(self.cent_img, M, (dim, dim))
+        self.rot_img = cv2.warpAffine(new_img, M, (dim, dim))
 
         displayImgToAxes(self.rot_img, self.rotAxes, self.minIntOrig.value(), self.maxIntOrig.value())
         self.rotCanvas.draw_idle()
+
+        self.rotAxes.axvline(dim/2, color='y')
+        self.rotAxes.axhline(dim/2, color='y')
+
+        """
+        corners_draw = rotated_shifted + [dim/2, dim/2]
+
+        self.rotAxes.plot(corners_draw[0][0], corners_draw[0][1], marker='o', markersize=4, color='r')
+        self.rotAxes.plot(corners_draw[1][0], corners_draw[1][1], marker='o', markersize=4, color='r')
+        self.rotAxes.plot(corners_draw[2][0], corners_draw[2][1], marker='o', markersize=4, color='r')
+        self.rotAxes.plot(corners_draw[3][0], corners_draw[3][1], marker='o', markersize=4, color='r')
+        """
+
+        self.master_center = [dim/2, dim/2]
+        self.mastCenterXBox.setValue(dim/2)
+        self.mastCenterYBox.setValue(dim/2)
+
+        self.master_rot_angle = self.rot_angle
+        self.mastRotationAngle.setValue(self.rot_angle)
+        self.recalculate()
+
+    def imageOnMotion(self, event):
+        x = event.xdata
+        y = event.ydata
+
+        if x is not None and y is not None:
+            self.imgCoordOnStatusBar.setText(f"X: {x:.2f}, Y: {y:.2f}")
+
+    def clearMastMinInt(self):
+        self.master_min_int = None
+
+    def mastMinIntChanged(self):
+        self.master_min_int = self.mastMinInt.value()
+
+    def clearMastMaxInt(self):
+        self.master_max_int = None
+
+    def mastMaxIntChanged(self):
+        self.master_max_int = self.mastMaxInt.value()
+
+    def clearMastCenter(self):
+        self.master_center = None
+    
+    def mastCenterChanged(self):
+        self.master_center = [self.mastCenterXBox.value(), self.mastCenterYBox.value()]
+
+    def clearMastRotAngle(self):
+        self.master_rot_angle = None
+
+    def mastRotAngleChanged(self):
+        self.master_rot_angle = self.mastRotationAngle.value()

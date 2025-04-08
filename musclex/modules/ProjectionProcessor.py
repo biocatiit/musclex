@@ -555,9 +555,8 @@ class ProjectionProcessor:
                         moved.append(globalpeak)
                     # else:
                     #     moved.append(int(round(model['centerX']-p)))
-                print("PEAKS(1): " + str(peaks)) #NICKA DEBUG
+
                 moved = movePeaks(hist, moved, 10)
-                print("PEAKS (2): " + str(moved)) #NCIKA DEBUG
                 moved_peaks[name] = moved
                 self.removeInfo(name, 'baselines')
 

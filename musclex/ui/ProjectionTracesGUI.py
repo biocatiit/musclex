@@ -2018,12 +2018,10 @@ class ProjectionTracesGUI(QMainWindow):
         if func is None:
             return
         if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
-            print("DZ Zooming fucn-len = 1 case") #NICKA DEBUG
             if not self.doubleZoomGUI.doubleZoomMode:
                 self.doubleZoomGUI.updateAxes(x, y)
                 self.displayImgCanvas.draw_idle()
         if func[0] == "im_zoomin" and len(self.function) == 2:
-            print("Function is im_zoomin (len == 2)") #NICKA DEBUG
             # draw rectangle            
             if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
                 if len(ax.patches) > 0:
@@ -2771,11 +2769,8 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Update the UI
         """
-        print("UPDATE UI FUNCTION") #NICKA DEBUG
-        print("MAX-INT: ", self.maxIntSpnBx.value()) #NICKA DEBUG
         if self.projProc is not None and not self.syncUI:
             print("SELF.PROJPROC IS NOT NONE AND NO SYNCUI")
-            print("MAX-INT: ", self.maxIntSpnBx.value()) #NICKA DEBUG
             ind = self.tabWidget.currentIndex()
             if ind == 0:
                 # if image tab is selected
@@ -2788,8 +2783,7 @@ class ProjectionTracesGUI(QMainWindow):
         """
         Draw all UI in image tab
         """
-        print("UPDATE IMAGE TAB")
-        print("MAX-INT: ", self.maxIntSpnBx.value()) #NICKA DEBUG
+
         if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
         if self.rotated:
@@ -2809,8 +2803,6 @@ class ProjectionTracesGUI(QMainWindow):
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
                 for name, aritists in self.boxes_on_img.items():
-                    print("NAME: ", name) #NICKA DEBUG
-                    print("ARITIST: ", aritists) #NICKA DEBUG
                     ax.add_patch(aritists['rect'])
                     ax.add_artist(aritists['text'])
 

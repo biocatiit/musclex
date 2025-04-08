@@ -53,7 +53,6 @@ class XRayViewer:
             try:
                 self.orig_img = fabio.open(fullPath(img_path, img_name)).data
             except:
-                print("FABIO cannot open " + str(img_name)) #NICKA DEBUG
                 exit
         self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
         self.orig_img = self.orig_img.astype("float32")
@@ -80,7 +79,6 @@ class XRayViewer:
         return final_rotImg
 
     def findCenter(self):
-        print("FIND CENTER FUNCTION") #NICKA DEBUG
         if 'center' in self.info:
             return
         print("Center is being calculated ... ")

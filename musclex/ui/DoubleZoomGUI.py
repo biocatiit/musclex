@@ -64,7 +64,6 @@ class DoubleZoom:
             self.showPopup()
 
     def doubleZoomToOrigCoord(self, x, y):
-        print("DOUBLE ZOOM TO ORIGINAL COORD") #NICKA DEBUG
         """
         Compute the new x and y for double zoom to orig coord
         """
@@ -79,11 +78,6 @@ class DoubleZoom:
         """
         Triggered when double zoom is checked
         """
-        print("DOUBLE ZOOM CHECKED FUNCTION") #NICKA DEBUG
-        print("IMG: ", img.shape) #NICKA DEBUG
-        print("CANV: ", canv) #NICKA DEBUG
-        print("CENTER: ",center) #NICKA DEBUG
-        print("IS_CHECKED: ", is_checked) #NICKA DEBUG
 
         if img is not None and canv is not None:
             if is_checked:
@@ -99,7 +93,6 @@ class DoubleZoom:
                 ax1 = self.axes
                 x,y = center
                 x, y = int(x), int(y)
-                print("(FROM DOUBLEZOOM CHEKCED)Center is ", x, y) #NICKA DEBUG
                 imgCropped = img[y - 10:y + 10, x - 10:x + 10]
                 if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                     imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
@@ -233,7 +226,6 @@ class DoubleZoom:
 
     def beginImgMotion(self, x, y, img_width, img_height, extent, img_axes):
         if self.mousePosHist == []:
-            #print("MOUSE POS HIST IS EMPTY") #NICKA DEBUG
             self.mousePosHist.append((x, y))
             return
         

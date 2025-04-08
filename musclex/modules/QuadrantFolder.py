@@ -250,29 +250,12 @@ class QuadrantFolder:
         Apply the blank image and mask threshold on the orig_img
         :return: -
         """
-        
-        print("APPLY BLANK IMAGE AND MASK FUNCTION") #NICKA DEBUG
 
         if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
             img = np.array(self.orig_img, 'float32')
             blank, mask = getBlankImageAndMask(self.img_path)
 
             maskOnly = getMaskOnly(self.img_path)
-
-            if maskOnly is not None:
-                print("GET MASK ONLY MASK: ", maskOnly.shape) #NICKA DEBUG
-            else: 
-                print("GET MASK ONLY MASK IS NONE") #NICKA DEBUG
-            if mask is not None:
-                print("Mask Size is: ", mask.shape) #NICKA DEBUG
-            else:
-                print("Mask is none")
-            if img is not None:
-                print("IMAGE SIZE ", img.shape) #NICKA DEBUG
-            else:
-                print("IMAGE IS NONE") #NICKA DEBUG
-
-
 
             if blank is not None:
                 img = img - blank
@@ -305,27 +288,21 @@ class QuadrantFolder:
         print("quadfold info: ", self.info)
         if 'mask_thres' not in self.info:
             self.initParams()
-            print("mask_thres swithc in FC") #NICKA DEBUG
         if 'center' in self.info:
             self.centerChanged = False
-            print("CENTER IN QFP") #NiCKA DEBUG
             return
         self.centerChanged = True
         if 'calib_center' in self.info:
             self.info['center'] = self.info['calib_center']
-            print("CALIB CENTER IN QFP") #NICKA DEBUG
             self.fixedCenterX = self.info['calib_center'][0]
             self.fixedCenterY = self.info['calib_center'][1]
             return
         if 'manual_center' in self.info:
             center = self.info['manual_center']
-            print("Manual center swithc in FC") #NICKA DEBUG
             if self.rotMat is not None:
-                print("Self.rotmat in FC") #NICKA DEBUG
                 center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0] + self.dl, center[1] + self.db, 1])
                 self.info['manual_center'] = center
             self.info['center'] = self.info['manual_center']
-            print("MANUSAL CENTER IN QFP") #NICKA DEBUG
             self.fixedCenterX = self.info['manual_center'][0]
             self.fixedCenterY = self.info['manual_center'][1]
             return
@@ -344,11 +321,9 @@ class QuadrantFolder:
         self.parent.statusPrint("Finding Rotation Angle...")
         #NickA: First if is for if the Fixed Rotation Angle GUI box is checked.
         if self.fixedRot is not None:
-            print("Using fixed rot: ", self.fixedRot) #NICKA DEBUG
             self.info['rotationAngle'] = self.fixedRot
             self.deleteFromDict(self.info, 'avg_fold')
         elif 'manual_rotationAngle' in self.info:
-            print("Using manual rotation") #NICKA DEBUG
             self.info['rotationAngle'] = self.info['manual_rotationAngle']
             del self.info['manual_rotationAngle']
             self.deleteFromDict(self.info, 'avg_fold')
@@ -374,7 +349,7 @@ class QuadrantFolder:
         Give the extent and the center of the image in self.
         :return: extent, center
         """
-        print("GET EXTENT AND CENTER") #NICKA DEBUG
+
         if self is None:
             return [0,0], (0,0)
         if self.orig_image_center is None and (self.fixedCenterX == None or self.fixedCenterY == None):
@@ -387,14 +362,11 @@ class QuadrantFolder:
             center.append(self.fixedCenterY)
         """
         if 'calib_center' in self.info:
-            print("USING CALIB CENTER") #NICKA DEBUG
             center = self.info['calib_center']
         elif 'manual_center' in self.info:
             center = self.info['manual_center']
-            print("USING MANUAL CENTER") #NICKA DEBUG
         else:
             center = self.orig_image_center
-            print("USING ORIGINAL IMAGE CENTER") #NICKA DEBUG
         extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
         print("EXTENT=", extent)
         print("CENTER=", center)
@@ -403,7 +375,6 @@ class QuadrantFolder:
         return extent, center
 
     def centerizeImage(self):
-        print("CENTERIZE IMAGE FCTN") #NICKA DEBUG
         """
         Create an enlarged image such that image center is at the center of new image
         """
@@ -411,7 +382,6 @@ class QuadrantFolder:
         if not self.centerChanged:
             return
         center = self.info['center']
-        print("CENTER BEFORE TRANSFORMATION: ", center) #NICKA DEBUG
         if self.centImgTransMat is not None:
             # convert center in initial img coordinate system
             M = self.centImgTransMat
@@ -419,7 +389,6 @@ class QuadrantFolder:
             M[1,2] = -1*M[1,2]
             center = [center[0], center[1], 1]
             center = np.dot(M, center)
-            print("CENTER AFTER TRANSFROMATION: ", center) #NICKA DEBUG
             if 'manual_center' in self.info:
                 self.info['manual_center'] = (int(center[0]), int(center[1]))
             if 'calib_center' in self.info:
@@ -435,17 +404,13 @@ class QuadrantFolder:
 
         b, l = img.shape
         if self.parent.newImgDimension is None:
-            print("self.parent.newImgDim is none case") #NICKA DEBUG
             # This is the max dimension in the case beamline is in a corner and image rotated to 45 degrees
             qf_w, qf_h = 2.8*(l-center[0]), 2.8*(b-center[1])
             max_side = max(max(l,b), max(qf_w, qf_h))
             dim = int(self.expandImg*max_side)
             self.parent.newImgDimension = dim
-            print("DIM: ", dim) #NICKA DEBUG
         else:
             dim = self.parent.newImgDimension
-            print("ELSE CASE") #NICKA DEBUG
-            print("DIM: ", dim) #NICKA DEBUG
         new_img = np.zeros((dim,dim)).astype("float32")
         try:
             new_img[0:b,0:l] = img
@@ -457,7 +422,6 @@ class QuadrantFolder:
         transx = int(((dim/2) - center[0]))
         transy = int(((dim/2) - center[1]))
         M = np.float32([[1,0,transx],[0,1,transy]])
-        print("CALCULATED TRANS MAT: ", M) #NICKA DEBUG
         self.centImgTransMat = M
         rows, cols = new_img.shape
         # mask_thres = self.info["mask_thres"]
@@ -478,7 +442,6 @@ class QuadrantFolder:
         translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
 
         self.orig_img = translated_Img
-        print("Center towards the end: ", self.info['center']) #NICKA DEBUG
         self.info['center'] = (int(dim / 2), int(dim / 2))
         self.center_before_rotation = (int(dim / 2), int(dim / 2))
         print("Dimension of image after centerize ", self.orig_img.shape)
@@ -1183,9 +1146,6 @@ class QuadrantFolder:
             center_x = int(center[0])
             center_y = int(center[1])
 
-            print("CENTER X: ", center_x) #NICKA DEBUG
-            print("CENTER Y: ", center_y) #NICKA DEBUG
-
             print("Quadrant folding is being processed...")
             img_width = rotate_img.shape[1]
             img_height = rotate_img.shape[0]
@@ -1255,9 +1215,6 @@ class QuadrantFolder:
         self.parent.statusPrint("Applying Background Subtraction...")
         print("Background Subtraction is being processed...")
         method = self.info["bgsub"]
-        print("Method = ", method) #NICKA DEBUG
-        print("bgimg1 in self.info: ", 'bgimg1' in self.info) #NICKA DEBUG
-        print("bgimg2 in self.info: ", 'bgimg2' in self.info) #NICKA DEBUG
 
         # Produce bgimg1
         if "bgimg1" not in self.info:

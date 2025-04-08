@@ -122,25 +122,15 @@ class EquatorImage:
         print("settings in process eqimg\n")
         print(settings)
         self.updateInfo(settings)
-        print("AFTER UPDATE INFO") #NICKA DEBUG
         self.applyBlankAndMask()
-        print("AFTER APPLY B+M") #NICKA DEBUG
         self.findCenter()
-        print("AFTER FIND CENTER") #NICKA DEBUG
         self.getRotationAngle()
-        print("AFTER UGETROTANG") #NICKA DEBUG
         self.calculateRmin()
-        print("AFTER CALC RMIN") #NICKA DEBUG
         self.getIntegrateArea()
-        print("AFTER GETINTAREA") #NICKA DEBUG
         self.getHistogram()
-        print("AFTER GETHISTOGRAM") #NICKA DEBUG
         self.applyConvexhull()
-        print("AFTER APPLYCONVEXHULL") #NICKA DEBUG
         self.getPeaks()
-        print("AFTER GETPEAKS") #NICKA DEBUG
         self.managePeaks()
-        print("AFTER MANGAGEPEAKS") #NICKA DEBUG
         if paramInfo is not None:
             self.processParameters(paramInfo)
         else:
@@ -267,7 +257,7 @@ class EquatorImage:
         Find center of the diffraction. The center will be kept in self.info["center"].
         Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
         """
-        print("FIND CENTER FUNCRION") #NICKA DEBUG
+
         if self.quadrant_folded:
             self.info['center'] = self.orig_img.shape[1] / 2, self.orig_img.shape[0] / 2
             print("QF Center is " + str(self.info['center']))
@@ -367,11 +357,11 @@ class EquatorImage:
         :param angle: rotation angle
         :return: rotated image
         """
-        print("get rotatedimagefunction") #NICKA DEBUG
+
         if img is None:
             print("Image is none")
             img = copy.copy(self.image)
-            print("self.image shape: ", self.image.shape) #NICKA DEBUG
+
         if angle is None:
             angle = self.info['rotationAngle']
         if '90rotation' in self.info and self.info['90rotation'] is True:
@@ -383,16 +373,15 @@ class EquatorImage:
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
 
             center = self.info["center"]
-            print("center:",self.info['center']) #NICKA DEBUG
+
             if "orig_center:" in self.info:
                 center = self.info["orig_center"]
-                print("orig_center",self.info['orig_center']) #NICKA DEBUG
+
             else:
                 self.info["orig_center"] = center
 
             rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle)
             self.rotated_img = [self.info["center"], angle, img, rotImg]
-            print("self.rotatedimage: ", self.rotated_img) #NICKA DEBUG
 
         return self.rotated_img[3]
 

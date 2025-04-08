@@ -661,7 +661,6 @@ class DIImageWindow(QMainWindow):
 
 
         if self.cirProj is not None:
-            print("CIRCLE PROJ IS NOT NONE") #NICKA DEBUG
             self.cirProj.removeInfo('2dintegration')
             self.onImageChanged()
 
@@ -1219,9 +1218,7 @@ class DIImageWindow(QMainWindow):
         """
         Process the scanning diffraction
         """
-        print("PROCESS IN GUI") #NICKA DEBUG
         if self.cirProj is not None:
-            print("CIRCPROJ IS NOT NONE") #NICKA DEBUG
             QApplication.setOverrideCursor(Qt.WaitCursor)
             self.flags = self.getFlags(imgChanged)
             self.cirProj.process(self.flags)
@@ -1509,7 +1506,6 @@ class DIImageWindow(QMainWindow):
             if blank is not None:
                 img = img - blank
                 """
-        print("UPDATE IMAGE TAB") #NICKA DEBUG
         img = np.flipud(img)
         #img = getBGR(get8bitImage(img, min=self.minInt.value(), max=self.maxInt.value()))
         ax = self.displayImgAxes

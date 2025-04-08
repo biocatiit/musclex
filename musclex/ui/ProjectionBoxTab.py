@@ -842,18 +842,13 @@ class ProjectionBoxTab(QWidget):
         Trigger when "Clear Peaks" is pressed
         :return:
         """
-        print("Name: ", self.name) #NICKA DEBUG
         if self.function is None:
             temp = self.parent.peaks[self.name]
             curr_peaks = [temp[i] for i in range(int(len(temp) / 2) - 1)]
         else:
             curr_peaks = self.function[1]
 
-        print("SELF.FUNCTION: ", self.function) #NICKA DEBUG
-
-        print("CURR PEAKS BEFORE: ", curr_peaks) #NICKA DEBUG
         if self.function is None:
-            print("FUNCTION IS NONE") #NICKA DEBUG
             self.parent.addPeakstoBox(self.name, [])
             self.function = ['peaks', curr_peaks]
             self.refreshUI()
@@ -863,12 +858,9 @@ class ProjectionBoxTab(QWidget):
 
         if self.function[0] == 'peaks' and curr_peaks != []:
             #Remove the most recent peak
-            print("FUNCTION IS PEAKS") #NICKA DEBUG
             self.function[1].pop()
             self.refreshUI()
 
-        print("PEAKS AFTER: ", self.function[1]) #NICKA DEBUG
-        print("DONE PEAKES: ", self.parent.peaks) #NICKA DEBUG
 
     def keyPressEvent(self, event):
         """
@@ -909,9 +901,6 @@ class ProjectionBoxTab(QWidget):
         :return:
         """
         if self.parent.projProc is None or not self.need_update:
-            print("RETURN RIGHT AWAY IN UPDATE UI CONDITION ") #NICKA DEBUG
-            print("PARENT: ", self.parent.projProc) #NICKA DEBUG
-            print("SELF.UPDATENEEDED: ", self.need_update) #NICKA DEBUG
             return
 
         self.syncUI = True

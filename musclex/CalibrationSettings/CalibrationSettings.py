@@ -356,6 +356,8 @@ class CalibrationSettings(QDialog):
         """
         if self.manualCal.isChecked():
             self.manualCal.setText("Done")
+            self.maxInt.setEnabled(False) #Stop the user from breaking the application
+            self.minInt.setEnabled(False) #Stop the user from breaking the application
             self.manualCalPoints = []
             self.doubleZoomMode = True
             self.ax = self.calImgFigure.add_subplot(111)
@@ -385,6 +387,10 @@ class CalibrationSettings(QDialog):
                 self.calibrate()
                 self.manualCalPoints = None
                 self.fixedCenter.setChecked(False)
+
+                #Let them change this again:
+                self.maxInt.setEnabled(True)
+                self.minInt.setEnabled(True)
 
     def imgClicked(self, event):
         """

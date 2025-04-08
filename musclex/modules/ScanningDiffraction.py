@@ -191,7 +191,6 @@ class ScanningDiffraction:
         Apply the blank image and mask threshold on the orig_img
         :return: -
         """
-        print("FILEPATH: ", self.filepath) #NICKA DEBUG
         if not self.masked:
             img = np.array(self.original_image, 'float32')
             blank, mask = getBlankImageAndMask(self.filepath)
@@ -200,13 +199,10 @@ class ScanningDiffraction:
 
 
             if blank is not None:
-                print("APPLYING BLANK IMAGE") #NICKA DEBUG
                 img = img - blank
             if mask is not None:
-                print("APPLYING MASK") #NICKA DEBUG
                 img[mask == 0] = -1
             if maskOnly is not None:
-                print("Applying mask only image") #NICKA DEBUG
                 img[maskOnly == 0] = -1
 
             self.original_image = img
