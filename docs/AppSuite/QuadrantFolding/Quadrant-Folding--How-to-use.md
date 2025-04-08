@@ -83,9 +83,11 @@ This function is used to tell the program to fold the image. By default, it is c
 ### Results
 In this tab, the resulting image will be displayed along with options on the right. 
 
-If it is the first time processing the images, the Next image button will process the following image using the current parameters (in the Image tab AND the Results tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on 'Process Current Folder', or delete the file named 'qf_cache' before launching Quadrant Folder.
+If it is the first time processing the images, the Next image button will process the following image using the current parameters (both, in the `Image` tab **and** the `Results` tab). If you already processed the images, the program will use the cached files to load faster and avoid reprocessing. 
 
-![-](../../images/QF/results.png)
+The display will adapt to each image depending on the cache if you click on Next or Previous image. If you want to reprocess all the images with the current settings, you can click on `Process Current Folder`, or delete the file named 'qf_cache' before launching Quadrant Folder.
+
+![-](../../images/QF/results_v2.png)
 
 #### Display Options
 
@@ -106,14 +108,16 @@ You can set and fix the value of the region of interest in order to propagate th
 
 ##### Background Subtraction
 
-For the background subtraction section, by default, the program will not apply any background subtraction. To apply background subtraction, you can choose a method by method drop-down list. There are currently 6 options, [Circularly Symmetric](#circularly-symmetric), [2D Convex hull](#2d-convex-hull), [Roving Window](#roving-window), [White-top-hat](#white-top-hat), [Smoothed-Gaussian](#smoothed-gaussian), and [Smoothed-Boxcar](#smoothed-boxcar)
+For the background subtraction section, by default, the program will not apply any background subtraction. To apply background subtraction, you can choose a method by method drop-down list. There are currently 6 options, [Circularly Symmetric](#circularly-symmetric), [2D Convex hull](#2d-convex-hull), [Roving Window](#roving-window), [White-top-hat](#white-top-hat), [Smoothed-Gaussian](#smoothed-gaussian), and [Smoothed-Boxcar](#smoothed-boxcar) all of which may be applied to the inner or the outter part of the image. 
 
-For each method, users can select R-min and R-max manually by pressing the button and select R-min and R-max in the image as shown below
+For each method, users can select R-min manually by pressing the button `Set Manual R-min` and select R-min in the image as shown below
 
-![-](../../images/QF/rmin_rmax.png)
+![-](../../images/QF/rmin_rmax.png) # TODO: Add image & Test this 
+
+
 
 ###### Circularly Symmetric
-![-](../../images/QF/csym_set.png)
+![-](../../images/QF/csym_set.png) ## TODO update images
 ###### 2D convex hull
 ![-](../../images/QF/2dcon_set.png)
 ###### Roving Window
@@ -125,12 +129,11 @@ For each method, users can select R-min and R-max manually by pressing the butto
 ###### Smoothed Boxcar
 ![-](../../images/QF/smooth_b.png)
 
-You can change the parameters and click Apply to make the program re-process the background subtraction
+You can change the parameters and click `Apply` to make the program re-process the background subtraction.
 
 ###### Merging
-For the merging settings, they will be under the black line in the Background Subtraction section. There is the ability to set also another top hat parameter for regions of the image outside the R-max so the top hat parameter can be different inside and outside the merge radius if desired. 
+For the merging settings, they will be under the black line in the Background Subtraction section. There is the ability to select another background subtraction method for the outer part of the image and set transition radius and transition delta.
 
-To set the merge gradient, simply change the value in the Merge Gradient spinbox
 
 ## Headless Mode  
 Image processing performed in the terminal.
@@ -149,9 +152,70 @@ Arguments:
 ```eval_rst
 .. note:: You can run the headless version in Windows using a CMD prompt by replacing `musclex` in the headless command by `musclex-main.exe` in `C:\Users\Program Files\BioCAT\MuscleX\musclex`.
 ```
-### Multiprocessing on folders
+### Multiprocessing on Folders
 In order to improve the processing speed when analyzing time-resolved experiments, the headless mode is processing one image on each processor available on your computer. For example, with a 24-cores computer, 24 images will be processed at the same time, and the results will be saved in the same file. To follow the execution thread of each processor (as the executions intersect), the process number has been added at the beginning of each line.
 
-### Customization of the parameters
-Since Headless mode is limited in terms of interactions and parameters to change, you can directly set your parameters in a json format inside `qfsettings.json`. You might need to look at the code and especially 'modules/QuadrantFolder.py' to know exactly which parameters to set and how to set them. For example, to set the background subtraction, you need to set 'bgsub' to one of the following string: 'None','2D Convexhull', 'Circularly-symmetric', 'White-top-hats', 'Roving Window', 'Smoothed-Gaussian' or 'Smoothed-BoxCar'.
+### Customization of Parameters
+In Headless mode, the user may directly set the parameters in a json format inside the `qfsettings.json` file. Some of the parameters are shown in the list below. You might need to look at the code and especially 'modules/QuadrantFolder.py' to know exactly which parameters to set and how to set them. 
+
+
+```json
+{
+    # Image settigns
+    "mask_thres": 170, # 0 to 255
+    "fix_center": true, # true, false
+    "center_x": 1024, # 0 to 4096
+    "center_y": 1024, # 0 to 4096
+    "rotation": 0, # 0 to 360
+    "roi_rad": 100,
+
+    # Inner background subtraction
+    "bgsub": "None", # None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
+    "fixed_rmin": 100, # in pixels
+
+    ## Convex hull settings (inner)
+    "deg1": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
+    
+    ## Circularly symmetric settings (inner)
+    "radial_bin": 1, # in pixels
+    "cirmin": 10, # in pixels
+    "cirmax": 100, # in pixels
+    "smooth": 1, 
+
+    ## Roving window settings (inner)
+    "tension": 1,
+    "win_size_x": 11, # in pixels
+    "win_size_y": 11, # in pixels
+
+    ## Smoothed Gaussian / Smoothed Boxcar settings (inner)
+    "fwhm": 20, # in pixels
+    "boxcar_x": 20, # in pixels
+    "boxcar_y": 15, # in pixels
+    "cycles": 1, 
+
+    # Outer background subtraction    
+    "bgsub2": "None", # None, 2D Convexhull, Circularly-symmetric, White-top-hats, Roving Window, Smoothed-Gaussian, Smoothed-BoxCar
+
+    ## Convex hull settings (outer)
+    "deg2": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
+
+    ## Circularly symmetric settings (outer)
+    "smooth2": 1,
+
+    ## Roving window settings (outer)
+    "tension2": 1,
+    "win_size_x2": 11, # in pixels
+    "win_size_y2": 11, # in pixels
+
+    ## Smoothed Gaussian / Smoothed Boxcar settings (outer)
+    "fwhm2": 20, # in pixels
+    "boxcar_x2": 20, # in pixels
+    "boxcar_y2": 15, # in pixels
+    "cycles2": 1, 
+    
+    # Transition settings
+    "transition_radius": 730, # 1 to 4096
+    "transition_delta": 60, # 1 to 4096
+}
+```
 

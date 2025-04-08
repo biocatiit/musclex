@@ -223,7 +223,7 @@ def getCircularDiscreteBackground(img, rmin, start_p, end_p, radial_bin, nBin, m
 
 #@jit(target_backend='cuda', nopython=True)
 @jit
-def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax):
+def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax, step):
     backgound = np.zeros((height, width), dtype = np.float32)
     zero = 0.0
 
@@ -245,11 +245,12 @@ def make2DConvexhullBG2(pchipLines, width, height, centerX, centerY, rmin, rmax)
 
             deltax = float(abs(x - centerX))
             if deltax == zero:
-                deg = 90.0
+                deg = 90.0 * (1/step)
             else:
                 deltay = float(abs(y - centerY))
                 slope = deltay / deltax
                 deg = atan(slope)*180.0/np.pi
+                deg = deg * (1/step)
 
             floor_deg = floor(deg)
             ceil_deg = ceil(deg)
@@ -287,6 +288,23 @@ def combine_bgsub_float32(img1, img2, center_x, center_y, sigmoid_k, radius):
             result[y,x] = tophat_val+radial_val
     return result
 
+@jit
+def combine_bgsub_linear_float32(img1, img2, center_x, center_y, rad, delta):
+    img_height = img1.shape[0]
+    img_width = img1.shape[1]
+    result = np.zeros((img_height, img_width), dtype = np.float32)
+
+    for x in range(img_width):
+        for y in range(img_height):
+            r = qfdistance(x, y, center_x, center_y)
+            tophat_ratio = linear(rad, delta, r)
+            radial_ratio = 1.0 - tophat_ratio
+            tophat_val = tophat_ratio * img2[y,x]
+            radial_val = radial_ratio * img1[y,x]
+            result[y,x] = tophat_val+radial_val
+    return result
+
+
 #@jit(target_backend='cuda', nopython=True)
 @jit
 def qfdistance(x1, y1, x2, y2):
@@ -296,3 +314,8 @@ def qfdistance(x1, y1, x2, y2):
 @jit
 def sigmoid(k, x0, x):
     return 1.0 / (1.0 + exp(-k * (x - x0)))
+
+@jit
+def linear(rad, delta, x):
+    result = (x - rad + delta//2) / (delta)
+    return max(0.0, min(1.0, result))
