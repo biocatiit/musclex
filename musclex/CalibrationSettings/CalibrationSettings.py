@@ -42,7 +42,6 @@ class CalibrationSettings(QDialog):
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
     def __init__(self, dir_path,center=None):
-        print("CAlibration settings constrctor") #NICKA DEBUG
         super().__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.editableVars = {}
@@ -315,13 +314,13 @@ class CalibrationSettings(QDialog):
         self.paramGrp.setEnabled(self.paramGrpChkBx.isChecked())
         self.calImageGrpChkBox.setChecked(not self.paramGrpChkBx.isChecked())
         self.calImageGrp.setEnabled(not self.paramGrpChkBx.isChecked())
+
         self.decalibrate()
 
     def calImageChecked(self):
         """
         Uncheck the other button and decalibrate when calImage is checked.
         """
-        print("CAL IMAGE CHECKED FUNCTION") #NICKA DEBUG
         self.calImageGrp.setEnabled(self.calImageGrpChkBox.isChecked())
         self.paramGrpChkBx.setChecked(not self.calImageGrpChkBox.isChecked())
         self.paramGrp.setEnabled(not self.calImageGrpChkBox.isChecked())
@@ -618,28 +617,24 @@ class CalibrationSettings(QDialog):
                 "scale": cali_radius * self.silverBehenate.value()
             }
 
+
         self.updateImage()
 
     def updateImage(self):
         """
         Update the image displayed with the calibration circle and center displayed on it.
         """
-        print("UI UPDATING") #NICKA DEBUG
         if self.uiUpdating:
-            print("UI UPDATING EARLY EXIT") #NICKA DEBUG
             return
 
         #self.calImgFigure.clf()
         if self.calSettings is not None:
-            print("CALSETTINGS IS NOT NONE") #NICKA DEBUG
             if "center" in self.calSettings:
-                print("CENTER IN SELF> CALSETTINGS") #NICKA DEBUG
                 center = self.calSettings["center"]
                 self.fixedCenter.setChecked(True)
                 self.centerX.setValue(center[0])
                 self.centerY.setValue(center[1])
             if self.calImageGrpChkBox.isChecked():
-                print("CAL IMG GROUP IS CHECKED 1: ", self.calImageGrpChkBox.isChecked()) #NICKA DEBUG
                 self.resize(500, 800)
                 self.calImgCanvas.setHidden(False)
                 self.minIntLabel.setHidden(False)
@@ -649,19 +644,19 @@ class CalibrationSettings(QDialog):
                 center = self.calSettings["center"]
                 radius = self.calSettings["radius"]
                 _, disp_img = self.getImage()
+                self.calImgFigure.clf()
                 ax = self.calImgFigure.add_subplot(111)
-                ax.cla()
                 ax.imshow(disp_img)
                 ax.plot([center[0]], [center[1]], 'ro')
                 ax.add_patch(
                     patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
                 ax.set_xlim((0, disp_img.shape[1]))
                 ax.set_ylim((0, disp_img.shape[0]))
+
                 ax.set_title("center:" + str(center) + " radius:" + str(radius))
                 #ax.invert_yaxis()
                 self.calImgFigure.tight_layout()
         else:
-            print("END ELSE ") #NICKA DEBUG
             self.resize(500, 1)
             self.calImgCanvas.setHidden(True)
 

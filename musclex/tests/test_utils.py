@@ -31,19 +31,27 @@ import os
 import pickle
 import glob
 import filecmp
-import collections
+import collections.abc
 import shutil
 import h5py
 from pyFAI import detector_factory
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 import numpy as np
 from musclex import __version__
-from ..modules.EquatorImage import EquatorImage
-from ..modules.QuadrantFolder import QuadrantFolder
-from ..modules.DiffractionCentroids import DiffractionCentroids
-from ..modules.ProjectionProcessor import ProjectionProcessor
-from ..modules.ScanningDiffraction import ScanningDiffraction
-from ..csv_manager.DI_CSVManager import DI_CSVManager
+try:
+    from ..modules.EquatorImage import EquatorImage
+    from ..modules.QuadrantFolder import QuadrantFolder
+    from ..modules.DiffractionCentroids import DiffractionCentroids
+    from ..modules.ProjectionProcessor import ProjectionProcessor
+    from ..modules.ScanningDiffraction import ScanningDiffraction
+    from ..csv_manager.DI_CSVManager import DI_CSVManager    
+except:
+    from musclex.modules.EquatorImage import EquatorImage
+    from musclex.modules.QuadrantFolder import QuadrantFolder
+    from musclex.modules.DiffractionCentroids import DiffractionCentroids
+    from musclex.modules.ProjectionProcessor import ProjectionProcessor
+    from musclex.modules.ScanningDiffraction import ScanningDiffraction
+    from musclex.csv_manager.DI_CSVManager import DI_CSVManager
 
 
 def module_test(mode, settings, pickledir, inputpath, compdir=None,
@@ -300,7 +308,7 @@ def flatten(d, parent_key='', sep='_'):
     for k, v in d.items():
         k = str(k)
         new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, collections.MutableMapping):
+        if isinstance(v, collections.abc.MutableMapping):
             items.extend(flatten(v, new_key, sep=sep).items())
         else:
             items.append((new_key, v))
@@ -325,11 +333,13 @@ if __name__=="__main__":
         'bgsub' : 'None',
         'sigmoid' : 0.0,
         'no_cache' : True,
-        'orientation_model' : 0
+        'orientation_model' : 0,
+        'fold_image' : False
     }
     settingsPT = {
         'boxes' : {'box1' : ((200, 800),(500, 600))},
         'bgsubs' : {'box1' : 0},
+        'merid_bg': {'box1' : 0},
         'types' : {'box1' : 'h'},
         'peaks' : {'box1' : [100]},
         'bgsub' : 'None',

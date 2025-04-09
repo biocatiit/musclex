@@ -1747,6 +1747,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         
         if success:
+            self.calSettingsDialog.recalculate = True #Temporary adjustment for release.
             if self.calSettingsDialog.recalculate:
                 print("Recalculate") #NICKA DEBUG
                 self.deleteInfo(['rotationAngle'])
