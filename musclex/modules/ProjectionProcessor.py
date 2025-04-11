@@ -180,7 +180,6 @@ class ProjectionProcessor:
             if mask is not None:
                 img[mask == 0] = self.info['mask_thres'] - 1.
             if maskOnly is not None:
-                print("Applying mask only image")
                 img[maskOnly == 0] = self.info['mask_thres'] - 1
             
             self.info['hists'] = {}
@@ -265,6 +264,7 @@ class ProjectionProcessor:
                 t = types[name]
                 if self.rotated:
                     img = self.getRotatedImage()
+                    #print("Using rotated image: ", img.shape)
                 else:
                     img = copy.copy(self.orig_img)
 

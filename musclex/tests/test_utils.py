@@ -45,7 +45,7 @@ try:
     from ..modules.ProjectionProcessor import ProjectionProcessor
     from ..modules.ScanningDiffraction import ScanningDiffraction
     from ..csv_manager.DI_CSVManager import DI_CSVManager    
-except:
+except: # for coverage
     from musclex.modules.EquatorImage import EquatorImage
     from musclex.modules.QuadrantFolder import QuadrantFolder
     from musclex.modules.DiffractionCentroids import DiffractionCentroids

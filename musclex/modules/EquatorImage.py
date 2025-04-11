@@ -358,30 +358,55 @@ class EquatorImage:
         :return: rotated image
         """
 
+        print("Getting Rotated Image...")
+
         if img is None:
             print("Image is none")
             img = copy.copy(self.image)
+        
+        print("img.shape: ", img.shape)
+        print("img sum: ", np.sum(img))
 
         if angle is None:
+            print("Angle is none")
             angle = self.info['rotationAngle']
+        
+        print("angle: ", angle)
+
         if '90rotation' in self.info and self.info['90rotation'] is True:
+            print("90 rotation is set")
             angle = angle - 90 if angle > 90 else angle + 90
 
+        print("angle after 90 rotation: ", angle)
+
         if self.rotated_img is not None:
+            print("self.rotated_img is not None")
             centersNotEq = self.rotated_img[0] != self.info["center"] if type(self.rotated_img[0] != self.info["center"]) == bool else (self.rotated_img[0] != self.info["center"]).any()
         if self.rotated_img is None or centersNotEq or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-
+            print("Rotating image...")
             center = self.info["center"]
 
-            if "orig_center:" in self.info:
+            print("center: ", center)
+
+            if "orig_center" in self.info:
+                print("orig_center is in info")
                 center = self.info["orig_center"]
+                print("center is set to orig_center: ", center)
 
             else:
                 self.info["orig_center"] = center
 
             rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle)
             self.rotated_img = [self.info["center"], angle, img, rotImg]
+
+        print("Done. Rotated Image is obtained.")
+
+        print("self.rotated_img[3].shape: ", self.rotated_img[3].shape)
+        print("self.rotatedimg[3] sum: ", np.sum(self.rotated_img[3]))
+
+        print("self.info['center']: ", self.info['center'])
+        print("self.rotmat: ", self.rotMat)
 
         return self.rotated_img[3]
 
@@ -443,15 +468,24 @@ class EquatorImage:
         """
         self.parent.statusPrint("Getting Histogram...")
         print("Getting Histogram...")
+        print("self.info: ", self.info)
         if 'hist' not in self.info:
+            print("Hist not in self.info")
             int_area = self.info['int_area']
+            print("Int area: ", int_area)
             img = self.getRotatedImage()
+            print("img.shape: ", img.shape)
+            print("img sum: ", np.sum(img))
             self.info['hist'] = np.sum(img[int_area[0]:int_area[1], :], axis=0)
+            print("hist: ", self.info['hist'])
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
         
         if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
+            print("Use smooth_alg")
             margin = self.info['smooth_margin']
+            print("margin: ", margin)
             smoothing_window = self.info['smoothing_window']
+            print("Smoothign window: ", smoothing_window)
 
             y_filled, y_smoothed, y_interpolated, interp_x, interp_y = self.interpolate_sensor_gap(np.arange(len(self.info['hist'])), 
                                                                                                    self.info['hist'],smoothing_window=smoothing_window, 
@@ -478,6 +512,7 @@ class EquatorImage:
             # plt.show()
             
             self.info['hist'] = y_filled
+            print("self.info['hist']: ", self.info['hist'])
         
         print("Done.")
 
@@ -490,15 +525,23 @@ class EquatorImage:
         self.parent.statusPrint("Applying Convex Hull...")
         print("Applying Convexhull...")
         if 'hulls' not in self.info:
+            print("Hulls not in self.info")
             center = self.info['center']
+            print("center: ", center)
             shapes = self.image.shape
+            print("shapes: ", shapes)
             if 'rmax' in self.info:
                 rmax = self.info['rmax']
+                print("rmax in self.info: ", rmax)
             else:
                 rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.8)
+                print("rmax is set to: ", rmax)
             rmin = self.info['rmin']
+            print("rmin: ", rmin)
             hist = copy.copy(self.info['hist'])
+            print("hist: ", hist)
             int_area = self.info['int_area']
+            print("int_area: ", int_area)
             img = self.getRotatedImage()
             # remove lines in the box width that are under the -1 value (on the gap)
             k, l = 0, 0
@@ -510,6 +553,7 @@ class EquatorImage:
                 # cancel it and compute hull anyway 
                 k, l = 0, 0
             img_area = self.getRotatedImage()[int_area[0] + k:int_area[1] - l, :]
+            print("img area: ", img_area)
             # min_val = self.orig_img.min()
             # if self.img_type == "PILATUS":
             #     histo = np.histogram(self.orig_img, 3, (min_val, min_val+3))
@@ -518,6 +562,7 @@ class EquatorImage:
             # else:
             #     self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
             if 'use_smooth_alg' not in self.info or self.info['use_smooth_alg'] == False:
+                print("Using original histogram for convexhull")
                 ignore = np.array([any(img_area[:, i] <= (self.info['mask_thres'])) for i in range(img_area.shape[1])])
                 if any(ignore):
                     left_ignore = ignore[:int(center[0])]
