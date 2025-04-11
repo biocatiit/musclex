@@ -142,7 +142,6 @@ class ProjectionTracesh:
         self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
         if self.mask_thres == -999:
             self.mask_thres = getMaskThreshold(self.projProc.orig_img)
-            print("self.mask_thres", self.mask_thres)
         if self.center_func is None:
             self.center_func = 'init'
         self.updateCenter() # do not update fit results
@@ -156,9 +155,6 @@ class ProjectionTracesh:
         """
         if self.center_func == 'automatic':
             self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
-            print("Center found at: ", center)
-            print("orig image shape: ", self.projProc.orig_img.shape)
-            print("orig image sum: ", np.sum(self.projProc.orig_img))
             self.centerx, self.centery = center
         elif self.center_func == 'quadrant_fold': # default to quadrant folded
             self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5

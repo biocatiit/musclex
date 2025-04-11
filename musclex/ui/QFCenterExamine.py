@@ -312,69 +312,42 @@ class QFCenterExamine(QMainWindow):
     def centerize(self):
         self.center = [self.origCenterXBox.value(), self.origCenterYBox.value()]
         
-        print("First we set the center data attribute to be the values in the spin boxes: ", self.center)
 
         diff_x = abs(self.orig_center[0] - self.center[0])
         diff_y = abs(self.orig_center[1] - self.center[1])
 
-        print("Then we figure out the difference between the center and the middle of the image in the x direction: ", diff_x)
-        print("And the y direction: ", diff_y)
 
         orig_x, orig_y = self.orig_img.shape
 
         new_x, new_y = orig_x + abs(diff_x), orig_y + abs(diff_y)
 
-        print("We create dimmensions for the centerized image that are equal to the original image directions + the differences between centers.  X: ", new_x)
-        print("Y: ", new_y)
-
         trans_x = new_x/2 - self.center[0]
-        print("We figure out how far the new image needs to be translated in the x direction to get the center to the middle: ", trans_x)
         if trans_x < 0:
             new_x += abs(trans_x)* 2
-            print("Since trans_x is negative, we add 2 * trans_x: ", 2 * trans_x, " to the x dimmension of the new image to make it: ", new_x, " and set trans_x to 0.  This simulates the negative translation and lets us keep the image coordinates as only ints greater than 0.")
             trans_x = 0
 
         trans_y = new_y/2 - self.center[1]
-        print("We figure out how far the new image needs to be translated in the y direction to get the center to the middle: ", trans_y)
         if trans_y < 0:
             new_y += abs(trans_y) * 2
-            print("Since trans_y is negative, we add 2 * trans_y: ", 2 * trans_y, " to the y dimmension of the new image to make it: ", new_y, " and set trans_y to 0.  This simulates the negative translation and lets us keep the image coordinates as only ints greater than 0.")
             trans_y = 0
 
 
         dim = max(new_x, new_y)
-        print("We make a variable called dim and set it to the max of the dim.s of the new image: ", dim)
 
         if new_x < dim:
-            print("the x side was smaller than dim, so we'll add half of the difference to the x translation: ", (dim - new_x) / 2, " to make sure the image stays in the center of the x axis")
             trans_x += (dim - new_x) / 2
-            print("Trans_x is now: ", trans_x)
 
         if new_y < dim:
-            print("the y side was smaller than dim, so we'll add half of the difference to the y translation: ", (dim - new_y) / 2, " to make sure the image stays in the center of the y axis")
             trans_y += (dim - new_y) / 2
-            print("Trans_y is now: ", trans_y)
 
         trans_mat = np.array([[1, 0, trans_x],
                              [0, 1, trans_y]], dtype=np.float32)
 
         new_img = np.zeros((int(dim), int(dim))).astype("float32")
         new_img[0:orig_x, 0:orig_y] = self.orig_img
-        ##ADD CONDITIONS TO PAD THE IMAGE IF EITHER OF THE TRANSFORMATIONS ARE NEG- THAT WAY THE WHOLE THING FITS IN
         
-        print("TRANS MAT: ", trans_mat)
-        print("ORIGIMGSHAPE: ", self.orig_img.shape)
-
-        print("Trans x: ", trans_x)
-        print("Trans y: ", trans_y)
 
         self.cent_img = cv2.warpAffine(new_img, trans_mat, (int(dim), int(dim)))
-
-        print("ORIGINAL IMAGE COORDINATES: ", self.orig_img.shape)
-        print("ORIGINAL IMAGE CENTER: ", self.center)
-
-        print("NEW IMAGE SHAPE: ", new_img.shape)
-        print("NEW IMAGE CENTER SHOULD BE: ", dim/2, ", ",dim/2 )
 
         displayImgToAxes(self.cent_img, self.centAxes, self.minIntOrig.value(), self.maxIntOrig.value())
 
@@ -406,86 +379,31 @@ class QFCenterExamine(QMainWindow):
         cy = self.cent_img.shape[1]/2
 
         ax.axline((cx, cy), (cx + np.cos(theta), cy + np.sin(theta)), color='blue')
-        print(f"LINE 1 POINTS: [({cx}, {cy}), ({cx + np.cos(theta)}, {cy + np.sin(theta)})]")
-        #ax.axline((cx, cy), (cx - np.sin(theta), cy + np.cos(theta)), color='blue')
-        #print(f"LINE 2 POINTS: [({cx}, {cy}), ({cx-np.sin(theta)}, {cy + np.cos(theta)})]")
 
         self.centCanvas.draw_idle()
 
 
     def recalculate(self):
-        print("RECALCULATE FUNCITON")
         min_int = self.minIntOrig.value() if self.master_min_int is None else self.master_min_int
         max_int = self.maxIntOrig.value() if self.master_max_int is None else self.master_max_int
-
 
         center = self.center if self.master_center is None else self.master_center
         rot_angle = self.rot_angle if self.master_rot_angle is None else self.master_rot_angle
 
-        """ print("We start with center = ", center)
-        print("and rot_angle = ", rot_angle)
-
-        R_w = cv2.getRotationMatrix2D((center[1], center[0]), -rot_angle, 1)
-
-        R_2x2 = np.array([[np.cos(-rot_angle), -np.sin(-rot_angle)],
-                [np.sin(-rot_angle),  np.cos(-rot_angle)]])
-        
-
-        R = np.zeros((2, 3))
-        R[:, :-1] = R_2x2
-
-        print("The inverse rotation matrix is: ", R)
-        print("The weird shit from getROtaitonMatrix2d (cv2) is: ", R_w)
-
-        dx = self.center[0] - center[0]
-        dy = self.center[1] - center[1]
-        T = np.float32([[1, 0, dx], [0, 1, dy]])
-
-        print("The inverse tranlation matrix is: ", T)
-
-        M = R
-        M[:, 2] = T[:, 2]
-
-        print("The combined transformation matrix is: ", M)
-
-        temp_c = [self.mastCenterXBox.value(), self.mastCenterXBox.value()]
-
-        print("The center specified is: ", temp_c)
-
-        #orig_center = np.dot(M, temp_c + [1])
-        pt = np.dot(temp_c, R_w)
-        print("pt: ", pt)
-        orig_center = np.dot(pt[:-1], T)
-
-        print("The specified center converted to original image coordinates is: ", orig_center)"""
-
         dx = center[0] - self.center[0]
         dy = center[1] - self.center[1]
 
-        print("Center: ", center)
-        print("self.center: ", self.center)
-
         M = cv2.getRotationMatrix2D(center, -rot_angle, 1.0)
-
-        print("M: ", M)
 
         M[:, 2] += np.array((dx, dy))
 
-        print("M with trans: ", M)
-
         M_inv = cv2.invertAffineTransform(M)
-
-        print("M_inv: ", M_inv)
 
         ui_x = self.mastCenterXBox.value()  # For example, x-coordinate from a widget
         ui_y = self.mastCenterYBox.value()  # For example, y-coordinate from a widget
         ui_point = np.array([ui_x, ui_y, 1])  # Homogeneous coordinate
 
-        print("ui_point: ", ui_point)
-
         orig_center = np.dot(M_inv, ui_point)
-
-        print("orig_center: ", orig_center)
 
         cent_img = self.recalculateCenterPart(orig_center)
         rot_img = self.recalculateRotationPart(orig_center, rot_angle, cent_img)
@@ -600,13 +518,9 @@ class QFCenterExamine(QMainWindow):
             [self.orig_img.shape[1] - self.center[0], self.orig_img.shape[0] - self.center[1]],  # bottom right
 
         ]
-        print("CORNERS: ", corners)
 
         # Apply the rotation to the shifted corners
         rotated_shifted = np.dot(corners, R.T)
-
-        print("ROTATED SHIFTED CORNERS: tl:", rotated_shifted[0], " bl:", rotated_shifted[1],
-              " tr:", rotated_shifted[2], " br:", rotated_shifted[3])
 
         cent = 2 * max([abs(i) for i in np.ravel(rotated_shifted)])
         dim = math.ceil(cent)
@@ -619,19 +533,8 @@ class QFCenterExamine(QMainWindow):
         diff_x = int(dim / 2 - center[0])
         diff_y = int(dim / 2 - center[1])
 
-        print("diff_x: ", diff_x)
-        print("diff_y: ", diff_y)
-
-        print("x_range: ", diff_x, ", ", dim-diff_x)
-        print("y_range: ", diff_y, ", ", dim-diff_y)
-
-        print("Cent_img shape: ", self.cent_img.shape)
 
         new_img[diff_x:diff_x+int(center[0]*2), diff_y:diff_y+int(center[1]*2)] = self.cent_img
-
-        print("DIMENSION FOR ROTATED IMAGE: ", dim)
-
-        print("Rotation Matrix: ", M)
 
         self.rot_img = cv2.warpAffine(new_img, M, (dim, dim))
 
@@ -641,14 +544,6 @@ class QFCenterExamine(QMainWindow):
         self.rotAxes.axvline(dim/2, color='y')
         self.rotAxes.axhline(dim/2, color='y')
 
-        """
-        corners_draw = rotated_shifted + [dim/2, dim/2]
-
-        self.rotAxes.plot(corners_draw[0][0], corners_draw[0][1], marker='o', markersize=4, color='r')
-        self.rotAxes.plot(corners_draw[1][0], corners_draw[1][1], marker='o', markersize=4, color='r')
-        self.rotAxes.plot(corners_draw[2][0], corners_draw[2][1], marker='o', markersize=4, color='r')
-        self.rotAxes.plot(corners_draw[3][0], corners_draw[3][1], marker='o', markersize=4, color='r')
-        """
 
         self.master_center = [dim/2, dim/2]
         self.mastCenterXBox.setValue(dim/2)
