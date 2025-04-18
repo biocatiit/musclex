@@ -57,6 +57,8 @@ class QFCenterExamine(QMainWindow):
         self.orig_center = None
         self.center = None
 
+        self.scale = 1.0
+
         self.rot_angle = 0
 
         self.cent_img = None
@@ -310,44 +312,16 @@ class QFCenterExamine(QMainWindow):
         self.origCanvas.draw_idle()
 
     def centerize(self):
-        self.center = [self.origCenterXBox.value(), self.origCenterYBox.value()]
-        
+        click_center = [self.origCenterXBox.value(), self.origCenterYBox.value()] #click
+        canv_center = self.orig_center
 
-        diff_x = abs(self.orig_center[0] - self.center[0])
-        diff_y = abs(self.orig_center[1] - self.center[1])
+        diff_x = click_center[0] - canv_center[0]
+        diff_y = click_center[1] - canv_center[1]
 
+        orig_diff_x = diff_x / self.scale
+        orig_diff_y = diff_y / self.scale
 
-        orig_x, orig_y = self.orig_img.shape
-
-        new_x, new_y = orig_x + abs(diff_x), orig_y + abs(diff_y)
-
-        trans_x = new_x/2 - self.center[0]
-        if trans_x < 0:
-            new_x += abs(trans_x)* 2
-            trans_x = 0
-
-        trans_y = new_y/2 - self.center[1]
-        if trans_y < 0:
-            new_y += abs(trans_y) * 2
-            trans_y = 0
-
-
-        dim = max(new_x, new_y)
-
-        if new_x < dim:
-            trans_x += (dim - new_x) / 2
-
-        if new_y < dim:
-            trans_y += (dim - new_y) / 2
-
-        trans_mat = np.array([[1, 0, trans_x],
-                             [0, 1, trans_y]], dtype=np.float32)
-
-        new_img = np.zeros((int(dim), int(dim))).astype("float32")
-        new_img[0:orig_x, 0:orig_y] = self.orig_img
-        
-
-        self.cent_img = cv2.warpAffine(new_img, trans_mat, (int(dim), int(dim)))
+        self.center = [self.center[0] + orig_diff_x, self.center[1] + orig_diff_y]
 
         displayImgToAxes(self.cent_img, self.centAxes, self.minIntOrig.value(), self.maxIntOrig.value())
 
@@ -583,3 +557,37 @@ class QFCenterExamine(QMainWindow):
 
     def mastRotAngleChanged(self):
         self.master_rot_angle = self.mastRotationAngle.value()
+
+
+    def update_scale(self):
+        """
+        Compute the scale factor so that after applying rotation, the entire image
+        is visible within the widget. This is done by checking the positions
+        of all four corners relative to the current center.
+        """
+        cos_a = math.cos(self.rot_angle)
+        sin_a = math.sin(self.rot_angle)
+
+        corners = [
+            [-self.center[0], -self.center[1]],
+            [-self.center[0], self.orig_img.shape[0] - self.center[1]],  # bottom left
+            [self.orig_img.shape[1] - self.center[0], -self.center[1]],  # top right
+            [self.orig_img.shape[1] - self.center[0], self.orig_img.shape[0] - self.center[1]],  # bottom right
+        ]
+
+        max_rx = 0
+        max_ry = 0
+        for corner in corners:
+            dx = corner.x() - self.current_center.x()
+            dy = corner.y() - self.current_center.y()
+            # Rotate the offset by the current angle.
+            rx = cos_a * dx - sin_a * dy
+            ry = sin_a * dx + cos_a * dy
+            max_rx = max(max_rx, abs(rx))
+            max_ry = max(max_ry, abs(ry))
+        # Compute the maximum uniform scale to fit the rotated image inside the widget.
+        if max_rx == 0 or max_ry == 0:
+            new_scale = 1.0
+        else:
+            new_scale = min((self.width() / 2) / max_rx, (self.height() / 2) / max_ry)
+        self.scale = new_scale
