@@ -123,7 +123,7 @@ def main(arguments=None):
             sys.exit(app.exec_())
         elif prog== 'qfce':
             print("Checkpoint 1")
-            from musclex.ui.qfce_newer import QFCenterExamine
+            from musclex.ui.QFCenterExamine import QFCenterExamine
             app = QApplication(sys.argv)
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = QFCenterExamine()
