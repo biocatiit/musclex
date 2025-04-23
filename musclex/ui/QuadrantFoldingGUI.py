@@ -3023,6 +3023,9 @@ class QuadrantFoldingGUI(QMainWindow):
         fileName = self.imgList[self.currentFileNumber]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
+
+        self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)      
+        
         if reprocess:
             self.quadFold.info = {}
             self.quadFold.info['reprocess'] = True
@@ -3453,7 +3456,7 @@ class QuadrantFoldingGUI(QMainWindow):
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
             self.currentTask = Worker(params, self.calSettingsDialog.fixedCenter.isChecked(), 
-                                      self.persistedCenter, self.persistedRotation, self.bgChoice.currentText(), 
+                                      self.persistedCenter, self.persistedRotation, self.bgChoiceIn.currentText(), 
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
