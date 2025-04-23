@@ -3578,6 +3578,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
             csv_dists = np.sqrt((csv_x - csv_xc) ** 2 + (csv_y - csv_yc) ** 2)
 
+            #Default rmin and rmax values
+            if 'rmin' not in self.quadFold.info:
+                self.quadFold.info['rmin'] = 0
+            if 'rmax' not in self.quadFold.info:
+                self.quadFold.info['rmax'] = 600
+
             csv_mask = (csv_dists >= self.quadFold.info['rmin']) & (csv_dists <= self.quadFold.info['rmax'])
 
             csv_total = np.sum(resultImg[csv_mask])
