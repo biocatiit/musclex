@@ -1726,25 +1726,6 @@ class QuadrantFoldingGUI(QMainWindow):
         print(self.quadFold.info) #NICKA DEBUG
 
         success = self.setCalibrationImage(force=True)
-        """
-        if success:
-
-            self.quadFold.fixedCenterX = None
-            self.quadFold.fixedCenterY = None
-
-            print("Self.calsettings dialoge center: ", self.calSettingsDialog.centerX.value(), ",", self.calSettingsDialog.centerY.value()) #NICKA DEBUG
-            if 'center' in self.quadFold.info:
-                print("Quadfold info center: ", self.quadFold.info['center']) #NICKA DEBUG
-            else:
-                print("Center not in qf info") #NICKA DEBUG
-
-            self.deleteInfo(['rotationAngle'])
-            self.deleteImgCache(['BgSubFold'])
-            self.processImage()
-
-        print("info dict AFTER calsettings object: ")
-        print(self.quadFold.info)
-        """
         
         if success:
             self.calSettingsDialog.recalculate = True #Temporary adjustment for release.

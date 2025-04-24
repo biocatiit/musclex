@@ -397,7 +397,7 @@ class QuadrantFolder:
         if not self.centerChanged:
             return
         center = self.info['center']
-        if self.centImgTransMat is not None:
+        if self.centImgTransMat is not None and 'calib_center' not in self.info:
             # convert center in initial img coordinate system
             M = self.centImgTransMat
             M[0,2] = -1*M[0,2]
