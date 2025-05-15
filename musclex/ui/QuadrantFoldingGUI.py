@@ -31,6 +31,7 @@ import json
 import traceback
 import csv
 import copy
+import math
 from os.path import split, splitext
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize, ListedColormap
@@ -296,7 +297,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.scrollArea.setWidget(self.centralWidget)
         #self.setCentralWidget(self.centralWidget)
-        self.mainHLayout = QHBoxLayout(self.centralWidget)
+        self.mainVLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.scrollArea)
 
         self.tabWidget = QTabWidget()
@@ -304,7 +305,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tabWidget.setDocumentMode(False)
         self.tabWidget.setTabsClosable(False)
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
-        self.mainHLayout.addWidget(self.tabWidget)
+        self.mainVLayout.addWidget(self.tabWidget)
 
         ##### Image Tab #####
         self.imageTab = QWidget()
@@ -1104,7 +1105,14 @@ class QuadrantFoldingGUI(QMainWindow):
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addWidget(QLabel("    "))
         self.statusBar.addWidget(self.imgPathOnStatusBar)
-        self.setStatusBar(self.statusBar)
+
+        self.lowerStatusBar = QStatusBar()
+        self.left_status = QLabel()
+        self.lowerStatusBar.addWidget(self.left_status)
+
+        self.mainVLayout.addWidget(self.statusBar)
+        self.mainVLayout.addWidget(self.lowerStatusBar)
+        #self.setStatusBar(self.statusBar)
 
         # show transition radius and delta
         self.circle_patch = None
@@ -1514,6 +1522,114 @@ class QuadrantFoldingGUI(QMainWindow):
             self.masked = False
             self.processImage()
                 
+    def getOrigCoordsCenter(self, x, y):
+        """
+        Calculate the center in original image coordinates
+        """
+        _, center = self.getExtentAndCenter()
+        center = self.quadFold.info['center']
+        #rotation angle in radians
+        #print("CALCULATING ORIGINAL IMAGE COORDINATES") #Debug
+        #print("Display coords: ", (x, y)) #Debug
+        #print("Center: ", center) #Debug
+        angle = -self.quadFold.info['rotationAngle'] * math.pi / 180
+        #print("Angle: ", angle) #Debug
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        #print("Cos: ", cos_a) #Debug
+        #print("Sin: ", sin_a) #Debug
+        #mouse pos in center-as-origin points
+        #Get the scale factor
+        s = 1 if 'scale' not in self.quadFold.info else self.quadFold.info['scale']
+        #print("Scale: ", s)
+        dx =  (x - center[0]) #coordinate of x relative to center
+        dy = (y - center[1]) #coordinate of y relative to center
+        #print("dx, dy: ", (dx, dy)) #Debug
+        #apply rotation
+        x1 =  dx * cos_a + dy * sin_a
+        y1 = -dx * sin_a + dy * cos_a
+        #print("Rotated coords: ", (x1, y1)) #Debug
+
+        #Apply the inverse translation to the point
+        """new_tx, new_ty = self.quadFold.new_tx, self.quadFold.new_ty
+        x2 = x1 - new_tx
+        y2 = y1 - new_ty
+        print("Translated coords in image: ", (x2, y2)) #Debug
+
+        #Apply scaling
+        x3 = x2 / s
+        y3 = y2 / s
+        print("Scaled coords in image: ", (x3, y3)) #Debug
+
+        #Move the origin back to the bottom left
+        co_x, co_y = self.quadFold.old_center
+        print("Old center: ", (co_x, co_y)) #Debug
+        x4, y4 = x3 + co_x, y3 + co_y
+        print("Final original coords: ", (x4, y4)) #Debug
+
+        return x4, y4"""
+
+                # … your existing rotation code, unchanged …
+        x1 =  dx * cos_a + dy * sin_a
+        y1 = -dx * sin_a + dy * cos_a
+        #print("Rotated coords: ", (x1, y1))
+
+        # 1) bring x1,y1 back into absolute cent_img coordinates
+        center_x, center_y = center
+        x1 += center_x
+        y1 += center_y
+        #print("After re-adding center:", (x1, y1))
+
+        # 2) undo the same tx,ty you applied in transformImage
+        new_tx, new_ty = self.quadFold.new_tx, self.quadFold.new_ty
+        x2 = x1 - new_tx
+        y2 = y1 - new_ty
+        #print("After inverting translation:", (x2, y2))
+
+        # 3) undo the scale
+        s = self.quadFold.info.get('scale', 1.0)
+        x3 = x2 / s
+        y3 = y2 / s
+        #print("After inverting scale:", (x3, y3))
+
+        # That IS your original-image coords; no further shifting needed
+        return x3, y3
+
+
+    #IS THIS USED?
+    def getNewCoordsCenter(self, x, y):
+        """
+        Calculate the center in new image coordinates
+        given original image coordinates
+        """
+        _, center = self.getExtentAndCenter()
+        #rotation angle in radians
+        #print("CALCULATING ORIGINAL IMAGE COORDINATES") #Debug
+        #print("Display coords: ", (x, y)) #Debug
+        #print("Center: ", center) #Debug
+        angle = -self.quadFold.info['rotationAngle'] * math.pi / 180
+        #print("Angle: ", angle) #Debug
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        #print("Cos: ", cos_a) #Debug
+        #print("Sin: ", sin_a) #Debug
+        #mouse pos in center-as-origin points
+        dx =  x - center[0]
+        dy = y - center[1]
+        #print("dx, dy: ", (dx, dy)) #Debug
+        #apply rotation
+        x1 =  dx * cos_a + dy * sin_a
+        y1 = -dx * sin_a + dy * cos_a
+        #print("Rotated coords: ", (x1, y1)) #Debug
+        #Move the origin back to the bottom left
+        x_ir = x1 + center[0]
+        y_ir = y1 + center[1]
+        #print("Rotated coords in image: ", (x_ir, y_ir)) #Debug
+        #Apply inverse translation to the point
+        #print("translation: ", (self.quadFold.dl, self.quadFold.db)) #Debug
+        o_x = x_ir
+        o_y = y_ir
+        return o_x, o_y
 
     def getRectanglePatch(self, center, w, h):
         """
@@ -1591,7 +1707,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 for line2 in horizontalLines:
                     cx, cy = getIntersectionOfTwoLines(line2, line1)
                     print("Intersection ", (cx, cy))
-                    intersections.append((cx, cy))
+                    cx_o, cy_o = self.getOrigCoordsCenter(cx, cy)
+                    print("Intersection in original coords ", (cx_o, cy_o))
+                    intersections.append((cx_o, cy_o))
             if len(intersections) != 0:
                 cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
                 cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
@@ -1603,6 +1721,7 @@ class QuadrantFoldingGUI(QMainWindow):
             print("Center calc ", (cx, cy))
 
             extent, _ = self.getExtentAndCenter()
+            extent = [0,0] #Remove the extent because it moves the center out of place.
 
             new_center = [cx, cy]  # np.dot(invM, homo_coords)
             # Set new center and rotaion angle , re-calculate R-min
@@ -1655,10 +1774,13 @@ class QuadrantFoldingGUI(QMainWindow):
                         ycent = line1[0] * xcent + line1[1]
                     center = [xcent, ycent]
                     print("CenterCalc ", center)
+                    cx_o, cy_o = self.getOrigCoordsCenter(xcent, ycent)
+                    print("Center in original coords ", (cx_o, cy_o))
 
-                    centers.append(center)
+                    centers.append([cx_o, cy_o])
 
             extent, center = self.getExtentAndCenter()
+            extent = [0, 0]  # Remove the extent because it moves the center out of place.
 
             cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
             cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
@@ -1752,13 +1874,16 @@ class QuadrantFoldingGUI(QMainWindow):
                 print("Recalculate") #NICKA DEBUG
                 self.deleteInfo(['rotationAngle'])
                 self.deleteImgCache(['BgSubFold'])
+                self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
                 self.processImage()
             else:
-                print("No recalculate") #NICKA DEBUG
-                self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()
-                self.quadFold.info['center'] = [self.quadFold.fixedCenterX, self.quadFold.fixedCenterY]
-                print("center: ", self.quadFold.fixedCenterX, ", ", self.quadFold.fixedCenterY) #NICKA DEBUG
-                self.redrawCenter()
+                print("Center Change") #NICKA DEBUG
+                #Change the fixed center data members for qf too?
+                self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
+                if 'center' in self.quadFold.info:
+                    del self.quadFold.info['center']
+                print("center: ", self.quadFold.info['manual_center']) #NICKA DEBUG
+                self.processImage()
         
 
     def setCalibrationImage(self, force=False):
@@ -1767,10 +1892,13 @@ class QuadrantFoldingGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
+        print("Set Calibration Image") #NICKA DEBUG
         if self.calSettingsDialog is None:
             if self.quadFold is None or self.quadFold.orig_image_center is None:
+                print("Cal Setting Constructor call with no center") #NICKA DEBUG 
                 self.calSettingsDialog = CalibrationSettings(self.filePath)
             else:
+                print("Cal Setting Constructor call with center = ", self.quadFold.orig_image_center) #NICKA DEBUG
                 self.calSettingsDialog =  CalibrationSettings(self.filePath, center=self.quadFold.orig_image_center)
         self.calSettings = None
 
@@ -1973,7 +2101,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
-                func.append((x, y))
+                x_o, y_o = self.getOrigCoordsCenter(x, y)
+                func.append((x_o, y_o))
                 if len(func) == 3:
                     if func[1][0] < func[2][0]:
                         x1, y1 = func[1]
@@ -1988,6 +2117,7 @@ class QuadrantFoldingGUI(QMainWindow):
                         new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
                     extent, center = self.getExtentAndCenter()
+                    extent = [0, 0]  # Remove the extent because it moves the center out of place.
 
                     cx = int(round((x1 + x2) / 2.) + extent[0])
                     cy = int(round((y1 + y2) / 2.) + extent[1])
@@ -2051,10 +2181,15 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         current_time = time.time()
 
-        if not current_time - self.last_executed >= self.min_interval:
-            return
-        else:
-            self.last_executed = current_time
+        #Wrapped in try block becasue this throws an error for missing last_executed,
+        #even though it's set in constructor.  Investigate this further.
+        try:
+            if not current_time - self.last_executed >= self.min_interval:
+                return
+            else:
+                self.last_executed = current_time
+        except:
+            pass
 
         if not self.ableToProcess():
             return
@@ -2075,8 +2210,10 @@ class QuadrantFoldingGUI(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             unit = "px"
+
+            extent, center = self.getExtentAndCenter()
+
             if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                center = self.calSettings['center']
                 mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
                 scale = self.calSettings['scale']
                 d = mouse_distance / scale
@@ -2090,11 +2227,14 @@ class QuadrantFoldingGUI(QMainWindow):
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                extent = self.extent
+                #extent = self.extent
                 sx = x + extent[0]
                 sy = y + extent[1]
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(q) + unit)
+                    try:
+                        self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(q) + unit)
+                    except:
+                        self.imgCoordOnStatusBar.setText("x=NaN" + ', y=NaN'+ ", value=" + str(img[int(sy)][int(sx)]) + ", distance=NaN" + unit)
                 else:
                     mouse_distance = np.sqrt((self.quadFold.info['center'][0] - x) ** 2 + (self.quadFold.info['center'][1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
@@ -2102,6 +2242,9 @@ class QuadrantFoldingGUI(QMainWindow):
                         self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(mouse_distance) + unit)
                     except:
                         pass
+
+                o_x, o_y = self.getOrigCoordsCenter(x, y)
+                self.left_status.setText("Original Image Coordinates: x=" + str(o_x) + ', y=' + str(o_y))
 
                 self.doubleZoomGUI.mouseHoverBehavior(sx, sy, img, self.imageCanvas, self.doubleZoom.isChecked())
 
@@ -3149,10 +3292,12 @@ class QuadrantFoldingGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.quadFold.getRotatedImage()
-
+            self.img = img
+            img = self.quadFold.orig_img
 
             extent, center = self.getExtentAndCenter()
-            self.img = img
+            center = self.quadFold.info['center']
+
             self.extent = extent
             print("EXTENT IN GUI SHOW: ", extent) #NICKA DEBUG
             print("IMG SHAPE IN GUI SHOW: ", img.shape) #NICKA DEBUG
@@ -3161,10 +3306,13 @@ class QuadrantFoldingGUI(QMainWindow):
 
             print("Center: ", center) #NICK ADNEUG
 
+
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                #ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
             else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                #ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
             ax.set_facecolor('black')
 
             self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
@@ -3174,8 +3322,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.axvline(center[0], color='y')
                 ax.axhline(center[1], color='y')
 
-            self.calSettingsDialog.centerX.setValue(center[0])
-            self.calSettingsDialog.centerY.setValue(center[1])
+
+            o_x, o_y = self.getOrigCoordsCenter(center[0], center[1])
+            self.calSettingsDialog.centerX.setValue(o_x)
+            self.calSettingsDialog.centerY.setValue(o_y)
 
             if len(self.quadFold.info["ignore_folds"]) > 0:
                 # Draw cross line in ignored quadrant
@@ -3382,7 +3532,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 errMsg.setFixedWidth(300)
                 errMsg.exec_()
                 raise
-
+                
             self.updateParams()
             self.refreshAllTabs()
             self.csvManager.writeNewData(self.quadFold)
@@ -3574,6 +3724,14 @@ class QuadrantFoldingGUI(QMainWindow):
             csv_y, csv_x = np.ogrid[:csv_h, :csv_w]
 
             csv_dists = np.sqrt((csv_x - csv_xc) ** 2 + (csv_y - csv_yc) ** 2)
+
+            if 'rmin' not in self.quadFold.info or self.quadFold.info['rmin'] is None:
+                print("Setting Rmin to default: 0")
+                self.quadFold.info['rmin'] = 0
+            
+            if 'rmax' not in self.quadFold.info or self.quadFold.info['rmax'] is None:
+                print("Setting Rmax to default: 100")
+                self.quadFold.info['rmax'] = 100
 
             csv_mask = (csv_dists >= self.quadFold.info['rmin']) & (csv_dists <= self.quadFold.info['rmax'])
 

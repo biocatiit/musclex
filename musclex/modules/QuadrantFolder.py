@@ -114,6 +114,9 @@ class QuadrantFolder:
 
         self.curr_dims = None
 
+        #This is what all transformations will be done on
+        self.start_img = copy.copy(self.orig_img)
+
     def cacheInfo(self):
         """
         Save info dict to cache. Cache file will be save as filename.info in folder "qf_cache"
@@ -192,14 +195,17 @@ class QuadrantFolder:
         self.initParams()
         self.applyBlankImageAndMask()
         self.findCenter()
-        self.centerizeImage()
-        self.rotateImg()
+        self.getRotationAngle()
+        self.transformImage()
+        #self.centerizeImage()
+        #self.rotateImg()
         self.calculateAvgFold()
         if flags['fold_image'] == False:
             self.info['folded'] = False
 
             # get top left quandrant
-            rotate_img = copy.copy(self.getRotatedImage())
+            #rotate_img = copy.copy(self.getRotatedImage())
+            rotate_img = copy.copy(self.start_img)
             center = self.info['center']
             center_x = int(center[0])
             center_y = int(center[1])
@@ -221,7 +227,11 @@ class QuadrantFolder:
         self.getRminmax()
         self.getTransitionRad()
 
-        self.applyBackgroundSubtraction()
+        try:
+            self.applyBackgroundSubtraction()
+        except Exception as e:
+            print("ERROR: Background subtraction failed.")
+            print(e)
         self.mergeImages()
         self.generateResultImage()
 
@@ -230,6 +240,7 @@ class QuadrantFolder:
 
 
         self.parent.statusPrint("")
+
 
     def updateInfo(self, flags):
         """
@@ -251,7 +262,7 @@ class QuadrantFolder:
         Initial some parameters in case GUI doesn't specified
         """
         if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
+            self.info['mask_thres'] = getMaskThreshold(self.start_img)
         if 'ignore_folds' not in self.info:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:
@@ -267,7 +278,7 @@ class QuadrantFolder:
         """
 
         if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
-            img = np.array(self.orig_img, 'float32')
+            img = np.array(self.start_img, 'float32')
             blank, mask = getBlankImageAndMask(self.img_path)
 
             maskOnly = getMaskOnly(self.img_path)
@@ -282,6 +293,7 @@ class QuadrantFolder:
 
             self.orig_img = img
             self.masked = True
+
 
     def findCenter(self):
         """
@@ -302,7 +314,7 @@ class QuadrantFolder:
         """
         print("quadfold info: ", self.info)
         if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
+            self.info['mask_thres'] = getMaskThreshold(self.start_img)
         if 'center' in self.info:
             self.centerChanged = False
             return
@@ -313,20 +325,67 @@ class QuadrantFolder:
             self.fixedCenterY = self.info['calib_center'][1]
             return
         if 'manual_center' in self.info:
+            print("Using manual center: ", self.info['manual_center']) #debug
             center = self.info['manual_center']
             if self.rotMat is not None:
+                print("rot mat is not none")
+                print(self.rotMat)
                 center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0] + self.dl, center[1] + self.db, 1])
+                print("center we get: ", center)
                 self.info['manual_center'] = center
             self.info['center'] = self.info['manual_center']
             self.fixedCenterX = self.info['manual_center'][0]
             self.fixedCenterY = self.info['manual_center'][1]
             return
         print("Center is being calculated ... ")
-        self.orig_image_center = getCenter(self.orig_img)
-        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
+        self.orig_image_center = getCenter(self.start_img)
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.start_img, self.orig_image_center)
         self.fixedCenterX, self.fixedCenterY = None, None
         print("Done. Center = "+str(self.info['center']))
 
+
+    def findCenter(self):
+        """
+        Overloading previous findCenter method
+        Find the center in original image coordinates
+        """
+        self.parent.statusPrint("Finding Center...")
+
+        if 'mask_thres' not in self.info:
+            self.info['mask_thres'] = getMaskThreshold(self.start_img)
+            print("[DEBUG]: GETTING MASK THRESHOLD: ", self.info['mask_thres'])
+        if 'center' in self.info:
+            self.centerChanged = False
+            print("[DEBUG]: CENTER ALREADY IN QUADFOLD INFO: ", self.info['center'])
+            return
+        self.centerChanged = True
+        if 'calib_center' in self.info:
+            self.info['center'] = self.info['calib_center']
+            self.fixedCenterX = self.info['calib_center'][0]
+            self.fixedCenterY = self.info['calib_center'][1]
+            print("[DEBUG]: USING CALIB CENTER: ", self.info['calib_center'])
+            return
+        if 'manual_center' in self.info:
+            print("[DEBUG]: USING MANUAL CENTER: ", self.info['manual_center']) #debug
+            center = self.info['manual_center']
+            if self.rotMat is not None and False:
+                print("rot mat is not none")
+                print(self.rotMat)
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0] + self.dl, center[1] + self.db, 1])
+                print("center we get: ", center)
+                self.info['manual_center'] = center
+                print("[DEBUG]: APPLY THE ROTATION MATRIX WE HAVE.  THE CENTER IS NOW: ", center)
+            self.info['center'] = self.info['manual_center']
+            self.fixedCenterX = self.info['manual_center'][0]
+            self.fixedCenterY = self.info['manual_center'][1]
+            return
+        print("Center is being calculated ... ")
+        self.orig_image_center = getCenter(self.start_img)
+        print("[DEBUG]: ORIGINAL IMAGE CENTER: ", self.orig_image_center)
+        self.orig_img, self.info['center'] = processImageForIntCenter(self.start_img, self.orig_image_center)
+        print("[DEBUG]: APPLIED SOME PROCESSING.  CENTER IS NOW: ", self.info['center'])
+        self.fixedCenterX, self.fixedCenterY = None, None
+        print("Done. Center = "+str(self.info['center']))
 
     def rotateImg(self):
         """
@@ -351,13 +410,50 @@ class QuadrantFolder:
             # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
             #_, center = self.parent.getExtentAndCenter()
             _, center = self.getExtentAndCenter()
-            img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
+            img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.start_img)
             if 'detector' in self.info:
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
             else:
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
             self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
+
+    def getRotationAngle(self):
+        """
+        Figures out the rotation angle to use on the image.
+        """
+        print("[DEBUG]: Finding Rotation Angle...")
+        self.parent.statusPrint("Finding Rotation Angle...")
+        if self.fixedRot is not None:
+            self.info['rotationAngle'] = self.fixedRot
+            self.deleteFromDict(self.info, 'avg_fold')
+            print("[DEBUG]: USING FIXED ROTATION: ", self.info['rotationAngle'])
+        elif 'manual_rotationAngle' in self.info:
+            self.info['rotationAngle'] = self.info['manual_rotationAngle']
+            del self.info['manual_rotationAngle']
+            self.deleteFromDict(self.info, 'avg_fold')
+            print("[DEBUG]: USING MANUAL ROTATION: ", self.info['rotationAngle'])
+        elif "mode_angle" in self.info:
+            print(f'Using mode orientation {self.info["mode_angle"]}')
+            self.info['rotationAngle'] = self.info["mode_angle"]
+            self.deleteFromDict(self.info, 'avg_fold')
+            print("[DEBUG]: USING MODE ORIENTATION: ", self.info['rotationAngle'])
+        elif not self.empty and 'rotationAngle' not in self.info.keys():
+            print("Rotation Angle is being calculated ... ")
+            # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
+            #_, center = self.parent.getExtentAndCenter()
+            _, center = self.getExtentAndCenter()
+            print("[DEBUG]: CALCULATED CENTER: ", center)
+            img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.start_img)
+            if 'detector' in self.info:
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
+                print("[DEBUG]: USING DETECTOR", self.info['rotatingAngle'])
+            else:
+                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
+                print("[DEBUG]: NOT USING DETECTOR: ", self.info['rotationAngle'])
+            self.deleteFromDict(self.info, 'avg_fold')
+        print("Done. Rotation Angle is " + str(self.info['rotationAngle']) +" degree")
+
 
     def getExtentAndCenter(self):
         """
@@ -388,6 +484,82 @@ class QuadrantFolder:
 
 
         return extent, center
+
+    def transformImage(self):
+        """
+        Applies Tranlation, scaling and rotation to the original image.
+        This performs the functions previously done by CenterizeImage and RotateImage
+        """
+        print("[DEBUG]: TRANSFORM IMAGE FUNCTION")
+        h_o, w_o = self.start_img.shape
+        orig_x, orig_y = w_o//2, h_o//2
+        print("[DEBUG]: ORIGINAL IMAGE CENTER: ", orig_x, orig_y)
+        x, y = self.info['center']
+        print("[DEBUG]: CENTER(IN original coordinates): ", x, y)
+
+        corners = [
+            (-x,      -y),
+            ( w_o - x,  -y),
+            ( w_o - x,   h_o - y),
+            (-x,       h_o - y)
+        ]
+        print("[DEBUG]: CORNERS: ", corners)
+
+        angle = self.info['rotationAngle']
+        print("[DEBUG]: ROTATION ANGLE: ", angle)
+
+        cos, sin = math.cos(angle * math.pi / 180), math.sin(angle * math.pi / 180)
+        print("[DEBUG]: COS, SIN: ", cos, sin)
+
+        rot_pts = [
+            (cx * cos - cy * sin, cx * sin + cy * cos)
+            for cx, cy in corners
+        ]
+
+        print("[DEBUG]: ROTATED POINTS: ", rot_pts)
+
+        max_rx = max([abs(x) for x, y in rot_pts])
+        max_ry = max([abs(y) for x, y in rot_pts])
+
+        print("[DEBUG]: MAX RX, MAX RY: ", max_rx, max_ry)
+
+        # fit‐to‐frame scale (never upscale beyond 1.0)
+        scale = min((w_o/2) / max_rx, (h_o/2) / max_ry, 1.0)
+        print("[DEBUG]: SCALE: ", scale)
+        self.info['scale'] = scale
+
+        tx = (w_o/2) - scale * x
+        ty = (h_o/2) - scale * y
+
+        print("[DEBUG]: NEW TX, TY: ", tx, ty)
+
+        self.new_tx, self.new_ty = tx, ty
+
+        # build M1 = S(fit_scale) about center + recenter
+        M1  = np.array([[scale, 0,         tx],
+                        [0,         scale, ty]],
+                    dtype=np.float32)
+        
+        print("[DEBUG]: M1: ", M1)
+
+        cent_img = cv2.warpAffine(self.start_img, M1, (w_o, h_o))
+
+        M2 = cv2.getRotationMatrix2D(
+            (w_o/2, h_o/2),
+            angle,
+            1
+        )
+
+        print("[DEBUG]: M2: ", M2)
+
+        self.orig_img = cv2.warpAffine(cent_img, M2, (w_o, h_o))
+
+        new_center = [x - (tx * cos - ty * sin), y - (tx * sin + ty * cos)]
+        print("[DEBUG]: NEW CENTER: ", new_center)
+
+        self.old_center = self.info['center']
+        #self.info['center'] = new_center
+        self.info['center'] = w_o//2, h_o//2
 
     def centerizeImage(self):
         """
@@ -472,16 +644,16 @@ class QuadrantFolder:
         else:
             self.center_before_rotation = center
 
-        b, l = img.shape
+        h, w = img.shape
         rotImg, newCenter, self.rotMat = rotateImage(img, center, self.info["rotationAngle"])
 
         # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
-        bnew, lnew = rotImg.shape
-        db, dl = (bnew - b)//2, (lnew-l)//2
-        final_rotImg = rotImg[db:bnew-db, dl:lnew-dl]
+        hnew, wnew = rotImg.shape
+        dh, dw = (hnew - h)//2, (wnew-w)//2
+        final_rotImg = rotImg[dh:hnew-dh, dw:wnew-dw]
         if self.fixedCenterX is None and self.fixedCenterY is None:
-            self.info["center"] = (newCenter[0]-dl, newCenter[1]-db)
-        self.dl, self.db = dl, db # storing the cropped off section to recalculate coordinates when manual center is given
+            self.info["center"] = (newCenter[0]-dw, newCenter[1]-dh)
+        self.dl, self.db = dw, dh # storing the cropped off section to recalculate coordinates when manual center is given
 
         self.curr_dims = final_rotImg.shape
         return final_rotImg

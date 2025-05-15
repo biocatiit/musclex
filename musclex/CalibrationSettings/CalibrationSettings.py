@@ -312,8 +312,8 @@ class CalibrationSettings(QDialog):
         Uncheck the other button and decalibrate when param is checked.
         """
         self.paramGrp.setEnabled(self.paramGrpChkBx.isChecked())
-        self.calImageGrpChkBox.setChecked(not self.paramGrpChkBx.isChecked())
-        self.calImageGrp.setEnabled(not self.paramGrpChkBx.isChecked())
+        self.calImageGrpChkBox.setChecked(False)
+        self.calImageGrp.setEnabled(False)
 
         self.decalibrate()
 
@@ -322,8 +322,8 @@ class CalibrationSettings(QDialog):
         Uncheck the other button and decalibrate when calImage is checked.
         """
         self.calImageGrp.setEnabled(self.calImageGrpChkBox.isChecked())
-        self.paramGrpChkBx.setChecked(not self.calImageGrpChkBox.isChecked())
-        self.paramGrp.setEnabled(not self.calImageGrpChkBox.isChecked())
+        self.paramGrpChkBx.setChecked(False)
+        self.paramGrp.setEnabled(False)
         self.decalibrate()
 
     def settingChanged(self, name, obj):

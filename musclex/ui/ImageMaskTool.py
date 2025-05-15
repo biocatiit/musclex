@@ -70,7 +70,7 @@ def displayImage(imageArray, minInt, maxInt, rot=0):
 
 
 def displayImageWithMasks(imageArray, minInt, maxInt, 
-                          lowMask, highMask, drawnMask, 
+                          lowMask, highMask, drawnMask, rMask=None,
                           rot=0):
     """
     Displays 'imageArray' in grayscale and overlays:
@@ -133,6 +133,10 @@ def displayImageWithMasks(imageArray, minInt, maxInt,
     if highMask is not None:
         highMask = np.flipud(np.asarray(highMask))
         colorImageArray[highMask == 0] = [0, 0, 255]
+    # Purple Mask (Rmin/Rmax)
+    if rMask is not None:
+        rMask = np.flipud(np.asarray(rMask))
+        colorImageArray[rMask == 0] = [255, 0, 255]
 
     # 5) Convert the color image (RGB) to QImage
     #    Format_RGB888 expects the data in 24-bit RGB
@@ -182,6 +186,8 @@ class ImageMaskerWindow(QDialog):
 
         self.maskHighThreshVal = None
         self.maskLowThreshVal = None
+
+        self.r_mask_data = None
 
         self.initUI()
         self.loadImage(self.imagePath)
@@ -277,6 +283,23 @@ class ImageMaskerWindow(QDialog):
         self.highDilComboBox.setVisible(False)
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
 
+        self.rCheckbox = QCheckBox("Rmin/Rmax")
+        self.rCheckbox.clicked.connect(self.enableRminRmax)
+
+        self.rminLabel = QLabel("Rmin:")
+        self.rminLabel.setVisible(False)
+        self.rminSpinBox = QDoubleSpinBox()
+        self.rminSpinBox.setEnabled(False)
+        self.rminSpinBox.setVisible(False)
+        self.rminSpinBox.setMinimum(0)
+        self.rmaxLabel = QLabel("Rmax:")
+        self.rmaxLabel.setVisible(False)
+        self.rmaxSpinBox = QDoubleSpinBox()
+        self.rmaxSpinBox.setEnabled(False)
+        self.rmaxSpinBox.setVisible(False)
+        self.rmaxSpinBox.setMinimum(0)
+
+
         self.showMaskComboBox = QComboBox()
         self.showMaskComboBox.setEnabled(False)
         self.showMaskComboBox.addItem("Show Image With Mask")
@@ -354,17 +377,23 @@ class ImageMaskerWindow(QDialog):
         self.buttonLayout.addWidget(self.highMaskDilationChkbx, 5, 1, 1, 2)
         self.buttonLayout.addWidget(self.highDilComboBox, 5, 3, 1, 1)
 
-        self.buttonLayout.addWidget(self.showMaskComboBox, 6, 0, 1, 2)
-        self.buttonLayout.addWidget(self.greenLabel, 6, 2, 1, 2)
-        self.buttonLayout.addWidget(self.blueLabel, 7, 0, 1, 2)
-        self.buttonLayout.addWidget(self.redLabel, 7, 2, 1, 2)
+        self.buttonLayout.addWidget(self.rCheckbox, 6, 0, 1, 2)
+        self.buttonLayout.addWidget(self.rminLabel, 7, 0, 1, 1)
+        self.buttonLayout.addWidget(self.rminSpinBox, 7, 1, 1, 1)
+        self.buttonLayout.addWidget(self.rmaxLabel, 7, 2, 1, 1)
+        self.buttonLayout.addWidget(self.rmaxSpinBox, 7, 3, 1, 1)
 
-        self.buttonLayout.addWidget(self.subtractBlankChkbx, 8, 0, 1, 2)
+        self.buttonLayout.addWidget(self.showMaskComboBox, 8, 0, 1, 2)
+        self.buttonLayout.addWidget(self.greenLabel, 8, 2, 1, 2)
+        self.buttonLayout.addWidget(self.blueLabel, 9, 0, 1, 2)
+        self.buttonLayout.addWidget(self.redLabel, 9, 2, 1, 2)
+
+        self.buttonLayout.addWidget(self.subtractBlankChkbx, 10, 0, 1, 2)
         # self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
-        self.buttonLayout.addWidget(self.subtractSliderText, 8, 3, 1, 2)
-        self.buttonLayout.addWidget(self.negativeValuesLabel, 9, 0, 1, 4)
-        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 10, 0, 1, 2)
-        self.buttonLayout.addWidget(self.bottons, 11, 1, 1, 2)
+        self.buttonLayout.addWidget(self.subtractSliderText, 10, 3, 1, 2)
+        self.buttonLayout.addWidget(self.negativeValuesLabel, 11, 0, 1, 4)
+        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 12, 0, 1, 2)
+        self.buttonLayout.addWidget(self.bottons, 13, 1, 1, 2)
 
         self.layout.addWidget(self.imageLabel)
         self.layout.addWidget(self.scrollArea)
@@ -603,7 +632,7 @@ class ImageMaskerWindow(QDialog):
         elif self.showMaskComboBox.currentText() == "Show Image With Mask":
             self.computeCombinedMask()
             self.applyMask()
-            scaledPixMap = displayImageWithMasks(self.imageData, self.minInt, self.maxInt, self.dilatedLowThreshMaskData, self.dilatedHighThreshMaskData, self.drawnMaskData)
+            scaledPixMap = displayImageWithMasks(self.imageData, self.minInt, self.maxInt, self.dilatedLowThreshMaskData, self.dilatedHighThreshMaskData, self.drawnMaskData, self.r_mask_data)
             self.imageLabel.setPixmap(scaledPixMap)
             if self.showMaskComboBox.isEnabled():
                 self.showLabels()
@@ -909,3 +938,37 @@ class ImageMaskerWindow(QDialog):
         self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
         scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt, 0.0)
         self.imageLabel.setPixmap(scaledPixmap)
+
+    def enableRminRmax(self):
+        if self.rCheckbox.isChecked():
+            self.rminSpinBox.setEnabled(True)
+            self.rminSpinBox.setVisible(True)
+            self.rmaxSpinBox.setEnabled(True)
+            self.rmaxSpinBox.setVisible(True)
+            self.rminLabel.setVisible(True)
+            self.rmaxLabel.setVisible(True)
+        else:
+            self.rminSpinBox.setEnabled(False)
+            self.rminSpinBox.setVisible(False)
+            self.rmaxSpinBox.setEnabled(False)
+            self.rmaxSpinBox.setVisible(False)
+            self.rminLabel.setVisible(False)
+            self.rmaxLabel.setVisible(False)
+
+    def applyRadialMasks(self):
+        center = (self.imageData.shape[0] // 2, self.imageData.shape[1] // 2)
+        rmin = self.rminSpinBox.value()
+        rmax = self.rmaxSpinBox.value()
+
+        #Blank copy of image to draw the mask on
+        r_mask = np.zeros_like(self.imageData, dtype=np.uint8)
+
+        #Outer circle from rmax
+        cv2.circle(r_mask, center, rmax, 1, thickness=-1)
+        #Inner circle from rmin
+        cv2.circle(r_mask, center, rmin, 0, thickness=-1)
+
+        self.r_mask_data = r_mask
+        self.computedMaskData = np.multiply(self.computedMaskData, self.r_mask_data)
+        self.refreshMask()
+        self.applyMask()

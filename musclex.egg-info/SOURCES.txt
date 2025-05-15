@@ -14290,8 +14290,6 @@ musclex/ui/ddf_processor.py
 musclex/ui/diffraction_centroids.py
 musclex/ui/launcher.ui
 musclex/ui/pyqt_utils.py
-musclex/ui/qfce_new.py
-musclex/ui/qfce_newer.py
 musclex/ui/test.py
 musclex/ui/ui_launcherform.py
 musclex/ui/workspace.code-workspace
