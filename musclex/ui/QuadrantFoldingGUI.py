@@ -3516,7 +3516,6 @@ class QuadrantFoldingGUI(QMainWindow):
             # quadFold_copy = copy.copy(self.quadFold)
             try:
                 if self.calSettingsDialog.fixedCenter.isChecked():
-                    print("FIXED CENTER CHANGED RIGHT BEFORE PROCESS: ", self.calSettings['center']) #NICKA DEBUG
                     self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettings['center']
                 self.quadFold.process(flags)                    
             except Exception:

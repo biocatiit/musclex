@@ -956,9 +956,12 @@ class ImageMaskerWindow(QDialog):
             self.rmaxLabel.setVisible(False)
 
     def applyRadialMasks(self):
+        print("[DEBUG]: Apply Radial Masks function")
         center = (self.imageData.shape[0] // 2, self.imageData.shape[1] // 2)
         rmin = self.rminSpinBox.value()
+        print("[DEBUG]: ")
         rmax = self.rmaxSpinBox.value()
+        print("[DEBUG]: ")
 
         #Blank copy of image to draw the mask on
         r_mask = np.zeros_like(self.imageData, dtype=np.uint8)
@@ -969,6 +972,12 @@ class ImageMaskerWindow(QDialog):
         cv2.circle(r_mask, center, rmin, 0, thickness=-1)
 
         self.r_mask_data = r_mask
+
+        tif_img = fabio.pilatusimage.pilatusimage(data=r_mask)
+        tif_img.write('r_mask.tif')
+
+        print("[DEBUG]: Saved r_mask.tif to working dir")
+
         self.computedMaskData = np.multiply(self.computedMaskData, self.r_mask_data)
         self.refreshMask()
         self.applyMask()
