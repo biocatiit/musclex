@@ -6,6 +6,43 @@ You can access the GitHub repository [here](https://github.com/biocatiit/musclex
 
 In order to run the code, you need to install [python](https://www.python.org/).
 
+## Quick Start (Linux)
+
+To quickly install and build the most recent tested version from source, copy the entire following block of code into a Linux terminal where you have a fresh virtual environment running Python 3.10 active:
+
+```
+conda config --add channels fastai
+conda config --add channels conda-forge
+conda config --add channels bioconda
+wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
+pip install -r requirements
+rm requirements
+git clone https://github.com/biocatiit/musclex.git
+cd musclex
+git checkout tags/v1.25.0
+python3 setup.py clean --all
+python3 setup.py build
+python3 setup.py install
+```
+
+Note that 'v1.25.0' is the most recent stable release at the time of this writing.  If you want to work with a different stable release, then just replace 'v1.25.0' with the name of a different tag (stable release) and enter the commands into your terminal.  The tags can be found here: https://github.com/biocatiit/musclex/tags
+
+To quickly install and build the development version, which contains the most up-to-date features and bug-fixes but may not yet be totally stable, copy this entire block of code into your terminal instead:
+
+```
+conda config --add channels fastai
+conda config --add channels conda-forge
+conda config --add channels bioconda
+wget https://raw.githubusercontent.com/biocatiit/musclex/master/requirements
+pip install -r requirements
+rm requirements
+git clone https://github.com/biocatiit/musclex.git
+cd musclex
+python3 setup.py clean --all
+python3 setup.py build
+python3 setup.py install
+```
+
 ## Preparing
 
 Some modules need to be installed before installing Muscle X. They are Pip, OpenCV, PyQT5 (PyQT4 is not Supported), gfortran, PyFAI and Cython.
