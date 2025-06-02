@@ -275,7 +275,7 @@ class MuscleXGlobalTester(unittest.TestCase):
         # res = pd.merge(file1, file2)
         # if len(res.index) != len(file1.index):
         #     pass_test = False
-        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=rtol, atol=atol)
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=[5], sort_key=sort_key, rtol=rtol, atol=atol)
         if not pass_test:
             print(f"\nTesting QuadrantFolder on {pilatus_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
             print("Compare the following files for more information:\n" \

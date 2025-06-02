@@ -1829,7 +1829,8 @@ class QuadrantFoldingGUI(QMainWindow):
             #     ax.lines[i].remove()
             # for i in range(len(ax.patches)-1,-1,-1):
             #     ax.patches[i].remove()
-            _, center = self.getExtentAndCenter()
+            #_, center = self.getExtentAndCenter()
+            center = self.quadFold.info['center']
             if self.quadFold.fixedCenterX is None and self.quadFold.fixedCenterY is None:
                 self.quadFold.info['center'] = center
             self.imageCanvas.draw_idle()
@@ -2137,27 +2138,48 @@ class QuadrantFoldingGUI(QMainWindow):
             elif func[0] == "im_rotate":
                 # set rotation angle
                 extent, center = self.getExtentAndCenter()
+                center = self.quadFold.info['center']
 
-                if center[0] < x:
-                    x1 = center[0]
-                    y1 = center[1]
-                    x2 = x
-                    y2 = y
+                x_o, y_o = self.getOrigCoordsCenter(x, y)
+                cx_o, cy_o = self.getOrigCoordsCenter(center[0], center[1])
+
+                print("CALCULATING ROTATION ANGLE") #Debug
+                print("x_o, y_o: ", (x_o, y_o)) #Debug
+                print("Center: ", (cx_o, cy_o)) #Debug
+
+                if cx_o < x:
+                    x1 = cx_o
+                    y1 = cy_o
+                    x2 = x_o
+                    y2 = y_o
                 else:
-                    x1 = x
-                    y1 = y
-                    x2 = center[0]
-                    y2 = center[1]
+                    x1 = x_o
+                    y1 = y_o
+                    x2 = cx_o
+                    y2 = cy_o
 
                 if abs(x2 - x1) == 0:
                     new_angle = -90
                 else:
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
-                self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
+
+                print("New angle: ", new_angle) #Debug
+
+                #self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
+                self.quadFold.info['manual_rotationAngle'] = new_angle
+
+
+                
                 self.deleteInfo(['avg_fold'])
                 self.setRotationButton.setChecked(False)
                 self.persistRotations.setVisible(True)
+
+                #Put the center (in original image coordinates) into the manual center entry of the key so that it will be used during processing.
+                self.quadFold.info['manual_center'] = (int(round(x_o)), int(round(y_o)))
+                if 'center' in self.quadFold.info:
+                    del self.quadFold.info['center']
+
                 self.processImage()
 
     
@@ -2234,7 +2256,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     try:
                         self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[int(sy)][int(sx)]) + ", distance=" + str(q) + unit)
                     except:
-                        self.imgCoordOnStatusBar.setText("x=NaN" + ', y=NaN'+ ", value=" + str(img[int(sy)][int(sx)]) + ", distance=NaN" + unit)
+                        self.imgCoordOnStatusBar.setText("x=NaN" + ', y=NaN'+ ", value=" + "NaN" + ", distance=NaN" + unit)
                 else:
                     mouse_distance = np.sqrt((self.quadFold.info['center'][0] - x) ** 2 + (self.quadFold.info['center'][1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
@@ -2413,10 +2435,12 @@ class QuadrantFoldingGUI(QMainWindow):
         elif func[0] == "im_rotate":
             #print("Function is im_rotate") #NICKA DEBUG
             # draw line as angle
-            if self.calSettings is None or 'center' not in self.calSettings:
-                self.calSettings = {}
-                extent, self.calSettings['center'] = self.getExtentAndCenter()
-            center = self.calSettings['center']
+            """if self.calSettings is None or 'center' not in self.calSettings:
+            self.calSettings = {}
+            extent, self.calSettings['center'] = self.getExtentAndCenter()"""
+            center = self.quadFold.info['center']
+            print("Center: ", center) #NICKA DEBUG
+
             deltax = x - center[0]
             deltay = y - center[1]
             x2 = center[0] - deltax
@@ -3295,7 +3319,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.img = img
             img = self.quadFold.orig_img
 
-            extent, center = self.getExtentAndCenter()
+            extent = [0,0]
             center = self.quadFold.info['center']
 
             self.extent = extent
@@ -3515,7 +3539,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                if self.calSettingsDialog.fixedCenter.isChecked():
+                if self.calSettingsDialog.fixedCenter.isChecked() and self.calSettings is not None and 'center' in self.calSettings:
                     self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettings['center']
                 self.quadFold.process(flags)                    
             except Exception:

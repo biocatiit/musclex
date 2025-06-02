@@ -15,6 +15,7 @@ from .pyqt_utils import *
 import threading
 import cv2
 from scipy.ndimage import rotate
+import math
 
 try:
     from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
@@ -41,11 +42,20 @@ def displayImage(imageArray, minInt, maxInt, rot=0):
       print("Empty image")
       return
 
+    tif_img = fabio.pilatusimage.pilatusimage(data=imageArray)
+    tif_img.write('test_1')
+
+    tif_img = fabio.pilatusimage.pilatusimage(data=np.flipud(imageArray))
+    tif_img.write('test_2')
+
     # Flip the image horizontally
     flippedImageArray = rotate(np.flipud(imageArray), -rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
     #flippedImageArray = np.ascontiguousarray(np.rot90(imageArray, k=-1))
     #flippedImageArray = imageArray
     
+    tif_img = fabio.pilatusimage.pilatusimage(data=flippedImageArray)
+    tif_img.write('test_3')
+
     # Normalize the flipped image to the 0-255 range for display
     if np.max(flippedImageArray) == np.min(flippedImageArray):
         normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
@@ -292,12 +302,16 @@ class ImageMaskerWindow(QDialog):
         self.rminSpinBox.setEnabled(False)
         self.rminSpinBox.setVisible(False)
         self.rminSpinBox.setMinimum(0)
+        self.rminSpinBox.setMaximum(math.ceil(math.sqrt(self.orig_size[0]**2 * self.orig_size[1]**2)))
+        self.rminSpinBox.valueChanged.connect(self.applyRadialMasks)
         self.rmaxLabel = QLabel("Rmax:")
         self.rmaxLabel.setVisible(False)
         self.rmaxSpinBox = QDoubleSpinBox()
         self.rmaxSpinBox.setEnabled(False)
         self.rmaxSpinBox.setVisible(False)
         self.rmaxSpinBox.setMinimum(0)
+        self.rmaxSpinBox.setMaximum(math.ceil(math.sqrt(self.orig_size[0]**2 * self.orig_size[1]**2)))
+        self.rmaxSpinBox.valueChanged.connect(self.applyRadialMasks)
 
 
         self.showMaskComboBox = QComboBox()
@@ -317,6 +331,9 @@ class ImageMaskerWindow(QDialog):
         self.redLabel = QLabel("Red: Drawn Mask")
         self.redLabel.setStyleSheet("color: red")
         self.redLabel.setVisible(False)
+        self.purpleLabel = QLabel("Purple: Rmin / Rmax mask")
+        self.purpleLabel.setStyleSheet("color: purple")
+        self.purpleLabel.setVisible(False)
         
         self.subtractBlankChkbx = QCheckBox("Subtract Empty Cell Image")
         self.subtractBlankChkbx.setEnabled(False)
@@ -384,16 +401,17 @@ class ImageMaskerWindow(QDialog):
         self.buttonLayout.addWidget(self.rmaxSpinBox, 7, 3, 1, 1)
 
         self.buttonLayout.addWidget(self.showMaskComboBox, 8, 0, 1, 2)
-        self.buttonLayout.addWidget(self.greenLabel, 8, 2, 1, 2)
-        self.buttonLayout.addWidget(self.blueLabel, 9, 0, 1, 2)
-        self.buttonLayout.addWidget(self.redLabel, 9, 2, 1, 2)
+        self.buttonLayout.addWidget(self.greenLabel, 9, 0, 1, 2)
+        self.buttonLayout.addWidget(self.blueLabel, 9, 2, 1, 2)
+        self.buttonLayout.addWidget(self.redLabel, 10, 0, 1, 2)
+        self.buttonLayout.addWidget(self.purpleLabel, 10, 2, 1, 2)
 
-        self.buttonLayout.addWidget(self.subtractBlankChkbx, 10, 0, 1, 2)
+        self.buttonLayout.addWidget(self.subtractBlankChkbx, 11, 0, 1, 2)
         # self.buttonLayout.addWidget(self.subtractSlider, 4, 3, 1, 2)
-        self.buttonLayout.addWidget(self.subtractSliderText, 10, 3, 1, 2)
-        self.buttonLayout.addWidget(self.negativeValuesLabel, 11, 0, 1, 4)
-        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 12, 0, 1, 2)
-        self.buttonLayout.addWidget(self.bottons, 13, 1, 1, 2)
+        self.buttonLayout.addWidget(self.subtractSliderText, 11, 3, 1, 2)
+        self.buttonLayout.addWidget(self.negativeValuesLabel, 12, 0, 1, 4)
+        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, 13, 0, 1, 2)
+        self.buttonLayout.addWidget(self.bottons, 14, 1, 1, 2)
 
         self.layout.addWidget(self.imageLabel)
         self.layout.addWidget(self.scrollArea)
@@ -449,11 +467,13 @@ class ImageMaskerWindow(QDialog):
         self.greenLabel.setVisible(True)
         self.blueLabel.setVisible(True)
         self.redLabel.setVisible(True)
+        self.purpleLabel.setVisible(True)
 
     def hideLabels(self):     
         self.greenLabel.setVisible(False)
         self.blueLabel.setVisible(False)
         self.redLabel.setVisible(False)
+        self.purpleLabel.setVisible(False)
         
     def enableLowMaskThres(self):
         if self.maskLowThresChkbx.isChecked():
@@ -475,7 +495,7 @@ class ImageMaskerWindow(QDialog):
             else:
                 self.computedMask = False
                 self.computedMaskData = None
-                if self.drawnMaskData is None:
+                if self.drawnMaskData is None and not self.rCheckbox.isChecked():
                     self.hideLabels()
                     self.showMaskComboBox.setEnabled(False)
             self.refreshMask()
@@ -500,7 +520,7 @@ class ImageMaskerWindow(QDialog):
             else:
                 self.computedMask = False
                 self.computedMaskData = None
-                if self.drawnMaskData is None:
+                if self.drawnMaskData is None and not self.rCheckbox.isChecked():
                     self.hideLabels()
                     self.showMaskComboBox.setEnabled(False)
             self.refreshMask()
@@ -839,7 +859,7 @@ class ImageMaskerWindow(QDialog):
 
             self.maskedImage = maskedImageArray
 
-            scaledPixmap=displayImage(maskedImageArray.data, self.minInt, self.maxInt, 0.0)
+            scaledPixmap=displayImage(maskedImageArray, self.minInt, self.maxInt, 0.0)
             self.imageLabel.setPixmap(scaledPixmap)
 
             # Compute the number of pixels to mask out (where the value is 0)
@@ -941,6 +961,7 @@ class ImageMaskerWindow(QDialog):
 
     def enableRminRmax(self):
         if self.rCheckbox.isChecked():
+            self.showLabels()
             self.rminSpinBox.setEnabled(True)
             self.rminSpinBox.setVisible(True)
             self.rmaxSpinBox.setEnabled(True)
@@ -948,6 +969,7 @@ class ImageMaskerWindow(QDialog):
             self.rminLabel.setVisible(True)
             self.rmaxLabel.setVisible(True)
         else:
+            self.hideLabels()
             self.rminSpinBox.setEnabled(False)
             self.rminSpinBox.setVisible(False)
             self.rmaxSpinBox.setEnabled(False)
@@ -959,17 +981,17 @@ class ImageMaskerWindow(QDialog):
         print("[DEBUG]: Apply Radial Masks function")
         center = (self.imageData.shape[0] // 2, self.imageData.shape[1] // 2)
         rmin = self.rminSpinBox.value()
-        print("[DEBUG]: ")
+        print("[DEBUG]: rmin: ", rmin)
         rmax = self.rmaxSpinBox.value()
-        print("[DEBUG]: ")
+        print("[DEBUG]: rmax: ", rmax)
 
         #Blank copy of image to draw the mask on
         r_mask = np.zeros_like(self.imageData, dtype=np.uint8)
 
         #Outer circle from rmax
-        cv2.circle(r_mask, center, rmax, 1, thickness=-1)
+        cv2.circle(r_mask, center, int(rmax), 1, thickness=-1)
         #Inner circle from rmin
-        cv2.circle(r_mask, center, rmin, 0, thickness=-1)
+        cv2.circle(r_mask, center, int(rmin), 0, thickness=-1)
 
         self.r_mask_data = r_mask
 
@@ -978,6 +1000,9 @@ class ImageMaskerWindow(QDialog):
 
         print("[DEBUG]: Saved r_mask.tif to working dir")
 
-        self.computedMaskData = np.multiply(self.computedMaskData, self.r_mask_data)
+        if self.computedMaskData is None:
+            self.computedMaskData = self.r_mask_data
+        else:
+            self.computedMaskData = np.multiply(self.computedMaskData, self.r_mask_data)
+
         self.refreshMask()
-        self.applyMask()

@@ -1353,6 +1353,15 @@ class QuadrantFolder:
             buttom_right = cv2.flip(buttom_right,1)
             buttom_right = cv2.flip(buttom_right,0)
 
+            print("SAVING IMAGES TO CURRENT DIRECTORY")
+            tif_img = fabio.pilatusimage.pilatusimage(data=top_left)
+            tif_img.write('top_left.tif')
+            tif_img = fabio.pilatusimage.pilatusimage(data=top_right)
+            tif_img.write('top_right.tif')
+            tif_img = fabio.pilatusimage.pilatusimage(data=buttom_left)
+            tif_img.write('buttom_left.tif')
+            tif_img = fabio.pilatusimage.pilatusimage(data=buttom_right)
+            tif_img.write('buttom_right.tif')
 
             # Add all folds which are not ignored
             quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * (self.info['mask_thres'] - 1.)
