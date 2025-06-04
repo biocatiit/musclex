@@ -1326,8 +1326,9 @@ class QuadrantFolder:
             self.deleteFromDict(self.info, 'rmin')
             self.deleteFromDict(self.info, 'rmax')
             # self.imgResultForDisplay = None
-            rotate_img = copy.copy(self.getRotatedImage())
+            rotate_img = self.orig_img #copy.copy(self.getRotatedImage())
             center = self.info['center']
+            print("[DEBUG]: center for the split: ", center)
             center_x = int(center[0])
             center_y = int(center[1])
 
@@ -1352,16 +1353,6 @@ class QuadrantFolder:
             buttom_right = rotate_img[center_y:center_y+fold_height, center_x:center_x+fold_width]
             buttom_right = cv2.flip(buttom_right,1)
             buttom_right = cv2.flip(buttom_right,0)
-
-            print("SAVING IMAGES TO CURRENT DIRECTORY")
-            tif_img = fabio.pilatusimage.pilatusimage(data=top_left)
-            tif_img.write('top_left.tif')
-            tif_img = fabio.pilatusimage.pilatusimage(data=top_right)
-            tif_img.write('top_right.tif')
-            tif_img = fabio.pilatusimage.pilatusimage(data=buttom_left)
-            tif_img.write('buttom_left.tif')
-            tif_img = fabio.pilatusimage.pilatusimage(data=buttom_right)
-            tif_img.write('buttom_right.tif')
 
             # Add all folds which are not ignored
             quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * (self.info['mask_thres'] - 1.)

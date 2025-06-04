@@ -581,7 +581,9 @@ def compare_csv_files(file1, file2, ignore_columns=None, sort_key=None, rtol=1e-
         if pd.api.types.is_numeric_dtype(df1[column]) and pd.api.types.is_numeric_dtype(df2[column]):
             # Handle NaN values by treating them as equal
             if not np.allclose(df1[column].fillna(0).values, df2[column].fillna(0).values, rtol=rtol, atol=atol):
-                print("NAN", column)
+                print("Not Equal: ", column)
+                print("df1:", df1[column].fillna(0).values)
+                print("df2:", df2[column].fillna(0).values)
                 return False
         else:
             # Handle non-numeric columns, treating NaNs as equal

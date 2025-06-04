@@ -1932,6 +1932,7 @@ musclex/tests/testResults/EIGERimages/di_results/rings.csv
 musclex/tests/testResults/EIGERimages/di_results/summary.csv
 musclex/tests/testResults/EIGERimages/eq_results/summary2.csv
 musclex/tests/testResults/EIGERimages/pt_results/summary.csv
+musclex/tests/testResults/EIGERimages/pt_results/summary_old.csv
 musclex/tests/testResults/EIGERimages/pt_results/1d_projections/P2_F5_849_1_094_data_000001_0006_box_b1_original.txt
 musclex/tests/testResults/EIGERimages/pt_results/1d_projections/P2_F5_849_1_094_data_000001_0006_box_b1_subtracted.txt
 musclex/tests/testResults/EIGERimages/pt_results/1d_projections/P2_F5_849_1_094_data_000001_0006_box_b2_original.txt
@@ -1949,6 +1950,7 @@ musclex/tests/testResults/MARimages/di_results/rings.csv
 musclex/tests/testResults/MARimages/di_results/summary.csv
 musclex/tests/testResults/MARimages/eq_results/summary2.csv
 musclex/tests/testResults/MARimages/pt_results/summary.csv
+musclex/tests/testResults/MARimages/pt_results/summary_old.csv
 musclex/tests/testResults/MARimages/pt_results/1d_projections/F10_pCa8_SL21_0001_box_b1_original.txt
 musclex/tests/testResults/MARimages/pt_results/1d_projections/F10_pCa8_SL21_0001_box_b1_subtracted.txt
 musclex/tests/testResults/MARimages/pt_results/1d_projections/F10_pCa8_SL21_0001_box_b2_original.txt
@@ -1966,6 +1968,7 @@ musclex/tests/testResults/PILATUSimages/di_results/rings.csv
 musclex/tests/testResults/PILATUSimages/di_results/summary.csv
 musclex/tests/testResults/PILATUSimages/eq_results/summary2.csv
 musclex/tests/testResults/PILATUSimages/pt_results/summary.csv
+musclex/tests/testResults/PILATUSimages/pt_results/summary_old.csv
 musclex/tests/testResults/PILATUSimages/pt_results/1d_projections/P1_F1_tet_1_100_005_0001_box_b1_original.txt
 musclex/tests/testResults/PILATUSimages/pt_results/1d_projections/P1_F1_tet_1_100_005_0001_box_b1_subtracted.txt
 musclex/tests/testResults/PILATUSimages/pt_results/1d_projections/P1_F1_tet_1_100_005_0001_box_b2_original.txt

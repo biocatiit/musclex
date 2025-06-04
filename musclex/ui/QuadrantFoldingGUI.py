@@ -1870,22 +1870,12 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         
         if success:
-            self.calSettingsDialog.recalculate = True #Temporary adjustment for release.
-            if self.calSettingsDialog.recalculate:
-                print("Recalculate") #NICKA DEBUG
-                self.deleteInfo(['rotationAngle'])
-                self.deleteImgCache(['BgSubFold'])
-                self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
-                self.processImage()
-            else:
-                print("Center Change") #NICKA DEBUG
-                #Change the fixed center data members for qf too?
-                self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
-                if 'center' in self.quadFold.info:
-                    del self.quadFold.info['center']
-                print("center: ", self.quadFold.info['manual_center']) #NICKA DEBUG
-                self.processImage()
-        
+            print("Recalculate") #NICKA DEBUG
+            self.deleteInfo(['rotationAngle'])
+            self.deleteImgCache(['BgSubFold'])
+            self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
+            self.processImage()
+
 
     def setCalibrationImage(self, force=False):
         """
@@ -3923,7 +3913,15 @@ class QuadrantFoldingGUI(QMainWindow):
                     fileName = self.imgList[self.currentFileNumber]
                     try:
                         self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-                        self.setCalibrationImage()
+
+                        success = self.setCalibrationImage(force=True)
+
+                        if success:
+                            self.deleteInfo(['rotationAngle'])
+                            self.deleteImgCache(['BgSubFold'])
+                            self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
+                            self.processImage()
+
                     except Exception as e:
                         infMsg = QMessageBox()
                         infMsg.setText("Error trying to open " + str(fileName))

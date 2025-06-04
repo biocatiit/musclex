@@ -42,19 +42,10 @@ def displayImage(imageArray, minInt, maxInt, rot=0):
       print("Empty image")
       return
 
-    tif_img = fabio.pilatusimage.pilatusimage(data=imageArray)
-    tif_img.write('test_1')
-
-    tif_img = fabio.pilatusimage.pilatusimage(data=np.flipud(imageArray))
-    tif_img.write('test_2')
-
     # Flip the image horizontally
-    flippedImageArray = rotate(np.flipud(imageArray), -rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
+    flippedImageArray = rotate(np.flipud(imageArray), rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
     #flippedImageArray = np.ascontiguousarray(np.rot90(imageArray, k=-1))
     #flippedImageArray = imageArray
-    
-    tif_img = fabio.pilatusimage.pilatusimage(data=flippedImageArray)
-    tif_img.write('test_3')
 
     # Normalize the flipped image to the 0-255 range for display
     if np.max(flippedImageArray) == np.min(flippedImageArray):
@@ -184,6 +175,7 @@ class ImageMaskerWindow(QDialog):
         self.dilatedLowThreshMaskData = None  # Attribute to store the mask created by the lower bound threshold after dilation
         self.highThreshMaskData = None  # Attribute to store the mask created by the upper bound threshold
         self.dilatedHighThreshMaskData = None # Attribute to store the mask created by the upper bound threshold after dilation
+        self.r_mask_data = None
         self.computedMaskData = None  # Attribute to store the computed mask data
         self.drawnMaskData = None  # Attribute to store the drawn mask data
         self.subtractedImage = None # Attribute to store the subtracted image data
@@ -196,8 +188,6 @@ class ImageMaskerWindow(QDialog):
 
         self.maskHighThreshVal = None
         self.maskLowThreshVal = None
-
-        self.r_mask_data = None
 
         self.initUI()
         self.loadImage(self.imagePath)
@@ -253,9 +243,6 @@ class ImageMaskerWindow(QDialog):
         self.lowDilComboBox.addItem("3x3 Kernel")
         self.lowDilComboBox.addItem("5x5 Kernel")
         self.lowDilComboBox.addItem("7x7 Kernel")
-        self.lowDilComboBox.addItem("9x9 Kernel")
-        self.lowDilComboBox.addItem("11x11 Kernel")
-        self.lowDilComboBox.addItem("13x13 Kernel")
 
         self.lowDilComboBox.setCurrentIndex(0)
         self.lowDilComboBox.setVisible(False)
@@ -286,9 +273,6 @@ class ImageMaskerWindow(QDialog):
         self.highDilComboBox.addItem("3x3 Kernel")
         self.highDilComboBox.addItem("5x5 Kernel")
         self.highDilComboBox.addItem("7x7 Kernel")
-        self.highDilComboBox.addItem("9x9 Kernel")
-        self.highDilComboBox.addItem("11x11 Kernel")
-        self.highDilComboBox.addItem("13x13 Kernel")
         self.highDilComboBox.setCurrentIndex(0)
         self.highDilComboBox.setVisible(False)
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
@@ -303,7 +287,7 @@ class ImageMaskerWindow(QDialog):
         self.rminSpinBox.setVisible(False)
         self.rminSpinBox.setMinimum(0)
         self.rminSpinBox.setMaximum(math.ceil(math.sqrt(self.orig_size[0]**2 * self.orig_size[1]**2)))
-        self.rminSpinBox.valueChanged.connect(self.applyRadialMasks)
+        self.rminSpinBox.valueChanged.connect(self.computeRadialMasks)
         self.rmaxLabel = QLabel("Rmax:")
         self.rmaxLabel.setVisible(False)
         self.rmaxSpinBox = QDoubleSpinBox()
@@ -311,7 +295,7 @@ class ImageMaskerWindow(QDialog):
         self.rmaxSpinBox.setVisible(False)
         self.rmaxSpinBox.setMinimum(0)
         self.rmaxSpinBox.setMaximum(math.ceil(math.sqrt(self.orig_size[0]**2 * self.orig_size[1]**2)))
-        self.rmaxSpinBox.valueChanged.connect(self.applyRadialMasks)
+        self.rmaxSpinBox.valueChanged.connect(self.computeRadialMasks)
 
 
         self.showMaskComboBox = QComboBox()
@@ -445,7 +429,7 @@ class ImageMaskerWindow(QDialog):
             self.loadImage(self.blankImagePath)
         else:
             if self.maskedImage is not None:
-                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt, 0.0)
+                scaledPixmap=displayImage(self.maskedImage.data, self.minInt, self.maxInt, self.rot_angle)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
                 self.loadImage(self.imagePath)
@@ -535,12 +519,6 @@ class ImageMaskerWindow(QDialog):
             kernel_size_low = 5
         elif self.lowDilComboBox.currentText() == "7x7 Kernel":
             kernel_size_low = 7
-        elif self.lowDilComboBox.currentText() == "9x9 Kernel":
-            kernel_size_low = 9
-        elif self.lowDilComboBox.currentText() == "11x11 Kernel":
-            kernel_size_low = 11
-        elif self.lowDilComboBox.currentText() == "13x13 Kernel":
-            kernel_size_low = 13
 
         if self.highDilComboBox.currentText() == "3x3 Kernel":
             kernel_size_high = 3
@@ -548,12 +526,6 @@ class ImageMaskerWindow(QDialog):
             kernel_size_high = 5
         elif self.highDilComboBox.currentText() == "7x7 Kernel":
             kernel_size_high = 7
-        elif self.highDilComboBox.currentText() == "9x9 Kernel":
-            kernel_size_high = 9
-        elif self.highDilComboBox.currentText() == "11x11 Kernel":
-            kernel_size_high = 11
-        elif self.highDilComboBox.currentText() == "13x13 Kernel":
-            kernel_size_high = 13
 
         return kernel_size_low, kernel_size_high
 
@@ -586,7 +558,10 @@ class ImageMaskerWindow(QDialog):
         else:
             high_mask = np.ones_like(originalImageArray)
 
-        self.computedMaskData = np.multiply(low_mask, high_mask)
+        if self.r_mask_data is None:
+            self.computedMaskData = np.multiply(low_mask, high_mask)
+        else:
+            self.computedMaskData = low_mask * high_mask * self.r_mask_data
         self.dilatedLowThreshMaskData = low_mask
         self.dilatedHighThreshMaskData = high_mask
 
@@ -629,11 +604,11 @@ class ImageMaskerWindow(QDialog):
             # reload non-subtracted image
             if self.maskedImage is not None:
                 min_value = np.min(self.maskedImage)
-                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt, 0.0)
+                scaledPixmap=displayImage(self.maskedImage, self.minInt, self.maxInt, self.rot_angle)
                 self.imageLabel.setPixmap(scaledPixmap)
             else:
                 min_value = np.min(self.imageData)
-                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, 0.0)
+                scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, self.rot_angle)
                 self.imageLabel.setPixmap(scaledPixmap)    
             if min_value < 0:
                 self.negativeValuesLabel.setText("Negative Values in Image (Min: {}) ".format(min_value))
@@ -688,7 +663,7 @@ class ImageMaskerWindow(QDialog):
         raw_filepath = r"{}".format(filePath)
         image = fabio.open(raw_filepath)
         self.imageData = image.data
-        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, 0.0)
+        scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)
 
 
@@ -830,7 +805,7 @@ class ImageMaskerWindow(QDialog):
 
     def showMask(self):
         self.computeCombinedMask()
-        scaledPixmap=displayImage(self.maskData, -1, -1, 0.0)
+        scaledPixmap=displayImage(self.maskData, -1, -1, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)
 
     def applyMask(self):
@@ -859,7 +834,7 @@ class ImageMaskerWindow(QDialog):
 
             self.maskedImage = maskedImageArray
 
-            scaledPixmap=displayImage(maskedImageArray, self.minInt, self.maxInt, 0.0)
+            scaledPixmap=displayImage(maskedImageArray, self.minInt, self.maxInt, self.rot_angle)
             self.imageLabel.setPixmap(scaledPixmap)
 
             # Compute the number of pixels to mask out (where the value is 0)
@@ -956,7 +931,7 @@ class ImageMaskerWindow(QDialog):
         else:
             self.negativeValuesLabel.setVisible(False)
         self.subtractedImage[self.subtractedImage < 0] = 0 # Set negative values to 0
-        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt, 0.0)
+        scaledPixmap=displayImage(self.subtractedImage, self.minInt, self.maxInt, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)
 
     def enableRminRmax(self):
@@ -977,8 +952,10 @@ class ImageMaskerWindow(QDialog):
             self.rminLabel.setVisible(False)
             self.rmaxLabel.setVisible(False)
 
-    def applyRadialMasks(self):
-        print("[DEBUG]: Apply Radial Masks function")
+
+
+    def computeRadialMasks(self):
+        print("[DEBUG]: Compute Radial Masks function")
         center = (self.imageData.shape[0] // 2, self.imageData.shape[1] // 2)
         rmin = self.rminSpinBox.value()
         print("[DEBUG]: rmin: ", rmin)
@@ -1000,9 +977,9 @@ class ImageMaskerWindow(QDialog):
 
         print("[DEBUG]: Saved r_mask.tif to working dir")
 
-        if self.computedMaskData is None:
-            self.computedMaskData = self.r_mask_data
-        else:
-            self.computedMaskData = np.multiply(self.computedMaskData, self.r_mask_data)
+        low = np.ones_like(r_mask) if self.dilatedLowThreshMaskData is None else self.dilatedLowThreshMaskData
+        high = np.ones_like(r_mask) if self.dilatedHighThreshMaskData is None else self.dilatedHighThreshMaskData
+
+        self.computedMaskData = low * high * self.r_mask_data
 
         self.refreshMask()
