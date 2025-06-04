@@ -1532,7 +1532,7 @@ class QuadrantFoldingGUI(QMainWindow):
         #print("CALCULATING ORIGINAL IMAGE COORDINATES") #Debug
         #print("Display coords: ", (x, y)) #Debug
         #print("Center: ", center) #Debug
-        angle = -self.quadFold.info['rotationAngle'] * math.pi / 180
+        angle = 0 if 'rotationAngle' not in self.quadFold.info else -self.quadFold.info['rotationAngle'] * math.pi / 180
         #print("Angle: ", angle) #Debug
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)

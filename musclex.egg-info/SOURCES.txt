@@ -1918,6 +1918,10 @@ musclex/tests/testImages/MARimages/disettings.json
 musclex/tests/testImages/MARimages/eqsettings.json
 musclex/tests/testImages/MARimages/ptsettings.json
 musclex/tests/testImages/MARimages/qfsettings.json
+musclex/tests/testImages/MARimages/pt_cache/F10_pCa8_SL21_0002.tif.info
+musclex/tests/testImages/MARimages/pt_cache/boxes_peaks.info
+musclex/tests/testImages/MARimages/pt_results/summary.csv
+musclex/tests/testImages/MARimages/settings/calibration.info
 musclex/tests/testImages/PILATUSimages/P1_F1_tet_1_100_005_0001.tif
 musclex/tests/testImages/PILATUSimages/P1_F1_tet_1_100_005_0002.tif
 musclex/tests/testImages/PILATUSimages/disettings.json

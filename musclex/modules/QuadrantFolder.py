@@ -278,7 +278,8 @@ class QuadrantFolder:
         """
 
         if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
-            img = np.array(self.start_img, 'float32')
+            img = np.array(self.start_img, 'float' \
+            '32')
             blank, mask = getBlankImageAndMask(self.img_path)
 
             maskOnly = getMaskOnly(self.img_path)
