@@ -3601,6 +3601,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.filenameLineEdit2.setEnabled(True)
                 self.csvManager.sortCSV()
                 print("bgasyncdict: ", len(self.bgAsyncDict)) #NICKA DEBUG
+                os.makedirs(join(self.filePath, 'qf_results'), exist_ok=True) #Makes qf_results folder if it doesn't already exist.
+                os.makedirs(join(self.filePath, 'qf_results/bg'), exist_ok=True) #Makes bg subfolder if it doesn't already exist.
                 with open(join(self.filePath, 'qf_results/bg/background_sum.csv'), 'w', newline='') as csvfile:
                     writer = csv.writer(csvfile)
 
