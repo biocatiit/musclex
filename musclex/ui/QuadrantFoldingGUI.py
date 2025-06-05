@@ -108,9 +108,7 @@ class Worker(QRunnable):
                                            self.params.ext)
             self.quadFold.info = {}
             self.quadFold.info['bgsub'] = self.bgsub
-            print("WORKER RUN: info-bgsub=",self.bgsub) #NICKA DEBUG
 
-            #NICK ALLISON
             #pass persisted center data to quadfold object
             if self.fixedCenterChecked:
                 self.quadFold.info['manual_center'] = [self.persist_center[0], self.persist_center[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
@@ -150,11 +148,6 @@ class Worker(QRunnable):
 
         avg_fold = info["avg_fold"]
 
-
-        print("Avg_fold total: ", np.sum(avg_fold)) #NICKA DEBUG
-        print("Result Shape: ", np.sum(result)) 
-
-
         print("Avg_fold shape:")
         print(avg_fold.shape)
         print("result shape: ")
@@ -189,17 +182,13 @@ class Worker(QRunnable):
 
                 # create csv file to save total intensity for background
             if exists(csv_path):
-                print("READING CSV_BG from CSV") #NICKA DEBUG
                 self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
                 self.csv_bg.loc[filename] = pd.Series({'Name': filename, 'Sum': total_inten})
                 self.csv_bg.to_csv(csv_path, mode='a', header=not os.path.exists(csv_path), index=False)
-                print("CSV DF: ", self.csv_bg) #NICKA DEBUG
             else:
                 self.csv_bg = pd.DataFrame(columns=['Name', 'Sum'])
                 self.csv_bg.loc[filename] = pd.Series({'Name': filename, 'Sum': total_inten})
                 self.csv_bg.to_csv(csv_path, mode='a')
-                print("ELSE CASE") #NICKA DEBUG
-                print("SELF>CSV_GB IN ELSE: ", self.csv_bg)
 
 class QuadrantFoldingGUI(QMainWindow):
 
@@ -1531,45 +1520,17 @@ class QuadrantFoldingGUI(QMainWindow):
         _, center = self.getExtentAndCenter()
         center = self.quadFold.info['center']
         #rotation angle in radians
-        #print("CALCULATING ORIGINAL IMAGE COORDINATES") #Debug
-        #print("Display coords: ", (x, y)) #Debug
-        #print("Center: ", center) #Debug
         angle = 0 if 'rotationAngle' not in self.quadFold.info else -self.quadFold.info['rotationAngle'] * math.pi / 180
-        #print("Angle: ", angle) #Debug
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
-        #print("Cos: ", cos_a) #Debug
-        #print("Sin: ", sin_a) #Debug
         #mouse pos in center-as-origin points
         #Get the scale factor
         s = 1 if 'scale' not in self.quadFold.info else self.quadFold.info['scale']
-        #print("Scale: ", s)
         dx =  (x - center[0]) #coordinate of x relative to center
         dy = (y - center[1]) #coordinate of y relative to center
-        #print("dx, dy: ", (dx, dy)) #Debug
-        #apply rotation
         x1 =  dx * cos_a + dy * sin_a
         y1 = -dx * sin_a + dy * cos_a
-        #print("Rotated coords: ", (x1, y1)) #Debug
 
-        #Apply the inverse translation to the point
-        """new_tx, new_ty = self.quadFold.new_tx, self.quadFold.new_ty
-        x2 = x1 - new_tx
-        y2 = y1 - new_ty
-        print("Translated coords in image: ", (x2, y2)) #Debug
-
-        #Apply scaling
-        x3 = x2 / s
-        y3 = y2 / s
-        print("Scaled coords in image: ", (x3, y3)) #Debug
-
-        #Move the origin back to the bottom left
-        co_x, co_y = self.quadFold.old_center
-        print("Old center: ", (co_x, co_y)) #Debug
-        x4, y4 = x3 + co_x, y3 + co_y
-        print("Final original coords: ", (x4, y4)) #Debug
-
-        return x4, y4"""
 
         x1 =  dx * cos_a + dy * sin_a
         y1 = -dx * sin_a + dy * cos_a
@@ -1604,30 +1565,19 @@ class QuadrantFoldingGUI(QMainWindow):
         given original image coordinates
         """
         _, center = self.getExtentAndCenter()
-        #rotation angle in radians
-        #print("CALCULATING ORIGINAL IMAGE COORDINATES") #Debug
-        #print("Display coords: ", (x, y)) #Debug
-        #print("Center: ", center) #Debug
         angle = -self.quadFold.info['rotationAngle'] * math.pi / 180
-        #print("Angle: ", angle) #Debug
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
-        #print("Cos: ", cos_a) #Debug
-        #print("Sin: ", sin_a) #Debug
         #mouse pos in center-as-origin points
         dx =  x - center[0]
         dy = y - center[1]
-        #print("dx, dy: ", (dx, dy)) #Debug
         #apply rotation
         x1 =  dx * cos_a + dy * sin_a
         y1 = -dx * sin_a + dy * cos_a
-        #print("Rotated coords: ", (x1, y1)) #Debug
         #Move the origin back to the bottom left
         x_ir = x1 + center[0]
         y_ir = y1 + center[1]
-        #print("Rotated coords in image: ", (x_ir, y_ir)) #Debug
         #Apply inverse translation to the point
-        #print("translation: ", (self.quadFold.dl, self.quadFold.db)) #Debug
         o_x = x_ir
         o_y = y_ir
         return o_x, o_y
@@ -1846,32 +1796,9 @@ class QuadrantFoldingGUI(QMainWindow):
         :return:
         """
 
-        print("info dict before calsettings opened: ") #NICKA DEBUG
-        print(self.quadFold.info) #NICKA DEBUG
-
         success = self.setCalibrationImage(force=True)
-        """
-        if success:
-
-            self.quadFold.fixedCenterX = None
-            self.quadFold.fixedCenterY = None
-
-            print("Self.calsettings dialoge center: ", self.calSettingsDialog.centerX.value(), ",", self.calSettingsDialog.centerY.value()) #NICKA DEBUG
-            if 'center' in self.quadFold.info:
-                print("Quadfold info center: ", self.quadFold.info['center']) #NICKA DEBUG
-            else:
-                print("Center not in qf info") #NICKA DEBUG
-
-            self.deleteInfo(['rotationAngle'])
-            self.deleteImgCache(['BgSubFold'])
-            self.processImage()
-
-        print("info dict AFTER calsettings object: ")
-        print(self.quadFold.info)
-        """
         
         if success:
-            print("Recalculate") #NICKA DEBUG
             self.deleteInfo(['rotationAngle'])
             self.deleteImgCache(['BgSubFold'])
             self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
@@ -1884,13 +1811,10 @@ class QuadrantFoldingGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        print("Set Calibration Image") #NICKA DEBUG
         if self.calSettingsDialog is None:
             if self.quadFold is None or self.quadFold.orig_image_center is None:
-                print("Cal Setting Constructor call with no center") #NICKA DEBUG 
                 self.calSettingsDialog = CalibrationSettings(self.filePath)
             else:
-                print("Cal Setting Constructor call with center = ", self.quadFold.orig_image_center) #NICKA DEBUG
                 self.calSettingsDialog =  CalibrationSettings(self.filePath, center=self.quadFold.orig_image_center)
         self.calSettings = None
 
@@ -2130,15 +2054,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 # set rotation angle
                 extent, center = self.getExtentAndCenter()
                 center = self.quadFold.info['center']
-                print("[DEBUG]: Set rotation angle")
-                print("[DEBUG]: Center=", center)
 
                 x_o, y_o = self.getOrigCoordsCenter(x, y)
                 cx_o, cy_o = self.getOrigCoordsCenter(center[0], center[1])
-
-                print("CALCULATING ROTATION ANGLE") #Debug
-                print("x_o, y_o: ", (x_o, y_o)) #Debug
-                print("Center: ", (cx_o, cy_o)) #Debug
 
                 if cx_o < x:
                     x1 = cx_o
@@ -2156,8 +2074,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
-
-                print("New angle: ", new_angle) #Debug
 
                 #self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                 self.quadFold.info['manual_rotationAngle'] = new_angle
@@ -2367,8 +2283,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 if len(ax.lines) > 2:
 
                     for i in range(len(ax.lines) - 1, 2, -1):
-                       # print("LEN = 2") #NICKA DEBUG
-                        #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
 
                 if not self.doubleZoom.isChecked():
@@ -2379,33 +2293,25 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) % 2 != 0:
-                #print("LEN FUNC % 2 != 0") #NICKA DEBUG
                 if len(ax.lines) > 0:
                     n = (len(func)-1)*5//2 + 2
 
                     for i in range(len(ax.lines) - 1, n - 1, -1):
-                        #print("LEN % 2 != 0") #NICKA DEBUG
-                        #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
 
 
                 if not self.doubleZoom.isChecked():
-                    #print("NOT DOUBLE ZOOM 44") #NICKA DEBUG
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 else:
-                    #print("DOUBLE ZOOM 44") #NICKA DEBUG
                     self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) % 2 == 0:
-                #print("LEN FUNC % 2 == 0") #NICKA DEBUG
                 start_pt = func[-1]
                 if len(ax.lines) > 3:
                     n = len(func) * 5 // 2 - 1
 
                     for i in range(len(ax.lines) - 1, n - 1, -1):
-                        #print("LEN % 2 == 0") #NICKA DEBUG
-                        #print("removing: ", ax.lines[i].get_label()) #NICKA DEBUG
                         ax.lines[i].remove()
 
 
@@ -2419,37 +2325,28 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imageCanvas.draw_idle()
 
         elif func[0] == "chords_center":
-            #print("Function is chords_center") #NICKA DEBUG
             if self.doubleZoom.isChecked():
-                print("DOUBLE ZOOM IS CHECKED") #NICKA DEBUG
                 self.doubleZoomGUI.updateAxes(x, y)
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_rotate":
-            #print("Function is im_rotate") #NICKA DEBUG
-            # draw line as angle
             """if self.calSettings is None or 'center' not in self.calSettings:
             self.calSettings = {}
             extent, self.calSettings['center'] = self.getExtentAndCenter()"""
             center = self.quadFold.info['center']
-            print("Center: ", center) #NICKA DEBUG
 
             deltax = x - center[0]
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
             if not self.doubleZoom.isChecked():
-                #print("NOT DOUBLE ZOOM") #NICKA DEBUG
                 for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
-                #print("DOUBLE ZOOM") #NICKA DEBUG
                 if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
                     self.doubleZoomGUI.updateAxesInner(x, y)
                 elif self.doubleZoomGUI.doubleZoomMode:
-                    for i in range(len(ax.lines) - 1, -1, -1):
-                        print("IN IMAGE ROTATE FUNC: ", ax.lines[i].get_label()) #NICKA DEBUG
                     for i in range(len(ax.lines)-1,-1,-1):
                         if ax.lines[i].get_label() != "Blue Dot":
                             ax.lines[i].remove()
@@ -2925,7 +2822,6 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Reprocess about background subtraction when some parameters are changed
         """
-        print("Apply BGSub Function") #NICKA DEBUG
         QApplication.processEvents()
         if self.ableToProcess():
             self.deleteInfo(['bgimg1']) # delete bgimg1 to make QuadrantFolder reproduce background subrtacted image
@@ -3316,13 +3212,6 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.quadFold.info['center']
 
             self.extent = extent
-            print("EXTENT IN GUI SHOW: ", extent) #NICKA DEBUG
-            print("IMG SHAPE IN GUI SHOW: ", img.shape) #NICKA DEBUG
-            print("PLUGGED IN TO IMSHOW", [0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]]) #NICKA DEBUG
-            # img = getBGR(get8bitImage(img, min=self.spminInt.value(), max=self.spmaxInt.value()))
-
-            print("Center: ", center) #NICK ADNEUG
-
 
             if self.logScaleIntChkBx.isChecked():
                 #ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
@@ -3366,15 +3255,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
             # Set Zoom in location
             if self.img_zoom is not None and len(self.img_zoom) == 2:
-                print("Zoom case 1") #NICKA DEBUG
                 ax.set_xlim(self.img_zoom[0])
                 ax.set_ylim(self.img_zoom[1])
             elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
-                print("Zoom Case 2") #NICKA DEBUG
                 ax.set_xlim(self.default_img_zoom[0])
                 ax.set_ylim(self.default_img_zoom[1])
             else:
-                print("Zoom case 3") #NICKA DEBGU
                 ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
                 ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
 
@@ -3600,7 +3486,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.filenameLineEdit.setEnabled(True)
                 self.filenameLineEdit2.setEnabled(True)
                 self.csvManager.sortCSV()
-                print("bgasyncdict: ", len(self.bgAsyncDict)) #NICKA DEBUG
                 os.makedirs(join(self.filePath, 'qf_results'), exist_ok=True) #Makes qf_results folder if it doesn't already exist.
                 os.makedirs(join(self.filePath, 'qf_results/bg'), exist_ok=True) #Makes bg subfolder if it doesn't already exist.
                 with open(join(self.filePath, 'qf_results/bg/background_sum.csv'), 'w', newline='') as csvfile:

@@ -1707,8 +1707,6 @@ class EquatorWindow(QMainWindow):
         Process current folder
         """
 
-        print("[DEBUG]: ProcessFolder Fctn")
-
         ## Popup confirm dialog with settings
         nImg = len(self.imgList)
         errMsg = QMessageBox()
@@ -1779,7 +1777,6 @@ class EquatorWindow(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-            print("[DEBUG]: ret = yes")
 
             # Display progress bar
             self.progressBar.setMaximum(nImg)
@@ -1794,7 +1791,6 @@ class EquatorWindow(QMainWindow):
                     break
                 # self.progressBar.setValue(i)
                 QApplication.processEvents()
-                print("[DEBUG]: About to call nextImageFitting fctn.")
                 self.nextImageFitting(True)
             self.in_batch_process = False
 
@@ -2059,8 +2055,6 @@ class EquatorWindow(QMainWindow):
         :param reprocess (bool): boolean telling if we need to reprocess the image or not
         """
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
-
-        print("[DEBUG]: currentImg is: ", self.currentImg)
 
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)

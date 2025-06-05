@@ -37,9 +37,6 @@ def read_edf_to_numpy(file_path):
 
 
 def displayImage(imageArray, minInt, maxInt, rot=0):
-    print("[DEBUG]: Display Image function")
-    print("[DEBUG]: Rotation angle: ", rot)
-    print("[DEBUG]: Mask shape: ", imageArray.shape)
 
     if imageArray is None:
       print("Empty image")
@@ -87,11 +84,6 @@ def displayImageWithMasks(imageArray, minInt, maxInt,
     and contains 0s and 1s.
     Returns a QPixmap of size 500x500 (maintaining aspect ratio).
     """
-
-    print("[DISPLAY IMAGE WITH MASKS FUNCTION]")
-    print("[DEBUG]: Rotation angle: ", rot)
-    print("[DEBUG]: Mask shape: ", imageArray.shape)
-
 
     if imageArray is None:
         print("Empty image")
@@ -680,11 +672,6 @@ class ImageMaskerWindow(QDialog):
         self.imageLabel.setPixmap(scaledPixmap)
 
 
-        print("[DEBUG]: Writing original image to original image.tif")
-        tif_img = fabio.pilatusimage.pilatusimage(data=self.imageData)
-        tif_img.write("OriginalImage.tif")
-
-
     def drawMask(self):
         if self.dir_path:
             # Assuming pyFAI-drawmask can be called directly from the command line
@@ -905,8 +892,6 @@ class ImageMaskerWindow(QDialog):
                     self.trans_mat = np.float32([[1,0,0],[0,1,0]]) #transformation by 0,0 i.e. no transformation
                     inv_trans_mat = self.trans_mat.copy()
 
-                fabio.tifimage.tifimage(data=rotated_mask).write(join(path,'mask_NO_TRANS.tif'))
-
                 inv_trans_mat[0,0] = 1/inv_trans_mat[0,0]
                 inv_trans_mat[1,1] = 1/inv_trans_mat[1,1]
 
@@ -976,12 +961,9 @@ class ImageMaskerWindow(QDialog):
 
 
     def computeRadialMasks(self):
-        print("[DEBUG]: Compute Radial Masks function")
         center = (self.imageData.shape[0] // 2, self.imageData.shape[1] // 2)
         rmin = self.rminSpinBox.value()
-        print("[DEBUG]: rmin: ", rmin)
         rmax = self.rmaxSpinBox.value()
-        print("[DEBUG]: rmax: ", rmax)
 
         #Blank copy of image to draw the mask on
         r_mask = np.zeros_like(self.imageData, dtype=np.uint8)
@@ -992,11 +974,6 @@ class ImageMaskerWindow(QDialog):
         cv2.circle(r_mask, center, int(rmin), 0, thickness=-1)
 
         self.r_mask_data = r_mask
-
-        tif_img = fabio.pilatusimage.pilatusimage(data=r_mask)
-        tif_img.write('r_mask.tif')
-
-        print("[DEBUG]: Saved r_mask.tif to working dir")
 
         low = np.ones_like(r_mask) if self.dilatedLowThreshMaskData is None else self.dilatedLowThreshMaskData
         high = np.ones_like(r_mask) if self.dilatedHighThreshMaskData is None else self.dilatedHighThreshMaskData
