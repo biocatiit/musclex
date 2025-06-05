@@ -1442,13 +1442,12 @@ class QuadrantFolder:
             result = result[max(int(center[1]-rad), 0):min(int(center[1]+rad), result.shape[1]), max(int(center[0]-rad), 0):min(int(center[0]+rad), result.shape[0])]
         
         scale = 1 if 'scale' not in self.info else self.info['scale']
-
-        scale_mat = np.array([[1/scale, 0, 0],
-                              [0, 1/scale, 0]])
         
         h, w = result.shape
+        center = (w//2, h//2)
+        M = cv2.getRotationMatrix2D(center, 0, 1/scale)
         
-        result_scaled = cv2.warpAffine(result, scale_mat, (w, h))
+        result_scaled = cv2.warpAffine(result, M, (w, h))
 
         self.imgCache['resultImg'] = result_scaled
         print("Done.")
