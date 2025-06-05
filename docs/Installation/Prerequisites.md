@@ -1,11 +1,7 @@
 
 # Prerequisite Guide: Setting Up Virtual Environments for MuscleX Installation
 
-Before installing MuscleX via Conda, pip, or directly from GitHub, it's crucial to establish a virtual environment. This step ensures your project dependencies are managed in an isolated space, preventing conflicts. This guide emphasizes **Conda** as the recommended tool for environment management, with **venv** presented as an alternative option.
-
-## ⚠️ Important Consideration
-
-**Conda is highly recommended** for creating virtual environments, especially since it allows for the specification of Python versions within each environment, **independent of the system's Python interpreter**. This flexibility is particularly beneficial for projects requiring a specific Python version or those aiming to avoid interference with system-wide Python settings.
+Before installing MuscleX via Conda, pip, or directly from GitHub, it's crucial to establish a virtual environment. This step ensures your project dependencies are managed in an isolated space, preventing conflicts. This guide recommends **Conda** for environment management, with **venv** presented as an alternative option.
 
 ## Why Use a Virtual Environment?
 
@@ -44,8 +40,6 @@ On Windows, you will need to search for 'Anaconda Prompt' in the Start Menu and 
    ```bash
    conda activate myenv
    ```
-
-Given its extensive features and user-friendly nature, Conda is the preferred choice for most users.
 
 ## Alternative: venv for Python Projects
 

@@ -511,7 +511,7 @@ class ProjectionTracesGUI(QMainWindow):
 
         # Export 1-D Projections
         self.exportChkBx = QCheckBox("Export all 1-D Projections")
-        self.exportChkBx.setChecked(True)
+        self.exportChkBx.setChecked(False)
 
         # next previos buttons
         self.nextButton = QPushButton(">")

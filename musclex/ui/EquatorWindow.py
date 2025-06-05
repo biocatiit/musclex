@@ -2963,7 +2963,7 @@ class EquatorWindow(QMainWindow):
                 # constant = self.calSettings["silverB"] * self.calSettings["radius"]
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
-            if img.shape is not None and x < img.shape[1] and y < img.shape[0]:
+            if img is not None and img.shape is not None and x < img.shape[1] and y < img.shape[0]:
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:

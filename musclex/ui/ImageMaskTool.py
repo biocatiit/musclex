@@ -912,22 +912,15 @@ class ImageMaskerWindow(QDialog):
 
                 inv_trans_mat[0, 2] = -self.trans_mat[0, 2] * inv_trans_mat[0,0]
                 inv_trans_mat[1, 2] = -self.trans_mat[1, 2] * inv_trans_mat[1,1]
-                
-                print("[DEBUG]: Trans mat: ", self.trans_mat)
-                print("[INVERSE TRANS MAT]: ", inv_trans_mat)
 
                 (h, w) = rotated_mask.shape
 
                 translated_mask = cv2.warpAffine(rotated_mask, inv_trans_mat, (w,h))
     
-                print("[DEBUG]: Shape of translated mask: ", translated_mask.shape)
-                fabio.tifimage.tifimage(data=translated_mask).write(join(path,'mask_NO_CROP.tif'))
-
                 #fabio.tifimage.tifimage(data=translated_mask).write(join(path,'big_mask.tif'))
                 try:
                     cropped_mask = translated_mask[0:self.orig_size[0], 0:self.orig_size[1]]
                     fabio.tifimage.tifimage(data=cropped_mask).write(join(path,'mask.tif'))
-                    print("[DEBUG]: Shape of cropped mask: ", cropped_mask.shape)
                     print("mask file saved")  
                 except:
                     print("Error saving mask file")
