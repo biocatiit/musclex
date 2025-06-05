@@ -1440,7 +1440,17 @@ class QuadrantFolder:
             center = result.shape[0]/2, result.shape[1]/2
             rad = self.info['roi_rad']
             result = result[max(int(center[1]-rad), 0):min(int(center[1]+rad), result.shape[1]), max(int(center[0]-rad), 0):min(int(center[0]+rad), result.shape[0])]
-        self.imgCache['resultImg'] = result
+        
+        scale = 1 if 'scale' not in self.info else self.info['scale']
+
+        scale_mat = np.array([[1/scale, 0, 0],
+                              [0, 1/scale, 0]])
+        
+        h, w = result.shape
+        
+        result_scaled = cv2.warpAffine(result, scale_mat, (w, h))
+
+        self.imgCache['resultImg'] = result_scaled
         print("Done.")
 
     def makeFullImage(self, fold):
