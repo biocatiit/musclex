@@ -37,10 +37,15 @@ def read_edf_to_numpy(file_path):
 
 
 def displayImage(imageArray, minInt, maxInt, rot=0):
+    print("[DEBUG]: Display Image function")
+    print("[DEBUG]: Rotation angle: ", rot)
+    print("[DEBUG]: Mask shape: ", imageArray.shape)
 
     if imageArray is None:
       print("Empty image")
       return
+
+    rot = 0 #TEST
 
     # Flip the image horizontally
     flippedImageArray = rotate(np.flipud(imageArray), rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
@@ -83,12 +88,19 @@ def displayImageWithMasks(imageArray, minInt, maxInt,
     Returns a QPixmap of size 500x500 (maintaining aspect ratio).
     """
 
+    print("[DISPLAY IMAGE WITH MASKS FUNCTION]")
+    print("[DEBUG]: Rotation angle: ", rot)
+    print("[DEBUG]: Mask shape: ", imageArray.shape)
+
+
     if imageArray is None:
         print("Empty image")
         return
     
+    rot = 0 #TEST
+
     # 1) Flip the image
-    flippedImageArray = np.flipud(imageArray)
+    flippedImageArray = rotate(np.flipud(imageArray), rot, reshape=False) #flip the image vertically to match what is displayed on the main GUI
     
     # 2) Normalize to 0-255 for display
     if np.max(flippedImageArray) == np.min(flippedImageArray):
@@ -537,6 +549,7 @@ class ImageMaskerWindow(QDialog):
     def computeThreshMaskData(self):
         low_kernel, high_kernel = self.getKernelSizes()
         originalImageArray = self.imageData
+        #originalImageArray = rotate(originalImageArray, self.rot_angle, reshape=False)
 
         if self.maskLowThresChkbx.isChecked():
             if self.lowMaskDilationChkbx.isChecked():
@@ -627,7 +640,7 @@ class ImageMaskerWindow(QDialog):
         elif self.showMaskComboBox.currentText() == "Show Image With Mask":
             self.computeCombinedMask()
             self.applyMask()
-            scaledPixMap = displayImageWithMasks(self.imageData, self.minInt, self.maxInt, self.dilatedLowThreshMaskData, self.dilatedHighThreshMaskData, self.drawnMaskData, self.r_mask_data)
+            scaledPixMap = displayImageWithMasks(self.imageData, self.minInt, self.maxInt, self.dilatedLowThreshMaskData, self.dilatedHighThreshMaskData, self.drawnMaskData, self.r_mask_data, rot = self.rot_angle)
             self.imageLabel.setPixmap(scaledPixMap)
             if self.showMaskComboBox.isEnabled():
                 self.showLabels()
@@ -665,6 +678,11 @@ class ImageMaskerWindow(QDialog):
         self.imageData = image.data
         scaledPixmap=displayImage(self.imageData, self.minInt, self.maxInt, self.rot_angle)
         self.imageLabel.setPixmap(scaledPixmap)
+
+
+        print("[DEBUG]: Writing original image to original image.tif")
+        tif_img = fabio.pilatusimage.pilatusimage(data=self.imageData)
+        tif_img.write("OriginalImage.tif")
 
 
     def drawMask(self):
@@ -871,11 +889,11 @@ class ImageMaskerWindow(QDialog):
                     self.rot_angle = 0
 
 
-                rot_mat = cv2.getRotationMatrix2D((self.maskData.shape[0]//2, self.maskData.shape[1]//2), -self.rot_angle, 1.0)
-
-
                 width = self.maskData.shape[1]
                 height = self.maskData.shape[0]
+
+
+                rot_mat = cv2.getRotationMatrix2D((width/2, height/2), -self.rot_angle, 1.0)
 
 
                 rotated_mask = cv2.warpAffine(self.maskData.astype(np.uint8), rot_mat, (width, height))
@@ -887,19 +905,29 @@ class ImageMaskerWindow(QDialog):
                     self.trans_mat = np.float32([[1,0,0],[0,1,0]]) #transformation by 0,0 i.e. no transformation
                     inv_trans_mat = self.trans_mat.copy()
 
-                inv_trans_mat[0, 2] = -self.trans_mat[0, 2]
-                inv_trans_mat[1, 2] = -self.trans_mat[1, 2]
+                fabio.tifimage.tifimage(data=rotated_mask).write(join(path,'mask_NO_TRANS.tif'))
 
+                inv_trans_mat[0,0] = 1/inv_trans_mat[0,0]
+                inv_trans_mat[1,1] = 1/inv_trans_mat[1,1]
+
+                inv_trans_mat[0, 2] = -self.trans_mat[0, 2] * inv_trans_mat[0,0]
+                inv_trans_mat[1, 2] = -self.trans_mat[1, 2] * inv_trans_mat[1,1]
+                
+                print("[DEBUG]: Trans mat: ", self.trans_mat)
+                print("[INVERSE TRANS MAT]: ", inv_trans_mat)
 
                 (h, w) = rotated_mask.shape
 
                 translated_mask = cv2.warpAffine(rotated_mask, inv_trans_mat, (w,h))
     
+                print("[DEBUG]: Shape of translated mask: ", translated_mask.shape)
+                fabio.tifimage.tifimage(data=translated_mask).write(join(path,'mask_NO_CROP.tif'))
 
                 #fabio.tifimage.tifimage(data=translated_mask).write(join(path,'big_mask.tif'))
                 try:
                     cropped_mask = translated_mask[0:self.orig_size[0], 0:self.orig_size[1]]
                     fabio.tifimage.tifimage(data=cropped_mask).write(join(path,'mask.tif'))
+                    print("[DEBUG]: Shape of cropped mask: ", cropped_mask.shape)
                     print("mask file saved")  
                 except:
                     print("Error saving mask file")

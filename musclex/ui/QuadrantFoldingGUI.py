@@ -113,8 +113,9 @@ class Worker(QRunnable):
             #NICK ALLISON
             #pass persisted center data to quadfold object
             if self.fixedCenterChecked:
-                self.quadFold.fixedCenterX = self.persist_center[0]
-                self.quadFold.fixedCenterY = self.persist_center[1]
+                self.quadFold.info['manual_center'] = [self.persist_center[0], self.persist_center[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
+                """                self.quadFold.fixedCenterX = self.persist_center[0]
+                self.quadFold.fixedCenterY = self.persist_center[1]"""
 
             #Pass the persisted rotation to the quadfold object
             if self.persist_rot is not None:
@@ -1478,7 +1479,8 @@ class QuadrantFoldingGUI(QMainWindow):
         #     self.processImage()
         
         try:
-            fabio.tifimage.tifimage(data=self.img).write(join(self.filePath,'settings/tempMaskFile.tif'))
+            os.makedirs(join(self.filePath, 'settings'))
+            fabio.tifimage.tifimage(data=self.quadFold.orig_img).write(join(self.filePath,'settings/tempMaskFile.tif'))
         except:
             print("ERROR WITH SAVING THE IMAGE")
 
@@ -1569,7 +1571,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         return x4, y4"""
 
-                # … your existing rotation code, unchanged …
         x1 =  dx * cos_a + dy * sin_a
         y1 = -dx * sin_a + dy * cos_a
         #print("Rotated coords: ", (x1, y1))
@@ -1592,7 +1593,7 @@ class QuadrantFoldingGUI(QMainWindow):
         y3 = y2 / s
         #print("After inverting scale:", (x3, y3))
 
-        # That IS your original-image coords; no further shifting needed
+        # the original-image coords
         return x3, y3
 
 
@@ -2129,6 +2130,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 # set rotation angle
                 extent, center = self.getExtentAndCenter()
                 center = self.quadFold.info['center']
+                print("[DEBUG]: Set rotation angle")
+                print("[DEBUG]: Center=", center)
 
                 x_o, y_o = self.getOrigCoordsCenter(x, y)
                 cx_o, cy_o = self.getOrigCoordsCenter(center[0], center[1])
@@ -3220,7 +3223,7 @@ class QuadrantFoldingGUI(QMainWindow):
         If there is no current rotation angle known, calculates it.
         """
 
-        if self.fixedRotationChkBx.isChecked():
+        if self.fixedOrientationChkBx.isChecked():
             try:
                 if 'rotationAngle' not in self.quadFold.info:
                     self.processImage()
@@ -4274,6 +4277,18 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.numberOfFiles > 0:
             self.currentFileNumber = (self.currentFileNumber - 1) % self.numberOfFiles
+
+            self.quadFold = QuadrantFolder(self.filePath, self.fileList[self.currentFileNumber], self, self.fileList, self.ext)            
+            self.quadFold.info = {}
+            
+            if self.calSettingsDialog.fixedCenter.isChecked():
+                if self.persistedCenter is None:
+                    self.persistedCenter = self.calSettings['center']
+                self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
+
+            if self.persistedRotation is not None:
+                self.quadFold.fixedRot = self.persistedRotation
+
             self.onImageChanged()
 
     def nextClicked(self, reprocess=False):
@@ -4282,6 +4297,18 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.numberOfFiles > 0:
             self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
+
+            self.quadFold = QuadrantFolder(self.filePath, self.fileList[self.currentFileNumber], self, self.fileList, self.ext)
+            self.quadFold.info = {}
+
+            if self.calSettingsDialog.fixedCenter.isChecked():
+                if self.persistedCenter is None:
+                    self.persistedCenter = self.calSettings['center']
+                self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
+
+            if self.persistedRotation is not None:
+                self.quadFold.fixedRot = self.persistedRotation
+            
             self.onImageChanged(reprocess=reprocess)
 
     def prevFileClicked(self):

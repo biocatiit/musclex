@@ -1706,6 +1706,9 @@ class EquatorWindow(QMainWindow):
         """
         Process current folder
         """
+
+        print("[DEBUG]: ProcessFolder Fctn")
+
         ## Popup confirm dialog with settings
         nImg = len(self.imgList)
         errMsg = QMessageBox()
@@ -1776,6 +1779,7 @@ class EquatorWindow(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
+            print("[DEBUG]: ret = yes")
 
             # Display progress bar
             self.progressBar.setMaximum(nImg)
@@ -1790,6 +1794,7 @@ class EquatorWindow(QMainWindow):
                     break
                 # self.progressBar.setValue(i)
                 QApplication.processEvents()
+                print("[DEBUG]: About to call nextImageFitting fctn.")
                 self.nextImageFitting(True)
             self.in_batch_process = False
 
@@ -2054,6 +2059,9 @@ class EquatorWindow(QMainWindow):
         :param reprocess (bool): boolean telling if we need to reprocess the image or not
         """
         self.currentImg = (self.currentImg + 1) % len(self.imgList)
+
+        print("[DEBUG]: currentImg is: ", self.currentImg)
+
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
@@ -2955,7 +2963,7 @@ class EquatorWindow(QMainWindow):
                 # constant = self.calSettings["silverB"] * self.calSettings["radius"]
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
-            if x < img.shape[1] and y < img.shape[0]:
+            if img.shape is not None and x < img.shape[1] and y < img.shape[0]:
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
@@ -3596,6 +3604,9 @@ class EquatorWindow(QMainWindow):
             self.startNextTask()
             
     def thread_done(self, bioImg):
+        self.tasksDone += 1
+        self.progressBar.setValue(100. / len(self.imgList) * self.tasksDone)
+        #self.refreshStatusbar()
         self.bioImg = bioImg
         print("thread done")
                     
@@ -3615,8 +3626,6 @@ class EquatorWindow(QMainWindow):
             self.progressBar.setVisible(False)
         
     def onProcessingFinished(self):
-        self.tasksDone += 1
-        self.progressBar.setValue(self.progressBar.value() + 1)
         self.updateParams()
         self.csvManager.writeNewData(self.bioImg)
         self.csvManager.writeNewData2(self.bioImg)
