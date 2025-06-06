@@ -2085,7 +2085,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.persistRotations.setVisible(True)
 
                 #Put the center (in original image coordinates) into the manual center entry of the key so that it will be used during processing.
-                self.quadFold.info['manual_center'] = (int(round(x_o)), int(round(y_o)))
+                self.quadFold.info['manual_center'] = (int(round(cx_o)), int(round(cy_o)))
                 if 'center' in self.quadFold.info:
                     del self.quadFold.info['center']
 
