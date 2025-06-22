@@ -1,86 +1,111 @@
-# Installation by Installer
+## Install via Windows Installer
 
-For users who do not want to play with Python or Docker environment, we provide the pre-built installer for stand-alone MuscleX program.
+For users who prefer not to manage Python environments, we provide a pre-built installer for Windows.
 
-[![Download MuscleX](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/musclex/files/)
+### Steps
 
-## Windows
+1. Download the `.exe` installer from the [Releases](https://github.com/biocatiit/musclex/releases) or from [SourceForge](https://sourceforge.net/projects/musclex/files/)
+2. Make sure no older version of MuscleX is installed to avoid conflicts
+3. Double-click the installer to run
+4. Follow the installation wizard
+5. Use the shortcut on the Desktop or Start Menu to launch MuscleX
+6. Run the test using the **Run Tests** button in the launcher
 
-First of all, make sure you don't have a previous version of MuscleX installed on your computer, as it might create a conflict.
+> This includes all dependencies and the GUI.
 
-Download the [Windows Installer](https://sourceforge.net/projects/musclex/files/) built for Windows Pro 11(64-bit).
 
-1. Find the shortcut of MuscleX on the Desktop or in the Start Menu, and click it to run.
-2. Test the program using the `Run Tests` button in the launcher window.
 
-## Mac OS X
-There are 2 ways to install the Mac OS program for most versions.
+## Install via macOS Installer
 
-```eval_rst
-.. note:: For now, the packages are not signed using Apple's requirements, so you might experience some difficulties launching the app. We are working on this problem. For now, you can follow the procedure for a Dmg image.
-```
+Currently, macOS builds are not signed, so you may need to bypass security warnings. Two options are available: `.pkg` (deprecated) and `.dmg`.
 
-### Pkg installer
-```eval_rst
-.. note:: The pkg installer is no longer being produced. We still create a dmg image but if possible, please use docker.
-```
+### DMG Image (Recommended)
 
-Download the [pkg file](https://sourceforge.net/projects/musclex/files/) built for MacOS (MacOS >=10.15)
+1. Download the `.dmg` file from the [Releases](https://github.com/biocatiit/musclex/releases) or [SourceForge](https://sourceforge.net/projects/musclex/files/)
 
-1. Run the pkg file, install the application.
+2. Open the `.dmg` and drag the MuscleX app into the **Applications** folder
 
-### Dmg image
-Download the [dmg file](https://sourceforge.net/projects/musclex/files/) built for MacOS (MacOS >=10.15)
+3. If you see an error message like "damaged app":
 
-1. Open the .dmg file and run the program inside.
+   ```bash
+   cd /path/to/MuscleX
+   xattr -cr musclex.app
+   ```
 
-```eval_rst
-.. note:: IMPORTANT - If you see an error message (damaged disk or damaged program) follow these steps:
+4. Eject and delete the `.dmg` after installation
 
-1. Open the .dmg file and copy the program on your computer (for example on the Desktop).
-2. With a terminal opened at the root of the program (for example `cd Desktop`), run the following command: `xattr -cr musclex.app`
-3. You can now eject the dmg file and delete it.
-```
+### PKG Installer (Deprecated)
 
-## Linux
+- The `.pkg` installer is no longer produced. Use `.dmg` or Docker when possible.
+
+
+
+## Install via Linux Packages (No Longer Supported)
 
 ### AppImage
-Download the [AppImage file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
 
-1. Open a terminal and change to the directory where the AppImage file is located
-2. Execute in the terminal `chmod u+x musclex-1.15.7-x86_64.AppImage`
-3. Execute in the terminal `./musclex-1.15.7-x86_64.AppImage` to run the application
+1. Download the `.AppImage` file from [SourceForge](https://sourceforge.net/projects/musclex/files/)
 
-### Deb package
-Download the [deb file](https://sourceforge.net/projects/musclex/files/) built for Linux distributions.
+2. In terminal:
 
-1. Open a terminal and run `sudo dpkg --install musclex-1.20_amd64(linux).deb`
+   ```bash
+   chmod u+x musclex-1.15.7-x86_64.AppImage
+   ./musclex-1.15.7-x86_64.AppImage
+   ```
 
-### Troubleshooting
+#### Run using AppImage on Fedora, Debian, Arch, CentOS, or Ubuntu
 
-- If the application crashes with the following error: `Gtk:ERROR:gtkiconhelper.c:494:ensure_surface_for_gicon: assertion failed (error == NULL):`
-`Failed to load /org/gtk/libgtk/icons/16x16/status/image-missing.png.`, it is probably due to environment variables that are set on your computer and are conflicting with the program. Two solutions:
-* Creating a new clean user and installing Muscle X on this new user (the environment variables should be cleaner).
-OR
-* Opening a terminal and typing `printenv` to display all the environment variables. Then you need to unset the conflicting ones (save the previous values in a separate document in case you need to set them back, and unset them one by one). Here is a non-exhaustive list of the variables that might be conflicting:
+- Download the AppImage from [SourceForge](https://sourceforge.net/projects/musclex/files/)
+
+- Open terminal where the AppImage is located
+
+- Run:
+
+  ```bash
+  chmod u+x musclex-1.15.7-x86_64.AppImage
+  ./musclex-1.15.7-x86_64.AppImage
+  ```
+
+If you encounter the error:
+
 ```
-unset QT_ACCESSIBILITY
-unset GNOME_DESKTOP_SESSION_ID
-unset XDG_CONFIG_DIR
-unset XDG_CONFIG_DIRS
-unset XDG_MENU_PREFIX
-unset GNOME_SHELL_SESSION_MODE
-unset XMODIFIERS
-unset XAUTHORITY
-unset WINDOWPATH
-unset XDG_CURRENT_DESKTOP
-unset GNOME_TERMINAL_SCREEN
-unset GNOME_TERMINAL_SERVICE
-unset QT_IM_MODULE
-unset GDMSESSION
-unset XDG_SESSION_DESKTOP
+AppImages require FUSE to run.
 ```
 
-- If you are using a 4K screen and MuscleX is displayed in a way that makes the buttons and texts unreadable, try to add the following environment variable: `export QT_AUTO_SCREEN_SCALE_FACTOR=1`
+Refer to [this troubleshooting guide](https://docs.appimage.org/user-guide/troubleshooting/fuse.html).
 
-- For Pip and GitHub install: If there is a problem during the installation of the libraries, try to install wheel and numpy using `pip install --upgrade wheel` and `pip install --upgrade numpy`.
+If you encounter a GTK-related error when launching the AppImage, try launching the GUI interface with:
+
+```bash
+gui
+```
+
+instead of calling a module like `qf` directly.
+
+### DEB Package
+
+1. Download the `.deb` file from [SourceForge](https://sourceforge.net/projects/musclex/files/)
+
+2. In terminal:
+
+   ```bash
+   sudo dpkg --install musclex-1.20_amd64(linux).deb
+   ```
+
+
+
+## Verify Installation
+
+To verify CLI installation:
+
+```bash
+musclex --help
+```
+
+Try a sample module:
+
+```bash
+musclex dc
+```
+
+You may also launch the GUI from your system's launcher or application folder.
