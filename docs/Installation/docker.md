@@ -79,7 +79,7 @@ docker run -it musclex
 
 
 
-### Optional: Use `musclex.sh` Script for Ease of Use
+### Optional: Use musclex.sh Script for Ease of Use
 
 Download the helper script:
 

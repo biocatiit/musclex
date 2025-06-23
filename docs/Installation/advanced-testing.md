@@ -13,7 +13,7 @@ Tests reside in `musclex/tests/`. The module testing framework has two modes:
 
 
 
-## Running `testrecord`
+## Running testrecord
 
 ```bash
 cd musclex/tests/
@@ -24,7 +24,7 @@ Pickle files are saved under `<module_name>/test_pickles`.
 
 
 
-## Running `testverify`
+## Running testverify
 
 ```bash
 python test_utils.py testverify
