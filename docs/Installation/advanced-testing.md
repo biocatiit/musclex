@@ -1,4 +1,4 @@
-# Advanced Testing for MuscleX
+# Advanced Testing
 
 This guide is for developers who want to run detailed tests on MuscleX using the source repository.
 
