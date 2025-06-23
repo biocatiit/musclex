@@ -31,16 +31,15 @@ Available Installation Methods
      - Easy setup
      - Less control, not scriptable
 
-Suggested Installation Strategy
--------------------------------
+**Suggested Installation Strategy**:
 
 1. **Try `pip` (recommended for most Python users)**: Use this if you're comfortable with Python virtual environments and want the latest or specific versions.
 2. **Use `conda`** if you prefer dependency resolution handled for you.
 3. **Use Docker** for a fully isolated, repeatable environment.
 4. **Use the Windows or Mac installer** if you are a non-technical user and just want a working GUI.
 
-Contents
---------
+
+**Details:**
 
 The following guides describe how to install MuscleX using each method:
 
