@@ -1,4 +1,4 @@
-# Install with `pip`
+# Install with pip
 
 This guide covers installation of MuscleX using Python's `pip` package manager.
 

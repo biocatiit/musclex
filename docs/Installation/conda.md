@@ -1,4 +1,4 @@
-# Install with `conda`
+# Install with conda
 
 This guide covers installation of MuscleX using the Conda package manager, available through [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
