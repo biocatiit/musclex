@@ -38,8 +38,9 @@ Available Installation Methods
 3. **Use Docker** for a fully isolated, repeatable environment.
 4. **Use the Windows or Mac installer** if you are a non-technical user and just want a working GUI.
 
-Contents
---------
+
+**Contents:**
+
 
 The following guides describe how to install MuscleX using each method:
 
