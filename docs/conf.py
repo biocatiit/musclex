@@ -46,19 +46,26 @@ templates_path = ['_templates']
 #from recommonmark.transform import AutoStructify
 #from recommonmark.parser import CommonMarkParser
 
-def setup(app):
-    app.add_config_value('recommonmark_config', {
-            #'url_resolver': lambda url: url.split(os.sep)[-1],
-            'auto_toc_tree_section': 'Contents',
-            'enable_auto_toc_tree': False,
-            'enable_auto_doc_ref': False,
-            }, True)
-    app.add_transform(AutoStructify)
+#def setup(app):
+#    app.add_config_value('recommonmark_config', {
+#            #'url_resolver': lambda url: url.split(os.sep)[-1],
+#            'auto_toc_tree_section': 'Contents',
+#            'enable_auto_toc_tree': False,
+#            'enable_auto_doc_ref': False,
+#            }, True)
+#    app.add_transform(AutoStructify)
 
-source_parsers = {
-    '.md': CommonMarkParser,
+#source_parsers = {
+#    '.md': CommonMarkParser,
+#}
+#source_suffix = ['.rst', '.md']
+
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
 }
-source_suffix = ['.rst', '.md']
+
 
 # The master toctree document.
 master_doc = 'index'
