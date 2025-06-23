@@ -1,4 +1,4 @@
-## Tests Overview
+# Tests Overview
 
 This guide describes how to verify your MuscleX installation and use its testing framework to ensure consistent and reproducible results across devices and versions. For most users, it is not necessary to continue beyond the *Testing Methodology for Developers* section.
 

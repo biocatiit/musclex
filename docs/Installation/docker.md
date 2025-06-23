@@ -1,4 +1,4 @@
-## Install via Docker
+# Install via Docker
 
 This guide explains how to run MuscleX using Docker containers. This method provides a consistent, portable environment for running MuscleX across different platforms.
 

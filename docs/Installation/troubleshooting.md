@@ -1,4 +1,4 @@
-## Troubleshooting
+# Troubleshooting
 
 This page covers cross-platform and GUI-related issues that may arise when using MuscleX, regardless of installation method.
 

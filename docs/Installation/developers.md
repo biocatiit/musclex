@@ -1,4 +1,4 @@
-## Developer Installation Guide
+# Developer Installation Guide
 
 This guide is for developers who want to **clone, modify, test, and optionally contribute** to the MuscleX source code.
 

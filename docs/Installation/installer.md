@@ -1,4 +1,4 @@
-## Install via Windows Installer
+# Install via Windows Installer
 
 For users who prefer not to manage Python environments, we provide a pre-built installer for Windows.
 
