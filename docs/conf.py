@@ -21,18 +21,23 @@ import os
 # -- Project information -----------------------------------------------------
 
 project = 'MuscleX'
-copyright = '2023, BioCAT'
+copyright = '2025, BioCAT'
 author = 'BioCAT'
 
 # The short X.Y version
-version = '1.24'
+version = '1.25'
 # The full version, including alpha/beta/rc tags
-release = '1.24.0'
+release = '1.25.0'
 
 
 extensions = [
-    'sphinx.ext.mathjax', 'recommonmark'
+#    'sphinx.ext.mathjax', 'recommonmark'
+    'sphinx.ext.mathjax', 'myst_parser'
 ]
+
+myst_enable_extensions = ["tables"]
+
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
