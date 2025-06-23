@@ -43,8 +43,8 @@ myst_enable_extensions = ["tables"]
 templates_path = ['_templates']
 
 
-from recommonmark.transform import AutoStructify
-from recommonmark.parser import CommonMarkParser
+#from recommonmark.transform import AutoStructify
+#from recommonmark.parser import CommonMarkParser
 
 def setup(app):
     app.add_config_value('recommonmark_config', {
