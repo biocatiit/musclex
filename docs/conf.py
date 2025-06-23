@@ -88,7 +88,7 @@ html_theme = 'sphinx_rtd_theme'
 #
 # html_theme_options = {}
 html_theme_options = {
-    'navigation_depth': 1,
+#    'navigation_depth': 1,
     'logo_only': False
 }
 
