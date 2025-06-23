@@ -1,4 +1,4 @@
-# Installing MuscleX
+# Overview
 
 MuscleX can be installed using several methods depending on your platform, technical comfort, and goals. This section provides an overview of the recommended approaches and includes platform-specific guides for each method.
 
