@@ -1,2 +1,7 @@
-recommonmark
+sphinx
 sphinx_rtd_theme
+myst_parser
+#sphinx.ext.mathjax  # already part of sphinx, no need to list separately
+sphinx-autobuild    # for live preview during writing
+#recommonmark
+
