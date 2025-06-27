@@ -12,6 +12,7 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Projection Traces (pt) <Projection Traces>`
 - :ref:`Scanning Diffraction (di) <Scanning Diffraction>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
+- :ref:`Total Display Intensity (tdi) <Total Display Intensity>`
 - :ref:`Add Intensities Single Experiment (aise) <Add Intensities Single Experiment>`
 - :ref:`Add Intensities Multiple Experiments (aime) <Add Intensities Multiple Experiments>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
