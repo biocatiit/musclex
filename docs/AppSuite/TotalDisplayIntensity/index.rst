@@ -1,4 +1,4 @@
-Total Display Intensity (TDI) Tool
+Total Display Intensity
 =======
 .. _TotalDisplayIntensity:
 
