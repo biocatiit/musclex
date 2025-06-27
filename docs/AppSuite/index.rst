@@ -10,6 +10,7 @@ Application Suite
    ProjectionTraces/index
    ScanningDiffraction/index
    DDFProcessor/index
+   TotalDisplayIntensity/index
    AddIntensitiesSME/index
    Calibration-Settings
    Image-Processing-Functions
