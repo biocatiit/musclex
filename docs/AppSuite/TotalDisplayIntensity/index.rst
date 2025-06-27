@@ -1,6 +1,6 @@
 Total Display Intensity
 =======
-.. _TotalDisplayIntensity:
+.. _Total Display Intensity:
 
 .. toctree::
    :maxdepth: 2
