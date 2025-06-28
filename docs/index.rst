@@ -12,7 +12,7 @@ assist with analyzing diffraction X-ray images.
 - :ref:`Projection Traces (pt) <Projection Traces>`
 - :ref:`Scanning Diffraction (di) <Scanning Diffraction>`
 - :ref:`DDF Processor (ddf) <DDF Processor>`
-- :ref:`Total Display Intensity (tdi) <Total Display Intensity>`
+- :ref:`Total Diffracted Intensity (tdi) <Total Diffracted Intensity>`
 - :ref:`Add Intensities Single/Multiple Experiment (aisme) <Add Intensities Single/Multiple Experiment>`
 - :ref:`Working with hdf5 images <Working with hdf5 images>`  
 - :ref:`Compress/decompress TIFF images <Compress-Decompress TIFF Images>`  
