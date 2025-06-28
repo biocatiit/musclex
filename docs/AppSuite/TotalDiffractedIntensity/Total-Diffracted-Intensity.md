@@ -34,7 +34,7 @@ These metrics are valuable for comparing conditions (e.g., relaxed vs. contracte
 
 > Required Python packages: `PyQt5`, `matplotlib`, `fabio`, `numpy`, `pandas`.
 >
-> Note that the class `TotalDisplayIntensity` will be renamed in a future resale to `TotalDiffractedIntensity`.
+> Note that the class `TotalDisplayIntensity` will be renamed in a future release to `TotalDiffractedIntensity`.
 
 
 
