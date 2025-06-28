@@ -5,14 +5,30 @@ Development is done by current and former students at Illinois Tech with Illinoi
 ## Developers
 
 * Jinjian Shao (2015)
+
 * Jiaqi Li (2016)
+
 * Miguel Menendez Alvarez (2016)
+
 * Jiranun Jiratrakanvong (2016, 2017)
+
 * Xintian Li (2018)
+
 * Grant Nikseresht (2019)
+
 * Nikhil Miskin (2020, 2021)
+
 * Ran Huo (2021)
+
 * Jules Nabon (2022, 2023)
+
+* Tristan Leduc (2024)
+
+* Eric Zhang (2024)
+
+* Nicholas Allison (2025)
+
+  
 
 ## Scientific advising
 
