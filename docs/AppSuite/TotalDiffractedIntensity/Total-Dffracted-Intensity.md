@@ -1,10 +1,10 @@
-# Total Display Intensity
+# Total Diffracted Intensity
 
 
 
 ## Introduction
 
-The Total Display Intensity (TDI) tool is part of the [MuscleX](https://github.com/biocatiit/musclex) suite developed for analyzing X-ray diffraction images of biological samples, such as muscle fibers. In diffraction experiments, total diffraction intensity is a key quantitative measure - it reflects the overall scattering power of the sample, which is proportional to properties like sample mass, density, or structural order.
+The Total Diffracted Intensity (TDI) tool is part of the [MuscleX](https://github.com/biocatiit/musclex) suite developed for analyzing X-ray diffraction images of biological samples, such as muscle fibers. In diffraction experiments, total diffraction intensity is a key quantitative measure - it reflects the overall scattering power of the sample, which is proportional to properties like sample mass, density, or structural order.
 
 This tool allows users to:
 
@@ -188,7 +188,6 @@ This mask is then used in downstream image analysis and intensity extraction.
 | Masking UI & logic            | `musclex/ui/ImageMaskTool.py`                         | `ImageMaskerWindow` handles threshold sliders, dilation checkboxes, Rmin/Rmax, subtraction logic |
 | Manual mask drawing interface | Called via `Draw Mask` (uses built-in or pyFAI tools) |                                                                                                  |
 | File handling                 | `musclex/utils/file_manager.py`                       | `getBlankImageAndMask`, `getMaskOnly` parse files from disk                                      |
-
 
 
 
