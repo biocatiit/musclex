@@ -7,3 +7,8 @@ musclex/tests/di/*
 musclex/tests/eq/*
 musclex/tests/pt/*
 musclex/tests/qf/*
+
+# Pycharm
+.idea/
+
+.DS_Store

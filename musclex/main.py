@@ -70,7 +70,7 @@ def main(arguments=None):
             app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()
-            sys.exit(app.exec_())
+            sys.exit(app.exec())
         elif prog == 'di':
             app = QApplication(sys.argv)
             app.setStyleSheet(stylesheet.stylesheet)
@@ -393,7 +393,7 @@ def main(arguments=None):
                 for proc in procs:
                     proc.join()
                     sys.exit()
-                    
+
     elif len(arguments) >= 5 and arguments[1]=='aisme' and arguments[2]=='-h':
         i = 3
         run = True
@@ -416,10 +416,10 @@ def main(arguments=None):
                 i=i+1
                 mode = arguments[i]
             i=i+1
-        
+
         if settings_file is None:
             settings_file = 'default'
-        
+
         from musclex.headless.AddIntensitiesExph import AddIntensitiesExph
         if run:
             AddIntensitiesExph(paths, settings_file, type, mode)
