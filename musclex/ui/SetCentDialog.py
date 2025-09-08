@@ -300,6 +300,14 @@ class SetCentDialog(QDialog):
         if key == Qt.Key_Escape:
             self.function = None
             self.imgZoomInBtn.setChecked(False)
+            ax = self.imageAxes
+            label = "zoom_region"
+            to_remove = [p for p in ax.patches if p.get_label() == label]
+            for p in to_remove:
+                p.remove()
+
+            self.refreshCenter()
+            return
 
         super().keyPressEvent(event)
 
@@ -405,7 +413,8 @@ class SetCentDialog(QDialog):
                     x = min(start_pt[0], x)
                     y = min(start_pt[1], y)
                     ax.add_patch(patches.Rectangle((x, y), w, h,
-                                                linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
+                                                linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted',
+                                                label="zoom_region"))
 
                 self.imageCanvas.draw_idle()
 
