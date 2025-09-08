@@ -295,18 +295,21 @@ class SetCentDialog(QDialog):
     def keyPressEvent(self, event):
         key = event.key()
         if key in [Qt.Key_Return, Qt.Key_Enter]:
+            # Prevent closing dialog with keyboard.
             return
 
         if key == Qt.Key_Escape:
-            self.function = None
-            self.imgZoomInBtn.setChecked(False)
-            ax = self.imageAxes
-            label = "zoom_region"
-            to_remove = [p for p in ax.patches if p.get_label() == label]
-            for p in to_remove:
-                p.remove()
+            if self.function and self.function[0] == "im_zoomin":
+                self.function = None
+                self.imgZoomInBtn.setChecked(False)
+                ax = self.imageAxes
+                label = "zoom_region"
+                to_remove = [p for p in ax.patches if p.get_label() == label]
+                for p in to_remove:
+                    p.remove()
 
-            self.refreshCenter()
+                self.refreshCenter()
+            # Prevent closing dialog with keyboard.
             return
 
         super().keyPressEvent(event)
