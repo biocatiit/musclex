@@ -455,7 +455,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.rotationAngleLabel = QLabel()
 
-        self.persistRotation = QCheckBox("Persist Rotation")
+        self.persistRotation = QCheckBox("Persist Rotation Angle")
         self.persistRotation.setEnabled(False)
         # self.persistRotation.setVisible(False)
 
