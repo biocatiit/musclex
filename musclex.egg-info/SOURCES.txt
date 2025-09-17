@@ -190,11 +190,6 @@ docs/AppSuite/WorkingWithHdf5Images/index.rst
 docs/AppSuite/XRayViewer/XRay-Viewer-(xv).md
 docs/AppSuite/XRayViewer/XRay-Viewer-How-to-use.md
 docs/AppSuite/XRayViewer/index.rst
-docs/Installation/AppImage.md
-docs/Installation/Conda.md
-docs/Installation/Docker.md
-docs/Installation/Prerequisites.md
-docs/Installation/github.md
 docs/Installation/index.rst
 docs/Installation/installer.md
 docs/Installation/pip.md

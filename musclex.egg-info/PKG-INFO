@@ -1,11 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: musclex
 Version: 1.25.1.1
 Summary: Muscle X
 Home-page: https://github.com/biocatiit/musclex
 Author: BioCAT
 Author-email: biocat@lethocerus.biol.iit.edu
+License: UNKNOWN
 Keywords: musclex,biomuscle,diffraction,biocat
+Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: X11 Applications :: Qt
 Classifier: Intended Audience :: Science/Research
@@ -15,39 +17,6 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 License-File: LICENSE.txt
-Requires-Dist: pip
-Requires-Dist: wheel
-Requires-Dist: numpy==1.26.4
-Requires-Dist: Cython<=0.29.37
-Requires-Dist: scikit-image
-Requires-Dist: scikit-learn
-Requires-Dist: openpyxl<=3.1.2
-Requires-Dist: pyopencl==2024.2.7
-Requires-Dist: tifffile<=2023.2.28
-Requires-Dist: pandas<=2.2.0
-Requires-Dist: lmfit<=1.1.0
-Requires-Dist: ConfigParser<=5.3.0
-Requires-Dist: pillow==10.4.0
-Requires-Dist: fabio<=2023.10.0
-Requires-Dist: peakutils<=1.3.4
-Requires-Dist: h5py==3.10.0
-Requires-Dist: hdf5plugin<=4.4.0
-Requires-Dist: scipy==1.11.4
-Requires-Dist: matplotlib==3.9.2
-Requires-Dist: opencv-python-headless==4.10.0.84
-Requires-Dist: PySide6==6.7.2
-Requires-Dist: pyfai<=2024.1.0
-Requires-Dist: distro<=1.8.0
-Requires-Dist: PyMca==5.9.3
-Requires-Dist: numba==0.60.0
-Requires-Dist: fisx<=1.3.2
-Requires-Dist: future>=0.18.3
-Requires-Dist: numexpr==2.8.4
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
+
+UNKNOWN
+
