@@ -8,3 +8,4 @@ musclex/tests/eq/*
 musclex/tests/pt/*
 musclex/tests/qf/*
 /venv/
+/.idea/
