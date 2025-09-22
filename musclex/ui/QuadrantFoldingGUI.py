@@ -340,7 +340,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageAxes.set_aspect('equal', adjustable="box")
         self.imageCanvas = FigureCanvas(self.imageFigure)
 
-
         self.imageCanvas.setHidden(True)
         self.imageTabLayout.addWidget(self.leftWidget)
         self.imageTabLayout.addWidget(self.imageCanvas)
@@ -382,7 +381,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
 
-        self.doubleZoom = DoubleZoomWidget(self.imageCanvas, self.imageFigure, self.imageAxes, self)
+        self.doubleZoom = DoubleZoomWidget(self.imageAxes, self)
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
 

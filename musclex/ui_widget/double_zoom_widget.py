@@ -26,10 +26,12 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+import sys
 from enum import Flag, auto
 import cv2
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QWidget,
+from PySide6.QtWidgets import (QApplication,
+                               QWidget,
                                QCheckBox,
                                QMessageBox,
                                QVBoxLayout)
@@ -44,16 +46,14 @@ class DoubleZoomWidgetState(Flag):
 
 class DoubleZoomWidget(QWidget):
     def __init__(self,
-        imageCanvas,
-        imageFigure,
         imageAxes,
         parent,
         dontShowMessage=False):
         super().__init__()
 
-        self.imageCanvas = imageCanvas
-        self.imageFigure = imageFigure
         self.imageAxes = imageAxes
+        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
+        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
         self.parent = parent
 
         self.doubleZoomAxes = None
@@ -74,7 +74,7 @@ class DoubleZoomWidget(QWidget):
         return self.state != DoubleZoomWidgetState.DISABLED
 
     def handleDoubleZoomCheckedEvent(self, doubleZoomCheckboxState):
-        if self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
+        if self.parent is None or self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
             return
 
         if doubleZoomCheckboxState == Qt.CheckState.Checked:
@@ -161,11 +161,14 @@ class DoubleZoomWidget(QWidget):
             if self.state == DoubleZoomWidgetState.MainImageClicked:
                 return
 
+            # Draw cursor location in image using blue dot.
             self.drawBlueDot(x, y, self.imageAxes)
+
             self.drawDoubleZoomImage(x, y, img)
             self.imageCanvas.draw_idle()
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
+            # Draw cursor location in zoom using red cross lines.
             self.drawRedDot(x, y, self.doubleZoomAxes)
             self.imageCanvas.draw_idle()
 
@@ -244,3 +247,14 @@ class DoubleZoomWidget(QWidget):
                         ax1.lines[i].remove()
                 for i in range(len(ax1.patches)-1,-1,-1):
                     ax1.patches[i].remove()
+
+
+def main():
+    app = QApplication(sys.argv)
+    widget = DoubleZoomWidget(None, None)
+    widget.show()
+    app.exec()
+
+
+if __name__ == '__main__':
+    main()
