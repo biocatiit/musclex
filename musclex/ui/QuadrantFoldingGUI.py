@@ -50,7 +50,9 @@ from .pyqt_utils import *
 from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 # from .DoubleZoomGUI import DoubleZoom
-from .DoubleZoomViewer import DoubleZoom
+# from .DoubleZoomViewer import DoubleZoom
+from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
+                                            DoubleZoomWidgetState)
 from .SetCentDialog import SetCentDialog
 from .SetAngleDialog import SetAngleDialog
 from ..CalibrationSettings import CalibrationSettings
@@ -269,8 +271,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.initUI() # initial all GUI
 
-        self.doubleZoomGUI = DoubleZoom(self.imageFigure)
-
         self.setConnections() # set triggered function for widgets
         # self.setMinimumHeight(900)
         self.resize(1200, 900)
@@ -382,7 +382,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.minIntLabel = QLabel('Min Intensity')
         self.maxIntLabel = QLabel('Max Intensity')
 
-        self.doubleZoom = QCheckBox("Double Zoom")
+        self.doubleZoom = DoubleZoomWidget(self.imageCanvas, self.imageFigure, self.imageAxes, self)
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
 
@@ -1245,7 +1245,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
-        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
         self.fixedOrientationChkBx.stateChanged.connect(self.onFixedRotationChkBxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
@@ -2103,38 +2102,23 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if not self.ableToProcess():
             return
+
         x = event.xdata
         y = event.ydata
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            self.imgCoordOnStatusBar.setText("")
-            ax = self.imageAxes
-            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-            x = int(round(x))
-            y = int(round(y))
-        elif self.doubleZoomGUI.doubleZoomMode:
-            self.doubleZoomGUI.mouseClickBehavior(x, y)
-            return
+
+        if self.doubleZoom.is_enabled():
+            self.doubleZoom.handle_mouse_press_event(event)
+            # If main image was clicked, do nothing and
+            #   wait for user to click double-zoom image.
+            if self.doubleZoom.state == DoubleZoomWidgetState.MainImageClicked:
+                return
+            # If double-zoom image was clicked, update mouse click coordinates.
+            elif self.doubleZoom.state == DoubleZoomWidgetState.DoubleZoomImageClicked:
+                x, y = self.doubleZoom.doubleZoomToOrigCoord()
 
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
             self.display_points = None
-
-        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
-            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomGUI.doubleZoomMode = True
 
         # Provide different behavior depending on current active function
         if self.function is None:
@@ -2184,7 +2168,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 axis_size = 5
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
+                if self.doubleZoom.is_enabled() and len(func) > 1 and len(func) % 2 == 0:
                     start_pt = func[len(func) - 1]
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
                 self.imageCanvas.draw_idle()
@@ -2322,11 +2306,14 @@ class QuadrantFoldingGUI(QMainWindow):
         if img is None:
             return
 
+        self.doubleZoom.handle_mouse_move_event(event)
+
+        # If mouse is not moving inside main image, do nothing.
+        if event.inaxes != self.imageAxes:
+            return
+
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
-
-            if self.doubleZoomGUI.doubleZoomMode:
-                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), self.extent, self.imageAxes)
 
             x = int(round(x))
             y = int(round(y))
@@ -2366,17 +2353,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 o_x, o_y = self.getOrigCoordsCenter(x, y)
                 self.left_status.setText(f"Cursor (Original coords): x={o_x:.2f}, y={o_y:.2f}")
 
-                self.doubleZoomGUI.mouseHoverBehavior(
-                    sx,
-                    sy,
-                    img,
-                    self.imageCanvas,
-                    self.doubleZoom.isChecked(),
-                    isLogScale=self.logScaleIntChkBx.isChecked(),
-                    vmin=self.spminInt.value(),
-                    vmax=self.spmaxInt.value()
-                )
-
         ax = self.imageAxes
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
@@ -2402,13 +2378,9 @@ class QuadrantFoldingGUI(QMainWindow):
             return
 
         func = self.function
-        if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
-            if not self.doubleZoomGUI.doubleZoomMode:
-                self.doubleZoomGUI.updateAxes(x, y)
-                self.imageCanvas.draw_idle()
         if func[0] == "im_zoomin" and len(self.function) == 2:
             # draw rectangle
-            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+            if not self.doubleZoom.is_enabled() or self.doubleZoom.state != DoubleZoomWidgetState.MainImageClicked:
                 if len(ax.patches) > 0:
                     ax.patches[0].remove()
                 start_pt = func[1]
@@ -2418,9 +2390,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 y = min(start_pt[1], y)
                 ax.add_patch(patches.Rectangle((x, y), w, h,
                                             linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-            else:
-                self.doubleZoomGUI.updateAxes(x, y)
-            self.imageCanvas.draw_idle()
+
+                self.imageCanvas.draw_idle()
         elif func[0] == "im_move":
             if self.img_zoom is not None:
                 move = (func[1][0] - x, func[1][1] - y)
@@ -2429,7 +2400,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 #ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
-            pass
 
         elif func[0] == "im_center_rotate":
             axis_size = 5
@@ -2438,11 +2408,9 @@ class QuadrantFoldingGUI(QMainWindow):
                     for i in range(len(ax.lines)-1,-1,-1):
                         if ax.lines[i].get_label() != "Blue Dot":
                             ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.is_enabled():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) == 2:
                 start_pt = self.display_points[1]
@@ -2451,12 +2419,11 @@ class QuadrantFoldingGUI(QMainWindow):
                     for i in range(len(ax.lines)-1,2,-1):
                         ax.lines[i].remove()
                     # ax.lines = first_cross
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.is_enabled():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
+
             self.imageCanvas.draw_idle()
 
         elif func[0] == "perp_center":
@@ -2472,11 +2439,10 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.lines[i].remove()
 
 
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.is_enabled():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
+
             elif len(func) == 2:
                 start_pt = func[1]
                 if len(ax.lines) > 2:
@@ -2484,12 +2450,11 @@ class QuadrantFoldingGUI(QMainWindow):
                     for i in range(len(ax.lines) - 1, 2, -1):
                         ax.lines[i].remove()
 
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.is_enabled():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
+
 
             elif len(func) % 2 != 0:
                 if len(ax.lines) > 0:
@@ -2499,11 +2464,9 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.lines[i].remove()
 
 
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.is_enabled():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
 
             elif len(func) % 2 == 0:
                 start_pt = func[-1]
@@ -2514,18 +2477,11 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.lines[i].remove()
 
 
-                if not self.doubleZoom.isChecked():
+                if not self.doubleZoom.is_enabled():
                     ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                     ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                     ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
 
-            self.imageCanvas.draw_idle()
-
-        elif func[0] == "chords_center":
-            if self.doubleZoom.isChecked():
-                self.doubleZoomGUI.updateAxes(x, y)
             self.imageCanvas.draw_idle()
 
         elif func[0] == "im_rotate":
@@ -2538,14 +2494,12 @@ class QuadrantFoldingGUI(QMainWindow):
             deltay = y - center[1]
             x2 = center[0] - deltax
             y2 = center[1] - deltay
-            if not self.doubleZoom.isChecked():
+            if not self.doubleZoom.is_enabled():
                 for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
                 ax.plot([x, x2], [y, y2], color="g")
             else:
-                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                    self.doubleZoomGUI.updateAxesInner(x, y)
-                elif self.doubleZoomGUI.doubleZoomMode:
+                if self.doubleZoom.is_enabled() and self.doubleZoom.state != DoubleZoomWidgetState.MainImageClicked:
                     for i in range(len(ax.lines)-1,-1,-1):
                         if ax.lines[i].get_label() != "Blue Dot":
                             ax.lines[i].remove()
@@ -3072,20 +3026,6 @@ class QuadrantFoldingGUI(QMainWindow):
             return
         self.deleteInfo(['rotationAngle'])
         self.processImage()
-
-    def doubleZoomChecked(self):
-        """
-        Triggered when double zoom is checked
-        """
-        self.doubleZoomGUI.doubleZoomChecked(
-            img=self.quadFold.getRotatedImage() if self.quadFold is not None else None,
-            canv=self.imageCanvas,
-            center=self.quadFold.info['center'] if self.quadFold is not None else (0,0),
-            is_checked=self.doubleZoom.isChecked(),
-            isLogScale=self.logScaleIntChkBx.isChecked(),
-            vmin=self.spminInt.value(),
-            vmax=self.spmaxInt.value()
-        )
 
     def modeAngleChecked(self):
         """
