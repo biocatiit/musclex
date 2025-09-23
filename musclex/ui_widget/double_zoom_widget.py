@@ -40,6 +40,8 @@ from PySide6.QtWidgets import (QApplication,
 class DoubleZoomWidgetState(Flag):
     DISABLED = auto()
     READY = auto()
+    PAUSED = auto()
+
     MainImageClicked = auto()
     DoubleZoomImageClicked = auto()
 
@@ -74,7 +76,6 @@ class DoubleZoomWidget(QWidget):
         # Mouse click point in double zoom image
         self.doubleZoomPoint = (0, 0)
         self.dontShowAgainDoubleZoomMessageResult = dontShowMessage
-        self.mouse_pressed = False
         self.state = None
         self.state_history = []
         self.set_state(DoubleZoomWidgetState.DISABLED)
@@ -85,44 +86,58 @@ class DoubleZoomWidget(QWidget):
         self.state_history = self.state_history[-5:]
 
     def is_enabled(self):
-        return self.state != DoubleZoomWidgetState.DISABLED
+        disable_states = [DoubleZoomWidgetState.DISABLED,
+                          DoubleZoomWidgetState.PAUSED]
+        is_disabled = any(disable_state in self.state
+            for disable_state in disable_states)
+        return not is_disabled
+
+    def set_enabled(self):
+        if self.doubleZoomAxes is None:
+            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
+            self.doubleZoomAxes.set_aspect('equal', adjustable="box")
+            self.doubleZoomAxes.axes.xaxis.set_visible(False)
+            self.doubleZoomAxes.axes.yaxis.set_visible(False)
+
+        img = self.parent.quadFold.orig_img
+        center = self.parent.quadFold.info['center']
+        x,y = center
+        x, y = int(x), int(y)
+        imgCropped = img[y - 10:y + 10, x - 10:x + 10]
+        if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
+            self.mainImagePoint = (x, y)
+
+            imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+            self.doubleZoomAxes.imshow(imgScaled)
+            self.doubleZoomAxes.invert_yaxis()
+
+            self.imageCanvas.draw_idle()
+
+        self.set_state(DoubleZoomWidgetState.READY)
+
+    def set_disabled(self, state=None):
+        self.remove_image_lines(labels=["DoubleZoom Blue Dot"])
+
+        if self.doubleZoomAxes is not None:
+            self.imageFigure.delaxes(self.doubleZoomAxes)
+            self.doubleZoomAxes = None
+        self.imageCanvas.draw_idle()
+
+        if state is None:
+            state = DoubleZoomWidgetState.DISABLED
+        self.set_state(state)
+
+    def set_paused(self):
+        self.set_disabled(state=DoubleZoomWidgetState.PAUSED)
 
     def handleDoubleZoomCheckedEvent(self, doubleZoomCheckboxState):
         if self.parent is None or self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
             return
 
         if doubleZoomCheckboxState == Qt.CheckState.Checked:
-            print("Double zoom checked")
-
-            if self.doubleZoomAxes is not None:
-                return
-
-            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
-            self.doubleZoomAxes.set_aspect('equal', adjustable="box")
-            self.doubleZoomAxes.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes.axes.yaxis.set_visible(False)
-
-            img = self.parent.quadFold.orig_img
-            center = self.parent.quadFold.info['center']
-            x,y = center
-            x, y = int(x), int(y)
-            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                self.mainImagePoint = (x, y)
-
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomAxes.imshow(imgScaled)
-                self.doubleZoomAxes.invert_yaxis()
-
-                self.imageCanvas.draw_idle()
-
-                self.set_state(DoubleZoomWidgetState.READY)
+            self.set_enabled()
         elif doubleZoomCheckboxState == Qt.CheckState.Unchecked:
-            if self.doubleZoomAxes is not None:
-                self.imageFigure.delaxes(self.doubleZoomAxes)
-                self.imageCanvas.draw_idle()
-                self.doubleZoomAxes = None
-            self.set_state(DoubleZoomWidgetState.DISABLED)
+            self.set_disabled()
 
     def handle_mouse_button_press_event(self, mouse_event):
         pass
@@ -140,26 +155,29 @@ class DoubleZoomWidget(QWidget):
         img = self.parent.quadFold.orig_img
 
         if mouse_event.inaxes == self.imageAxes:
-            # Do nothing if image has been clicked.
-            if DoubleZoomWidgetState.MainImageClicked in self.state:
-                self.state = self.state | DoubleZoomWidgetState.MainImageMouseMoving
-                return
-
             # Draw cursor location in image using blue dot.
             self.drawBlueDot(x, y, self.imageAxes)
 
+            # Do nothing if image has been clicked.
+            if DoubleZoomWidgetState.MainImageClicked in self.state:
+                self.state = self.state | DoubleZoomWidgetState.MainImageMouseMoving
+                self.imageCanvas.draw_idle()
+                return
+
+            # Update double zoom image.
             self.drawDoubleZoomImage(x, y, img)
             self.imageCanvas.draw_idle()
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
+            # Draw cursor location in zoom using red cross lines.
+            self.drawRedDot(x, y, self.doubleZoomAxes)
+
+            self.imageCanvas.draw_idle()
+
             # Do nothing if image has been clicked.
             if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
                 self.state = self.state | DoubleZoomWidgetState.DoubleZoomImageMouseMoving
                 return
-
-            # Draw cursor location in zoom using red cross lines.
-            self.drawRedDot(x, y, self.doubleZoomAxes)
-            self.imageCanvas.draw_idle()
 
     def handle_mouse_button_release_event(self, mouse_event):
         if not self.is_enabled():
@@ -168,34 +186,34 @@ class DoubleZoomWidget(QWidget):
         x = mouse_event.xdata
         y = mouse_event.ydata
 
-        print("=" * 40)
-        print(f"position in image:{x} {y}")
-        print("^" * 40)
+        # print("=" * 40)
+        # print(f"position in image:{x} {y}")
+        # print("^" * 40)
 
         if mouse_event.inaxes == self.imageAxes:
-            print("MainImageClicked!")
-
             if not self.dontShowAgainDoubleZoomMessageResult:
                 self.showPopup()
 
-            # Do nothing if image has been clicked.
-            if DoubleZoomWidgetState.MainImageClicked in self.state:
-                self.state = self.state | DoubleZoomWidgetState.MainImageMultipleClicked
-                return
-
             self.mainImagePoint = (x, y)
-            self.set_state(DoubleZoomWidgetState.MainImageClicked)
+
+            # If image has been clicked, then it is clicked multiple times.
+            if DoubleZoomWidgetState.MainImageClicked in self.state:
+                new_state = self.state | DoubleZoomWidgetState.MainImageMultipleClicked
+            else:
+                new_state = DoubleZoomWidgetState.MainImageClicked
+
+            self.set_state(new_state)
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
-            print("DoubleZoomImageClicked!")
-
-            # Do nothing if image has been clicked.
-            if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
-                self.state = self.state | DoubleZoomWidgetState.DoubleZoomImageMultipleClicked
-                return
-
             self.doubleZoomPoint = (x, y)
-            self.set_state(DoubleZoomWidgetState.DoubleZoomImageClicked)
+
+            # If image has been clicked, then it is clicked multiple times.
+            if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
+                new_state = self.state | DoubleZoomWidgetState.DoubleZoomImageMultipleClicked
+            else:
+                new_state = DoubleZoomWidgetState.DoubleZoomImageClicked
+
+            self.set_state(new_state)
 
     def handle_mouse_scroll_event(self, mouse_event):
         pass
@@ -204,11 +222,9 @@ class DoubleZoomWidget(QWidget):
         no_action_states = {
             "main_image": [
                 DoubleZoomWidgetState.MainImageClicked | DoubleZoomWidgetState.MainImageMouseMoving,
-                DoubleZoomWidgetState.MainImageClicked | DoubleZoomWidgetState.MainImageMultipleClicked,
             ],
             "double_zoom_image": [
                 DoubleZoomWidgetState.DoubleZoomImageClicked | DoubleZoomWidgetState.DoubleZoomImageMouseMoving,
-                DoubleZoomWidgetState.DoubleZoomImageClicked | DoubleZoomWidgetState.DoubleZoomImageMultipleClicked,
             ]
         }
 
@@ -244,20 +260,16 @@ class DoubleZoomWidget(QWidget):
         newX = dzx -10 + x / 10
         newY = dzy - 10 + y / 10
 
-        print("=" * 40)
-        print(f"position in zoom:{x} {y}, in image: {newX} {newY}")
-        print("^" * 40)
-        return (newX, newY)
+        # print("=" * 40)
+        # print(f"position in zoom:{x} {y}, in image: {newX} {newY}")
+        # print("^" * 40)
+        # return (newX, newY)
 
     def drawBlueDot(self, x, y, ax):
-        # Remove any existing lines or patches so they don't stack
-        if len(ax.lines) > 0:
-            for i in range(len(ax.lines)-1, -1, -1):
-                if ax.lines[i].get_label() == "Blue Dot":
-                    ax.lines[i].remove()
+        self.remove_image_lines(ax, labels=["DoubleZoom Blue Dot"])
 
         # Plot a blue dot at the given coordinates
-        ax.plot(x, y, 'bo', markersize=2, label="Blue Dot")
+        ax.plot(x, y, 'bo', markersize=2, label="DoubleZoom Blue Dot")
 
     def drawRedDot(self, x, y, ax):
             axis_size = 1
@@ -271,13 +283,10 @@ class DoubleZoomWidget(QWidget):
             y1 = max(y_min, min(y - axis_size, y_max))
             y2 = max(y_min, min(y + axis_size, y_max))
 
-            if len(ax.lines) > 0:
-                for i in range(len(ax.lines)-1,-1,-1):
-                    if ax.lines[i].get_label() == "Red Dot":
-                        ax.lines[i].remove()
+            self.remove_image_lines(ax, labels=["DoubleZoom Red Dot"])
 
-            ax.plot((x1, x2), (y1, y2), color='r', label="Red Dot")
-            ax.plot((x1, x2), (y2, y1), color='r', label="Red Dot")
+            ax.plot((x1, x2), (y1, y2), color='r', label="DoubleZoom Red Dot")
+            ax.plot((x1, x2), (y2, y1), color='r', label="DoubleZoom Red Dot")
 
     def drawDoubleZoomImage(self, x, y, img):
         if x > 10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
@@ -293,6 +302,24 @@ class DoubleZoomWidget(QWidget):
                         if ax.lines[i].get_label() == "Red Dot":
                             ax.lines[i].remove()
 
+    def remove_image_lines(self, ax=None, labels=None):
+        if ax is None:
+            ax = self.imageAxes
+
+        if labels:
+            for i in range(len(ax.lines)-1, -1, -1):
+                if ax.lines[i].get_label() in labels:
+                    ax.lines[i].remove()
+
+            for p in ax.patches:
+                if p.get_label() in labels:
+                    p.remove()
+        else:
+            for i in range(len(ax.lines)-1, -1, -1):
+                ax.lines[i].remove()
+
+            for p in ax.patches:
+                p.remove()
 
 def main():
     app = QApplication(sys.argv)

@@ -40,7 +40,6 @@ import matplotlib.patches as patches
 class CropWidgetState(Flag):
     DISABLED = auto()
     READY = auto()
-    CROPPED = auto()
 
 class CropWidget(QWidget):
     def __init__(self, imageAxes):
@@ -50,7 +49,7 @@ class CropWidget(QWidget):
         self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
         self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
 
-        self.cropBtn = QPushButton("Crop")
+        self.cropBtn = QPushButton("Zoom In")
         self.cropBtn.setCheckable(True)
 
         self.layout = QVBoxLayout(self)
@@ -118,10 +117,12 @@ class CropWidget(QWidget):
             x2, y2 = self.cropPoints[1]
             img_zoom = [(min(x1, x2), max(x1, x2)),
             (min(y1, y2), max(y1, y2))]
+            self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
             self.resizeImage(img_zoom)
+            self.imageCanvas.draw_idle()
             self.cropBtn.setChecked(False)
             self.cropPoints.clear()
-            self.state = CropWidgetState.CROPPED
+            self.state = CropWidgetState.DISABLED
 
     def resizeImage(self, img_zoom):
             self.imageAxes.set_xlim(img_zoom[0])

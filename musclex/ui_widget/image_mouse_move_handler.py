@@ -46,7 +46,6 @@ class ImageMouseMoveHandler:
         self.img = img
 
         self.mouse_pressed = False
-        self.dragging = False
         self.press_x = None
         self.press_y = None
         self.state = ImageMouseMoveState.READY
@@ -72,15 +71,16 @@ class ImageMouseMoveHandler:
         x = event.xdata
         y = event.ydata
 
-        if self.state == ImageMouseMoveState.MOUSE_PRESSED:
-            # If moved enough, switch to dragging state.
-            # Otherwise, still remain pressed state.
-            dragging = self.check_dragging(x, y)
+        if self.state != ImageMouseMoveState.MOUSE_DRAGGING:
+            if self.state == ImageMouseMoveState.MOUSE_PRESSED:
+                # If moved enough, switch to dragging state.
+                # Otherwise, still remain pressed state.
+                dragging = self.check_dragging(x, y)
 
-            if dragging:
-                self.state = ImageMouseMoveState.MOUSE_DRAGGING
-        else:
-            self.state = ImageMouseMoveState.MOUSE_MOVING
+                if dragging:
+                    self.state = ImageMouseMoveState.MOUSE_DRAGGING
+            else:
+                self.state = ImageMouseMoveState.MOUSE_MOVING
 
         # Move Image
         if self.state == ImageMouseMoveState.MOUSE_DRAGGING:

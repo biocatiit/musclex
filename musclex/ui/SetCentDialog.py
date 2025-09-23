@@ -86,8 +86,6 @@ class SetCentDialog(QDialog):
         self.vmin = vmin
         self.vmax = vmax
 
-        self.function = None
-
         x, y = self.center
 
         self.imageFigure = plt.figure()
@@ -112,8 +110,8 @@ class SetCentDialog(QDialog):
 
         self.imageAxes.set_xlim((0, self.img.shape[1]))
         self.imageAxes.set_ylim((0, self.img.shape[0]))
-        self.vline = self.imageAxes.axvline(x, color='y')
-        self.hline = self.imageAxes.axhline(y, color='y')
+        self.imageAxes.axvline(x, color='y', label="Cross Center Yellow")
+        self.imageAxes.axhline(y, color='y', label="Cross Center Yellow")
 
         self.xInput = QLineEdit(f"{x:.2f}")
         self.yInput = QLineEdit(f"{y:.2f}")
@@ -265,8 +263,7 @@ class SetCentDialog(QDialog):
             return
 
         if key == Qt.Key_Escape:
-            if self.function and self.function[0] == "im_zoomin":
-                self.function = None
+            if self.cropWidget.is_enabled():
                 self.cropWidget.set_disable()
                 ax = self.imageAxes
                 label = "zoom_region"
@@ -293,10 +290,6 @@ class SetCentDialog(QDialog):
             self.doubleZoom.handle_mouse_button_press_event(event)
 
     def handle_mouse_move_event(self, event):
-        x = event.xdata
-        y = event.ydata
-        ax = self.imageAxes
-
         self.imageMouseMoveHandler.handle_mouse_move_event(event)
 
         if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAGGING:
@@ -319,19 +312,16 @@ class SetCentDialog(QDialog):
         if event.button != MouseButton.LEFT:
             return
 
-        x = event.xdata
-        y = event.ydata
-
         self.imageMouseMoveHandler.handle_mouse_button_release_event(event)
 
         if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAG_COMPLETED:
             return
 
+        x = event.xdata
+        y = event.ydata
+
         if self.doubleZoom.is_enabled():
             self.doubleZoom.handle_mouse_button_release_event(event)
-
-            if self.doubleZoom.is_no_action_state(event):
-                return
 
             if event.inaxes == self.imageAxes:
                 if DoubleZoomWidgetState.MainImageClicked in self.doubleZoom.state:
@@ -350,34 +340,10 @@ class SetCentDialog(QDialog):
             and DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state):
             if self.cropWidget.is_enabled():
                 self.cropWidget.handle_click_event(event, x, y)
-
-                # if len(self.function) == 3:
-                #     p1 = self.function[1]
-                #     p2 = self.function[2]
-                #     img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-                #     self.function = None
-                #     self.cropWidget.set_disable()
-                #     self.resizeImage(img_zoom)
-                #     self.refreshCenter()
             else:
                 self.center = (x, y)
                 self.refreshCenter(updateText=True)
 
-        # elif (self.doubleZoom.is_enabled()
-        #     and DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state):
-        #     if self.cropWidget.is_enabled():
-
-        #     if self.function and self.function[0] == "im_zoomin":
-        #         self.function.append((x, y))
-        #         if len(self.function) == 3:
-        #             p1 = self.function[1]
-        #             p2 = self.function[2]
-        #             img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-        #             self.function = None
-        #             self.cropWidget.set_disable()
-        #     else:
-        #         self.center = (x, y)
-        #         self.refreshCenter(updateText=True)
 
     def handle_mouse_wheel_scroll_event(self, event):
         if event.inaxes != self.imageAxes:
@@ -430,11 +396,11 @@ class SetCentDialog(QDialog):
         ax = self.imageAxes
 
         # Remove old lines
-        self.remove_image_lines()
+        self.remove_image_lines(labels=["Cross Center Yellow"])
 
         # Draw new lines
-        self.vline = self.imageAxes.axvline(x, color='y')
-        self.hline = self.imageAxes.axhline(y, color='y')
+        self.imageAxes.axvline(x, color='y', label="Cross Center Yellow")
+        self.imageAxes.axhline(y, color='y', label="Cross Center Yellow")
 
         if updateText:
             # Update input output
@@ -455,27 +421,21 @@ class SetCentDialog(QDialog):
     def remove_image_lines(self, labels=None):
         ax = self.imageAxes
 
-        for i in range(len(ax.lines)-1, -1, -1):
-            if labels:
+        if labels:
+            for i in range(len(ax.lines)-1, -1, -1):
                 if ax.lines[i].get_label() in labels:
                     ax.lines[i].remove()
-            else:
-                ax.lines[i].remove()
 
-        for i in range(len(ax.patches)-1, -1, -1):
-            ax.patches[i].remove()
-
-    def imageZoomIn(self):
-        if self.cropWidget.isChecked():
-            ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.imageCanvas.draw_idle()
-            self.function = ["im_zoomin"]
+            for p in ax.patches:
+                if p.get_label() in labels:
+                    p.remove()
         else:
-            self.function = None
+            for i in range(len(ax.lines)-1, -1, -1):
+                ax.lines[i].remove()
+
+            for p in ax.patches:
+                p.remove()
+
 
     def imageZoomOut(self):
         self.cropWidget.set_disable()
