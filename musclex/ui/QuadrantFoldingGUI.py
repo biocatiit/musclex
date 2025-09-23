@@ -2106,7 +2106,7 @@ class QuadrantFoldingGUI(QMainWindow):
         y = event.ydata
 
         if self.doubleZoom.is_enabled():
-            self.doubleZoom.handle_mouse_press_event(event)
+            self.doubleZoom.handle_mouse_button_press_event(event)
             # If main image was clicked, do nothing and
             #   wait for user to click double-zoom image.
             if self.doubleZoom.state == DoubleZoomWidgetState.MainImageClicked:

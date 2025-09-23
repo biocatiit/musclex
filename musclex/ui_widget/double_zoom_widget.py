@@ -43,6 +43,12 @@ class DoubleZoomWidgetState(Flag):
     MainImageClicked = auto()
     DoubleZoomImageClicked = auto()
 
+    MainImageMouseMoving = auto()
+    DoubleZoomImageMouseMoving = auto()
+
+    MainImageMultipleClicked = auto()
+    DoubleZoomImageMultipleClicked = auto()
+
 
 class DoubleZoomWidget(QWidget):
     def __init__(self,
@@ -68,7 +74,15 @@ class DoubleZoomWidget(QWidget):
         # Mouse click point in double zoom image
         self.doubleZoomPoint = (0, 0)
         self.dontShowAgainDoubleZoomMessageResult = dontShowMessage
-        self.state = DoubleZoomWidgetState.DISABLED
+        self.mouse_pressed = False
+        self.state = None
+        self.state_history = []
+        self.set_state(DoubleZoomWidgetState.DISABLED)
+
+    def set_state(self, state):
+        self.state = state
+        self.state_history.append(state)
+        self.state_history = self.state_history[-5:]
 
     def is_enabled(self):
         return self.state != DoubleZoomWidgetState.DISABLED
@@ -102,15 +116,52 @@ class DoubleZoomWidget(QWidget):
 
                 self.imageCanvas.draw_idle()
 
-                self.state = DoubleZoomWidgetState.READY
+                self.set_state(DoubleZoomWidgetState.READY)
         elif doubleZoomCheckboxState == Qt.CheckState.Unchecked:
             if self.doubleZoomAxes is not None:
                 self.imageFigure.delaxes(self.doubleZoomAxes)
                 self.imageCanvas.draw_idle()
                 self.doubleZoomAxes = None
-            self.state = DoubleZoomWidgetState.DISABLED
+            self.set_state(DoubleZoomWidgetState.DISABLED)
 
-    def handle_mouse_press_event(self, mouse_event):
+    def handle_mouse_button_press_event(self, mouse_event):
+        pass
+
+    def handle_mouse_move_event(self, mouse_event):
+        if not self.is_enabled():
+            return
+
+        if self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
+            return
+
+        x = mouse_event.xdata
+        y = mouse_event.ydata
+
+        img = self.parent.quadFold.orig_img
+
+        if mouse_event.inaxes == self.imageAxes:
+            # Do nothing if image has been clicked.
+            if DoubleZoomWidgetState.MainImageClicked in self.state:
+                self.state = self.state | DoubleZoomWidgetState.MainImageMouseMoving
+                return
+
+            # Draw cursor location in image using blue dot.
+            self.drawBlueDot(x, y, self.imageAxes)
+
+            self.drawDoubleZoomImage(x, y, img)
+            self.imageCanvas.draw_idle()
+
+        elif mouse_event.inaxes == self.doubleZoomAxes:
+            # Do nothing if image has been clicked.
+            if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
+                self.state = self.state | DoubleZoomWidgetState.DoubleZoomImageMouseMoving
+                return
+
+            # Draw cursor location in zoom using red cross lines.
+            self.drawRedDot(x, y, self.doubleZoomAxes)
+            self.imageCanvas.draw_idle()
+
+    def handle_mouse_button_release_event(self, mouse_event):
         if not self.is_enabled():
             return
 
@@ -127,53 +178,50 @@ class DoubleZoomWidget(QWidget):
             if not self.dontShowAgainDoubleZoomMessageResult:
                 self.showPopup()
 
-            if self.state == DoubleZoomWidgetState.MainImageClicked:
+            # Do nothing if image has been clicked.
+            if DoubleZoomWidgetState.MainImageClicked in self.state:
+                self.state = self.state | DoubleZoomWidgetState.MainImageMultipleClicked
                 return
 
             self.mainImagePoint = (x, y)
-            self.state = DoubleZoomWidgetState.MainImageClicked
+            self.set_state(DoubleZoomWidgetState.MainImageClicked)
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
             print("DoubleZoomImageClicked!")
 
-            if self.state == DoubleZoomWidgetState.DoubleZoomImageClicked:
+            # Do nothing if image has been clicked.
+            if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
+                self.state = self.state | DoubleZoomWidgetState.DoubleZoomImageMultipleClicked
                 return
 
             self.doubleZoomPoint = (x, y)
-            self.state = DoubleZoomWidgetState.DoubleZoomImageClicked
-
-    def handle_mouse_button_release_event(self, mouse_event):
-        pass
-
-    def handle_mouse_move_event(self, mouse_event):
-        if not self.is_enabled():
-            return
-
-        if self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
-            return
-
-        x = mouse_event.xdata
-        y = mouse_event.ydata
-
-        img = self.parent.quadFold.orig_img
-
-        if mouse_event.inaxes == self.imageAxes:
-            if self.state == DoubleZoomWidgetState.MainImageClicked:
-                return
-
-            # Draw cursor location in image using blue dot.
-            self.drawBlueDot(x, y, self.imageAxes)
-
-            self.drawDoubleZoomImage(x, y, img)
-            self.imageCanvas.draw_idle()
-
-        elif mouse_event.inaxes == self.doubleZoomAxes:
-            # Draw cursor location in zoom using red cross lines.
-            self.drawRedDot(x, y, self.doubleZoomAxes)
-            self.imageCanvas.draw_idle()
+            self.set_state(DoubleZoomWidgetState.DoubleZoomImageClicked)
 
     def handle_mouse_scroll_event(self, mouse_event):
         pass
+
+    def is_no_action_state(self, mouse_event):
+        no_action_states = {
+            "main_image": [
+                DoubleZoomWidgetState.MainImageClicked | DoubleZoomWidgetState.MainImageMouseMoving,
+                DoubleZoomWidgetState.MainImageClicked | DoubleZoomWidgetState.MainImageMultipleClicked,
+            ],
+            "double_zoom_image": [
+                DoubleZoomWidgetState.DoubleZoomImageClicked | DoubleZoomWidgetState.DoubleZoomImageMouseMoving,
+                DoubleZoomWidgetState.DoubleZoomImageClicked | DoubleZoomWidgetState.DoubleZoomImageMultipleClicked,
+            ]
+        }
+
+        if mouse_event.inaxes == self.imageAxes:
+            no_action = any(no_action_state in self.state
+                for no_action_state in no_action_states["main_image"])
+            return no_action
+        elif mouse_event.inaxes == self.doubleZoomAxes:
+            no_action = any(no_action_state in self.state
+                for no_action_state in no_action_states["double_zoom_image"])
+            return no_action
+
+        return False
 
     def showPopup(self):
         msg = QMessageBox()
@@ -207,9 +255,6 @@ class DoubleZoomWidget(QWidget):
             for i in range(len(ax.lines)-1, -1, -1):
                 if ax.lines[i].get_label() == "Blue Dot":
                     ax.lines[i].remove()
-        if len(ax.patches) > 0:
-            for i in range(len(ax.patches)-1, -1, -1):
-                ax.patches[i].remove()
 
         # Plot a blue dot at the given coordinates
         ax.plot(x, y, 'bo', markersize=2, label="Blue Dot")
@@ -228,25 +273,25 @@ class DoubleZoomWidget(QWidget):
 
             if len(ax.lines) > 0:
                 for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
+                    if ax.lines[i].get_label() == "Red Dot":
+                        ax.lines[i].remove()
 
-            ax.plot((x1, x2), (y1, y2), color='r')
-            ax.plot((x1, x2), (y2, y1), color='r')
+            ax.plot((x1, x2), (y1, y2), color='r', label="Red Dot")
+            ax.plot((x1, x2), (y2, y1), color='r', label="Red Dot")
 
     def drawDoubleZoomImage(self, x, y, img):
         if x > 10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
-            ax1 = self.doubleZoomAxes
+            ax = self.doubleZoomAxes
             imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                 imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 self.doubleZoomAxes.imshow(imgScaled)
                 self.doubleZoomAxes.invert_yaxis()
 
-                if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches[i].remove()
+                if len(ax.lines) > 0:
+                    for i in range(len(ax.lines)-1,-1,-1):
+                        if ax.lines[i].get_label() == "Red Dot":
+                            ax.lines[i].remove()
 
 
 def main():

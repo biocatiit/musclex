@@ -27,6 +27,7 @@ authorization from Illinois Institute of Technology.
 """
 
 import sys
+from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.backend_bases import MouseButton
@@ -56,6 +57,16 @@ from PySide6.QtCore import Qt
 
 from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
                                             DoubleZoomWidgetState)
+from ..ui_widget.crop_widget import (CropWidget, CropWidgetState)
+from ..ui_widget.image_mouse_move_handler import (ImageMouseMoveHandler,
+                                                  ImageMouseMoveState)
+from ..ui_widget.zoom_handler import ZoomHandler
+
+def print_log(log_str):
+    now = datetime.now()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{now_str}: {log_str}")
+
 
 class SetCentDialog(QDialog):
     def __init__(self,
@@ -76,12 +87,6 @@ class SetCentDialog(QDialog):
         self.vmax = vmax
 
         self.function = None
-        self.mouse_pressed = False
-        self.dragging = False
-        self.press_x = None
-        self.press_y = None
-        self.last_drag_x = None
-        self.last_drag_y = None
 
         x, y = self.center
 
@@ -132,22 +137,6 @@ class SetCentDialog(QDialog):
         self.setCenterLayout.addWidget(QLabel("Y (Current coords): "), centerLayoutRowIndex, 0, 1, 2)
         self.setCenterLayout.addWidget(self.yInput, centerLayoutRowIndex, 2, 1, 2)
         self.setCenterLayout.addWidget(QLabel("px"), centerLayoutRowIndex, 4, 1, 1)
-        # self.setCenterLayout.addLayout(self.xInputLayout)
-        # self.setCenterLayout.addLayout(self.yInputLayout)
-
-        # self.setCenterLayout.addWidget(self.updateBtn)
-
-        # # Output boxes to show actual center values
-        # self.xOutput = QLineEdit(f"{x:.2f}")
-        # self.yOutput = QLineEdit(f"{y:.2f}")
-        # self.xOutput.setReadOnly(True)
-        # self.yOutput.setReadOnly(True)
-
-        # self.outputLayout = QHBoxLayout()
-        # self.outputLayout.addWidget(QLabel("Actual X:"))
-        # self.outputLayout.addWidget(self.xOutput)
-        # self.outputLayout.addWidget(QLabel("Actual Y:"))
-        # self.outputLayout.addWidget(self.yOutput)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -173,12 +162,10 @@ class SetCentDialog(QDialog):
         self.spminInt = QDoubleSpinBox()
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spminInt.setKeyboardTracking(False)
-        # self.spminInt.setSingleStep(5)
 
         self.spmaxInt = QDoubleSpinBox()
         self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
         self.spmaxInt.setKeyboardTracking(False)
-        # self.spmaxInt.setSingleStep(5)
 
         min_val = self.img.min()
         max_val = self.img.max()
@@ -197,8 +184,7 @@ class SetCentDialog(QDialog):
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.logScaleIntChkBx.setChecked(self.isLogScale)
 
-        self.imgZoomInBtn = QPushButton("Zoom in")
-        self.imgZoomInBtn.setCheckable(True)
+        self.cropWidget = CropWidget(self.imageAxes)
         self.imgZoomOutBtn = QPushButton("Full")
         self.doubleZoom = DoubleZoomWidget(self.imageAxes, parent)
 
@@ -214,7 +200,7 @@ class SetCentDialog(QDialog):
         self.dispOptLayoutRowIndex += 1
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, self.dispOptLayoutRowIndex, 0, 1, 2)
         self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.imgZoomInBtn, self.dispOptLayoutRowIndex, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.cropWidget, self.dispOptLayoutRowIndex, 0, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomOutBtn, self.dispOptLayoutRowIndex, 2, 1, 2)
         self.dispOptLayoutRowIndex += 1
         self.dispOptLayout.addWidget(self.doubleZoom, self.dispOptLayoutRowIndex, 0, 1, 4)
@@ -236,30 +222,11 @@ class SetCentDialog(QDialog):
         self.scrollAreaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scrollAreaImg.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
-
         self.imageLayout.addLayout(self.optionsLayout)
-
-        # self.scroll_areaImg = QScrollArea()
-        # self.imageLayout.addWidget(self.scroll_areaImg)
-
-        # self.scroll_areaImg.setWidgetResizable(True)
-
-        # self.frameOfKeys = QFrame()
-        # self.frameOfKeys.setFixedWidth(500)
-        # self.frameOfKeys.setLayout(self.optionsLayout)
-        # self.scroll_areaImg.setWidget(self.frameOfKeys)
-        # self.scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-
-        # self.mainLayout.addLayout(self.outputLayout)
         self.mainLayout.addWidget(self.buttonBox)
-        # self.mainLayout.setAlignment(Qt.AlignCenter)
         self.mainLayout.setAlignment(self.buttonBox, Qt.AlignCenter)
 
-        # pixels
         self.imageCanvas.setMinimumSize(800, 600)
-        # self.imageCanvas.setSizePolicy(
-        #     QSizePolicy.Expanding, QSizePolicy.Expanding
-        # )
 
         self.setMinimumSize(700, 500)
         self.resize(1200, 1000 // 4 * 3)
@@ -269,13 +236,15 @@ class SetCentDialog(QDialog):
 
         self.createConnections()
 
+        self.imageMouseMoveHandler = ImageMouseMoveHandler(self.imageAxes, self.img)
+        self.zoomHandler = ZoomHandler(self.imageAxes)
+
     def createConnections(self):
-        self.imgZoomInBtn.clicked.connect(self.imageZoomIn)
         self.imgZoomOutBtn.clicked.connect(self.imageZoomOut)
-        self.imageFigure.canvas.mpl_connect('button_press_event', self.imagePressed)
-        self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
-        self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
-        self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
+        self.imageFigure.canvas.mpl_connect('button_press_event', self.handle_mouse_button_press_event)
+        self.imageFigure.canvas.mpl_connect('motion_notify_event', self.handle_mouse_move_event)
+        self.imageFigure.canvas.mpl_connect('button_release_event', self.handle_mouse_button_release_event)
+        self.imageFigure.canvas.mpl_connect('scroll_event', self.handle_mouse_wheel_scroll_event)
 
         self.spminInt.valueChanged.connect(
             lambda vmin: self.updateImageMinMax(vmin=vmin))
@@ -298,7 +267,7 @@ class SetCentDialog(QDialog):
         if key == Qt.Key_Escape:
             if self.function and self.function[0] == "im_zoomin":
                 self.function = None
-                self.imgZoomInBtn.setChecked(False)
+                self.cropWidget.set_disable()
                 ax = self.imageAxes
                 label = "zoom_region"
                 to_remove = [p for p in ax.patches if p.get_label() == label]
@@ -311,186 +280,110 @@ class SetCentDialog(QDialog):
 
         super().keyPressEvent(event)
 
-    def imagePressed(self, event):
+    def handle_mouse_button_press_event(self, event):
         if event.button != MouseButton.LEFT:
             return
 
-        x = event.xdata
-        y = event.ydata
+        if event.inaxes != self.imageAxes:
+            return
 
-        if event.inaxes == self.imageAxes:
-            self.mouse_pressed = True
-            self.dragging = False
-            self.press_x = x
-            self.press_y = y
-            self.last_drag_x = x
-            self.last_drag_y = y
+        self.imageMouseMoveHandler.handle_mouse_button_press_event(event)
 
-    def imageOnMotion(self, event):
+        if self.doubleZoom.is_enabled():
+            self.doubleZoom.handle_mouse_button_press_event(event)
+
+    def handle_mouse_move_event(self, event):
         x = event.xdata
         y = event.ydata
         ax = self.imageAxes
 
+        self.imageMouseMoveHandler.handle_mouse_move_event(event)
+
+        if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAGGING:
+            return
+
         if self.doubleZoom.is_enabled():
             self.doubleZoom.handle_mouse_move_event(event)
-            return
+
+            if self.doubleZoom.is_no_action_state(event):
+                return
 
         if event.inaxes != self.imageAxes:
             return
 
-        # If moved enough, switch to dragging mode
-        move_threshold = 2.0  # pixels in data coords
-        if self.mouse_pressed:
-            if not self.dragging:
-                dx = abs(x - self.press_x)
-                dy = abs(y - self.press_y)
-                if dx > move_threshold or dy > move_threshold:
-                    self.dragging = True
-
-            # Perform dragging
-            if self.dragging:
-                dx = x - self.last_drag_x
-                dy = y - self.last_drag_y
-
-                xlim = self.imageAxes.get_xlim()
-                ylim = self.imageAxes.get_ylim()
-
-                left = xlim[0] - dx
-                right = xlim[1] - dx
-                bottom = ylim[0] - dy
-                top = ylim[1] - dy
-
-                # left = min(max(left, 0), self.img.shape[1])
-                # right = min(max(right, 0), self.img.shape[1])
-                # bottom = min(max(bottom, 0), self.img.shape[0])
-                # top = min(max(top, 0), self.img.shape[0])
-
-                inImage = ((0 <= left < self.img.shape[1])
-                    and (0 <= right < self.img.shape[1])
-                    and (0 <= bottom < self.img.shape[0])
-                    and (0 <= top < self.img.shape[0]))
-
-                if inImage:
-                    self.imageAxes.set_xlim(left, right)
-                    self.imageAxes.set_ylim(bottom, top)
-
-                self.last_drag_x = x
-                self.last_drag_y = y
-
-        # Remove old lines
-        self.remove_image_lines(labels=["Red Dot"])
-        # Draw cursor location in image using red cross lines.
-        axis_size = 5
-
-        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r', label="Red Dot")
-        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r', label="Red Dot")
-
-        if self.function and len(self.function) == 2 and self.function[0] == "im_zoomin":
-            # draw rectangle
-
-            start_pt = self.function[1]
-            w = abs(start_pt[0] - x)
-            h = abs(start_pt[1] - y)
-            x = min(start_pt[0], x)
-            y = min(start_pt[1], y)
-            ax.add_patch(patches.Rectangle((x, y), w, h,
-                                        linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted',
-                                        label="zoom_region"))
+        self.cropWidget.handle_mouse_move_event(event)
 
         self.imageCanvas.draw_idle()
 
-    def imageReleased(self, event):
-        x = event.xdata
-        y = event.ydata
-
+    def handle_mouse_button_release_event(self, event):
         if event.button != MouseButton.LEFT:
             return
 
+        x = event.xdata
+        y = event.ydata
+
+        self.imageMouseMoveHandler.handle_mouse_button_release_event(event)
+
+        if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAG_COMPLETED:
+            return
+
         if self.doubleZoom.is_enabled():
-            self.doubleZoom.handle_mouse_press_event(event)
-            # If main image was clicked, do nothing and
-            #   wait for user to click double-zoom image.
-            if self.doubleZoom.state == DoubleZoomWidgetState.MainImageClicked:
+            self.doubleZoom.handle_mouse_button_release_event(event)
+
+            if self.doubleZoom.is_no_action_state(event):
                 return
-            # If double-zoom image was clicked, update mouse click coordinates.
-            elif self.doubleZoom.state == DoubleZoomWidgetState.DoubleZoomImageClicked:
-                x, y = self.doubleZoom.doubleZoomToOrigCoord()
 
-        # If moved enough, switch to dragging mode
-        move_threshold = 2.0  # pixels in data coords
-
-        if event.inaxes == self.imageAxes:
-            print("imageAxes clicked!")
-
-            if self.mouse_pressed:
-                if not self.dragging:
-                    dx = abs(x - self.press_x)
-                    dy = abs(y - self.press_y)
-                    if dx > move_threshold or dy > move_threshold:
-                        self.dragging = True
-
-                if not self.dragging:
-                    if self.function and self.function[0] == "im_zoomin":
-                        self.function.append((x, y))
-                        if len(self.function) == 3:
-                            p1 = self.function[1]
-                            p2 = self.function[2]
-                            img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-                            self.function = None
-                            self.imgZoomInBtn.setChecked(False)
-                            self.resizeImage(img_zoom)
-                            self.refreshCenter()
+            if event.inaxes == self.imageAxes:
+                if DoubleZoomWidgetState.MainImageClicked in self.doubleZoom.state:
+                    if self.cropWidget.is_enabled():
+                        self.cropWidget.click_with_double_zoom(event)
                     else:
                         self.center = (x, y)
-                        self.refreshCenter(updateText=True)
+                        self.refreshCenter()
+                return
 
-        elif self.doubleZoom.is_enabled() and self.doubleZoom.state == DoubleZoomWidgetState.DoubleZoomImageClicked:
-            if self.function and self.function[0] == "im_zoomin":
-                self.function.append((x, y))
-                if len(self.function) == 3:
-                    p1 = self.function[1]
-                    p2 = self.function[2]
-                    img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-                    self.function = None
-                    self.imgZoomInBtn.setChecked(False)
+            # If double-zoom image was clicked, update mouse click coordinates.
+            elif DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state:
+                x, y = self.doubleZoom.doubleZoomToOrigCoord()
+
+        if event.inaxes == self.imageAxes or (self.doubleZoom.is_enabled()
+            and DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state):
+            if self.cropWidget.is_enabled():
+                self.cropWidget.handle_click_event(event, x, y)
+
+                # if len(self.function) == 3:
+                #     p1 = self.function[1]
+                #     p2 = self.function[2]
+                #     img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
+                #     self.function = None
+                #     self.cropWidget.set_disable()
+                #     self.resizeImage(img_zoom)
+                #     self.refreshCenter()
             else:
                 self.center = (x, y)
                 self.refreshCenter(updateText=True)
 
-        # Reset state
-        self.mouse_pressed = False
-        self.dragging = False
-        self.press_x = None
-        self.press_y = None
-        self.last_drag_x = None
-        self.last_drag_y = None
+        # elif (self.doubleZoom.is_enabled()
+        #     and DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state):
+        #     if self.cropWidget.is_enabled():
 
-    def imgScrolled(self, event):
+        #     if self.function and self.function[0] == "im_zoomin":
+        #         self.function.append((x, y))
+        #         if len(self.function) == 3:
+        #             p1 = self.function[1]
+        #             p2 = self.function[2]
+        #             img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
+        #             self.function = None
+        #             self.cropWidget.set_disable()
+        #     else:
+        #         self.center = (x, y)
+        #         self.refreshCenter(updateText=True)
+
+    def handle_mouse_wheel_scroll_event(self, event):
         if event.inaxes != self.imageAxes:
             return
-        base_scale = 1.2  # zoom factor
-        if event.button == 'up':   # scroll up to zoom in
-            scale_factor = 1 / base_scale
-        elif event.button == 'down':  # scroll down to zoom out
-            scale_factor = base_scale
-        else:
-            return
 
-        xdata, ydata = event.xdata, event.ydata
-        xlim = self.imageAxes.get_xlim()
-        ylim = self.imageAxes.get_ylim()
-
-        new_width = (xlim[1] - xlim[0]) * scale_factor
-        new_height = (ylim[1] - ylim[0]) * scale_factor
-
-        relx = (xdata - xlim[0]) / (xlim[1] - xlim[0])
-        rely = (ydata - ylim[0]) / (ylim[1] - ylim[0])
-
-        self.imageAxes.set_xlim([xdata - new_width * relx,
-                                 xdata + new_width * (1 - relx)])
-        self.imageAxes.set_ylim([ydata - new_height * rely,
-                                 ydata + new_height * (1 - rely)])
-        self.imageCanvas.draw_idle()
+        self.zoomHandler.handle_mouse_wheel_scroll_event(event)
 
     def updateImageMinMax(self, vmin=None, vmax=None):
         if vmin is not None:
@@ -573,7 +466,7 @@ class SetCentDialog(QDialog):
             ax.patches[i].remove()
 
     def imageZoomIn(self):
-        if self.imgZoomInBtn.isChecked():
+        if self.cropWidget.isChecked():
             ax = self.imageAxes
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines[i].remove()
@@ -585,7 +478,7 @@ class SetCentDialog(QDialog):
             self.function = None
 
     def imageZoomOut(self):
-        self.imgZoomInBtn.setChecked(False)
+        self.cropWidget.set_disable()
         img_zoom = [(0, self.img.shape[1]), (0, self.img.shape[0])]
         self.resizeImage(img_zoom)
         self.refreshCenter()

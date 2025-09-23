@@ -1,0 +1,158 @@
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
+import sys
+from enum import Flag, auto
+import cv2
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QApplication,
+                               QWidget,
+                               QPushButton,
+                               QVBoxLayout)
+import matplotlib.patches as patches
+
+
+class CropWidgetState(Flag):
+    DISABLED = auto()
+    READY = auto()
+    CROPPED = auto()
+
+class CropWidget(QWidget):
+    def __init__(self, imageAxes):
+        super().__init__()
+
+        self.imageAxes = imageAxes
+        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
+        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
+
+        self.cropBtn = QPushButton("Crop")
+        self.cropBtn.setCheckable(True)
+
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(self.cropBtn)
+
+        self.cropBtn.clicked.connect(self.cropBtnClick)
+
+        self.cropPoints = []
+
+        self.state = CropWidgetState.DISABLED
+
+    def is_enabled(self):
+        return self.state != CropWidgetState.DISABLED
+
+    def set_disable(self):
+        self.cropBtn.setChecked(False)
+        self.cropPoints.clear()
+        self.state = CropWidgetState.DISABLED
+
+    def handle_mouse_move_event(self, event):
+        if not self.is_enabled():
+            return
+
+        if event.inaxes != self.imageAxes:
+            return
+
+        x = event.xdata
+        y = event.ydata
+
+        ax = self.imageAxes
+
+        # Remove old lines
+        self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
+        # Draw cursor location in image using red cross lines.
+        axis_size = 5
+
+        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r', label="Crop Red Dot")
+        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r', label="Crop Red Dot")
+
+        if len(self.cropPoints) == 1:
+            # Draw rectangle
+
+            start_pt = self.cropPoints[0]
+            w = abs(start_pt[0] - x)
+            h = abs(start_pt[1] - y)
+            x = min(start_pt[0], x)
+            y = min(start_pt[1], y)
+            ax.add_patch(patches.Rectangle((x, y), w, h,
+                                        linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted',
+                                        label="zoom_region"))
+
+    def click_with_double_zoom(self, event):
+        # Do nothing and wait for user
+        #   to click double-zoom image.
+        pass
+
+    def handle_click_event(self, event, x, y):
+        if not self.is_enabled():
+            return
+
+        self.cropPoints.append((x, y))
+
+        if len(self.cropPoints) == 2:
+            x1, y1 = self.cropPoints[0]
+            x2, y2 = self.cropPoints[1]
+            img_zoom = [(min(x1, x2), max(x1, x2)),
+            (min(y1, y2), max(y1, y2))]
+            self.resizeImage(img_zoom)
+            self.cropBtn.setChecked(False)
+            self.cropPoints.clear()
+            self.state = CropWidgetState.CROPPED
+
+    def resizeImage(self, img_zoom):
+            self.imageAxes.set_xlim(img_zoom[0])
+            self.imageAxes.set_ylim(img_zoom[1])
+
+            # self.imageFigure.tight_layout()
+            self.imageCanvas.draw_idle()
+
+    def cropBtnClick(self, btnChecked):
+        if btnChecked:
+            self.state = CropWidgetState.READY
+        else:
+            self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
+            self.imageCanvas.draw_idle()
+            self.cropPoints.clear()
+            self.state = CropWidgetState.DISABLED
+
+    def remove_image_lines(self, labels=None):
+        ax = self.imageAxes
+
+        if labels:
+            for i in range(len(ax.lines)-1, -1, -1):
+                if ax.lines[i].get_label() in labels:
+                    ax.lines[i].remove()
+
+            for p in ax.patches:
+                if p.get_label() in labels:
+                    p.remove()
+        else:
+            for i in range(len(ax.lines)-1, -1, -1):
+                ax.lines[i].remove()
+
+            for p in ax.patches:
+                p.remove()
