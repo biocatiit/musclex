@@ -28,45 +28,47 @@ authorization from Illinois Institute of Technology.
 
 import sys
 from enum import Flag, auto
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QApplication,
+                               QWidget,
+                               QPushButton,
+                               QVBoxLayout)
 
-class ZoomState(Flag):
+
+class UIWidgetState(Flag):
     DISABLED = auto()
     READY = auto()
     RUNNING = auto()
     PAUSED = auto()
 
-class ZoomHandler:
-    def __init__(self, imageAxes):
+class UIWidget(QWidget):
+    def __init__(self, imageAxes=None):
+        super().__init__()
         self.imageAxes = imageAxes
-        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
-        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
 
-        self.state = ZoomState.READY
+    stateChanged = Signal(bool)
 
-    def handle_mouse_wheel_scroll_event(self, event):
-        if event.inaxes != self.imageAxes:
-            return
-        base_scale = 1.2  # zoom factor
-        if event.button == 'up':   # scroll up to zoom in
-            scale_factor = 1 / base_scale
-        elif event.button == 'down':  # scroll down to zoom out
-            scale_factor = base_scale
+    def set_ready(self):
+        self.stateChanged.emit(False)
+
+    def set_running(self):
+        self.stateChanged.emit(True)
+
+    def remove_image_lines(self, ax=None, labels=None):
+        if ax is None:
+            ax = self.imageAxes
+
+        if labels:
+            for i in range(len(ax.lines)-1, -1, -1):
+                if ax.lines[i].get_label() in labels:
+                    ax.lines[i].remove()
+
+            for p in ax.patches:
+                if p.get_label() in labels:
+                    p.remove()
         else:
-            return
+            for i in range(len(ax.lines)-1, -1, -1):
+                ax.lines[i].remove()
 
-        x = event.xdata
-        y = event.ydata
-        xlim = self.imageAxes.get_xlim()
-        ylim = self.imageAxes.get_ylim()
-
-        new_width = (xlim[1] - xlim[0]) * scale_factor
-        new_height = (ylim[1] - ylim[0]) * scale_factor
-
-        relx = (x - xlim[0]) / (xlim[1] - xlim[0])
-        rely = (y - ylim[0]) / (ylim[1] - ylim[0])
-
-        self.imageAxes.set_xlim([x - new_width * relx,
-                                 x + new_width * (1 - relx)])
-        self.imageAxes.set_ylim([y - new_height * rely,
-                                 y + new_height * (1 - rely)])
-        self.imageCanvas.draw_idle()
+            for p in ax.patches:
+                p.remove()

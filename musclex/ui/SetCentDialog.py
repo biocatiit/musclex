@@ -264,14 +264,7 @@ class SetCentDialog(QDialog):
 
         if key == Qt.Key_Escape:
             if self.cropWidget.is_enabled():
-                self.cropWidget.set_disable()
-                ax = self.imageAxes
-                label = "zoom_region"
-                to_remove = [p for p in ax.patches if p.get_label() == label]
-                for p in to_remove:
-                    p.remove()
-
-                self.refreshCenter()
+                self.cropWidget.set_disabled()
             # Prevent closing dialog with keyboard.
             return
 
@@ -436,9 +429,10 @@ class SetCentDialog(QDialog):
             for p in ax.patches:
                 p.remove()
 
-
     def imageZoomOut(self):
-        self.cropWidget.set_disable()
+        if self.cropWidget.is_enabled():
+            self.cropWidget.set_disabled()
+
         img_zoom = [(0, self.img.shape[1]), (0, self.img.shape[0])]
         self.resizeImage(img_zoom)
         self.refreshCenter()

@@ -36,21 +36,23 @@ from PySide6.QtWidgets import (QApplication,
                                QVBoxLayout)
 import matplotlib.patches as patches
 
+from .ui_wideget import UIWidget
+
 
 class CropWidgetState(Flag):
     DISABLED = auto()
     READY = auto()
+    RUNNING = auto()
+    PAUSED = auto()
 
-class CropWidget(QWidget):
+class CropWidget(UIWidget):
     def __init__(self, imageAxes):
-        super().__init__()
+        super().__init__(imageAxes)
 
-        self.imageAxes = imageAxes
         self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
         self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
 
         self.cropBtn = QPushButton("Zoom In")
-        self.cropBtn.setCheckable(True)
 
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.cropBtn)
@@ -59,15 +61,24 @@ class CropWidget(QWidget):
 
         self.cropPoints = []
 
-        self.state = CropWidgetState.DISABLED
+        self.set_ready()
 
-    def is_enabled(self):
-        return self.state != CropWidgetState.DISABLED
+    def is_running(self):
+        return CropWidgetState.RUNNING in self.state
 
-    def set_disable(self):
+    def set_running(self):
+        self.state = CropWidgetState.RUNNING
+        super().set_running()
+
+    def set_ready(self):
         self.cropBtn.setChecked(False)
+
+        self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
+        self.imageCanvas.draw_idle()
+
         self.cropPoints.clear()
-        self.state = CropWidgetState.DISABLED
+        self.state = CropWidgetState.READY
+        super().set_ready()
 
     def handle_mouse_move_event(self, event):
         if not self.is_enabled():
@@ -117,12 +128,8 @@ class CropWidget(QWidget):
             x2, y2 = self.cropPoints[1]
             img_zoom = [(min(x1, x2), max(x1, x2)),
             (min(y1, y2), max(y1, y2))]
-            self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
             self.resizeImage(img_zoom)
-            self.imageCanvas.draw_idle()
-            self.cropBtn.setChecked(False)
-            self.cropPoints.clear()
-            self.state = CropWidgetState.DISABLED
+            self.set_ready()
 
     def resizeImage(self, img_zoom):
             self.imageAxes.set_xlim(img_zoom[0])
@@ -133,27 +140,6 @@ class CropWidget(QWidget):
 
     def cropBtnClick(self, btnChecked):
         if btnChecked:
-            self.state = CropWidgetState.READY
+            self.set_enabled()
         else:
-            self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
-            self.imageCanvas.draw_idle()
-            self.cropPoints.clear()
-            self.state = CropWidgetState.DISABLED
-
-    def remove_image_lines(self, labels=None):
-        ax = self.imageAxes
-
-        if labels:
-            for i in range(len(ax.lines)-1, -1, -1):
-                if ax.lines[i].get_label() in labels:
-                    ax.lines[i].remove()
-
-            for p in ax.patches:
-                if p.get_label() in labels:
-                    p.remove()
-        else:
-            for i in range(len(ax.lines)-1, -1, -1):
-                ax.lines[i].remove()
-
-            for p in ax.patches:
-                p.remove()
+            self.set_ready()
