@@ -36,13 +36,11 @@ from PySide6.QtWidgets import (QApplication,
                                QMessageBox,
                                QVBoxLayout)
 
-from .ui_wideget import UIWidget
+from .ui_widget import UIWidget
+
 
 class DoubleZoomWidgetState(Flag):
-    DISABLED = auto()
-    READY = auto()
-    RUNNING = auto()
-    PAUSED = auto()
+    INIT = auto()
 
     MainImageClicked = auto()
     DoubleZoomImageClicked = auto()
@@ -56,13 +54,13 @@ class DoubleZoomWidgetState(Flag):
 
 class DoubleZoomWidget(UIWidget):
     def __init__(self,
-        imageAxes,
-        parent,
+        imageAxes=None,
+        parent=None,
         dontShowMessage=False):
         super().__init__(imageAxes)
 
-        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
-        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
+        self.state = DoubleZoomWidgetState.INIT
+
         self.parent = parent
 
         self.doubleZoomAxes = None
@@ -77,22 +75,19 @@ class DoubleZoomWidget(UIWidget):
         # Mouse click point in double zoom image
         self.doubleZoomPoint = (0, 0)
         self.dontShowAgainDoubleZoomMessageResult = dontShowMessage
-        self.state = None
-        self.state_history = []
-        self.set_state(DoubleZoomWidgetState.READY)
+
+        self.set_ready()
 
     def set_state(self, state):
         self.state = state
-        self.state_history.append(state)
-        self.state_history = self.state_history[-5:]
 
-    def is_running(self):
-        # disable_states = [DoubleZoomWidgetState.DISABLED,
-        #                   DoubleZoomWidgetState.PAUSED]
-        # is_disabled = any(disable_state in self.state
-        #     for disable_state in disable_states)
-        # return not is_disabled
-        return DoubleZoomWidgetState.RUNNING in self.state
+    # def is_running(self):
+    #     # disable_states = [DoubleZoomWidgetState.DISABLED,
+    #     #                   DoubleZoomWidgetState.PAUSED]
+    #     # is_disabled = any(disable_state in self.state
+    #     #     for disable_state in disable_states)
+    #     # return not is_disabled
+    #     return DoubleZoomWidgetState.RUNNING in self.state
 
     def set_running(self):
         self.doubleZoomCheckbox.setChecked(True)
@@ -116,10 +111,9 @@ class DoubleZoomWidget(UIWidget):
 
             self.imageCanvas.draw_idle()
 
-        self.set_state(DoubleZoomWidgetState.RUNNING)        self.enabledChanged.emit(enabled)
-        super().set_ready()
+        super().set_running()
 
-    def set_ready(self, new_state=None):
+    def set_ready(self):
         self.doubleZoomCheckbox.setChecked(False)
 
         self.remove_image_lines(labels=["DoubleZoom Blue Dot"])
@@ -129,13 +123,8 @@ class DoubleZoomWidget(UIWidget):
             self.doubleZoomAxes = None
         self.imageCanvas.draw_idle()
 
-        if new_state is None:
-            new_state = DoubleZoomWidgetState.READY
-        self.set_state(new_state)
         super().set_ready()
 
-    def set_paused(self):
-        self.set_ready(new_state=DoubleZoomWidgetState.PAUSED)
 
     def handleDoubleZoomCheckedEvent(self, doubleZoomCheckboxState):
         if self.parent is None or self.parent.quadFold is None or self.parent.quadFold.orig_img is None:

@@ -28,7 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import sys
 from enum import Flag, auto
-from PySide6.QtCore import Qt
+from PySide6.QtCore import (Qt, Signal, Slot)
 from PySide6.QtWidgets import (QApplication,
                                QWidget,
                                QPushButton,
@@ -36,23 +36,41 @@ from PySide6.QtWidgets import (QApplication,
 
 
 class UIWidgetState(Flag):
-    DISABLED = auto()
+    INIT = auto()
     READY = auto()
     RUNNING = auto()
     PAUSED = auto()
+    DISABLED = auto()
 
 class UIWidget(QWidget):
     def __init__(self, imageAxes=None):
         super().__init__()
+        self.running_state = UIWidgetState.INIT
+
         self.imageAxes = imageAxes
+        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
+        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
 
     stateChanged = Signal(bool)
 
+    def is_running(self):
+        return UIWidgetState.RUNNING in self.running_state
+
     def set_ready(self):
-        self.stateChanged.emit(False)
+        self.running_state = UIWidgetState.READY
+        # self.stateChanged.emit(False)
 
     def set_running(self):
-        self.stateChanged.emit(True)
+        self.running_state = UIWidgetState.RUNNING
+        # self.stateChanged.emit(True)
+
+    def set_paused(self):
+        self.set_ready()
+        self.running_state = UIWidgetState.PAUSED
+
+    def set_disabled(self):
+        self.set_ready()
+        self.running_state = UIWidgetState.DISABLED
 
     def remove_image_lines(self, ax=None, labels=None):
         if ax is None:

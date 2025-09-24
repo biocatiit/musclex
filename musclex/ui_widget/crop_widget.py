@@ -36,21 +36,16 @@ from PySide6.QtWidgets import (QApplication,
                                QVBoxLayout)
 import matplotlib.patches as patches
 
-from .ui_wideget import UIWidget
+from .ui_widget import UIWidget
 
 
 class CropWidgetState(Flag):
-    DISABLED = auto()
-    READY = auto()
-    RUNNING = auto()
-    PAUSED = auto()
+    INIT = auto()
 
 class CropWidget(UIWidget):
     def __init__(self, imageAxes):
         super().__init__(imageAxes)
-
-        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
-        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
+        self.state = CropWidgetState.INIT
 
         self.cropBtn = QPushButton("Zoom In")
 
@@ -63,13 +58,6 @@ class CropWidget(UIWidget):
 
         self.set_ready()
 
-    def is_running(self):
-        return CropWidgetState.RUNNING in self.state
-
-    def set_running(self):
-        self.state = CropWidgetState.RUNNING
-        super().set_running()
-
     def set_ready(self):
         self.cropBtn.setChecked(False)
 
@@ -77,7 +65,6 @@ class CropWidget(UIWidget):
         self.imageCanvas.draw_idle()
 
         self.cropPoints.clear()
-        self.state = CropWidgetState.READY
         super().set_ready()
 
     def handle_mouse_move_event(self, event):

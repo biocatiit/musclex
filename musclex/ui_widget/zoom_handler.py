@@ -30,17 +30,18 @@ import sys
 from enum import Flag, auto
 
 class ZoomState(Flag):
-    DISABLED = auto()
+    INIT = auto()
     READY = auto()
     RUNNING = auto()
     PAUSED = auto()
+    DISABLED = auto()
 
 class ZoomHandler:
     def __init__(self, imageAxes):
+        self.state = ZoomState.INIT
         self.imageAxes = imageAxes
         self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
         self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
-
         self.state = ZoomState.READY
 
     def handle_mouse_wheel_scroll_event(self, event):

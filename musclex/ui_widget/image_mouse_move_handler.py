@@ -32,10 +32,11 @@ from matplotlib.backend_bases import MouseButton
 
 
 class ImageMouseMoveState(Flag):
-    DISABLED = auto()
+    INIT = auto()
     READY = auto()
     RUNNING = auto()
     PAUSED = auto()
+    DISABLED = auto()
 
     MOUSE_PRESSED = auto()
     MOUSE_DRAGGING = auto()
@@ -45,6 +46,7 @@ class ImageMouseMoveState(Flag):
 
 class ImageMouseMoveHandler:
     def __init__(self, imageAxes, img):
+        self.state = ImageMouseMoveState.INIT
         self.imageAxes = imageAxes
         self.img = img
 
