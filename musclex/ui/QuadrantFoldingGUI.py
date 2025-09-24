@@ -541,8 +541,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.blankImageGrp.setCheckable(True)
         self.blankImageGrp.setChecked(False)
         self.blankImageLayout = QGridLayout(self.blankImageGrp)
-        self.blankSettingButton = QPushButton("Set Blank Image and Mask")
-        self.blankImageLayout.addWidget(self.blankSettingButton, 1, 0, 1, 4)
+        self.blankSettingButton = QPushButton("Set Blank Image")
+        self.blankImageLayout.addWidget(self.blankSettingButton, 1, 0, 1, 2)
+        self.maskSettingButton = QPushButton("Set Mask")
+        self.blankImageLayout.addWidget(self.maskSettingButton, 1, 2, 1, 2)
 
         self.rightImageLayout.addWidget(self.blankImageGrp)
         self.rightImageLayout.addWidget(self.settingsGroup)
@@ -1295,8 +1297,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
-        # Blank image and mask
+        # Blank image
         self.blankSettingButton.clicked.connect(self.blankSettingClicked)
+        # Mask
+        self.maskSettingButton.clicked.connect(self.maskSettingClicked)
 
         # Background Subtraction
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -1551,8 +1555,11 @@ class QuadrantFoldingGUI(QMainWindow):
         try:
             os.makedirs(join(self.filePath, 'settings'))
             fabio.tifimage.tifimage(data=self.quadFold.orig_img).write(join(self.filePath,'settings/tempMaskFile.tif'))
-        except:
+        except Exception as e:
             print("ERROR WITH SAVING THE IMAGE")
+            print("Exception occurred:", e)
+            tb_str = traceback.format_exc()
+            print(f"Full traceback: {tb_str}\n")
 
         rot_ang = None if 'rotationAngle' not in self.quadFold.info else self.quadFold.info['rotationAngle']
 
@@ -1569,8 +1576,11 @@ class QuadrantFoldingGUI(QMainWindow):
 
         try:
             fabio.tifimage.tifimage(data=self.img).write(join(self.filePath, 'settings/tempMaskFile.tif'))
-        except:
+        except Exception as e:
             print("ERROR WITH SAVING THE IMAGE")
+            print("Exception occurred:", e)
+            tb_str = traceback.format_exc()
+            print(f"Full traceback: {tb_str}\n")
 
         self.imageMaskingTool = ImageMaskerWindow(self.filePath,
                                                   join(self.filePath, "settings/tempMaskFile.tif"),
@@ -1598,6 +1608,28 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
             self.masked = False
             self.processImage()
+
+    def maskSettingClicked(self):
+        if (self.quadFold is None )or (self.quadFold.start_img is None):
+            return
+
+        image = self.quadFold.start_img.copy()
+
+        settings_dir_path = join(self.filePath, 'settings')
+        temp_image_file_path = join(settings_dir_path,'tempMaskFile.tif')
+
+        try:
+            os.makedirs(join(self.filePath, 'settings'))
+            fabio.tifimage.tifimage(data=image).write(temp_image_file_path)
+        except Exception as e:
+            print("Exception occurred:", e)
+            tb_str = traceback.format_exc()
+            print(f"Full traceback: {tb_str}\n")
+            return
+
+
+
+
 
     def getOrigCoordsCenter(self, x, y):
         """
