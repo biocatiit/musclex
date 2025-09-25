@@ -3600,8 +3600,15 @@ class EquatorWindow(QMainWindow):
     def thread_done(self, bioImg):
         self.tasksDone += 1
         self.progressBar.setValue(100. / len(self.imgList) * self.tasksDone)
-        #self.refreshStatusbar()
-        self.bioImg = bioImg
+        # Keep finished image separate; only adopt if it matches current expected file
+        try:
+            expected = self.imgList[self.currentImg] if self.imgList else None
+        except Exception:
+            expected = None
+        # Always keep a reference to the finished image for writing in onProcessingFinished
+        self._finishedBioImg = bioImg
+        if expected is not None and getattr(bioImg, 'filename', None) == expected:
+            self.bioImg = bioImg
         print("thread done")
                     
     def startNextTask(self):
@@ -3620,17 +3627,22 @@ class EquatorWindow(QMainWindow):
             self.progressBar.setVisible(False)
         
     def onProcessingFinished(self):
+        # Prefer the just-finished image for updates/writes, but do not permanently flip self.bioImg
+        finishedImg = getattr(self, '_finishedBioImg', self.bioImg)
+        prevBio = self.bioImg
+        self.bioImg = finishedImg
         self.updateParams()
-        self.csvManager.writeNewData(self.bioImg)
-        self.csvManager.writeNewData2(self.bioImg)
+        self.csvManager.writeNewData(finishedImg)
+        self.csvManager.writeNewData2(finishedImg)
         self.resetUI()
         self.refreshStatusbar()
         self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
         self.tabWidget.tabBar().setEnabled(True)
         self.tabWidget.tabBar().setToolTip("")
-        
         self.currentTask = None
+        # Restore previous reference so batch refitting continues to target the UI's current file
+        self.bioImg = prevBio
         if self.first:
             self.init_logging()
             self.first = False
