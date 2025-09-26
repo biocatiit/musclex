@@ -3600,15 +3600,8 @@ class EquatorWindow(QMainWindow):
     def thread_done(self, bioImg):
         self.tasksDone += 1
         self.progressBar.setValue(100. / len(self.imgList) * self.tasksDone)
-        # Keep finished image separate; only adopt if it matches current expected file
-        try:
-            expected = self.imgList[self.currentImg] if self.imgList else None
-        except Exception:
-            expected = None
-        # Always keep a reference to the finished image for writing in onProcessingFinished
+        # Store finished image for onProcessingFinished; do not switch context here
         self._finishedBioImg = bioImg
-        if expected is not None and getattr(bioImg, 'filename', None) == expected:
-            self.bioImg = bioImg
         print("thread done")
                     
     def startNextTask(self):
