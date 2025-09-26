@@ -56,6 +56,8 @@ from PySide6.QtCore import Qt
 
 import fabio
 
+from .pyqt_utils import getAFile
+
 
 class ImageMaskDialog(QDialog):
     def __init__(self,
@@ -96,7 +98,7 @@ class ImageMaskDialog(QDialog):
         # Set fixed (width, height)
         self.imageLabel.setMinimumSize(800, 600)
         # Optional: Set a border to visualize the area if you like
-        self.imageLabel.setStyleSheet("border: 1px solid black;")
+        # self.imageLabel.setStyleSheet("border: 1px solid black;")
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
         self.displayGroup = QGroupBox("Display Options")
@@ -117,15 +119,23 @@ class ImageMaskDialog(QDialog):
         self.applyBlankCheckBox = QCheckBox("Apply Empty Cell Image")
         self.applyBlankText = QLabel()
 
-        if self.blank_image_info is None:
-            self.applyBlankCheckBox.setEnabled(False)
-            self.applyBlankText.setText("Empty Cell Image not exist!")
-            self.applyBlankText.setStyleSheet("color: red;")
+        self.selectBlankBtn = QPushButton("Select Empty Cell Image")
+        self.blankWeightText = QDoubleSpinBox()
+        self.blankWeightText.setKeyboardTracking(False)
+        self.blankWeightText.setRange(0, 1000)
+        self.blankWeightText.setValue(1.00)
+        self.blankWeightText.setSingleStep(0.01)
+
+        self.updateBlankWidgets()
 
         self.applyBlankLayout = QGridLayout(self.applyBlankGroup)
         settingsRowIndex = 0
         self.applyBlankLayout.addWidget(self.applyBlankCheckBox, settingsRowIndex, 0, 1, 2)
         self.applyBlankLayout.addWidget(self.applyBlankText, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
+        self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
+        settingsRowIndex += 1
+        self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
 
         self.applyMaskGroup = QGroupBox("Mask Options")
@@ -305,12 +315,15 @@ class ImageMaskDialog(QDialog):
             self.imageLabel.setPixmap(scaledPixmap)
 
         self.updateDrawnMaskWidgets()
+        self.refreshImage()
 
         self.setConnections()
 
     def setConnections(self):
         self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
         self.applyBlankCheckBox.checkStateChanged.connect(self.enableBlankSubtraction)
+        self.selectBlankBtn.clicked.connect(self.readBlankImage)
+        self.blankWeightText.valueChanged.connect(self.updateBlankWeight)
         self.drawMaskBtn.clicked.connect(self.drawMask)
         self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
         self.applyLowMaskCheckBox.checkStateChanged.connect(self.enableLowMaskThresh)
@@ -324,11 +337,11 @@ class ImageMaskDialog(QDialog):
         self.highMaskDilationChkbx.checkStateChanged.connect(self.enableHighMaskDilation)
 
     def enableShowImage(self, state):
-        if state == Qt.CheckState.Checked:
-            applyBlankCheckBox.setEnabled(True)
+        # if state == Qt.CheckState.Checked:
+        #     self.applyBlankCheckBox.setEnabled(True)
 
         if state == Qt.CheckState.Unchecked:
-            applyBlankCheckBox.setEnabled(False)
+            self.applyBlankCheckBox.setEnabled(False)
 
         self.refreshImage()
 
@@ -343,6 +356,25 @@ class ImageMaskDialog(QDialog):
 
         self.refreshImage()
 
+    def updateBlankWeight(self, blank_image_weight):
+        self.blank_image_info["weight"] = blank_image_weight
+
+        self.refreshImage()
+
+    def updateBlankWidgets(self):
+        if self.blank_image_info is not None:
+            self.applyBlankCheckBox.setChecked(True)
+            self.applyBlankCheckBox.setEnabled(True)
+            self.applyBlankText.setText("")
+            self.applyBlankText.setStyleSheet("")
+            self.blankWeightText.setEnabled(True)
+        else:
+            self.applyBlankCheckBox.setChecked(False)
+            self.applyBlankCheckBox.setEnabled(False)
+            self.applyBlankText.setText("Empty Cell Image not exist!")
+            self.applyBlankText.setStyleSheet("color: red;")
+            self.blankWeightText.setEnabled(False)
+
     def updateDrawnMaskWidgets(self):
         if self.drawnMaskData is not None:
             self.applyDrawnMaskCheckBox.setChecked(True)
@@ -355,7 +387,6 @@ class ImageMaskDialog(QDialog):
             self.applyDrawnMaskText.setText("Drawn Mask Image not exist!")
             self.applyDrawnMaskText.setStyleSheet("color: red;")
 
-        self.refreshImage()
 
     def applyDrawnMask(self, state):
         self.refreshImage()
@@ -429,6 +460,35 @@ class ImageMaskDialog(QDialog):
     def okClicked(self):
         pass
 
+    def readBlankImage(self):
+        blank_image_file_path = getAFile(path=str(self.image_file_path.parent))
+        blank_image_file_path = Path(blank_image_file_path)
+
+        if (not blank_image_file_path) or not blank_image_file_path.exists():
+            return
+
+        blank_image = self.read_image_data(blank_image_file_path)
+        blank_image_weight = 1.0
+
+        blank_settings = {
+            "file_path": str(blank_image_file_path),
+            "weight": blank_image_weight,
+        }
+
+        with open(self.blank_settings_file_path, "w") as file_stream:
+            json.dump(blank_settings, file_stream, indent=4)
+
+        blank_image_info = {
+            "blank_image": blank_image,
+            "weight": blank_image_weight
+        }
+
+        self.blank_image_info = blank_image_info
+
+        self.updateBlankWidgets()
+
+        self.refreshImage()
+
     def drawMask(self):
         if self.image_file_path.exists():
             # Assuming pyFAI-drawmask can be called directly from the command line
@@ -452,9 +512,13 @@ class ImageMaskDialog(QDialog):
         if np.array_equal(drawnMaskData, self.drawnMaskData):
             return
 
-        self.drawnMaskData = drawnMaskData
+        if (drawnMaskData is not None) and drawnMaskData.shape == self.imageData.shape:
+            self.drawnMaskData = 1 - drawnMaskData
+        else:
+            self.drawnMaskData = None
 
         self.updateDrawnMaskWidgets()
+        self.refreshImage()
 
     def _run_drawmask_command(self):
         """
@@ -547,7 +611,7 @@ class ImageMaskDialog(QDialog):
 
         blank_image_info = {
             "blank_image": blank_image,
-            "blank_image_weight": blank_image_weight
+            "weight": blank_image_weight
         }
 
         return blank_image_info
@@ -577,8 +641,18 @@ class ImageMaskDialog(QDialog):
         if imageData is None:
             drawnMaskData, lowMask, highMask = self.getMasks(
                 self.imageData.copy())
-            maskData = drawnMaskData * lowMask * highMask
-            scaledPixmap = createDisplayImage(maskData,
+
+            masks = [mask for mask in
+                [drawnMaskData, lowMask, highMask]
+                if mask is not None]
+
+            # If no mask, then show nothing.
+            if not masks:
+                self.imageLabel.clear()
+                return
+
+            maskData = np.prod(np.stack(masks), axis=0)
+            scaledPixmap = self.createDisplayImage(maskData,
                 -1, -1,
                 self.imageLabel.width(),
                 self.imageLabel.height())
