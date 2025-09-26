@@ -337,11 +337,21 @@ class ImageMaskDialog(QDialog):
         self.highMaskDilationChkbx.checkStateChanged.connect(self.enableHighMaskDilation)
 
     def enableShowImage(self, state):
-        # if state == Qt.CheckState.Checked:
-        #     self.applyBlankCheckBox.setEnabled(True)
+        if state == Qt.CheckState.Checked:
+            blank_image_info = self.read_blank_image_info(self.blank_settings_file_path)
+
+            if ((blank_image_info is not None)
+                and (blank_image_info.get("blank_image") is not None)
+                and blank_image_info["blank_image"].shape == self.imageData.shape):
+                self.blank_image_info = blank_image_info
+                self.applyBlankCheckBox.setEnabled(True)
+            else:
+                self.blank_image_info = None
+                self.applyBlankCheckBox.setEnabled(False)
 
         if state == Qt.CheckState.Unchecked:
             self.applyBlankCheckBox.setEnabled(False)
+            self.blankWeightText.setEnabled(False)
 
         self.refreshImage()
 
@@ -349,15 +359,25 @@ class ImageMaskDialog(QDialog):
         if state == Qt.CheckState.Checked:
             draw_mask_text = "Draw Mask on Empty Cell Subtracted Image"
             self.drawMaskBtn.setText(draw_mask_text)
+            self.blankWeightText.setEnabled(True)
 
         if state == Qt.CheckState.Unchecked:
             draw_mask_text = "Draw Mask on Original Image"
             self.drawMaskBtn.setText(draw_mask_text)
+            self.blankWeightText.setEnabled(False)
 
         self.refreshImage()
 
     def updateBlankWeight(self, blank_image_weight):
         self.blank_image_info["weight"] = blank_image_weight
+
+        blank_settings = {
+            "file_path": str(self.blank_image_info["file_path"]),
+            "weight": blank_image_weight,
+        }
+
+        with open(self.blank_settings_file_path, "w") as file_stream:
+            json.dump(blank_settings, file_stream, indent=4)
 
         self.refreshImage()
 
@@ -479,6 +499,7 @@ class ImageMaskDialog(QDialog):
             json.dump(blank_settings, file_stream, indent=4)
 
         blank_image_info = {
+            "file_path": str(blank_image_file_path),
             "blank_image": blank_image,
             "weight": blank_image_weight
         }
@@ -610,6 +631,7 @@ class ImageMaskDialog(QDialog):
         blank_image_weight = blank_settings.get("weight", 1.0)
 
         blank_image_info = {
+            "file_path": str(blank_image_file_path),
             "blank_image": blank_image,
             "weight": blank_image_weight
         }
