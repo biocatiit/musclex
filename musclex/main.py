@@ -67,6 +67,7 @@ def main(arguments=None):
             sys.exit(app.exec_())
         elif prog == 'qf':
             app = QApplication(sys.argv)
+            app.setStyle("Fusion")
             app.setStyleSheet(stylesheet.stylesheet)
             from musclex.ui.QuadrantFoldingGUI import QuadrantFoldingGUI
             myapp = QuadrantFoldingGUI()

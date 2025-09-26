@@ -26,7 +26,13 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 import sys
+import traceback
+import json
+import os
+from pathlib import Path
 import numpy as np
+import cv2
+import threading
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -48,22 +54,44 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QImage, QPixmap, QFont
 from PySide6.QtCore import Qt
 
+import fabio
+
 
 class ImageMaskDialog(QDialog):
     def __init__(self,
-                dir_path,
-                img,
+                image_file_path,
                 vmin,
                 vmax
         ):
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Set Image Mask")
-        self.dir_path = dir_path
-        self.imageData = img
+        self.image_file_path = Path(image_file_path)
         self.vmin = vmin
         self.vmax = vmax
 
+        # The drawn mask file name should be <originalFileNoExt>-mask.edf
+        self.drawn_mask_file_path = self.image_file_path.parent / f"{self.image_file_path.stem}-mask.edf"
+        self.blank_settings_file_path = self.image_file_path.parent / f"blank_image_settings.json"
+
+        self.imageData = self.read_image_data(self.image_file_path)
+        drawnMaskData = self.read_image_data(self.drawn_mask_file_path)
+
+        if (drawnMaskData is not None) and drawnMaskData.shape == self.imageData.shape:
+            self.drawnMaskData = 1 - drawnMaskData
+        else:
+            self.drawnMaskData = None
+
+        blank_image_info = self.read_blank_image_info(self.blank_settings_file_path)
+
+        if ((blank_image_info is not None)
+            and (blank_image_info.get("blank_image") is not None)
+            and blank_image_info["blank_image"].shape == self.imageData.shape):
+            self.blank_image_info = blank_image_info
+        else:
+            self.blank_image_info = None
+
+        # Show image.
         self.imageLabel = QLabel()
         # Set fixed (width, height)
         self.imageLabel.setMinimumSize(800, 600)
@@ -71,61 +99,93 @@ class ImageMaskDialog(QDialog):
         self.imageLabel.setStyleSheet("border: 1px solid black;")
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
+        self.displayGroup = QGroupBox("Display Options")
 
         self.showImageCheckBox = QCheckBox("Show Image")
+
+        if self.imageData is not None:
+            self.showImageCheckBox.setCheckState(Qt.CheckState.Checked)
+        else:
+            self.showImageCheckBox.setEnabled(False)
+
         self.showImageCheckBox.setToolTip("Uncheck to show mask only")
 
-        self.displayGroup = QGroupBox("Display Options")
         self.displayLayout = QVBoxLayout(self.displayGroup)
         self.displayLayout.addWidget(self.showImageCheckBox)
 
-        self.noMaskCheckBox = QCheckBox("No Mask")
-        self.applyDrawnMaskCheckBox = QCheckBox("Apply Drawn Mask")
-        self.applyLowMaskCheckBox = QCheckBox("Apply Low Mask Threshold")
-        self.applyHighMaskCheckBox= QCheckBox("Apply High Mask Threshold")
+        self.applyBlankGroup = QGroupBox("Empty Cell Image Options")
+        self.applyBlankCheckBox = QCheckBox("Apply Empty Cell Image")
+        self.applyBlankText = QLabel()
+
+        if self.blank_image_info is None:
+            self.applyBlankCheckBox.setEnabled(False)
+            self.applyBlankText.setText("Empty Cell Image not exist!")
+            self.applyBlankText.setStyleSheet("color: red;")
+
+        self.applyBlankLayout = QGridLayout(self.applyBlankGroup)
+        settingsRowIndex = 0
+        self.applyBlankLayout.addWidget(self.applyBlankCheckBox, settingsRowIndex, 0, 1, 2)
+        self.applyBlankLayout.addWidget(self.applyBlankText, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
 
         self.applyMaskGroup = QGroupBox("Mask Options")
         self.applyMaskGroup.setToolTip(
             "The selected mask options will be saved to a file and"
             + " applied to the image when clicking the Save button.")
-        self.applyMaskLayout = QVBoxLayout(self.applyMaskGroup)
-        self.applyMaskLayout.addWidget(self.noMaskCheckBox)
-        self.applyMaskLayout.addWidget(self.applyDrawnMaskCheckBox)
-        self.applyMaskLayout.addWidget(self.applyLowMaskCheckBox)
-        self.applyMaskLayout.addWidget(self.applyHighMaskCheckBox)
 
-        self.drawMaskGroup = QGroupBox("Drawn Mask")
+        self.applyDrawnMaskCheckBox = QCheckBox("Apply Drawn Mask")
+        self.applyDrawnMaskText = QLabel()
+
+        self.applyLowMaskCheckBox = QCheckBox("Apply Low Mask Threshold")
+        self.applyHighMaskCheckBox= QCheckBox("Apply High Mask Threshold")
+
+        self.applyMaskLayout = QGridLayout(self.applyMaskGroup)
+        settingsRowIndex = 0
+        self.applyMaskLayout.addWidget(self.applyDrawnMaskCheckBox, settingsRowIndex, 0, 1, 2)
+        self.applyMaskLayout.addWidget(self.applyDrawnMaskText, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
+        self.applyMaskLayout.addWidget(self.applyLowMaskCheckBox, settingsRowIndex, 0, 1, 2)
+        settingsRowIndex += 1
+        self.applyMaskLayout.addWidget(self.applyHighMaskCheckBox, settingsRowIndex, 0, 1, 2)
+        settingsRowIndex += 1
+
+        self.drawMaskGroup = QGroupBox("Drawn Mask with pyFAI")
         self.drawMaskLayout = QVBoxLayout(self.drawMaskGroup)
-        self.drawMaskBtn = QPushButton("Draw Mask with pyFAI")
+
+        if self.applyBlankCheckBox.isChecked():
+            draw_mask_text = "Draw Mask on Empty Cell Subtracted Image"
+        else:
+            draw_mask_text = "Draw Mask on Original Image"
+
+        self.drawMaskBtn = QPushButton(draw_mask_text)
         self.drawMaskLayout.addWidget(self.drawMaskBtn)
 
         self.maskLowThresGroup = QGroupBox("Low Mask Threshold Settings")
         self.maskLowThresLayout = QGridLayout(self.maskLowThresGroup)
 
-        self.maskLowThresChkbx = QCheckBox("Low Mask Threshold")
-        self.maskLowThresChkbx.stateChanged.connect(self.enableLowMaskThres)
+        self.maskLowThreshChkbx = QCheckBox("Low Mask Threshold")
 
         self.maskLowThresh = QDoubleSpinBox()
         self.maskLowThresh.setMinimum(-50)
         self.maskLowThresh.setMaximum(10000)
         self.maskLowThresh.setValue(-1)
         self.maskLowThresh.setSingleStep(0.01)
+        self.maskLowThresh.setEnabled(False)
         self.maskLowThresh.valueChanged.connect(self.maskLowThresholdChanged)
 
         self.lowMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
-        self.lowMaskDilationChkbx.stateChanged.connect(self.enableLowMaskDilation)
+        self.lowMaskDilationChkbx.setEnabled(False)
 
         self.lowDilComboBox = QComboBox()
         self.lowDilComboBox.addItem("3x3 Kernel")
         self.lowDilComboBox.addItem("5x5 Kernel")
         self.lowDilComboBox.addItem("7x7 Kernel")
-
         self.lowDilComboBox.setCurrentIndex(0)
+        self.lowDilComboBox.setEnabled(False)
         self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
 
         settingsRowIndex = 0
-        self.maskLowThresLayout.addWidget(self.maskLowThresChkbx, settingsRowIndex, 0, 1, 2)
-        self.maskLowThresLayout.addWidget(self.maskLowThresChkbx, settingsRowIndex, 0, 1, 2)
+        self.maskLowThresLayout.addWidget(self.maskLowThreshChkbx, settingsRowIndex, 0, 1, 2)
         self.maskLowThresLayout.addWidget(self.maskLowThresh, settingsRowIndex, 3, 1, 2)
         settingsRowIndex += 1
         self.maskLowThresLayout.addWidget(self.lowMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
@@ -136,19 +196,19 @@ class ImageMaskDialog(QDialog):
         self.maskHighThresLayout = QGridLayout(self.maskHighThresGroup)
 
         self.maskHighThreshChkbx = QCheckBox("High Mask Threshold")
-        self.maskHighThreshChkbx.stateChanged.connect(self.enableHighMaskThres)
 
         self.maskHighThresh = QDoubleSpinBox()
         self.maskHighThresh.setMinimum(0)
         self.maskHighThresh.setMaximum(self.imageData.max() + 1.0)
         self.maskHighThresh.setValue(self.imageData.max() + 1.0)
         self.maskHighThresh.setSingleStep(0.01)
+        self.maskHighThresh.setEnabled(False)
 
         self.maskHighThresh.valueChanged.connect(self.maskHighThresholdChanged)
 
         #Enable or disable dilation for upper bound mask
         self.highMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
-        self.highMaskDilationChkbx.stateChanged.connect(self.enableHighMaskDilation)
+        self.highMaskDilationChkbx.setEnabled(False)
 
         #Choose the kernel size for dilation (upper bound threshold)
         self.highDilComboBox = QComboBox()
@@ -156,6 +216,7 @@ class ImageMaskDialog(QDialog):
         self.highDilComboBox.addItem("5x5 Kernel")
         self.highDilComboBox.addItem("7x7 Kernel")
         self.highDilComboBox.setCurrentIndex(0)
+        self.highDilComboBox.setEnabled(False)
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
 
         settingsRowIndex = 0
@@ -179,6 +240,7 @@ class ImageMaskDialog(QDialog):
         font = QFont()
         font.setBold(True)
         self.negativeValuesLabel.setFont(font)
+        self.negativeValuesLabel.setVisible(False)
 
         self.clampNegativeValuesChkbx = QCheckBox("Clamp Negative Values to 0")
         self.clampNegativeValuesChkbx.setToolTip("Sets all negative values after subtraction to 0")
@@ -194,24 +256,6 @@ class ImageMaskDialog(QDialog):
         self.buttonLayout = QGridLayout()
 
         settingsRowIndex = 0
-        # self.buttonLayout.addWidget(self.selectBlankImg, 0, 0, 1, 2)
-        # self.buttonLayout.addWidget(self.showBlankImageChkbx, 0, 3, 1, 2)
-        # self.buttonLayout.addWidget(self.drawMaskBtn, settingsRowIndex, 0, 1, 4)
-        # settingsRowIndex += 1
-        # self.buttonLayout.addWidget(self.maskLowThresChkbx, settingsRowIndex, 0, 1, 2)
-        # self.buttonLayout.addWidget(self.maskLowThresh, settingsRowIndex, 3, 1, 2)
-        # settingsRowIndex += 1
-        # self.buttonLayout.addWidget(self.lowMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
-        # self.buttonLayout.addWidget(self.lowDilComboBox, settingsRowIndex, 3, 1, 1)
-        # settingsRowIndex += 1
-
-        # self.buttonLayout.addWidget(self.maskHighThreshChkbx, settingsRowIndex, 0, 1, 2)
-        # self.buttonLayout.addWidget(self.maskHighThresh, settingsRowIndex, 3, 1, 2)
-        # settingsRowIndex += 1
-        # self.buttonLayout.addWidget(self.highMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
-        # self.buttonLayout.addWidget(self.highDilComboBox, settingsRowIndex, 3, 1, 1)
-        # settingsRowIndex += 1
-
         self.buttonLayout.addWidget(self.greenLabel, settingsRowIndex, 0, 1, 2)
         self.buttonLayout.addWidget(self.blueLabel, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
@@ -232,6 +276,8 @@ class ImageMaskDialog(QDialog):
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
         self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addSpacing(10)
+        self.settingsLayout.addWidget(self.applyBlankGroup)
+        self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyMaskGroup)
         self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.drawMaskGroup)
@@ -250,46 +296,203 @@ class ImageMaskDialog(QDialog):
         self.mainLayout.addWidget(self.imageLabel)
         self.mainLayout.addWidget(self.scrollArea)
 
-        scaledPixmap = self.displayImage(self.imageData,
-            self.vmin,
-            self.vmax,
-            self.imageLabel.width(),
-            self.imageLabel.height())
-        self.imageLabel.setPixmap(scaledPixmap)
+        if self.imageData is not None:
+            scaledPixmap = self.createDisplayImage(self.imageData,
+                self.vmin,
+                self.vmax,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+            self.imageLabel.setPixmap(scaledPixmap)
 
-    def enableLowMaskThres(self):
-        pass
+        self.updateDrawnMaskWidgets()
+
+        self.setConnections()
+
+    def setConnections(self):
+        self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
+        self.applyBlankCheckBox.checkStateChanged.connect(self.enableBlankSubtraction)
+        self.drawMaskBtn.clicked.connect(self.drawMask)
+        self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
+        self.applyLowMaskCheckBox.checkStateChanged.connect(self.enableLowMaskThresh)
+        self.maskLowThreshChkbx.checkStateChanged.connect(self.enableLowMaskThresh)
+
+        self.applyHighMaskCheckBox.checkStateChanged.connect(self.enableHighMaskThresh)
+        self.maskHighThreshChkbx.checkStateChanged.connect(self.enableHighMaskThresh)
+
+        self.lowMaskDilationChkbx.checkStateChanged.connect(self.enableLowMaskDilation)
+
+        self.highMaskDilationChkbx.checkStateChanged.connect(self.enableHighMaskDilation)
+
+    def enableShowImage(self, state):
+        if state == Qt.CheckState.Checked:
+            applyBlankCheckBox.setEnabled(True)
+
+        if state == Qt.CheckState.Unchecked:
+            applyBlankCheckBox.setEnabled(False)
+
+        self.refreshImage()
+
+    def enableBlankSubtraction(self, state):
+        if state == Qt.CheckState.Checked:
+            draw_mask_text = "Draw Mask on Empty Cell Subtracted Image"
+            self.drawMaskBtn.setText(draw_mask_text)
+
+        if state == Qt.CheckState.Unchecked:
+            draw_mask_text = "Draw Mask on Original Image"
+            self.drawMaskBtn.setText(draw_mask_text)
+
+        self.refreshImage()
+
+    def updateDrawnMaskWidgets(self):
+        if self.drawnMaskData is not None:
+            self.applyDrawnMaskCheckBox.setChecked(True)
+            self.applyDrawnMaskCheckBox.setEnabled(True)
+            self.applyDrawnMaskText.setText("")
+            self.applyDrawnMaskText.setStyleSheet("")
+        else:
+            self.applyDrawnMaskCheckBox.setChecked(False)
+            self.applyDrawnMaskCheckBox.setEnabled(False)
+            self.applyDrawnMaskText.setText("Drawn Mask Image not exist!")
+            self.applyDrawnMaskText.setStyleSheet("color: red;")
+
+        self.refreshImage()
+
+    def applyDrawnMask(self, state):
+        self.refreshImage()
+
+    def enableLowMaskThresh(self, state):
+        self.applyLowMaskCheckBox.setCheckState(state)
+        self.maskLowThreshChkbx.setCheckState(state)
+
+        if state == Qt.CheckState.Checked:
+            self.maskLowThresh.setEnabled(True)
+            self.lowMaskDilationChkbx.setEnabled(True)
+
+            if self.lowMaskDilationChkbx.isChecked():
+                self.lowDilComboBox.setEnabled(True)
+
+        if state == Qt.CheckState.Unchecked:
+            self.maskLowThresh.setEnabled(False)
+            self.lowMaskDilationChkbx.setEnabled(False)
+            self.lowDilComboBox.setEnabled(False)
+
+        self.refreshImage()
 
     def maskLowThresholdChanged(self):
-        pass
+        self.refreshImage()
 
-    def enableLowMaskDilation(self):
-        pass
+    def enableLowMaskDilation(self, state):
+        if state == Qt.CheckState.Checked:
+            self.lowDilComboBox.setEnabled(True)
+
+        if state == Qt.CheckState.Unchecked:
+            self.lowDilComboBox.setEnabled(False)
+
+        self.refreshImage()
 
     def lowDilComboBoxChanged(self):
-        pass
+        self.refreshImage()
 
-    def enableHighMaskThres(self):
-        pass
+    def enableHighMaskThresh(self, state):
+        self.applyHighMaskCheckBox.setCheckState(state)
+        self.maskHighThreshChkbx.setCheckState(state)
+
+        if state == Qt.CheckState.Checked:
+            self.maskHighThresh.setEnabled(True)
+            self.highMaskDilationChkbx.setEnabled(True)
+
+            if self.highMaskDilationChkbx.isChecked():
+                self.highDilComboBox.setEnabled(True)
+
+        if state == Qt.CheckState.Unchecked:
+            self.maskHighThresh.setEnabled(False)
+            self.highMaskDilationChkbx.setEnabled(False)
+            self.highDilComboBox.setEnabled(False)
+
+        self.refreshImage()
 
     def maskHighThresholdChanged(self):
-        pass
+        self.refreshImage()
 
-    def enableHighMaskDilation(self):
-        pass
+    def enableHighMaskDilation(self, state):
+        if state == Qt.CheckState.Checked:
+            self.highDilComboBox.setEnabled(True)
+
+        if state == Qt.CheckState.Unchecked:
+            self.highDilComboBox.setEnabled(False)
+
+        self.refreshImage()
 
     def highDilComboBoxChanged(self):
-        pass
+        self.refreshImage()
 
     def okClicked(self):
         pass
 
-    def displayImage(self,
+    def drawMask(self):
+        if self.image_file_path.exists():
+            # Assuming pyFAI-drawmask can be called directly from the command line
+            thread = threading.Thread(target=self._run_drawmask_command_and_refresh)
+            thread.start()
+        else:
+            print("No input file to draw on.")
+
+    def _run_drawmask_command_and_refresh(self):
+        try:
+            # Run the command
+            self._run_drawmask_command()
+        except Exception as e:
+            print("Exception occurred:", e)
+            tb_str = traceback.format_exc()
+            print(f"Full traceback: {tb_str}\n")
+
+
+        drawnMaskData = self.read_image_data(self.drawn_mask_file_path)
+
+        if np.array_equal(drawnMaskData, self.drawnMaskData):
+            return
+
+        self.drawnMaskData = drawnMaskData
+
+        self.updateDrawnMaskWidgets()
+
+    def _run_drawmask_command(self):
+        """
+        Run the pyFAI-drawmask command in a way that:
+        1) Applies intensity limits to produce a 'bounded' TIFF,
+        2) Calls pyFAI-drawmask on that TIFF,
+        3) Renames the resulting mask file so it matches the old naming convention: <original>.tif -> <original>-mask.edf
+        4) Removes the temporary bounded TIFF.
+        """
+
+        # Write a bounded TIFF, so we don't overwrite original
+        bounded_file_path = self.image_file_path.parent / f"{self.image_file_path.stem}_bounded.tif"
+
+        fabio.tifimage.tifimage(data=self.imageData).write(bounded_file_path)
+
+        # Run pyFAI-drawmask on the bounded TIFF
+        command = f'pyFAI-drawmask "{bounded_file_path}"'
+
+        # pyFAI will produce something like <bounded_file_nameNoExt>-mask.edf
+        # e.g. "..._bounded-mask.edf"
+        generated_mask_file_path = bounded_file_path.parent / f"{bounded_file_path.stem}-mask.edf"
+
+        ret_val = os.system(command)
+
+        # Rename or move the temp mask file to final maskPath
+        if os.path.exists(generated_mask_file_path):
+            os.rename(generated_mask_file_path, self.drawn_mask_file_path)
+
+        # Cleanup the bounded TIFF
+        os.remove(bounded_file_path)
+
+    def createDisplayImage(self,
         imageArray,
         minInt,
         maxInt,
         displayImageWidth,
         displayImageHeight):
+        imageArray = imageArray.copy()
         # Flip the image vertically (up-down) so it matches the display
         # in the main window, where the y-axis is defined bottom-to-top
         # using ax.set_ylim.
@@ -299,8 +502,8 @@ class ImageMaskDialog(QDialog):
         if np.max(flippedImageArray) == np.min(flippedImageArray):
             normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
         else:
-            # If i manually set minInt and maxInt to -1, just use the images min and max (perhaps need to change since we are performing operations)
-            if minInt == -1 and maxInt == -1:
+            # If minInt == maxInt, just use the images min and max (perhaps need to change since we are performing operations)
+            if minInt == maxInt:
                 normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
             else:
                 normFlippedImageArray = 255 * (np.array(flippedImageArray) - minInt) / (maxInt - minInt)
@@ -318,3 +521,232 @@ class ImageMaskDialog(QDialog):
             Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         return scaledPixmap
+
+    def read_blank_image_info(self, blank_settings_file_path):
+        if not blank_settings_file_path.exists():
+            return None
+
+        with open(blank_settings_file_path, "r") as file_stream:
+            blank_settings = json.load(file_stream)
+
+        if not isinstance(blank_settings, dict):
+            return None
+
+        blank_image_file_path = blank_settings.get("file_path")
+
+        if not blank_image_file_path:
+            return None
+
+        blank_image_file_path = Path(blank_image_file_path)
+
+        if not blank_image_file_path.exists():
+            return None
+
+        blank_image = self.read_image_data(blank_image_file_path)
+        blank_image_weight = blank_settings.get("weight", 1.0)
+
+        blank_image_info = {
+            "blank_image": blank_image,
+            "blank_image_weight": blank_image_weight
+        }
+
+        return blank_image_info
+
+    def read_image_data(self, file_path):
+        if not file_path.exists():
+            return None
+
+        image_data = fabio.open(file_path).data
+        return image_data
+
+    def refreshImage(self):
+        imageData = None
+
+        # If show image, then it is original image.
+        if (self.showImageCheckBox.isEnabled()
+            and self.showImageCheckBox.isChecked()):
+            imageData = self.imageData
+
+        # If apply empty cell subtraction, then it is subtracted image.
+        if (self.applyBlankCheckBox.isEnabled()
+            and self.applyBlankCheckBox.isChecked()):
+            imageData = self.imageData - self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+
+        # If not show image and not apply empty cell subtraction,
+        #   then only show masks.
+        if imageData is None:
+            drawnMaskData, lowMask, highMask = self.getMasks(
+                self.imageData.copy())
+            maskData = drawnMaskData * lowMask * highMask
+            scaledPixmap = createDisplayImage(maskData,
+                -1, -1,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+
+            self.imageLabel.setPixmap(scaledPixmap)
+            return
+
+        imageData = imageData.copy()
+
+        drawnMaskData, lowMask, highMask = self.getMasks(imageData)
+
+        # If no mask, then only show original or
+        #   empty cell subtracted image.
+        if (drawnMaskData is None
+            and lowMask is None
+            and highMask is None):
+            scaledPixmap = self.createDisplayImage(imageData,
+                self.vmin,
+                self.vmax,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+            self.imageLabel.setPixmap(scaledPixmap)
+            return
+
+        scaledPixmap = self.createDisplayImageWithMasks(
+            imageData,
+            self.vmin,
+            self.vmax,
+            lowMask,
+            highMask,
+            drawnMaskData,
+            self.imageLabel.width(),
+            self.imageLabel.height()
+            )
+        self.imageLabel.setPixmap(scaledPixmap)
+
+    def getMasks(self, imageData):
+        drawnMaskData = None
+
+        if (self.applyDrawnMaskCheckBox.isEnabled()
+            and self.applyDrawnMaskCheckBox.isChecked()):
+            drawnMaskData = self.drawnMaskData
+
+        lowMask = None
+
+        if (self.applyLowMaskCheckBox.isEnabled()
+            and self.applyLowMaskCheckBox.isChecked()):
+            lowMask = (imageData > self.maskLowThresh.value()).astype(np.uint8)
+
+            if (self.lowMaskDilationChkbx.isEnabled()
+                and self.lowMaskDilationChkbx.isChecked()):
+                low_kernel = self.getKernelSizes(self.lowDilComboBox)
+                lowMask = self.dilateMask(lowMask, low_kernel)
+
+        highMask = None
+        if (self.applyHighMaskCheckBox.isEnabled()
+            and self.applyHighMaskCheckBox.isChecked()):
+            highMask = (imageData < self.maskHighThresh.value()).astype(np.uint8)
+
+            if self.highMaskDilationChkbx.isChecked():
+                high_kernel = self.getKernelSizes(self.highDilComboBox)
+                highMask = self.dilateMask(highMask, high_kernel)
+
+        return drawnMaskData, lowMask, highMask
+
+    def dilateMask(self, mask, kernel_size):
+        kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
+        dilated_mask = cv2.erode(mask, kernel, iterations=1)
+        return dilated_mask
+
+    def createDisplayImageWithMasks(self, imageArray, minInt, maxInt,
+                              lowMask, highMask, drawnMask, displayImageWidth,
+                              displayImageHeight,
+                              rMask=None):
+        """
+        Displays 'imageArray' in grayscale and overlays:
+          - lowMask (green)
+          - highMask (blue)
+          - drawnMask (red)
+        Each mask is assumed to be the same shape as imageArray,
+        and contains 0s and 1s.
+        Returns a QPixmap of size 500x500 (maintaining aspect ratio).
+        """
+
+        if imageArray is None:
+            print("Empty image")
+            return
+
+        # Flip the image vertically (up-down) so it matches the display
+        # in the main window, where the y-axis is defined bottom-to-top
+        # using ax.set_ylim.
+        flippedImageArray = np.flipud(imageArray)
+
+        # 2) Normalize to 0-255 for display
+        if np.max(flippedImageArray) == np.min(flippedImageArray):
+            normFlippedImageArray = np.full(flippedImageArray.shape, 128, dtype=np.uint8)
+        else:
+            if minInt == maxInt:
+                # Use the array min/max
+                normFlippedImageArray = 255 * (
+                    flippedImageArray - np.min(flippedImageArray)
+                ) / (np.max(flippedImageArray) - np.min(flippedImageArray))
+            else:
+                normFlippedImageArray = 255 * (
+                    flippedImageArray - minInt
+                ) / (maxInt - minInt)
+
+            normFlippedImageArray = normFlippedImageArray.astype(np.uint8)
+
+        # 3) Convert grayscale to 3-channel RGB
+        #    shape: (height, width) -> (height, width, 3)
+        height, width = normFlippedImageArray.shape
+        colorImageArray = np.dstack([
+            normFlippedImageArray,
+            normFlippedImageArray,
+            normFlippedImageArray
+        ])
+
+        # 4) Overlay masks:
+        #    Assign mask color wherever mask == 1
+        #    Note: The order below determines overwrite precedence
+        #          if a pixel is in multiple masks
+        # Red mask (drawnMask)
+
+
+        # Red mask (drawnMask)
+        if drawnMask is not None:
+            drawnMask = np.flipud(np.asarray(drawnMask))
+            colorImageArray[drawnMask == 0] = [255, 0, 0]
+        # Green mask (lowMask)
+        if lowMask is not None:
+            lowMask = np.flipud(np.asarray(lowMask))
+            colorImageArray[lowMask == 0]   = [0, 255, 0]
+        # Blue mask (highMask)
+        if highMask is not None:
+            highMask = np.flipud(np.asarray(highMask))
+            colorImageArray[highMask == 0] = [0, 0, 255]
+        # Purple Mask (Rmin/Rmax)
+        if rMask is not None:
+            rMask = np.flipud(np.asarray(rMask))
+            colorImageArray[rMask == 0] = [255, 0, 255]
+
+        # 5) Convert the color image (RGB) to QImage
+        #    Format_RGB888 expects the data in 24-bit RGB
+        qImg = QImage(colorImageArray.data,
+                      width,
+                      height,
+                      colorImageArray.strides[0],
+                      QImage.Format_RGB888)
+
+        # 6) Convert QImage to QPixmap
+        pixmap = QPixmap.fromImage(qImg)
+
+        # 7) Scale the pixmap to fit within the display area while maintaining the aspect ratio
+        scaledPixmap = pixmap.scaled(
+            displayImageWidth, displayImageHeight,
+            Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        return scaledPixmap
+
+    def getKernelSizes(self, dilComboBox):
+        kernel_size = None
+
+        if dilComboBox.currentText() == "3x3 Kernel":
+            kernel_size = 3
+        elif dilComboBox.currentText() == "5x5 Kernel":
+            kernel_size = 5
+        elif dilComboBox.currentText() == "7x7 Kernel":
+            kernel_size = 7
+
+        return kernel_size

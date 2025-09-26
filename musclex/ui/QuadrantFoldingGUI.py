@@ -33,6 +33,7 @@ import csv
 import copy
 import math
 from os.path import split, splitext
+from pathlib import Path
 import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize, ListedColormap
 import matplotlib.pyplot as plt
@@ -1603,23 +1604,27 @@ class QuadrantFoldingGUI(QMainWindow):
             self.processImage()
 
     def maskSettingClicked(self):
-        if (self.quadFold is None )or (self.quadFold.start_img is None):
+        if self.quadFold is None or self.quadFold.start_img is None:
             return
 
         image = self.quadFold.start_img.copy()
 
-        settings_dir_path = join(self.filePath, 'settings')
+        settings_dir_path = Path(self.filePath) / "settings"
+        image_file_path = settings_dir_path / "drawn_mask_input_image.tif"
 
         try:
-            os.makedirs(settings_dir_path, exist_ok=True)
+            settings_dir_path.mkdir(parents=True, exist_ok=True)
+            fabio.tifimage.tifimage(data=image).write(image_file_path)
         except Exception as e:
             print("Exception occurred:", e)
             tb_str = traceback.format_exc()
             print(f"Full traceback: {tb_str}\n")
             return
 
-        imageMaskDialog = ImageMaskDialog(self.filePath,
-            image,
+        if not image_file_path.exists():
+            return
+
+        imageMaskDialog = ImageMaskDialog(image_file_path,
             self.spminInt.value(),
             self.spmaxInt.value())
 
