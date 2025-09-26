@@ -55,6 +55,7 @@ from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
                                             DoubleZoomWidgetState)
 from .SetCentDialog import SetCentDialog
 from .SetAngleDialog import SetAngleDialog
+from .ImageMaskDialog import ImageMaskDialog
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 from scipy.ndimage import rotate
@@ -1543,23 +1544,23 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Trigger when Set Blank Image and Mask clicked
         """
-        # dlg = BlankImageSettings(self.filePath)
-        # result = dlg.exec_()
-        # if result == 1 and self.quadFold is not None:
-        #     self.quadFold.delCache()
-        #     fileName = self.imgList[self.currentFileNumber]
-        #     self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        #     self.masked = False
-        #     self.processImage()
+        if (self.quadFold is None )or (self.quadFold.start_img is None):
+            return
+
+        image = self.quadFold.start_img.copy()
+
+        settings_dir_path = join(self.filePath, 'settings')
+        temp_image_file_path = join(settings_dir_path,'tempMaskFile.tif')
 
         try:
-            os.makedirs(join(self.filePath, 'settings'))
-            fabio.tifimage.tifimage(data=self.quadFold.orig_img).write(join(self.filePath,'settings/tempMaskFile.tif'))
+            os.makedirs(join(self.filePath, 'settings'), exist_ok=True)
+            fabio.tifimage.tifimage(data=image).write(temp_image_file_path)
         except Exception as e:
             print("ERROR WITH SAVING THE IMAGE")
             print("Exception occurred:", e)
             tb_str = traceback.format_exc()
             print(f"Full traceback: {tb_str}\n")
+            return
 
         rot_ang = None if 'rotationAngle' not in self.quadFold.info else self.quadFold.info['rotationAngle']
 
@@ -1570,17 +1571,9 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             fileName = self.imgList[self.currentFileNumber]
 
-        max_val = np.max(np.ravel(self.img))
+        max_val = np.max(np.ravel(image))
         trans_mat = self.quadFold.centImgTransMat if self.quadFold.centImgTransMat is not None else None
         orig_size = self.quadFold.origSize if self.quadFold.origSize is not None else None
-
-        try:
-            fabio.tifimage.tifimage(data=self.img).write(join(self.filePath, 'settings/tempMaskFile.tif'))
-        except Exception as e:
-            print("ERROR WITH SAVING THE IMAGE")
-            print("Exception occurred:", e)
-            tb_str = traceback.format_exc()
-            print(f"Full traceback: {tb_str}\n")
 
         self.imageMaskingTool = ImageMaskerWindow(self.filePath,
                                                   join(self.filePath, "settings/tempMaskFile.tif"),
@@ -1616,20 +1609,26 @@ class QuadrantFoldingGUI(QMainWindow):
         image = self.quadFold.start_img.copy()
 
         settings_dir_path = join(self.filePath, 'settings')
-        temp_image_file_path = join(settings_dir_path,'tempMaskFile.tif')
 
         try:
-            os.makedirs(join(self.filePath, 'settings'))
-            fabio.tifimage.tifimage(data=image).write(temp_image_file_path)
+            os.makedirs(settings_dir_path, exist_ok=True)
         except Exception as e:
             print("Exception occurred:", e)
             tb_str = traceback.format_exc()
             print(f"Full traceback: {tb_str}\n")
             return
 
+        imageMaskDialog = ImageMaskDialog(self.filePath,
+            image,
+            self.spminInt.value(),
+            self.spmaxInt.value())
 
+        dialogCode = imageMaskDialog.exec()
 
-
+        if dialogCode == QDialog.Accepted:
+            print("Accepted")
+        else:
+            assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"
 
     def getOrigCoordsCenter(self, x, y):
         """
@@ -2332,10 +2331,11 @@ class QuadrantFoldingGUI(QMainWindow):
 
         x = event.xdata
         y = event.ydata
-        img = self.img
 
-        if img is None:
+        if self.quadFold is None or self.quadFold.orig_img is None:
             return
+
+        img = self.quadFold.orig_img
 
         self.doubleZoom.handle_mouse_move_event(event)
 
@@ -3392,8 +3392,10 @@ class QuadrantFoldingGUI(QMainWindow):
 
             ax = self.imageAxes
             ax.cla()
-            img = self.quadFold.getRotatedImage()
-            self.img = img
+
+            if self.quadFold is None or self.quadFold.orig_img is None:
+                return
+
             img = self.quadFold.orig_img
 
             extent = [0,0]
