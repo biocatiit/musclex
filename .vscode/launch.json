@@ -1,0 +1,124 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MuscleX - Equator GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["eq"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Quadrant Folding GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["qf"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Equator Headless",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["eq", "-h", "-i", "test.tif", "-s", "config.json"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Quadrant Folding Headless",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["qf", "-h", "-f", "testfolder", "-d"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Scanning Diffraction Headless",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["di", "-h", "-i", "test.tif", "-s", "config.json"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Projection Traces Headless",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["pt", "-h", "-i", "test.tif", "-s", "config.json"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - GUI Launcher",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["gui"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - X-Ray Viewer",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["xv"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Tests",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["test_global"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}

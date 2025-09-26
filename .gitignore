@@ -7,3 +7,5 @@ musclex/tests/di/*
 musclex/tests/eq/*
 musclex/tests/pt/*
 musclex/tests/qf/*
+/venv/*
+/.idea/*
