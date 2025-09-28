@@ -28,7 +28,6 @@ authorization from Illinois Institute of Technology.
 
 import os
 import pickle
-import fabio
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
@@ -39,12 +38,12 @@ from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from musclex import __version__
 try:
     from . import QF_utilities as qfu
-    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
 except: # for coverage
     from modules import QF_utilities as qfu
-    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
+    from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
     from utils.histogram_processor import *
     from utils.image_processor import *
 
@@ -56,23 +55,15 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img_path, img_name, parent, file_list=None, extension=''):
+    def __init__(self, img, img_path, img_name, parent):
         """
-        Initial value for QuadrantFolder object
-        :param img_path: directory path of input image
-        :param img_name: image file name
+        Initialize QuadrantFolder with an already-loaded image array, plus metadata.
+        :param img: numpy ndarray image data
+        :param img_path: directory path for caches and outputs
+        :param img_name: display/file name used for caches and outputs
+        :param parent: GUI/owner for status updates
         """
-
-        if extension in ('.hdf5', '.h5'):
-            index = next((i for i, item in enumerate(file_list[0]) if item == img_name), 0)
-            self.orig_img = file_list[1][index]
-        else:
-            try:
-                self.orig_img = fabio.open(fullPath(img_path, img_name)).data
-            except:
-                exit
-        self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
-        self.orig_img = self.orig_img.astype("float32")
+        self.orig_img = np.asarray(img).astype("float32")
         self.orig_image_center = None
         self.dl, self.db = 0, 0
         self.empty = False

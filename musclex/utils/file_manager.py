@@ -33,6 +33,9 @@ import fabio
 #from ..ui.pyqt_utils import *
 from .hdf5_manager import loadFile
 from PySide6.QtWidgets import QMessageBox
+from concurrent.futures import ProcessPoolExecutor
+import hashlib
+import time
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 
@@ -239,3 +242,306 @@ def createFolder(path):
     """
     if not exists(path):
         os.makedirs(path)
+
+# --------------------- Fast, cached, multiprocessing directory scan ---------------------
+_SCAN_CACHE = {}
+
+def _dir_signature(dir_path):
+    try:
+        entries = []
+        with os.scandir(dir_path) as it:
+            for e in it:
+                if e.is_file():
+                    try:
+                        stat = e.stat()
+                        entries.append((e.name, stat.st_size, int(stat.st_mtime)))
+                    except Exception:
+                        # best-effort; skip entries we cannot stat
+                        continue
+        entries.sort()
+        h = hashlib.sha256()
+        for name, sz, mt in entries:
+            h.update(name.encode('utf-8', errors='ignore'))
+            h.update(str(sz).encode())
+            h.update(str(mt).encode())
+        return h.hexdigest()
+    except Exception:
+        return None
+
+def _h5_nframes(path):
+    try:
+        f = fabio.open(path)
+        n = getattr(f, 'nframes', 1)
+        try:
+            f.close()
+        except Exception:
+            pass
+        return n
+    except Exception:
+        return 0
+
+def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
+    """
+    Scan a directory for TIFF and HDF5 images and return unified (imgList, loader_specs).
+    Uses a cache keyed by directory content signature. HDF5 frame counts are computed
+    in parallel using processes. Frames are NOT loaded.
+    """
+    sig = _dir_signature(dir_path)
+    if sig is not None and dir_path in _SCAN_CACHE and _SCAN_CACHE[dir_path][0] == sig:
+        return _SCAN_CACHE[dir_path][1]
+
+    entries = []
+    h5_files = []
+
+    try:
+        file_names = os.listdir(dir_path)
+    except Exception:
+        return [], []
+
+    for f in file_names:
+        if failedcases is not None and f not in failedcases:
+            continue
+        full_file_name = fullPath(dir_path, f)
+        base, ext = os.path.splitext(f)
+        if f == "calibration.tif":
+            continue
+        if ext.lower() in ('.hdf5', '.h5'):
+            h5_files.append((base, ext, full_file_name))
+        elif isImg(full_file_name) and ext.lower() not in ('.hdf5', '.h5'):
+            entries.append((f, ("tiff", full_file_name)))
+
+    # Filter out data HDF5 files if a corresponding master exists
+    if h5_files:
+        master_prefix_to_record = {}
+        for base, ext, path in h5_files:
+            if base.endswith('_master'):
+                prefix = base[:-7]
+                master_prefix_to_record[prefix] = (base, ext, path)
+
+        filtered_h5 = []
+        for base, ext, path in h5_files:
+            if '_data_' in base:
+                prefix = base.split('_data_')[0]
+                if prefix in master_prefix_to_record:
+                    # Skip data file because master exists
+                    continue
+            filtered_h5.append((base, ext, path))
+        h5_files = filtered_h5
+
+    # Count HDF5 frames in parallel
+    if h5_files:
+        if max_workers is None:
+            try:
+                max_workers = max(2, min(8, os.cpu_count() or 2))
+            except Exception:
+                max_workers = 2
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            paths = [p for _, _, p in h5_files]
+            nframes_list = list(pool.map(_h5_nframes, paths))
+        for (base, ext, path), nframes in zip(h5_files, nframes_list):
+            if nframes <= 0:
+                continue
+            if nframes == 1:
+                disp = f"{base}_00001{ext}"
+                entries.append((disp, ("h5", path, 0)))
+            else:
+                for i in range(nframes):
+                    disp = f"{base}_{i+1:05d}{ext}"
+                    entries.append((disp, ("h5", path, i)))
+
+    entries.sort(key=lambda x: x[0])
+    imgList = [n for n, _ in entries]
+    specs = [s for _, s in entries]
+
+    if sig is not None:
+        _SCAN_CACHE[dir_path] = (sig, (imgList, specs))
+
+    return imgList, specs
+# --------------------- Unified image loader for GUI specs ---------------------
+def load_image_via_spec(file_path, display_name, source):
+    """
+    Load an image array given a loader spec entry from GUI `fileList[1]`.
+    - source can be ndarray, ("tiff", abs_path), or ("h5", abs_path, frame_idx)
+    Applies ifHdfReadConvertless using display_name to handle HDF sentinel values.
+    """
+    if isinstance(source, np.ndarray):
+        img = source
+    elif isinstance(source, tuple):
+        kind = source[0]
+        if kind == "tiff" and len(source) == 2:
+            img = fabio.open(source[1]).data
+        elif kind == "h5" and len(source) == 3:
+            abs_path, frame_idx = source[1], int(source[2])
+            f = fabio.open(abs_path)
+            try:
+                if getattr(f, 'nframes', 1) == 1 or frame_idx == 0:
+                    img = f.data if frame_idx == 0 else f.get_frame(frame_idx).data
+                else:
+                    img = f.get_frame(frame_idx).data
+            finally:
+                try:
+                    f.close()
+                except Exception:
+                    pass
+        else:
+            img = fabio.open(fullPath(file_path, display_name)).data
+    else:
+        img = fabio.open(fullPath(file_path, display_name)).data
+
+    img = ifHdfReadConvertless(display_name, img)
+    return img
+
+def get_loader_source(fileList, idx):
+    try:
+        return fileList[1][idx]
+    except Exception:
+        return None
+
+def load_image_by_index(file_path, fileList, idx, display_name):
+    source = get_loader_source(fileList, idx)
+    return load_image_via_spec(file_path, display_name, source)
+
+# --------------------- Reusable helpers for GUI provisional selection ---------------------
+def build_provisional_selection(fullname):
+    """
+    Build a provisional selection from a single chosen file for immediate GUI display.
+    Returns without redundant fields and without scanning the whole directory:
+      (dir_path, imgList, current_index, loader_specs)
+
+    - For HDF5, creates a pseudo-display name like base_00001.ext and a loader spec ("h5", path, 0)
+    - For TIFF and other supported images, uses the filename and a loader spec ("tiff", path)
+    """
+    dir_path, sel_name = split(str(fullname))
+    dir_path = str(dir_path)
+    sel_name = str(sel_name)
+    base, ext = os.path.splitext(sel_name)
+
+    if ext.lower() in ('.h5', '.hdf5'):
+        # If selected a data file and a matching master exists, pivot to master
+        if "_data_" in base:
+            prefix = base.split("_data_")[0]
+            master_name = f"{prefix}_master{ext}"
+            master_path = os.path.join(dir_path, master_name)
+            if os.path.exists(master_path):
+                sel_name = master_name
+                base = f"{prefix}_master"
+        disp = f"{base}_00001{ext}"
+        imgList = [disp]
+        loader_specs = [("h5", os.path.join(dir_path, sel_name), 0)]
+    else:
+        imgList = [sel_name]
+        loader_specs = [("tiff", os.path.join(dir_path, sel_name))]
+
+    current = 0
+    return dir_path, imgList, current, loader_specs
+
+class FileManager:
+    """
+    Minimal stateful manager for image navigation/loading.
+    Used by GUIs to keep a single source of truth for names/specs/current.
+    """
+    def __init__(self):
+        self.dir_path = ''
+        self.names = []
+        self.specs = []
+        self.current = 0
+
+    def set_provisional(self, fullname):
+        dir_path, names, current, specs = build_provisional_selection(fullname)
+        self.dir_path = dir_path
+        self.names = names
+        self.specs = specs
+        self.current = current
+
+    def set_directory_listing(self, dir_path, names, specs, preserve_current_name=True):
+        prev_name = self.names[self.current] if preserve_current_name and self.names else None
+        self.dir_path = dir_path
+        self.names = names or []
+        self.specs = specs or []
+        if prev_name and prev_name in self.names:
+            self.current = self.names.index(prev_name)
+        else:
+            self.current = 0
+
+    def load_current(self):
+        if not self.names or not self.specs:
+            return None
+        name = self.names[self.current]
+        source = None
+        try:
+            source = self.specs[self.current]
+        except Exception:
+            source = None
+        return load_image_via_spec(self.dir_path, name, source)
+
+    def next_frame(self):
+        if not self.names:
+            return
+        self.current = (self.current + 1) % len(self.names)
+
+    def prev_frame(self):
+        if not self.names:
+            return
+        self.current = (self.current - 1) % len(self.names)
+
+    def _basename(self, idx):
+        try:
+            spec = self.specs[idx]
+            path = spec[1] if isinstance(spec, tuple) and len(spec) >= 2 else ''
+            return os.path.basename(path)
+        except Exception:
+            return ''
+
+    def next_file(self):
+        if not self.names:
+            return
+        n = len(self.names)
+        cur_name = self._basename(self.current)
+        i = (self.current + 1) % n
+        while i != self.current:
+            if self._basename(i) != cur_name:
+                self.current = i
+                return
+            i = (i + 1) % n
+
+    def prev_file(self):
+        if not self.names:
+            return
+        n = len(self.names)
+        cur_name = self._basename(self.current)
+        i = (self.current - 1 + n) % n
+        while i != self.current:
+            if self._basename(i) != cur_name:
+                # jump to the first frame of this previous file
+                base = self._basename(i)
+                # walk back to find its first frame
+                j = i
+                while True:
+                    k = (j - 1 + n) % n
+                    if self._basename(k) != base or k == i:
+                        break
+                    j = k
+                self.current = j
+                return
+            i = (i - 1 + n) % n
+
+def async_scan_directory(dir_path, on_done):
+    """
+    Start a background scan of a directory using scan_directory_images_cached and invoke
+    on_done(imgList, specs) when finished. Returns the Thread object.
+
+    Note: on_done may be executed on a non-GUI thread; if using Qt, marshal back to the main
+    thread (e.g., via signals/QTimer) before touching widgets.
+    """
+    import threading
+
+    def _worker():
+        imgList, specs = scan_directory_images_cached(dir_path)
+        try:
+            on_done(imgList, specs)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    return t
