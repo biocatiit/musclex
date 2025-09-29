@@ -102,7 +102,7 @@ class ImageMaskDialog(QDialog):
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
         self.displayDescGroup = QGroupBox("Current View")
-        self.displayDescLayout = QVBoxLayout(self.displaDescGroup)
+        self.displayDescLayout = QVBoxLayout(self.displayDescGroup)
         self.displayDescLabel = QLabel()
         self.displayDescLayout.addWidget(self.displayDescLabel)
 
