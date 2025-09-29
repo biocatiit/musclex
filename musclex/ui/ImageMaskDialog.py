@@ -391,7 +391,7 @@ class ImageMaskDialog(QDialog):
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
-            self.applyBlankText.setText("Empty Cell Image not exist!")
+            self.applyBlankText.setText("Empty Cell Image not found!")
             self.applyBlankText.setStyleSheet("color: red;")
             self.blankWeightText.setEnabled(False)
 
