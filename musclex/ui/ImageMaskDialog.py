@@ -137,7 +137,7 @@ class ImageMaskDialog(QDialog):
         # self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
         # settingsRowIndex += 1
         self.applyBlankLayout.addWidget(self.blankWeightLabel, settingsRowIndex, 0, 1, 4)
-        # self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 2, 1, 2)
+        # self.applyBlankLayout.addWidget(self.blankWeightLabel, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
 
         self.applyMaskGroup = QGroupBox("Mask Options")
@@ -353,7 +353,7 @@ class ImageMaskDialog(QDialog):
 
         if state == Qt.CheckState.Unchecked:
             self.applyBlankCheckBox.setEnabled(False)
-            self.blankWeightText.setEnabled(False)
+            self.blankWeightLabel.setEnabled(False)
 
         self.refreshImage()
 
@@ -361,12 +361,12 @@ class ImageMaskDialog(QDialog):
         if state == Qt.CheckState.Checked:
             draw_mask_text = "Draw Mask on Empty Cell Subtracted Image"
             self.drawMaskBtn.setText(draw_mask_text)
-            self.blankWeightText.setEnabled(True)
+            self.blankWeightLabel.setEnabled(True)
 
         if state == Qt.CheckState.Unchecked:
             draw_mask_text = "Draw Mask on Original Image"
             self.drawMaskBtn.setText(draw_mask_text)
-            self.blankWeightText.setEnabled(False)
+            self.blankWeightLabel.setEnabled(False)
 
         self.refreshImage()
 
@@ -389,13 +389,13 @@ class ImageMaskDialog(QDialog):
             self.applyBlankCheckBox.setEnabled(True)
             self.applyBlankText.setText("")
             self.applyBlankText.setStyleSheet("")
-            self.blankWeightText.setEnabled(True)
+            self.blankWeightLabel.setEnabled(True)
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
             self.applyBlankText.setText("Empty Cell Image not found!")
             self.applyBlankText.setStyleSheet("color: red;")
-            self.blankWeightText.setEnabled(False)
+            self.blankWeightLabel.setEnabled(False)
 
     def updateDrawnMaskWidgets(self):
         if self.drawnMaskData is not None:
