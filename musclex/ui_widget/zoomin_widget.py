@@ -39,32 +39,32 @@ import matplotlib.patches as patches
 from .ui_widget import UIWidget
 
 
-class CropWidgetState(Flag):
+class ZoomInWidgetState(Flag):
     INIT = auto()
 
-class CropWidget(UIWidget):
+class ZoomInWidget(UIWidget):
     def __init__(self, imageAxes):
         super().__init__(imageAxes)
-        self.state = CropWidgetState.INIT
+        self.state = ZoomInWidgetState.INIT
 
-        self.cropBtn = QPushButton("Zoom In")
+        self.zoomInBtn = QPushButton("Zoom In")
 
         self.layout = QVBoxLayout(self)
-        self.layout.addWidget(self.cropBtn)
+        self.layout.addWidget(self.zoomInBtn)
 
-        self.cropBtn.clicked.connect(self.cropBtnClick)
+        self.zoomInBtn.clicked.connect(self.zoomInBtnClick)
 
-        self.cropPoints = []
+        self.zoomInPoints = []
 
         self.set_ready()
 
     def set_ready(self):
-        self.cropBtn.setChecked(False)
+        self.zoomInBtn.setChecked(False)
 
-        self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
+        self.remove_image_lines(labels=["Zoomin Red Dot", "zoom_region"])
         self.imageCanvas.draw_idle()
 
-        self.cropPoints.clear()
+        self.zoomInPoints.clear()
         super().set_ready()
 
     def handle_mouse_move_event(self, event):
@@ -80,17 +80,17 @@ class CropWidget(UIWidget):
         ax = self.imageAxes
 
         # Remove old lines
-        self.remove_image_lines(labels=["Crop Red Dot", "zoom_region"])
+        self.remove_image_lines(labels=["Zoomin Red Dot", "zoom_region"])
         # Draw cursor location in image using red cross lines.
         axis_size = 5
 
-        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r', label="Crop Red Dot")
-        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r', label="Crop Red Dot")
+        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r', label="Zoomin Red Dot")
+        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r', label="Zoomin Red Dot")
 
-        if len(self.cropPoints) == 1:
+        if len(self.zoomInPoints) == 1:
             # Draw rectangle
 
-            start_pt = self.cropPoints[0]
+            start_pt = self.zoomInPoints[0]
             w = abs(start_pt[0] - x)
             h = abs(start_pt[1] - y)
             x = min(start_pt[0], x)
@@ -108,11 +108,11 @@ class CropWidget(UIWidget):
         if not self.is_enabled():
             return
 
-        self.cropPoints.append((x, y))
+        self.zoomInPoints.append((x, y))
 
-        if len(self.cropPoints) == 2:
-            x1, y1 = self.cropPoints[0]
-            x2, y2 = self.cropPoints[1]
+        if len(self.zoomInPoints) == 2:
+            x1, y1 = self.zoomInPoints[0]
+            x2, y2 = self.zoomInPoints[1]
             img_zoom = [(min(x1, x2), max(x1, x2)),
             (min(y1, y2), max(y1, y2))]
             self.resizeImage(img_zoom)
@@ -125,7 +125,7 @@ class CropWidget(UIWidget):
             # self.imageFigure.tight_layout()
             self.imageCanvas.draw_idle()
 
-    def cropBtnClick(self, btnChecked):
+    def zoomInBtnClick(self, btnChecked):
         if btnChecked:
             self.set_enabled()
         else:

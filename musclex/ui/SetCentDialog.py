@@ -57,7 +57,7 @@ from PySide6.QtCore import Qt
 
 from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
                                             DoubleZoomWidgetState)
-from ..ui_widget.crop_widget import (CropWidget, CropWidgetState)
+from ..ui_widget.zoomin_widget import (ZoomInWidget, ZoomInWidgetState)
 from ..ui_widget.image_mouse_move_handler import (ImageMouseMoveHandler,
                                                   ImageMouseMoveState)
 from ..ui_widget.zoom_handler import ZoomHandler
@@ -182,7 +182,7 @@ class SetCentDialog(QDialog):
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.logScaleIntChkBx.setChecked(self.isLogScale)
 
-        self.cropWidget = CropWidget(self.imageAxes)
+        self.zoomInWidget = ZoomInWidget(self.imageAxes)
         self.imgZoomOutBtn = QPushButton("Full")
         self.doubleZoom = DoubleZoomWidget(self.imageAxes, parent)
 
@@ -198,7 +198,7 @@ class SetCentDialog(QDialog):
         self.dispOptLayoutRowIndex += 1
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, self.dispOptLayoutRowIndex, 0, 1, 2)
         self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.cropWidget, self.dispOptLayoutRowIndex, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.zoomInWidget, self.dispOptLayoutRowIndex, 0, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomOutBtn, self.dispOptLayoutRowIndex, 2, 1, 2)
         self.dispOptLayoutRowIndex += 1
         self.dispOptLayout.addWidget(self.doubleZoom, self.dispOptLayoutRowIndex, 0, 1, 4)
@@ -263,8 +263,8 @@ class SetCentDialog(QDialog):
             return
 
         if key == Qt.Key_Escape:
-            if self.cropWidget.is_enabled():
-                self.cropWidget.set_disabled()
+            if self.zoomInWidget.is_enabled():
+                self.zoomInWidget.set_disabled()
             # Prevent closing dialog with keyboard.
             return
 
@@ -297,7 +297,7 @@ class SetCentDialog(QDialog):
         if event.inaxes != self.imageAxes:
             return
 
-        self.cropWidget.handle_mouse_move_event(event)
+        self.zoomInWidget.handle_mouse_move_event(event)
 
         self.imageCanvas.draw_idle()
 
@@ -318,8 +318,8 @@ class SetCentDialog(QDialog):
 
             if event.inaxes == self.imageAxes:
                 if DoubleZoomWidgetState.MainImageClicked in self.doubleZoom.state:
-                    if self.cropWidget.is_enabled():
-                        self.cropWidget.click_with_double_zoom(event)
+                    if self.zoomInWidget.is_enabled():
+                        self.zoomInWidget.click_with_double_zoom(event)
                     else:
                         self.center = (x, y)
                         self.refreshCenter()
@@ -331,8 +331,8 @@ class SetCentDialog(QDialog):
 
         if event.inaxes == self.imageAxes or (self.doubleZoom.is_enabled()
             and DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state):
-            if self.cropWidget.is_enabled():
-                self.cropWidget.handle_click_event(event, x, y)
+            if self.zoomInWidget.is_enabled():
+                self.zoomInWidget.handle_click_event(event, x, y)
             else:
                 self.center = (x, y)
                 self.refreshCenter(updateText=True)
@@ -430,8 +430,8 @@ class SetCentDialog(QDialog):
                 p.remove()
 
     def imageZoomOut(self):
-        if self.cropWidget.is_enabled():
-            self.cropWidget.set_disabled()
+        if self.zoomInWidget.is_enabled():
+            self.zoomInWidget.set_disabled()
 
         img_zoom = [(0, self.img.shape[1]), (0, self.img.shape[0])]
         self.resizeImage(img_zoom)
