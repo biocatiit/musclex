@@ -701,7 +701,8 @@ class ImageMaskDialog(QDialog):
                 return
 
             # Show empty cell + apply mask.
-            imageData = self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+            blank_image_weight = self.blank_image_info["weight"]
+            imageData = self.blank_image_info["blank_image"] * blank_image_weight
             drawnMaskData, lowMask, highMask = self.getMasks(imageData)
 
             scaledPixmap = self.createDisplayImageWithMasks(
@@ -734,7 +735,8 @@ class ImageMaskDialog(QDialog):
 
         # Show image + subtract blank.
         if isApplyBlank and (not isApplyMask):
-            imageData = imageData - self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+            blank_image_weight = self.blank_image_info["weight"]
+            imageData = imageData - self.blank_image_info["blank_image"] * blank_image_weight
 
             scaledPixmap = self.createDisplayImage(imageData,
                 self.vmin,
@@ -765,7 +767,8 @@ class ImageMaskDialog(QDialog):
             return
 
         # Show image + subtract empty cell + apply mask.
-        imageData = imageData - self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+        blank_image_weight = self.blank_image_info["weight"]
+        imageData = imageData - self.blank_image_info["blank_image"] * blank_image_weight
         drawnMaskData, lowMask, highMask = self.getMasks(
             imageData)
 
