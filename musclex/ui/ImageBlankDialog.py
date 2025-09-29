@@ -109,6 +109,7 @@ class ImageBlankDialog(QDialog):
         self.applyBlankText = QLabel()
 
         self.selectBlankBtn = QPushButton("Select Empty Cell Image")
+        self.blankWeightLabel = QLabel("Empty Cell Image Scale: ")
         self.blankWeightText = QDoubleSpinBox()
         self.blankWeightText.setKeyboardTracking(False)
         self.blankWeightText.setRange(0, 1000)
@@ -124,7 +125,8 @@ class ImageBlankDialog(QDialog):
         settingsRowIndex += 1
         self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-        self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 0, 1, 4)
+        self.applyBlankLayout.addWidget(self.blankWeightLabel, settingsRowIndex, 0, 1, 2)
+        self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
 
         self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)

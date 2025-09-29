@@ -119,12 +119,13 @@ class ImageMaskDialog(QDialog):
         self.applyBlankCheckBox = QCheckBox("Apply Empty Cell Image")
         self.applyBlankText = QLabel()
 
-        self.selectBlankBtn = QPushButton("Select Empty Cell Image")
-        self.blankWeightText = QDoubleSpinBox()
-        self.blankWeightText.setKeyboardTracking(False)
-        self.blankWeightText.setRange(0, 1000)
-        self.blankWeightText.setValue(1.00)
-        self.blankWeightText.setSingleStep(0.01)
+        # self.selectBlankBtn = QPushButton("Select Empty Cell Image")
+        self.blankWeightLabel = QLabel("Empty Cell Image Scale: ")
+        # self.blankWeightText = QDoubleSpinBox()
+        # self.blankWeightText.setKeyboardTracking(False)
+        # self.blankWeightText.setRange(0, 1000)
+        # self.blankWeightText.setValue(1.00)
+        # self.blankWeightText.setSingleStep(0.01)
 
         self.updateBlankWidgets()
 
@@ -133,9 +134,10 @@ class ImageMaskDialog(QDialog):
         self.applyBlankLayout.addWidget(self.applyBlankCheckBox, settingsRowIndex, 0, 1, 2)
         self.applyBlankLayout.addWidget(self.applyBlankText, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-        self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
-        settingsRowIndex += 1
-        self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 0, 1, 4)
+        # self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
+        # settingsRowIndex += 1
+        self.applyBlankLayout.addWidget(self.blankWeightLabel, settingsRowIndex, 0, 1, 4)
+        # self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
 
         self.applyMaskGroup = QGroupBox("Mask Options")
@@ -323,7 +325,7 @@ class ImageMaskDialog(QDialog):
         self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
         self.applyBlankCheckBox.checkStateChanged.connect(self.enableBlankSubtraction)
         self.selectBlankBtn.clicked.connect(self.readBlankImage)
-        self.blankWeightText.valueChanged.connect(self.updateBlankWeight)
+        # self.blankWeightText.valueChanged.connect(self.updateBlankWeight)
         self.drawMaskBtn.clicked.connect(self.drawMask)
         self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
         self.applyLowMaskCheckBox.checkStateChanged.connect(self.enableLowMaskThresh)
