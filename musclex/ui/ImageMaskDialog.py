@@ -252,9 +252,9 @@ class ImageMaskDialog(QDialog):
         self.negativeValuesLabel.setFont(font)
         self.negativeValuesLabel.setVisible(False)
 
-        self.clampNegativeValuesChkbx = QCheckBox("Clamp Negative Values to 0")
-        self.clampNegativeValuesChkbx.setToolTip("Sets all negative values after subtraction to 0")
-        self.clampNegativeValuesChkbx.setEnabled(False)
+        # self.clampNegativeValuesChkbx = QCheckBox("Clamp Negative Values to 0")
+        # self.clampNegativeValuesChkbx.setToolTip("Sets all negative values after subtraction to 0")
+        # self.clampNegativeValuesChkbx.setEnabled(False)
 
         self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         okButton = self.dialogButtons.button(QDialogButtonBox.Ok)
@@ -274,8 +274,8 @@ class ImageMaskDialog(QDialog):
         settingsRowIndex += 1
         self.buttonLayout.addWidget(self.negativeValuesLabel, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-        self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, settingsRowIndex, 0, 1, 2)
-        settingsRowIndex += 1
+        # self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, settingsRowIndex, 0, 1, 2)
+        # settingsRowIndex += 1
         self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 1, 1, 2)
         settingsRowIndex += 1
 
@@ -406,7 +406,6 @@ class ImageMaskDialog(QDialog):
             self.applyDrawnMaskCheckBox.setEnabled(False)
             self.applyDrawnMaskText.setText("Drawn Mask Image not exist!")
             self.applyDrawnMaskText.setStyleSheet("color: red;")
-
 
     def applyDrawnMask(self, state):
         self.refreshImage()

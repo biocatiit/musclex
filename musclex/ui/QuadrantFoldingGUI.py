@@ -56,6 +56,7 @@ from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
                                             DoubleZoomWidgetState)
 from .SetCentDialog import SetCentDialog
 from .SetAngleDialog import SetAngleDialog
+from .ImageBlankDialog import ImageBlankDialog
 from .ImageMaskDialog import ImageMaskDialog
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
@@ -1545,63 +1546,36 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Trigger when Set Blank Image and Mask clicked
         """
-        if (self.quadFold is None )or (self.quadFold.start_img is None):
+        if self.quadFold is None or self.quadFold.start_img is None:
             return
 
         image = self.quadFold.start_img.copy()
 
-        settings_dir_path = join(self.filePath, 'settings')
-        temp_image_file_path = join(settings_dir_path,'tempMaskFile.tif')
+        settings_dir_path = Path(self.filePath) / "settings"
+        image_file_path = settings_dir_path / "blank_input_image.tif"
 
         try:
-            os.makedirs(join(self.filePath, 'settings'), exist_ok=True)
-            fabio.tifimage.tifimage(data=image).write(temp_image_file_path)
+            settings_dir_path.mkdir(parents=True, exist_ok=True)
+            fabio.tifimage.tifimage(data=image).write(image_file_path)
         except Exception as e:
-            print("ERROR WITH SAVING THE IMAGE")
             print("Exception occurred:", e)
             tb_str = traceback.format_exc()
             print(f"Full traceback: {tb_str}\n")
             return
 
-        rot_ang = None if 'rotationAngle' not in self.quadFold.info else self.quadFold.info['rotationAngle']
+        if not settings_dir_path.exists():
+            return
 
-        isH5 = False
-        if self.h5List:
-            fileName = self.h5List[self.h5index]
-            isH5 = True
+        imageBlankDialog = ImageBlankDialog(image_file_path,
+            self.spminInt.value(),
+            self.spmaxInt.value())
+
+        dialogCode = imageBlankDialog.exec()
+
+        if dialogCode == QDialog.Accepted:
+            print("Accepted")
         else:
-            fileName = self.imgList[self.currentFileNumber]
-
-        max_val = np.max(np.ravel(image))
-        trans_mat = self.quadFold.centImgTransMat if self.quadFold.centImgTransMat is not None else None
-        orig_size = self.quadFold.origSize if self.quadFold.origSize is not None else None
-
-        self.imageMaskingTool = ImageMaskerWindow(self.filePath,
-                                                  join(self.filePath, "settings/tempMaskFile.tif"),
-                                                  self.spminInt.value(),
-                                                  self.spmaxInt.value(),
-                                                  max_val,
-                                                  orig_size,
-                                                  trans_mat,
-                                                  rot_ang,
-                                                  isH5)
-
-        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
-            if os.path.exists(join(join(self.filePath, 'settings'), 'blank_image_settings.json')):
-                with open(join(join(self.filePath, 'settings'), 'blank_image_settings.json'), 'r') as f:
-                    info = json.load(f)
-                    if 'path' in info:
-                        img = fabio.open(info['path']).data
-                        fabio.tifimage.tifimage(data=img).write(join(join(self.filePath, 'settings'),'blank.tif'))
-            else:
-                if os.path.exists(join(join(self.filePath, 'settings'), 'mask.tif')):
-                    os.rename(join(join(self.filePath, 'settings'), 'mask.tif'), join(join(self.filePath, 'settings'), 'maskonly.tif'))
-
-            self.quadFold.delCache()
-            fileName = self.imgList[self.currentFileNumber]
-            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-            self.masked = False
-            self.processImage()
+            assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
 
     def maskSettingClicked(self):
         if self.quadFold is None or self.quadFold.start_img is None:
