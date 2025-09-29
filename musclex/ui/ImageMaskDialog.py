@@ -102,6 +102,14 @@ class ImageMaskDialog(QDialog):
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
         self.statusBar = QLabel(f"Current View: No Display")
+        self.statusBar.setStyleSheet("""
+            background-color: #E0E0E0;   /* light gray background */
+            color: #333333;              /* dark text */
+            padding: 3px 5px;            /* small padding */
+            border-top: 1px solid #A0A0A0;  /* optional, separates from image */
+        """)
+        self.statusBar.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
 
         self.imageWidget = QWidget()
         self.imageLayout = QVBoxLayout(self.imageWidget)
