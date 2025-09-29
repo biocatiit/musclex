@@ -101,8 +101,7 @@ class ImageMaskDialog(QDialog):
         # self.imageLabel.setStyleSheet("border: 1px solid black;")
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
-        self.statusBar = QLabel("")
-        self.statusBar.setStyleSheet("color: green;")
+        self.statusBar = QLabel(f"Current View: No Display")
 
         self.imageWidget = QWidget()
         self.imageLayout = QVBoxLayout(self.imageWidget)
@@ -672,7 +671,7 @@ class ImageMaskDialog(QDialog):
             # If nothing is selected, Show nothing.
             if not (isApplyBlank or isApplyMask):
                 self.imageLabel.clear()
-                self.statusBar.setText("No Display")
+                self.statusBar.setText(f"Current View: No Display")
                 return
 
             # Only show empty cell.
@@ -685,7 +684,7 @@ class ImageMaskDialog(QDialog):
                     self.imageLabel.width(),
                     self.imageLabel.height())
                 self.imageLabel.setPixmap(scaledPixmap)
-                self.statusBar.setText(f"Empty Cell (with scale: {blank_image_weight:.2f})")
+                self.statusBar.setText(f"Current View: Empty Cell (with scale: {blank_image_weight:.2f})")
                 return
 
             # Only show mask:
@@ -709,7 +708,7 @@ class ImageMaskDialog(QDialog):
                     self.imageLabel.height())
 
                 self.imageLabel.setPixmap(scaledPixmap)
-                self.statusBar.setText(f"Mask")
+                self.statusBar.setText(f"Current View: Mask")
                 return
 
             # Show empty cell + apply mask.
@@ -728,7 +727,7 @@ class ImageMaskDialog(QDialog):
                 self.imageLabel.height())
 
             self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Empty Cell (with scale: {blank_image_weight:.2f}) + Apply Mask")
+            self.statusBar.setText(f"Current View: Empty Cell (with scale: {blank_image_weight:.2f}) + Apply Mask")
             return
 
         # User selected showing image:
@@ -742,7 +741,7 @@ class ImageMaskDialog(QDialog):
                 self.imageLabel.width(),
                 self.imageLabel.height())
             self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Original Image")
+            self.statusBar.setText(f"Current View: Original Image")
             return
 
         # Show image + subtract blank.
@@ -756,7 +755,7 @@ class ImageMaskDialog(QDialog):
                 self.imageLabel.width(),
                 self.imageLabel.height())
             self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f})")
+            self.statusBar.setText(f"Current View: Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f})")
             return
 
         # Show image + apply mask.
@@ -775,7 +774,7 @@ class ImageMaskDialog(QDialog):
                 self.imageLabel.height())
 
             self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Original Image + Apply Mask")
+            self.statusBar.setText(f"Current View: Original Image + Apply Mask")
             return
 
         # Show image + subtract empty cell + apply mask.
@@ -795,7 +794,7 @@ class ImageMaskDialog(QDialog):
             self.imageLabel.height())
 
         self.imageLabel.setPixmap(scaledPixmap)
-        self.statusBar.setText(f"Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f}) + Apply Mask")
+        self.statusBar.setText(f"Current View: Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f}) + Apply Mask")
 
     def getMasks(self, imageData):
         drawnMaskData = None
