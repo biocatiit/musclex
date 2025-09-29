@@ -541,10 +541,10 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
-        self.blankImageGrp.setCheckable(True)
-        self.blankImageGrp.setChecked(False)
+        # self.blankImageGrp.setCheckable(True)
+        # self.blankImageGrp.setChecked(False)
         self.blankImageLayout = QGridLayout(self.blankImageGrp)
-        self.blankSettingButton = QPushButton("Set Blank Image")
+        self.blankSettingButton = QPushButton("Subtract Blank Image")
         self.blankImageLayout.addWidget(self.blankSettingButton, 1, 0, 1, 2)
         self.maskSettingButton = QPushButton("Set Mask")
         self.blankImageLayout.addWidget(self.maskSettingButton, 1, 2, 1, 2)
@@ -1323,7 +1323,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.applyBGButton.clicked.connect(self.applyBGSub)
 
-        self.blankImageGrp.clicked.connect(self.blankChecked)
+        # self.blankImageGrp.clicked.connect(self.blankChecked)
 
 
         # Change Apply Button Color when BG sub arguments are changed
@@ -3212,8 +3212,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
 
 
-        if 'blank_mask' in info:
-            self.blankImageGrp.setChecked(info['blank_mask'])
+        # if 'blank_mask' in info:
+        #     self.blankImageGrp.setChecked(info['blank_mask'])
 
         if 'mask_thres' in info.keys():
             self.maskThresSpnBx.setValue(info['mask_thres'])
@@ -3895,7 +3895,7 @@ class QuadrantFoldingGUI(QMainWindow):
         flags["ignore_folds"] = self.ignoreFolds
         flags['mask_thres'] = self.maskThresSpnBx.value()
 
-        flags['blank_mask'] = self.blankImageGrp.isChecked()
+        # flags['blank_mask'] = self.blankImageGrp.isChecked()
         flags['fold_image'] = self.toggleFoldImage.isChecked()
 
         flags["transition_radius"] = self.tranRSpnBx.value()

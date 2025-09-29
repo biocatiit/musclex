@@ -324,7 +324,7 @@ class ImageMaskDialog(QDialog):
     def setConnections(self):
         self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
         self.applyBlankCheckBox.checkStateChanged.connect(self.enableBlankSubtraction)
-        self.selectBlankBtn.clicked.connect(self.readBlankImage)
+        # self.selectBlankBtn.clicked.connect(self.readBlankImage)
         # self.blankWeightText.valueChanged.connect(self.updateBlankWeight)
         self.drawMaskBtn.clicked.connect(self.drawMask)
         self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
