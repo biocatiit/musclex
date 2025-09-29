@@ -127,11 +127,29 @@ class ImageBlankDialog(QDialog):
         self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
 
+        self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
+        okButton = self.dialogButtons.button(QDialogButtonBox.Ok)
+        okButton.setText("Save")
+
+        self.dialogButtons.accepted.connect(self.okClicked)
+        self.dialogButtons.rejected.connect(self.reject)
+
+        self.buttonLayout = QGridLayout()
+
+        settingsRowIndex = 0
+        self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 1, 1, 2)
+        settingsRowIndex += 1
+
+        self.buttonWidget = QWidget()
+        self.buttonWidget.setLayout(self.buttonLayout)
+
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
         self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyBlankGroup)
+        self.settingsLayout.addSpacing(10)
+        self.settingsLayout.addWidget(self.buttonWidget)
 
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
@@ -177,6 +195,9 @@ class ImageBlankDialog(QDialog):
             self.blankWeightText.setEnabled(False)
 
         self.refreshImage()
+
+    def okClicked(self):
+        pass
 
     def enableBlankSubtraction(self, state):
         if state == Qt.CheckState.Checked:
