@@ -57,7 +57,7 @@ from queue import Queue
 
 class WorkerSignals(QObject):
     
-    finished = Signal()
+    finished = Signal(object)
     error = Signal(tuple)
     result = Signal(object)
 
@@ -81,7 +81,7 @@ class Worker(QRunnable):
         else:
             self.signals.result.emit(self.bioImg)
         finally:
-            self.signals.finished.emit()
+            self.signals.finished.emit(self.bioImg)
 
 class EquatorWindow(QMainWindow):
     """
@@ -3624,9 +3624,8 @@ class EquatorWindow(QMainWindow):
         if not started_any and self.tasksQueue.empty() and self.threadPool.activeThreadCount() == 0:
             self.progressBar.setVisible(False)
         
-    def onProcessingFinished(self):
-        # Prefer the just-finished image for updates/writes, but do not permanently flip self.bioImg
-        finishedImg = getattr(self, '_finishedBioImg', self.bioImg)
+    def onProcessingFinished(self, finishedImg):
+        # Temporarily switch context to the finished image to update outputs
         prevBio = self.bioImg
         self.bioImg = finishedImg
         self.updateParams()
