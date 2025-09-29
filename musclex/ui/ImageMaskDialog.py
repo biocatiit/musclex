@@ -385,7 +385,7 @@ class ImageMaskDialog(QDialog):
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
-            self.applyBlankText.setText("Empty cell image not found!")
+            self.applyBlankText.setText("No empty cell image found. Ignore this message if expected.")
             self.applyBlankText.setStyleSheet("color: red;")
             self.blankWeightLabel.setEnabled(False)
 
@@ -398,7 +398,7 @@ class ImageMaskDialog(QDialog):
         else:
             self.applyDrawnMaskCheckBox.setChecked(False)
             self.applyDrawnMaskCheckBox.setEnabled(False)
-            self.applyDrawnMaskText.setText("Drawn mask image not found!")
+            self.applyDrawnMaskText.setText("No drawn mask image found. Ignore this message if expected.")
             self.applyDrawnMaskText.setStyleSheet("color: red;")
 
     def applyDrawnMask(self, state):
