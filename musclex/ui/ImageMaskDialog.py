@@ -300,8 +300,8 @@ class ImageMaskDialog(QDialog):
 
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
-        self.settingsLayout.addWidget(self.displayDescGroup)
-        self.settingsLayout.addSpacing(10)
+        # self.settingsLayout.addWidget(self.displayDescGroup)
+        # self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyBlankGroup)
