@@ -101,6 +101,11 @@ class ImageMaskDialog(QDialog):
         # self.imageLabel.setStyleSheet("border: 1px solid black;")
         self.imageLabel.setAlignment(Qt.AlignCenter)  # Center-align the image
 
+        self.displayDescGroup = QGroupBox("Current View")
+        self.displayDescLayout = QVBoxLayout(self.displaDescGroup)
+        self.displayDescLabel = QLabel()
+        self.displayDescLayout.addWidget(self.displayDescLabel)
+
         self.displayGroup = QGroupBox("Display Options")
 
         self.showImageCheckBox = QCheckBox("Show Image")
@@ -286,6 +291,8 @@ class ImageMaskDialog(QDialog):
 
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
+        self.settingsLayout.addWidget(self.displayDescGroup)
+        self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyBlankGroup)
@@ -339,22 +346,6 @@ class ImageMaskDialog(QDialog):
         self.highMaskDilationChkbx.checkStateChanged.connect(self.enableHighMaskDilation)
 
     def enableShowImage(self, state):
-        if state == Qt.CheckState.Checked:
-            blank_image_info = self.read_blank_image_info(self.blank_settings_file_path)
-
-            if ((blank_image_info is not None)
-                and (blank_image_info.get("blank_image") is not None)
-                and blank_image_info["blank_image"].shape == self.imageData.shape):
-                self.blank_image_info = blank_image_info
-                self.applyBlankCheckBox.setEnabled(True)
-            else:
-                self.blank_image_info = None
-                self.applyBlankCheckBox.setEnabled(False)
-
-        if state == Qt.CheckState.Unchecked:
-            self.applyBlankCheckBox.setEnabled(False)
-            self.blankWeightLabel.setEnabled(False)
-
         self.refreshImage()
 
     def enableBlankSubtraction(self, state):
@@ -387,13 +378,13 @@ class ImageMaskDialog(QDialog):
         if self.blank_image_info is not None:
             self.applyBlankCheckBox.setChecked(True)
             self.applyBlankCheckBox.setEnabled(True)
-            self.applyBlankText.setText("")
-            self.applyBlankText.setStyleSheet("")
+            self.applyBlankText.setText("Empty cell image is available.")
+            self.applyBlankText.setStyleSheet("color: green;")
             self.blankWeightLabel.setEnabled(True)
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
-            self.applyBlankText.setText("Empty Cell Image not found!")
+            self.applyBlankText.setText("Empty cell image not found!")
             self.applyBlankText.setStyleSheet("color: red;")
             self.blankWeightLabel.setEnabled(False)
 
@@ -401,12 +392,12 @@ class ImageMaskDialog(QDialog):
         if self.drawnMaskData is not None:
             self.applyDrawnMaskCheckBox.setChecked(True)
             self.applyDrawnMaskCheckBox.setEnabled(True)
-            self.applyDrawnMaskText.setText("")
-            self.applyDrawnMaskText.setStyleSheet("")
+            self.applyDrawnMaskText.setText("Drawn mask image is available.")
+            self.applyDrawnMaskText.setStyleSheet("color: green;")
         else:
             self.applyDrawnMaskCheckBox.setChecked(False)
             self.applyDrawnMaskCheckBox.setEnabled(False)
-            self.applyDrawnMaskText.setText("Drawn Mask Image not exist!")
+            self.applyDrawnMaskText.setText("Drawn mask image not found!")
             self.applyDrawnMaskText.setStyleSheet("color: red;")
 
     def applyDrawnMask(self, state):
@@ -647,58 +638,136 @@ class ImageMaskDialog(QDialog):
         return image_data
 
     def refreshImage(self):
-        imageData = None
+        isShowImage = (self.showImageCheckBox.isEnabled()
+            and self.showImageCheckBox.isChecked())
 
-        # If show image, then it is original image.
-        if (self.showImageCheckBox.isEnabled()
-            and self.showImageCheckBox.isChecked()):
-            imageData = self.imageData
+        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
+            and self.applyBlankCheckBox.isChecked())
 
-        # If apply empty cell subtraction, then it is subtracted image.
-        if (self.applyBlankCheckBox.isEnabled()
-            and self.applyBlankCheckBox.isChecked()):
-            imageData = self.imageData - self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+        isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
+            and self.applyDrawnMaskCheckBox.isChecked())
 
-        # If not show image and not apply empty cell subtraction,
-        #   then only show masks.
-        if imageData is None:
-            drawnMaskData, lowMask, highMask = self.getMasks(
-                self.imageData.copy())
+        isApplyLowMask = (self.applyLowMaskCheckBox.isEnabled()
+            and self.applyLowMaskCheckBox.isChecked())
 
-            masks = [mask for mask in
-                [drawnMaskData, lowMask, highMask]
-                if mask is not None]
+        isApplyHighMask = (self.applyHighMaskCheckBox.isEnabled()
+            and self.applyHighMaskCheckBox.isChecked())
 
-            # If no mask, then show nothing.
-            if not masks:
+        isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
+
+        # If user does not select showing image:
+        if not isShowImage:
+            # If nothing is selected, Show nothing.
+            if not (isApplyBlank or isApplyMask):
                 self.imageLabel.clear()
+                self.displayDescLabel.setText("No Display")
                 return
 
-            maskData = np.prod(np.stack(masks), axis=0)
-            scaledPixmap = self.createDisplayImage(maskData,
-                -1, -1,
+            # Only show empty cell.
+            if isApplyBlank and (not isApplyMask):
+                blank_image_weight = self.blank_image_info["weight"]
+                imageData = self.blank_image_info["blank_image"] * blank_image_weight
+                scaledPixmap = self.createDisplayImage(imageData,
+                    self.vmin,
+                    self.vmax,
+                    self.imageLabel.width(),
+                    self.imageLabel.height())
+                self.imageLabel.setPixmap(scaledPixmap)
+                self.displayDescLabel.setText(f"Empty Cell (with scale: {blank_image_weight:.2f})")
+                return
+
+            # Only show mask:
+            if (not isApplyBlank) and isApplyMask:
+                imageData = self.imageData.copy()
+                drawnMaskData, lowMask, highMask = self.getMasks(imageData)
+                masks = [mask for mask in
+                    [drawnMaskData, lowMask, highMask]
+                    if mask is not None]
+
+                # If no mask, then show nothing.
+                if not masks:
+                    self.imageLabel.clear()
+                    return
+
+                maskData = np.prod(np.stack(masks), axis=0)
+                scaledPixmap = self.createDisplayImage(maskData,
+                    self.vmin,
+                    self.vmax,
+                    self.imageLabel.width(),
+                    self.imageLabel.height())
+
+                self.imageLabel.setPixmap(scaledPixmap)
+                self.displayDescLabel.setText(f"Mask")
+                return
+
+            # Show empty cell + apply mask.
+            imageData = self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+            drawnMaskData, lowMask, highMask = self.getMasks(imageData)
+
+            scaledPixmap = self.createDisplayImageWithMasks(
+                imageData,
+                self.vmin,
+                self.vmax,
+                lowMask,
+                highMask,
+                drawnMaskData,
                 self.imageLabel.width(),
                 self.imageLabel.height())
 
             self.imageLabel.setPixmap(scaledPixmap)
+            self.displayDescLabel.setText(f"Empty Cell (with scale: {blank_image_weight:.2f}) + Apply Mask")
             return
 
-        imageData = imageData.copy()
+        # User selected showing image:
+        imageData = self.imageData.copy()
 
-        drawnMaskData, lowMask, highMask = self.getMasks(imageData)
-
-        # If no mask, then only show original or
-        #   empty cell subtracted image.
-        if (drawnMaskData is None
-            and lowMask is None
-            and highMask is None):
+        # Only show image.
+        if not (isApplyBlank or isApplyMask):
             scaledPixmap = self.createDisplayImage(imageData,
                 self.vmin,
                 self.vmax,
                 self.imageLabel.width(),
                 self.imageLabel.height())
             self.imageLabel.setPixmap(scaledPixmap)
+            self.displayDescLabel.setText(f"Original Image")
             return
+
+        # Show image + subtract blank.
+        if isApplyBlank and (not isApplyMask):
+            imageData = imageData - self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+
+            scaledPixmap = self.createDisplayImage(imageData,
+                self.vmin,
+                self.vmax,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+            self.imageLabel.setPixmap(scaledPixmap)
+            self.displayDescLabel.setText(f"Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f})")
+            return
+
+        # Show image + apply mask.
+        if (not isApplyBlank) and isApplyMask:
+            drawnMaskData, lowMask, highMask = self.getMasks(
+                imageData)
+
+            scaledPixmap = self.createDisplayImageWithMasks(
+                imageData,
+                self.vmin,
+                self.vmax,
+                lowMask,
+                highMask,
+                drawnMaskData,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+
+            self.imageLabel.setPixmap(scaledPixmap)
+            self.displayDescLabel.setText(f"Original Image + Apply Mask")
+            return
+
+        # Show image + subtract empty cell + apply mask.
+        imageData = imageData - self.blank_image_info["blank_image"] * self.blank_image_info["weight"]
+        drawnMaskData, lowMask, highMask = self.getMasks(
+            imageData)
 
         scaledPixmap = self.createDisplayImageWithMasks(
             imageData,
@@ -708,9 +777,10 @@ class ImageMaskDialog(QDialog):
             highMask,
             drawnMaskData,
             self.imageLabel.width(),
-            self.imageLabel.height()
-            )
+            self.imageLabel.height())
+
         self.imageLabel.setPixmap(scaledPixmap)
+        self.displayDescLabel.setText(f"Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f}) + Apply Mask")
 
     def getMasks(self, imageData):
         drawnMaskData = None
