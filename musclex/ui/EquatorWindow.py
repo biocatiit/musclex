@@ -3594,8 +3594,7 @@ class EquatorWindow(QMainWindow):
         self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))
         
         # If there's no task currently running, start the next task
-        if self.currentTask is None:
-            self.startNextTask()
+        self.startNextTask()
             
     def thread_done(self, bioImg):
         self.tasksDone += 1
@@ -3605,18 +3604,24 @@ class EquatorWindow(QMainWindow):
         print("thread done")
                     
     def startNextTask(self):
-        if not self.tasksQueue.empty():
+        # Launch up to a safe concurrency limit to keep UI responsive
+        limit = max(1, self.threadPool.maxThreadCount() // 2)
+        started_any = False
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < limit:
             print("starting new task")
             bioImg, settings, paramInfo = self.tasksQueue.get()
-            
-            if settings['find_oritation']:
+
+            if settings.get('find_oritation'):
                 self.brightSpotClicked()
 
-            self.currentTask = Worker(bioImg, settings, paramInfo)
-            self.currentTask.signals.result.connect(self.thread_done)
-            self.currentTask.signals.finished.connect(self.onProcessingFinished)
-            self.threadPool.start(self.currentTask)
-        else:
+            worker = Worker(bioImg, settings, paramInfo)
+            worker.signals.result.connect(self.thread_done)
+            worker.signals.finished.connect(self.onProcessingFinished)
+            self.threadPool.start(worker)
+            self.currentTask = worker
+            started_any = True
+
+        if not started_any and self.tasksQueue.empty() and self.threadPool.activeThreadCount() == 0:
             self.progressBar.setVisible(False)
         
     def onProcessingFinished(self):
