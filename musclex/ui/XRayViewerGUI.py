@@ -1523,7 +1523,8 @@ class XRayViewerGUI(QMainWindow):
         self.filenameLineEdit2.setText(fileName)
 
         try:
-            img = self._load_current_image()
+            self.currentFileNumber = self.fileManager.current
+            img = self.fileManager.load_current()
             self.xrayViewer = XRayViewer(img)
         except Exception as e:
             infMsg = QMessageBox()
@@ -1700,9 +1701,6 @@ class XRayViewerGUI(QMainWindow):
         QApplication.restoreOverrideCursor()
             
 
-    def _load_current_image(self):
-        self.currentFileNumber = self.fileManager.current
-        return self.fileManager.load_current()
 
     def setH5Mode(self, file_name):
         """
