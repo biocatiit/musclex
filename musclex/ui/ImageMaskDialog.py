@@ -104,6 +104,7 @@ class ImageMaskDialog(QDialog):
         self.displayDescGroup = QGroupBox("Current View")
         self.displayDescLayout = QVBoxLayout(self.displayDescGroup)
         self.displayDescLabel = QLabel()
+        self.displayDescLabel.setStyleSheet("color: green;")
         self.displayDescLayout.addWidget(self.displayDescLabel)
 
         self.displayGroup = QGroupBox("Display Options")
