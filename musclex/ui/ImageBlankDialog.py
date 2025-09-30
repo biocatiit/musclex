@@ -144,31 +144,35 @@ class ImageBlankDialog(QDialog):
         self.dialogButtons.accepted.connect(self.okClicked)
         self.dialogButtons.rejected.connect(self.reject)
 
-        self.buttonLayout = QGridLayout()
+        # self.buttonLayout = QGridLayout()
 
-        settingsRowIndex = 0
-        self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 4)
-        settingsRowIndex += 1
+        # settingsRowIndex = 0
+        # self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 2)
+        # settingsRowIndex += 1
 
-        self.buttonWidget = QWidget()
-        self.buttonWidget.setLayout(self.buttonLayout)
+        # self.buttonWidget = QWidget()
+        # self.buttonWidget.setLayout(self.buttonLayout)
 
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
         self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyBlankGroup)
-        self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.buttonWidget)
+        # self.settingsLayout.addSpacing(10)
+        # self.settingsLayout.addWidget(self.buttonWidget)
         self.settingsLayout.addStretch()
 
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setWidget(self.settingsWidget)
 
-        self.mainLayout = QHBoxLayout(self)
+        self.mainLayout = QVBoxLayout(self)
+        self.contentLayout = QHBoxLayout()
         self.mainLayout.addWidget(self.imageWidget)
         self.mainLayout.addWidget(self.scrollArea)
+
+        self.mainLayout.addLayout(self.contentLayout)
+        self.mainLayout.addWidget(self.dialogButtons)
 
         if self.imageData is not None:
             scaledPixmap = self.createDisplayImage(self.imageData,
