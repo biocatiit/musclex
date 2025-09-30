@@ -168,8 +168,8 @@ class ImageBlankDialog(QDialog):
 
         self.mainLayout = QVBoxLayout(self)
         self.contentLayout = QHBoxLayout()
-        self.mainLayout.addWidget(self.imageWidget)
-        self.mainLayout.addWidget(self.scrollArea)
+        self.contentLayout.addWidget(self.imageWidget)
+        self.contentLayout.addWidget(self.scrollArea)
 
         self.mainLayout.addLayout(self.contentLayout)
         self.mainLayout.addWidget(self.dialogButtons)
