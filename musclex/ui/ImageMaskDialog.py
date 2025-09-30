@@ -292,8 +292,8 @@ class ImageMaskDialog(QDialog):
         settingsRowIndex += 1
         # self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, settingsRowIndex, 0, 1, 2)
         # settingsRowIndex += 1
-        self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 4)
-        settingsRowIndex += 1
+        # self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 4)
+        # settingsRowIndex += 1
 
         self.buttonWidget = QWidget()
         self.buttonWidget.setLayout(self.buttonLayout)
@@ -320,10 +320,13 @@ class ImageMaskDialog(QDialog):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setWidget(self.settingsWidget)
 
-        self.mainLayout = QHBoxLayout(self)
+        self.mainLayout = QVBoxLayout(self)
+        self.contentLayout = QHBoxLayout()
+        self.contentLayout.addWidget(self.imageWidget)
+        self.contentLayout.addWidget(self.scrollArea)
 
-        self.mainLayout.addWidget(self.imageWidget)
-        self.mainLayout.addWidget(self.scrollArea)
+        self.mainLayout.addLayout(self.contentLayout)
+        self.mainLayout.addWidget(self.dialogButtons, alignment=Qt.AlignHCenter)
 
         if self.imageData is not None:
             scaledPixmap = self.createDisplayImage(self.imageData,
