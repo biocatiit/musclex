@@ -535,7 +535,7 @@ class ImageMaskDialog(QDialog):
 
         if isApplyBlank:
             if self.blank_image_info is not None:
-                 blank_config = {
+                blank_config = {
                     "file_path": str(self.blank_image_info["file_path"]),
                     "weight": self.blank_image_info["weight"],
                 }
