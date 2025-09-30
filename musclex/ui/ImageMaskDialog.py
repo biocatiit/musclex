@@ -105,7 +105,7 @@ class ImageMaskDialog(QDialog):
             if drawn_mask_file_path is not None:
                 drawn_mask_file_path = Path(drawn_mask_file_path)
 
-                if drawn_mask_file_path.exists()
+                if drawn_mask_file_path.exists():
                     if drawn_mask_file_path != self.drawn_mask_file_path:
                         self.drawn_mask_file_path.mkdir(parents=True, exist_ok=True)
                         shutil.copy(drawn_mask_file_path, self.drawn_mask_file_path)
