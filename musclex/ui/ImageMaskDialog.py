@@ -104,7 +104,6 @@ class ImageMaskDialog(QDialog):
         self.statusBar = QLabel(f"Current View: No Display")
         self.statusBar.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-
         self.imageWidget = QWidget()
         self.imageLayout = QVBoxLayout(self.imageWidget)
         self.imageLayout.addWidget(self.imageLabel)
