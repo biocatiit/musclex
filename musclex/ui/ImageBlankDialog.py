@@ -196,7 +196,25 @@ class ImageBlankDialog(QDialog):
         self.refreshImage()
 
     def okClicked(self):
-        pass
+        self.saveBlankConfig()
+
+    def saveBlankConfig(self):
+        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
+            and self.applyBlankCheckBox.isChecked())
+
+        if isApplyBlank:
+            if self.blank_image_info is not None:
+                 blank_settings = {
+                    "file_path": str(self.blank_image_info["file_path"]),
+                    "weight": self.blank_image_info["weight"],
+                }
+
+                self.blank_settings_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                with open(self.blank_settings_file_path, "w") as file_stream:
+                    json.dump(blank_settings, file_stream, indent=4)
+        else:
+            self.blank_settings_file_path.unlink(missing_ok=True)
 
     def enableBlankSubtraction(self, state):
         if state == Qt.CheckState.Checked:
@@ -212,11 +230,6 @@ class ImageBlankDialog(QDialog):
     def updateBlankWeight(self, blank_image_weight):
         self.blank_image_info["weight"] = blank_image_weight
 
-        blank_settings = {
-            "file_path": str(self.blank_image_info["file_path"]),
-            "weight": blank_image_weight,
-        }
-
         self.refreshImage()
 
     def updateBlankWidgets(self):
@@ -227,6 +240,7 @@ class ImageBlankDialog(QDialog):
             self.applyBlankText.setStyleSheet("color: green;")
             self.blankWeightLabel.setEnabled(True)
             self.blankWeightText.setEnabled(True)
+            self.blankWeightText.setValue(self.blank_image_info.get("weight", 1.0))
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
@@ -297,14 +311,6 @@ class ImageBlankDialog(QDialog):
 
         blank_image = self.read_image_data(blank_image_file_path)
         blank_image_weight = 1.0
-
-        blank_settings = {
-            "file_path": str(blank_image_file_path),
-            "weight": blank_image_weight,
-        }
-
-        with open(self.blank_settings_file_path, "w") as file_stream:
-            json.dump(blank_settings, file_stream, indent=4)
 
         blank_image_info = {
             "file_path": str(blank_image_file_path),

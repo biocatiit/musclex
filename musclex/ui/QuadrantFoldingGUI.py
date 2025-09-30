@@ -1573,7 +1573,7 @@ class QuadrantFoldingGUI(QMainWindow):
         dialogCode = imageBlankDialog.exec()
 
         if dialogCode == QDialog.Accepted:
-            print("Accepted")
+            self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
 
@@ -1605,7 +1605,7 @@ class QuadrantFoldingGUI(QMainWindow):
         dialogCode = imageMaskDialog.exec()
 
         if dialogCode == QDialog.Accepted:
-            print("Accepted")
+            self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"
 

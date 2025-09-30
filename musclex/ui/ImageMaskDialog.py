@@ -33,6 +33,7 @@ from pathlib import Path
 import numpy as np
 import cv2
 import threading
+import shutil
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -74,7 +75,8 @@ class ImageMaskDialog(QDialog):
 
         # The drawn mask file name should be <originalFileNoExt>-mask.edf
         self.drawn_mask_file_path = self.image_file_path.parent / f"{self.image_file_path.stem}-mask.edf"
-        self.blank_settings_file_path = self.image_file_path.parent / f"blank_image_settings.json"
+        self.mask_config_file_path = self.image_file_path.parent / f"mask_config.json"
+        self.blank_config_file_path = self.image_file_path.parent / f"blank_image_settings.json"
 
         self.imageData = self.read_image_data(self.image_file_path)
         drawnMaskData = self.read_image_data(self.drawn_mask_file_path)
@@ -84,7 +86,7 @@ class ImageMaskDialog(QDialog):
         else:
             self.drawnMaskData = None
 
-        blank_image_info = self.read_blank_image_info(self.blank_settings_file_path)
+        blank_image_info = self.read_blank_image_info(self.blank_config_file_path)
 
         if ((blank_image_info is not None)
             and (blank_image_info.get("blank_image") is not None)
@@ -92,6 +94,31 @@ class ImageMaskDialog(QDialog):
             self.blank_image_info = blank_image_info
         else:
             self.blank_image_info = None
+
+        # If mask config file exists, load mask config.
+        mask_config = self.readMaskConfig()
+
+        if mask_config is not None:
+            # Copy ,drawn mask file to designed path.
+            drawn_mask_file_path = mask_config.get("drawn_mask_file_path")
+
+            if drawn_mask_file_path is not None:
+                drawn_mask_file_path = Path(drawn_mask_file_path)
+
+                if drawn_mask_file_path.exists()
+                    if drawn_mask_file_path != self.drawn_mask_file_path:
+                        self.drawn_mask_file_path.mkdir(parents=True, exist_ok=True)
+                        shutil.copy(drawn_mask_file_path, self.drawn_mask_file_path)
+
+            mask_low_thresh = mask_config.get("mask_low_thresh")
+            mask_low_kernel_size = mask_config.get("mask_low_kernel_size")
+            mask_high_thresh = mask_config.get("mask_high_thresh")
+            mask_high_kernel_size = mask_config.get("mask_high_kernel_size")
+        else:
+            mask_low_thresh = None
+            mask_low_kernel_size = None
+            mask_high_thresh = None
+            mask_high_kernel_size = None
 
         # Show image.
         self.imageLabel = QLabel()
@@ -178,12 +205,7 @@ class ImageMaskDialog(QDialog):
         self.drawMaskGroup = QGroupBox("Drawn Mask with pyFAI")
         self.drawMaskLayout = QVBoxLayout(self.drawMaskGroup)
 
-        if self.applyBlankCheckBox.isChecked():
-            draw_mask_text = "Draw Mask on Empty Cell Subtracted Image"
-        else:
-            draw_mask_text = "Draw Mask on Original Image"
-
-        self.drawMaskBtn = QPushButton(draw_mask_text)
+        self.drawMaskBtn = QPushButton("Draw Mask")
         self.drawMaskLayout.addWidget(self.drawMaskBtn)
 
         self.maskLowThresGroup = QGroupBox("Low Mask Threshold Settings")
@@ -194,7 +216,9 @@ class ImageMaskDialog(QDialog):
         self.maskLowThresh = QDoubleSpinBox()
         self.maskLowThresh.setMinimum(-50)
         self.maskLowThresh.setMaximum(10000)
-        self.maskLowThresh.setValue(-1)
+        if not isinstance(mask_low_thresh, float):
+            mask_low_thresh = -1
+        self.maskLowThresh.setValue(mask_low_thresh)
         self.maskLowThresh.setSingleStep(0.01)
         self.maskLowThresh.setEnabled(False)
         self.maskLowThresh.valueChanged.connect(self.maskLowThresholdChanged)
@@ -206,7 +230,18 @@ class ImageMaskDialog(QDialog):
         self.lowDilComboBox.addItem("3x3 Kernel")
         self.lowDilComboBox.addItem("5x5 Kernel")
         self.lowDilComboBox.addItem("7x7 Kernel")
-        self.lowDilComboBox.setCurrentIndex(0)
+
+        lowDilComboBoxIndex = 0
+
+        if mask_low_kernel_size == 3:
+            lowDilComboBoxIndex = 0
+        elif mask_low_kernel_size == 5:
+            lowDilComboBoxIndex = 1
+        elif mask_low_kernel_size == 7:
+            lowDilComboBoxIndex = 2
+
+        self.lowDilComboBox.setCurrentIndex(lowDilComboBoxIndex)
+
         self.lowDilComboBox.setEnabled(False)
         self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
 
@@ -226,7 +261,11 @@ class ImageMaskDialog(QDialog):
         self.maskHighThresh = QDoubleSpinBox()
         self.maskHighThresh.setMinimum(0)
         self.maskHighThresh.setMaximum(self.imageData.max() + 1.0)
-        self.maskHighThresh.setValue(self.imageData.max() + 1.0)
+
+        if not isinstance(mask_high_thresh, float):
+            mask_high_thresh = self.imageData.max() + 1.0
+        self.maskHighThresh.setValue(mask_high_thresh)
+
         self.maskHighThresh.setSingleStep(0.01)
         self.maskHighThresh.setEnabled(False)
 
@@ -241,7 +280,18 @@ class ImageMaskDialog(QDialog):
         self.highDilComboBox.addItem("3x3 Kernel")
         self.highDilComboBox.addItem("5x5 Kernel")
         self.highDilComboBox.addItem("7x7 Kernel")
-        self.highDilComboBox.setCurrentIndex(0)
+
+        highDilComboBoxIndex = 0
+
+        if mask_high_kernel_size == 3:
+            highDilComboBoxIndex = 0
+        elif mask_high_kernel_size == 5:
+            highDilComboBoxIndex = 1
+        elif mask_high_kernel_size == 7:
+            highDilComboBoxIndex = 2
+
+        self.highDilComboBox.setCurrentIndex(highDilComboBoxIndex)
+
         self.highDilComboBox.setEnabled(False)
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
 
@@ -363,14 +413,10 @@ class ImageMaskDialog(QDialog):
 
     def enableBlankSubtraction(self, state):
         if state == Qt.CheckState.Checked:
-            draw_mask_text = "Draw Mask on Empty Cell Subtracted Image"
-            self.drawMaskBtn.setText(draw_mask_text)
             self.blankWeightLabel.setEnabled(True)
             self.blankWeightText.setEnabled(True)
 
         if state == Qt.CheckState.Unchecked:
-            draw_mask_text = "Draw Mask on Original Image"
-            self.drawMaskBtn.setText(draw_mask_text)
             self.blankWeightLabel.setEnabled(False)
             self.blankWeightText.setEnabled(False)
 
@@ -378,11 +424,6 @@ class ImageMaskDialog(QDialog):
 
     def updateBlankWeight(self, blank_image_weight):
         self.blank_image_info["weight"] = blank_image_weight
-
-        blank_settings = {
-            "file_path": str(self.blank_image_info["file_path"]),
-            "weight": blank_image_weight,
-        }
 
         self.refreshImage()
 
@@ -394,6 +435,7 @@ class ImageMaskDialog(QDialog):
             self.applyBlankText.setStyleSheet("color: green;")
             self.blankWeightLabel.setEnabled(True)
             self.blankWeightText.setEnabled(True)
+            self.blankWeightText.setValue(self.blank_image_info.get("weight", 1.0))
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
@@ -484,7 +526,102 @@ class ImageMaskDialog(QDialog):
         self.refreshImage()
 
     def okClicked(self):
-        pass
+        self.saveBlankConfig()
+        self.saveMaskConfig()
+
+    def saveBlankConfig(self):
+        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
+            and self.applyBlankCheckBox.isChecked())
+
+        if isApplyBlank:
+            if self.blank_image_info is not None:
+                 blank_config = {
+                    "file_path": str(self.blank_image_info["file_path"]),
+                    "weight": self.blank_image_info["weight"],
+                }
+
+                self.blank_config_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                with open(self.blank_config_file_path, "w") as file_stream:
+                    json.dump(blank_config, file_stream, indent=4)
+        else:
+            self.blank_config_file_path.unlink(missing_ok=True)
+
+    def saveMaskConfig(self):
+        isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
+            and self.applyDrawnMaskCheckBox.isChecked())
+
+        isApplyLowMask = (self.applyLowMaskCheckBox.isEnabled()
+            and self.applyLowMaskCheckBox.isChecked())
+
+        isApplyHighMask = (self.applyHighMaskCheckBox.isEnabled()
+            and self.applyHighMaskCheckBox.isChecked())
+
+        isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
+
+        if not isApplyMask:
+            self.mask_config_file_path.unlink(missing_ok=True)
+            return
+
+        # Save mask config to file.
+        mask_config = {}
+
+        # mask config example:
+        # {
+        #     "drawn_mask_file_path": a/b/c,
+        #     "mask_low_thresh": 1.0,
+        #     "mask_low_kernel_size": 1.0,
+        #     "mask_high_thresh": 1.0,
+        #     "mask_high_kernel_size": 1.0,
+        # }
+
+        if isApplyDrawnMask:
+            if self.drawn_mask_file_path.exists():
+                mask_config["drawn_mask_file_path"] = str(self.drawn_mask_file_path)
+
+        if isApplyLowMask:
+            mask_low_thresh = self.maskLowThresh.value()
+            mask_config["mask_low_thresh"] = mask_low_thresh
+
+            if (self.lowMaskDilationChkbx.isEnabled()
+                and self.lowMaskDilationChkbx.isChecked()):
+                mask_low_kernel_size = self.getKernelSizes(self.lowDilComboBox)
+                mask_config["mask_low_kernel_size"] = mask_low_kernel_size
+
+        if isApplyHighMask:
+            mask_high_thresh = self.maskHighThresh.value()
+            mask_config["mask_high_thresh"] = mask_high_thresh
+
+            if (self.highMaskDilationChkbx.isEnabled()
+                and self.highMaskDilationChkbx.isChecked()):
+                mask_high_kernel_size = self.getKernelSizes(self.highDilComboBox)
+                mask_config["mask_high_kernel_size"] = mask_high_kernel_size
+
+        self.mask_config_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(self.mask_config_file_path, "w") as file_stream:
+            json.dump(mask_config, file_stream, indent=4)
+
+    def readMaskConfig(self):
+        # mask config example:
+        # {
+        #     "drawn_mask_file_path": a/b/c,
+        #     "mask_low_thresh": 1.0,
+        #     "mask_low_kernel_size": 1.0,
+        #     "mask_high_thresh": 1.0,
+        #     "mask_high_kernel_size": 1.0,
+        # }
+
+        if not mask_config_file_path.exists():
+            return None
+
+        with open(mask_config_file_path, "r") as file_stream:
+            mask_config = json.load(file_stream)
+
+        if not isinstance(mask_config, dict):
+            return None
+
+        return mask_config
 
     def readBlankImage(self):
         blank_image_file_path = getAFile(path=str(self.image_file_path.parent))
@@ -495,14 +632,6 @@ class ImageMaskDialog(QDialog):
 
         blank_image = self.read_image_data(blank_image_file_path)
         blank_image_weight = 1.0
-
-        blank_settings = {
-            "file_path": str(blank_image_file_path),
-            "weight": blank_image_weight,
-        }
-
-        with open(self.blank_settings_file_path, "w") as file_stream:
-            json.dump(blank_settings, file_stream, indent=4)
 
         blank_image_info = {
             "file_path": str(blank_image_file_path),
@@ -532,7 +661,6 @@ class ImageMaskDialog(QDialog):
             print("Exception occurred:", e)
             tb_str = traceback.format_exc()
             print(f"Full traceback: {tb_str}\n")
-
 
         drawnMaskData = self.read_image_data(self.drawn_mask_file_path)
 
@@ -613,17 +741,17 @@ class ImageMaskDialog(QDialog):
 
         return scaledPixmap
 
-    def read_blank_image_info(self, blank_settings_file_path):
-        if not blank_settings_file_path.exists():
+    def read_blank_image_info(self, blank_config_file_path):
+        if not blank_config_file_path.exists():
             return None
 
-        with open(blank_settings_file_path, "r") as file_stream:
-            blank_settings = json.load(file_stream)
+        with open(blank_config_file_path, "r") as file_stream:
+            blank_config = json.load(file_stream)
 
-        if not isinstance(blank_settings, dict):
+        if not isinstance(blank_config, dict):
             return None
 
-        blank_image_file_path = blank_settings.get("file_path")
+        blank_image_file_path = blank_config.get("file_path")
 
         if not blank_image_file_path:
             return None
@@ -634,7 +762,7 @@ class ImageMaskDialog(QDialog):
             return None
 
         blank_image = self.read_image_data(blank_image_file_path)
-        blank_image_weight = blank_settings.get("weight", 1.0)
+        blank_image_weight = blank_config.get("weight", 1.0)
 
         blank_image_info = {
             "file_path": str(blank_image_file_path),
@@ -814,17 +942,18 @@ class ImageMaskDialog(QDialog):
 
             if (self.lowMaskDilationChkbx.isEnabled()
                 and self.lowMaskDilationChkbx.isChecked()):
-                low_kernel = self.getKernelSizes(self.lowDilComboBox)
-                lowMask = self.dilateMask(lowMask, low_kernel)
+                mask_low_kernel_size = self.getKernelSizes(self.lowDilComboBox)
+                lowMask = self.dilateMask(lowMask, mask_low_kernel_size)
 
         highMask = None
         if (self.applyHighMaskCheckBox.isEnabled()
             and self.applyHighMaskCheckBox.isChecked()):
             highMask = (imageData < self.maskHighThresh.value()).astype(np.uint8)
 
-            if self.highMaskDilationChkbx.isChecked():
-                high_kernel = self.getKernelSizes(self.highDilComboBox)
-                highMask = self.dilateMask(highMask, high_kernel)
+            if (self.highMaskDilationChkbx.isEnabled()
+                and self.highMaskDilationChkbx.isChecked()):
+                mask_high_kernel_size = self.getKernelSizes(self.highDilComboBox)
+                highMask = self.dilateMask(highMask, mask_high_kernel_size)
 
         return drawnMaskData, lowMask, highMask
 
