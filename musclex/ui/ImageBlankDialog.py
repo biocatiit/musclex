@@ -197,6 +197,7 @@ class ImageBlankDialog(QDialog):
 
     def okClicked(self):
         self.saveBlankConfig()
+        self.accept()
 
     def saveBlankConfig(self):
         isApplyBlank = (self.applyBlankCheckBox.isEnabled()

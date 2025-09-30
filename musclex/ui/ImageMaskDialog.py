@@ -528,6 +528,7 @@ class ImageMaskDialog(QDialog):
     def okClicked(self):
         self.saveBlankConfig()
         self.saveMaskConfig()
+        self.accept()
 
     def saveBlankConfig(self):
         isApplyBlank = (self.applyBlankCheckBox.isEnabled()
