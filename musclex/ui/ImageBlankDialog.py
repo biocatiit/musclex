@@ -172,7 +172,7 @@ class ImageBlankDialog(QDialog):
         self.contentLayout.addWidget(self.scrollArea)
 
         self.mainLayout.addLayout(self.contentLayout)
-        self.mainLayout.addWidget(self.dialogButtons)
+        self.mainLayout.addWidget(self.dialogButtons, alignment=Qt.AlignHCenter)
 
         if self.imageData is not None:
             scaledPixmap = self.createDisplayImage(self.imageData,
