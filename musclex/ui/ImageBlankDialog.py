@@ -217,9 +217,6 @@ class ImageBlankDialog(QDialog):
             "weight": blank_image_weight,
         }
 
-        with open(self.blank_settings_file_path, "w") as file_stream:
-            json.dump(blank_settings, file_stream, indent=4)
-
         self.refreshImage()
 
     def updateBlankWidgets(self):
@@ -229,12 +226,14 @@ class ImageBlankDialog(QDialog):
             self.applyBlankText.setText("Empty cell image is available.")
             self.applyBlankText.setStyleSheet("color: green;")
             self.blankWeightLabel.setEnabled(True)
+            self.blankWeightText.setEnabled(True)
         else:
             self.applyBlankCheckBox.setChecked(False)
             self.applyBlankCheckBox.setEnabled(False)
             self.applyBlankText.setText("No empty cell image found. Ignore this message if expected.")
             self.applyBlankText.setStyleSheet("color: red;")
             self.blankWeightLabel.setEnabled(False)
+            self.blankWeightText.setEnabled(False)
 
     def refreshImage(self):
         isShowImage = (self.showImageCheckBox.isEnabled()
