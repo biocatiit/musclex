@@ -204,7 +204,7 @@ class ImageBlankDialog(QDialog):
 
         if isApplyBlank:
             if self.blank_image_info is not None:
-                 blank_settings = {
+                blank_settings = {
                     "file_path": str(self.blank_image_info["file_path"]),
                     "weight": self.blank_image_info["weight"],
                 }
