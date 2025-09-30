@@ -147,7 +147,7 @@ class ImageBlankDialog(QDialog):
         self.buttonLayout = QGridLayout()
 
         settingsRowIndex = 0
-        self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 1, 1, 2)
+        self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
 
         self.buttonWidget = QWidget()
