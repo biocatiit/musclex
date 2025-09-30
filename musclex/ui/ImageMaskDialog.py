@@ -612,10 +612,10 @@ class ImageMaskDialog(QDialog):
         #     "mask_high_kernel_size": 1.0,
         # }
 
-        if not mask_config_file_path.exists():
+        if not self.mask_config_file_path.exists():
             return None
 
-        with open(mask_config_file_path, "r") as file_stream:
+        with open(self.mask_config_file_path, "r") as file_stream:
             mask_config = json.load(file_stream)
 
         if not isinstance(mask_config, dict):

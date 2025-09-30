@@ -70,10 +70,10 @@ class ImageBlankDialog(QDialog):
         self.vmin = vmin
         self.vmax = vmax
 
-        self.blank_settings_file_path = self.image_file_path.parent / f"blank_image_settings.json"
+        self.blank_config_file_path = self.image_file_path.parent / f"blank_image_settings.json"
         self.imageData = self.read_image_data(self.image_file_path)
 
-        blank_image_info = self.read_blank_image_info(self.blank_settings_file_path)
+        blank_image_info = self.read_blank_image_info(self.blank_config_file_path)
 
         if ((blank_image_info is not None)
             and (blank_image_info.get("blank_image") is not None)
@@ -204,17 +204,17 @@ class ImageBlankDialog(QDialog):
 
         if isApplyBlank:
             if self.blank_image_info is not None:
-                blank_settings = {
+                blank_config = {
                     "file_path": str(self.blank_image_info["file_path"]),
                     "weight": self.blank_image_info["weight"],
                 }
 
-                self.blank_settings_file_path.parent.mkdir(parents=True, exist_ok=True)
+                self.blank_config_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-                with open(self.blank_settings_file_path, "w") as file_stream:
-                    json.dump(blank_settings, file_stream, indent=4)
+                with open(self.blank_config_file_path, "w") as file_stream:
+                    json.dump(blank_config, file_stream, indent=4)
         else:
-            self.blank_settings_file_path.unlink(missing_ok=True)
+            self.blank_config_file_path.unlink(missing_ok=True)
 
     def enableBlankSubtraction(self, state):
         if state == Qt.CheckState.Checked:
@@ -331,17 +331,17 @@ class ImageBlankDialog(QDialog):
         image_data = fabio.open(file_path).data
         return image_data
 
-    def read_blank_image_info(self, blank_settings_file_path):
-        if not blank_settings_file_path.exists():
+    def read_blank_image_info(self, blank_config_file_path):
+        if not blank_config_file_path.exists():
             return None
 
-        with open(blank_settings_file_path, "r") as file_stream:
-            blank_settings = json.load(file_stream)
+        with open(blank_config_file_path, "r") as file_stream:
+            blank_config = json.load(file_stream)
 
-        if not isinstance(blank_settings, dict):
+        if not isinstance(blank_config, dict):
             return None
 
-        blank_image_file_path = blank_settings.get("file_path")
+        blank_image_file_path = blank_config.get("file_path")
 
         if not blank_image_file_path:
             return None
@@ -352,7 +352,7 @@ class ImageBlankDialog(QDialog):
             return None
 
         blank_image = self.read_image_data(blank_image_file_path)
-        blank_image_weight = blank_settings.get("weight", 1.0)
+        blank_image_weight = blank_config.get("weight", 1.0)
 
         blank_image_info = {
             "file_path": str(blank_image_file_path),
