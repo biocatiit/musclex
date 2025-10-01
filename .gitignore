@@ -9,3 +9,4 @@ musclex/tests/pt/*
 musclex/tests/qf/*
 /venv/
 /.idea/
+/temp_files/
