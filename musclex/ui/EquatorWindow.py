@@ -144,9 +144,6 @@ class EquatorWindow(QMainWindow):
         self.uiUpdateTimer.timeout.connect(self.processUIUpdateQueue)
         self.uiUpdateTimer.setInterval(100)  # Check every 100ms
 
-        # Batch completion notification guard
-        self._batchCompleteNotified = False
-
         self.initUI()  # Initial all UI
 
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
@@ -253,8 +250,7 @@ class EquatorWindow(QMainWindow):
                 self.updateImageTab()
         
         # Check if batch is complete
-        if stats['pending'] == 0 and not self._batchCompleteNotified:
-            self._batchCompleteNotified = True
+        if stats['pending'] == 0 and not self.pendingUIUpdates:
             self.onBatchComplete()
         
         QApplication.processEvents()
@@ -1925,8 +1921,7 @@ class EquatorWindow(QMainWindow):
             # Setup for batch processing
             self.in_batch_process = True
             self.stop_process = False
-            self._batchCompleteNotified = False
-             
+            
             # Reset task management
             self.taskManager.clear()
             self.currentDisplayIndex = 0
