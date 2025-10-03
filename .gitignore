@@ -7,5 +7,6 @@ musclex/tests/di/*
 musclex/tests/eq/*
 musclex/tests/pt/*
 musclex/tests/qf/*
-/venv/*
-/.idea/*
+/venv/
+/.idea/
+/temp_files/
