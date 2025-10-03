@@ -36,6 +36,7 @@ from PySide6.QtWidgets import QMessageBox
 from concurrent.futures import ProcessPoolExecutor
 import hashlib
 import time
+import pickle
 
 input_types = ['adsc', 'cbf', 'edf', 'fit2d', 'mar345', 'marccd', 'hdf5', 'h5', 'pilatus', 'tif', 'tiff', 'smv']
 
@@ -246,6 +247,46 @@ def createFolder(path):
 # --------------------- Fast, cached, multiprocessing directory scan ---------------------
 _SCAN_CACHE = {}
 
+def _disk_cache_dir(dir_path):
+    try:
+        return join(dir_path, ".musclex_cache")
+    except Exception:
+        return None
+
+def _disk_cache_file(dir_path):
+    try:
+        cdir = _disk_cache_dir(dir_path)
+        if cdir is None:
+            return None
+        return join(cdir, "scan_cache.pkl")
+    except Exception:
+        return None
+
+def _load_scan_cache_from_disk(dir_path, sig):
+    try:
+        cfile = _disk_cache_file(dir_path)
+        if cfile and exists(cfile):
+            with open(cfile, "rb") as f:
+                data = pickle.load(f)
+            if isinstance(data, dict) and data.get("sig") == sig and isinstance(data.get("payload"), tuple):
+                return data.get("payload")
+    except Exception:
+        pass
+    return None
+
+def _save_scan_cache_to_disk(dir_path, sig, payload):
+    try:
+        cdir = _disk_cache_dir(dir_path)
+        if cdir and not exists(cdir):
+            os.makedirs(cdir, exist_ok=True)
+        cfile = _disk_cache_file(dir_path)
+        if cfile:
+            with open(cfile, "wb") as f:
+                pickle.dump({"sig": sig, "payload": payload}, f)
+    except Exception:
+        # best-effort; ignore failures
+        pass
+
 def _dir_signature(dir_path):
     try:
         entries = []
@@ -287,8 +328,15 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
     in parallel using processes. Frames are NOT loaded.
     """
     sig = _dir_signature(dir_path)
-    if sig is not None and dir_path in _SCAN_CACHE and _SCAN_CACHE[dir_path][0] == sig:
-        return _SCAN_CACHE[dir_path][1]
+    if sig is not None:
+        # check in-memory cache first
+        if dir_path in _SCAN_CACHE and _SCAN_CACHE[dir_path][0] == sig:
+            return _SCAN_CACHE[dir_path][1]
+        # try disk cache
+        disk_payload = _load_scan_cache_from_disk(dir_path, sig)
+        if disk_payload is not None:
+            _SCAN_CACHE[dir_path] = (sig, disk_payload)
+            return disk_payload
 
     entries = []
     h5_files = []
@@ -354,7 +402,9 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
     specs = [s for _, s in entries]
 
     if sig is not None:
-        _SCAN_CACHE[dir_path] = (sig, (imgList, specs))
+        payload = (imgList, specs)
+        _SCAN_CACHE[dir_path] = (sig, payload)
+        _save_scan_cache_to_disk(dir_path, sig, payload)
 
     return imgList, specs
 # --------------------- Unified image loader for GUI specs ---------------------
