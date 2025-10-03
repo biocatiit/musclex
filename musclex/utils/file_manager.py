@@ -504,35 +504,49 @@ class FileManager:
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
 
-    def set_file_listing(self, dir_path, file_list, selected_file):
+    def set_from_file(self, selected_file):
         """
-        Set complete file list from directory scan and locate selected file.
-        file_list: [(filename, type, full_path), ...]
+        Initialize from a selected file. Scans directory and locates the file.
         selected_file: full path of the file to select
         """
+        # Extract directory path
+        dir_path = os.path.dirname(str(selected_file))
         self.dir_path = dir_path
+        
+        # Scan directory for file list (fast, no HDF5 opening)
+        file_list = scan_directory_files_sync(dir_path)
+        if not file_list:
+            # Fallback to single file if scan fails
+            fname = os.path.basename(str(selected_file))
+            base, ext = os.path.splitext(fname)
+            ftype = "h5" if ext.lower() in ('.h5', '.hdf5') else "tiff"
+            file_list = [(fname, ftype, str(selected_file))]
+        
         self.file_list = file_list
         
         # Locate selected file in the list
         selected_name = os.path.basename(str(selected_file))
+        base, ext = os.path.splitext(selected_name)
         self.current_file_idx = 0
         self.current_frame_idx = 0
+        found = False
         
-        # Handle HDF5 master/data logic
-        base, ext = os.path.splitext(selected_name)
+        # If selected a data file, try to find corresponding master first
         if ext.lower() in ('.h5', '.hdf5') and "_data_" in base:
-            # If selected a data file, look for corresponding master
             prefix = base.split("_data_")[0]
             master_name = f"{prefix}_master{ext}"
             for i, (fname, ftype, fpath) in enumerate(file_list):
                 if fname == master_name:
                     self.current_file_idx = i
+                    found = True
                     break
-        else:
-            # Find exact match
+        
+        # If master not found or not a data file, find exact match
+        if not found:
             for i, (fname, ftype, fpath) in enumerate(file_list):
                 if fname == selected_name or fpath == str(selected_file):
                     self.current_file_idx = i
+                    found = True
                     break
         
         # Build simple image layer (temporary, each HDF5 shown as single frame)
@@ -717,6 +731,37 @@ class FileManager:
         self.current_file_idx = (self.current_file_idx - 1) % len(self.file_list)
         self.current_frame_idx = 0
         self._update_current_position()
+
+    def switch_to_image_by_name(self, name):
+        """
+        Switch to an image by its display name.
+        Returns True if successful, False if name not found.
+        """
+        if not self.names:
+            return False
+        
+        try:
+            # Find the index of the image with the given name
+            index = self.names.index(name)
+            self.current = index
+            
+            # Update file layer position to match
+            if index < len(self.specs):
+                spec = self.specs[index]
+                if isinstance(spec, tuple) and len(spec) >= 2:
+                    # Find the corresponding file in file_list
+                    target_path = spec[1]
+                    for i, (_, _, fpath) in enumerate(self.file_list):
+                        if fpath == target_path:
+                            self.current_file_idx = i
+                            if len(spec) >= 3:
+                                self.current_frame_idx = spec[2]
+                            else:
+                                self.current_frame_idx = 0
+                            break
+            return True
+        except ValueError:
+            return False
 
 def scan_directory_files_sync(dir_path):
     """
