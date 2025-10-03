@@ -437,93 +437,271 @@ def build_provisional_selection(fullname):
 
 class FileManager:
     """
-    Minimal stateful manager for image navigation/loading.
-    Used by GUIs to keep a single source of truth for names/specs/current.
+    Two-layer navigation manager:
+    1. File layer: for fast navigation and loading
+    2. Image layer: for displaying total count and position (filled asynchronously in background)
     """
     def __init__(self):
         self.dir_path = ''
-        self.names = []
-        self.specs = []
-        self.current = 0
+        # File layer (fast, for navigation)
+        self.file_list = []  # [(filename, type, full_path), ...]
+        self.current_file_idx = 0
+        self.current_frame_idx = 0  # Frame index within current file
+        # Image layer (complete, for display)
+        self.names = []  # Expanded display names
+        self.specs = []  # Corresponding loader specs
+        self.current = 0  # Current position in names
+        # HDF5 cache
+        self._h5_frames = {}  # {full_path: nframes}
 
-    def set_provisional(self, fullname):
-        dir_path, names, current, specs = build_provisional_selection(fullname)
+    def set_file_listing(self, dir_path, file_list, selected_file):
+        """
+        Set complete file list from directory scan and locate selected file.
+        file_list: [(filename, type, full_path), ...]
+        selected_file: full path of the file to select
+        """
+        self.dir_path = dir_path
+        self.file_list = file_list
+        
+        # Locate selected file in the list
+        selected_name = os.path.basename(str(selected_file))
+        self.current_file_idx = 0
+        self.current_frame_idx = 0
+        
+        # Handle HDF5 master/data logic
+        base, ext = os.path.splitext(selected_name)
+        if ext.lower() in ('.h5', '.hdf5') and "_data_" in base:
+            # If selected a data file, look for corresponding master
+            prefix = base.split("_data_")[0]
+            master_name = f"{prefix}_master{ext}"
+            for i, (fname, ftype, fpath) in enumerate(file_list):
+                if fname == master_name:
+                    self.current_file_idx = i
+                    break
+        else:
+            # Find exact match
+            for i, (fname, ftype, fpath) in enumerate(file_list):
+                if fname == selected_name or fpath == str(selected_file):
+                    self.current_file_idx = i
+                    break
+        
+        # Build simple image layer (temporary, each HDF5 shown as single frame)
+        self._rebuild_simple_image_list()
+
+    def _rebuild_simple_image_list(self):
+        """Rebuild simple image list (HDF5 shown as single frame)"""
+        names = []
+        specs = []
+        
+        for fname, ftype, fpath in self.file_list:
+            if ftype == "h5":
+                base, ext = os.path.splitext(fname)
+                disp = f"{base}_00001{ext}"
+                names.append(disp)
+                specs.append(("h5", fpath, 0))
+            else:
+                names.append(fname)
+                specs.append(("tiff", fpath))
+        
+        # Maintain current position
+        self.names = names
+        self.specs = specs
+        self.current = self.current_file_idx if self.current_file_idx < len(names) else 0
+
+    def set_directory_listing(self, dir_path, names, specs, preserve_current_name=True):
+        """
+        Set complete image list (from async scan, HDF5 expanded).
+        Preserves currently selected file and frame.
+        """
+        if not names or not specs:
+            return
+        
+        # Remember current file and frame
+        prev_file_path = None
+        prev_frame = self.current_frame_idx
+        if self.file_list and self.current_file_idx < len(self.file_list):
+            prev_file_path = self.file_list[self.current_file_idx][2]
+        
         self.dir_path = dir_path
         self.names = names
         self.specs = specs
-        self.current = current
+        
+        # Locate current image
+        if prev_file_path:
+            for i, spec in enumerate(specs):
+                if isinstance(spec, tuple) and len(spec) >= 2:
+                    spec_path = spec[1]
+                    if spec_path == prev_file_path:
+                        if len(spec) >= 3 and spec[2] == prev_frame:
+                            self.current = i
+                            break
+                        elif i == len(specs) - 1 or (i + 1 < len(specs) and specs[i + 1][1] != prev_file_path):
+                            # Found last or only frame of this file
+                            self.current = i
+                            break
 
-    def set_directory_listing(self, dir_path, names, specs, preserve_current_name=True):
-        prev_name = self.names[self.current] if preserve_current_name and self.names else None
-        self.dir_path = dir_path
-        self.names = names or []
-        self.specs = specs or []
-        if prev_name and prev_name in self.names:
-            self.current = self.names.index(prev_name)
-        else:
-            self.current = 0
+    def _get_current_file_info(self):
+        """Get current file information"""
+        if not self.file_list or self.current_file_idx >= len(self.file_list):
+            return None, None, None
+        
+        fname, ftype, fpath = self.file_list[self.current_file_idx]
+        return fname, ftype, fpath
+
+    def _get_h5_nframes(self, path):
+        """Get HDF5 file frame count (with caching)"""
+        if path not in self._h5_frames:
+            self._h5_frames[path] = _h5_nframes(path)
+        return self._h5_frames[path]
 
     def load_current(self):
-        if not self.names or not self.specs:
+        """Load current image"""
+        fname, ftype, fpath = self._get_current_file_info()
+        if fname is None:
             return None
-        name = self.names[self.current]
-        source = None
-        try:
-            source = self.specs[self.current]
-        except Exception:
-            source = None
-        return load_image_via_spec(self.dir_path, name, source)
+        
+        if ftype == "h5":
+            source = ("h5", fpath, self.current_frame_idx)
+        else:
+            source = ("tiff", fpath)
+        
+        return load_image_via_spec(self.dir_path, fname, source)
 
     def next_frame(self):
-        if not self.names:
+        """
+        Next frame:
+        - If current is HDF5 and has next frame, move to next frame
+        - Otherwise move to first frame of next file
+        """
+        if not self.file_list:
             return
-        self.current = (self.current + 1) % len(self.names)
+        
+        fname, ftype, fpath = self._get_current_file_info()
+        
+        if ftype == "h5":
+            nframes = self._get_h5_nframes(fpath)
+            if self.current_frame_idx + 1 < nframes:
+                # Move to next frame in same file
+                self.current_frame_idx += 1
+                self._update_current_position()
+                return
+        
+        # Move to first frame of next file
+        self.current_file_idx = (self.current_file_idx + 1) % len(self.file_list)
+        self.current_frame_idx = 0
+        self._update_current_position()
 
     def prev_frame(self):
-        if not self.names:
+        """
+        Previous frame:
+        - If current is HDF5 and not first frame, move to previous frame
+        - Otherwise move to last frame of previous file
+        """
+        if not self.file_list:
             return
-        self.current = (self.current - 1) % len(self.names)
+        
+        if self.current_frame_idx > 0:
+            # Move to previous frame in same file
+            self.current_frame_idx -= 1
+            self._update_current_position()
+            return
+        
+        # Move to previous file
+        self.current_file_idx = (self.current_file_idx - 1) % len(self.file_list)
+        
+        # Position to last frame of that file
+        fname, ftype, fpath = self._get_current_file_info()
+        if ftype == "h5":
+            nframes = self._get_h5_nframes(fpath)
+            self.current_frame_idx = max(0, nframes - 1)
+        else:
+            self.current_frame_idx = 0
+        
+        self._update_current_position()
 
-    def _basename(self, idx):
-        try:
-            spec = self.specs[idx]
-            path = spec[1] if isinstance(spec, tuple) and len(spec) >= 2 else ''
-            return os.path.basename(path)
-        except Exception:
-            return ''
+    def _update_current_position(self):
+        """Update current pointer to corresponding position in image layer"""
+        fname, ftype, fpath = self._get_current_file_info()
+        if fname is None:
+            return
+        
+        # Find corresponding position in names/specs
+        for i, spec in enumerate(self.specs):
+            if isinstance(spec, tuple) and len(spec) >= 2:
+                if spec[1] == fpath:
+                    if ftype == "h5" and len(spec) >= 3:
+                        if spec[2] == self.current_frame_idx:
+                            self.current = i
+                            return
+                    else:
+                        self.current = i
+                        return
+        
+        # If not found (image layer not fully loaded yet), estimate position
+        self.current = self.current_file_idx
+
+    def get_display_name(self):
+        """Get display name for current image"""
+        fname, ftype, fpath = self._get_current_file_info()
+        if fname is None:
+            return ""
+        
+        if ftype == "h5":
+            base, ext = os.path.splitext(fname)
+            return f"{base}_{self.current_frame_idx+1:05d}{ext}"
+        else:
+            return fname
 
     def next_file(self):
-        if not self.names:
+        """Jump to first frame of next file"""
+        if not self.file_list:
             return
-        n = len(self.names)
-        cur_name = self._basename(self.current)
-        i = (self.current + 1) % n
-        while i != self.current:
-            if self._basename(i) != cur_name:
-                self.current = i
-                return
-            i = (i + 1) % n
+        self.current_file_idx = (self.current_file_idx + 1) % len(self.file_list)
+        self.current_frame_idx = 0
+        self._update_current_position()
 
     def prev_file(self):
-        if not self.names:
+        """Jump to first frame of previous file"""
+        if not self.file_list:
             return
-        n = len(self.names)
-        cur_name = self._basename(self.current)
-        i = (self.current - 1 + n) % n
-        while i != self.current:
-            if self._basename(i) != cur_name:
-                # jump to the first frame of this previous file
-                base = self._basename(i)
-                # walk back to find its first frame
-                j = i
-                while True:
-                    k = (j - 1 + n) % n
-                    if self._basename(k) != base or k == i:
-                        break
-                    j = k
-                self.current = j
-                return
-            i = (i - 1 + n) % n
+        self.current_file_idx = (self.current_file_idx - 1) % len(self.file_list)
+        self.current_frame_idx = 0
+        self._update_current_position()
+
+def scan_directory_files_sync(dir_path):
+    """
+    Synchronously scan directory for files without opening HDF5 to count frames.
+    Returns: file_list [(filename, type, full_path), ...]
+    
+    This is a fast scan that only lists files, does not open any HDF5 files.
+    """
+    files = []
+    try:
+        file_names = os.listdir(dir_path)
+    except Exception:
+        return []
+
+    for f in file_names:
+        full_path = fullPath(dir_path, f)
+        base, ext = os.path.splitext(f)
+        
+        if f == "calibration.tif":
+            continue
+            
+        if ext.lower() in ('.h5', '.hdf5'):
+            # Check if this is a data file, skip if corresponding master exists
+            if '_data_' in base:
+                prefix = base.split('_data_')[0]
+                master_name = f"{prefix}_master{ext}"
+                master_path = os.path.join(dir_path, master_name)
+                if os.path.exists(master_path):
+                    continue  # Skip data file
+            files.append((f, "h5", full_path))
+        elif isImg(full_path):
+            files.append((f, "tiff", full_path))
+    
+    files.sort(key=lambda x: x[0])
+    return files
 
 def async_scan_directory(dir_path, on_done):
     """
