@@ -1702,7 +1702,8 @@ class XRayViewerGUI(QMainWindow):
             # Phase 2: Background async scan to expand all HDF5 frames
             self._scan_result = None
             self._scan_timer.start()
-            async_scan_directory(self.filePath, lambda imgList, specs: setattr(self, "_scan_result", (imgList, specs)))
+            # Let FileManager scan and update its own listing; GUI just polls and updates counts
+            self.fileManager.start_async_scan(self.filePath)
         
         QApplication.restoreOverrideCursor()
             
@@ -1733,15 +1734,13 @@ class XRayViewerGUI(QMainWindow):
         Check if background directory scan is complete.
         Updates the image layer with full HDF5 frame expansion for accurate count.
         """
-        if self._scan_result is None:
+        if not self.fileManager or not self.filePath:
             return
-        
-        imgList, specs = self._scan_result
-        if imgList and specs:
-            # Update image layer with fully expanded HDF5 files
-            self.fileManager.set_directory_listing(self.filePath, imgList, specs, preserve_current_name=True)
-            self.numberOfFiles = len(self.fileManager.names)  # Now accurate count with all HDF5 frames
-        
+        # When FileManager finishes, it has already updated names/specs
+        if not self.fileManager.is_scan_done():
+            return
+        if self.fileManager.names and self.fileManager.specs:
+            self.numberOfFiles = len(self.fileManager.names)
         self._provisionalCount = False
         self._scan_timer.stop()
         self.resetStatusbar()

@@ -3706,14 +3706,16 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filenameLineEdit2.setText(self.quadFold.img_name)
 
     def _checkScanDone(self):
-        if self._scan_result is None:
+        # Use FileManager's async scan completion and names/specs
+        if not hasattr(self, 'fileManager') or self.fileManager is None:
             return
-        imgList, specs = self._scan_result
-        if imgList and specs:
-            curr = self.imgList[self.currentFileNumber] if self.imgList else None
-            self.imgList = imgList
-            self.fileList = [imgList, specs]
-            self.numberOfFiles = len(imgList)
+        if not self.fileManager.is_scan_done():
+            return
+        if self.fileManager.names and self.fileManager.specs:
+            curr = self.imgList[self.currentFileNumber] if getattr(self, 'imgList', None) else None
+            self.imgList = list(self.fileManager.names)
+            self.fileList = [self.fileManager.names, self.fileManager.specs]
+            self.numberOfFiles = len(self.fileManager.names)
             if curr in self.imgList:
                 self.currentFileNumber = self.imgList.index(curr)
             else:
@@ -3865,10 +3867,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.setH5Mode(str(newFile))
                 self.onImageChanged()
 
-                # Start background scan to populate full directory list using shared helper
+                # Start background scan to populate full directory list using FileManager
                 self._scan_result = None
                 self._scan_timer.start()
-                async_scan_directory(self.filePath, lambda imgList, specs: setattr(self, "_scan_result", (imgList, specs)))
+                if hasattr(self, 'fileManager') and self.fileManager is not None:
+                    self.fileManager.start_async_scan(self.filePath)
             else:
                 QApplication.restoreOverrideCursor()
                 self.browseFile()

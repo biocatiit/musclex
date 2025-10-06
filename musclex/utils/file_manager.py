@@ -503,6 +503,9 @@ class FileManager:
         self.current = 0  # Current position in names
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
+        # Async scan state
+        self._scan_thread = None
+        self._scan_done = False
 
     def set_from_file(self, selected_file):
         """
@@ -603,6 +606,39 @@ class FileManager:
                             # Found last or only frame of this file
                             self.current = i
                             break
+
+    def start_async_scan(self, dir_path=None):
+        """
+        Start a background scan of the current directory (or provided dir_path) and
+        update this FileManager's names/specs when finished. Safe for non-GUI thread.
+        Returns the Thread object.
+        """
+        import threading
+
+        if dir_path is not None:
+            self.dir_path = dir_path
+
+        self._scan_done = False
+
+        def _worker():
+            imgList, specs = scan_directory_images_cached(self.dir_path)
+            try:
+                # Update internal listing preserving current selection when possible
+                self.set_directory_listing(self.dir_path, imgList, specs, preserve_current_name=True)
+            finally:
+                # Signal completion regardless of success
+                self._scan_done = True
+
+        self._scan_thread = threading.Thread(target=_worker, daemon=True)
+        self._scan_thread.start()
+        return self._scan_thread
+
+    def is_scan_done(self):
+        try:
+            return bool(self._scan_done)
+        except Exception:
+            return False
+        
 
     def _get_current_file_info(self):
         """Get current file information"""
