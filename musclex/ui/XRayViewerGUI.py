@@ -57,13 +57,12 @@ class XRayViewerGUI(QMainWindow):
         Initial window
         """
         super().__init__()
-        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
-        self.h5index = 0
+        # H5 list/index no longer needed; GUI uses FileManager state directly
         self.windowList = []
         self.counter = 0
-        self.filePath = "" # current directory
+        # filePath is derived from FileManager.dir_path when needed
         self.calSettings = None
-        self.numberOfFiles = 0
+        # numberOfFiles is derived from FileManager (names/file_list) and scan status
         self._provisionalCount = False
         self.img_zoom = None # zoom location of original image (x,y range)
         self.checkableButtons = []
@@ -80,8 +79,7 @@ class XRayViewerGUI(QMainWindow):
         self.saved_slice = None
         self.stop_process = False
         self.calSettingsDialog = None
-        self._scan_thread = None
-        self._scan_result = None
+        # Scan thread/result handled by FileManager
         self._scan_timer = QTimer(self)
         self._scan_timer.setInterval(200)
         self._scan_timer.timeout.connect(self._checkScanDone)
@@ -432,8 +430,9 @@ class XRayViewerGUI(QMainWindow):
         """
 
         if self.calSettingsDialog is None:
-            self.calSettingsDialog = CalibrationSettings(self.filePath) if self.filePath is None else \
-                CalibrationSettings(self.filePath, center=self.xrayViewer.orig_image_center)
+            dir_path = getattr(self.fileManager, 'dir_path', None)
+            self.calSettingsDialog = CalibrationSettings(dir_path) if dir_path is None else \
+                CalibrationSettings(dir_path, center=self.xrayViewer.orig_image_center)
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
@@ -1653,8 +1652,11 @@ class XRayViewerGUI(QMainWindow):
         """
         Reset the status bar
         """
-        fileFullPath = fullPath(self.filePath, self.fileManager.get_display_name())
-        total = str(self.numberOfFiles) + ('*' if self._provisionalCount else '')
+        dir_path = getattr(self.fileManager, 'dir_path', '')
+        fileFullPath = fullPath(dir_path, self.fileManager.get_display_name())
+        # Use names (final) if available, else fallback to file_list length
+        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
+        total = str(total_count) + ('*' if self._provisionalCount else '')
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(self.fileManager.current + 1) + '/' + total + ') : ' + fileFullPath)
 
@@ -1675,24 +1677,14 @@ class XRayViewerGUI(QMainWindow):
         
         # Phase 1: Initialize FileManager with selected file (includes fast directory scan)
         self.fileManager.set_from_file(str(newFile))
-        self.filePath = self.fileManager.dir_path
         
-        # Extract file extension
-        try:
-            _, self.ext = os.path.splitext(str(newFile))
-            self.ext = self.ext.lower()
-        except Exception:
-            self.ext = ''
-        
-        # Set counts based on file list (will be updated with accurate image count later)
-        self.numberOfFiles = len(self.fileManager.file_list)
-        self._provisionalCount = True  # Mark as provisional (accurate image count pending)
+        # Mark counts provisional until async scan completes
+        self._provisionalCount = True
 
-        if self.filePath and self.fileManager.file_list:
+        if self.fileManager.dir_path and self.fileManager.file_list:
             fileName = self.fileManager.get_display_name()
-            self.h5List = []
             self.setH5Mode(str(newFile))
-            self.csv_manager = XV_CSVManager(self.filePath)
+            self.csv_manager = XV_CSVManager(self.fileManager.dir_path)
             self.selectImageButton.setHidden(True)
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
@@ -1700,10 +1692,9 @@ class XRayViewerGUI(QMainWindow):
             self.onImageChanged()
             
             # Phase 2: Background async scan to expand all HDF5 frames
-            self._scan_result = None
             self._scan_timer.start()
             # Let FileManager scan and update its own listing; GUI just polls and updates counts
-            self.fileManager.start_async_scan(self.filePath)
+            self.fileManager.start_async_scan(self.fileManager.dir_path)
         
         QApplication.restoreOverrideCursor()
             
@@ -1713,11 +1704,14 @@ class XRayViewerGUI(QMainWindow):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        if self.ext in ['.h5', '.hdf5']:
-            for file in os.listdir(self.filePath):
-                if file.endswith(".h5") or file.endswith(".hdf5"):
-                    self.h5List.append(file)
-            self.h5index = self.h5List.index(os.path.split(file_name)[1])
+        ext = ''
+        try:
+            _, ext = os.path.splitext(str(file_name))
+            ext = ext.lower()
+        except Exception:
+            ext = ''
+        if ext in ['.h5', '.hdf5']:
+            # Show navigation buttons for H5; we no longer maintain explicit H5 lists here
             self.nextFileButton.show()
             self.prevFileButton.show()
             self.nextFileButton2.show()
@@ -1734,13 +1728,11 @@ class XRayViewerGUI(QMainWindow):
         Check if background directory scan is complete.
         Updates the image layer with full HDF5 frame expansion for accurate count.
         """
-        if not self.fileManager or not self.filePath:
+        if not self.fileManager:
             return
         # When FileManager finishes, it has already updated names/specs
         if not self.fileManager.is_scan_done():
             return
-        if self.fileManager.names and self.fileManager.specs:
-            self.numberOfFiles = len(self.fileManager.names)
         self._provisionalCount = False
         self._scan_timer.stop()
         self.resetStatusbar()
@@ -1765,8 +1757,9 @@ class XRayViewerGUI(QMainWindow):
         """
         self.stop_process = False
         self.progressBar.setVisible(True)
-        self.progressBar.setRange(0, self.numberOfFiles)
-        for i in range(self.fileManager.current, self.numberOfFiles):
+        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
+        self.progressBar.setRange(0, total_count)
+        for i in range(self.fileManager.current, total_count):
             if self.stop_process:
                 break
             self.progressBar.setValue(i)
@@ -1800,7 +1793,8 @@ class XRayViewerGUI(QMainWindow):
         """
         Going to the previous image
         """
-        if self.numberOfFiles > 0:
+        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
+        if total_count > 0:
             self.fileManager.prev_frame()
             self.onImageChanged()
 
@@ -1808,7 +1802,8 @@ class XRayViewerGUI(QMainWindow):
         """
         Going to the next image
         """
-        if self.numberOfFiles > 0:
+        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
+        if total_count > 0:
             self.fileManager.next_frame()
             self.onImageChanged()
     
