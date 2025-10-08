@@ -3673,10 +3673,10 @@ class QuadrantFoldingGUI(QMainWindow):
         Check if background directory scan is complete.
         Updates the image layer with full HDF5 frame expansion for accurate count.
         """
-        if not self.fileManager:
+        if not self.file_manager:
             return
         # When FileManager finishes, it has already updated names/specs
-        if not self.fileManager.is_scan_done():
+        if not self.file_manager.is_scan_done():
             return
         self._provisionalCount = False
         self._scan_timer.stop()
@@ -3823,8 +3823,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 # Start background scan to populate full directory list using FileManager
                 self._scan_result = None
                 self._scan_timer.start()
-                if hasattr(self, 'file_manager') and self.file_manager is not None:
-                    self.file_manager.start_async_scan(self.filePath)
+                self.file_manager.start_async_scan(self.filePath)
             else:
                 QApplication.restoreOverrideCursor()
                 self.browseFile()
