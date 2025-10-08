@@ -503,6 +503,7 @@ class FileManager:
         self.current = 0  # Current position in names
         # Currently loaded image ndarray (or None if not loaded)
         self.current_image = None
+        self.current_ext = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
         # Async scan state
@@ -672,14 +673,9 @@ class FileManager:
         
         img = load_image_via_spec(self.dir_path, fname, source)
         self.current_image = img
+        self.current_ext = ftype
         return img
     
-    def get_ext(self):
-        """Get the extension of the current file"""
-        fname, ftype, fpath = self._get_current_file_info()
-        if fname is None:
-            return None
-        return ftype
 
     def next_frame(self):
         """

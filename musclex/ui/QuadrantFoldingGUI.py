@@ -3868,7 +3868,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        ext = self.file_manager.get_ext()
+        ext = self.file_manager.current_ext
         if ext in ['.h5', '.hdf5']:
             for file in os.listdir(self.filePath):
                 if file.endswith(".h5") or file.endswith(".hdf5"):
@@ -4063,7 +4063,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
         self.highlightApplyUndo()
-        ext = self.file_manager.get_ext()
+        ext = self.file_manager.current_ext
         if ext in ['.h5', '.hdf5']:
             self.processFolderButton.setText("Process Current H5 File")
             self.processFolderButton2.setText("Process Current H5 File")
