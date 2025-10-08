@@ -3838,7 +3838,6 @@ class QuadrantFoldingGUI(QMainWindow):
                             self.deleteInfo(['rotationAngle'])
                             self.deleteImgCache(['BgSubFold'])
                             self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
-                            self.processImage()
 
                     except Exception as e:
                         infMsg = QMessageBox()
