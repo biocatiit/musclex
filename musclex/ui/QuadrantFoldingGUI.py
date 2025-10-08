@@ -110,7 +110,7 @@ class Worker(QRunnable):
                 idx = self.params.fileList[0].index(display_name)
             except Exception:
                 idx = 0
-            img = load_image_by_index(self.params.filePath, self.params.fileList, idx, display_name)
+            img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.params.filePath, self.params.fileName, self.params.parent)
             self.quadFold.info = {}
             self.quadFold.info['bgsub'] = self.bgsub
@@ -274,6 +274,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.setMinimumHeight(900)
         self.resize(1200, 900)
         self.newImgDimension = None
+        self.file_manager = None
         self.browseFile()
 
         self.mask_min = None
@@ -3689,15 +3690,15 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def _checkScanDone(self):
         # Use FileManager's async scan completion and names/specs
-        if not hasattr(self, 'fileManager') or self.fileManager is None:
+        if not hasattr(self, 'file_manager') or self.file_manager is None:
             return
-        if not self.fileManager.is_scan_done():
+        if not self.file_manager.is_scan_done():
             return
-        if self.fileManager.names and self.fileManager.specs:
+        if self.file_manager.names and self.file_manager.specs:
             curr = self.imgList[self.currentFileNumber] if getattr(self, 'imgList', None) else None
-            self.imgList = list(self.fileManager.names)
-            self.fileList = [self.fileManager.names, self.fileManager.specs]
-            self.numberOfFiles = len(self.fileManager.names)
+            self.imgList = list(self.file_manager.names)
+            self.fileList = [self.file_manager.names, self.file_manager.specs]
+            self.numberOfFiles = len(self.file_manager.names)
             if curr in self.imgList:
                 self.currentFileNumber = self.imgList.index(curr)
             else:
@@ -3792,15 +3793,14 @@ class QuadrantFoldingGUI(QMainWindow):
         :param newFile: full name of selected file
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        # Immediate provisional selection for responsiveness (shared helper)
-        self.filePath, self.imgList, self.currentFileNumber, specs = build_provisional_selection(str(newFile))
-        self.fileList = [self.imgList, specs]
-        try:
-            _, self.ext = os.path.splitext(str(newFile))
-            self.ext = self.ext.lower()
-        except Exception:
-            self.ext = ''
-        self._provisionalCount = True
+        if not self.file_manager:
+            self.file_manager = FileManager()
+        
+        self.file_manager.set_from_file(str(newFile))
+        self.filePath = self.file_manager.dir_path
+        self.imgList = self.file_manager.names
+        self.currentFileNumber = self.file_manager.current
+        self.fileList = [self.imgList, self.file_manager.specs]
 
         if self.filePath is not None and self.imgList is not None and self.imgList:
             try:
@@ -3826,7 +3826,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     fileName = self.imgList[self.currentFileNumber]
                     try:
                         # Load ndarray via spec and construct QuadrantFolder
-                        img = load_image_by_index(self.filePath, self.fileList, self.currentFileNumber, fileName)
+                        img = self.file_manager.current_image
                         self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
 
                         success = self.setCalibrationImage(force=True)
@@ -3852,8 +3852,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 # Start background scan to populate full directory list using FileManager
                 self._scan_result = None
                 self._scan_timer.start()
-                if hasattr(self, 'fileManager') and self.fileManager is not None:
-                    self.fileManager.start_async_scan(self.filePath)
+                if hasattr(self, 'file_manager') and self.file_manager is not None:
+                    self.file_manager.start_async_scan(self.filePath)
             else:
                 QApplication.restoreOverrideCursor()
                 self.browseFile()
@@ -4197,7 +4197,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.currentFileNumber = (self.currentFileNumber - 1) % self.numberOfFiles
 
             # Pass display name from imgList (fileList is now composite)
-            img = load_image_by_index(self.filePath, self.fileList, self.currentFileNumber, self.imgList[self.currentFileNumber])
+            img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.filePath, self.imgList[self.currentFileNumber], self)
             self.quadFold.info = {}
             
@@ -4219,7 +4219,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
 
             # Pass display name from imgList (fileList is now composite)
-            img = load_image_by_index(self.filePath, self.fileList, self.currentFileNumber, self.imgList[self.currentFileNumber])
+            img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.filePath, self.imgList[self.currentFileNumber], self)
             self.quadFold.info = {}
 
