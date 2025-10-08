@@ -673,6 +673,13 @@ class FileManager:
         img = load_image_via_spec(self.dir_path, fname, source)
         self.current_image = img
         return img
+    
+    def get_ext(self):
+        """Get the extension of the current file"""
+        fname, ftype, fpath = self._get_current_file_info()
+        if fname is None:
+            return None
+        return ftype
 
     def next_frame(self):
         """
