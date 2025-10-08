@@ -51,6 +51,7 @@ from ..ui.EQ_FittingTab import EQ_FittingTab
 from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
+from .widgets.NavigationControls import NavigationControls
 from skimage.morphology import binary_dilation
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
@@ -390,28 +391,23 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx.setFixedWidth(100)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Reprocess and Refit current folder")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-        self.processH5FolderButton = QPushButton("Process All H5 Files")
-        self.processH5FolderButton.setStyleSheet(pfss)
-        self.processH5FolderButton.setCheckable(True)
+        # Reusable navigation controls for Image tab
+        self.navImg = NavigationControls(primary_text="Reprocess and Refit current folder", secondary_text="Process All H5 Files")
+        self.navImg.primaryButton.setStyleSheet(pfss)
+        if self.navImg.secondaryButton is not None:
+            self.navImg.secondaryButton.setStyleSheet(pfss)
+        # Backward-compatible aliases
+        self.processFolderButton = self.navImg.primaryButton
+        self.processH5FolderButton = self.navImg.secondaryButton
+        self.nextButton = self.navImg.nextButton
+        self.prevButton = self.navImg.prevButton
+        self.nextFileButton = self.navImg.nextFileButton
+        self.prevFileButton = self.navImg.prevFileButton
+        self.filenameLineEdit = self.navImg.filenameLineEdit
+
         self.bottomLayout = QGridLayout()
-        self.nextButton = QPushButton(">")
-        self.prevButton = QPushButton("<")
-        self.nextFileButton = QPushButton(">>>")
-        self.prevFileButton = QPushButton("<<<")
-        self.nextButton.setToolTip('Next Frame')
-        self.prevButton.setToolTip('Previous Frame')
-        self.filenameLineEdit = QLineEdit()
         self.bottomLayout.addWidget(self.rejectChkBx, 0, 0, 1, 2)
-        self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 2)
-        self.bottomLayout.addWidget(self.processH5FolderButton, 2, 0, 1, 2)
-        self.bottomLayout.addWidget(self.prevButton, 3, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextButton, 3, 1, 1, 1)
-        self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 1)
-        self.bottomLayout.addWidget(self.nextFileButton, 4, 1, 1, 1)
-        self.bottomLayout.addWidget(self.filenameLineEdit, 5, 0, 1, 2)
+        self.bottomLayout.addWidget(self.navImg, 1, 0, 1, 2)
         self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
 
         self.imageOptionsFrame = QFrame()
@@ -571,27 +567,22 @@ class EquatorWindow(QMainWindow):
         self.refitAllButton.setCheckable(True)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton2 = QPushButton("Reprocess and Refit current folder")
-        self.processFolderButton2.setStyleSheet(pfss)
-        self.processFolderButton2.setCheckable(True)
-        self.processH5FolderButton2 = QPushButton("Reprocess and Refit All H5 Files")
-        self.processH5FolderButton2.setStyleSheet(pfss)
-        self.processH5FolderButton2.setCheckable(True)
+        # Reusable navigation controls for Fitting tab
+        self.navFit = NavigationControls(primary_text="Reprocess and Refit current folder", secondary_text="Reprocess and Refit All H5 Files")
+        self.navFit.primaryButton.setStyleSheet(pfss)
+        if self.navFit.secondaryButton is not None:
+            self.navFit.secondaryButton.setStyleSheet(pfss)
+        # Backward-compatible aliases
+        self.processFolderButton2 = self.navFit.primaryButton
+        self.processH5FolderButton2 = self.navFit.secondaryButton
+        self.nextButton2 = self.navFit.nextButton
+        self.prevButton2 = self.navFit.prevButton
+        self.nextFileButton2 = self.navFit.nextFileButton
+        self.prevFileButton2 = self.navFit.prevFileButton
+        self.filenameLineEdit2 = self.navFit.filenameLineEdit
+
         self.bottomLayout2 = QGridLayout()
-        self.nextButton2 = QPushButton(">")
-        self.prevButton2 = QPushButton("<")
-        self.nextFileButton2 = QPushButton(">>>")
-        self.prevFileButton2 = QPushButton("<<<")
-        self.nextButton2.setToolTip('Next Frame')
-        self.prevButton2.setToolTip('Previous Frame')
-        self.filenameLineEdit2 = QLineEdit()
-        self.bottomLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processH5FolderButton2, 1, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 2, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 2, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 3, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 3, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 4, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.navFit, 0, 0, 1, 2)
 
         self.fittingOptionsFrame1 = QFrame()
         self.fittingOptionsFrame1.setFixedWidth(505)

@@ -44,6 +44,7 @@ from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
 from .DoubleZoomGUI import DoubleZoom
 from PySide6.QtCore import QTimer
+from .widgets.NavigationControls import NavigationControls
 
 
 class XRayViewerGUI(QMainWindow):
@@ -226,34 +227,23 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Play")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-
-        self.nextButton = QPushButton(">")
-        self.prevButton = QPushButton("<")
-        self.nextFileButton = QPushButton(">>>")
-        self.prevFileButton = QPushButton("<<<")
-        self.nextButton.setToolTip('Next Frame')
-        self.prevButton.setToolTip('Previous Frame')
-        self.nextFileButton.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
-        self.filenameLineEdit = QLineEdit()
-        self.buttonsLayout = QGridLayout()
-        #self.buttonsLayout.setRowStretch()
-        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
-        self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
-        self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
-        self.buttonsLayout.addWidget(self.prevFileButton,2,0,1,1)
-        self.buttonsLayout.addWidget(self.nextFileButton,2,1,1,1)
-        self.buttonsLayout.addWidget(self.filenameLineEdit,3,0,1,2)
+        # Reusable navigation widget (Image tab)
+        self.navImg = NavigationControls(primary_text="Play")
+        self.navImg.primaryButton.setStyleSheet(pfss)
+        # Backward-compatible attribute aliases
+        self.processFolderButton = self.navImg.primaryButton
+        self.nextButton = self.navImg.nextButton
+        self.prevButton = self.navImg.prevButton
+        self.nextFileButton = self.navImg.nextFileButton
+        self.prevFileButton = self.navImg.prevFileButton
+        self.filenameLineEdit = self.navImg.filenameLineEdit
 
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingsGroup)
         self.optionsLayout.addStretch()
-        self.optionsLayout.addLayout(self.buttonsLayout)
+        self.optionsLayout.addWidget(self.navImg)
         self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(400)
         #self.frameOfKeys.addStretch() 
@@ -273,28 +263,22 @@ class XRayViewerGUI(QMainWindow):
 
         self.resetZoomButton = QPushButton("Reset Zoom")
         
-        self.processFolderButton2 = QPushButton("Play")
-        self.processFolderButton2.setStyleSheet(pfss)
-        self.processFolderButton2.setCheckable(True)
+        # Reusable navigation widget (Graph tab)
         self.bottomLayout2 = QGridLayout()
-        self.nextButton2 = QPushButton(">")
-        self.prevButton2 = QPushButton("<")
-        self.nextFileButton2 = QPushButton(">>>")
-        self.prevFileButton2 = QPushButton("<<<")
-        self.nextButton2.setToolTip('Next Frame')
-        self.prevButton2.setToolTip('Previous Frame')
-        self.nextFileButton2.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
-        self.filenameLineEdit2 = QLineEdit()
+        self.navGraph = NavigationControls(primary_text="Play")
+        self.navGraph.primaryButton.setStyleSheet(pfss)
+        # Backward-compatible attribute aliases
+        self.processFolderButton2 = self.navGraph.primaryButton
+        self.nextButton2 = self.navGraph.nextButton
+        self.prevButton2 = self.navGraph.prevButton
+        self.nextFileButton2 = self.navGraph.nextFileButton
+        self.prevFileButton2 = self.navGraph.prevFileButton
+        self.filenameLineEdit2 = self.navGraph.filenameLineEdit
+
         self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.resetZoomButton, 2, 0, 1, 2)
         self.bottomLayout2.addWidget(self.measureDist2, 3, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processFolderButton2, 4, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 5, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 5, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 6, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 6, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 7, 0, 1, 2)
+        self.bottomLayout2.addWidget(self.navGraph, 4, 0, 4, 2)
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(250) 

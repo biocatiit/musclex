@@ -53,6 +53,7 @@ from .DoubleZoomGUI import DoubleZoom
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 from scipy.ndimage import rotate
+from .widgets.NavigationControls import NavigationControls
 
 import time
 import random
@@ -936,30 +937,19 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resProcGrpBx.setLayout(self.bgLayout)
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Process Current Folder")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-        self.processH5FolderButton = QPushButton("Process All H5 Files")
-        self.processH5FolderButton.setStyleSheet(pfss)
-        self.processH5FolderButton.setCheckable(True)
-
-        self.nextButton = QPushButton(">")
-        self.prevButton = QPushButton("<")
-        self.nextFileButton = QPushButton(">>>")
-        self.prevFileButton = QPushButton("<<<")
-        self.nextButton.setToolTip('Next Frame')
-        self.prevButton.setToolTip('Previous Frame')
-        self.nextFileButton.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
-        self.filenameLineEdit = QLineEdit()
-        self.buttonsLayout = QGridLayout()
-        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,4)
-        self.buttonsLayout.addWidget(self.processH5FolderButton,1,0,1,4)
-        self.buttonsLayout.addWidget(self.prevButton,2,0,1,2)
-        self.buttonsLayout.addWidget(self.nextButton,2,2,1,2)
-        self.buttonsLayout.addWidget(self.prevFileButton,3,0,1,2)
-        self.buttonsLayout.addWidget(self.nextFileButton,3,2,1,2)
-        self.buttonsLayout.addWidget(self.filenameLineEdit,4,0,1,4)
+        # Reusable navigation widget (left sidebar of Image tab)
+        self.navImg = NavigationControls(primary_text="Process Current Folder", secondary_text="Process All H5 Files")
+        self.navImg.primaryButton.setStyleSheet(pfss)
+        if self.navImg.secondaryButton is not None:
+            self.navImg.secondaryButton.setStyleSheet(pfss)
+        # Backward-compatible aliases
+        self.processFolderButton = self.navImg.primaryButton
+        self.processH5FolderButton = self.navImg.secondaryButton
+        self.nextButton = self.navImg.nextButton
+        self.prevButton = self.navImg.prevButton
+        self.nextFileButton = self.navImg.nextFileButton
+        self.prevFileButton = self.navImg.prevFileButton
+        self.filenameLineEdit = self.navImg.filenameLineEdit
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
@@ -968,7 +958,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.optionsLayout.addWidget(self.settingsGroup)
 
         self.optionsLayout.addStretch()
-        self.optionsLayout.addLayout(self.buttonsLayout)
+        self.optionsLayout.addWidget(self.navImg)
         self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(500)
         self.frameOfKeys.setLayout(self.optionsLayout)
@@ -1063,29 +1053,21 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rightLayout.addWidget(self.resProcGrpBx)
         self.rightLayout.addStretch()
 
-        self.processFolderButton2 = QPushButton("Process Current Folder")
-        self.processFolderButton2.setStyleSheet(pfss)
-        self.processFolderButton2.setCheckable(True)
-        self.processH5FolderButton2 = QPushButton("Process All H5 Files")
-        self.processH5FolderButton2.setStyleSheet(pfss)
-        self.processH5FolderButton2.setCheckable(True)
-        self.nextButton2 = QPushButton(">")
-        self.prevButton2 = QPushButton("<")
-        self.nextFileButton2 = QPushButton(">>>")
-        self.prevFileButton2 = QPushButton("<<<")
-        self.nextButton2.setToolTip('Next Frame')
-        self.prevButton2.setToolTip('Previous Frame')
-        self.nextFileButton2.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
-        self.filenameLineEdit2 = QLineEdit()
+        # Reusable navigation widget (right sidebar of Results tab)
+        self.navRes = NavigationControls(primary_text="Process Current Folder", secondary_text="Process All H5 Files")
+        self.navRes.primaryButton.setStyleSheet(pfss)
+        if self.navRes.secondaryButton is not None:
+            self.navRes.secondaryButton.setStyleSheet(pfss)
+        # Backward-compatible aliases
+        self.processFolderButton2 = self.navRes.primaryButton
+        self.processH5FolderButton2 = self.navRes.secondaryButton
+        self.nextButton2 = self.navRes.nextButton
+        self.prevButton2 = self.navRes.prevButton
+        self.nextFileButton2 = self.navRes.nextFileButton
+        self.prevFileButton2 = self.navRes.prevFileButton
+        self.filenameLineEdit2 = self.navRes.filenameLineEdit
         self.buttonsLayout2 = QGridLayout()
-        self.buttonsLayout2.addWidget(self.processFolderButton2, 0, 0, 1, 4)
-        self.buttonsLayout2.addWidget(self.processH5FolderButton2, 1, 0, 1, 4)
-        self.buttonsLayout2.addWidget(self.prevButton2, 2, 0, 1, 2)
-        self.buttonsLayout2.addWidget(self.nextButton2, 2, 2, 1, 2)
-        self.buttonsLayout2.addWidget(self.prevFileButton2, 3, 0, 1, 2)
-        self.buttonsLayout2.addWidget(self.nextFileButton2, 3, 2, 1, 2)
-        self.buttonsLayout2.addWidget(self.filenameLineEdit2, 4, 0, 1, 4)
+        self.buttonsLayout2.addWidget(self.navRes, 0, 0, 1, 1)
         self.rightLayout.addLayout(self.buttonsLayout2)
 
         #### Status bar #####
