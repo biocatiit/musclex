@@ -1416,8 +1416,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
             fix_x, fix_y = self.quadFold.fixedCenterX, self.quadFold.fixedCenterY
-            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-
+            img = self.file_manager.current_image
+            self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
             if fix_x is not None and fix_y is not None:
                 self.quadFold.fixedCenterX = fix_x
                 self.quadFold.fixedCenterY = fix_y
@@ -1504,7 +1504,8 @@ class QuadrantFoldingGUI(QMainWindow):
                     
             self.quadFold.delCache()
             fileName = self.imgList[self.currentFileNumber]
-            self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
+            img = self.file_manager.current_image
+            self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
             self.masked = False
             self.processImage()
                 
@@ -2886,7 +2887,8 @@ class QuadrantFoldingGUI(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            quadFold = QuadrantFolder(self.filePath, f, self, self.fileList, self.ext)
+            img = self.file_manager.current_image
+            quadFold = QuadrantFolder(img, self.filePath, f, self)
             print(f'Getting angle {f}')
 
             if 'rotationAngle' not in quadFold.info:
