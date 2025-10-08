@@ -679,7 +679,23 @@ class FileManager:
         self.current_ext = ftype
         return img
     
-
+    def get_image_by_index(self, index):
+        """Return image array at the given image-layer index without changing selection.
+        Returns None if index is out of range or loading fails.
+        """
+        try:
+            if not self.names or not self.specs:
+                return None
+            idx = int(index)
+            if idx < 0 or idx >= len(self.specs):
+                return None
+            display_name = self.names[idx]
+            # Compose fileList tuple expected by loader helpers: (names, specs)
+            fileList = (self.names, self.specs)
+            return load_image_by_index(self.dir_path, fileList, idx, display_name)
+        except Exception:
+            return None
+            
     def next_frame(self):
         """
         Next frame:

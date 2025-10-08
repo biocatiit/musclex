@@ -59,10 +59,10 @@ import time
 import random
 
 class QuadFoldParams:
-    def __init__(self, flags, fileName, filePath, parent):
+    def __init__(self, flags, index, file_manager, parent):
         self.flags = flags
-        self.fileName = fileName
-        self.filePath = filePath
+        self.index = index
+        self.file_manager = file_manager
         self.parent = parent
 
 class WorkerSignals(QObject):
@@ -102,8 +102,9 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         try:
-            img = self.file_manager.current_image
-            self.quadFold = QuadrantFolder(img, self.params.filePath, self.params.fileName, self.params.parent)
+            img = self.params.file_manager.get_image_by_index(self.params.index)
+
+            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, self.params.file_manager.names[self.params.index], self.params.parent)
             self.quadFold.info = {}
             self.quadFold.info['bgsub'] = self.bgsub
 
@@ -3426,7 +3427,7 @@ class QuadrantFoldingGUI(QMainWindow):
             
     
     def addTask(self, i):
-        params = QuadFoldParams(self.getFlags(), self.file_manager.names[i], self.filePath, self)
+        params = QuadFoldParams(self.getFlags(), i, self.file_manager, self)
 
         self.tasksQueue.put(params)
 
