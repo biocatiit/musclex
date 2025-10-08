@@ -3652,7 +3652,7 @@ class QuadrantFoldingGUI(QMainWindow):
         Reset the status bar
         """
         fileFullPath = fullPath(self.filePath, self.file_manager.current_image_name)
-        total = str(self.numberOfFiles) + ('*' if self._provisionalCount else '')
+        total = str(len(self.file_manager.names)) + ('*' if self._provisionalCount else '')
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath)
         
@@ -3665,7 +3665,7 @@ class QuadrantFoldingGUI(QMainWindow):
         #DOES NOT GET HERE
         fileFullPath = fullPath(self.filePath, self.file_manager.names[index])
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(index + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
+            'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
         self.filenameLineEdit.setText(self.quadFold.img_name)
         self.filenameLineEdit2.setText(self.quadFold.img_name)
 
