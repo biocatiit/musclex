@@ -4197,61 +4197,51 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Going to the previous image
         """
-        if self.numberOfFiles > 0:
-            self.currentFileNumber = (self.currentFileNumber - 1) % self.numberOfFiles
-
-            # Pass display name from imgList (fileList is now composite)
-            img = self.file_manager.current_image
-            self.quadFold = QuadrantFolder(img, self.filePath, self.imgList[self.currentFileNumber], self)
-            self.quadFold.info = {}
-            
-            if self.calSettingsDialog.fixedCenter.isChecked():
-                if self.persistedCenter is None:
-                    self.persistedCenter = self.calSettings['center']
-                self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
-
-            if self.persistedRotation is not None:
-                self.quadFold.fixedRot = self.persistedRotation
-
-            self.onImageChanged()
+        self.file_manager.prev_frame()
+        self._navigate_and_update(reprocess=reprocess)
 
     def nextClicked(self, reprocess=False):
         """
         Going to the next image
         """
-        if self.numberOfFiles > 0:
-            self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
+        self.file_manager.next_frame()
+        self._navigate_and_update(reprocess=reprocess)
 
-            # Pass display name from imgList (fileList is now composite)
-            img = self.file_manager.current_image
-            self.quadFold = QuadrantFolder(img, self.filePath, self.imgList[self.currentFileNumber], self)
-            self.quadFold.info = {}
 
-            if self.calSettingsDialog.fixedCenter.isChecked():
-                if self.persistedCenter is None:
-                    self.persistedCenter = self.calSettings['center']
-                self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
-
-            if self.persistedRotation is not None:
-                self.quadFold.fixedRot = self.persistedRotation
-            
-            self.onImageChanged(reprocess=reprocess)
-
-    def prevFileClicked(self):
+    def prevFileClicked(self, reprocess=False):
         """
         Going to the previous h5 file
         """
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index - 1) % len(self.h5List)
-            self.onNewFileSelected(os.path.join(self.filePath, self.h5List[self.h5index]))
+        self.file_manager.prev_file()
+        self._navigate_and_update(reprocess=reprocess)
 
-    def nextFileClicked(self):
+
+    def nextFileClicked(self, reprocess=False):
         """
         Going to the next h5 file
         """
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index + 1) % len(self.h5List)
-            self.onNewFileSelected(os.path.join(self.filePath, self.h5List[self.h5index]))
+        self.file_manager.next_file()
+        self._navigate_and_update(reprocess=reprocess)
+
+
+    def _navigate_and_update(self, reprocess=False):
+        """
+            Helper method for navigation: creates QuadrantFolder and applies settings
+        """
+        self.quadFold = QuadrantFolder(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_name, self)
+        self.quadFold.info = {}
+        
+        # Apply persisted center if fixed
+        if self.calSettingsDialog.fixedCenter.isChecked():
+            if self.persistedCenter is None:
+                self.persistedCenter = self.calSettings['center']
+            self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]]
+        
+        # Apply persisted rotation if set
+        if self.persistedRotation is not None:
+            self.quadFold.fixedRot = self.persistedRotation
+        
+        self.onImageChanged(reprocess=reprocess)
 
     def statusPrint(self, text):
         """
@@ -4272,10 +4262,10 @@ class QuadrantFoldingGUI(QMainWindow):
             fileName = self.filenameLineEdit.text().strip()
         elif selected_tab == 1:
             fileName = self.filenameLineEdit2.text().strip()
-        if fileName not in self.imgList:
+        if fileName not in self.file_manager.names:
             return
-        self.currentFileNumber = self.imgList.index(fileName)
-        self.onImageChanged()
+        self.file_manager.switch_to_image_by_name(fileName)
+        self._navigate_and_update()
 
     def showAbout(self):
         """
