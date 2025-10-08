@@ -59,12 +59,10 @@ import time
 import random
 
 class QuadFoldParams:
-    def __init__(self, flags, fileName, filePath, ext, fileList, parent):
+    def __init__(self, flags, fileName, filePath, parent):
         self.flags = flags
         self.fileName = fileName
         self.filePath = filePath
-        self.ext = ext
-        self.fileList = fileList
         self.parent = parent
 
 class WorkerSignals(QObject):
@@ -104,12 +102,6 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         try:
-            # Resolve loader spec and load ndarray
-            display_name = self.params.fileName
-            try:
-                idx = self.params.fileList[0].index(display_name)
-            except Exception:
-                idx = 0
             img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.params.filePath, self.params.fileName, self.params.parent)
             self.quadFold.info = {}
@@ -208,14 +200,12 @@ class QuadrantFoldingGUI(QMainWindow):
         """
 
         super().__init__()
-        self.imgList = [] # all images name in current directory
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0
         self.filePath = "" # current directory
         self.extent = None
         self.img = None
         self.numberOfFiles = 0
-        self.currentFileNumber = 0
         self.quadFold = None # QuadrantFolder object
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
@@ -1414,7 +1404,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         if self.quadFold is not None and not self.uiUpdating:
             self.quadFold.delCache()
-            fileName = self.imgList[self.currentFileNumber]
+            fileName = self.file_manager.current_image_name
             fix_x, fix_y = self.quadFold.fixedCenterX, self.quadFold.fixedCenterY
             img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
@@ -1453,14 +1443,6 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Trigger when Set Blank Image and Mask clicked
         """
-        # dlg = BlankImageSettings(self.filePath)
-        # result = dlg.exec_()
-        # if result == 1 and self.quadFold is not None:
-        #     self.quadFold.delCache()
-        #     fileName = self.imgList[self.currentFileNumber]
-        #     self.quadFold = QuadrantFolder(self.filePath, fileName, self, self.fileList, self.ext)
-        #     self.masked = False
-        #     self.processImage()
         
         try:
             os.makedirs(join(self.filePath, 'settings'))
@@ -1472,10 +1454,10 @@ class QuadrantFoldingGUI(QMainWindow):
 
         isH5 = False
         if self.h5List:
-            fileName = self.h5List[self.h5index]
+            fileName = self.file_manager.current_image_name
             isH5 = True
         else:
-            fileName = self.imgList[self.currentFileNumber]
+            fileName = self.file_manager.current_image_name
             
         max_val = np.max(np.ravel(self.img))
         trans_mat = self.quadFold.centImgTransMat if self.quadFold.centImgTransMat is not None else None  
@@ -1503,7 +1485,7 @@ class QuadrantFoldingGUI(QMainWindow):
                     os.rename(join(join(self.filePath, 'settings'), 'mask.tif'), join(join(self.filePath, 'settings'), 'maskonly.tif'))
                     
             self.quadFold.delCache()
-            fileName = self.imgList[self.currentFileNumber]
+            fileName = self.file_manager.current_image_name
             img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
             self.masked = False
@@ -2886,7 +2868,7 @@ class QuadrantFoldingGUI(QMainWindow):
             return self.modeOrientation
         print("Calculating mode of angles of images in directory")
         angles = []
-        for f in self.imgList:
+        for f in self.file_manager.names:
             img = self.file_manager.current_image
             quadFold = QuadrantFolder(img, self.filePath, f, self)
             print(f'Getting angle {f}')
@@ -3073,7 +3055,7 @@ class QuadrantFoldingGUI(QMainWindow):
         Process the new image if there's no cache.
         """
         previnfo = None if self.quadFold is None else self.quadFold.info
-        fileName = self.imgList[self.currentFileNumber]
+        fileName = self.file_manager.current_image_name
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         if reprocess:
@@ -3444,9 +3426,7 @@ class QuadrantFoldingGUI(QMainWindow):
             
     
     def addTask(self, i):
-        # def __init__(self, flags, fileName, filePath, ext, fileList, parent):
-        params = QuadFoldParams(self.getFlags(), self.imgList[i], self.filePath, self.ext, self.fileList, self)
-
+        params = QuadFoldParams(self.getFlags(), self.file_manager.names[i], self.filePath, self)
 
         self.tasksQueue.put(params)
 
@@ -3478,7 +3458,6 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.numberOfFiles:
                 print("All threads are complete")
-                self.currentFileNumber = 0
                 self.progressBar.setVisible(False)
                 self.filenameLineEdit.setEnabled(True)
                 self.filenameLineEdit2.setEnabled(True)
@@ -3567,7 +3546,6 @@ class QuadrantFoldingGUI(QMainWindow):
                         result_file += '_folded.tif'
                         fabio.tifimage.tifimage(data=img).write(result_file)
                 except Exception as e:
-            # plt.imsave(fullPath(result_path, self.imgList[self.currentFileNumber])+".result2.tif", img)
                     print("Error saving image", e)
             self.saveBackground()
 
@@ -3593,7 +3571,7 @@ class QuadrantFoldingGUI(QMainWindow):
         print(method)
         if method != 'None':
             
-            filename = self.imgList[self.currentFileNumber]
+            filename = self.file_manager.current_image_name
             bg_path = fullPath(self.filePath, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
 
@@ -3672,39 +3650,34 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Reset the status bar
         """
-        fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
+        fileFullPath = fullPath(self.filePath, self.file_manager.current_image_name)
         total = str(self.numberOfFiles) + ('*' if self._provisionalCount else '')
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(self.currentFileNumber + 1) + '/' + total + ') : ' + fileFullPath)
+            'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath)
         
     def resetStatusbar2(self):
         """
         Reset the status bar, but search using self.quadFold.info
         """
         
-        index = self.imgList.index(self.quadFold.img_name)
+        index = self.file_manager.names.index(self.quadFold.img_name)
         #DOES NOT GET HERE
-        fileFullPath = fullPath(self.filePath, self.imgList[index])
+        fileFullPath = fullPath(self.filePath, self.file_manager.names[index])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(index + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
         self.filenameLineEdit.setText(self.quadFold.img_name)
         self.filenameLineEdit2.setText(self.quadFold.img_name)
 
     def _checkScanDone(self):
-        # Use FileManager's async scan completion and names/specs
-        if not hasattr(self, 'file_manager') or self.file_manager is None:
+        """
+        Check if background directory scan is complete.
+        Updates the image layer with full HDF5 frame expansion for accurate count.
+        """
+        if not self.fileManager:
             return
-        if not self.file_manager.is_scan_done():
+        # When FileManager finishes, it has already updated names/specs
+        if not self.fileManager.is_scan_done():
             return
-        if self.file_manager.names and self.file_manager.specs:
-            curr = self.imgList[self.currentFileNumber] if getattr(self, 'imgList', None) else None
-            self.imgList = list(self.file_manager.names)
-            self.fileList = [self.file_manager.names, self.file_manager.specs]
-            self.numberOfFiles = len(self.file_manager.names)
-            if curr in self.imgList:
-                self.currentFileNumber = self.imgList.index(curr)
-            else:
-                self.currentFileNumber = 0
         self._provisionalCount = False
         self._scan_timer.stop()
         self.resetStatusbar()
@@ -3800,12 +3773,8 @@ class QuadrantFoldingGUI(QMainWindow):
         
         self.file_manager.set_from_file(str(newFile))
         self.filePath = self.file_manager.dir_path
-        self.imgList = self.file_manager.names
-        self.currentFileNumber = self.file_manager.current
-        self.fileList = [self.imgList, self.file_manager.specs]
         
-
-        if self.filePath is not None and self.imgList is not None and self.imgList:
+        if self.file_manager.dir_path and self.file_manager.names:
             try:
                 self.csvManager = QF_CSVManager(self.filePath)
             except Exception:
@@ -3817,7 +3786,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 msg.setStyleSheet("QLabel{min-width: 500px;}")
                 msg.exec_()
             if self.csvManager is not None:
-                self.numberOfFiles = len(self.imgList)
+                self.numberOfFiles = len(self.file_manager.names)
                 self.ignoreFolds = set()
                 self.selectImageButton.setHidden(True)
                 self.selectFolder.setHidden(True)
@@ -3826,7 +3795,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.resetWidgets()
                 QApplication.restoreOverrideCursor()
                 if self.h5List == []:
-                    fileName = self.imgList[self.currentFileNumber]
+                    fileName = self.file_manager.current_image_name
                     try:
                         # Load ndarray via spec and construct QuadrantFolder
                         img = self.file_manager.current_image
@@ -3915,7 +3884,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
             self.ignoreFolds = set()
-            self.currentFileNumber = 0
             self.onImageChanged()
             self.processFolder()
 
@@ -3953,14 +3921,6 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
-        # fileList = os.listdir(self.filePath)
-        # self.imgList = []
-        # for f in fileList:
-        #     if isImg(fullPath(self.filePath, f)):
-        #         self.imgList.append(f)
-
-        # self.imgList.sort()
-        # self.numberOfFiles = len(self.imgList)
 
         errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
