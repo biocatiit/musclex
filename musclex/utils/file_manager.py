@@ -501,6 +501,8 @@ class FileManager:
         self.names = []  # Expanded display names
         self.specs = []  # Corresponding loader specs
         self.current = 0  # Current position in names
+        # Currently loaded image ndarray (or None if not loaded)
+        self.current_image = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
         # Async scan state
@@ -554,6 +556,8 @@ class FileManager:
         
         # Build simple image layer (temporary, each HDF5 shown as single frame)
         self._rebuild_simple_image_list()
+        # Ensure current image is loaded for the selected file
+        self.load_current()
 
     def _rebuild_simple_image_list(self):
         """Rebuild simple image list (HDF5 shown as single frame)"""
@@ -658,6 +662,7 @@ class FileManager:
         """Load current image"""
         fname, ftype, fpath = self._get_current_file_info()
         if fname is None:
+            self.current_image = None
             return None
         
         if ftype == "h5":
@@ -665,7 +670,9 @@ class FileManager:
         else:
             source = ("tiff", fpath)
         
-        return load_image_via_spec(self.dir_path, fname, source)
+        img = load_image_via_spec(self.dir_path, fname, source)
+        self.current_image = img
+        return img
 
     def next_frame(self):
         """
@@ -684,12 +691,14 @@ class FileManager:
                 # Move to next frame in same file
                 self.current_frame_idx += 1
                 self._update_current_position()
+                self.load_current()
                 return
         
         # Move to first frame of next file
         self.current_file_idx = (self.current_file_idx + 1) % len(self.file_list)
         self.current_frame_idx = 0
         self._update_current_position()
+        self.load_current()
 
     def prev_frame(self):
         """
@@ -704,6 +713,7 @@ class FileManager:
             # Move to previous frame in same file
             self.current_frame_idx -= 1
             self._update_current_position()
+            self.load_current()
             return
         
         # Move to previous file
@@ -718,6 +728,7 @@ class FileManager:
             self.current_frame_idx = 0
         
         self._update_current_position()
+        self.load_current()
 
     def _update_current_position(self):
         """Update current pointer to corresponding position in image layer"""
@@ -759,6 +770,7 @@ class FileManager:
         self.current_file_idx = (self.current_file_idx + 1) % len(self.file_list)
         self.current_frame_idx = 0
         self._update_current_position()
+        self.load_current()
 
     def prev_file(self):
         """Jump to first frame of previous file"""
@@ -767,6 +779,7 @@ class FileManager:
         self.current_file_idx = (self.current_file_idx - 1) % len(self.file_list)
         self.current_frame_idx = 0
         self._update_current_position()
+        self.load_current()
 
     def switch_to_image_by_name(self, name):
         """
@@ -795,6 +808,8 @@ class FileManager:
                             else:
                                 self.current_frame_idx = 0
                             break
+            # Load the image corresponding to the selected name
+            self.load_current()
             return True
         except ValueError:
             return False
