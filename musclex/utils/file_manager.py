@@ -664,13 +664,16 @@ class FileManager:
         fname, ftype, fpath = self._get_current_file_info()
         if fname is None:
             self.current_image = None
+            self.current_image_name = ""
             return None
         
         if ftype == "h5":
             source = ("h5", fpath, self.current_frame_idx)
+            base, ext = os.path.splitext(fname)
+            self.current_image_name = f"{base}_{self.current_frame_idx+1:05d}{ext}"
         else:
             source = ("tiff", fpath)
-        
+            self.current_image_name = fname
         img = load_image_via_spec(self.dir_path, fname, source)
         self.current_image = img
         self.current_ext = ftype

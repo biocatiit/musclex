@@ -1499,7 +1499,7 @@ class XRayViewerGUI(QMainWindow):
         This will create a new viewer object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        fileName = self.fileManager.get_display_name()
+        fileName = self.fileManager.current_image_name
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
 
@@ -1637,7 +1637,7 @@ class XRayViewerGUI(QMainWindow):
         Reset the status bar
         """
         dir_path = getattr(self.fileManager, 'dir_path', '')
-        fileFullPath = fullPath(dir_path, self.fileManager.get_display_name())
+        fileFullPath = fullPath(dir_path, self.fileManager.current_image_name)
         # Use names (final) if available, else fallback to file_list length
         total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
         total = str(total_count) + ('*' if self._provisionalCount else '')
@@ -1666,7 +1666,6 @@ class XRayViewerGUI(QMainWindow):
         self._provisionalCount = True
 
         if self.fileManager.dir_path and self.fileManager.file_list:
-            fileName = self.fileManager.get_display_name()
             self.setH5Mode(str(newFile))
             self.csv_manager = XV_CSVManager(self.fileManager.dir_path)
             self.selectImageButton.setHidden(True)

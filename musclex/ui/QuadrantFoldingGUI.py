@@ -4228,7 +4228,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
             Helper method for navigation: creates QuadrantFolder and applies settings
         """
-        self.quadFold = QuadrantFolder(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_name, self)
+        self.quadFold = QuadrantFolder(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
         self.quadFold.info = {}
         
         # Apply persisted center if fixed
