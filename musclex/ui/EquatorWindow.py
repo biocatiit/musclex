@@ -390,12 +390,8 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
 
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation controls for Image tab
         self.navImg = NavigationControls(process_folder_text="Reprocess and Refit current folder", process_h5_text="Process All H5 Files")
-        self.navImg.processFolderButton.setStyleSheet(pfss)
-        if self.navImg.processH5Button is not None:
-            self.navImg.processH5Button.setStyleSheet(pfss)
         # Backward-compatible aliases
         self.processFolderButton = self.navImg.processFolderButton
         self.processH5FolderButton = self.navImg.processH5Button
@@ -566,12 +562,8 @@ class EquatorWindow(QMainWindow):
         self.refitAllButton = QPushButton("Refit current folder")
         self.refitAllButton.setCheckable(True)
 
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation controls for Fitting tab
         self.navFit = NavigationControls(process_folder_text="Reprocess and Refit current folder", process_h5_text="Reprocess and Refit All H5 Files")
-        self.navFit.processFolderButton.setStyleSheet(pfss)
-        if self.navFit.processH5Button is not None:
-            self.navFit.processH5Button.setStyleSheet(pfss)
         # Backward-compatible aliases
         self.processFolderButton2 = self.navFit.processFolderButton
         self.processH5FolderButton2 = self.navFit.processH5Button

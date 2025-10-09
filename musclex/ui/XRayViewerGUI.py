@@ -226,10 +226,8 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout.addWidget(self.saveGraphSlice, 5, 0, 1, 2)
         self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
 
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation widget (Image tab)
         self.navImg = NavigationControls(process_folder_text="Play", process_h5_text="Play H5 Files")
-        self.navImg.processFolderButton.setStyleSheet(pfss)
         # Backward-compatible attribute aliases (removed in favor of direct navImg usage)
 
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -260,7 +258,6 @@ class XRayViewerGUI(QMainWindow):
         # Reusable navigation widget (Graph tab)
         self.bottomLayout2 = QGridLayout()
         self.navGraph = NavigationControls(process_folder_text="Play", process_h5_text="Play H5 Files")
-        self.navGraph.processFolderButton.setStyleSheet(pfss)
         # Backward-compatible attribute aliases (removed in favor of direct navGraph usage)
 
         self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)

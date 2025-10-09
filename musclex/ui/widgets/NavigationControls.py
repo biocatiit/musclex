@@ -21,6 +21,7 @@ class NavigationControls(QWidget):
         process_h5_text=None,
         checkable_process_folder=True,
         checkable_process_h5=True,
+        process_button_style="QPushButton { color: #ededed; background-color: #af6207}",
         parent=None,
     ):
         super().__init__(parent)
@@ -28,11 +29,13 @@ class NavigationControls(QWidget):
         # Controls
         self.processFolderButton = QPushButton(process_folder_text)
         self.processFolderButton.setCheckable(checkable_process_folder)
+        self.processFolderButton.setStyleSheet(process_button_style)
 
         self.processH5Button = None
         if process_h5_text is not None:
             self.processH5Button = QPushButton(process_h5_text)
             self.processH5Button.setCheckable(checkable_process_h5)
+            self.processH5Button.setStyleSheet(process_button_style)
 
         self.prevButton = QPushButton("<")
         self.nextButton = QPushButton(">")
@@ -68,5 +71,3 @@ class NavigationControls(QWidget):
         # Default: hide file-level navigation until a GUI enables H5 mode
         self.prevFileButton.hide()
         self.nextFileButton.hide()
-
-

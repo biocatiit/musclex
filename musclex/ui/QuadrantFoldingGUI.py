@@ -927,12 +927,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.resProcGrpBx.setLayout(self.bgLayout)
 
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation widget (left sidebar of Image tab)
         self.navImg = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process H5 Files")
-        self.navImg.processFolderButton.setStyleSheet(pfss)
-        if self.navImg.processH5Button is not None:
-            self.navImg.processH5Button.setStyleSheet(pfss)
+
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
@@ -1038,9 +1035,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Reusable navigation widget (right sidebar of Results tab)
         self.navRes = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process H5 Files")
-        self.navRes.processFolderButton.setStyleSheet(pfss)
-        if self.navRes.processH5Button is not None:
-            self.navRes.processH5Button.setStyleSheet(pfss)
         self.buttonsLayout2 = QGridLayout()
         self.buttonsLayout2.addWidget(self.navRes, 0, 0, 1, 1)
         self.rightLayout.addLayout(self.buttonsLayout2)
