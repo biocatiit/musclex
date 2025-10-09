@@ -91,7 +91,7 @@ class XRayViewerGUI(QMainWindow):
         #self.setMinimumWidth(1000)
 
         self.doubleZoomGUI = DoubleZoom(self.imageFigure)
-
+        self.file_manager = None
         self.browseFile()
 
     def initUI(self):
@@ -402,7 +402,7 @@ class XRayViewerGUI(QMainWindow):
         """
 
         if self.calSettingsDialog is None:
-            dir_path = getattr(self.fileManager, 'dir_path', None)
+            dir_path = getattr(self.file_manager, 'dir_path', None)
             self.calSettingsDialog = CalibrationSettings(dir_path) if dir_path is None else \
                 CalibrationSettings(dir_path, center=self.xrayViewer.orig_image_center)
         self.calSettings = None
@@ -439,7 +439,7 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when the Open Trace button is clicked
         """
-        newWindows = LogTraceViewer(self, self.fileManager.current)
+        newWindows = LogTraceViewer(self, self.file_manager.current)
         if len(self.windowList) >= 1:
             self.windowList = []
             self.counter = 0
@@ -447,7 +447,7 @@ class XRayViewerGUI(QMainWindow):
 
     def send_signal(self):
         if self.windowList != []:
-            signal=self.fileManager.current
+            signal=self.file_manager.current
             if self.counter == 0:
                 self.currSaved.connect(self.windowList[0].showLine)
                 self.counter = 1
@@ -1487,12 +1487,13 @@ class XRayViewerGUI(QMainWindow):
         This will create a new viewer object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        fileName = self.fileManager.current_image_name
+        fileName = self.file_manager.current_image_name
         self.navImg.filenameLineEdit.setText(fileName)
         self.navGraph.filenameLineEdit.setText(fileName)
+        self.setH5Mode()
 
         try:
-            img = self.fileManager.load_current()
+            img = self.file_manager.load_current()
             self.xrayViewer = XRayViewer(img)
         except Exception as e:
             infMsg = QMessageBox()
@@ -1624,13 +1625,13 @@ class XRayViewerGUI(QMainWindow):
         """
         Reset the status bar
         """
-        dir_path = getattr(self.fileManager, 'dir_path', '')
-        fileFullPath = fullPath(dir_path, self.fileManager.current_image_name)
+        dir_path = getattr(self.file_manager, 'dir_path', '')
+        fileFullPath = fullPath(dir_path, self.file_manager.current_image_name)
         # Use names (final) if available, else fallback to file_list length
-        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
+        total_count = len(self.file_manager.names) if getattr(self.file_manager, 'names', None) else len(self.file_manager.file_list)
         total = str(total_count) + ('*' if self._provisionalCount else '')
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(self.fileManager.current + 1) + '/' + total + ') : ' + fileFullPath)
+            'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath)
 
     def onNewFileSelected(self, newFile):
         """
@@ -1643,19 +1644,17 @@ class XRayViewerGUI(QMainWindow):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         
         # Create or get FileManager
-        fm = getattr(self, 'fileManager', None)
-        if fm is None:
-            self.fileManager = FileManager()
+        if not self.file_manager:
+            self.file_manager = FileManager()
         
         # Phase 1: Initialize FileManager with selected file (includes fast directory scan)
-        self.fileManager.set_from_file(str(newFile))
+        self.file_manager.set_from_file(str(newFile))
         
         # Mark counts provisional until async scan completes
         self._provisionalCount = True
 
-        if self.fileManager.dir_path and self.fileManager.file_list:
-            self.setH5Mode(str(newFile))
-            self.csv_manager = XV_CSVManager(self.fileManager.dir_path)
+        if self.file_manager.dir_path and self.file_manager.file_list:
+            self.csv_manager = XV_CSVManager(self.file_manager.dir_path)
             self.selectImageButton.setHidden(True)
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
@@ -1665,24 +1664,18 @@ class XRayViewerGUI(QMainWindow):
             # Phase 2: Background async scan to expand all HDF5 frames
             self._scan_timer.start()
             # Let FileManager scan and update its own listing; GUI just polls and updates counts
-            self.fileManager.start_async_scan(self.fileManager.dir_path)
+            self.file_manager.start_async_scan(self.file_manager.dir_path)
         
         QApplication.restoreOverrideCursor()
             
 
 
-    def setH5Mode(self, file_name):
+    def setH5Mode(self):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        ext = ''
-        try:
-            _, ext = os.path.splitext(str(file_name))
-            ext = ext.lower()
-        except Exception:
-            ext = ''
+        ext = self.file_manager.current_ext
         if ext in ['.h5', '.hdf5']:
-            # Show navigation buttons for H5; we no longer maintain explicit H5 lists here
             self.navImg.nextFileButton.show()
             self.navImg.prevFileButton.show()
             self.navGraph.nextFileButton.show()
@@ -1699,10 +1692,10 @@ class XRayViewerGUI(QMainWindow):
         Check if background directory scan is complete.
         Updates the image layer with full HDF5 frame expansion for accurate count.
         """
-        if not self.fileManager:
+        if not self.file_manager:
             return
         # When FileManager finishes, it has already updated names/specs
-        if not self.fileManager.is_scan_done():
+        if not self.file_manager.is_scan_done():
             return
         self._provisionalCount = False
         self._scan_timer.stop()
@@ -1728,9 +1721,9 @@ class XRayViewerGUI(QMainWindow):
         """
         self.stop_process = False
         self.progressBar.setVisible(True)
-        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
+        total_count = len(self.file_manager.names) if getattr(self.file_manager, 'names', None) else len(self.file_manager.file_list)
         self.progressBar.setRange(0, total_count)
-        for i in range(self.fileManager.current, total_count):
+        for i in range(self.file_manager.current, total_count):
             if self.stop_process:
                 break
             self.progressBar.setValue(i)
@@ -1764,28 +1757,28 @@ class XRayViewerGUI(QMainWindow):
         """
         Going to the previous image
         """
-        self.fileManager.prev_frame()
+        self.file_manager.prev_frame()
         self.onImageChanged()
 
     def nextClicked(self):
         """
         Going to the next image
         """
-        self.fileManager.next_frame()
+        self.file_manager.next_frame()
         self.onImageChanged()
     
     def prevFileClicked(self):
         """
         Jump to first frame of previous file (typically for HDF5 navigation)
         """
-        self.fileManager.prev_file()
+        self.file_manager.prev_file()
         self.onImageChanged()
 
     def nextFileClicked(self):
         """
         Jump to first frame of next file (typically for HDF5 navigation)
         """
-        self.fileManager.next_file()
+        self.file_manager.next_file()
         self.onImageChanged()
 
     def fileNameChanged(self):
@@ -1797,9 +1790,9 @@ class XRayViewerGUI(QMainWindow):
             fileName = self.navImg.filenameLineEdit.text().strip()
         elif selected_tab == 1:
             fileName = self.navGraph.filenameLineEdit.text().strip()
-        if fileName not in self.fileManager.names:
+        if fileName not in self.file_manager.names:
             return
-        self.fileManager.switch_image_by_name(fileName)
+        self.file_manager.switch_image_by_name(fileName)
         self.onImageChanged()
 
     def showAbout(self):

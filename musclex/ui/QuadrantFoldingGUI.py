@@ -202,7 +202,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         super().__init__()
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
-        self.h5index = 0
         self.filePath = "" # current directory
         self.extent = None
         self.img = None
@@ -3043,6 +3042,7 @@ class QuadrantFoldingGUI(QMainWindow):
         fileName = self.file_manager.current_image_name
         self.navImg.filenameLineEdit.setText(fileName)
         self.navRes.filenameLineEdit.setText(fileName)
+        self.setH5Mode()
         if reprocess:
             self.quadFold.info = {}
             self.quadFold.info['reprocess'] = True
@@ -3802,7 +3802,6 @@ class QuadrantFoldingGUI(QMainWindow):
                         infMsg.exec_()
                         self.browseFile()
                 self.h5List = []
-                self.setH5Mode(str(newFile))
                 self.onImageChanged()
 
                 # Start background scan to populate full directory list using FileManager
@@ -3816,7 +3815,7 @@ class QuadrantFoldingGUI(QMainWindow):
             QApplication.restoreOverrideCursor()
             self.browseFile()
 
-    def setH5Mode(self, file_name):
+    def setH5Mode(self):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
@@ -3825,7 +3824,6 @@ class QuadrantFoldingGUI(QMainWindow):
             for file in os.listdir(self.filePath):
                 if file.endswith(".h5") or file.endswith(".hdf5"):
                     self.h5List.append(file)
-            self.h5index = self.h5List.index(os.path.split(file_name)[1])
             self.navImg.nextFileButton.show()
             self.navImg.prevFileButton.show()
             self.navRes.nextFileButton.show()
