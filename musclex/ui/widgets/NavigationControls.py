@@ -31,11 +31,9 @@ class NavigationControls(QWidget):
         self.processFolderButton.setCheckable(checkable_process_folder)
         self.processFolderButton.setStyleSheet(process_button_style)
 
-        self.processH5Button = None
-        if process_h5_text is not None:
-            self.processH5Button = QPushButton(process_h5_text)
-            self.processH5Button.setCheckable(checkable_process_h5)
-            self.processH5Button.setStyleSheet(process_button_style)
+        self.processH5Button = QPushButton(process_h5_text)
+        self.processH5Button.setCheckable(checkable_process_h5)
+        self.processH5Button.setStyleSheet(process_button_style)
 
         self.prevButton = QPushButton("<")
         self.nextButton = QPushButton(">")
@@ -56,9 +54,8 @@ class NavigationControls(QWidget):
         row = 0
         layout.addWidget(self.processFolderButton, row, 0, 1, 2)
         row += 1
-        if self.processH5Button is not None:
-            layout.addWidget(self.processH5Button, row, 0, 1, 2)
-            row += 1
+        layout.addWidget(self.processH5Button, row, 0, 1, 2)
+        row += 1
 
         layout.addWidget(self.prevButton, row, 0, 1, 1)
         layout.addWidget(self.nextButton, row, 1, 1, 1)
@@ -71,3 +68,16 @@ class NavigationControls(QWidget):
         # Default: hide file-level navigation until a GUI enables H5 mode
         self.prevFileButton.hide()
         self.nextFileButton.hide()
+    
+    def setNavMode(self, mode):
+        """
+        Set the navigation mode based on the mode parameter.
+        """
+        if mode == 'h5':
+            self.nextFileButton.show()
+            self.prevFileButton.show()
+            self.processH5Button.show()
+        else:
+            self.nextFileButton.hide()
+            self.prevFileButton.hide()
+            self.processH5Button.hide()

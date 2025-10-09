@@ -3029,7 +3029,7 @@ class QuadrantFoldingGUI(QMainWindow):
         previnfo = None if self.quadFold is None else self.quadFold.info
         fileName = self.file_manager.current_image_name
         self.navControls.filenameLineEdit.setText(fileName)
-        self.setNavMode()
+        self.navControls.setNavMode(self.file_manager.current_file_type)
         if reprocess:
             self.quadFold.info = {}
             self.quadFold.info['reprocess'] = True
@@ -3818,19 +3818,6 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             QApplication.restoreOverrideCursor()
             self.browseFile()
-
-    def setNavMode(self):
-        """
-        Sets the H5 list of file and displays the right set of buttons depending on the file selected
-        """
-        if self.file_manager.current_file_type == 'h5':
-            self.navControls.nextFileButton.show()
-            self.navControls.prevFileButton.show()
-            self.navControls.processH5Button.show()
-        else:
-            self.navControls.nextFileButton.hide()
-            self.navControls.prevFileButton.hide()
-            self.navControls.processH5Button.hide()
 
 
     def resetWidgets(self):

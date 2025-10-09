@@ -1481,7 +1481,7 @@ class XRayViewerGUI(QMainWindow):
         """
         fileName = self.file_manager.current_image_name
         self.navControls.filenameLineEdit.setText(fileName)
-        self.setNavMode()
+        self.navControls.setNavMode(self.file_manager.current_file_type)
 
         try:
             img = self.file_manager.load_current()
@@ -1679,23 +1679,6 @@ class XRayViewerGUI(QMainWindow):
         
         QApplication.restoreOverrideCursor()
             
-
-
-    def setNavMode(self):
-        """
-        Sets the H5 list of file and displays the right set of buttons depending on the file selected
-        """
-        ext = self.file_manager.current_file_type
-        if ext == 'h5':
-            self.navControls.nextFileButton.show()
-            self.navControls.prevFileButton.show()
-            if self.navControls.processH5Button:
-                self.navControls.processH5Button.show()
-        else:
-            self.navControls.nextFileButton.hide()
-            self.navControls.prevFileButton.hide()
-            if self.navControls.processH5Button:
-                self.navControls.processH5Button.hide()
 
 
     def _checkScanDone(self):
