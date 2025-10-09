@@ -230,13 +230,7 @@ class XRayViewerGUI(QMainWindow):
         # Reusable navigation widget (Image tab)
         self.navImg = NavigationControls(primary_text="Play")
         self.navImg.primaryButton.setStyleSheet(pfss)
-        # Backward-compatible attribute aliases
-        self.processFolderButton = self.navImg.primaryButton
-        self.nextButton = self.navImg.nextButton
-        self.prevButton = self.navImg.prevButton
-        self.nextFileButton = self.navImg.nextFileButton
-        self.prevFileButton = self.navImg.prevFileButton
-        self.filenameLineEdit = self.navImg.filenameLineEdit
+        # Backward-compatible attribute aliases (removed in favor of direct navImg usage)
 
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.optionsLayout.addWidget(self.displayOptGrpBx)
@@ -267,13 +261,7 @@ class XRayViewerGUI(QMainWindow):
         self.bottomLayout2 = QGridLayout()
         self.navGraph = NavigationControls(primary_text="Play")
         self.navGraph.primaryButton.setStyleSheet(pfss)
-        # Backward-compatible attribute aliases
-        self.processFolderButton2 = self.navGraph.primaryButton
-        self.nextButton2 = self.navGraph.nextButton
-        self.prevButton2 = self.navGraph.prevButton
-        self.nextFileButton2 = self.navGraph.nextFileButton
-        self.prevFileButton2 = self.navGraph.prevFileButton
-        self.filenameLineEdit2 = self.navGraph.filenameLineEdit
+        # Backward-compatible attribute aliases (removed in favor of direct navGraph usage)
 
         self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.resetZoomButton, 2, 0, 1, 2)
@@ -357,18 +345,18 @@ class XRayViewerGUI(QMainWindow):
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.colorMapChoice.currentIndexChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
-        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-        self.nextButton.clicked.connect(self.nextClicked)
-        self.prevButton.clicked.connect(self.prevClicked)
-        self.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.prevFileButton.clicked.connect(self.prevFileClicked)
-        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
-        self.nextButton2.clicked.connect(self.nextClicked)
-        self.prevButton2.clicked.connect(self.prevClicked)
-        self.nextFileButton2.clicked.connect(self.nextFileClicked)
-        self.prevFileButton2.clicked.connect(self.prevFileClicked)
-        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
-        self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
+        self.navImg.primaryButton.toggled.connect(self.batchProcBtnToggled)
+        self.navImg.nextButton.clicked.connect(self.nextClicked)
+        self.navImg.prevButton.clicked.connect(self.prevClicked)
+        self.navImg.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navImg.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.navGraph.primaryButton.toggled.connect(self.batchProcBtnToggled)
+        self.navGraph.nextButton.clicked.connect(self.nextClicked)
+        self.navGraph.prevButton.clicked.connect(self.prevClicked)
+        self.navGraph.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navGraph.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.navImg.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
+        self.navGraph.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
@@ -1500,8 +1488,8 @@ class XRayViewerGUI(QMainWindow):
         Process the new image if there's no cache.
         """
         fileName = self.fileManager.current_image_name
-        self.filenameLineEdit.setText(fileName)
-        self.filenameLineEdit2.setText(fileName)
+        self.navImg.filenameLineEdit.setText(fileName)
+        self.navGraph.filenameLineEdit.setText(fileName)
 
         try:
             img = self.fileManager.load_current()
@@ -1695,15 +1683,15 @@ class XRayViewerGUI(QMainWindow):
             ext = ''
         if ext in ['.h5', '.hdf5']:
             # Show navigation buttons for H5; we no longer maintain explicit H5 lists here
-            self.nextFileButton.show()
-            self.prevFileButton.show()
-            self.nextFileButton2.show()
-            self.prevFileButton2.show()
+            self.navImg.nextFileButton.show()
+            self.navImg.prevFileButton.show()
+            self.navGraph.nextFileButton.show()
+            self.navGraph.prevFileButton.show()
         else:
-            self.nextFileButton.hide()
-            self.prevFileButton.hide()
-            self.nextFileButton2.hide()
-            self.prevFileButton2.hide()
+            self.navImg.nextFileButton.hide()
+            self.navImg.prevFileButton.hide()
+            self.navGraph.nextFileButton.hide()
+            self.navGraph.prevFileButton.hide()
 
 
     def _checkScanDone(self):
@@ -1724,12 +1712,12 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if (self.processFolderButton.isChecked() or self.processFolderButton2.isChecked()) and self.processFolderButton.text() == "Play":
+        if (self.navImg.primaryButton.isChecked() or self.navGraph.primaryButton.isChecked()) and self.navImg.primaryButton.text() == "Play":
             if not self.progressBar.isVisible():
-                self.processFolderButton.setText("Pause")
-                self.processFolderButton.setChecked(True)
-                self.processFolderButton2.setText("Pause")
-                self.processFolderButton2.setChecked(True)
+                self.navImg.primaryButton.setText("Pause")
+                self.navImg.primaryButton.setChecked(True)
+                self.navGraph.primaryButton.setText("Pause")
+                self.navGraph.primaryButton.setChecked(True)
                 self.processFolder()
         else:
             self.stop_process = True
@@ -1750,10 +1738,10 @@ class XRayViewerGUI(QMainWindow):
             self.nextClicked()
         self.progressBar.setVisible(False)
 
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Play")
-        self.processFolderButton2.setChecked(False)
-        self.processFolderButton2.setText("Play")
+        self.navImg.primaryButton.setChecked(False)
+        self.navImg.primaryButton.setText("Play")
+        self.navGraph.primaryButton.setChecked(False)
+        self.navGraph.primaryButton.setText("Play")
 
     def browseFile(self):
         """
@@ -1806,9 +1794,9 @@ class XRayViewerGUI(QMainWindow):
         """
         selected_tab = self.tabWidget.currentIndex()
         if selected_tab == 0:
-            fileName = self.filenameLineEdit.text().strip()
+            fileName = self.navImg.filenameLineEdit.text().strip()
         elif selected_tab == 1:
-            fileName = self.filenameLineEdit2.text().strip()
+            fileName = self.navGraph.filenameLineEdit.text().strip()
         if fileName not in self.fileManager.names:
             return
         self.fileManager.switch_image_by_name(fileName)
