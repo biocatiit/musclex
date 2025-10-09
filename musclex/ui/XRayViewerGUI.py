@@ -1724,7 +1724,7 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
-        self._process_image_list(self.file_manager.current, self.file_manager.names)
+        self._process_image_list(self.file_manager.current, len(self.file_manager.names))
         self.navControls.processFolderButton.setChecked(False)
         self.navControls.processFolderButton.setText("Play")
 
@@ -1732,16 +1732,15 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
-        self._process_image_list(self.file_manager.current_frame_idx, self.file_manager.current_h5_image_list)
+        self._process_image_list(self.file_manager.current_frame_idx, self.file_manager.current_h5_nframes)
         self.navControls.processH5Button.setChecked(False)
         self.navControls.processH5Button.setText("Play")
 
-    def _process_image_list(self, current, image_list):
+    def _process_image_list(self, current, nframes):
         self.stop_process = False
         self.progressBar.setVisible(True)
-        total_count = len(image_list)
-        self.progressBar.setRange(0, total_count)
-        for i in range(current, total_count):
+        self.progressBar.setRange(0, nframes)
+        for i in range(current, nframes):
             if self.stop_process:
                 break
             self.progressBar.setValue(i)
