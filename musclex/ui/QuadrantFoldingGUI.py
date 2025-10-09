@@ -929,7 +929,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation widget (left sidebar of Image tab)
-        self.navImg = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process All H5 Files")
+        self.navImg = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process H5 Files")
         self.navImg.processFolderButton.setStyleSheet(pfss)
         if self.navImg.processH5Button is not None:
             self.navImg.processH5Button.setStyleSheet(pfss)
@@ -1037,7 +1037,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rightLayout.addStretch()
 
         # Reusable navigation widget (right sidebar of Results tab)
-        self.navRes = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process All H5 Files")
+        self.navRes = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process H5 Files")
         self.navRes.processFolderButton.setStyleSheet(pfss)
         if self.navRes.processH5Button is not None:
             self.navRes.processH5Button.setStyleSheet(pfss)
@@ -3042,7 +3042,7 @@ class QuadrantFoldingGUI(QMainWindow):
         fileName = self.file_manager.current_image_name
         self.navImg.filenameLineEdit.setText(fileName)
         self.navRes.filenameLineEdit.setText(fileName)
-        self.setH5Mode()
+        self.setNavMode()
         if reprocess:
             self.quadFold.info = {}
             self.quadFold.info['reprocess'] = True
@@ -3815,23 +3815,18 @@ class QuadrantFoldingGUI(QMainWindow):
             QApplication.restoreOverrideCursor()
             self.browseFile()
 
-    def setH5Mode(self):
+    def setNavMode(self):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        ext = self.file_manager.current_ext
-        if ext in ['h5', 'hdf5']:
-            for file in os.listdir(self.filePath):
-                if file.endswith("h5") or file.endswith("hdf5"):
-                    self.h5List.append(file)
+        if self.file_manager.current_file_type == 'h5':
             self.navImg.nextFileButton.show()
             self.navImg.prevFileButton.show()
             self.navRes.nextFileButton.show()
             self.navRes.prevFileButton.show()
             self.navImg.processH5Button.show()
             self.navRes.processH5Button.show()
-            self.navImg.processFolderButton.setText("Process Current H5 File")
-            self.navRes.processFolderButton.setText("Process Current H5 File")
+
         else:
             self.navImg.nextFileButton.hide()
             self.navImg.prevFileButton.hide()
@@ -3839,8 +3834,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.navRes.prevFileButton.hide()
             self.navImg.processH5Button.hide()
             self.navRes.processH5Button.hide()
-            self.navImg.processFolderButton.setText("Process Current Folder")
-            self.navRes.processFolderButton.setText("Process Current Folder")
+
 
     def resetWidgets(self):
         """
@@ -4004,15 +3998,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.navImg.processFolderButton.setChecked(False)
         self.navRes.processFolderButton.setChecked(False)
         self.highlightApplyUndo()
-        ext = self.file_manager.current_ext
-        if ext in ['.h5', '.hdf5']:
-            self.navImg.processFolderButton.setText("Process Current H5 File")
-            self.navRes.processFolderButton.setText("Process Current H5 File")
-        else:
-            self.navImg.processFolderButton.setText("Process Current Folder")
-            self.navRes.processFolderButton.setText("Process Current Folder")
-
-        
 
     def processH5Folder(self):
         """

@@ -228,7 +228,7 @@ class XRayViewerGUI(QMainWindow):
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation widget (Image tab)
-        self.navImg = NavigationControls(process_folder_text="Play")
+        self.navImg = NavigationControls(process_folder_text="Play", process_h5_text="Play H5 Files")
         self.navImg.processFolderButton.setStyleSheet(pfss)
         # Backward-compatible attribute aliases (removed in favor of direct navImg usage)
 
@@ -259,7 +259,7 @@ class XRayViewerGUI(QMainWindow):
         
         # Reusable navigation widget (Graph tab)
         self.bottomLayout2 = QGridLayout()
-        self.navGraph = NavigationControls(process_folder_text="Play")
+        self.navGraph = NavigationControls(process_folder_text="Play", process_h5_text="Play H5 Files")
         self.navGraph.processFolderButton.setStyleSheet(pfss)
         # Backward-compatible attribute aliases (removed in favor of direct navGraph usage)
 
@@ -1490,7 +1490,7 @@ class XRayViewerGUI(QMainWindow):
         fileName = self.file_manager.current_image_name
         self.navImg.filenameLineEdit.setText(fileName)
         self.navGraph.filenameLineEdit.setText(fileName)
-        self.setH5Mode()
+        self.setNavMode()
 
         try:
             img = self.file_manager.load_current()
@@ -1670,21 +1670,25 @@ class XRayViewerGUI(QMainWindow):
             
 
 
-    def setH5Mode(self):
+    def setNavMode(self):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        ext = self.file_manager.current_ext
-        if ext in ['h5', 'hdf5']:
+        ext = self.file_manager.current_file_type
+        if ext == 'h5':
             self.navImg.nextFileButton.show()
             self.navImg.prevFileButton.show()
             self.navGraph.nextFileButton.show()
             self.navGraph.prevFileButton.show()
+            self.navImg.processH5Button.show()
+            self.navGraph.processH5Button.show()
         else:
             self.navImg.nextFileButton.hide()
             self.navImg.prevFileButton.hide()
             self.navGraph.nextFileButton.hide()
             self.navGraph.prevFileButton.hide()
+            self.navImg.processH5Button.hide()
+            self.navGraph.processH5Button.hide()
 
 
     def _checkScanDone(self):

@@ -503,7 +503,8 @@ class FileManager:
         self.current = 0  # Current position in names
         # Currently loaded image ndarray (or None if not loaded)
         self.current_image = None
-        self.current_ext = None
+        self.current_file_type = None
+        self.is_current_h5 = False
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
         # Async scan state
@@ -676,7 +677,7 @@ class FileManager:
             self.current_image_name = fname
         img = load_image_via_spec(self.dir_path, fname, source)
         self.current_image = img
-        self.current_ext = ftype
+        self.current_file_type = ftype
         return img
     
     def get_image_by_index(self, index):
