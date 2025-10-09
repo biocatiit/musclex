@@ -1675,7 +1675,7 @@ class XRayViewerGUI(QMainWindow):
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
         ext = self.file_manager.current_ext
-        if ext in ['.h5', '.hdf5']:
+        if ext in ['h5', 'hdf5']:
             self.navImg.nextFileButton.show()
             self.navImg.prevFileButton.show()
             self.navGraph.nextFileButton.show()

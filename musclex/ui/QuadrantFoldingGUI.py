@@ -3820,9 +3820,9 @@ class QuadrantFoldingGUI(QMainWindow):
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
         ext = self.file_manager.current_ext
-        if ext in ['.h5', '.hdf5']:
+        if ext in ['h5', 'hdf5']:
             for file in os.listdir(self.filePath):
-                if file.endswith(".h5") or file.endswith(".hdf5"):
+                if file.endswith("h5") or file.endswith("hdf5"):
                     self.h5List.append(file)
             self.navImg.nextFileButton.show()
             self.navImg.prevFileButton.show()
