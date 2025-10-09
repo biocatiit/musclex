@@ -505,6 +505,7 @@ class FileManager:
         self.current_image = None
         self.current_file_type = None
         self.is_current_h5 = False
+        self.current_h5_image_list = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
         # Async scan state
@@ -666,15 +667,19 @@ class FileManager:
         if fname is None:
             self.current_image = None
             self.current_image_name = ""
+            self.current_h5_image_list = None
             return None
         
         if ftype == "h5":
             source = ("h5", fpath, self.current_frame_idx)
             base, ext = os.path.splitext(fname)
             self.current_image_name = f"{base}_{self.current_frame_idx+1:05d}{ext}"
+            nframes = self._get_h5_nframes(fpath)
+            self.current_h5_image_list = [f"{base}_{i+1:05d}{ext}" for i in range(max(1, int(nframes)))]
         else:
             source = ("tiff", fpath)
             self.current_image_name = fname
+            self.current_h5_image_list = None
         img = load_image_via_spec(self.dir_path, fname, source)
         self.current_image = img
         self.current_file_type = ftype

@@ -1724,11 +1724,24 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
+        self._process_image_list(self.file_manager.current, self.file_manager.names)
+        self.navControls.processFolderButton.setChecked(False)
+        self.navControls.processFolderButton.setText("Play")
+
+    def processH5Folder(self):
+        """
+        Triggered when a folder has been selected to process it
+        """
+        self._process_image_list(self.file_manager.current_frame_idx, self.file_manager.current_h5_image_list)
+        self.navControls.processH5Button.setChecked(False)
+        self.navControls.processH5Button.setText("Play")
+
+    def _process_image_list(self, current, image_list):
         self.stop_process = False
         self.progressBar.setVisible(True)
-        total_count = len(self.file_manager.names) if getattr(self.file_manager, 'names', None) else len(self.file_manager.file_list)
+        total_count = len(image_list)
         self.progressBar.setRange(0, total_count)
-        for i in range(self.file_manager.current, total_count):
+        for i in range(current, total_count):
             if self.stop_process:
                 break
             self.progressBar.setValue(i)
@@ -1736,8 +1749,6 @@ class XRayViewerGUI(QMainWindow):
             self.nextClicked()
         self.progressBar.setVisible(False)
 
-        self.navControls.processFolderButton.setChecked(False)
-        self.navControls.processFolderButton.setText("Play")
 
     def browseFile(self):
         """
