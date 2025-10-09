@@ -1776,35 +1776,29 @@ class XRayViewerGUI(QMainWindow):
         """
         Going to the previous image
         """
-        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
-        if total_count > 0:
-            self.fileManager.prev_frame()
-            self.onImageChanged()
+        self.fileManager.prev_frame()
+        self.onImageChanged()
 
     def nextClicked(self):
         """
         Going to the next image
         """
-        total_count = len(self.fileManager.names) if getattr(self.fileManager, 'names', None) else len(self.fileManager.file_list)
-        if total_count > 0:
-            self.fileManager.next_frame()
-            self.onImageChanged()
+        self.fileManager.next_frame()
+        self.onImageChanged()
     
     def prevFileClicked(self):
         """
         Jump to first frame of previous file (typically for HDF5 navigation)
         """
-        if len(self.fileManager.file_list) > 1:
-            self.fileManager.prev_file()
-            self.onImageChanged()
+        self.fileManager.prev_file()
+        self.onImageChanged()
 
     def nextFileClicked(self):
         """
         Jump to first frame of next file (typically for HDF5 navigation)
         """
-        if len(self.fileManager.file_list) > 1:
-            self.fileManager.next_file()
-            self.onImageChanged()
+        self.fileManager.next_file()
+        self.onImageChanged()
 
     def fileNameChanged(self):
         """
@@ -1817,7 +1811,7 @@ class XRayViewerGUI(QMainWindow):
             fileName = self.filenameLineEdit2.text().strip()
         if fileName not in self.fileManager.names:
             return
-        self.fileManager.switch_to_image_by_name(fileName)
+        self.fileManager.switch_image_by_name(fileName)
         self.onImageChanged()
 
     def showAbout(self):

@@ -803,7 +803,7 @@ class FileManager:
         self._update_current_position()
         self.load_current()
 
-    def switch_to_image_by_name(self, name):
+    def switch_image_by_name(self, name):
         """
         Switch to an image by its display name.
         Returns True if successful, False if name not found.

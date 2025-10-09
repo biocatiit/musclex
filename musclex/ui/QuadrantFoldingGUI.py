@@ -4224,7 +4224,7 @@ class QuadrantFoldingGUI(QMainWindow):
             fileName = self.filenameLineEdit2.text().strip()
         if fileName not in self.file_manager.names:
             return
-        self.file_manager.switch_to_image_by_name(fileName)
+        self.file_manager.switch_image_by_name(fileName)
         self._navigate_and_update()
 
     def showAbout(self):
