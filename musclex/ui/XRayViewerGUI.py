@@ -228,8 +228,8 @@ class XRayViewerGUI(QMainWindow):
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation widget (Image tab)
-        self.navImg = NavigationControls(primary_text="Play")
-        self.navImg.primaryButton.setStyleSheet(pfss)
+        self.navImg = NavigationControls(process_folder_text="Play")
+        self.navImg.processFolderButton.setStyleSheet(pfss)
         # Backward-compatible attribute aliases (removed in favor of direct navImg usage)
 
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -259,8 +259,8 @@ class XRayViewerGUI(QMainWindow):
         
         # Reusable navigation widget (Graph tab)
         self.bottomLayout2 = QGridLayout()
-        self.navGraph = NavigationControls(primary_text="Play")
-        self.navGraph.primaryButton.setStyleSheet(pfss)
+        self.navGraph = NavigationControls(process_folder_text="Play")
+        self.navGraph.processFolderButton.setStyleSheet(pfss)
         # Backward-compatible attribute aliases (removed in favor of direct navGraph usage)
 
         self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
@@ -345,12 +345,12 @@ class XRayViewerGUI(QMainWindow):
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.colorMapChoice.currentIndexChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
-        self.navImg.primaryButton.toggled.connect(self.batchProcBtnToggled)
+        self.navImg.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navImg.nextButton.clicked.connect(self.nextClicked)
         self.navImg.prevButton.clicked.connect(self.prevClicked)
         self.navImg.nextFileButton.clicked.connect(self.nextFileClicked)
         self.navImg.prevFileButton.clicked.connect(self.prevFileClicked)
-        self.navGraph.primaryButton.toggled.connect(self.batchProcBtnToggled)
+        self.navGraph.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navGraph.nextButton.clicked.connect(self.nextClicked)
         self.navGraph.prevButton.clicked.connect(self.prevClicked)
         self.navGraph.nextFileButton.clicked.connect(self.nextFileClicked)
@@ -1712,12 +1712,12 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if (self.navImg.primaryButton.isChecked() or self.navGraph.primaryButton.isChecked()) and self.navImg.primaryButton.text() == "Play":
+        if (self.navImg.processFolderButton.isChecked() or self.navGraph.processFolderButton.isChecked()) and self.navImg.processFolderButton.text() == "Play":
             if not self.progressBar.isVisible():
-                self.navImg.primaryButton.setText("Pause")
-                self.navImg.primaryButton.setChecked(True)
-                self.navGraph.primaryButton.setText("Pause")
-                self.navGraph.primaryButton.setChecked(True)
+                self.navImg.processFolderButton.setText("Pause")
+                self.navImg.processFolderButton.setChecked(True)
+                self.navGraph.processFolderButton.setText("Pause")
+                self.navGraph.processFolderButton.setChecked(True)
                 self.processFolder()
         else:
             self.stop_process = True
@@ -1738,10 +1738,10 @@ class XRayViewerGUI(QMainWindow):
             self.nextClicked()
         self.progressBar.setVisible(False)
 
-        self.navImg.primaryButton.setChecked(False)
-        self.navImg.primaryButton.setText("Play")
-        self.navGraph.primaryButton.setChecked(False)
-        self.navGraph.primaryButton.setText("Play")
+        self.navImg.processFolderButton.setChecked(False)
+        self.navImg.processFolderButton.setText("Play")
+        self.navGraph.processFolderButton.setChecked(False)
+        self.navGraph.processFolderButton.setText("Play")
 
     def browseFile(self):
         """

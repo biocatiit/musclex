@@ -930,18 +930,10 @@ class QuadrantFoldingGUI(QMainWindow):
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation widget (left sidebar of Image tab)
-        self.navImg = NavigationControls(primary_text="Process Current Folder", secondary_text="Process All H5 Files")
-        self.navImg.primaryButton.setStyleSheet(pfss)
-        if self.navImg.secondaryButton is not None:
-            self.navImg.secondaryButton.setStyleSheet(pfss)
-        # Backward-compatible aliases
-        self.processFolderButton = self.navImg.primaryButton
-        self.processH5FolderButton = self.navImg.secondaryButton
-        self.nextButton = self.navImg.nextButton
-        self.prevButton = self.navImg.prevButton
-        self.nextFileButton = self.navImg.nextFileButton
-        self.prevFileButton = self.navImg.prevFileButton
-        self.filenameLineEdit = self.navImg.filenameLineEdit
+        self.navImg = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process All H5 Files")
+        self.navImg.processFolderButton.setStyleSheet(pfss)
+        if self.navImg.processH5Button is not None:
+            self.navImg.processH5Button.setStyleSheet(pfss)
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
@@ -1046,18 +1038,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rightLayout.addStretch()
 
         # Reusable navigation widget (right sidebar of Results tab)
-        self.navRes = NavigationControls(primary_text="Process Current Folder", secondary_text="Process All H5 Files")
-        self.navRes.primaryButton.setStyleSheet(pfss)
-        if self.navRes.secondaryButton is not None:
-            self.navRes.secondaryButton.setStyleSheet(pfss)
-        # Backward-compatible aliases
-        self.processFolderButton2 = self.navRes.primaryButton
-        self.processH5FolderButton2 = self.navRes.secondaryButton
-        self.nextButton2 = self.navRes.nextButton
-        self.prevButton2 = self.navRes.prevButton
-        self.nextFileButton2 = self.navRes.nextFileButton
-        self.prevFileButton2 = self.navRes.prevFileButton
-        self.filenameLineEdit2 = self.navRes.filenameLineEdit
+        self.navRes = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process All H5 Files")
+        self.navRes.processFolderButton.setStyleSheet(pfss)
+        if self.navRes.processH5Button is not None:
+            self.navRes.processH5Button.setStyleSheet(pfss)
         self.buttonsLayout2 = QGridLayout()
         self.buttonsLayout2.addWidget(self.navRes, 0, 0, 1, 1)
         self.rightLayout.addLayout(self.buttonsLayout2)
@@ -1142,20 +1126,20 @@ class QuadrantFoldingGUI(QMainWindow):
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
-        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
-        self.processH5FolderButton.toggled.connect(self.h5batchProcBtnToggled)
-        self.processH5FolderButton2.toggled.connect(self.h5batchProcBtnToggled)
-        self.nextButton.clicked.connect(self.nextClicked)
-        self.prevButton.clicked.connect(self.prevClicked)
-        self.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.prevFileButton.clicked.connect(self.prevFileClicked)
-        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
-        self.nextButton2.clicked.connect(self.nextClicked)
-        self.prevButton2.clicked.connect(self.prevClicked)
-        self.nextFileButton2.clicked.connect(self.nextFileClicked)
-        self.prevFileButton2.clicked.connect(self.prevFileClicked)
-        self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
+        self.navImg.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.navRes.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.navImg.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navRes.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navImg.nextButton.clicked.connect(self.nextClicked)
+        self.navImg.prevButton.clicked.connect(self.prevClicked)
+        self.navImg.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navImg.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.navImg.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
+        self.navRes.nextButton.clicked.connect(self.nextClicked)
+        self.navRes.prevButton.clicked.connect(self.prevClicked)
+        self.navRes.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navRes.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.navRes.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
@@ -3057,8 +3041,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         previnfo = None if self.quadFold is None else self.quadFold.info
         fileName = self.file_manager.current_image_name
-        self.filenameLineEdit.setText(fileName)
-        self.filenameLineEdit2.setText(fileName)
+        self.navImg.filenameLineEdit.setText(fileName)
+        self.navRes.filenameLineEdit.setText(fileName)
         if reprocess:
             self.quadFold.info = {}
             self.quadFold.info['reprocess'] = True
@@ -3460,8 +3444,8 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.numberOfFiles:
                 print("All threads are complete")
                 self.progressBar.setVisible(False)
-                self.filenameLineEdit.setEnabled(True)
-                self.filenameLineEdit2.setEnabled(True)
+                self.navImg.filenameLineEdit.setEnabled(True)
+                self.navRes.filenameLineEdit.setEnabled(True)
                 self.csvManager.sortCSV()
                 os.makedirs(join(self.filePath, 'qf_results'), exist_ok=True) #Makes qf_results folder if it doesn't already exist.
                 os.makedirs(join(self.filePath, 'qf_results/bg'), exist_ok=True) #Makes bg subfolder if it doesn't already exist.
@@ -3477,8 +3461,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def startNextTask(self):
         self.progressBar.setVisible(True)
-        self.filenameLineEdit.setEnabled(False)
-        self.filenameLineEdit2.setEnabled(False)
+        self.navImg.filenameLineEdit.setEnabled(False)
+        self.navRes.filenameLineEdit.setEnabled(False)
         bg_csv_lock = Lock()
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
@@ -3666,8 +3650,8 @@ class QuadrantFoldingGUI(QMainWindow):
         fileFullPath = fullPath(self.filePath, self.file_manager.names[index])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
-        self.filenameLineEdit.setText(self.quadFold.img_name)
-        self.filenameLineEdit2.setText(self.quadFold.img_name)
+        self.navImg.filenameLineEdit.setText(self.quadFold.img_name)
+        self.navRes.filenameLineEdit.setText(self.quadFold.img_name)
 
     def _checkScanDone(self):
         """
@@ -3842,23 +3826,23 @@ class QuadrantFoldingGUI(QMainWindow):
                 if file.endswith(".h5") or file.endswith(".hdf5"):
                     self.h5List.append(file)
             self.h5index = self.h5List.index(os.path.split(file_name)[1])
-            self.nextFileButton.show()
-            self.prevFileButton.show()
-            self.nextFileButton2.show()
-            self.prevFileButton2.show()
-            self.processH5FolderButton.show()
-            self.processH5FolderButton2.show()
-            self.processFolderButton.setText("Process Current H5 File")
-            self.processFolderButton2.setText("Process Current H5 File")
+            self.navImg.nextFileButton.show()
+            self.navImg.prevFileButton.show()
+            self.navRes.nextFileButton.show()
+            self.navRes.prevFileButton.show()
+            self.navImg.processH5Button.show()
+            self.navRes.processH5Button.show()
+            self.navImg.processFolderButton.setText("Process Current H5 File")
+            self.navRes.processFolderButton.setText("Process Current H5 File")
         else:
-            self.nextFileButton.hide()
-            self.prevFileButton.hide()
-            self.nextFileButton2.hide()
-            self.prevFileButton2.hide()
-            self.processH5FolderButton.hide()
-            self.processH5FolderButton2.hide()
-            self.processFolderButton.setText("Process Current Folder")
-            self.processFolderButton2.setText("Process Current Folder")
+            self.navImg.nextFileButton.hide()
+            self.navImg.prevFileButton.hide()
+            self.navRes.nextFileButton.hide()
+            self.navRes.prevFileButton.hide()
+            self.navImg.processH5Button.hide()
+            self.navRes.processH5Button.hide()
+            self.navImg.processFolderButton.setText("Process Current Folder")
+            self.navRes.processFolderButton.setText("Process Current Folder")
 
     def resetWidgets(self):
         """
@@ -3891,13 +3875,13 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processFolderButton.isChecked():
+        if self.navImg.processFolderButton.isChecked():
             if not self.progressBar.isVisible():
-                self.processFolderButton.setText("Stop")
+                self.navImg.processFolderButton.setText("Stop")
                 self.processFolder()
-        elif self.processFolderButton2.isChecked():
+        elif self.navRes.processFolderButton.isChecked():
             if not self.progressBar.isVisible():
-                self.processFolderButton2.setText("Stop")
+                self.navRes.processFolderButton.setText("Stop")
                 self.processFolder()
         else:
             self.stop_process = True
@@ -3906,13 +3890,13 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processH5FolderButton.isChecked():
+        if self.navImg.processH5Button.isChecked():
             if not self.progressBar.isVisible():
-                self.processH5FolderButton.setText("Stop")
+                self.navImg.processH5Button.setText("Stop")
                 self.processH5Folder()
-        elif self.processH5FolderButton2.isChecked():
+        elif self.navRes.processH5Button.isChecked():
             if not self.progressBar.isVisible():
-                self.processH5FolderButton2.setText("Stop")
+                self.navRes.processH5Button.setText("Stop")
                 self.processH5Folder()
         else:
             self.stop_process = True
@@ -4019,16 +4003,16 @@ class QuadrantFoldingGUI(QMainWindow):
                 
             # self.progressBar.setVisible(False)
 
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton2.setChecked(False)
+        self.navImg.processFolderButton.setChecked(False)
+        self.navRes.processFolderButton.setChecked(False)
         self.highlightApplyUndo()
         ext = self.file_manager.current_ext
         if ext in ['.h5', '.hdf5']:
-            self.processFolderButton.setText("Process Current H5 File")
-            self.processFolderButton2.setText("Process Current H5 File")
+            self.navImg.processFolderButton.setText("Process Current H5 File")
+            self.navRes.processFolderButton.setText("Process Current H5 File")
         else:
-            self.processFolderButton.setText("Process Current Folder")
-            self.processFolderButton2.setText("Process Current Folder")
+            self.navImg.processFolderButton.setText("Process Current Folder")
+            self.navRes.processFolderButton.setText("Process Current Folder")
 
         
 
@@ -4119,11 +4103,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.nextFileClicked()
             self.progressBar.setVisible(False)
 
-        self.processH5FolderButton.setChecked(False)
-        self.processH5FolderButton2.setChecked(False)
+        self.navImg.processH5Button.setChecked(False)
+        self.navRes.processH5Button.setChecked(False)
         self.highlightApplyUndo()
-        self.processH5FolderButton.setText("Process All H5 Files")
-        self.processH5FolderButton2.setText("Process All H5 Files")
+        self.navImg.processH5Button.setText("Process All H5 Files")
+        self.navRes.processH5Button.setText("Process All H5 Files")
 
     def browseFile(self):
         """
@@ -4219,9 +4203,9 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         selected_tab = self.tabWidget.currentIndex()
         if selected_tab == 0:
-            fileName = self.filenameLineEdit.text().strip()
+            fileName = self.navImg.filenameLineEdit.text().strip()
         elif selected_tab == 1:
-            fileName = self.filenameLineEdit2.text().strip()
+            fileName = self.navRes.filenameLineEdit.text().strip()
         if fileName not in self.file_manager.names:
             return
         self.file_manager.switch_image_by_name(fileName)

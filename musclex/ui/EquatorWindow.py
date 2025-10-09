@@ -392,13 +392,13 @@ class EquatorWindow(QMainWindow):
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation controls for Image tab
-        self.navImg = NavigationControls(primary_text="Reprocess and Refit current folder", secondary_text="Process All H5 Files")
-        self.navImg.primaryButton.setStyleSheet(pfss)
-        if self.navImg.secondaryButton is not None:
-            self.navImg.secondaryButton.setStyleSheet(pfss)
+        self.navImg = NavigationControls(process_folder_text="Reprocess and Refit current folder", process_h5_text="Process All H5 Files")
+        self.navImg.processFolderButton.setStyleSheet(pfss)
+        if self.navImg.processH5Button is not None:
+            self.navImg.processH5Button.setStyleSheet(pfss)
         # Backward-compatible aliases
-        self.processFolderButton = self.navImg.primaryButton
-        self.processH5FolderButton = self.navImg.secondaryButton
+        self.processFolderButton = self.navImg.processFolderButton
+        self.processH5FolderButton = self.navImg.processH5Button
         self.nextButton = self.navImg.nextButton
         self.prevButton = self.navImg.prevButton
         self.nextFileButton = self.navImg.nextFileButton
@@ -568,13 +568,13 @@ class EquatorWindow(QMainWindow):
 
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         # Reusable navigation controls for Fitting tab
-        self.navFit = NavigationControls(primary_text="Reprocess and Refit current folder", secondary_text="Reprocess and Refit All H5 Files")
-        self.navFit.primaryButton.setStyleSheet(pfss)
-        if self.navFit.secondaryButton is not None:
-            self.navFit.secondaryButton.setStyleSheet(pfss)
+        self.navFit = NavigationControls(process_folder_text="Reprocess and Refit current folder", process_h5_text="Reprocess and Refit All H5 Files")
+        self.navFit.processFolderButton.setStyleSheet(pfss)
+        if self.navFit.processH5Button is not None:
+            self.navFit.processH5Button.setStyleSheet(pfss)
         # Backward-compatible aliases
-        self.processFolderButton2 = self.navFit.primaryButton
-        self.processH5FolderButton2 = self.navFit.secondaryButton
+        self.processFolderButton2 = self.navFit.processFolderButton
+        self.processH5FolderButton2 = self.navFit.processH5Button
         self.nextButton2 = self.navFit.nextButton
         self.prevButton2 = self.navFit.prevButton
         self.nextFileButton2 = self.navFit.nextFileButton

@@ -6,8 +6,8 @@ class NavigationControls(QWidget):
     Reusable navigation/control widget used across multiple GUIs.
 
     Provides:
-    - primaryButton: main action (e.g., Play / Process Current Folder)
-    - secondaryButton: optional secondary action (e.g., Process All H5 Files)
+    - processFolderButton: main action (e.g., Play / Process Current Folder)
+    - processH5Button: optional secondary action (e.g., Process All H5 Files)
     - prevButton / nextButton: frame navigation
     - prevFileButton / nextFileButton: file navigation (H5)
     - filenameLineEdit: editable file name box
@@ -17,22 +17,22 @@ class NavigationControls(QWidget):
 
     def __init__(
         self,
-        primary_text="Play",
-        secondary_text=None,
-        checkable_primary=True,
-        checkable_secondary=True,
+        process_folder_text="Play",
+        process_h5_text=None,
+        checkable_process_folder=True,
+        checkable_process_h5=True,
         parent=None,
     ):
         super().__init__(parent)
 
         # Controls
-        self.primaryButton = QPushButton(primary_text)
-        self.primaryButton.setCheckable(checkable_primary)
+        self.processFolderButton = QPushButton(process_folder_text)
+        self.processFolderButton.setCheckable(checkable_process_folder)
 
-        self.secondaryButton = None
-        if secondary_text is not None:
-            self.secondaryButton = QPushButton(secondary_text)
-            self.secondaryButton.setCheckable(checkable_secondary)
+        self.processH5Button = None
+        if process_h5_text is not None:
+            self.processH5Button = QPushButton(process_h5_text)
+            self.processH5Button.setCheckable(checkable_process_h5)
 
         self.prevButton = QPushButton("<")
         self.nextButton = QPushButton(">")
@@ -51,10 +51,10 @@ class NavigationControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         row = 0
-        layout.addWidget(self.primaryButton, row, 0, 1, 2)
+        layout.addWidget(self.processFolderButton, row, 0, 1, 2)
         row += 1
-        if self.secondaryButton is not None:
-            layout.addWidget(self.secondaryButton, row, 0, 1, 2)
+        if self.processH5Button is not None:
+            layout.addWidget(self.processH5Button, row, 0, 1, 2)
             row += 1
 
         layout.addWidget(self.prevButton, row, 0, 1, 1)
@@ -68,13 +68,5 @@ class NavigationControls(QWidget):
         # Default: hide file-level navigation until a GUI enables H5 mode
         self.prevFileButton.hide()
         self.nextFileButton.hide()
-
-    # Convenience helpers for parent widgets
-    def setPrimaryText(self, text):
-        self.primaryButton.setText(text)
-
-    def setSecondaryVisible(self, visible):
-        if self.secondaryButton is not None:
-            self.secondaryButton.setVisible(visible)
 
 
