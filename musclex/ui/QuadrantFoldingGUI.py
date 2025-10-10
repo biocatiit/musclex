@@ -3865,7 +3865,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.navControls.processH5Button.isChecked():
             if not self.progressBar.isVisible():
                 self.navControls.processH5Button.setText("Stop")
-                self.processH5Folder()
+                self.processH5File()
         else:
             self.stop_process = True
 
@@ -3873,9 +3873,16 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
+        idxs = range(len(self.file_manager.names))
+        self._process_image_list(idxs, text="Process Current Folder")
+
+    def _process_image_list(self, img_ids, text):
+        """
+        Triggered when a folder has been selected to process it
+        """
 
         errMsg = QMessageBox()
-        errMsg.setText('Process Current Folder')
+        errMsg.setText(text)
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
 
         flags = self.getFlags()
@@ -3948,7 +3955,7 @@ class QuadrantFoldingGUI(QMainWindow):
             text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
             text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
 
-        text += '\n\nAre you sure you want to process ' + str(self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.'
+        text += '\n\nAre you sure you want to process ' + str(len(img_ids)) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
@@ -3959,9 +3966,9 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.progressBar.setVisible(True)
             # self.progressBar.setValue(0)
             self.stop_process = False
-            self.totalFiles = self.numberOfFiles
+            self.totalFiles = len(img_ids)
             self.tasksDone = 0
-            for i in range(self.numberOfFiles):
+            for i in img_ids:
                 if self.stop_process:
                     break
                 # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
@@ -3974,96 +3981,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.navControls.processFolderButton.setChecked(False)
         self.highlightApplyUndo()
 
-    def processH5Folder(self):
+    def processH5File(self):
         """
         Triggered when a folder with multiple H5 files has been selected to process it
         """
-        errMsg = QMessageBox()
-        errMsg.setText('Process Current H5 Folder')
-        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
-
-        flags = self.getFlags()
-        text += "\nCurrent Settings"
-        if 'center' in flags:
-            text += "\n  - Center : " + str(flags["center"])
-        if len(self.ignoreFolds) > 0:
-            text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
-        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
-        text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
-        text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
-        
-        if flags['bgsub'] != 'None':
-            if 'fixed_rmin' in flags:
-                text += "\n  - R-min : " + str(flags["fixed_rmin"])
-
-            if flags['bgsub'] in ['Circularly-symmetric', 'Roving Window']:
-                text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin"]) + "% - "+str(flags["cirmax"])+"%"
-
-            if flags['bgsub'] == 'Circularly-symmetric':
-                text += "\n  - Radial Bin : " + str(flags["radial_bin"])
-                text += "\n  - Smooth : " + str(flags["smooth"])
-            elif flags['bgsub'] == '2D Convexhull':
-                text += "\n  - Step (deg) : " + str(flags["deg1"])
-            elif flags['bgsub'] == 'White-top-hats':
-                text += "\n  - Tophat : " + str(flags["tophat1"])
-            elif flags['bgsub'] == 'Smoothed-Gaussian':
-                text += "\n  - FWHM : " + str(flags["fwhm"])
-                text += "\n  - Number of cycle : " + str(flags["cycles"])
-            elif flags['bgsub'] == 'Smoothed-BoxCar':
-                text += "\n  - Box car width : " + str(flags["boxcar_x"])
-                text += "\n  - Box car height : " + str(flags["boxcar_y"])
-                text += "\n  - Number of cycle : " + str(flags["cycles"])
-
-        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
-
-        if flags['bgsub2'] != 'None':
-            if flags['bgsub2'] in ['Circularly-symmetric', 'Roving Window']:
-                text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin2"]) + "% - "+str(flags["cirmax2"])+"%"
-            if flags['bgsub2'] == 'Circularly-symmetric':
-                text += "\n  - Radial Bin : " + str(flags["radial_bin2"])
-                text += "\n  - Smooth : " + str(flags["smooth2"])
-            elif flags['bgsub2'] == '2D Convexhull':
-                text += "\n  - Step (deg) : " + str(flags["deg2"])
-            elif flags['bgsub2'] == 'White-top-hats':
-                text += "\n  - Tophat : " + str(flags["tophat2"])
-            elif flags['bgsub2'] == 'Smoothed-Gaussian':
-                text += "\n  - FWHM : " + str(flags["fwhm2"])
-                text += "\n  - Number of cycle : " + str(flags["cycles2"])
-            elif flags['bgsub2'] == 'Smoothed-BoxCar':
-                text += "\n  - Box car width : " + str(flags["boxcar_x2"])
-                text += "\n  - Box car height : " + str(flags["boxcar_y2"])
-                text += "\n  - Number of cycle : " + str(flags["cycles2"])
-
-            text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
-            text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
-
-        text += '\n\nAre you sure you want to process ' + str(len(self.h5List)) + ' H5 file(s) in this Folder? \nThis might take a long time.'
-        errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-        errMsg.setIcon(QMessageBox.Warning)
-        ret = errMsg.exec_()
-
-        # If "yes" is pressed
-        if ret == QMessageBox.Yes:
-            self.progressBar.setValue(0)
-            self.progressBar.setVisible(True)
-            self.stop_process = False
-            self.totalFiles = len(self.h5List) * self.numberOfFiles
-            for _ in range(len(self.h5List)):
-                for i in range(self.numberOfFiles):
-                    if self.stop_process:
-                        break
-                    self.progressBar.setValue(int(100. / self.numberOfFiles * i ))
-                    QApplication.processEvents()
-                    self.nextClicked(reprocess=True)
-                if self.stop_process:
-                    break
-                self.nextFileClicked()
-            self.progressBar.setVisible(False)
-
-        self.navControls.processH5Button.setChecked(False)
-        self.highlightApplyUndo()
-        self.navControls.processH5Button.setText("Process All H5 Files")
+        start_idx, end_idx = self.file_manager.get_current_h5_range()
+        self._process_image_list(range(start_idx, end_idx + 1), text="Process Current H5 File")
 
     def browseFile(self):
         """
