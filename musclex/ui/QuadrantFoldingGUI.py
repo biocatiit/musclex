@@ -3654,7 +3654,7 @@ class QuadrantFoldingGUI(QMainWindow):
         #DOES NOT GET HERE
         fileFullPath = fullPath(self.filePath, self.file_manager.names[index])
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
+            'Current File (' + str(index + 1) + '/' + str(self.totalFiles) + ') : ' + fileFullPath)
         self.navControls.filenameLineEdit.setText(self.quadFold.img_name)
 
     def _checkScanDone(self):
