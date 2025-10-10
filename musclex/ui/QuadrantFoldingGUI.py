@@ -3443,7 +3443,7 @@ class QuadrantFoldingGUI(QMainWindow):
     def thread_finished(self):
         
         self.tasksDone += 1
-        self.progressBar.setValue(int(100. / self.numberOfFiles * self.tasksDone))
+        self.progressBar.setValue(int(100. / self.totalFiles * self.tasksDone))
         
         if not self.tasksQueue.empty():
             self.startNextTask()
@@ -3654,7 +3654,7 @@ class QuadrantFoldingGUI(QMainWindow):
         #DOES NOT GET HERE
         fileFullPath = fullPath(self.filePath, self.file_manager.names[index])
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(index + 1) + '/' + str(self.totalFiles) + ') : ' + fileFullPath)
+            'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
         self.navControls.filenameLineEdit.setText(self.quadFold.img_name)
 
     def _checkScanDone(self):
