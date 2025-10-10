@@ -323,9 +323,14 @@ def _h5_nframes(path):
 
 def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
     """
-    Scan a directory for TIFF and HDF5 images and return unified (imgList, loader_specs).
+    Scan a directory for TIFF and HDF5 images and return unified (imgList, loader_specs, h5_index_map).
     Uses a cache keyed by directory content signature. HDF5 frame counts are computed
     in parallel using processes. Frames are NOT loaded.
+    
+    Returns:
+        imgList: List of display names
+        specs: List of loader specs (tuples)
+        h5_index_map: Dict mapping HDF5 file path -> (start_index, end_index) in imgList
     """
     sig = _dir_signature(dir_path)
     if sig is not None:
@@ -344,7 +349,7 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
     try:
         file_names = os.listdir(dir_path)
     except Exception:
-        return [], []
+        return [], [], {}
 
     for f in file_names:
         if failedcases is not None and f not in failedcases:
@@ -376,7 +381,8 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
             filtered_h5.append((base, ext, path))
         h5_files = filtered_h5
 
-    # Count HDF5 frames in parallel
+    # Count HDF5 frames in parallel and track positions
+    h5_positions = {}  # Will map path -> (start, end) before sorting
     if h5_files:
         if max_workers is None:
             try:
@@ -389,6 +395,7 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
         for (base, ext, path), nframes in zip(h5_files, nframes_list):
             if nframes <= 0:
                 continue
+            start_idx = len(entries)
             if nframes == 1:
                 disp = f"{base}_00001{ext}"
                 entries.append((disp, ("h5", path, 0)))
@@ -396,17 +403,28 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
                 for i in range(nframes):
                     disp = f"{base}_{i+1:05d}{ext}"
                     entries.append((disp, ("h5", path, i)))
+            end_idx = len(entries) - 1
+            h5_positions[path] = (start_idx, end_idx)
 
     entries.sort(key=lambda x: x[0])
     imgList = [n for n, _ in entries]
     specs = [s for _, s in entries]
 
+    # Build final h5_index_map after sorting
+    h5_index_map = {}
+    for path in h5_positions.keys():
+        # Find actual indices after sorting
+        indices = [i for i, spec in enumerate(specs) 
+                   if isinstance(spec, tuple) and len(spec) >= 2 and spec[1] == path]
+        if indices:
+            h5_index_map[path] = (min(indices), max(indices))
+
     if sig is not None:
-        payload = (imgList, specs)
+        payload = (imgList, specs, h5_index_map)
         _SCAN_CACHE[dir_path] = (sig, payload)
         _save_scan_cache_to_disk(dir_path, sig, payload)
 
-    return imgList, specs
+    return imgList, specs, h5_index_map
 # --------------------- Unified image loader for GUI specs ---------------------
 def load_image_via_spec(file_path, display_name, source):
     """
@@ -508,6 +526,8 @@ class FileManager:
         self.current_h5_nframes = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}
+        self.h5_index_map = {}  # {h5_path: (start_idx, end_idx)} in imgList
+        self._path_to_file_idx = {}  # {full_path: file_idx} for fast reverse lookup
         # Async scan state
         self._scan_thread = None
         self._scan_done = False
@@ -531,6 +551,7 @@ class FileManager:
             file_list = [(fname, ftype, str(selected_file))]
         
         self.file_list = file_list
+        self._rebuild_path_to_file_idx()
         
         # Locate selected file in the list
         selected_name = os.path.basename(str(selected_file))
@@ -562,6 +583,10 @@ class FileManager:
         # Ensure current image is loaded for the selected file
         self.load_current()
 
+    def _rebuild_path_to_file_idx(self):
+        """Rebuild path-to-file-index mapping for fast lookups"""
+        self._path_to_file_idx = {fpath: i for i, (_, _, fpath) in enumerate(self.file_list)}
+    
     def _rebuild_simple_image_list(self):
         """Rebuild simple image list (HDF5 shown as single frame)"""
         names = []
@@ -582,7 +607,7 @@ class FileManager:
         self.specs = specs
         self.current = self.current_file_idx if self.current_file_idx < len(names) else 0
 
-    def set_directory_listing(self, dir_path, names, specs, preserve_current_name=True):
+    def set_directory_listing(self, dir_path, names, specs, h5_index_map=None, preserve_current_name=True):
         """
         Set complete image list (from async scan, HDF5 expanded).
         Preserves currently selected file and frame.
@@ -599,6 +624,7 @@ class FileManager:
         self.dir_path = dir_path
         self.names = names
         self.specs = specs
+        self.h5_index_map = h5_index_map if h5_index_map is not None else {}
         
         # Locate current image
         if prev_file_path:
@@ -628,10 +654,10 @@ class FileManager:
         self._scan_done = False
 
         def _worker():
-            imgList, specs = scan_directory_images_cached(self.dir_path)
+            imgList, specs, h5_index_map = scan_directory_images_cached(self.dir_path)
             try:
                 # Update internal listing preserving current selection when possible
-                self.set_directory_listing(self.dir_path, imgList, specs, preserve_current_name=True)
+                self.set_directory_listing(self.dir_path, imgList, specs, h5_index_map, preserve_current_name=True)
             finally:
                 # Signal completion regardless of success
                 self._scan_done = True
@@ -660,6 +686,13 @@ class FileManager:
         if path not in self._h5_frames:
             self._h5_frames[path] = _h5_nframes(path)
         return self._h5_frames[path]
+    
+    def get_current_h5_range(self):
+        """Get current HDF5 file range"""
+        fname, ftype, fpath = self._get_current_file_info()
+        if fname is None:
+            return None, None
+        return self.h5_index_map[fpath]
 
     def load_current(self):
         """Load current image"""
@@ -807,6 +840,65 @@ class FileManager:
         self.current_frame_idx = 0
         self._update_current_position()
         self.load_current()
+    
+    def convert_frame_idx_to_image_idx(self, frame_idx):
+        """
+        Convert a frame index in the current HDF5 file to an image-layer index.
+        Uses h5_index_map for fast lookup when available.
+        Returns an integer index in `self.names/specs`, or None if not resolvable.
+        """
+        try:
+            fname, ftype, fpath = self._get_current_file_info()
+            if not fname or ftype != "h5" or not self.specs:
+                return None
+
+            # Normalize frame index within known range if available
+            if isinstance(self.current_h5_nframes, int) and self.current_h5_nframes > 0:
+                if frame_idx < 0:
+                    frame_idx = 0
+                elif frame_idx >= self.current_h5_nframes:
+                    frame_idx = self.current_h5_nframes - 1
+
+            # Fast path: use h5_index_map if available
+            if fpath in self.h5_index_map:
+                start_idx, end_idx = self.h5_index_map[fpath]
+                # The frames should be sequential within this range
+                target_idx = start_idx + frame_idx
+                if start_idx <= target_idx <= end_idx:
+                    # Verify it's the correct frame
+                    if (target_idx < len(self.specs) and 
+                        isinstance(self.specs[target_idx], tuple) and 
+                        len(self.specs[target_idx]) >= 3 and
+                        self.specs[target_idx][1] == fpath and
+                        self.specs[target_idx][2] == frame_idx):
+                        return target_idx
+
+            return None
+        except Exception:
+            return None
+    
+    def switch_image_by_index(self, index):
+        """Switch to an image by its index"""
+        if not self.names or index < 0 or index >= len(self.names):
+            return
+        self.current = index
+        if index < len(self.specs):
+            spec = self.specs[index]
+            if isinstance(spec, tuple) and len(spec) >= 2:
+                target_path = spec[1]
+                
+                # Fast lookup of file index using cache
+                file_idx = self._path_to_file_idx.get(target_path)
+                if file_idx is None:
+                    # Cache miss - rebuild cache and retry
+                    self._rebuild_path_to_file_idx()
+                    file_idx = self._path_to_file_idx.get(target_path)
+                
+                if file_idx is not None:
+                    self.current_file_idx = file_idx
+                    # Frame index is already in spec[2] for H5, or 0 for TIFF
+                    self.current_frame_idx = spec[2] if len(spec) >= 3 else 0
+        self.load_current()
 
     def switch_image_by_name(self, name):
         """
@@ -819,24 +911,7 @@ class FileManager:
         try:
             # Find the index of the image with the given name
             index = self.names.index(name)
-            self.current = index
-            
-            # Update file layer position to match
-            if index < len(self.specs):
-                spec = self.specs[index]
-                if isinstance(spec, tuple) and len(spec) >= 2:
-                    # Find the corresponding file in file_list
-                    target_path = spec[1]
-                    for i, (_, _, fpath) in enumerate(self.file_list):
-                        if fpath == target_path:
-                            self.current_file_idx = i
-                            if len(spec) >= 3:
-                                self.current_frame_idx = spec[2]
-                            else:
-                                self.current_frame_idx = 0
-                            break
-            # Load the image corresponding to the selected name
-            self.load_current()
+            self.switch_image_by_index(index)
             return True
         except ValueError:
             return False
@@ -875,24 +950,3 @@ def scan_directory_files_sync(dir_path):
     
     files.sort(key=lambda x: x[0])
     return files
-
-def async_scan_directory(dir_path, on_done):
-    """
-    Start a background scan of a directory using scan_directory_images_cached and invoke
-    on_done(imgList, specs) when finished. Returns the Thread object.
-
-    Note: on_done may be executed on a non-GUI thread; if using Qt, marshal back to the main
-    thread (e.g., via signals/QTimer) before touching widgets.
-    """
-    import threading
-
-    def _worker():
-        imgList, specs = scan_directory_images_cached(dir_path)
-        try:
-            on_done(imgList, specs)
-        except Exception:
-            pass
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-    return t

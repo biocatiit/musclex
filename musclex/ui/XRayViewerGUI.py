@@ -1715,7 +1715,7 @@ class XRayViewerGUI(QMainWindow):
             if not self.progressBar.isVisible():
                 self.navControls.processH5Button.setText("Pause")
                 self.navControls.processH5Button.setChecked(True)
-                self.processH5Folder()
+                self.processH5File()
             else:
                 self.stop_process = True
 
@@ -1724,28 +1724,40 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when a folder has been selected to process it
         """
-        self._process_image_list(self.file_manager.current, len(self.file_manager.names))
+        idx = self.file_manager.current
+        img_ids = list(range(idx, len(self.file_manager.names))) + list(range(0, idx))
+        self._process_image_list(img_ids)
         self.navControls.processFolderButton.setChecked(False)
         self.navControls.processFolderButton.setText("Play")
 
-    def processH5Folder(self):
+    def processH5File(self):
         """
         Triggered when a folder has been selected to process it
         """
-        self._process_image_list(self.file_manager.current_frame_idx, self.file_manager.current_h5_nframes)
+        
+        start_idx, end_idx = self.file_manager.get_current_h5_range()
+        idx = self.file_manager.current_frame_idx
+        img_ids = list(range(idx, end_idx + 1)) + list(range(start_idx, idx))
+        self._process_image_list(img_ids)
         self.navControls.processH5Button.setChecked(False)
-        self.navControls.processH5Button.setText("Play")
+        self.navControls.processH5Button.setText("Play Current H5 File")
 
-    def _process_image_list(self, current, nframes):
+
+    def _process_image_list(self, img_ids):
         self.stop_process = False
         self.progressBar.setVisible(True)
-        self.progressBar.setRange(0, nframes)
-        for i in range(current, nframes):
+        self.progressBar.setRange(0, len(img_ids))
+        
+        for progress, img_idx in enumerate(img_ids):
             if self.stop_process:
                 break
-            self.progressBar.setValue(i)
+            self.progressBar.setValue(progress)
             QApplication.processEvents()
-            self.nextClicked()
+            
+            # Switch to image by index (updates both file_idx and frame_idx correctly)
+            self.file_manager.switch_image_by_index(img_idx)
+            self.onImageChanged()
+        
         self.progressBar.setVisible(False)
 
 
