@@ -1735,7 +1735,7 @@ class XRayViewerGUI(QMainWindow):
         """
         
         start_idx, end_idx = self.file_manager.get_current_h5_range()
-        idx = self.file_manager.current_frame_idx
+        idx = self.file_manager.current
         img_ids = list(range(idx + 1, end_idx + 1)) + list(range(start_idx, idx + 1))
         self._process_image_list(img_ids)
         self.navControls.processH5Button.setChecked(False)
