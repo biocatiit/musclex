@@ -347,8 +347,7 @@ class XRayViewerGUI(QMainWindow):
         self.navControls.nextFileButton.clicked.connect(self.nextFileClicked)
         self.navControls.prevFileButton.clicked.connect(self.prevFileClicked)
         self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
-        if self.navControls.processH5Button:
-            self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
         self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
@@ -1711,13 +1710,13 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if self.navControls.processH5Button and self.navControls.processH5Button.isChecked():
+        if self.navControls.processH5Button.isChecked():
             if not self.progressBar.isVisible():
                 self.navControls.processH5Button.setText("Pause")
                 self.navControls.processH5Button.setChecked(True)
                 self.processH5File()
-            else:
-                self.stop_process = True
+        else:
+            self.stop_process = True
 
 
     def processFolder(self):
@@ -1737,7 +1736,7 @@ class XRayViewerGUI(QMainWindow):
         
         start_idx, end_idx = self.file_manager.get_current_h5_range()
         idx = self.file_manager.current_frame_idx
-        img_ids = list(range(idx, end_idx + 1)) + list(range(start_idx, idx))
+        img_ids = list(range(idx + 1, end_idx + 1)) + list(range(start_idx, idx + 1))
         self._process_image_list(img_ids)
         self.navControls.processH5Button.setChecked(False)
         self.navControls.processH5Button.setText("Play Current H5 File")
