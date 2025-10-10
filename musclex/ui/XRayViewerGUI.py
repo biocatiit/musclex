@@ -1641,7 +1641,8 @@ class XRayViewerGUI(QMainWindow):
         total_count = len(self.file_manager.names) if getattr(self.file_manager, 'names', None) else len(self.file_manager.file_list)
         total = str(total_count) + ('*' if self._provisionalCount else '')
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath)
+            'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath + \
+            (' (' + str(self.file_manager.current_frame_idx + 1) + '/' + str(self.file_manager.current_h5_nframes) + ')' if self.file_manager.current_h5_nframes else ''))
 
     def onNewFileSelected(self, newFile):
         """
