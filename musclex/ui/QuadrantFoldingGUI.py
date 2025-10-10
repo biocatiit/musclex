@@ -3856,8 +3856,51 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.navControls.processFolderButton.setText("Stop")
                 self.processFolder()
         else:
-            self.stop_process = True
+            self.clearTasks()
     
+
+    def clearTasks(self):
+        """
+        Stop scheduling new tasks, clear queued tasks, and reset UI state.
+        Running tasks will be allowed to finish.
+        """
+        # Prevent any further enqueuing/scheduling
+        self.stop_process = True
+
+        # Clear any runnables that have been queued to the pool but not yet started
+        if self.threadPool is not None:
+            try:
+                self.threadPool.clear()
+            except Exception:
+                pass
+
+        # Drain our local queue of params that haven't been submitted yet
+        try:
+            while not self.tasksQueue.empty():
+                self.tasksQueue.get_nowait()
+        except Exception:
+            pass
+
+        # Reset UI elements
+        self.progressBar.setVisible(False)
+        self.navControls.filenameLineEdit.setEnabled(True)
+
+        # Restore button texts and toggle off
+        try:
+            self.navControls.processFolderButton.setText("Process Current Folder")
+            self.navControls.processFolderButton.setChecked(False)
+        except Exception:
+            pass
+        try:
+            self.navControls.processH5Button.setText("Process H5 Files")
+            self.navControls.processH5Button.setChecked(False)
+        except Exception:
+            pass
+
+        # Do not keep a reference to a current task that may be finishing
+        # It will still signal finished; we just won't schedule more
+        self.currentTask = None
+        
     def h5batchProcBtnToggled(self):
         """
         Triggered when the batch process button is toggled
@@ -3867,7 +3910,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.navControls.processH5Button.setText("Stop")
                 self.processH5File()
         else:
-            self.stop_process = True
+            self.clearTasks()
 
     def processFolder(self):
         """
