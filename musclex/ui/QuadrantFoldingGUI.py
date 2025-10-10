@@ -928,7 +928,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resProcGrpBx.setLayout(self.bgLayout)
 
         # Single reusable navigation widget (shared between tabs)
-        self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process H5 Files")
+        self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
@@ -3892,7 +3892,7 @@ class QuadrantFoldingGUI(QMainWindow):
         except Exception:
             pass
         try:
-            self.navControls.processH5Button.setText("Process H5 Files")
+            self.navControls.processH5Button.setText("Process Current H5 File")
             self.navControls.processH5Button.setChecked(False)
         except Exception:
             pass
