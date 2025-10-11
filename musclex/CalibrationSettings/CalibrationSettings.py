@@ -143,6 +143,7 @@ class CalibrationSettings(QDialog):
         self.manualCal.setCheckable(True)
         self.manualCal.setFixedHeight(30)
         self.manualCal.clicked.connect(self.manualCalClicked)
+        self.manualCal.setEnabled(exists(self.calFile))
         self.silverBehenate = QDoubleSpinBox()
         self.silverBehenate.setKeyboardTracking(False)
         self.silverBehenate.setDecimals(5)
@@ -209,7 +210,7 @@ class CalibrationSettings(QDialog):
         self.editableVars[self.pixsSpnBx.objectName()] = None
 
 
-        self.fixedCenter = QCheckBox("Fixed Center")
+        # self.fixedCenter = QCheckBox("Fixed Center")
         self.centerX = QDoubleSpinBox()
         self.centerX.setDecimals(2)
         self.centerX.setPrefix("X:")
@@ -222,7 +223,7 @@ class CalibrationSettings(QDialog):
         self.misSettingChkBx = QCheckBox("Correct Mis-Setting Angles")
         self.misSettingChkBx.setEnabled(False)
         self.misSettingChkBx.setToolTip("Not yet implemented")
-        
+
 
         if center is not None:
             self.centerX.setValue(center[0])
@@ -231,7 +232,7 @@ class CalibrationSettings(QDialog):
             self.centerX.setValue(1000)
             self.centerY.setValue(1000)
 
-        self.fixedCenter.setChecked(False)
+        # self.fixedCenter.setChecked(False)
         #self.centerX.setEnabled(False)
         #self.centerY.setEnabled(False)
         self.centerX.setObjectName('centerX')
@@ -268,7 +269,8 @@ class CalibrationSettings(QDialog):
         self.mainLayout.addWidget(self.calImageGrp)
         self.mainLayout.addWidget(self.paramGrpChkBx)
         self.mainLayout.addWidget(self.paramGrp)
-        self.mainLayout.addWidget(self.fixedCenter)
+        # self.mainLayout.addWidget(self.fixedCenter)
+        self.mainLayout.addWidget(QLabel("Calibrated Center (Original Coords):"))
         self.mainLayout.addWidget(self.centerX)
         self.mainLayout.addWidget(self.centerY)
         self.mainLayout.addWidget(self.manDetector)
@@ -295,7 +297,7 @@ class CalibrationSettings(QDialog):
         #self.calImageGrp.clicked.connect(self.calImageChecked)
         self.minInt.valueChanged.connect(self.updateImage)
         self.maxInt.valueChanged.connect(self.updateImage)
-        self.fixedCenter.stateChanged.connect(self.centerFixed)
+        # self.fixedCenter.stateChanged.connect(self.centerFixed)
         self.manDetector.stateChanged.connect(self.detectorClicked)
         self.misSettingChkBx.stateChanged.connect(self.correctMisSetting)
 
@@ -363,7 +365,9 @@ class CalibrationSettings(QDialog):
             self.ax.cla()
             _, img = self.getImage()
             self.ax.imshow(img)
-            self.ax.invert_yaxis()
+            self.ax.set_xlim((0, img.shape[1]))
+            self.ax.set_ylim((0, img.shape[0]))
+            # self.ax.invert_yaxis()
             self.ax2 = self.calImgFigure.add_subplot(337)
             self.ax2.cla()
             self.ax2.imshow(img)
@@ -385,7 +389,7 @@ class CalibrationSettings(QDialog):
                 self.manualCal.setText("Set calibration by points selections")
                 self.calibrate()
                 self.manualCalPoints = None
-                self.fixedCenter.setChecked(False)
+                # self.fixedCenter.setChecked(False)
 
                 #Let them change this again:
                 self.maxInt.setEnabled(True)
@@ -454,6 +458,7 @@ class CalibrationSettings(QDialog):
         """
         self.pathText.setText("")
         self.calFile = ""
+        self.manualCal.setEnabled(False)
         self.calSettings = None
         self.updateImage()
 
@@ -462,10 +467,11 @@ class CalibrationSettings(QDialog):
         Opens a finder window to choose a file and process calibration on it once selected.
         """
         file_name = getAFile()
-        if file_name != "":
+        if file_name != "" and exists(str(file_name)):
             self.cal_img = None
             self.calFile = str(file_name)
             self.pathText.setText(str(file_name))
+            self.manualCal.setEnabled(True)
             self.calibrate()
 
     def loadSettings(self):
@@ -511,9 +517,9 @@ class CalibrationSettings(QDialog):
             self.calSettings["silverB"] = self.silverBehenate.value()
             self.calSettings["type"] = "img"
 
-        if self.fixedCenter.isChecked():
-            self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
-        
+        # if self.fixedCenter.isChecked():
+        self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
+
         if self.manDetector.isChecked():
             self.calSettings["detector"] = self.detectorChoice.currentText()
 
@@ -631,7 +637,7 @@ class CalibrationSettings(QDialog):
         if self.calSettings is not None:
             if "center" in self.calSettings:
                 center = self.calSettings["center"]
-                self.fixedCenter.setChecked(True)
+                # self.fixedCenter.setChecked(True)
                 self.centerX.setValue(center[0])
                 self.centerY.setValue(center[1])
             if self.calImageGrpChkBox.isChecked():
@@ -656,11 +662,11 @@ class CalibrationSettings(QDialog):
                 ax.set_title("center:" + str(center) + " radius:" + str(radius))
                 #ax.invert_yaxis()
                 self.calImgFigure.tight_layout()
+                self.calImgCanvas.draw()
         else:
             self.resize(500, 1)
             self.calImgCanvas.setHidden(True)
 
-        self.calImgCanvas.draw()
 
     def centerFixed(self):
         """
