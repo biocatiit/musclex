@@ -4036,7 +4036,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 return "Retry"
         else:
             QApplication.restoreOverrideCursor()
-            self.browseFile()
+            return "Retry"
+
+        return "Success"
 
 
     def resetWidgets(self):
@@ -4328,7 +4330,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.quadFold.info = {}
         
         # Apply persisted center if fixed
-        if self.calSettingsDialog.fixedCenter.isChecked():
+        if self.persistCenter.isChecked():
             if self.persistedCenter is None:
                 self.persistedCenter = self.calSettings['center']
             self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]]
