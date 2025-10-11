@@ -133,7 +133,6 @@ def main(arguments=None):
             app = QApplication(sys.argv)
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = XRayViewerGUI()
-            myapp.dumpObjectTree()
             sys.exit(app.exec_())
         elif prog == 'gui':
             from musclex.launcher import LauncherForm

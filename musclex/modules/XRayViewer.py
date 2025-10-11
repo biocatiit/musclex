@@ -26,36 +26,22 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-import fabio
 import numpy as np
 try:
-    from ..utils.file_manager import fullPath, ifHdfReadConvertless
     from ..utils.image_processor import *
 except: # for coverage
-    from utils.file_manager import fullPath, ifHdfReadConvertless
     from utils.image_processor import *
 
 class XRayViewer:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img_path, img_name, file_list=None, extension=''):
+    def __init__(self, img):
         """
-        Initial value for QuadrantFolder object
-        :param img_path: directory path of input image
-        :param img_name: image file name
+        Initialize viewer with an already-loaded image array.
+        :param img: numpy ndarray image data
         """
-        self.img_name = img_name
-        if extension in ('.hdf5', '.h5'):
-            index = next((i for i, item in enumerate(file_list[0]) if item == img_name), 0)
-            self.orig_img = file_list[1][index]
-        else:
-            try:
-                self.orig_img = fabio.open(fullPath(img_path, img_name)).data
-            except:
-                exit
-        self.orig_img = ifHdfReadConvertless(img_name, self.orig_img)
-        self.orig_img = self.orig_img.astype("float32")
+        self.orig_img = np.asarray(img).astype("float32")
         self.orig_image_center = None
         self.hist = []
         self.dl, self.db = 0, 0

@@ -43,6 +43,8 @@ from ..CalibrationSettings import CalibrationSettings
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
 from .DoubleZoomGUI import DoubleZoom
+from PySide6.QtCore import QTimer
+from .widgets.NavigationControls import NavigationControls
 
 
 class XRayViewerGUI(QMainWindow):
@@ -56,15 +58,13 @@ class XRayViewerGUI(QMainWindow):
         Initial window
         """
         super().__init__()
-        self.imgList = [] # all images name in current directory
-        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
-        self.h5index = 0
+        # H5 list/index no longer needed; GUI uses FileManager state directly
         self.windowList = []
         self.counter = 0
-        self.filePath = "" # current directory
+        # filePath is derived from FileManager.dir_path when needed
         self.calSettings = None
-        self.numberOfFiles = 0
-        self.currentFileNumber = 0
+        # numberOfFiles is derived from FileManager (names/file_list) and scan status
+        self._provisionalCount = False
         self.img_zoom = None # zoom location of original image (x,y range)
         self.checkableButtons = []
         self.line_coords = []
@@ -80,6 +80,10 @@ class XRayViewerGUI(QMainWindow):
         self.saved_slice = None
         self.stop_process = False
         self.calSettingsDialog = None
+        # Scan thread/result handled by FileManager
+        self._scan_timer = QTimer(self)
+        self._scan_timer.setInterval(200)
+        self._scan_timer.timeout.connect(self._checkScanDone)
 
         self.initUI() # initial all GUI
         self.setConnections() # set triggered function for widgetsF
@@ -87,7 +91,7 @@ class XRayViewerGUI(QMainWindow):
         #self.setMinimumWidth(1000)
 
         self.doubleZoomGUI = DoubleZoom(self.imageFigure)
-
+        self.file_manager = None
         self.browseFile()
 
     def initUI(self):
@@ -222,35 +226,15 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout.addWidget(self.saveGraphSlice, 5, 0, 1, 2)
         self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
 
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Play")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-
-        self.nextButton = QPushButton(">")
-        self.prevButton = QPushButton("<")
-        self.nextFileButton = QPushButton(">>>")
-        self.prevFileButton = QPushButton("<<<")
-        self.nextButton.setToolTip('Next Frame')
-        self.prevButton.setToolTip('Previous Frame')
-        self.nextFileButton.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
-        self.filenameLineEdit = QLineEdit()
-        self.buttonsLayout = QGridLayout()
-        #self.buttonsLayout.setRowStretch()
-        self.buttonsLayout.addWidget(self.processFolderButton,0,0,1,2)
-        self.buttonsLayout.addWidget(self.prevButton,1,0,1,1)
-        self.buttonsLayout.addWidget(self.nextButton,1,1,1,1)
-        self.buttonsLayout.addWidget(self.prevFileButton,2,0,1,1)
-        self.buttonsLayout.addWidget(self.nextFileButton,2,1,1,1)
-        self.buttonsLayout.addWidget(self.filenameLineEdit,3,0,1,2)
+        # Single reusable navigation widget (shared between tabs)
+        self.navControls = NavigationControls(process_folder_text="Play", process_h5_text="Play Current H5 File")
 
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.settingsGroup)
         self.optionsLayout.addStretch()
-        self.optionsLayout.addLayout(self.buttonsLayout)
+        self.optionsLayout.addWidget(self.navControls)
         self.frameOfKeys = QFrame()
         self.frameOfKeys.setFixedWidth(400)
         #self.frameOfKeys.addStretch() 
@@ -270,28 +254,13 @@ class XRayViewerGUI(QMainWindow):
 
         self.resetZoomButton = QPushButton("Reset Zoom")
         
-        self.processFolderButton2 = QPushButton("Play")
-        self.processFolderButton2.setStyleSheet(pfss)
-        self.processFolderButton2.setCheckable(True)
+        # Navigation widget container for Graph tab (widget moved here on tab switch)
         self.bottomLayout2 = QGridLayout()
-        self.nextButton2 = QPushButton(">")
-        self.prevButton2 = QPushButton("<")
-        self.nextFileButton2 = QPushButton(">>>")
-        self.prevFileButton2 = QPushButton("<<<")
-        self.nextButton2.setToolTip('Next Frame')
-        self.prevButton2.setToolTip('Previous Frame')
-        self.nextFileButton2.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
-        self.filenameLineEdit2 = QLineEdit()
+
         self.bottomLayout2.addWidget(self.zoomInGraphButton, 0, 0, 1, 2)
         self.bottomLayout2.addWidget(self.resetZoomButton, 2, 0, 1, 2)
         self.bottomLayout2.addWidget(self.measureDist2, 3, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.processFolderButton2, 4, 0, 1, 2)
-        self.bottomLayout2.addWidget(self.prevButton2, 5, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextButton2, 5, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.prevFileButton2, 6, 0, 1, 1)
-        self.bottomLayout2.addWidget(self.nextFileButton2, 6, 1, 1, 1)
-        self.bottomLayout2.addWidget(self.filenameLineEdit2, 7, 0, 1, 2)
+        # navControls will be added here dynamically when switching to Graph tab
 
         self.fittingOptionsFrame2 = QFrame()
         self.fittingOptionsFrame2.setFixedWidth(250) 
@@ -363,25 +332,22 @@ class XRayViewerGUI(QMainWindow):
         """
         Set all triggered functions for widgets
         """
-        self.tabWidget.currentChanged.connect(self.updateUI)
+        self.tabWidget.currentChanged.connect(self.onTabChanged)
 
         ##### Image Tab #####
         self.spminInt.valueChanged.connect(self.refreshImageTab)
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.colorMapChoice.currentIndexChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
-        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-        self.nextButton.clicked.connect(self.nextClicked)
-        self.prevButton.clicked.connect(self.prevClicked)
-        self.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.prevFileButton.clicked.connect(self.prevFileClicked)
-        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
-        self.nextButton2.clicked.connect(self.nextClicked)
-        self.prevButton2.clicked.connect(self.prevClicked)
-        self.nextFileButton2.clicked.connect(self.nextFileClicked)
-        self.prevFileButton2.clicked.connect(self.prevFileClicked)
-        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
-        self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
+        
+        ##### Navigation Controls (shared between tabs) #####
+        self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.navControls.nextButton.clicked.connect(self.nextClicked)
+        self.navControls.prevButton.clicked.connect(self.prevClicked)
+        self.navControls.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navControls.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
+        self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
         self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
@@ -419,7 +385,7 @@ class XRayViewerGUI(QMainWindow):
             # Set the minimum width for when the canvas is hidden
             self.leftWidget.setMinimumWidth(650)
 
-    def launchCalibrationSettings(self):
+    def launchCalibrationSettings(self, force=False):
         """
         Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
         :param force: force to popup the window
@@ -427,8 +393,9 @@ class XRayViewerGUI(QMainWindow):
         """
 
         if self.calSettingsDialog is None:
-            self.calSettingsDialog = CalibrationSettings(self.filePath) if self.filePath is None else \
-                CalibrationSettings(self.filePath, center=self.xrayViewer.orig_image_center)
+            dir_path = getattr(self.file_manager, 'dir_path', None)
+            self.calSettingsDialog = CalibrationSettings(dir_path) if dir_path is None else \
+                CalibrationSettings(dir_path, center=self.xrayViewer.orig_image_center)
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
@@ -463,7 +430,7 @@ class XRayViewerGUI(QMainWindow):
         """
         Triggered when the Open Trace button is clicked
         """
-        newWindows = LogTraceViewer(self, self.currentFileNumber)
+        newWindows = LogTraceViewer(self, self.file_manager.current)
         if len(self.windowList) >= 1:
             self.windowList = []
             self.counter = 0
@@ -471,7 +438,7 @@ class XRayViewerGUI(QMainWindow):
 
     def send_signal(self):
         if self.windowList != []:
-            signal=self.currentFileNumber
+            signal=self.file_manager.current
             if self.counter == 0:
                 self.currSaved.connect(self.windowList[0].showLine)
                 self.counter = 1
@@ -1511,12 +1478,13 @@ class XRayViewerGUI(QMainWindow):
         This will create a new viewer object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
         """
-        fileName = self.imgList[self.currentFileNumber]
-        self.filenameLineEdit.setText(fileName)
-        self.filenameLineEdit2.setText(fileName)
+        fileName = self.file_manager.current_image_name
+        self.navControls.filenameLineEdit.setText(fileName)
+        self.navControls.setNavMode(self.file_manager.current_file_type)
 
         try:
-            self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
+            img = self.file_manager.load_current()
+            self.xrayViewer = XRayViewer(img)
         except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error Opening File: " + str(fileName))
@@ -1565,6 +1533,26 @@ class XRayViewerGUI(QMainWindow):
         Refresh (Redraw) image tab
         """
         self.updated['img'] = False
+        self.updateUI()
+
+    def onTabChanged(self, index):
+        """
+        Handle tab switching by moving the navigation controls to the current tab
+        """
+        # Remove navControls from its current parent layout
+        current_parent = self.navControls.parent()
+        if current_parent:
+            current_layout = current_parent.layout()
+            if current_layout:
+                current_layout.removeWidget(self.navControls)
+        
+        # Add navControls to the appropriate layout based on tab index
+        if index == 0:  # Image tab
+            self.optionsLayout.addWidget(self.navControls)
+        elif index == 1:  # Graph tab
+            self.bottomLayout2.addWidget(self.navControls, 4, 0, 4, 2)
+        
+        # Trigger UI update
         self.updateUI()
 
     def updateUI(self):
@@ -1647,85 +1635,131 @@ class XRayViewerGUI(QMainWindow):
         """
         Reset the status bar
         """
-        fileFullPath = fullPath(self.filePath, self.imgList[self.currentFileNumber])
+        dir_path = getattr(self.file_manager, 'dir_path', '')
+        fileFullPath = fullPath(dir_path, self.file_manager.current_image_name)
+        # Use names (final) if available, else fallback to file_list length
+        total_count = len(self.file_manager.names) if getattr(self.file_manager, 'names', None) else len(self.file_manager.file_list)
+        total = str(total_count) + ('*' if self._provisionalCount else '')
         self.imgPathOnStatusBar.setText(
-            'Current File (' + str(self.currentFileNumber + 1) + '/' + str(self.numberOfFiles) + ') : ' + fileFullPath)
+            'Current Image (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath + \
+            (' (' + str(self.file_manager.current_frame_idx + 1) + '/' + str(self.file_manager.current_h5_nframes) + ')' if self.file_manager.current_h5_nframes else ''))
 
     def onNewFileSelected(self, newFile):
         """
-        Preprocess folder of the file and process current image
+        Load selected file and setup for navigation
+        Two-phase loading:
+        1. Sync: FileManager scans directory and displays selected file
+        2. Async: background scan to expand all HDF5 frames for accurate count
         :param newFile: full name of selected file
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        self.filePath, self.imgList, self.currentFileNumber, self.fileList, self.ext = getImgFiles(str(newFile))
-        if self.filePath is not None and self.imgList is not None and self.imgList:
-            self.numberOfFiles = len(self.imgList)
-            fileName = self.imgList[self.currentFileNumber]
-            self.h5List = []
-            self.setH5Mode(str(newFile))
-            self.xrayViewer = XRayViewer(self.filePath, fileName, self.fileList, self.ext)
-            self.csv_manager = XV_CSVManager(self.filePath)
+        
+        # Create or get FileManager
+        if not self.file_manager:
+            self.file_manager = FileManager()
+        
+        # Phase 1: Initialize FileManager with selected file (includes fast directory scan)
+        self.file_manager.set_from_file(str(newFile))
+        
+        # Mark counts provisional until async scan completes
+        self._provisionalCount = True
+
+        if self.file_manager.dir_path and self.file_manager.file_list:
+            self.csv_manager = XV_CSVManager(self.file_manager.dir_path)
             self.selectImageButton.setHidden(True)
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
             self.tabWidget.setTabEnabled(1, True)
             self.onImageChanged()
-            #self.launchCalibrationSettings()
+            
+            # Phase 2: Background async scan to expand all HDF5 frames
+            self._scan_timer.start()
+            # Let FileManager scan and update its own listing; GUI just polls and updates counts
+            self.file_manager.start_async_scan(self.file_manager.dir_path)
+        
         QApplication.restoreOverrideCursor()
             
 
-    def setH5Mode(self, file_name):
+
+    def _checkScanDone(self):
         """
-        Sets the H5 list of file and displays the right set of buttons depending on the file selected
+        Check if background directory scan is complete.
+        Updates the image layer with full HDF5 frame expansion for accurate count.
         """
-        if self.ext in ['.h5', '.hdf5']:
-            for file in os.listdir(self.filePath):
-                if file.endswith(".h5") or file.endswith(".hdf5"):
-                    self.h5List.append(file)
-            self.h5index = self.h5List.index(os.path.split(file_name)[1])
-            self.nextFileButton.show()
-            self.prevFileButton.show()
-            self.nextFileButton2.show()
-            self.prevFileButton2.show()
-        else:
-            self.nextFileButton.hide()
-            self.prevFileButton.hide()
-            self.nextFileButton2.hide()
-            self.prevFileButton2.hide()
+        if not self.file_manager:
+            return
+        # When FileManager finishes, it has already updated names/specs
+        if not self.file_manager.is_scan_done():
+            return
+        self._provisionalCount = False
+        self._scan_timer.stop()
+        self.resetStatusbar()
 
     def batchProcBtnToggled(self):
         """
         Triggered when the batch process button is toggled
         """
-        if (self.processFolderButton.isChecked() or self.processFolderButton2.isChecked()) and self.processFolderButton.text() == "Play":
+        if self.navControls.processFolderButton.isChecked():
             if not self.progressBar.isVisible():
-                self.processFolderButton.setText("Pause")
-                self.processFolderButton.setChecked(True)
-                self.processFolderButton2.setText("Pause")
-                self.processFolderButton2.setChecked(True)
+                self.navControls.processFolderButton.setText("Pause")
+                self.navControls.processFolderButton.setChecked(True)
                 self.processFolder()
         else:
             self.stop_process = True
+
+    def h5batchProcBtnToggled(self):
+        """
+        Triggered when the batch process button is toggled
+        """
+        if self.navControls.processH5Button.isChecked():
+            if not self.progressBar.isVisible():
+                self.navControls.processH5Button.setText("Pause")
+                self.navControls.processH5Button.setChecked(True)
+                self.processH5File()
+        else:
+            self.stop_process = True
+
 
     def processFolder(self):
         """
         Triggered when a folder has been selected to process it
         """
+        idx = self.file_manager.current
+        img_ids = list(range(idx, len(self.file_manager.names))) + list(range(0, idx))
+        self._process_image_list(img_ids)
+        self.navControls.processFolderButton.setChecked(False)
+        self.navControls.processFolderButton.setText("Play")
+
+    def processH5File(self):
+        """
+        Triggered when a folder has been selected to process it
+        """
+        
+        start_idx, end_idx = self.file_manager.get_current_h5_range()
+        idx = self.file_manager.current
+        img_ids = list(range(idx + 1, end_idx + 1)) + list(range(start_idx, idx + 1))
+        self._process_image_list(img_ids)
+        self.navControls.processH5Button.setChecked(False)
+        self.navControls.processH5Button.setText("Play Current H5 File")
+
+
+    def _process_image_list(self, img_ids):
         self.stop_process = False
         self.progressBar.setVisible(True)
-        self.progressBar.setRange(0, self.numberOfFiles)
-        for i in range(self.currentFileNumber, self.numberOfFiles):
+        self.progressBar.setRange(0, len(img_ids))
+        
+        for progress, img_idx in enumerate(img_ids):
             if self.stop_process:
                 break
-            self.progressBar.setValue(i)
+            self.progressBar.setValue(progress)
             QApplication.processEvents()
-            self.nextClicked()
+            
+            # Switch to image by index (updates both file_idx and frame_idx correctly)
+            self.file_manager.switch_image_by_index(img_idx)
+            self.onImageChanged()
+        
         self.progressBar.setVisible(False)
 
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton.setText("Play")
-        self.processFolderButton2.setChecked(False)
-        self.processFolderButton2.setText("Play")
 
     def browseFile(self):
         """
@@ -1748,46 +1782,38 @@ class XRayViewerGUI(QMainWindow):
         """
         Going to the previous image
         """
-        if self.numberOfFiles > 0:
-            self.currentFileNumber = (self.currentFileNumber - 1) % self.numberOfFiles
-            self.onImageChanged()
+        self.file_manager.prev_frame()
+        self.onImageChanged()
 
     def nextClicked(self):
         """
         Going to the next image
         """
-        if self.numberOfFiles > 0:
-            self.currentFileNumber = (self.currentFileNumber + 1) % self.numberOfFiles
-            self.onImageChanged()
+        self.file_manager.next_frame()
+        self.onImageChanged()
     
     def prevFileClicked(self):
         """
-        Going to the previous h5 file
+        Jump to first frame of previous file (typically for HDF5 navigation)
         """
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index - 1) % len(self.h5List)
-            self.onNewFileSelected(os.path.join(self.filePath, self.h5List[self.h5index]))
+        self.file_manager.prev_file()
+        self.onImageChanged()
 
     def nextFileClicked(self):
         """
-        Going to the next h5 file
+        Jump to first frame of next file (typically for HDF5 navigation)
         """
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index + 1) % len(self.h5List)
-            self.onNewFileSelected(os.path.join(self.filePath, self.h5List[self.h5index]))
+        self.file_manager.next_file()
+        self.onImageChanged()
 
     def fileNameChanged(self):
         """
         Triggered when the name of the current file is changed
         """
-        selected_tab = self.tabWidget.currentIndex()
-        if selected_tab == 0:
-            fileName = self.filenameLineEdit.text().strip()
-        elif selected_tab == 1:
-            fileName = self.filenameLineEdit2.text().strip()
-        if fileName not in self.imgList:
+        fileName = self.navControls.filenameLineEdit.text().strip()
+        if fileName not in self.file_manager.names:
             return
-        self.currentFileNumber = self.imgList.index(fileName)
+        self.file_manager.switch_image_by_name(fileName)
         self.onImageChanged()
 
     def showAbout(self):
