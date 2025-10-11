@@ -52,12 +52,13 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from skimage.morphology import binary_dilation
-from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal, QTimer
 from queue import Queue
+
 
 class WorkerSignals(QObject):
     
-    finished = Signal()
+    finished = Signal(object)
     error = Signal(tuple)
     result = Signal(object)
 
@@ -81,7 +82,7 @@ class Worker(QRunnable):
         else:
             self.signals.result.emit(self.bioImg)
         finally:
-            self.signals.finished.emit()
+            self.signals.finished.emit(self.bioImg)
 
 class EquatorWindow(QMainWindow):
     """
@@ -130,6 +131,18 @@ class EquatorWindow(QMainWindow):
         
         self.gap_lines = []
         self.gaps = []
+        
+        # Multiprocessing task management
+        from ..utils.task_manager import ProcessingTaskManager
+        self.taskManager = ProcessingTaskManager()
+        self.processExecutor = None
+        self.currentDisplayIndex = 0
+        self.pendingUIUpdates = {}  # {job_index: task}
+        
+        # UI update timer for sequential display
+        self.uiUpdateTimer = QTimer()
+        self.uiUpdateTimer.timeout.connect(self.processUIUpdateQueue)
+        self.uiUpdateTimer.setInterval(100)  # Check every 100ms
 
         self.initUI()  # Initial all UI
 
@@ -171,11 +184,76 @@ class EquatorWindow(QMainWindow):
         #    self.processImage()
 
         self.setH5Mode(str(self.fileName))
+        
+        # Initialize process executor after all setup is complete
+        self.initProcessExecutor()
+        
+        # Start UI update timer
+        self.uiUpdateTimer.start()
+        
         self.processImage()
         # self.init_logging()
         # focused_widget = QApplication.focusWidget()
         # if focused_widget != None:
         #     focused_widget.clearFocus()
+
+    def initProcessExecutor(self):
+        """Initialize persistent process pool for parallel processing"""
+        from concurrent.futures import ProcessPoolExecutor
+        from ..headless.mp_executor import _init_worker
+        import os
+        
+        worker_count = int(os.environ.get('MUSCLEX_WORKERS', max(1, os.cpu_count() - 1)))
+        
+        try:
+            self.processExecutor = ProcessPoolExecutor(
+                max_workers=worker_count,
+                initializer=_init_worker
+            )
+            print(f"✓ Initialized process pool with {worker_count} workers")
+        except Exception as e:
+            print(f"⚠ Failed to create process pool: {e}")
+            print("  Falling back to single-process mode")
+            self.processExecutor = None
+    
+    def processUIUpdateQueue(self):
+        """
+        Process queued UI updates in submission order.
+        Called by timer every 100ms. Only used during batch processing.
+        """
+        next_index = self.currentDisplayIndex
+        
+        if next_index in self.pendingUIUpdates:
+            task = self.pendingUIUpdates.pop(next_index)
+            self._updateBatchImagePreview(task)
+            
+            self.currentDisplayIndex += 1
+            # Check if more are ready
+            QTimer.singleShot(0, self.processUIUpdateQueue)
+    
+    def _updateBatchImagePreview(self, task):
+        """
+        Lightweight UI update during batch processing.
+        Only updates Image tab if it's currently visible.
+        """
+        # Always update progress and status
+        stats = self.taskManager.get_statistics()
+        self.progressBar.setValue(stats['completed'] + stats['failed'])
+        self.statusReport.setText(
+            f"Processing: {task.filename} ({stats['completed']}/{stats['total']})"
+        )
+        
+        # Update Image tab preview if visible
+        if self.tabWidget.currentIndex() == 0:  # Image tab
+            if task.result and not task.error:
+                self.bioImg.info = task.result['info']
+                self.updateImageTab()
+        
+        # Check if batch is complete
+        if stats['pending'] == 0 and not self.pendingUIUpdates:
+            self.onBatchComplete()
+        
+        QApplication.processEvents()
 
     def inputerror(self):
         """
@@ -1702,6 +1780,64 @@ class EquatorWindow(QMainWindow):
         else:
             self.stop_process = True
 
+    def onBatchComplete(self):
+        """Called when all batch tasks complete"""
+        stats = self.taskManager.get_statistics()
+        
+        # Re-enable navigation
+        self.prevButton.setEnabled(True)
+        self.nextButton.setEnabled(True)
+        self.prevButton2.setEnabled(True)
+        self.nextButton2.setEnabled(True)
+        
+        # Print summary
+        print("\n" + "="*60)
+        print("BATCH PROCESSING COMPLETE")
+        print("="*60)
+        print(f"Total: {stats['total']}, Success: {stats['completed']}, Failed: {stats['failed']}")
+        print(f"Average time: {stats['avg_time']:.2f}s per image")
+        print("="*60)
+        
+        # Cleanup
+        self.in_batch_process = False
+        self.progressBar.setVisible(False)
+        self.processFolderButton.setChecked(False)
+        self.processFolderButton2.setChecked(False)
+        
+        if self.ext in ['.h5', '.hdf5']:
+            self.processFolderButton.setText("Reprocess and Refit current H5 File")
+            self.processFolderButton2.setText("Reprocess and Refit current H5 File")
+        else:
+            self.processFolderButton.setText("Reprocess and Refit current folder")
+            self.processFolderButton2.setText("Reprocess and Refit current folder")
+        
+        # Show completion dialog
+        QMessageBox.information(self, "Batch Complete",
+            f"Processed {stats['completed']}/{stats['total']} images\n"
+            f"Failed: {stats['failed']}\n"
+            f"Avg time: {stats['avg_time']:.2f}s per image")
+    
+    def _processFolderFallback(self):
+        """Fallback to thread-based batch processing"""
+        nImg = len(self.imgList)
+        self.progressBar.setMaximum(nImg)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setVisible(True)
+        
+        self.in_batch_process = True
+        self.stop_process = False
+        for i in range(nImg):
+            if self.stop_process:
+                break
+            self.progressBar.setValue(i)
+            QApplication.processEvents()
+            self.nextImageFitting(True)
+        self.in_batch_process = False
+        
+        self.progressBar.setVisible(False)
+        self.processFolderButton.setChecked(False)
+        self.processFolderButton2.setChecked(False)
+
     def processFolder(self):
         """
         Process current folder
@@ -1777,26 +1913,58 @@ class EquatorWindow(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-
+            # Fallback to old method if multiprocessing failed
+            if self.processExecutor is None:
+                self._processFolderFallback()
+                return
+            
+            # Setup for batch processing
+            self.in_batch_process = True
+            self.stop_process = False
+            
+            # Reset task management
+            self.taskManager.clear()
+            self.currentDisplayIndex = 0
+            self.pendingUIUpdates = {}
+            
             # Display progress bar
             self.progressBar.setMaximum(nImg)
             self.progressBar.setMinimum(0)
+            self.progressBar.setValue(0)
             self.progressBar.setVisible(True)
-
-            ## Process all images and update progress bar
-            self.in_batch_process = True
-            self.stop_process = False
-            for i in range(nImg):
+            
+            # Disable navigation during batch
+            self.prevButton.setEnabled(False)
+            self.nextButton.setEnabled(False)
+            self.prevButton2.setEnabled(False)
+            self.nextButton2.setEnabled(False)
+            
+            # Prepare settings
+            settings = self.getSettings()
+            settings['no_cache'] = True 
+            
+            # Submit all jobs to process pool
+            from ..headless.mp_executor import process_one_image
+            
+            for job_index, filename in enumerate(self.imgList):
                 if self.stop_process:
                     break
-                # self.progressBar.setValue(i)
-                QApplication.processEvents()
-                self.nextImageFitting(True)
-            self.in_batch_process = False
+                
+                job_args = (self.dir_path, filename, settings, None,
+                           self.fileList, self.ext)
+                
+                future = self.processExecutor.submit(process_one_image, job_args)
+                task = self.taskManager.submit_task(filename, job_index, future)
+                
+                # Attach callback
+                future.add_done_callback(self._onFutureDone)
+            
+            print(f"Batch started: {len(self.imgList)} images submitted to process pool")
 
-        # self.progressBar.setVisible(False)
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton2.setChecked(False)
+        else:
+            # User cancelled
+            self.processFolderButton.setChecked(False)
+            self.processFolderButton2.setChecked(False)
         if self.ext in ['.h5', '.hdf5']:
             self.processFolderButton.setText("Reprocess and Refit current H5 File")
             self.processFolderButton2.setText("Reprocess and Refit current H5 File")
@@ -3229,6 +3397,16 @@ class EquatorWindow(QMainWindow):
         """
         Trigger when window is closed
         """
+        # Shutdown process pool
+        if self.processExecutor is not None:
+            print("Shutting down process pool...")
+            self.processExecutor.shutdown(wait=True, cancel_futures=True)
+            print("Process pool shutdown complete")
+        
+        # Stop UI update timer
+        if self.uiUpdateTimer:
+            self.uiUpdateTimer.stop()
+        
         # delete window object from main window
         if self.logger is not None:
             self.logger.popup()
@@ -3594,48 +3772,145 @@ class EquatorWindow(QMainWindow):
         self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))
         
         # If there's no task currently running, start the next task
-        if self.currentTask is None:
-            self.startNextTask()
+        self.startNextTask()
             
     def thread_done(self, bioImg):
         self.tasksDone += 1
         self.progressBar.setValue(100. / len(self.imgList) * self.tasksDone)
-        #self.refreshStatusbar()
-        self.bioImg = bioImg
+        # Store finished image for onProcessingFinished; do not switch context here
+        self._finishedBioImg = bioImg
         print("thread done")
                     
     def startNextTask(self):
-        if not self.tasksQueue.empty():
+        # Launch up to a safe concurrency limit to keep UI responsive
+        limit = max(1, self.threadPool.maxThreadCount() // 2)
+        started_any = False
+        while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < limit:
             print("starting new task")
             bioImg, settings, paramInfo = self.tasksQueue.get()
-            
-            if settings['find_oritation']:
+
+            if settings.get('find_oritation'):
                 self.brightSpotClicked()
 
-            self.currentTask = Worker(bioImg, settings, paramInfo)
-            self.currentTask.signals.result.connect(self.thread_done)
-            self.currentTask.signals.finished.connect(self.onProcessingFinished)
-            self.threadPool.start(self.currentTask)
-        else:
+            worker = Worker(bioImg, settings, paramInfo)
+            worker.signals.result.connect(self.thread_done)
+            worker.signals.finished.connect(self.onProcessingFinished)
+            self.threadPool.start(worker)
+            self.currentTask = worker
+            started_any = True
+
+        if not started_any and self.tasksQueue.empty() and self.threadPool.activeThreadCount() == 0:
             self.progressBar.setVisible(False)
         
-    def onProcessingFinished(self):
+    def onProcessingFinished(self, finishedImg):
+        # Temporarily switch context to the finished image to update outputs
+        prevBio = self.bioImg
+        self.bioImg = finishedImg
         self.updateParams()
-        self.csvManager.writeNewData(self.bioImg)
-        self.csvManager.writeNewData2(self.bioImg)
+        self.csvManager.writeNewData(finishedImg)
+        self.csvManager.writeNewData2(finishedImg)
         self.resetUI()
         self.refreshStatusbar()
         self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
         self.tabWidget.tabBar().setEnabled(True)
         self.tabWidget.tabBar().setToolTip("")
-        
         self.currentTask = None
+        # Restore previous reference so batch refitting continues to target the UI's current file
+        self.bioImg = prevBio
         if self.first:
             self.init_logging()
             self.first = False
         else:
             self.startNextTask()
+
+    def _onFutureDone(self, future):
+        """Dispatch onImageProcessed to main thread safely."""
+        QTimer.singleShot(0, self, lambda: self.onImageProcessed(future))
+
+    def onImageProcessed(self, future):
+        """
+        Callback when image processing completes.
+        Runs in main thread via Qt's callback mechanism.
+        """
+        try:
+            # Retrieve result from future
+            result = future.result()
+            error = result.get('error')
+            
+            # Organize result via task manager
+            task = self.taskManager.complete_task(future, result, error)
+            
+            if not task:
+                return
+            
+            if error:
+                print(f"Error processing {task.filename}: {error}")
+            else:
+                # Save results to disk (main thread only)
+                self._organizeAndSaveResult(task)
+            
+            # Queue UI update (will be processed in order)
+            self.pendingUIUpdates[task.job_index] = task
+            
+        except Exception as e:
+            print(f"Callback error: {e}")
+            traceback.print_exc()
+    
+    def _organizeAndSaveResult(self, task):
+        """
+        Organize and persist processing results.
+        ALWAYS runs in main thread - safe for file I/O.
+        """
+        result = task.result
+        filename = task.filename
+        
+        # Create temporary bioImg for saving
+        from ..modules.EquatorImage import EquatorImage
+        bioImg = EquatorImage(self.dir_path, filename,
+                              self, self.fileList, self.ext)
+        bioImg.info = result['info']
+        
+        # Write cache (main thread only)
+        try:
+            bioImg.saveCache()
+        except Exception as e:
+            print(f"Failed to save cache for {filename}: {e}")
+        
+        # Write CSV (main thread only)
+        try:
+            self.csvManager.writeNewData(bioImg)
+            self.csvManager.writeNewData2(bioImg)
+        except Exception as e:
+            print(f"Failed to write CSV for {filename}: {e}")
+        
+        print(f"✓ Completed {filename} in {task.processing_time:.2f}s")
+    
+    def _processImageFallback(self, paramInfo=None):
+        """Fallback to thread-based processing if multiprocessing fails"""
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
+        settings = self.getSettings()
+        
+        try:
+            self.bioImg.process(settings, paramInfo)
+            self.updateParams()
+            self.csvManager.writeNewData(self.bioImg)
+            self.csvManager.writeNewData2(self.bioImg)
+            self.resetUI()
+            self.refreshStatusbar()
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            errMsg = QMessageBox()
+            errMsg.setText('Unexpected error')
+            errMsg.setInformativeText(str(e))
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Warning)
+            errMsg.exec_()
+            raise
+        finally:
+            QApplication.restoreOverrideCursor()
+            self.tabWidget.tabBar().setEnabled(True)
 
     def setLeftStatus(self, s):
         """
