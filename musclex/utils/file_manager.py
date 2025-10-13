@@ -522,7 +522,6 @@ class FileManager:
         # Currently loaded image ndarray (or None if not loaded)
         self.current_image = None
         self.current_file_type = None
-        self.is_current_h5 = False
         self.current_h5_nframes = None
         # HDF5 cache
         self._h5_frames = {}  # {full_path: nframes}

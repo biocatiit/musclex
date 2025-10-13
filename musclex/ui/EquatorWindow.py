@@ -2240,11 +2240,11 @@ class EquatorWindow(QMainWindow):
         self.file_manager.next_file
         self.onImageChanged()
 
-    def setH5Mode(self, file_name):
+    def setH5Mode(self):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        if self.file_manager.is_current_h5:
+        if self.file_manager.current_file_type == 'h5':
             self.nextFileButton.show()
             self.prevFileButton.show()
             self.nextFileButton2.show()
@@ -3490,7 +3490,7 @@ class EquatorWindow(QMainWindow):
         # First-run specific setup
         if first_run:
             self.setCalibrationImage()  # Must be after initWidgets
-            self.setH5Mode(str(self.fileName))
+            self.setH5Mode()
             self.initProcessExecutor()
             self.uiUpdateTimer.start()
         
