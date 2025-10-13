@@ -29,11 +29,12 @@ def process_one_image(args):
     Headless image processing function (no Qt dependencies).
     
     Args:
-        args: tuple of (settings, paramInfo, file_manager, job_index)
+        args: tuple of (settings, paramInfo, dir_path, filename, spec)
             - settings: dict with processing settings
             - paramInfo: dict with parameter information
-            - file_manager: FileManager instance for accessing image data
-            - job_index: int index of the image to process
+            - dir_path: str directory path
+            - filename: str display name of the image
+            - spec: tuple loader spec like ("tiff", path) or ("h5", path, frame_idx)
     
     Returns:
         dict: {
@@ -42,8 +43,9 @@ def process_one_image(args):
             'error': str or None
         }
     """
+    filename = None  # Initialize for error handling
     try:
-        settings, paramInfo, file_manager, job_index = args
+        settings, paramInfo, dir_path, filename, spec = args
         
         # Create a minimal parent object that only provides statusPrint
         # We don't use EquatorWindowh here because it requires complex initialization
@@ -56,10 +58,13 @@ def process_one_image(args):
         
         parent = MinimalParent()
         
+        # Load image using the spec
+        from musclex.utils.file_manager import load_image_via_spec
+        img = load_image_via_spec(dir_path, filename, spec)
+        
         # Create and process EquatorImage with minimal parent
         from musclex.modules.EquatorImage import EquatorImage
-        filename = file_manager.names[job_index]
-        bioImg = EquatorImage(file_manager.get_image_by_index(job_index), file_manager.dir_path, filename, parent)
+        bioImg = EquatorImage(img, dir_path, filename, parent)
         
         # Process the image
         bioImg.process(settings, paramInfo)
@@ -74,10 +79,11 @@ def process_one_image(args):
     except Exception as e:
         # Capture full traceback for debugging
         error_msg = traceback.format_exc()
-        print(f"[ERROR] Failed to process {filename}:\n{error_msg}")
+        fname_str = filename if filename else "unknown"
+        print(f"[ERROR] Failed to process {fname_str}:\n{error_msg}")
         
         return {
-            'filename': filename,
+            'filename': fname_str,
             'info': None,
             'error': error_msg
         }

@@ -1917,7 +1917,9 @@ class EquatorWindow(QMainWindow):
                 if self.stop_process:
                     break
                 
-                job_args = (settings, None, job_index, self.file_manager)
+                # Extract serializable data instead of passing FileManager object
+                spec = self.file_manager.specs[job_index]
+                job_args = (settings, None, self.file_manager.dir_path, filename, spec)
                 
                 future = self.processExecutor.submit(process_one_image, job_args)
                 task = self.taskManager.submit_task(filename, job_index, future)
