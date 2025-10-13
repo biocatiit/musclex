@@ -98,8 +98,6 @@ class EquatorWindow(QMainWindow):
         """
         super().__init__()
         self.mainWindow = mainWin
-        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
-        self.h5index = 0
         self.logger = None
         self.editableVars = {}
         self.bioImg = None  # Current EquatorImage object
@@ -161,8 +159,7 @@ class EquatorWindow(QMainWindow):
 
         self.browseFile()
         
-        self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(self.fileName))
-        if self.imgList is None or len(self.imgList) == 0:
+        if self.file_manager.names is None or len(self.file_manager.names) == 0:
             self.inputerror()
             return
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
@@ -1113,7 +1110,7 @@ class EquatorWindow(QMainWindow):
         Refit current folder
         """
         ## Popup confirm dialog with settings
-        nImg = len(self.imgList)
+        nImg = len(self.file_manager.names)
         errMsg = QMessageBox()
         errMsg.setText('Refitting All')
         text = 'The current folder will be refitted using current settings. Make sure to adjust them before refitting the folder. \n\n'
@@ -1249,11 +1246,8 @@ class EquatorWindow(QMainWindow):
         #     self.resetAll()
         
         isH5 = False
-        if self.h5List:
-            fileName = self.h5List[self.h5index]
+        if self.file_manager.is_current_h5:
             isH5 = True
-        else:
-            fileName = self.imgList[self.currentImg]
 
         img = self.bioImg.getRotatedImage()
 
@@ -1686,6 +1680,7 @@ class EquatorWindow(QMainWindow):
         if not self.file_manager:
             self.file_manager = FileManager()
         self.file_manager.set_from_file(str(file_name))
+        self.dir_path = self.file_manager.dir_path
         self._provisionalCount = True
         self._scan_timer.start()
         self.file_manager.start_async_scan(self.file_manager.dir_path)
@@ -1776,7 +1771,7 @@ class EquatorWindow(QMainWindow):
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
         
-        if self.ext in ['.h5', '.hdf5']:
+        if self.file_manager.is_current_h5:
             self.processFolderButton.setText("Reprocess and Refit current H5 File")
             self.processFolderButton2.setText("Reprocess and Refit current H5 File")
         else:
@@ -1791,7 +1786,7 @@ class EquatorWindow(QMainWindow):
     
     def _processFolderFallback(self):
         """Fallback to thread-based batch processing"""
-        nImg = len(self.imgList)
+        nImg = len(self.file_manager.names)
         self.progressBar.setMaximum(nImg)
         self.progressBar.setMinimum(0)
         self.progressBar.setVisible(True)
@@ -1816,7 +1811,7 @@ class EquatorWindow(QMainWindow):
         """
 
         ## Popup confirm dialog with settings
-        nImg = len(self.imgList)
+        nImg = len(self.file_manager.names)
         errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
@@ -1918,12 +1913,11 @@ class EquatorWindow(QMainWindow):
             # Submit all jobs to process pool
             from ..headless.mp_executor import process_one_image
             
-            for job_index, filename in enumerate(self.imgList):
+            for job_index, filename in enumerate(self.file_manager.names):
                 if self.stop_process:
                     break
                 
-                job_args = (self.dir_path, filename, settings, None,
-                           self.fileList, self.ext)
+                job_args = (settings, None, job_index, self.file_manager)
                 
                 future = self.processExecutor.submit(process_one_image, job_args)
                 task = self.taskManager.submit_task(filename, job_index, future)
@@ -1931,13 +1925,13 @@ class EquatorWindow(QMainWindow):
                 # Attach callback
                 future.add_done_callback(self._onFutureDone)
             
-            print(f"Batch started: {len(self.imgList)} images submitted to process pool")
+            print(f"Batch started: {len(self.file_manager.names)} images submitted to process pool")
 
         else:
             # User cancelled
             self.processFolderButton.setChecked(False)
             self.processFolderButton2.setChecked(False)
-        if self.ext in ['.h5', '.hdf5']:
+        if self.file_manager.is_current_h5:
             self.processFolderButton.setText("Reprocess and Refit current H5 File")
             self.processFolderButton2.setText("Reprocess and Refit current H5 File")
         else:
@@ -1949,7 +1943,7 @@ class EquatorWindow(QMainWindow):
         Process current folder of H5 file
         """
         ## Popup confirm dialog with settings
-        nImg = len(self.imgList)
+        nImg = self.file_manager.current_h5_nframes
         errMsg = QMessageBox()
         errMsg.setText('Process Current Folder')
         text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
@@ -2010,7 +2004,7 @@ class EquatorWindow(QMainWindow):
                     text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
 
         text += '\n\nAre you sure you want to process ' + str(
-            len(self.h5List)) + ' H5 file(s) in this Folder? \nThis might take a long time.'
+            self.file_manager.current_h5_nframes) + ' H5 file(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
@@ -2027,7 +2021,7 @@ class EquatorWindow(QMainWindow):
             ## Process all images and update progress bar
             self.in_batch_process = True
             self.stop_process = False
-            for _ in range(len(self.h5List)):
+            for _ in range(self.file_manager.current_h5_nframes):
                 for i in range(nImg):
                     if self.stop_process:
                         break
@@ -2186,7 +2180,7 @@ class EquatorWindow(QMainWindow):
         """
         Going to the previous image
         """
-        self.currentImg = (self.currentImg - 1) % len(self.imgList)
+        self.file_manager.prev_frame()
         self.onImageChanged()
 
     def nextImageFitting(self, reprocess):
@@ -2194,12 +2188,11 @@ class EquatorWindow(QMainWindow):
         Used for processing of a folder to process the next image
         :param reprocess (bool): boolean telling if we need to reprocess the image or not
         """
-        self.currentImg = (self.currentImg + 1) % len(self.imgList)
-
-        fileName = self.imgList[self.currentImg]
+        self.file_manager.next_frame()
+        fileName = self.file_manager.current_image_name
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        self.bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
+        self.bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, fileName, self)
         if reprocess:
             self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
@@ -2228,36 +2221,28 @@ class EquatorWindow(QMainWindow):
         """
         Going to the next image
         """
-        self.currentImg = (self.currentImg + 1) % len(self.imgList)
+        self.file_manager.next_frame()
         self.onImageChanged()
 
     def prevFileClicked(self):
         """
         Going to the previous h5 file
         """
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index - 1) % len(self.h5List)
-            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(os.path.join(self.dir_path, self.h5List[self.h5index]))
-            self.onImageChanged()
+        self.file_manager.prev_file
+        self.onImageChanged()
 
     def nextFileClicked(self):
         """
         Going to the next h5 file
         """
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index + 1) % len(self.h5List)
-            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(os.path.join(self.dir_path, self.h5List[self.h5index]))
-            self.onImageChanged()
+        self.file_manager.next_file
+        self.onImageChanged()
 
     def setH5Mode(self, file_name):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        if self.ext in ['.h5', '.hdf5']:
-            for file in os.listdir(self.dir_path):
-                if file.endswith(".h5") or file.endswith(".hdf5"):
-                    self.h5List.append(file)
-            self.h5index = self.h5List.index(os.path.split(file_name)[1])
+        if self.file_manager.is_current_h5:
             self.nextFileButton.show()
             self.prevFileButton.show()
             self.nextFileButton2.show()
@@ -2285,9 +2270,9 @@ class EquatorWindow(QMainWindow):
             fileName = str(self.filenameLineEdit.text()).strip()
         elif selected_tab == 1:
             fileName = str(self.filenameLineEdit2.text()).strip()
-        if fileName not in self.imgList:
+        if fileName not in self.file_manager.names:
             return
-        self.currentImg = self.imgList.index(fileName)
+        self.file_manager.switch_image_by_name(fileName)
         self.onImageChanged()
 
     def keyPressEvent(self, event):
@@ -2691,10 +2676,10 @@ class EquatorWindow(QMainWindow):
             return self.modeOrientation
         print("Calculating mode of angles of images in directory")
         angles = []
-        for f in self.imgList:
+        for idx, filename in enumerate(self.file_manager.names):
 
-            bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
-            print(f'Getting angle {f}')
+            bioImg = EquatorImage(self.file_manager.get_image_by_index(idx), self.file_manager.dir_path, filename, self)
+            print(f'Getting angle {filename}')
 
             if 'rotationAngle' not in bioImg.info:
                 return None
@@ -3464,7 +3449,7 @@ class EquatorWindow(QMainWindow):
             self.refitting()
 
         # Update UI with current filename
-        fileName = self.imgList[self.currentImg]
+        fileName = self.file_manager.current_image_name
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
 
@@ -3763,7 +3748,7 @@ class EquatorWindow(QMainWindow):
             
     def thread_done(self, bioImg):
         self.tasksDone += 1
-        self.progressBar.setValue(100. / len(self.imgList) * self.tasksDone)
+        self.progressBar.setValue(100. / len(self.file_manager.names) * self.tasksDone)
         # Store finished image for onProcessingFinished; do not switch context here
         self._finishedBioImg = bioImg
         print("thread done")
@@ -3925,9 +3910,9 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None:
             return
-        total = str(len(self.imgList)) + ('*' if self._provisionalCount else '')
+        total = str(len(self.file_manager.names)) + ('*' if self._provisionalCount else '')
         self.setLeftStatus(
-            "(" + str(self.currentImg + 1) + "/" + total + ") " + fullPath(self.dir_path,
+            "(" + str(self.file_manager.current + 1) + "/" + total + ") " + fullPath(self.dir_path,
                                                                                             self.bioImg.filename))
         img = self.bioImg.orig_img
         self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))

@@ -29,7 +29,11 @@ def process_one_image(args):
     Headless image processing function (no Qt dependencies).
     
     Args:
-        args: tuple of (dir_path, filename, settings, paramInfo, fileList, ext)
+        args: tuple of (settings, paramInfo, file_manager, job_index)
+            - settings: dict with processing settings
+            - paramInfo: dict with parameter information
+            - file_manager: FileManager instance for accessing image data
+            - job_index: int index of the image to process
     
     Returns:
         dict: {
@@ -39,7 +43,7 @@ def process_one_image(args):
         }
     """
     try:
-        dir_path, filename, settings, paramInfo, fileList, ext = args
+        settings, paramInfo, file_manager, job_index = args
         
         # Create a minimal parent object that only provides statusPrint
         # We don't use EquatorWindowh here because it requires complex initialization
@@ -54,21 +58,8 @@ def process_one_image(args):
         
         # Create and process EquatorImage with minimal parent
         from musclex.modules.EquatorImage import EquatorImage
-        # Load image using file_manager helper if available
-        try:
-            from musclex.utils.file_manager import load_image_by_index
-            if ext in ('.hdf5', '.h5'):
-                idx = next((i for i, item in enumerate(fileList[0]) if item == filename), 0)
-                img = load_image_by_index(dir_path, fileList, idx, filename)
-            else:
-                from musclex.utils.file_manager import fullPath
-                import fabio
-                img = fabio.open(fullPath(dir_path, filename)).data
-        except Exception:
-            from musclex.utils.file_manager import fullPath
-            import fabio
-            img = fabio.open(fullPath(dir_path, filename)).data
-        bioImg = EquatorImage(img, dir_path, filename, parent)
+        filename = file_manager.names[job_index]
+        bioImg = EquatorImage(file_manager.get_image_by_index(job_index), file_manager.dir_path, filename, parent)
         
         # Process the image
         bioImg.process(settings, paramInfo)
