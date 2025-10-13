@@ -58,22 +58,18 @@ class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, filename, parent, file_list=None, extension=''):
+    def __init__(self, img, img_path, img_name, parent):
         """
         Initial value for EquatorImage object
-        :param dir_path: directory path of input image
-        :param filename: image file name
+        :param img: already-loaded image ndarray
+        :param img_path: directory path of input image
+        :param img_name: image file name
+        :param parent: owner/GUI for status updates
         """
         self.sigmaS = 0.0001
-        self.dir_path = dir_path
-        self.filename = filename
-        if extension in ('.hdf5', '.h5'):
-            index = next((i for i, item in enumerate(file_list[0]) if item == filename), 0)
-            self.orig_img = file_list[1][index]
-        else:
-            self.orig_img = fabio.open(fullPath(dir_path, filename)).data
-        self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
-        self.orig_img = self.orig_img.astype("float32")
+        self.dir_path = img_path
+        self.filename = img_name
+        self.orig_img = np.asarray(img).astype("float32")
         self.image = None
         self.skeletalVarsNotSet = False
         self.extraPeakVarsNotSet = False
@@ -81,18 +77,18 @@ class EquatorImage:
         self.fitting_error = 0.2
         
         self.quadrant_folded = False
-        if filename.endswith(".tif"):
-            with tifffile.TiffFile(fullPath(dir_path, filename)) as tif:
+        if self.filename.endswith(".tif"):
+            with tifffile.TiffFile(fullPath(self.dir_path, self.filename)) as tif:
                 if "ImageDescription" in tif.pages[0].tags:
                     metadata = tif.pages[0].tags["ImageDescription"].value
-            if 'folded' in filename:
+            if 'folded' in self.filename:
                 self.quadrant_folded = True
                 self.initialImgDim = self.orig_img.shape
             else:
                 try:
                     self.quadrant_folded, self.initialImgDim = json.loads(metadata)
                 except Exception:
-                    print(filename, " file is not quadrant folded")
+                    print(self.filename, " file is not quadrant folded")
 
         self.rotated_img = None
         self.version = __version__

@@ -97,7 +97,10 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
         pass_file = True
 
         if mode == 'eq':
-            test_object = EquatorImage(inputpath, filename, None)
+            import fabio
+            from musclex.utils.file_manager import fullPath
+            img = fabio.open(fullPath(inputpath, filename)).data
+            test_object = EquatorImage(img, inputpath, filename, None)
             test_name = "EQUATOR IMAGE"
         elif mode == 'qf':
             test_object = QuadrantFolder(inputpath, filename, None)

@@ -54,7 +54,21 @@ def process_one_image(args):
         
         # Create and process EquatorImage with minimal parent
         from musclex.modules.EquatorImage import EquatorImage
-        bioImg = EquatorImage(dir_path, filename, parent, fileList, ext)
+        # Load image using file_manager helper if available
+        try:
+            from musclex.utils.file_manager import load_image_by_index
+            if ext in ('.hdf5', '.h5'):
+                idx = next((i for i, item in enumerate(fileList[0]) if item == filename), 0)
+                img = load_image_by_index(dir_path, fileList, idx, filename)
+            else:
+                from musclex.utils.file_manager import fullPath
+                import fabio
+                img = fabio.open(fullPath(dir_path, filename)).data
+        except Exception:
+            from musclex.utils.file_manager import fullPath
+            import fabio
+            img = fabio.open(fullPath(dir_path, filename)).data
+        bioImg = EquatorImage(img, dir_path, filename, parent)
         
         # Process the image
         bioImg.process(settings, paramInfo)

@@ -41,7 +41,7 @@ from skimage.feature import peak_local_max
 from musclex import __version__
 from .pyqt_utils import *
 from ..CalibrationSettings import CalibrationSettings
-from ..utils.file_manager import fullPath, getImgFiles
+from ..utils.file_manager import FileManager, fullPath, getImgFiles
 from ..utils import logger
 from ..utils.image_processor import *
 from ..modules.EquatorImage import EquatorImage, getCardiacGraph
@@ -152,8 +152,10 @@ class EquatorWindow(QMainWindow):
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
         self.show()
-        self.browseFile()
+        self.file_manager = None
 
+        self.browseFile()
+        
         self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(str(self.fileName))
         if self.imgList is None or len(self.imgList) == 0:
             self.inputerror()
@@ -168,7 +170,18 @@ class EquatorWindow(QMainWindow):
         self.fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(self.fileName)
         self.filenameLineEdit2.setText(self.fileName)
-        self.bioImg = EquatorImage(self.dir_path, self.fileName, self, self.fileList, self.ext)
+        # Load image and construct EquatorImage using (img, img_path, img_name, parent)
+        from ..utils.file_manager import load_image_via_spec, get_loader_source
+        try:
+            idx = self.currentImg if hasattr(self, 'currentImg') else 0
+            source = get_loader_source(self.fileList, idx)
+            img = load_image_via_spec(self.dir_path, self.fileName, source)
+        except Exception:
+            # Fallback: direct read if spec not available
+            import fabio
+            from ..utils.file_manager import fullPath
+            img = fabio.open(fullPath(self.dir_path, self.fileName)).data
+        self.bioImg = EquatorImage(img, self.dir_path, self.fileName, self)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         if 'paramInfo' in self.bioImg.info:
@@ -1700,6 +1713,9 @@ class EquatorWindow(QMainWindow):
                 errMsg.exec_()
 
         self.fileName = file_name
+        if not self.file_manager:
+            self.file_manager = FileManager()
+            self.file_manager.set_from_file(str(file_name))
 
 
     def saveSettings(self):
@@ -2211,7 +2227,16 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         try:
-            self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+            from ..utils.file_manager import load_image_via_spec, get_loader_source
+            try:
+                idx = self.currentImg
+                source = get_loader_source(self.fileList, idx)
+                img = load_image_via_spec(self.dir_path, fileName, source)
+            except Exception:
+                import fabio
+                from ..utils.file_manager import fullPath
+                img = fabio.open(fullPath(self.dir_path, fileName)).data
+            self.bioImg = EquatorImage(img, self.dir_path, fileName, self)
         except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error trying to open " + str(fileName))
@@ -2711,7 +2736,16 @@ class EquatorWindow(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            bioImg = EquatorImage(self.dir_path, f, self, self.fileList, self.ext)
+            from ..utils.file_manager import load_image_via_spec, get_loader_source
+            idx = self.imgList.index(f)
+            try:
+                source = get_loader_source(self.fileList, idx)
+                img = load_image_via_spec(self.dir_path, f, source)
+            except Exception:
+                import fabio
+                from ..utils.file_manager import fullPath
+                img = fabio.open(fullPath(self.dir_path, f)).data
+            bioImg = EquatorImage(img, self.dir_path, f, self)
             print(f'Getting angle {f}')
 
             if 'rotationAngle' not in bioImg.info:
@@ -3483,7 +3517,16 @@ class EquatorWindow(QMainWindow):
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
         # prevInfo = self.bioImg.info if self.bioImg is not None else None
-        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+        from ..utils.file_manager import load_image_via_spec, get_loader_source
+        try:
+            idx = self.currentImg
+            source = get_loader_source(self.fileList, idx)
+            img = load_image_via_spec(self.dir_path, fileName, source)
+        except Exception:
+            import fabio
+            from ..utils.file_manager import fullPath
+            img = fabio.open(fullPath(self.dir_path, fileName)).data
+        self.bioImg = EquatorImage(img, self.dir_path, fileName, self)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         settings = None
@@ -3850,8 +3893,17 @@ class EquatorWindow(QMainWindow):
         
         # Create temporary bioImg for saving
         from ..modules.EquatorImage import EquatorImage
-        bioImg = EquatorImage(self.dir_path, filename,
-                              self, self.fileList, self.ext)
+        from ..utils.file_manager import load_image_via_spec
+        try:
+            # We are saving results for the filename corresponding to task
+            idx = self.imgList.index(filename)
+            source = self.fileList[1][idx] if isinstance(self.fileList, list) and len(self.fileList) > 1 else None
+            img = load_image_via_spec(self.dir_path, filename, source)
+        except Exception:
+            import fabio
+            from ..utils.file_manager import fullPath
+            img = fabio.open(fullPath(self.dir_path, filename)).data
+        bioImg = EquatorImage(img, self.dir_path, filename, self)
         bioImg.info = result['info']
         
         # Write cache (main thread only)

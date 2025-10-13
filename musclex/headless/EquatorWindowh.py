@@ -101,7 +101,15 @@ class EquatorWindowh:
                 os.remove(cache_path)
 
         #prevInfo = self.bioImg.info if self.bioImg is not None else None
-        self.bioImg = EquatorImage(self.dir_path, fileName, self, self.fileList, self.ext)
+        try:
+            from musclex.utils.file_manager import load_image_by_index
+            idx = self.currentImg
+            img = load_image_by_index(self.dir_path, self.fileList, idx, fileName)
+        except Exception:
+            from musclex.utils.file_manager import fullPath
+            import fabio
+            img = fabio.open(fullPath(self.dir_path, fileName)).data
+        self.bioImg = EquatorImage(img, self.dir_path, fileName, self)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
 
