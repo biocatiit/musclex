@@ -162,54 +162,7 @@ class EquatorWindow(QMainWindow):
             return
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.setWindowTitle("Muscle X Equator v." + __version__)
-        # self.setStyleSheet(getStyleSheet())
-
-        #self.onImageChanged() # Toggle window to process current image
-        
-
-        self.fileName = self.imgList[self.currentImg]
-        self.filenameLineEdit.setText(self.fileName)
-        self.filenameLineEdit2.setText(self.fileName)
-        # Load image and construct EquatorImage using (img, img_path, img_name, parent)
-        from ..utils.file_manager import load_image_via_spec, get_loader_source
-        try:
-            idx = self.currentImg if hasattr(self, 'currentImg') else 0
-            source = get_loader_source(self.fileList, idx)
-            img = load_image_via_spec(self.dir_path, self.fileName, source)
-        except Exception:
-            # Fallback: direct read if spec not available
-            import fabio
-            from ..utils.file_manager import fullPath
-            img = fabio.open(fullPath(self.dir_path, self.fileName)).data
-        self.bioImg = EquatorImage(img, self.dir_path, self.fileName, self)
-        self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
-        self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
-        if 'paramInfo' in self.bioImg.info:
-            self.k_chkbx.setChecked(self.bioImg.info['paramInfo']['k']['fixed'])
-        self.calSettings=None
-        # Fix the value SigmaS and SigmaC for the first run if there is no cache
-        settings=self.getSettings(first_run=(True if 'model' not in self.bioImg.info else False))
-        settings.update(self.bioImg.info)
-        self.initWidgets(settings)
-        self.initMinMaxIntensities(self.bioImg)
-        self.img_zoom = None
-        self.refreshStatusbar()
-        self.setCalibrationImage()
-        #    self.processImage()
-
-        self.setH5Mode(str(self.fileName))
-        
-        # Initialize process executor after all setup is complete
-        self.initProcessExecutor()
-        
-        # Start UI update timer
-        self.uiUpdateTimer.start()
-        
-        self.processImage()
-        # self.init_logging()
-        # focused_widget = QApplication.focusWidget()
-        # if focused_widget != None:
-        #     focused_widget.clearFocus()
+        self.onImageChanged(first_run=True)
 
     def initProcessExecutor(self):
         """Initialize persistent process pool for parallel processing"""
@@ -2226,24 +2179,7 @@ class EquatorWindow(QMainWindow):
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        try:
-            from ..utils.file_manager import load_image_via_spec, get_loader_source
-            try:
-                idx = self.currentImg
-                source = get_loader_source(self.fileList, idx)
-                img = load_image_via_spec(self.dir_path, fileName, source)
-            except Exception:
-                import fabio
-                from ..utils.file_manager import fullPath
-                img = fabio.open(fullPath(self.dir_path, fileName)).data
-            self.bioImg = EquatorImage(img, self.dir_path, fileName, self)
-        except Exception as e:
-            infMsg = QMessageBox()
-            infMsg.setText("Error trying to open " + str(fileName))
-            infMsg.setInformativeText("This usually means that the image is corrupted or missing.  Skipping this image.")
-            infMsg.setStandardButtons(QMessageBox.Ok)
-            infMsg.setIcon(QMessageBox.Information)
-            infMsg.exec_()
+        self.bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
         if reprocess:
             self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
@@ -2736,16 +2672,8 @@ class EquatorWindow(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for f in self.imgList:
-            from ..utils.file_manager import load_image_via_spec, get_loader_source
-            idx = self.imgList.index(f)
-            try:
-                source = get_loader_source(self.fileList, idx)
-                img = load_image_via_spec(self.dir_path, f, source)
-            except Exception:
-                import fabio
-                from ..utils.file_manager import fullPath
-                img = fabio.open(fullPath(self.dir_path, f)).data
-            bioImg = EquatorImage(img, self.dir_path, f, self)
+
+            bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
             print(f'Getting angle {f}')
 
             if 'rotationAngle' not in bioImg.info:
@@ -3503,57 +3431,70 @@ class EquatorWindow(QMainWindow):
 
         self.syncUI = False
 
-    def onImageChanged(self):
+    def onImageChanged(self, first_run=False):
         """
-        Need to be called when image is change i.e. to the next image.
-        This will create a new EquatorImage object for the new image and syncUI if cache is available
-        Process the new image if there's no cache.
+        Called when image changes (including initial load).
+        Creates a new EquatorImage object and processes it.
+        
+        :param first_run: True if this is the initial image load in __init__
         """
-        if self.fixedFittingParamChanged(self.getSettings()):
+        # Skip refitting check on first run
+        if not first_run and self.fixedFittingParamChanged(self.getSettings()):
             print("Refitting current image first")
             self.refitting()
 
+        # Update UI with current filename
         fileName = self.imgList[self.currentImg]
         self.filenameLineEdit.setText(fileName)
         self.filenameLineEdit2.setText(fileName)
-        # prevInfo = self.bioImg.info if self.bioImg is not None else None
-        from ..utils.file_manager import load_image_via_spec, get_loader_source
-        try:
-            idx = self.currentImg
-            source = get_loader_source(self.fileList, idx)
-            img = load_image_via_spec(self.dir_path, fileName, source)
-        except Exception:
-            import fabio
-            from ..utils.file_manager import fullPath
-            img = fabio.open(fullPath(self.dir_path, fileName)).data
-        self.bioImg = EquatorImage(img, self.dir_path, fileName, self)
+
+        # Create EquatorImage
+        self.bioImg = EquatorImage(
+            self.file_manager.current_image, 
+            self.file_manager.dir_path, 
+            self.file_manager.current_image_name, 
+            self
+        )
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
-        settings = None
-        if len(self.bioImg.info) < 2: # use settings of the previous image
+        
+        # First-run specific setup
+        if first_run:
+            if 'paramInfo' in self.bioImg.info:
+                self.k_chkbx.setChecked(self.bioImg.info['paramInfo']['k']['fixed'])
+            self.calSettings = None
+        
+        # Prepare settings
+        if first_run:
+            settings = self.getSettings(first_run=(True if 'model' not in self.bioImg.info else False))
+            settings.update(self.bioImg.info)
+        elif len(self.bioImg.info) < 2:
             settings = self.getSettings()
-            print("Settings in onImageChange before update")
-            print(settings)
             settings.update(self.bioImg.info)
         else:
             settings = self.bioImg.info
+        
+        # Initialize UI widgets
         self.initWidgets(settings)
         self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
-
-        # if self.fixedParamChanged(prevInfo):
-        #     print("Refitting next image")
-        #     self.refreshAllFittingParams()
-
-        if self.use_previous_fit_chkbx.isChecked():
+        
+        # First-run specific setup
+        if first_run:
+            self.setCalibrationImage()  # Must be after initWidgets
+            self.setH5Mode(str(self.fileName))
+            self.initProcessExecutor()
+            self.uiUpdateTimer.start()
+        
+        # Process image
+        if not first_run and self.use_previous_fit_chkbx.isChecked():
             print("Using previous fit")
             ret = self.updateFittingParamsInParamInfo()
             if ret == -1:
                 return
             self.processImage(self.bioImg.info['paramInfo'])
         else:
-            # Process new image
             self.processImage()
 
     def fixedParamChanged(self, prevInfo):
@@ -3891,19 +3832,7 @@ class EquatorWindow(QMainWindow):
         result = task.result
         filename = task.filename
         
-        # Create temporary bioImg for saving
-        from ..modules.EquatorImage import EquatorImage
-        from ..utils.file_manager import load_image_via_spec
-        try:
-            # We are saving results for the filename corresponding to task
-            idx = self.imgList.index(filename)
-            source = self.fileList[1][idx] if isinstance(self.fileList, list) and len(self.fileList) > 1 else None
-            img = load_image_via_spec(self.dir_path, filename, source)
-        except Exception:
-            import fabio
-            from ..utils.file_manager import fullPath
-            img = fabio.open(fullPath(self.dir_path, filename)).data
-        bioImg = EquatorImage(img, self.dir_path, filename, self)
+        bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
         bioImg.info = result['info']
         
         # Write cache (main thread only)
