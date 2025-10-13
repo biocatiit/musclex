@@ -7,7 +7,7 @@ import os
 import traceback
 
 
-def _init_worker():
+def init_worker():
     """
     Initialize worker process.
     Called once per child process at startup.

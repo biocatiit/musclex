@@ -181,7 +181,7 @@ class EquatorWindow(QMainWindow):
     def initProcessExecutor(self):
         """Initialize persistent process pool for parallel processing"""
         from concurrent.futures import ProcessPoolExecutor
-        from ..headless.mp_executor import _init_worker
+        from ..headless.mp_executor import init_worker
         import os
         
         worker_count = int(os.environ.get('MUSCLEX_WORKERS', max(1, os.cpu_count() - 1)))
@@ -189,7 +189,7 @@ class EquatorWindow(QMainWindow):
         try:
             self.processExecutor = ProcessPoolExecutor(
                 max_workers=worker_count,
-                initializer=_init_worker
+                initializer=init_worker
             )
             print(f"✓ Initialized process pool with {worker_count} workers")
         except Exception as e:
