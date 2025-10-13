@@ -145,6 +145,11 @@ class EquatorWindow(QMainWindow):
         self.uiUpdateTimer.timeout.connect(self.processUIUpdateQueue)
         self.uiUpdateTimer.setInterval(100)  # Check every 100ms
 
+        self._provisionalCount = False
+        self._scan_timer = QTimer(self)
+        self._scan_timer.setInterval(200)
+        self._scan_timer.timeout.connect(self._checkScanDone)
+        
         self.initUI()  # Initial all UI
 
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
@@ -163,6 +168,18 @@ class EquatorWindow(QMainWindow):
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.setWindowTitle("Muscle X Equator v." + __version__)
         self.onImageChanged(first_run=True)
+
+    def _checkScanDone(self):
+        """
+        Check if the scan is done
+        """
+        if not self.file_manager:
+            return
+        if not self.file_manager.is_scan_done():
+            return
+        self._provisionalCount = False
+        self._scan_timer.stop()
+        self.refreshStatusbar()
 
     def initProcessExecutor(self):
         """Initialize persistent process pool for parallel processing"""
@@ -1668,7 +1685,10 @@ class EquatorWindow(QMainWindow):
         self.fileName = file_name
         if not self.file_manager:
             self.file_manager = FileManager()
-            self.file_manager.set_from_file(str(file_name))
+        self.file_manager.set_from_file(str(file_name))
+        self._provisionalCount = True
+        self._scan_timer.start()
+        self.file_manager.start_async_scan(self.file_manager.dir_path)
 
 
     def saveSettings(self):
@@ -3905,8 +3925,9 @@ class EquatorWindow(QMainWindow):
         """
         if self.bioImg is None:
             return
+        total = str(len(self.imgList)) + ('*' if self._provisionalCount else '')
         self.setLeftStatus(
-            "(" + str(self.currentImg + 1) + "/" + str(len(self.imgList)) + ") " + fullPath(self.dir_path,
+            "(" + str(self.currentImg + 1) + "/" + total + ") " + fullPath(self.dir_path,
                                                                                             self.bioImg.filename))
         img = self.bioImg.orig_img
         self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
