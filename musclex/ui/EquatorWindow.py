@@ -1706,7 +1706,7 @@ class EquatorWindow(QMainWindow):
                 self.navFit.processFolderButton.setText("Stop")
                 self.processFolder()
         else:
-            self.stop_process = True
+            self.stopProcess()
 
     def h5batchProcBtnToggled(self):
         """
@@ -1721,7 +1721,7 @@ class EquatorWindow(QMainWindow):
                 self.navFit.processH5Button.setText("Stop")
                 self.processH5Folder()
         else:
-            self.stop_process = True
+            self.stopProcess()
 
     def onBatchComplete(self):
         """Called when all batch tasks complete"""
@@ -1993,14 +1993,31 @@ class EquatorWindow(QMainWindow):
         self.navImg.processH5Button.setText("Reprocess and Refit current H5 File")
         self.navFit.processH5Button.setText("Reprocess and Refit current H5 File")
 
+    def stopProcess(self):
+        """
+        Stop the process
+        """
+        self.stop_process = True
+        if self.processExecutor is not None:
+            self.processExecutor.shutdown(wait=True)
+            self.processExecutor = None
+        self.in_batch_process = False
+        self.progressBar.setVisible(False)
+        self.navImg.nextButton.setEnabled(True)
+        self.navImg.prevButton.setEnabled(True)
+        self.navFit.nextButton.setEnabled(True)
+        self.navFit.prevButton.setEnabled(True)
+        self.navImg.processFolderButton.setChecked(False)
+        self.navFit.processFolderButton.setChecked(False)
+        self.navImg.processH5Button.setChecked(False)
+        self.navFit.processH5Button.setChecked(False)
 
+        self.navImg.filenameLineEdit.setEnabled(True)
+        self.navFit.filenameLineEdit.setEnabled(True)
 
-
-
-
-
-   
-
+        if self.uiUpdateTimer:
+            self.uiUpdateTimer.stop()
+    
 
     def setCalibrationImage(self, force=False):
         """
