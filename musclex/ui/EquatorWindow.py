@@ -449,15 +449,7 @@ class EquatorWindow(QMainWindow):
         self.rejectChkBx.setFixedWidth(100)
 
         # Reusable navigation controls for Image tab
-        self.navImg = NavigationControls(process_folder_text="Reprocess and Refit current folder", process_h5_text="Process All H5 Files")
-        # Backward-compatible aliases
-        self.processFolderButton = self.navImg.processFolderButton
-        self.processH5FolderButton = self.navImg.processH5Button
-        self.nextButton = self.navImg.nextButton
-        self.prevButton = self.navImg.prevButton
-        self.nextFileButton = self.navImg.nextFileButton
-        self.prevFileButton = self.navImg.prevFileButton
-        self.filenameLineEdit = self.navImg.filenameLineEdit
+        self.navImg = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
         self.bottomLayout = QGridLayout()
         self.bottomLayout.addWidget(self.rejectChkBx, 0, 0, 1, 2)
@@ -621,15 +613,7 @@ class EquatorWindow(QMainWindow):
         self.refitAllButton.setCheckable(True)
 
         # Reusable navigation controls for Fitting tab
-        self.navFit = NavigationControls(process_folder_text="Reprocess and Refit current folder", process_h5_text="Reprocess and Refit All H5 Files")
-        # Backward-compatible aliases
-        self.processFolderButton2 = self.navFit.processFolderButton
-        self.processH5FolderButton2 = self.navFit.processH5Button
-        self.nextButton2 = self.navFit.nextButton
-        self.prevButton2 = self.navFit.prevButton
-        self.nextFileButton2 = self.navFit.nextFileButton
-        self.prevFileButton2 = self.navFit.prevFileButton
-        self.filenameLineEdit2 = self.navFit.filenameLineEdit
+        self.navFit = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
         self.bottomLayout2 = QGridLayout()
         self.bottomLayout2.addWidget(self.navFit, 0, 0, 1, 2)
@@ -775,8 +759,6 @@ class EquatorWindow(QMainWindow):
         Set Tooltips for widgets
         """
         ### image tab ###
-        self.nextFileButton.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
         self.centerChkBx.setToolTip("Show the detected projection center")
         self.intChkBx.setToolTip("Show the detected Integrated area ")
         self.rminChkBx.setToolTip("Show the detected R-min")
@@ -805,13 +787,9 @@ class EquatorWindow(QMainWindow):
         self.resetAllB.setToolTip("Reset all manual settings, and process image again with default detection")
         self.rejectChkBx.setToolTip(
             "Reject the case when model cannot be fitted. The word \"REJECTED\" will appear in summary.csv")
-        self.nextButton.setToolTip("Go to the next image in this folder")
-        self.prevButton.setToolTip("Go to the previous image in this folder")
-        self.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
+        self.navImg.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
 
         ### Fitting tab ###
-        self.nextFileButton2.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton2.setToolTip('Previous H5 File in this Folder')
         self.nPeakSpnBx.setToolTip("Select number of peaks on each side that will be fitted by model")
         self.modelSelect.setToolTip("Select the fitting model")
         self.setPeaksB.setToolTip(
@@ -824,9 +802,7 @@ class EquatorWindow(QMainWindow):
         self.fitChkBx.setToolTip("Show the fitting graph")
         self.graphZoomInB.setToolTip("Activate zoom-in operation, click on the graph to select zoom-in area")
         self.graphZoomOutB.setToolTip("Activate zoom-in operation")
-        self.nextButton2.setToolTip("Go to the next image in this folder")
-        self.prevButton2.setToolTip("Go to the previous image in this folder")
-        self.processFolderButton2.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
+        self.navFit.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
         self.refittingB.setToolTip("If you change parameters relating to image processing (e.g. center finding) they will not be used when you refit. Also, image processing parameters (e.g. center) will not change when you refit.")
         self.refitAllButton.setToolTip("Refit all images in the directory again with current fitting parameters")
 
@@ -879,14 +855,14 @@ class EquatorWindow(QMainWindow):
         self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
         self.resetAllB.clicked.connect(self.resetAll)
 
-        self.prevButton.clicked.connect(self.prevClicked)
-        self.nextButton.clicked.connect(self.nextClicked)
-        self.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.prevFileButton.clicked.connect(self.prevFileClicked)
-        #self.processFolderButton.clicked.connect(self.processFolder)
-        self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-        self.processH5FolderButton.toggled.connect(self.h5batchProcBtnToggled)
-        self.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
+        self.navImg.prevButton.clicked.connect(self.prevClicked)
+        self.navImg.nextButton.clicked.connect(self.nextClicked)
+        self.navImg.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navImg.prevFileButton.clicked.connect(self.prevFileClicked)
+        #self.navImg.processFolderButton.clicked.connect(self.processFolder)
+        self.navImg.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.navImg.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navImg.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
@@ -908,14 +884,14 @@ class EquatorWindow(QMainWindow):
         self.graphZoomInB.clicked.connect(self.graphZoomIn)
         self.graphZoomOutB.clicked.connect(self.graphZoomOut)
 
-        #self.processFolderButton2.clicked.connect(self.processFolder)
-        self.processFolderButton2.toggled.connect(self.batchProcBtnToggled)
-        self.processH5FolderButton2.toggled.connect(self.h5batchProcBtnToggled)
-        self.prevButton2.clicked.connect(self.prevClicked)
-        self.nextButton2.clicked.connect(self.nextClicked)
-        self.nextFileButton2.clicked.connect(self.nextFileClicked)
-        self.prevFileButton2.clicked.connect(self.prevFileClicked)
-        self.filenameLineEdit2.editingFinished.connect(self.fileNameChanged)
+        #self.navFit.processFolderButton.clicked.connect(self.processFolder)
+        self.navFit.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+        self.navFit.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        self.navFit.prevButton.clicked.connect(self.prevClicked)
+        self.navFit.nextButton.clicked.connect(self.nextClicked)
+        self.navFit.nextFileButton.clicked.connect(self.nextFileClicked)
+        self.navFit.prevFileButton.clicked.connect(self.prevFileClicked)
+        self.navFit.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.fittingFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.fittingFigure.canvas.mpl_connect('motion_notify_event', self.plotOnMotion)
         self.fittingFigure.canvas.mpl_connect('button_release_event', self.plotReleased)
@@ -1246,7 +1222,7 @@ class EquatorWindow(QMainWindow):
         #     self.resetAll()
         
         isH5 = False
-        if self.file_manager.is_current_h5:
+        if self.file_manager.current_file_type == 'h5':
             isH5 = True
 
         img = self.bioImg.getRotatedImage()
@@ -1721,13 +1697,13 @@ class EquatorWindow(QMainWindow):
         """
         Triggered when the process batch button is toggled.
         """
-        if self.processFolderButton.isChecked():
+        if self.navImg.processFolderButton.isChecked():
             if not self.in_batch_process:
-                self.processFolderButton.setText("Stop")
+                self.navImg.processFolderButton.setText("Stop")
                 self.processFolder()
-        elif self.processFolderButton2.isChecked():
+        elif self.navFit.processFolderButton.isChecked():
             if not self.in_batch_process:
-                self.processFolderButton2.setText("Stop")
+                self.navFit.processFolderButton.setText("Stop")
                 self.processFolder()
         else:
             self.stop_process = True
@@ -1736,13 +1712,13 @@ class EquatorWindow(QMainWindow):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processH5FolderButton.isChecked():
+        if self.navImg.processH5Button.isChecked():
             if not self.progressBar.isVisible():
-                self.processH5FolderButton.setText("Stop")
+                self.navImg.processH5Button.setText("Stop")
                 self.processH5Folder()
-        elif self.processH5FolderButton2.isChecked():
+        elif self.navFit.processH5Button.isChecked():
             if not self.progressBar.isVisible():
-                self.processH5FolderButton2.setText("Stop")
+                self.navFit.processH5Button.setText("Stop")
                 self.processH5Folder()
         else:
             self.stop_process = True
@@ -1752,10 +1728,10 @@ class EquatorWindow(QMainWindow):
         stats = self.taskManager.get_statistics()
         
         # Re-enable navigation
-        self.prevButton.setEnabled(True)
-        self.nextButton.setEnabled(True)
-        self.prevButton2.setEnabled(True)
-        self.nextButton2.setEnabled(True)
+        self.navImg.prevButton.setEnabled(True)
+        self.navImg.nextButton.setEnabled(True)
+        self.navFit.prevButton.setEnabled(True)
+        self.navFit.nextButton.setEnabled(True)
         
         # Print summary
         print("\n" + "="*60)
@@ -1768,15 +1744,11 @@ class EquatorWindow(QMainWindow):
         # Cleanup
         self.in_batch_process = False
         self.progressBar.setVisible(False)
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton2.setChecked(False)
-        
-        if self.file_manager.is_current_h5:
-            self.processFolderButton.setText("Reprocess and Refit current H5 File")
-            self.processFolderButton2.setText("Reprocess and Refit current H5 File")
-        else:
-            self.processFolderButton.setText("Reprocess and Refit current folder")
-            self.processFolderButton2.setText("Reprocess and Refit current folder")
+        self.navImg.processFolderButton.setChecked(False)
+        self.navFit.processFolderButton.setChecked(False)
+
+        self.navImg.processFolderButton.setText("Reprocess and Refit current folder")
+        self.navFit.processFolderButton.setText("Reprocess and Refit current folder")
         
         # Show completion dialog
         QMessageBox.information(self, "Batch Complete",
@@ -1802,8 +1774,8 @@ class EquatorWindow(QMainWindow):
         self.in_batch_process = False
         
         self.progressBar.setVisible(False)
-        self.processFolderButton.setChecked(False)
-        self.processFolderButton2.setChecked(False)
+        self.navImg.processFolderButton.setChecked(False)
+        self.navFit.processFolderButton.setChecked(False)
 
     def _processH5FolderFallback(self):
         """Fallback for H5 folder processing without multiprocessing"""
@@ -1823,8 +1795,8 @@ class EquatorWindow(QMainWindow):
         self.in_batch_process = False
         
         self.progressBar.setVisible(False)
-        self.processH5FolderButton.setChecked(False)
-        self.processH5FolderButton2.setChecked(False)
+        self.navImg.processH5Button.setChecked(False)
+        self.navFit.processH5Button.setChecked(False)
 
     def _buildProcessSettingsText(self, settings, nImg, description):
         """
@@ -1931,10 +1903,10 @@ class EquatorWindow(QMainWindow):
         self.progressBar.setVisible(True)
         
         # Disable navigation during batch
-        self.prevButton.setEnabled(False)
-        self.nextButton.setEnabled(False)
-        self.prevButton2.setEnabled(False)
-        self.nextButton2.setEnabled(False)
+        self.navImg.prevButton.setEnabled(False)
+        self.navImg.nextButton.setEnabled(False)
+        self.navFit.prevButton.setEnabled(False)
+        self.navFit.nextButton.setEnabled(False)
         
         # Prepare settings
         settings = self.getSettings()
@@ -1981,15 +1953,11 @@ class EquatorWindow(QMainWindow):
             self._batchProcessImages(range(len(self.file_manager.names)), process_type="folder")
         else:
             # User cancelled
-            self.processFolderButton.setChecked(False)
-            self.processFolderButton2.setChecked(False)
+            self.navImg.processFolderButton.setChecked(False)
+            self.navFit.processFolderButton.setChecked(False)
             
-        if self.file_manager.is_current_h5:
-            self.processFolderButton.setText("Reprocess and Refit current H5 File")
-            self.processFolderButton2.setText("Reprocess and Refit current H5 File")
-        else:
-            self.processFolderButton.setText("Reprocess and Refit current folder")
-            self.processFolderButton2.setText("Reprocess and Refit current folder")
+        self.navImg.processFolderButton.setText("Reprocess and Refit current folder")
+        self.navFit.processFolderButton.setText("Reprocess and Refit current folder")
 
     def processH5Folder(self):
         """
@@ -2019,11 +1987,20 @@ class EquatorWindow(QMainWindow):
                 print("Error: Could not find H5 file in index map")
         else:
             # User cancelled
-            self.processH5FolderButton.setChecked(False)
-            self.processH5FolderButton2.setChecked(False)
+            self.navImg.processH5Button.setChecked(False)
+            self.navFit.processH5Button.setChecked(False)
         
-        self.processH5FolderButton.setText("Reprocess and Refit All H5 Files")
-        self.processH5FolderButton2.setText("Reprocess and Refit All H5 Files")
+        self.navImg.processH5Button.setText("Reprocess and Refit current H5 File")
+        self.navFit.processH5Button.setText("Reprocess and Refit current H5 File")
+
+
+
+
+
+
+
+   
+
 
     def setCalibrationImage(self, force=False):
         """
@@ -2176,8 +2153,8 @@ class EquatorWindow(QMainWindow):
         """
         self.file_manager.next_frame()
         fileName = self.file_manager.current_image_name
-        self.filenameLineEdit.setText(fileName)
-        self.filenameLineEdit2.setText(fileName)
+        self.navImg.filenameLineEdit.setText(fileName)
+        self.navFit.filenameLineEdit.setText(fileName)
         self.bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, fileName, self)
         if reprocess:
             self.refreshProcessingParams()
@@ -2229,23 +2206,21 @@ class EquatorWindow(QMainWindow):
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
         if self.file_manager.current_file_type == 'h5':
-            self.nextFileButton.show()
-            self.prevFileButton.show()
-            self.nextFileButton2.show()
-            self.prevFileButton2.show()
-            self.processH5FolderButton.show()
-            self.processH5FolderButton2.show()
-            self.processFolderButton.setText("Process Current H5 File")
-            self.processFolderButton2.setText("Process Current H5 File")
+            self.navImg.nextFileButton.show()
+            self.navImg.prevFileButton.show()
+            self.navFit.nextFileButton.show()
+            self.navFit.prevFileButton.show()
+            self.navImg.processH5Button.show()
+            self.navFit.processH5Button.show()
+
         else:
-            self.nextFileButton.hide()
-            self.prevFileButton.hide()
-            self.nextFileButton2.hide()
-            self.prevFileButton2.hide()
-            self.processH5FolderButton.hide()
-            self.processH5FolderButton2.hide()
-            self.processFolderButton.setText("Process Current Folder")
-            self.processFolderButton2.setText("Process Current Folder")
+            self.navImg.nextFileButton.hide()
+            self.navImg.prevFileButton.hide()
+            self.navFit.nextFileButton.hide()
+            self.navFit.prevFileButton.hide()
+            self.navImg.processH5Button.hide()
+            self.navFit.processH5Button.hide()
+
 
     def fileNameChanged(self):
         """
@@ -2253,9 +2228,9 @@ class EquatorWindow(QMainWindow):
         """
         selected_tab = self.tabWidget.currentIndex()
         if selected_tab == 0:
-            fileName = str(self.filenameLineEdit.text()).strip()
+            fileName = str(self.navImg.filenameLineEdit.text()).strip()
         elif selected_tab == 1:
-            fileName = str(self.filenameLineEdit2.text()).strip()
+            fileName = str(self.navFit.filenameLineEdit.text()).strip()
         if fileName not in self.file_manager.names:
             return
         self.file_manager.switch_image_by_name(fileName)
@@ -3436,8 +3411,8 @@ class EquatorWindow(QMainWindow):
 
         # Update UI with current filename
         fileName = self.file_manager.current_image_name
-        self.filenameLineEdit.setText(fileName)
-        self.filenameLineEdit2.setText(fileName)
+        self.navImg.filenameLineEdit.setText(fileName)
+        self.navFit.filenameLineEdit.setText(fileName)
 
         # Create EquatorImage
         self.bioImg = EquatorImage(
