@@ -184,7 +184,7 @@ class EquatorWindow(QMainWindow):
         from ..headless.mp_executor import init_worker
         import os
         
-        worker_count = int(os.environ.get('MUSCLEX_WORKERS', max(1, os.cpu_count() - 1)))
+        worker_count = int(os.environ.get('MUSCLEX_WORKERS', max(1, os.cpu_count() - 2)))
         
         try:
             self.processExecutor = ProcessPoolExecutor(
