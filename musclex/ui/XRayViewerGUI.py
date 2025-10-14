@@ -1453,11 +1453,15 @@ class XRayViewerGUI(QMainWindow):
         self.uiUpdating = True
         min_val = img.min()
         max_val = img.max()
-        self.spmaxInt.setRange(min_val, max_val)
-        self.spminInt.setRange(min_val, max_val)
+        
         if not self.persistIntensity.isChecked():
+            # Only update range and values when NOT persisting
+            self.spmaxInt.setRange(min_val, max_val)
+            self.spminInt.setRange(min_val, max_val)
             self.spmaxInt.setValue(max_val * .5)
             self.spminInt.setValue(min_val)
+        # When persist is checked: don't touch range or values at all
+        
         self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setSingleStep(max_val * .05)
         self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
@@ -1577,10 +1581,17 @@ class XRayViewerGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.xrayViewer.orig_img
+            
+            # Clamp intensity values to image's actual range
+            img_min = img.min()
+            img_max = img.max()
+            display_min = max(img_min, min(self.spminInt.value(), img_max))
+            display_max = max(img_min, min(self.spmaxInt.value(), img_max))
+            
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
+                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=LogNorm(vmin=max(1, display_min), vmax=display_max))
             else:
-                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
+                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=Normalize(vmin=display_min, vmax=display_max))
             ax.set_facecolor('black')
 
             # Set Zoom in location
