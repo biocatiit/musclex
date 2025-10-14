@@ -1956,8 +1956,6 @@ class EquatorWindow(QMainWindow):
             self.navImg.processFolderButton.setChecked(False)
             self.navFit.processFolderButton.setChecked(False)
             
-        self.navImg.processFolderButton.setText("Reprocess and Refit current folder")
-        self.navFit.processFolderButton.setText("Reprocess and Refit current folder")
 
     def processH5Folder(self):
         """
@@ -1990,8 +1988,6 @@ class EquatorWindow(QMainWindow):
             self.navImg.processH5Button.setChecked(False)
             self.navFit.processH5Button.setChecked(False)
         
-        self.navImg.processH5Button.setText("Reprocess and Refit current H5 File")
-        self.navFit.processH5Button.setText("Reprocess and Refit current H5 File")
 
     def stopProcess(self):
         """
