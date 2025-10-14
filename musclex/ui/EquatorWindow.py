@@ -1805,17 +1805,40 @@ class EquatorWindow(QMainWindow):
         self.processFolderButton.setChecked(False)
         self.processFolderButton2.setChecked(False)
 
-    def processFolder(self):
-        """
-        Process current folder
-        """
+    def _processH5FolderFallback(self):
+        """Fallback for H5 folder processing without multiprocessing"""
+        nImg = self.file_manager.current_h5_nframes
+        self.progressBar.setMaximum(nImg)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setVisible(True)
 
-        ## Popup confirm dialog with settings
-        nImg = len(self.file_manager.names)
-        errMsg = QMessageBox()
-        errMsg.setText('Process Current Folder')
-        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
-        settings = self.getSettings()
+        self.in_batch_process = True
+        self.stop_process = False
+        for i in range(nImg):
+            if self.stop_process:
+                break
+            self.progressBar.setValue(i)
+            QApplication.processEvents()
+            self.nextImageFitting(True)
+        self.in_batch_process = False
+        
+        self.progressBar.setVisible(False)
+        self.processH5FolderButton.setChecked(False)
+        self.processH5FolderButton2.setChecked(False)
+
+    def _buildProcessSettingsText(self, settings, nImg, description):
+        """
+        Build settings information text for process confirmation dialog
+        
+        Args:
+            settings: Current settings dictionary
+            nImg: Number of images to process
+            description: Description of what will be processed
+            
+        Returns:
+            Formatted text string with all settings
+        """
+        text = f'The {description} will be processed using current settings. Make sure to adjust them before processing. \n\n'
         text += "\nCurrent Settings"
 
         if 'fixed_angle' in settings:
@@ -1871,8 +1894,82 @@ class EquatorWindow(QMainWindow):
                     text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
                     text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
 
-        text += '\n\nAre you sure you want to process ' + str(
-            nImg) + ' image(s) in this Folder? \nThis might take a long time.'
+        text += f'\n\nAre you sure you want to process {nImg} image(s)? \nThis might take a long time.'
+        return text
+
+    def _batchProcessImages(self, job_indices, process_type="folder"):
+        """
+        Common batch processing logic using multiprocessing
+        
+        Args:
+            job_indices: List or range of indices in self.file_manager.names to process
+            process_type: Type of processing ("folder" or "h5") for logging
+        """
+        # Fallback to old method if multiprocessing failed
+        if self.processExecutor is None:
+            if process_type == "h5":
+                self._processH5FolderFallback()
+            else:
+                self._processFolderFallback()
+            return
+        
+        nImg = len(job_indices)
+        
+        # Setup for batch processing
+        self.in_batch_process = True
+        self.stop_process = False
+        
+        # Reset task management
+        self.taskManager.clear()
+        self.currentDisplayIndex = 0
+        self.pendingUIUpdates = {}
+        
+        # Display progress bar
+        self.progressBar.setMaximum(nImg)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setValue(0)
+        self.progressBar.setVisible(True)
+        
+        # Disable navigation during batch
+        self.prevButton.setEnabled(False)
+        self.nextButton.setEnabled(False)
+        self.prevButton2.setEnabled(False)
+        self.nextButton2.setEnabled(False)
+        
+        # Prepare settings
+        settings = self.getSettings()
+        settings['no_cache'] = True 
+        
+        # Submit all jobs to process pool
+        from ..headless.mp_executor import process_one_image
+        
+        for job_index in job_indices:
+            if self.stop_process:
+                break
+            
+            filename = self.file_manager.names[job_index]
+            spec = self.file_manager.specs[job_index]
+            job_args = (settings, None, self.file_manager.dir_path, filename, spec)
+            
+            future = self.processExecutor.submit(process_one_image, job_args)
+            task = self.taskManager.submit_task(filename, job_index, future)
+            
+            # Attach callback
+            future.add_done_callback(self._onFutureDone)
+        
+        print(f"Batch {process_type} started: {nImg} images submitted to process pool")
+
+    def processFolder(self):
+        """
+        Process current folder
+        """
+        ## Popup confirm dialog with settings
+        nImg = len(self.file_manager.names)
+        settings = self.getSettings()
+        
+        errMsg = QMessageBox()
+        errMsg.setText('Process Current Folder')
+        text = self._buildProcessSettingsText(settings, nImg, "current folder")
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
@@ -1880,59 +1977,13 @@ class EquatorWindow(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-            # Fallback to old method if multiprocessing failed
-            if self.processExecutor is None:
-                self._processFolderFallback()
-                return
-            
-            # Setup for batch processing
-            self.in_batch_process = True
-            self.stop_process = False
-            
-            # Reset task management
-            self.taskManager.clear()
-            self.currentDisplayIndex = 0
-            self.pendingUIUpdates = {}
-            
-            # Display progress bar
-            self.progressBar.setMaximum(nImg)
-            self.progressBar.setMinimum(0)
-            self.progressBar.setValue(0)
-            self.progressBar.setVisible(True)
-            
-            # Disable navigation during batch
-            self.prevButton.setEnabled(False)
-            self.nextButton.setEnabled(False)
-            self.prevButton2.setEnabled(False)
-            self.nextButton2.setEnabled(False)
-            
-            # Prepare settings
-            settings = self.getSettings()
-            settings['no_cache'] = True 
-            
-            # Submit all jobs to process pool
-            from ..headless.mp_executor import process_one_image
-            
-            for job_index, filename in enumerate(self.file_manager.names):
-                if self.stop_process:
-                    break
-                
-                # Extract serializable data instead of passing FileManager object
-                spec = self.file_manager.specs[job_index]
-                job_args = (settings, None, self.file_manager.dir_path, filename, spec)
-                
-                future = self.processExecutor.submit(process_one_image, job_args)
-                task = self.taskManager.submit_task(filename, job_index, future)
-                
-                # Attach callback
-                future.add_done_callback(self._onFutureDone)
-            
-            print(f"Batch started: {len(self.file_manager.names)} images submitted to process pool")
-
+            # Process all images in folder
+            self._batchProcessImages(range(len(self.file_manager.names)), process_type="folder")
         else:
             # User cancelled
             self.processFolderButton.setChecked(False)
             self.processFolderButton2.setChecked(False)
+            
         if self.file_manager.is_current_h5:
             self.processFolderButton.setText("Reprocess and Refit current H5 File")
             self.processFolderButton2.setText("Reprocess and Refit current H5 File")
@@ -1942,71 +1993,15 @@ class EquatorWindow(QMainWindow):
 
     def processH5Folder(self):
         """
-        Process current folder of H5 file
+        Process current H5 file (all frames)
         """
         ## Popup confirm dialog with settings
         nImg = self.file_manager.current_h5_nframes
-        errMsg = QMessageBox()
-        errMsg.setText('Process Current Folder')
-        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         settings = self.getSettings()
-        text += "\nCurrent Settings"
-
-        if 'fixed_angle' in settings:
-            text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
-        if 'fixed_rmin' in settings:
-            text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
-        if 'fixed_rmax' in settings:
-            text += "\n  - Fixed R-max : " + str(settings["fixed_rmax"])
-        if 'fixed_int_area' in settings:
-            text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
-
-        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
-        text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
-        text += "\n  - Extra Peak : " + str(settings["isExtraPeak"])
-        text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
-        text += "\n  - Model : " + str(settings["model"])
-
-        for side in ['left', 'right']:
-            if side+'_fix_sigmac' in settings:
-                text += "\n  - "+side+" Fixed Sigma C : " + str(settings[side+'_fix_sigmac'])
-            if side+'_fix_sigmad' in settings:
-                text += "\n  - "+side+" Fixed Sigma D : " + str(settings[side+'_fix_sigmad'])
-            if side+'_fix_sigmas' in settings:
-                text += "\n  - "+side+" Fixed Sigma S : " + str(settings[side+'_fix_sigmas'])
-            if side+'_fix_gamma' in settings:
-                text += "\n  - "+side+" Fixed Gamma : " + str(settings[side+'_fix_gamma'])
-            if side+'_fix_zline' in settings:
-                text += "\n  - "+side+" Fixed Z line Center: " + str(settings[side+'_fix_zline'])
-            if side+'_fix_intz' in settings:
-                text += "\n  - "+side+" Fixed Z line Intensity : " + str(settings[side+'_fix_intz'])
-            if side+'_fix_sigz' in settings:
-                text += "\n  - "+side+" Fixed Z line Sigma : " + str(settings[side+'_fix_sigz'])
-            if side+'_fix_gammaz' in settings:
-                text += "\n  - "+side+" Fixed Z line Gamma : " + str(settings[side+'_fix_gammaz'])
-            if side+'_fix_zline_EP' in settings:
-                text += "\n  - "+side+" Fixed Extra Peak Center: " + str(settings[side+'_fix_zline_EP'])
-            if side+'_fix_intz_EP' in settings:
-                text += "\n  - "+side+" Fixed Extra Peak Intensity : " + str(settings[side+'_fix_intz_EP'])
-            if side+'_fix_sigz_EP' in settings:
-                text += "\n  - "+side+" Fixed Extra Peak Sigma : " + str(settings[side+'_fix_sigz_EP'])
-            if side+'_fix_gammaz_EP' in settings:
-                text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
-
-        if self.calSettings is not None and len(self.calSettings) > 0:
-            if "center" in self.calSettings:
-                text += "\n  - Calibration Center : " + str(self.calSettings["center"])
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
-                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
-                else:
-                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
-                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
-                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
-
-        text += '\n\nAre you sure you want to process ' + str(
-            self.file_manager.current_h5_nframes) + ' H5 file(s) in this Folder? \nThis might take a long time.'
+        
+        errMsg = QMessageBox()
+        errMsg.setText('Process Current H5 File')
+        text = self._buildProcessSettingsText(settings, nImg, "current H5 file")
         errMsg.setInformativeText(text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
@@ -2014,31 +2009,20 @@ class EquatorWindow(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-
-            # Display progress bar
-            self.progressBar.setMaximum(nImg)
-            self.progressBar.setMinimum(0)
-            self.progressBar.setVisible(True)
-
-            ## Process all images and update progress bar
-            self.in_batch_process = True
-            self.stop_process = False
-            for _ in range(self.file_manager.current_h5_nframes):
-                for i in range(nImg):
-                    if self.stop_process:
-                        break
-                    self.progressBar.setValue(i)
-                    QApplication.processEvents()
-                    self.nextImageFitting(True)
-                if self.stop_process:
-                    break
-                self.nextFileClicked()
-            self.in_batch_process = False
-
-        self.progressBar.setVisible(False)
-        self.processH5FolderButton.setChecked(False)
+            # Get the range of indices corresponding to current H5 file
+            current_h5_path = self.file_manager._get_current_file_info()[2]  # Get file path
+            if current_h5_path in self.file_manager.h5_index_map:
+                start_idx, end_idx = self.file_manager.h5_index_map[current_h5_path]
+                # Process all frames in this H5 file
+                self._batchProcessImages(range(start_idx, end_idx + 1), process_type="h5")
+            else:
+                print("Error: Could not find H5 file in index map")
+        else:
+            # User cancelled
+            self.processH5FolderButton.setChecked(False)
+            self.processH5FolderButton2.setChecked(False)
+        
         self.processH5FolderButton.setText("Reprocess and Refit All H5 Files")
-        self.processH5FolderButton2.setChecked(False)
         self.processH5FolderButton2.setText("Reprocess and Refit All H5 Files")
 
     def setCalibrationImage(self, force=False):
