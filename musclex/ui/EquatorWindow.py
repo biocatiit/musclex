@@ -1761,48 +1761,6 @@ class EquatorWindow(QMainWindow):
         self.navImg.processFolderButton.setText("Process current folder")
         self.navFit.processFolderButton.setText("Process current folder")
     
-    def _processFolderFallback(self):
-        """Fallback to thread-based batch processing"""
-        nImg = len(self.file_manager.names)
-        self.progressBar.setMaximum(nImg)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setVisible(True)
-        
-        self.in_batch_process = True
-        self.stop_process = False
-        for i in range(nImg):
-            if self.stop_process:
-                break
-            self.progressBar.setValue(i)
-            QApplication.processEvents()
-            self.nextImageFitting(True)
-        self.in_batch_process = False
-        
-        self.progressBar.setVisible(False)
-        self.navImg.processFolderButton.setChecked(False)
-        self.navFit.processFolderButton.setChecked(False)
-
-    def _processH5FolderFallback(self):
-        """Fallback for H5 folder processing without multiprocessing"""
-        nImg = self.file_manager.current_h5_nframes
-        self.progressBar.setMaximum(nImg)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setVisible(True)
-
-        self.in_batch_process = True
-        self.stop_process = False
-        for i in range(nImg):
-            if self.stop_process:
-                break
-            self.progressBar.setValue(i)
-            QApplication.processEvents()
-            self.nextImageFitting(True)
-        self.in_batch_process = False
-        
-        self.progressBar.setVisible(False)
-        self.navImg.processH5Button.setChecked(False)
-        self.navFit.processH5Button.setChecked(False)
-
     def _buildProcessSettingsText(self, settings, nImg, description):
         """
         Build settings information text for process confirmation dialog
@@ -1884,12 +1842,8 @@ class EquatorWindow(QMainWindow):
         """
         # Fallback to old method if multiprocessing failed
         if self.processExecutor is None:
-            if process_type == "h5":
-                self._processH5FolderFallback()
-            else:
-                self._processFolderFallback()
-            return
-        
+            self.initProcessExecutor()
+
         nImg = len(job_indices)
         
         # Setup for batch processing
@@ -1907,11 +1861,6 @@ class EquatorWindow(QMainWindow):
         self.progressBar.setValue(0)
         self.progressBar.setVisible(True)
         
-        # Disable navigation during batch
-        self.navImg.prevButton.setEnabled(False)
-        self.navImg.nextButton.setEnabled(False)
-        self.navFit.prevButton.setEnabled(False)
-        self.navFit.nextButton.setEnabled(False)
         
         # Prepare settings
         settings = self.getSettings()
@@ -2001,7 +1950,7 @@ class EquatorWindow(QMainWindow):
         self.stop_process = True
         if self.processExecutor:
             self.processExecutor.shutdown(wait=False, cancel_futures=True)
-
+            self.processExecutor = None
         running_count = self.taskManager.get_running_count()
 
         # Use QProgressDialog with indeterminate progress (no progress bar)
@@ -2032,9 +1981,10 @@ class EquatorWindow(QMainWindow):
             self._stopProgress.close()
             self._cleanupAfterBatch()
         
-        if getattr(self, '_closingAfterStop', False):
-            self._closingAfterStop = False
-            QTimer.singleShot(0, self.close)
+            if getattr(self, '_closingAfterStop', False):
+                self._closingAfterStop = False
+                QTimer.singleShot(0, self.close)
+
 
 
     def setCalibrationImage(self, force=False):
