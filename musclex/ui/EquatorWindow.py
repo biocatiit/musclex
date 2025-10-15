@@ -1994,7 +1994,11 @@ class EquatorWindow(QMainWindow):
         Stop the process
         """
         self.stop_process = True
-        
+
+        if self.processExecutor:
+            self.processExecutor.shutdown(wait=False, cancel_futures=True)
+    
+
         running_count = self.taskManager.get_running_count()
 
         self._stopMsgBox = QMessageBox(self)
