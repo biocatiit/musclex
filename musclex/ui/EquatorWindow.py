@@ -1995,10 +1995,6 @@ class EquatorWindow(QMainWindow):
         """
         self.stop_process = True
 
-        if self.processExecutor:
-            self.processExecutor.shutdown(wait=False, cancel_futures=True)
-    
-
         running_count = self.taskManager.get_running_count()
 
         self._stopMsgBox = QMessageBox(self)
@@ -2008,13 +2004,10 @@ class EquatorWindow(QMainWindow):
         msg = f"Waiting for {running_count} tasks to complete..."
         self._stopMsgBox.setInformativeText(msg)
         self._stopMsgBox.show()
-        QApplication.processEvents()
         if self.processExecutor:
-            self.processExecutor.shutdown(wait=True, cancel_futures=True)
+            self.processExecutor.shutdown(wait=False, cancel_futures=True)
     
 
-
-        
         self._stopMsgTimer = QTimer(self)
         self._stopMsgTimer.setInterval(300)
         self._stopMsgTimer.timeout.connect(self._updateStopMsgBox)
