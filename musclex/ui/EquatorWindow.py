@@ -2000,6 +2000,7 @@ class EquatorWindow(QMainWindow):
         self._stopMsgBox = QMessageBox(self)
         self._stopMsgBox.setWindowTitle("Stopping Batch Processing")
         self._stopMsgBox.setIcon(QMessageBox.Information)
+        self._stopMsgBox.setStandardButtons(QMessageBox.NoButton)
 
         msg = f"Waiting for {running_count} tasks to complete..."
         self._stopMsgBox.setInformativeText(msg)
