@@ -1760,6 +1760,7 @@ class EquatorWindow(QMainWindow):
 
         self.navImg.processFolderButton.setText("Process current folder")
         self.navFit.processFolderButton.setText("Process current folder")
+        self.processExecutor = None
     
     def _buildProcessSettingsText(self, settings, nImg, description):
         """
@@ -1950,7 +1951,6 @@ class EquatorWindow(QMainWindow):
         self.stop_process = True
         if self.processExecutor:
             self.processExecutor.shutdown(wait=False, cancel_futures=True)
-            self.processExecutor = None
         running_count = self.taskManager.get_running_count()
 
         # Use QProgressDialog with indeterminate progress (no progress bar)
