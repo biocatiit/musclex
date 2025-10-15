@@ -1999,35 +1999,33 @@ class EquatorWindow(QMainWindow):
 
         running_count = self.taskManager.get_running_count()
 
-        self._stopMsgBox = QMessageBox(self)
-        self._stopMsgBox.setWindowTitle("Stopping Batch Processing")
-        self._stopMsgBox.setIcon(QMessageBox.Information)
-        self._stopMsgBox.setStandardButtons(QMessageBox.NoButton)
-        self._stopMsgBox.setModal(False)
-
-        msg = f"Waiting for {running_count} tasks to complete..."
-        self._stopMsgBox.setInformativeText(msg)
-        self._stopMsgBox.show()
-
-    
+        # Use QProgressDialog instead of QMessageBox for better user experience
+        self._stopProgress = QProgressDialog("Stopping tasks...", None, 0, running_count, self)
+        self._stopProgress.setWindowTitle("Stopping Batch Processing")
+        self._stopProgress.setModal(False)
+        self._stopProgress.setValue(0)
+        self._stopProgress.show()
 
         self._stopMsgTimer = QTimer(self)
         self._stopMsgTimer.setInterval(300)
-        self._stopMsgTimer.timeout.connect(self._updateStopMsgBox)
+        self._stopMsgTimer.timeout.connect(self._updateStopProgress)
         self._stopMsgTimer.start()
         
         
         
-    def _updateStopMsgBox(self):
-        if not hasattr(self, '_stopMsgBox') or self._stopMsgBox is None:
+    def _updateStopProgress(self):
+        if not hasattr(self, '_stopProgress') or self._stopProgress is None:
             return
         running_count = self.taskManager.get_running_count()
-        msg = f"Waiting for {running_count} tasks to complete..."
-        self._stopMsgBox.setInformativeText(msg)
+        
+        # Update progress: completed tasks = maximum - running tasks
+        completed = self._stopProgress.maximum() - running_count
+        self._stopProgress.setValue(completed)
+        self._stopProgress.setLabelText(f"Stopping tasks... {running_count} remaining")
         
         if running_count == 0:
             self._stopMsgTimer.stop()
-            self._stopMsgBox.close()
+            self._stopProgress.close()
         
         if getattr(self, '_closingAfterStop', False):
             self._closingAfterStop = False
