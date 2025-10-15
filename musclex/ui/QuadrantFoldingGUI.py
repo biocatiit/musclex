@@ -3086,11 +3086,15 @@ class QuadrantFoldingGUI(QMainWindow):
         self.uiUpdating = True
         min_val = img.min()
         max_val = img.max()
-        self.spmaxInt.setRange(min_val, max_val)
-        self.spminInt.setRange(min_val, max_val)
+        
         if not self.persistIntensity.isChecked():
+            # Only update range and values when NOT persisting
+            self.spmaxInt.setRange(min_val, max_val)
+            self.spminInt.setRange(min_val, max_val)
             self.spmaxInt.setValue(max_val * .5)
             self.spminInt.setValue(min_val)
+        # When persist is checked: don't touch range or values at all
+        
         self.spmaxInt.setSingleStep(max_val * .05)
         self.spminInt.setSingleStep(max_val * .05)
 

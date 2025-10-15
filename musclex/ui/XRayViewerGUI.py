@@ -1581,17 +1581,10 @@ class XRayViewerGUI(QMainWindow):
             ax = self.imageAxes
             ax.cla()
             img = self.xrayViewer.orig_img
-            
-            # Clamp intensity values to image's actual range
-            img_min = img.min()
-            img_max = img.max()
-            display_min = max(img_min, min(self.spminInt.value(), img_max))
-            display_max = max(img_min, min(self.spmaxInt.value(), img_max))
-            
             if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=LogNorm(vmin=max(1, display_min), vmax=display_max))
+                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
             else:
-                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=Normalize(vmin=display_min, vmax=display_max))
+                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
             ax.set_facecolor('black')
 
             # Set Zoom in location

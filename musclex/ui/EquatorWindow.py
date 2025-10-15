@@ -3944,8 +3944,20 @@ class EquatorWindow(QMainWindow):
         self.syncUI = True
         min_val = img.min()
         max_val = img.max()
-        self.minIntSpnBx.setRange(min_val, max_val)
-        self.maxIntSpnBx.setRange(min_val, max_val)
+        
+        if not self.persistIntensity.isChecked():
+            # Only update range and values when NOT persisting
+            self.minIntSpnBx.setRange(min_val, max_val)
+            self.maxIntSpnBx.setRange(min_val, max_val)
+            # use cached values if they're available, otherwise use defaults
+            if "minInt" in self.bioImg.info and "maxInt" in self.bioImg.info:
+                self.minIntSpnBx.setValue(self.bioImg.info["minInt"])
+                self.maxIntSpnBx.setValue(self.bioImg.info["maxInt"])
+            else:
+                self.minIntSpnBx.setValue(min_val)
+                self.maxIntSpnBx.setValue(max_val * 0.20)
+        # When persist is checked: don't touch range or values at all
+        
         self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
         self.maxIntLabel.setText("Max Intensity ("+str(max_val)+")")
         step = (max_val - min_val) * 0.07  # set spinboxes step as 7% of image range
@@ -3955,13 +3967,6 @@ class EquatorWindow(QMainWindow):
         self.minIntSpnBx.setDecimals(2)
         self.maxIntSpnBx.setDecimals(2)
 
-        # use cached values if they're available
-        if "minInt" in self.bioImg.info and "maxInt" in self.bioImg.info:
-            self.minIntSpnBx.setValue(self.bioImg.info["minInt"])
-            self.maxIntSpnBx.setValue(self.bioImg.info["maxInt"])
-        elif not self.persistIntensity.isChecked():
-            self.minIntSpnBx.setValue(min_val)
-            self.maxIntSpnBx.setValue(max_val * 0.20)
         self.syncUI = False
         
 
