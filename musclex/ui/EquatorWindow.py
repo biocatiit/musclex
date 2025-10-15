@@ -1956,7 +1956,7 @@ class EquatorWindow(QMainWindow):
         # Use QProgressDialog with indeterminate progress (no progress bar)
         msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
         self._stopProgress = QProgressDialog(msg, None, 0, 0, self)
-        self._stopProgress.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        self._stopProgress.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self._stopProgress.setModal(False)
         self._stopProgress.show()
 
