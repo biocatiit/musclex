@@ -3294,10 +3294,22 @@ class EquatorWindow(QMainWindow):
         Trigger when window is closed
         """
         if hasattr(self, 'taskManager') and self.taskManager.get_running_count() > 0:
-            ev.ignore()
-            if not getattr(self, '_closingAfterStop', False):
-                self._closingAfterStop = True
-                self.stopProcess()
+            # Show confirmation dialog
+            reply = QMessageBox.question(
+                self,
+                'Confirm Close',
+                'Tasks are currently running. Are you sure you want to close and stop all tasks?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                ev.ignore()
+                if not getattr(self, '_closingAfterStop', False):
+                    self._closingAfterStop = True
+                    self.stopProcess()
+            else:
+                ev.ignore()
             return
 
         
