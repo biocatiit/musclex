@@ -1994,6 +1994,8 @@ class EquatorWindow(QMainWindow):
         Stop the process
         """
         self.stop_process = True
+        if self.processExecutor:
+            self.processExecutor.shutdown(wait=False, cancel_futures=True)
 
         running_count = self.taskManager.get_running_count()
 
@@ -2001,12 +2003,12 @@ class EquatorWindow(QMainWindow):
         self._stopMsgBox.setWindowTitle("Stopping Batch Processing")
         self._stopMsgBox.setIcon(QMessageBox.Information)
         self._stopMsgBox.setStandardButtons(QMessageBox.NoButton)
+        self._stopMsgBox.setModal(False)
 
         msg = f"Waiting for {running_count} tasks to complete..."
         self._stopMsgBox.setInformativeText(msg)
         self._stopMsgBox.show()
-        if self.processExecutor:
-            self.processExecutor.shutdown(wait=False, cancel_futures=True)
+
     
 
         self._stopMsgTimer = QTimer(self)
@@ -2017,6 +2019,8 @@ class EquatorWindow(QMainWindow):
         
         
     def _updateStopMsgBox(self):
+        if not hasattr(self, '_stopMsgBox') or self._stopMsgBox is None:
+            return
         running_count = self.taskManager.get_running_count()
         msg = f"Waiting for {running_count} tasks to complete..."
         self._stopMsgBox.setInformativeText(msg)
@@ -2024,6 +2028,10 @@ class EquatorWindow(QMainWindow):
         if running_count == 0:
             self._stopMsgTimer.stop()
             self._stopMsgBox.close()
+        
+        if getattr(self, '_closingAfterStop', False):
+            self._closingAfterStop = False
+            QTimer.singleShot(0, self.close)
 
 
     def setCalibrationImage(self, force=False):
@@ -3332,21 +3340,25 @@ class EquatorWindow(QMainWindow):
         """
         Trigger when window is closed
         """
-        # Shutdown process pool
-        if self.processExecutor is not None:
-            print("Shutting down process pool...")
-            self.processExecutor.shutdown(wait=True, cancel_futures=True)
-            print("Process pool shutdown complete")
+        if hasattr(self, 'taskManager') and self.taskManager.get_running_count() > 0:
+            ev.ignore()
+            if not getattr(self, '_closingAfterStop', False):
+                self._closingAfterStop = True
+                self.stopProcess()
+            return
+
         
-        # Stop UI update timer
-        if self.uiUpdateTimer:
-            self.uiUpdateTimer.stop()
         
         # delete window object from main window
         if self.logger is not None:
             self.logger.popup()
             self.logger.close()
-        self.mainWindow.childWindowClosed(self)
+
+        if not getattr(self, "_notifiedParentClosed", False):
+            self._notifiedParentClosed = True
+            self.mainWindow.childWindowClosed(self)
+        
+        super().closeEvent(ev)
 
     def initWidgets(self, info):
         """
