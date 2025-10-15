@@ -1742,19 +1742,24 @@ class EquatorWindow(QMainWindow):
         print("="*60)
         
         # Cleanup
-        self.in_batch_process = False
-        self.progressBar.setVisible(False)
-        self.navImg.processFolderButton.setChecked(False)
-        self.navFit.processFolderButton.setChecked(False)
-
-        self.navImg.processFolderButton.setText("Reprocess and Refit current folder")
-        self.navFit.processFolderButton.setText("Reprocess and Refit current folder")
+        self._cleanupAfterBatch()
         
         # Show completion dialog
         QMessageBox.information(self, "Batch Complete",
             f"Processed {stats['completed']}/{stats['total']} images\n"
             f"Failed: {stats['failed']}\n"
             f"Avg time: {stats['avg_time']:.2f}s per image")
+    
+
+    def _cleanupAfterBatch(self):
+        # Cleanup
+        self.in_batch_process = False
+        self.progressBar.setVisible(False)
+        self.navImg.processFolderButton.setChecked(False)
+        self.navFit.processFolderButton.setChecked(False)
+
+        self.navImg.processFolderButton.setText("Process current folder")
+        self.navFit.processFolderButton.setText("Process current folder")
     
     def _processFolderFallback(self):
         """Fallback to thread-based batch processing"""
@@ -2025,6 +2030,7 @@ class EquatorWindow(QMainWindow):
         if running_count == 0:
             self._stopMsgTimer.stop()
             self._stopProgress.close()
+            self._cleanupAfterBatch()
         
         if getattr(self, '_closingAfterStop', False):
             self._closingAfterStop = False
