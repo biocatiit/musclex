@@ -2000,9 +2000,9 @@ class EquatorWindow(QMainWindow):
         running_count = self.taskManager.get_running_count()
 
         # Use QProgressDialog with indeterminate progress (no progress bar)
-        msg = f"Waiting for {running_count} tasks to complete..."
+        msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
         self._stopProgress = QProgressDialog(msg, None, 0, 0, self)
-        self._stopProgress.setWindowTitle("Stopping Batch Processing")
+        self._stopProgress.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
         self._stopProgress.setModal(False)
         self._stopProgress.show()
 
@@ -2019,7 +2019,7 @@ class EquatorWindow(QMainWindow):
         running_count = self.taskManager.get_running_count()
         
         # Update the message text only
-        msg = f"Waiting for {running_count} tasks to complete..."
+        msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
         self._stopProgress.setLabelText(msg)
         
         if running_count == 0:
