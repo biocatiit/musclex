@@ -1996,7 +1996,7 @@ class EquatorWindow(QMainWindow):
         self.stop_process = True
 
         if self.processExecutor:
-            self.processExecutor.shutdown(wait=True, cancel_futures=True)
+            self.processExecutor.shutdown(wait=False, cancel_futures=True)
     
 
         running_count = self.taskManager.get_running_count()
