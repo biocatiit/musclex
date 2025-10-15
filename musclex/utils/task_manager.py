@@ -146,6 +146,12 @@ class ProcessingTaskManager:
                 'avg_time': avg_time
             }
     
+    def get_running_count(self) -> int:
+        """Get the number of running tasks"""
+        with self.lock:
+            return sum(1 for task in self.tasks.values()
+                       if task.future and task.future.running())
+    
     def clear(self):
         """Clear all task tracking (for new batch)"""
         with self.lock:
