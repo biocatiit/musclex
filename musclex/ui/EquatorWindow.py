@@ -1994,20 +1994,22 @@ class EquatorWindow(QMainWindow):
         Stop the process
         """
         self.stop_process = True
-
-        if self.processExecutor:
-            self.processExecutor.shutdown(wait=True, cancel_futures=True)
-    
-
+        
         running_count = self.taskManager.get_running_count()
 
         self._stopMsgBox = QMessageBox(self)
         self._stopMsgBox.setWindowTitle("Stopping Batch Processing")
         self._stopMsgBox.setIcon(QMessageBox.Information)
-        self._stopMsgBox.show()
 
         msg = f"Waiting for {running_count} tasks to complete..."
         self._stopMsgBox.setInformativeText(msg)
+        self._stopMsgBox.show()
+        QApplication.processEvents()
+        if self.processExecutor:
+            self.processExecutor.shutdown(wait=True, cancel_futures=True)
+    
+
+
         
         self._stopMsgTimer = QTimer(self)
         self._stopMsgTimer.setInterval(300)
@@ -2015,10 +2017,12 @@ class EquatorWindow(QMainWindow):
         self._stopMsgTimer.start()
         
         
+        
     def _updateStopMsgBox(self):
         running_count = self.taskManager.get_running_count()
         msg = f"Waiting for {running_count} tasks to complete..."
         self._stopMsgBox.setInformativeText(msg)
+        
         if running_count == 0:
             self._stopMsgTimer.stop()
             self._stopMsgBox.close()
