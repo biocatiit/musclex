@@ -227,7 +227,16 @@ class EquatorWindow(QMainWindow):
         # Update Image tab preview if visible
         if self.tabWidget.currentIndex() == 0:  # Image tab
             if task.result and not task.error:
+                # Update bioImg with processed image data from worker
                 self.bioImg.info = task.result['info']
+                self.bioImg.image = task.result['image']
+                # Reconstruct rotated_img cache
+                self.bioImg.rotated_img = [
+                    task.result['info']['center'],
+                    task.result['info']['rotationAngle'],
+                    task.result['image'],
+                    task.result['rotated_img']
+                ]
                 self.updateImageTab()
         
         # Check if batch is complete
@@ -3799,7 +3808,11 @@ class EquatorWindow(QMainWindow):
         result = task.result
         filename = task.filename
         
-        bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
+        # Get the correct image for this task
+        img = self.file_manager.get_image_by_index(task.job_index)
+        
+        # Create EquatorImage with correct filename from task
+        bioImg = EquatorImage(img, self.file_manager.dir_path, filename, self)
         bioImg.info = result['info']
         
         # Write cache (main thread only)

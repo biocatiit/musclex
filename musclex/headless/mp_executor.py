@@ -69,10 +69,12 @@ def process_one_image(args):
         # Process the image
         bioImg.process(settings, paramInfo)
         
-        # Return results (no cache written by child)
+        # Return results including processed images for UI preview
         return {
             'filename': filename,
             'info': bioImg.info,  # All results stored here
+            'image': bioImg.image,  # Processed image (with mask applied)
+            'rotated_img': bioImg.getRotatedImage(),  # Rotated image for display
             'error': None
         }
     
