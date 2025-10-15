@@ -139,7 +139,7 @@ class EquatorWindow(QMainWindow):
         self.pendingUIUpdates = {}  # {job_index: task}
         
         # UI update timer for sequential display
-        self.uiUpdateTimer = QTimer()
+        self.uiUpdateTimer = QTimer(self)
         self.uiUpdateTimer.timeout.connect(self.processUIUpdateQueue)
         self.uiUpdateTimer.setInterval(100)  # Check every 100ms
 
