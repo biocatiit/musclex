@@ -274,8 +274,11 @@ class EquatorWindow(QMainWindow):
                 except ImportError:
                     pass  # psutil not available, skip memory monitoring
         
-        # Check if batch is complete
-        if stats['pending'] == 0 and not self.pendingUIUpdates:
+        # Check if batch is complete - check after each UI update
+        # Must ensure: all tasks done + all accounted for + no pending UI updates
+        if (stats['pending'] == 0 and 
+            stats['completed'] + stats['failed'] == stats['total'] and 
+            not self.pendingUIUpdates):
             self.onBatchComplete()
         
         QApplication.processEvents()
@@ -1796,14 +1799,32 @@ class EquatorWindow(QMainWindow):
     
 
     def _cleanupAfterBatch(self):
-        # Cleanup
+        """
+        Cleanup after batch processing completes.
+        Properly shuts down process pool and releases all resources.
+        """
+        # Stop UI update timer
+        if self.uiUpdateTimer.isActive():
+            self.uiUpdateTimer.stop()
+        
+        # Shutdown process pool properly to release child processes
+        if self.processExecutor:
+            try:
+                print("Shutting down process pool...")
+                self.processExecutor.shutdown(wait=True, cancel_futures=False)
+                print("✓ Process pool shutdown complete")
+            except Exception as e:
+                print(f"⚠ Error shutting down process pool: {e}")
+        
+        # Cleanup UI state
         self.in_batch_process = False
         self.progressBar.setVisible(False)
         self.navImg.processFolderButton.setChecked(False)
         self.navFit.processFolderButton.setChecked(False)
-
         self.navImg.processFolderButton.setText("Process current folder")
         self.navFit.processFolderButton.setText("Process current folder")
+        
+        # Clear reference after shutdown
         self.processExecutor = None
     
     def _buildProcessSettingsText(self, settings, nImg, description):
