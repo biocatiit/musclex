@@ -3869,6 +3869,17 @@ class EquatorWindow(QMainWindow):
         except Exception as e:
             print(f"Failed to write CSV for {filename}: {e}")
         
+        # Explicitly delete large objects to ensure immediate memory release
+        del img
+        del bioImg
+        
+        # Force garbage collection every 10 images to prevent memory accumulation
+        stats = self.taskManager.get_statistics()
+        if stats['completed'] % 10 == 0:
+            import gc
+            collected = gc.collect()
+            print(f"[GC] Collected {collected} objects after {stats['completed']} images")
+        
         print(f"✓ Completed {filename} in {task.processing_time:.2f}s")
     
     def _processImageFallback(self, paramInfo=None):
