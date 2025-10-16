@@ -254,6 +254,26 @@ class EquatorWindow(QMainWindow):
                 ]
                 self.updateImageTab()
         
+        # Immediately release large image data after UI update to prevent memory accumulation
+        if task.result:
+            task.result['image'] = None
+            task.result['rotated_img'] = None
+            # Keep 'info' for statistics, but clear heavy data within it if needed
+            if 'hist' in task.result.get('info', {}):
+                # Histogram data is relatively small, but can be cleared if needed
+                pass
+            
+            # Optional: Memory usage monitoring (can be removed after testing)
+            if stats['completed'] % 10 == 0:  # Print every 10 images
+                try:
+                    import psutil
+                    import os
+                    process = psutil.Process(os.getpid())
+                    mem_mb = process.memory_info().rss / 1024 / 1024
+                    print(f"[Memory] After {stats['completed']} images: {mem_mb:.1f} MB")
+                except ImportError:
+                    pass  # psutil not available, skip memory monitoring
+        
         # Check if batch is complete
         if stats['pending'] == 0 and not self.pendingUIUpdates:
             self.onBatchComplete()
