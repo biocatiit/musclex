@@ -172,8 +172,22 @@ class EquatorWindow(QMainWindow):
         """
         if not self.file_manager:
             return
+        
+        # Show HDF5 processing progress
+        h5_done, h5_total = self.file_manager.get_h5_progress()
+        if h5_total > 0:
+            if not self.progressBar.isVisible():
+                self.progressBar.setVisible(True)
+                self.progressBar.setRange(0, h5_total)
+            self.progressBar.setValue(h5_done)
+            self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
+        
         if not self.file_manager.is_scan_done():
             return
+        
+        # Hide progress bar when done
+        self.progressBar.setVisible(False)
+        
         self._provisionalCount = False
         self._scan_timer.stop()
         self.refreshStatusbar()
