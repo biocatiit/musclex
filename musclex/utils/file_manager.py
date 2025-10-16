@@ -321,11 +321,14 @@ def _h5_nframes(path):
     except Exception:
         return 0
 
-def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
+def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None, progress_dict=None):
     """
     Scan a directory for TIFF and HDF5 images and return unified (imgList, loader_specs, h5_index_map).
     Uses a cache keyed by directory content signature. HDF5 frame counts are computed
     in parallel using processes. Frames are NOT loaded.
+    
+    Args:
+        progress_dict: Optional dict to track progress. Will set 'h5_total' and 'h5_done'
     
     Returns:
         imgList: List of display names
@@ -389,9 +392,23 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None):
                 max_workers = max(2, min(8, os.cpu_count() or 2))
             except Exception:
                 max_workers = 2
+        
+        # Track progress if progress_dict provided
+        if progress_dict is not None:
+            progress_dict['h5_total'] = len(h5_files)
+            progress_dict['h5_done'] = 0
+        
         with ProcessPoolExecutor(max_workers=max_workers) as pool:
             paths = [p for _, _, p in h5_files]
-            nframes_list = list(pool.map(_h5_nframes, paths))
+            # Use submit instead of map to track progress
+            futures = [pool.submit(_h5_nframes, path) for path in paths]
+            nframes_list = []
+            for i, future in enumerate(futures):
+                nframes_list.append(future.result())
+                # Update progress after each file completes
+                if progress_dict is not None:
+                    progress_dict['h5_done'] = i + 1
+                    
         for (base, ext, path), nframes in zip(h5_files, nframes_list):
             if nframes <= 0:
                 continue
@@ -530,6 +547,7 @@ class FileManager:
         # Async scan state
         self._scan_thread = None
         self._scan_done = False
+        self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Track H5 processing
 
     def set_from_file(self, selected_file):
         """
@@ -651,9 +669,13 @@ class FileManager:
             self.dir_path = dir_path
 
         self._scan_done = False
+        self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Reset progress
 
         def _worker():
-            imgList, specs, h5_index_map = scan_directory_images_cached(self.dir_path)
+            imgList, specs, h5_index_map = scan_directory_images_cached(
+                self.dir_path,
+                progress_dict=self._h5_progress  # Pass our progress dict
+            )
             try:
                 # Update internal listing preserving current selection when possible
                 self.set_directory_listing(self.dir_path, imgList, specs, h5_index_map, preserve_current_name=True)
@@ -670,6 +692,10 @@ class FileManager:
             return bool(self._scan_done)
         except Exception:
             return False
+    
+    def get_h5_progress(self):
+        """Get HDF5 processing progress (done, total)"""
+        return self._h5_progress.get('h5_done', 0), self._h5_progress.get('h5_total', 0)
         
 
     def _get_current_file_info(self):
