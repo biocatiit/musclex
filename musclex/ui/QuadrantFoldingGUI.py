@@ -3882,6 +3882,7 @@ class QuadrantFoldingGUI(QMainWindow):
         
         # Hide progress bar when done
         self.progressBar.setVisible(False)
+        self.progressBar.setFormat("%p%")  # Reset format to default
         
         self._provisionalCount = False
         self._scan_timer.stop()
