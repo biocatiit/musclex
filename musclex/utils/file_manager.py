@@ -321,18 +321,22 @@ def _h5_nframes(path):
     except Exception:
         return 0
 
-def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None, progress_dict=None):
+def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None):
     """
     Scan a directory for TIFF and HDF5 images and return unified (imgList, loader_specs, h5_index_map).
     Uses a cache keyed by directory content signature. HDF5 frame counts are computed
     in parallel using processes. Frames are NOT loaded.
     
+    NOTE: This function always returns the COMPLETE list of images in the directory.
+    Filtering by failedcases should be done by the caller after getting the full list.
+    
     Args:
+        max_workers: Number of workers for parallel HDF5 frame counting
         progress_dict: Optional dict to track progress. Will set 'h5_total' and 'h5_done'
     
     Returns:
-        imgList: List of display names
-        specs: List of loader specs (tuples)
+        imgList: List of ALL display names (complete list)
+        specs: List of ALL loader specs (tuples)
         h5_index_map: Dict mapping HDF5 file path -> (start_index, end_index) in imgList
     """
     sig = _dir_signature(dir_path)
@@ -355,8 +359,6 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None, p
         return [], [], {}
 
     for f in file_names:
-        if failedcases is not None and f not in failedcases:
-            continue
         full_file_name = fullPath(dir_path, f)
         base, ext = os.path.splitext(f)
         if f == "calibration.tif":
@@ -364,6 +366,7 @@ def scan_directory_images_cached(dir_path, failedcases=None, max_workers=None, p
         if ext.lower() in ('.hdf5', '.h5'):
             h5_files.append((base, ext, full_file_name))
         elif isImg(full_file_name) and ext.lower() not in ('.hdf5', '.h5'):
+            # Add all TIFF files (no filtering here)
             entries.append((f, ("tiff", full_file_name)))
 
     # Filter out data HDF5 files if a corresponding master exists
@@ -528,6 +531,7 @@ class FileManager:
     """
     def __init__(self):
         self.dir_path = ''
+        self.failedcases = None  # List of filenames to filter (from failedcases.txt)
         # File layer (fast, for navigation)
         self.file_list = []  # [(filename, type, full_path), ...]
         self.current_file_idx = 0
@@ -553,32 +557,56 @@ class FileManager:
         """
         Initialize from a selected file. Scans directory and locates the file.
         selected_file: full path of the file to select
+        Supports: image files, HDF5 files, and failedcases.txt
         """
         # Extract directory path
         dir_path = os.path.dirname(str(selected_file))
         self.dir_path = dir_path
         
+        # Check if selected file is failedcases.txt (must match exact name)
+        selected_name = os.path.basename(str(selected_file))
+        base, ext = os.path.splitext(selected_name)
+        
+        if ext.lower() == '.txt' and selected_name.lower() == 'failedcases.txt':
+            # Read failedcases.txt
+            self.failedcases = []
+            try:
+                with open(selected_file, 'r') as f:
+                    for line in f:
+                        filename = line.strip()
+                        if filename:  # Ignore empty lines
+                            self.failedcases.append(filename)
+                print(f"Loaded {len(self.failedcases)} failed cases from {selected_name}")
+            except Exception as e:
+                print(f"Warning: Failed to read {selected_file}: {e}")
+                self.failedcases = None
+        else:
+            self.failedcases = None
+        
         # Scan directory for file list (fast, no HDF5 opening)
+        # Note: failedcases filtering happens at image/frame level, not file level
         file_list = scan_directory_files_sync(dir_path)
         if not file_list:
-            # Fallback to single file if scan fails
-            fname = os.path.basename(str(selected_file))
-            base, ext = os.path.splitext(fname)
-            ftype = "h5" if ext.lower() in ('.h5', '.hdf5') else "tiff"
-            file_list = [(fname, ftype, str(selected_file))]
+            # Fallback to single file if scan fails (but not for .txt files)
+            if ext.lower() != '.txt':
+                fname = os.path.basename(str(selected_file))
+                ftype = "h5" if ext.lower() in ('.h5', '.hdf5') else "tiff"
+                file_list = [(fname, ftype, str(selected_file))]
         
         self.file_list = file_list
         self._rebuild_path_to_file_idx()
         
         # Locate selected file in the list
-        selected_name = os.path.basename(str(selected_file))
-        base, ext = os.path.splitext(selected_name)
         self.current_file_idx = 0
         self.current_frame_idx = 0
         found = False
         
+        # If .txt file was selected, use the first file in the filtered list
+        if ext.lower() == '.txt':
+            # No need to search, just use first file
+            found = True if file_list else False
         # If selected a data file, try to find corresponding master first
-        if ext.lower() in ('.h5', '.hdf5') and "_data_" in base:
+        elif ext.lower() in ('.h5', '.hdf5') and "_data_" in base:
             prefix = base.split("_data_")[0]
             master_name = f"{prefix}_master{ext}"
             for i, (fname, ftype, fpath) in enumerate(file_list):
@@ -605,19 +633,28 @@ class FileManager:
         self._path_to_file_idx = {fpath: i for i, (_, _, fpath) in enumerate(self.file_list)}
     
     def _rebuild_simple_image_list(self):
-        """Rebuild simple image list (HDF5 shown as single frame)"""
+        """
+        Rebuild simple image list (HDF5 shown as single frame).
+        Applies failedcases filtering for TIFF files (filename == display name).
+        HDF5 files are not filtered here (need frame expansion first).
+        """
         names = []
         specs = []
         
         for fname, ftype, fpath in self.file_list:
             if ftype == "h5":
+                # HDF5: show first frame as preview (filtering happens in full scan)
                 base, ext = os.path.splitext(fname)
                 disp = f"{base}_00001{ext}"
-                names.append(disp)
-                specs.append(("h5", fpath, 0))
+                # Check if this first frame is in failedcases
+                if self.failedcases is None or disp in self.failedcases:
+                    names.append(disp)
+                    specs.append(("h5", fpath, 0))
             else:
-                names.append(fname)
-                specs.append(("tiff", fpath))
+                # TIFF: filename is display name, apply filter directly
+                if self.failedcases is None or fname in self.failedcases:
+                    names.append(fname)
+                    specs.append(("tiff", fpath))
         
         # Maintain current position
         self.names = names
@@ -672,10 +709,24 @@ class FileManager:
         self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Reset progress
 
         def _worker():
+            # Get complete list from cache
             imgList, specs, h5_index_map = scan_directory_images_cached(
                 self.dir_path,
-                progress_dict=self._h5_progress  # Pass our progress dict
+                progress_dict=self._h5_progress
             )
+            
+            # Apply failedcases filtering if needed
+            if self.failedcases is not None:
+                filtered_names = []
+                filtered_specs = []
+                for name, spec in zip(imgList, specs):
+                    if name in self.failedcases:
+                        filtered_names.append(name)
+                        filtered_specs.append(spec)
+                imgList = filtered_names
+                specs = filtered_specs
+                # Note: h5_index_map stays unchanged (refers to original complete list)
+            
             try:
                 # Update internal listing preserving current selection when possible
                 self.set_directory_listing(self.dir_path, imgList, specs, h5_index_map, preserve_current_name=True)
@@ -944,9 +995,15 @@ class FileManager:
 def scan_directory_files_sync(dir_path):
     """
     Synchronously scan directory for files without opening HDF5 to count frames.
-    Returns: file_list [(filename, type, full_path), ...]
+    
+    Args:
+        dir_path: Directory path to scan
+    
+    Returns: 
+        file_list [(filename, type, full_path), ...]
     
     This is a fast scan that only lists files, does not open any HDF5 files.
+    Note: Does not apply failedcases filtering - that happens at the image/frame level.
     """
     files = []
     try:
