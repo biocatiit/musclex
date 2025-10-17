@@ -103,7 +103,10 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
             test_object = EquatorImage(img, inputpath, filename, None)
             test_name = "EQUATOR IMAGE"
         elif mode == 'qf':
-            test_object = QuadrantFolder(inputpath, filename, None)
+            import fabio
+            from musclex.utils.file_manager import fullPath
+            img = fabio.open(fullPath(inputpath, filename)).data
+            test_object = QuadrantFolder(img, inputpath, filename, None)
             test_name = "QUADRANT FOLDER"
         elif mode == 'dc':
             test_object = DiffractionCentroids(inputpath, [filename], 0,
