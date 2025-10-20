@@ -369,6 +369,8 @@ class ImageMaskDialog(QDialog):
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setWidget(self.settingsWidget)
+        # Set minimum width to fit the longest text without truncation
+        self.scrollArea.setMinimumWidth(700)
 
         self.mainLayout = QVBoxLayout(self)
         self.contentLayout = QHBoxLayout()
@@ -390,6 +392,9 @@ class ImageMaskDialog(QDialog):
         self.refreshImage()
 
         self.setConnections()
+        
+        # Automatically resize dialog to fit all widgets at their natural size
+        self.adjustSize()
 
     def setConnections(self):
         self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)

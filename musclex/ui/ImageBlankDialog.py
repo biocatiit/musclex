@@ -39,6 +39,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QGroupBox,
     QCheckBox,
+    QRadioButton,
+    QButtonGroup,
     QDoubleSpinBox,
     QComboBox,
     QDialogButtonBox,
@@ -98,25 +100,10 @@ class ImageBlankDialog(QDialog):
         self.imageLayout.addWidget(self.imageLabel)
         self.imageLayout.addWidget(self.statusBar)
 
-        self.displayGroup = QGroupBox("Display Options")
-
-        self.showImageCheckBox = QCheckBox("Show Image")
-
-        if self.imageData is not None:
-            self.showImageCheckBox.setCheckState(Qt.CheckState.Checked)
-        else:
-            self.showImageCheckBox.setEnabled(False)
-
-        self.showImageCheckBox.setToolTip("Uncheck to show empty cell only")
-
-        self.displayLayout = QVBoxLayout(self.displayGroup)
-        self.displayLayout.addWidget(self.showImageCheckBox)
-
-        self.applyBlankGroup = QGroupBox("Empty Cell Image Options")
-        self.applyBlankCheckBox = QCheckBox("Apply Empty Cell Image")
-        self.applyBlankText = QLabel()
-
+        # Empty Cell Image Selection Group (Top)
+        self.blankSelectionGroup = QGroupBox("Empty Cell Image Selection")
         self.selectBlankBtn = QPushButton("Select Empty Cell Image")
+        self.blankStatusText = QLabel()
         self.blankWeightLabel = QLabel("Empty Cell Image Scale: ")
         self.blankWeightText = QDoubleSpinBox()
         self.blankWeightText.setKeyboardTracking(False)
@@ -124,18 +111,40 @@ class ImageBlankDialog(QDialog):
         self.blankWeightText.setValue(1.00)
         self.blankWeightText.setSingleStep(0.01)
 
-        self.updateBlankWidgets()
+        self.blankSelectionLayout = QGridLayout(self.blankSelectionGroup)
+        row = 0
+        self.blankSelectionLayout.addWidget(self.selectBlankBtn, row, 0, 1, 2)
+        self.blankSelectionLayout.addWidget(self.blankStatusText, row, 2, 1, 2)
+        row += 1
+        self.blankSelectionLayout.addWidget(self.blankWeightLabel, row, 0, 1, 2)
+        self.blankSelectionLayout.addWidget(self.blankWeightText, row, 2, 1, 2)
 
-        self.applyBlankLayout = QGridLayout(self.applyBlankGroup)
-        settingsRowIndex = 0
-        self.applyBlankLayout.addWidget(self.applyBlankCheckBox, settingsRowIndex, 0, 1, 2)
-        self.applyBlankLayout.addWidget(self.applyBlankText, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
-        self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
-        settingsRowIndex += 1
-        self.applyBlankLayout.addWidget(self.blankWeightLabel, settingsRowIndex, 0, 1, 2)
-        self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
+        # Display Options Group (Bottom) - 3 exclusive radio buttons
+        self.displayGroup = QGroupBox("Display Options")
+        self.displayButtonGroup = QButtonGroup()
+        
+        self.differenceImageRadio = QRadioButton("Difference Image (Original - Empty Cell)")
+        self.originalImageRadio = QRadioButton("Original Image")
+        self.emptyCellImageRadio = QRadioButton("Empty Cell Image")
+        
+        self.displayButtonGroup.addButton(self.differenceImageRadio, 0)
+        self.displayButtonGroup.addButton(self.originalImageRadio, 1)
+        self.displayButtonGroup.addButton(self.emptyCellImageRadio, 2)
+        
+        # Default to showing difference image if blank is available, otherwise original
+        if self.blank_image_info is not None:
+            self.differenceImageRadio.setChecked(True)
+        else:
+            self.originalImageRadio.setChecked(True)
+            self.differenceImageRadio.setEnabled(False)
+            self.emptyCellImageRadio.setEnabled(False)
+
+        self.displayLayout = QVBoxLayout(self.displayGroup)
+        self.displayLayout.addWidget(self.differenceImageRadio)
+        self.displayLayout.addWidget(self.originalImageRadio)
+        self.displayLayout.addWidget(self.emptyCellImageRadio)
+
+        self.updateBlankWidgets()
 
         self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         okButton = self.dialogButtons.button(QDialogButtonBox.Ok)
@@ -144,22 +153,11 @@ class ImageBlankDialog(QDialog):
         self.dialogButtons.accepted.connect(self.okClicked)
         self.dialogButtons.rejected.connect(self.reject)
 
-        # self.buttonLayout = QGridLayout()
-
-        # settingsRowIndex = 0
-        # self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 2)
-        # settingsRowIndex += 1
-
-        # self.buttonWidget = QWidget()
-        # self.buttonWidget.setLayout(self.buttonLayout)
-
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
-        self.settingsLayout.addWidget(self.displayGroup)
+        self.settingsLayout.addWidget(self.blankSelectionGroup)
         self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.applyBlankGroup)
-        # self.settingsLayout.addSpacing(10)
-        # self.settingsLayout.addWidget(self.buttonWidget)
+        self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addStretch()
 
         self.scrollArea = QScrollArea()
@@ -185,14 +183,16 @@ class ImageBlankDialog(QDialog):
         self.refreshImage()
 
         self.setConnections()
+        
+        # Automatically resize dialog to fit all widgets
+        self.adjustSize()
 
     def setConnections(self):
-        self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
-        self.applyBlankCheckBox.checkStateChanged.connect(self.enableBlankSubtraction)
         self.selectBlankBtn.clicked.connect(self.readBlankImage)
         self.blankWeightText.valueChanged.connect(self.updateBlankWeight)
+        self.displayButtonGroup.buttonClicked.connect(self.onDisplayOptionChanged)
 
-    def enableShowImage(self, state):
+    def onDisplayOptionChanged(self):
         self.refreshImage()
 
     def okClicked(self):
@@ -200,108 +200,112 @@ class ImageBlankDialog(QDialog):
         self.accept()
 
     def saveBlankConfig(self):
-        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
-            and self.applyBlankCheckBox.isChecked())
+        # Save config if blank image is available
+        if self.blank_image_info is not None:
+            blank_config = {
+                "file_path": str(self.blank_image_info["file_path"]),
+                "weight": self.blank_image_info["weight"],
+            }
 
-        if isApplyBlank:
-            if self.blank_image_info is not None:
-                blank_config = {
-                    "file_path": str(self.blank_image_info["file_path"]),
-                    "weight": self.blank_image_info["weight"],
-                }
+            self.blank_config_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-                self.blank_config_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                with open(self.blank_config_file_path, "w") as file_stream:
-                    json.dump(blank_config, file_stream, indent=4)
+            with open(self.blank_config_file_path, "w") as file_stream:
+                json.dump(blank_config, file_stream, indent=4)
         else:
+            # Remove config file if no blank image
             self.blank_config_file_path.unlink(missing_ok=True)
 
-    def enableBlankSubtraction(self, state):
-        if state == Qt.CheckState.Checked:
-            self.blankWeightLabel.setEnabled(True)
-            self.blankWeightText.setEnabled(True)
-
-        if state == Qt.CheckState.Unchecked:
-            self.blankWeightLabel.setEnabled(False)
-            self.blankWeightText.setEnabled(False)
-
-        self.refreshImage()
-
     def updateBlankWeight(self, blank_image_weight):
-        self.blank_image_info["weight"] = blank_image_weight
-
-        self.refreshImage()
+        if self.blank_image_info is not None:
+            self.blank_image_info["weight"] = blank_image_weight
+            self.refreshImage()
 
     def updateBlankWidgets(self):
         if self.blank_image_info is not None:
-            self.applyBlankCheckBox.setChecked(True)
-            self.applyBlankCheckBox.setEnabled(True)
-            self.applyBlankText.setText("Empty cell image is available.")
-            self.applyBlankText.setStyleSheet("color: green;")
+            self.blankStatusText.setText("✓ Empty cell image loaded")
+            self.blankStatusText.setStyleSheet("color: green;")
             self.blankWeightLabel.setEnabled(True)
             self.blankWeightText.setEnabled(True)
             self.blankWeightText.setValue(self.blank_image_info.get("weight", 1.0))
+            
+            # Enable display options that require blank image
+            self.differenceImageRadio.setEnabled(True)
+            self.emptyCellImageRadio.setEnabled(True)
+            
+            # Set default to difference image
+            self.differenceImageRadio.setChecked(True)
         else:
-            self.applyBlankCheckBox.setChecked(False)
-            self.applyBlankCheckBox.setEnabled(False)
-            self.applyBlankText.setText("No empty cell image found. Ignore this message if expected.")
-            self.applyBlankText.setStyleSheet("color: red;")
+            self.blankStatusText.setText("No empty cell image loaded")
+            self.blankStatusText.setStyleSheet("color: red;")
             self.blankWeightLabel.setEnabled(False)
             self.blankWeightText.setEnabled(False)
+            
+            # Disable display options that require blank image
+            self.differenceImageRadio.setEnabled(False)
+            self.emptyCellImageRadio.setEnabled(False)
+            
+            # Set default to original image
+            self.originalImageRadio.setChecked(True)
 
     def refreshImage(self):
-        isShowImage = (self.showImageCheckBox.isEnabled()
-            and self.showImageCheckBox.isChecked())
+        if self.imageData is None:
+            self.imageLabel.clear()
+            self.statusBar.setText("Current View: No Display")
+            return
 
-        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
-            and self.applyBlankCheckBox.isChecked())
-
-        # If user does not select showing image:
-        if not isShowImage:
-            # If nothing is selected, Show nothing.
-            if not isApplyBlank:
+        # Determine which radio button is selected
+        if self.differenceImageRadio.isChecked():
+            # Show difference image (Original - Empty Cell)
+            if self.blank_image_info is None:
                 self.imageLabel.clear()
-                self.statusBar.setText(f"Current View: No Display")
+                self.statusBar.setText("Current View: No blank image available")
                 return
-
-            # Only show empty cell.
+            
+            blank_image_weight = self.blank_image_info["weight"]
+            imageData = self.imageData.copy() - self.blank_image_info["blank_image"] * blank_image_weight
+            
+            scaledPixmap = self.createDisplayImage(imageData,
+                self.vmin,
+                self.vmax,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+            self.imageLabel.setPixmap(scaledPixmap)
+            self.statusBar.setText(f"Current View: Difference Image (scale: {blank_image_weight:.2f})")
+            
+        elif self.originalImageRadio.isChecked():
+            # Show original image
+            imageData = self.imageData.copy()
+            
+            scaledPixmap = self.createDisplayImage(imageData,
+                self.vmin,
+                self.vmax,
+                self.imageLabel.width(),
+                self.imageLabel.height())
+            self.imageLabel.setPixmap(scaledPixmap)
+            self.statusBar.setText("Current View: Original Image")
+            
+        elif self.emptyCellImageRadio.isChecked():
+            # Show empty cell image
+            if self.blank_image_info is None:
+                self.imageLabel.clear()
+                self.statusBar.setText("Current View: No blank image available")
+                return
+            
             blank_image_weight = self.blank_image_info["weight"]
             imageData = self.blank_image_info["blank_image"] * blank_image_weight
+            
             scaledPixmap = self.createDisplayImage(imageData,
                 self.vmin,
                 self.vmax,
                 self.imageLabel.width(),
                 self.imageLabel.height())
             self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Empty Cell (with scale: {blank_image_weight:.2f})")
-            return
-
-        # User selected showing image:
-        imageData = self.imageData.copy()
-
-        # Only show image.
-        if not isApplyBlank:
-            scaledPixmap = self.createDisplayImage(imageData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Original Image")
-            return
-
-        # Show image + subtract blank.
-        blank_image_weight = self.blank_image_info["weight"]
-        imageData = imageData - self.blank_image_info["blank_image"] * blank_image_weight
-
-        scaledPixmap = self.createDisplayImage(imageData,
-            self.vmin,
-            self.vmax,
-            self.imageLabel.width(),
-            self.imageLabel.height())
-        self.imageLabel.setPixmap(scaledPixmap)
-        self.statusBar.setText(f"Current View: Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f})")
+            self.statusBar.setText(f"Current View: Empty Cell Image (scale: {blank_image_weight:.2f})")
+            
+        else:
+            # Fallback - should not happen
+            self.imageLabel.clear()
+            self.statusBar.setText("Current View: No Display")
 
     def readBlankImage(self):
         blank_image_file_path = getAFile(path=str(self.image_file_path.parent))
