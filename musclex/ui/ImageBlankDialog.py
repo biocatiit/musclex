@@ -384,7 +384,8 @@ class ImageBlankDialog(QDialog):
                 normFlippedImageArray = 255 * (flippedImageArray - np.min(flippedImageArray)) / (np.max(flippedImageArray) - np.min(flippedImageArray))
             else:
                 normFlippedImageArray = 255 * (np.array(flippedImageArray) - minInt) / (maxInt - minInt)
-            normFlippedImageArray = normFlippedImageArray.astype(np.uint8)  # Convert to 8-bit
+            # Clip values to [0, 255] range before converting to uint8 to avoid underflow/overflow
+            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(np.uint8)
 
         # Create a QImage from the 8-bit array
         qImg = QImage(normFlippedImageArray.data, normFlippedImageArray.shape[1], normFlippedImageArray.shape[0], normFlippedImageArray.strides[0], QImage.Format_Grayscale8)
