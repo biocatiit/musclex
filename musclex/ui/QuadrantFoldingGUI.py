@@ -1530,6 +1530,11 @@ class QuadrantFoldingGUI(QMainWindow):
         dialogCode = imageBlankDialog.exec()
 
         if dialogCode == QDialog.Accepted:
+            # Clear cache because blank image settings changed
+            # This ensures the image will be reprocessed with new blank settings
+            if self.quadFold is not None:
+                self.quadFold.delCache()
+                print("Cleared cache due to blank image settings change")
             self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
@@ -3900,7 +3905,10 @@ class QuadrantFoldingGUI(QMainWindow):
         flags["ignore_folds"] = self.ignoreFolds
         flags['mask_thres'] = self.maskThresSpnBx.value()
 
-        # flags['blank_mask'] = self.blankImageGrp.isChecked()
+        # Check if blank image settings exist
+        blank_config_path = Path(self.filePath) / "settings" / "blank_image_settings.json"
+        flags['blank_mask'] = blank_config_path.exists()
+        
         flags['fold_image'] = self.toggleFoldImage.isChecked()
 
         flags["transition_radius"] = self.tranRSpnBx.value()
@@ -4190,6 +4198,20 @@ class QuadrantFoldingGUI(QMainWindow):
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
+        
+        # Show blank image configuration if exists
+        if flags.get('blank_mask', False):
+            blank_config_path = Path(self.filePath) / "settings" / "blank_image_settings.json"
+            try:
+                import json
+                with open(blank_config_path, "r") as f:
+                    blank_config = json.load(f)
+                blank_file = Path(blank_config.get("file_path", "")).name
+                blank_weight = blank_config.get("weight", 1.0)
+                text += f"\n  - Empty Cell Image : {blank_file} (weight: {blank_weight})"
+            except:
+                text += "\n  - Empty Cell Image : Enabled"
+        
         text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
 
         if flags['bgsub'] != 'None':

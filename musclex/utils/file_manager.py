@@ -61,20 +61,52 @@ def getFilesAndHdf(dir_path):
 
     return imgList, hdfList
 
-def getBlankImageAndMask(path):
+def getBlankImageAndMask(path, return_weight=False):
     """
     Give the blank image and the mask threshold saved in settings
-    :return: blankImage, mask threshold
+    Supports both old method (blank.tif) and new method (JSON config)
+    
+    :param path: directory path
+    :param return_weight: if True, returns (blank_img, mask, weight), else (blank_img, mask)
+    :return: blankImage, mask threshold, [weight if return_weight=True]
     """
-    mask_file = join(join(path, 'settings'),'mask.tif')
-    blank_file = join(join(path, 'settings'),'blank.tif')
+    import json
+    from pathlib import Path
+    
+    mask_file = join(join(path, 'settings'), 'mask.tif')
+    blank_file = join(join(path, 'settings'), 'blank.tif')
+    blank_config_file = Path(path) / "settings" / "blank_image_settings.json"
+    
     mask = None
     blank_img = None
+    blank_weight = 1.0
+    
+    # Try to load mask
     if exists(mask_file):
         mask = fabio.open(mask_file).data
-    if exists(blank_file):
+    
+    # Try new JSON-based configuration first
+    if blank_config_file.exists():
+        try:
+            with open(blank_config_file, "r") as f:
+                blank_config = json.load(f)
+            blank_file_path = Path(blank_config.get("file_path", ""))
+            blank_weight = blank_config.get("weight", 1.0)
+            if blank_file_path.exists():
+                blank_img = fabio.open(str(blank_file_path)).data
+                print(f"Loaded blank image from JSON config: {blank_file_path} with weight {blank_weight}")
+        except Exception as e:
+            print(f"Failed to load blank image from JSON config: {e}")
+    
+    # Fall back to old method if JSON config not found or failed
+    if blank_img is None and exists(blank_file):
         blank_img = fabio.open(blank_file).data
-    return blank_img, mask
+        print(f"Loaded blank image from: {blank_file}")
+    
+    if return_weight:
+        return blank_img, mask, blank_weight
+    else:
+        return blank_img, mask
 
 def getMaskOnly(path):
     """

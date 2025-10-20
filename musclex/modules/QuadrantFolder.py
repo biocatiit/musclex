@@ -142,6 +142,25 @@ class QuadrantFolder:
                 info = pickle.load(c)
             if info is not None:
                 if info['program_version'] == self.version:
+                    # Check if blank image configuration has changed
+                    from pathlib import Path
+                    import json
+                    blank_config_path = Path(self.img_path) / "settings" / "blank_image_settings.json"
+                    
+                    if blank_config_path.exists():
+                        try:
+                            with open(blank_config_path, "r") as f:
+                                current_blank_config = json.load(f)
+                            cached_blank_config = info.get('blank_image_config', {})
+                            
+                            # Compare configurations
+                            if (current_blank_config.get('file_path') != cached_blank_config.get('file_path') or
+                                current_blank_config.get('weight') != cached_blank_config.get('weight')):
+                                print("Blank image configuration changed. Invalidating cache and reprocessing.")
+                                return None
+                        except Exception as e:
+                            print(f"Error checking blank image config: {e}")
+                    
                     return info
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
@@ -378,14 +397,32 @@ class QuadrantFolder:
         """
 
         if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
-            img = np.array(self.start_img, 'float' \
-            '32')
-            blank, mask = getBlankImageAndMask(self.img_path)
-
+            img = np.array(self.start_img, 'float32')
+            
+            # Use improved getBlankImageAndMask function that supports both old and new methods
+            blank, mask, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
             maskOnly = getMaskOnly(self.img_path)
 
             if blank is not None:
-                img = img - blank
+                # Apply blank image subtraction with weight
+                img = img - blank * blank_weight
+                print(f"Applied blank image subtraction with weight: {blank_weight}")
+                
+                # Store blank image config in info for cache validation
+                from pathlib import Path
+                blank_config_path = Path(self.img_path) / "settings" / "blank_image_settings.json"
+                if blank_config_path.exists():
+                    import json
+                    try:
+                        with open(blank_config_path, "r") as f:
+                            blank_config = json.load(f)
+                        self.info['blank_image_config'] = {
+                            'file_path': blank_config.get("file_path"),
+                            'weight': blank_weight
+                        }
+                    except:
+                        pass
+                        
             if mask is not None:
                 img[mask == 0] = self.info['mask_thres'] - 1.
             if maskOnly is not None:
@@ -393,7 +430,6 @@ class QuadrantFolder:
                 img[maskOnly == 0] = self.info['mask_thres'] - 1
 
             self.orig_img = img
-
             self.masked = True
 
 
