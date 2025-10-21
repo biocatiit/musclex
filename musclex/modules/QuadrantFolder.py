@@ -213,6 +213,16 @@ class QuadrantFolder:
 
         return None
 
+    def _emit_center_signal(self, center):
+        """
+        Emit signal to update GUI with center coordinates.
+        Used by both add_center (for new centers) and findCenter (for cached centers).
+        """
+        if self.parent and not self.suppress_signals:
+            # Ensure center is a tuple for signal consistency
+            center_tuple = tuple(center) if not isinstance(center, tuple) else center
+            self.parent.eventEmitter.imageCenterChangedSignal.emit(center_tuple)
+
     def add_center(self, center, source):
         center_in_origin_coords = None
 
@@ -248,9 +258,8 @@ class QuadrantFolder:
 
         self.info["center_history"] = self.info["center_history"][-self.max_num_history:]
 
-        # Only emit signal if not suppressed (e.g., during batch processing)
-        if self.parent and not self.suppress_signals:
-            self.parent.eventEmitter.imageCenterChangedSignal.emit(center)
+        # Emit signal to update GUI
+        self._emit_center_signal(center)
 
     def get_latest_angle(self):
         angle_history = self.info.get("angle_history")
@@ -451,6 +460,8 @@ class QuadrantFolder:
         center = self.get_latest_center()
         if center is not None:
             self.info['center'] = center
+            # Emit signal to update GUI (but don't add to history, already cached)
+            self._emit_center_signal(center)
             return
 
         # if 'center' in self.info:
