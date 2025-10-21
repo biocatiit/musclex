@@ -2384,10 +2384,10 @@ class AddIntensitiesExp(QMainWindow):
                 self.calSettings = self.calSettingsDialog.getValues()
                 if self.calSettings is not None and self.calSettings:
                     print("not empty")
-                    if self.calSettingsDialog.fixedCenter.isChecked():
+                    # Always save calibrated center if available
+                    # Whether to USE it is controlled by Persistent Center in main GUI
+                    if 'center' in self.calSettings:
                         self.info['calib_center'] = self.calSettings['center']
-                    else:
-                        print("fix this")
                     if "detector" in self.calSettings:
                         self.info["detector"] = self.calSettings["detector"]
                     return True
@@ -2401,14 +2401,13 @@ class AddIntensitiesExp(QMainWindow):
                 if result == 1:
                     self.calSettings = self.calSettingsDialog.getValues()
                     if self.calSettings is not None:
-                        if self.calSettingsDialog.fixedCenter.isChecked():
+                        # Always save calibrated center if available
+                        # Whether to USE it is controlled by Persistent Center in main GUI
+                        if 'center' in self.calSettings:
                             self.info['calib_center'] = self.calSettings['center']
-                            self.setCenterRotationButton.setEnabled(False)
-                            self.setCenterRotationButton.setToolTip(
-                                "Please uncheck fixed center in calibration settings first")
-                        else:
-                            self.setCenterRotationButton.setEnabled(True)
-                            self.setCenterRotationButton.setToolTip("")
+                        # Manual center button is always enabled (user can choose whether to use calibration)
+                        self.setCenterRotationButton.setEnabled(True)
+                        self.setCenterRotationButton.setToolTip("")
                         if "detector" in self.calSettings:
                             self.info["detector"] = self.calSettings["detector"]
                     return True

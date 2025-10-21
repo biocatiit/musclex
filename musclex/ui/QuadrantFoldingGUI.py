@@ -262,8 +262,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         #NA
         #Used for when the same center/rotation needs to be used to process a folder
-        self.persistedCenter = None
         self.persistedRotation = None
+        self.currentCenter = None
 
         self.thresh_mask = None
 
@@ -457,7 +457,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageCenter = QLabel()
 
         self.persistCenter = QCheckBox("Persist Center")
-        self.persistCenter.setEnabled(False)
+
 
         self.rotationAngleLabel = QLabel()
 
@@ -1239,10 +1239,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.persistRotation.stateChanged.connect(self.persistRotationChecked)
 
         self.eventEmitter.imageCenterChangedSignal.connect(
-            lambda center: self.imageCenter.setText(
-                f"Center (Current coords): x={center[0]:.2f}, y={center[1]:.2f} px"
-        ))
-
+            lambda center: self.updateCurrentCenter(center)
+        )
         self.eventEmitter.angleChangedSignal.connect(
             lambda angleDegree: self.rotationAngleLabel.setText(
                 f"Rotation Angle (Original Coords): {angleDegree % 360:.2f} °"
@@ -1318,6 +1316,11 @@ class QuadrantFoldingGUI(QMainWindow):
 
 
 
+    def updateCurrentCenter(self, center):
+        self.currentCenter = center
+        self.imageCenter.setText(
+            f"Center (Current coords): x={center[0]:.2f}, y={center[1]:.2f} px"
+        )
 
 
     def updateLeftWidgetWidth(self):
@@ -3596,8 +3599,8 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                if self.persistCenter.isChecked() and self.calSettings is not None and 'center' in self.calSettings:
-                    self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.calSettings['center']
+                if self.persistCenter.isChecked() and self.currentCenter:
+                    self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.currentCenter
                 self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
@@ -3679,7 +3682,7 @@ class QuadrantFoldingGUI(QMainWindow):
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
             self.currentTask = Worker(params, self.persistCenter.isChecked(),
-                                      self.persistedCenter, self.persistedRotation, self.bgChoiceIn.currentText(),
+                                      self.currentCenter, self.persistedRotation, self.bgChoiceIn.currentText(),
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
@@ -4184,10 +4187,8 @@ class QuadrantFoldingGUI(QMainWindow):
         #Print message
         #store the current center in the quadfoldgui object
         #Display Center on popup window
-        if self.persistCenter.isChecked() and self.calSettings['center'] is not None:
-            print("USING PERSISTED CENTER")
-            self.persistedCenter = self.calSettings['center']
-            text += "\n  - Center : " + str(self.persistedCenter)
+        if self.persistCenter.isChecked() and self.currentCenter:
+            text += "\n  - Center : " + str(self.currentCenter)
 
         #Same thing for rotation
         if self.persistedRotation is not None:
@@ -4371,10 +4372,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.quadFold.info = {}
         
         # Apply persisted center if fixed
-        if self.persistCenter.isChecked():
-            if self.persistedCenter is None:
-                self.persistedCenter = self.calSettings['center']
-            self.quadFold.info['manual_center'] = [self.persistedCenter[0], self.persistedCenter[1]]
+        if self.persistCenter.isChecked() and self.currentCenter:
+            self.quadFold.info['manual_center'] = [self.currentCenter[0], self.currentCenter[1]]
         
         # Apply persisted rotation if set
         if self.persistedRotation is not None:

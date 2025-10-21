@@ -2259,15 +2259,10 @@ class AddIntensitiesSingleExp(QMainWindow):
 
             if self.calSettings is not None and self.calSettings:
                 print("not empty")
-                if self.calSettingsDialog.fixedCenter.isChecked():
+                # Always save calibrated center if available
+                # Whether to USE it is controlled by Persistent Center in main GUI
+                if 'center' in self.calSettings:
                     self.info['calib_center'] = self.calSettings['center']
-                    # self.setCenterRotationButton.setEnabled(False)
-                    # self.setCenterRotationButton.setToolTip(
-                    #     "Please uncheck fixed center in calibration settings first")
-                else:
-                    # self.setCenterRotationButton.setEnabled(True)
-                    # self.setCenterRotationButton.setToolTip("")
-                    print("fix this")
                 if "detector" in self.calSettings:
                     self.info["detector"] = self.calSettings["detector"]
                 return True

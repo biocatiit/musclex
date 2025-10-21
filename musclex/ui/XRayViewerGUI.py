@@ -402,11 +402,10 @@ class XRayViewerGUI(QMainWindow):
             result = self.calSettingsDialog.exec_()
             if result == 1:
                 self.calSettings = self.calSettingsDialog.getValues()
-                if self.calSettingsDialog.fixedCenter.isChecked():
+                # Always save calibrated center if available
+                # Whether to USE it is controlled by Persistent Center in main GUI
+                if 'center' in self.calSettings:
                     self.xrayViewer.info['center'] = self.calSettings['center']
-                else:
-                    if 'center' in self.xrayViewer.info:
-                        del self.xrayViewer.info['center']
                 self.xrayViewer.findCenter()
                 return True
         return False

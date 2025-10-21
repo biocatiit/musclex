@@ -3970,7 +3970,9 @@ class EquatorWindow(QMainWindow):
                 else:
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
                         "pixel_size"]
-            if "center" in self.calSettings and self.calibSettingDialog.fixedCenter.isChecked():
+            # Always save calibrated center if available
+            # Whether to USE it is controlled by Persistent Center in main GUI
+            if "center" in self.calSettings:
                 settings["calib_center"] = self.calSettings["center"]
             if "detector" in self.calSettings and self.calibSettingDialog.manDetector.isChecked():
                 settings["detector"] = self.calSettings["detector"]
