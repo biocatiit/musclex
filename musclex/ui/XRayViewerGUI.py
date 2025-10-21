@@ -227,7 +227,7 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
 
         # Single reusable navigation widget (shared between tabs)
-        self.navControls = NavigationControls(process_folder_text="Play", process_h5_text="Play Current H5 File")
+        self.navControls = NavigationControls(process_folder_text="Play Current Folder", process_h5_text="Play Current H5 File")
 
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.optionsLayout.addWidget(self.displayOptGrpBx)
@@ -1745,7 +1745,7 @@ class XRayViewerGUI(QMainWindow):
         img_ids = list(range(idx, len(self.file_manager.names))) + list(range(0, idx))
         self._process_image_list(img_ids)
         self.navControls.processFolderButton.setChecked(False)
-        self.navControls.processFolderButton.setText("Play")
+        self.navControls.processFolderButton.setText("Play Current Folder")
 
     def processH5File(self):
         """
