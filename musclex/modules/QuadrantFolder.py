@@ -55,13 +55,14 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img, img_path, img_name, parent):
+    def __init__(self, img, img_path, img_name, parent, suppress_signals=False):
         """
         Initialize QuadrantFolder with an already-loaded image array, plus metadata.
         :param img: numpy ndarray image data
         :param img_path: directory path for caches and outputs
         :param img_name: display/file name used for caches and outputs
         :param parent: GUI/owner for status updates
+        :param suppress_signals: If True, suppress GUI signals (e.g., during batch processing to avoid race conditions)
         """
         self.orig_img = np.asarray(img).astype("float32")
         self.orig_image_center = None
@@ -85,6 +86,9 @@ class QuadrantFolder:
             self.parent = parent
         else:
             self.parent = self
+        
+        # Flag to suppress signals during batch processing to avoid race conditions
+        self.suppress_signals = suppress_signals
         self.newImgDimension = None
         self.masked = False
 
@@ -244,7 +248,8 @@ class QuadrantFolder:
 
         self.info["center_history"] = self.info["center_history"][-self.max_num_history:]
 
-        if self.parent:
+        # Only emit signal if not suppressed (e.g., during batch processing)
+        if self.parent and not self.suppress_signals:
             self.parent.eventEmitter.imageCenterChangedSignal.emit(center)
 
     def get_latest_angle(self):
@@ -647,7 +652,8 @@ class QuadrantFolder:
         self.info.setdefault("angle_to_origin", 0.0)
         self.info["angle_to_origin"] += angle
 
-        if self.parent:
+        # Only emit signal if not suppressed (e.g., during batch processing)
+        if self.parent and not self.suppress_signals:
             self.parent.eventEmitter.angleChangedSignal.emit(self.info["angle_to_origin"])
 
         # new_center = [x - (tx * cos - ty * sin), y - (tx * sin + ty * cos)]

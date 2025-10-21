@@ -112,7 +112,8 @@ class Worker(QRunnable):
         try:
             img = self.params.file_manager.get_image_by_index(self.params.index)
 
-            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, self.params.file_manager.names[self.params.index], self.params.parent)
+            # Suppress signals during batch processing to prevent race conditions with currentCenter
+            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, self.params.file_manager.names[self.params.index], self.params.parent, suppress_signals=True)
             self.quadFold.info = {}
             self.quadFold.info['bgsub'] = self.bgsub
 
@@ -3020,7 +3021,8 @@ class QuadrantFoldingGUI(QMainWindow):
         angles = []
         for f in self.file_manager.names:
             img = self.file_manager.current_image
-            quadFold = QuadrantFolder(img, self.filePath, f, self)
+            # Suppress signals when loading cached info for multiple files
+            quadFold = QuadrantFolder(img, self.filePath, f, self, suppress_signals=True)
             print(f'Getting angle {f}')
 
             if 'rotationAngle' not in quadFold.info:
