@@ -453,10 +453,7 @@ class QuadrantFolder:
         Find the center in original image coordinates
         """
         self.parent.statusPrint("Finding Center...")
-
-        if 'mask_thres' not in self.info:
-            self.info['mask_thres'] = getMaskThreshold(self.orig_img)
-
+        
         center = self.get_latest_center()
         if center is not None:
             self.info['center'] = center
@@ -464,21 +461,6 @@ class QuadrantFolder:
             self._emit_center_signal(center)
             return
 
-        # if 'center' in self.info:
-        #     self.centerChanged = False
-        #     return
-        # self.centerChanged = True
-        # if 'calib_center' in self.info:
-        #     self.info['center'] = self.info['calib_center']
-        #     self.fixedCenterX = self.info['calib_center'][0]
-        #     self.fixedCenterY = self.info['calib_center'][1]
-        #     return
-        # if 'manual_center' in self.info:
-        #     center = self.info['manual_center']
-        #     self.info['center'] = self.info['manual_center']
-        #     self.fixedCenterX = self.info['manual_center'][0]
-        #     self.fixedCenterY = self.info['manual_center'][1]
-        #     return
         print("Center is being calculated ... ")
         self.orig_image_center = getCenter(self.orig_img)
         self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
