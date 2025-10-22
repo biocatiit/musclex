@@ -73,6 +73,85 @@ class QuadFoldParams:
         self.file_manager = file_manager
         self.parent = parent
 
+
+class ApplyCenterDialog(QDialog):
+    """Dialog for choosing how to apply center to images"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Apply Center")
+        
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Apply current center to:"))
+        
+        # Create radio buttons for exclusive selection
+        self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.previousRadio = QRadioButton("Apply to previous images")
+        self.allRadio = QRadioButton("Apply to all images")
+        
+        # Set default selection
+        self.subsequentRadio.setChecked(True)
+        
+        layout.addWidget(self.subsequentRadio)
+        layout.addWidget(self.previousRadio)
+        layout.addWidget(self.allRadio)
+        
+        # OK and Cancel buttons
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        layout.addWidget(buttonBox)
+        
+        self.setLayout(layout)
+    
+    def getSelection(self):
+        """Returns 'subsequent', 'previous', or 'all'"""
+        if self.subsequentRadio.isChecked():
+            return 'subsequent'
+        elif self.previousRadio.isChecked():
+            return 'previous'
+        else:
+            return 'all'
+
+
+class RestoreAutoCenterDialog(QDialog):
+    """Dialog for choosing how to restore auto center to images"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Restore Auto Center")
+        
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Restore auto center to:"))
+        
+        # Create radio buttons for exclusive selection
+        self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.previousRadio = QRadioButton("Apply to previous images")
+        self.allRadio = QRadioButton("Apply to all images")
+        
+        # Set default selection
+        self.subsequentRadio.setChecked(True)
+        
+        layout.addWidget(self.subsequentRadio)
+        layout.addWidget(self.previousRadio)
+        layout.addWidget(self.allRadio)
+        
+        # OK and Cancel buttons
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        layout.addWidget(buttonBox)
+        
+        self.setLayout(layout)
+    
+    def getSelection(self):
+        """Returns 'subsequent', 'previous', or 'all'"""
+        if self.subsequentRadio.isChecked():
+            return 'subsequent'
+        elif self.previousRadio.isChecked():
+            return 'previous'
+        else:
+            return 'all'
+
+
 class WorkerSignals(QObject):
 
     finished = Signal()
@@ -82,8 +161,8 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params, fixed_center_checked,
-                 persist_center, persist_rot, bgsub = 'Circularly-symmetric',
+    def __init__(self, params, image_center_settings,
+                 persist_rot, bgsub = 'Circularly-symmetric',
                  bgDict = None, bg_lock=None):
 
         super().__init__()
@@ -92,36 +171,37 @@ class Worker(QRunnable):
         self.signals = WorkerSignals()
         self.lock = Lock()
 
-        #NA
-        self.fixedCenterChecked = fixed_center_checked
-        self.persist_center = persist_center
+        # Store reference to imageCenterSettings dict
+        self.imageCenterSettings = image_center_settings
 
-        #NA
         self.persist_rot = persist_rot
 
         self.bgsub = bgsub
 
         self.bgDict = bgDict
 
-        #NA
-        #self.qf_lock = qf_lock
         self.qf_lock = Lock()
 
     @Slot()
     def run(self):
         try:
             img = self.params.file_manager.get_image_by_index(self.params.index)
+            filename = self.params.file_manager.names[self.params.index]
 
             # Suppress signals during batch processing to prevent race conditions with currentCenter
-            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, self.params.file_manager.names[self.params.index], self.params.parent, suppress_signals=True)
-            self.quadFold.info = {}
+            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, filename, self.params.parent, suppress_signals=True)
+            
+            # Don't clear info - let cache work!
+            # Only set specific fields that need to be set
             self.quadFold.info['bgsub'] = self.bgsub
 
-            #pass persisted center data to quadfold object
-            if self.fixedCenterChecked:
-                self.quadFold.add_center(self.persist_center, "persisted")
+            # Apply image-specific center settings if available
+            if filename in self.imageCenterSettings:
+                settings = self.imageCenterSettings[filename]
+                if settings['mode'] == 'manual':
+                    self.quadFold.info['manual_center'] = settings['center']
 
-            #Pass the persisted rotation to the quadfold object
+            # Pass the persisted rotation to the quadfold object
             if self.persist_rot is not None:
                 self.quadFold.fixedRot = self.persist_rot
 
@@ -263,6 +343,10 @@ class QuadrantFoldingGUI(QMainWindow):
         #Used for when the same center/rotation needs to be used to process a folder
         self.persistedRotation = None
         self.currentCenter = None
+        
+        # Store center settings for each image (manual or auto mode)
+        # Format: {"filename": {"mode": "auto"|"manual", "center": [x, y]}}
+        self.imageCenterSettings = {}
 
         self.thresh_mask = None
 
@@ -455,8 +539,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.imageCenter = QLabel()
 
-        self.persistCenter = QCheckBox("Persist Center")
-
+        self.applyCenterBtn = QPushButton("Apply Center")
+        self.applyCenterBtn.setEnabled(False)
+        self.restoreAutoCenterBtn = QPushButton("Restore Auto Center")
 
         self.rotationAngleLabel = QLabel()
 
@@ -507,7 +592,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.setCenterLayout.addWidget(self.imageCenter, centerLayoutRowIndex, 0, 1, 4)
         centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(self.persistCenter, centerLayoutRowIndex, 0, 1, 4)
+        self.setCenterLayout.addWidget(self.applyCenterBtn, centerLayoutRowIndex, 0, 1, 2)
+        self.setCenterLayout.addWidget(self.restoreAutoCenterBtn, centerLayoutRowIndex, 2, 1, 2)
         centerLayoutRowIndex += 1
 
         rotationAngleRowIndex = 0
@@ -1229,6 +1315,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.setCentBtn.clicked.connect(self.setCentBtnClicked)
         self.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
+        self.applyCenterBtn.clicked.connect(self.applyCenterClicked)
+        self.restoreAutoCenterBtn.clicked.connect(self.restoreAutoCenterClicked)
         self.maskThresSpnBx.valueChanged.connect(self.ignoreThresChanged)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
@@ -1822,7 +1910,8 @@ class QuadrantFoldingGUI(QMainWindow):
     def setCentBtnClicked(self):
         if self.quadFold:
             curr_img = self.quadFold.orig_img
-            center = self.quadFold.get_latest_center()
+            # Get current center from info
+            center = self.quadFold.info.get('center')
 
             if (curr_img is not None) and center:
                 img = curr_img.copy()
@@ -1843,6 +1932,77 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.processImage()
                 else:
                     assert dialogCode == QDialog.Rejected, f"SetCentDialog closed with unexpected code:{dialogCode}"
+
+    def applyCenterClicked(self):
+        """Handle Apply Center button click"""
+        if not self.currentCenter:
+            QMessageBox.warning(self, "No Center", "No center available to apply.")
+            return
+        
+        dialog = ApplyCenterDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            selection = dialog.getSelection()
+            self._applyManualCenter(self.currentCenter, selection)
+            QMessageBox.information(self, "Center Applied", 
+                f"Center {self.currentCenter} applied to {selection} images.")
+    
+    def restoreAutoCenterClicked(self):
+        """Handle Restore Auto Center button click"""
+        dialog = RestoreAutoCenterDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            selection = dialog.getSelection()
+            self._restoreAutoCenter(selection)
+            QMessageBox.information(self, "Auto Center Restored", 
+                f"Auto center restored for {selection} images.")
+    
+    def _applyManualCenter(self, center, scope):
+        """Apply manual center to images based on scope"""
+        if not self.file_manager:
+            return
+        
+        current_index = self.file_manager.current_index
+        total_images = len(self.file_manager.names)
+        
+        if scope == 'all':
+            indices = range(total_images)
+        elif scope == 'subsequent':
+            indices = range(current_index, total_images)
+        elif scope == 'previous':
+            indices = range(0, current_index + 1)
+        else:
+            return
+        
+        # Apply manual center setting to selected images
+        for idx in indices:
+            filename = self.file_manager.names[idx]
+            self.imageCenterSettings[filename] = {
+                'mode': 'manual',
+                'center': list(center)
+            }
+    
+    def _restoreAutoCenter(self, scope):
+        """Restore auto center for images based on scope"""
+        if not self.file_manager:
+            return
+        
+        current_index = self.file_manager.current_index
+        total_images = len(self.file_manager.names)
+        
+        if scope == 'all':
+            indices = range(total_images)
+        elif scope == 'subsequent':
+            indices = range(current_index, total_images)
+        elif scope == 'previous':
+            indices = range(0, current_index + 1)
+        else:
+            return
+        
+        # Restore auto center mode for selected images
+        for idx in indices:
+            filename = self.file_manager.names[idx]
+            if filename in self.imageCenterSettings:
+                # Remove the entry to use auto mode
+                del self.imageCenterSettings[filename]
 
     def drawPerpendiculars(self):
         """
@@ -1893,7 +2053,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold:
             start_img = self.quadFold.start_img
             curr_img = self.quadFold.orig_img
-            center = self.quadFold.get_latest_center()
+            # Get current center from info
+            center = self.quadFold.info.get('center')
             angle_to_origin = self.quadFold.info.get("angle_to_origin")
             transform = self.quadFold.info.get("transform")
 
@@ -3204,8 +3365,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.navControls.filenameLineEdit.setText(fileName)
         self.navControls.setNavMode(self.file_manager.current_file_type)
         if reprocess:
-            self.quadFold.info = {}
+            # Don't clear info - instead mark for reprocess
+            # This allows cache to work while forcing recalculation
             self.quadFold.info['reprocess'] = True
+            # Remove cached center to force recalculation
+            if 'auto_center' in self.quadFold.info:
+                del self.quadFold.info['auto_center']
         if 'saveCroppedImage' not in self.quadFold.info:
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
@@ -3264,20 +3429,19 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def markFixedInfo(self, currentInfo, prevInfo):
         """
-        Deleting the center for appropriate recalculation
+        Clean up info dict when changing images
         """
-
-
+        # Delete center to force recalculation
+        # (manual_center will be set by _navigate_and_update if needed)
         if 'center' in currentInfo:
             del currentInfo['center']
 
-        if self.persistCenter.isChecked() and prevInfo is not None and 'calib_center' in prevInfo:
-            currentInfo['calib_center'] = prevInfo['calib_center']
-            if 'manual_center' in currentInfo:
-                del currentInfo['manual_center']
-        else:
-            if 'calib_center' in currentInfo:
-                del currentInfo['calib_center']
+        # Handle calibration center - always clean it up when changing images
+        # It will be reapplied if calibration is active
+        if 'calib_center' in currentInfo:
+            del currentInfo['calib_center']
+        
+        # Clean up detector info if not manually set
         if (not (self.calSettingsDialog and self.calSettingsDialog.manDetector.isChecked())) and (prevInfo is not None):
             if 'detector' in currentInfo:
                 del currentInfo['detector']
@@ -3456,38 +3620,55 @@ class QuadrantFoldingGUI(QMainWindow):
         Give the extent and the center of the image
         """
         if self.quadFold is None:
-            return [0,0], (0,0)
+            return [0, 0], (0, 0)
 
-        if self.quadFold is not None:
-            latest_center = self.quadFold.get_latest_center()
-
-            if latest_center:
-                return [0, 0], latest_center
-
-        if self.quadFold.orig_image_center is None and (self.quadFold.fixedCenterX is None or self.quadFold.fixedCenterY is None):
+        # If center already exists in info, return it with zero extent
+        if 'center' in self.quadFold.info:
+            return [0, 0], self.quadFold.info['center']
+        
+        # Otherwise, find the center first
+        if self.quadFold.orig_image_center is None:
             self.quadFold.findCenter()
             self.statusPrint("Done.")
-
-        if self.quadFold is not None:
-            latest_center = self.quadFold.get_latest_center()
-
-            if latest_center:
-                return [0, 0], latest_center
-
-
-        if 'center' not in self.quadFold.info:
-            extent = [0, 0]
+        
+        # Now center should be in info
+        if 'center' in self.quadFold.info:
+            center = self.quadFold.info['center']
         else:
-            extent = [self.quadFold.info['center'][0] - center[0], self.quadFold.info['center'][1] - center[1]]
-        return extent, center
+            center = self.quadFold.orig_image_center
+        
+        # Return zero extent and center
+        return [0, 0], center
 
     def setCenter(self, center, source):
+        """Set center for current image and enable Apply Center button"""
         if self.quadFold:
-            self.quadFold.add_center(center, source)
+            # Store in quadFold.info for immediate use
+            self.quadFold.info['manual_center'] = list(center)
+            
+            # Update current center
+            self.currentCenter = tuple(center)
+            
+            # Store in imageCenterSettings for current image
+            if self.file_manager:
+
+                
+                filename = self.file_manager.current_image_name
+                self.imageCenterSettings[filename] = {
+                    'mode': 'manual',
+                    'center': list(center)
+                }
+            
+            # Enable Apply Center button
+            self.applyCenterBtn.setEnabled(True)
+            
+            print(f"Center set to {center} from source: {source}")
 
     def setAngle(self, angle, source):
         if self.quadFold:
-            self.quadFold.add_angle(angle, source)
+            # Simplified - just set the angle
+            self.quadFold.info['rotationAngle'] = angle
+            print(f"Angle set to {angle} from source: {source}")
 
     def updateResultTab(self):
         """
@@ -3579,8 +3760,8 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                if self.persistCenter.isChecked() and self.currentCenter:
-                    self.quadFold.add_center(self.currentCenter, "persisted")
+                # Manual center is already set in quadFold.info['manual_center'] 
+                # by setCenter() or _navigate_and_update()
                 self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
@@ -3661,8 +3842,8 @@ class QuadrantFoldingGUI(QMainWindow):
         bg_csv_lock = Lock()
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.persistCenter.isChecked(),
-                                      self.currentCenter, self.persistedRotation, self.bgChoiceIn.currentText(),
+            self.currentTask = Worker(params, self.imageCenterSettings,
+                                      self.persistedRotation, self.bgChoiceIn.currentText(),
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
@@ -4161,13 +4342,6 @@ class QuadrantFoldingGUI(QMainWindow):
         flags = self.getFlags()
         text += "\nCurrent Settings"
 
-        #NICK ALLISON
-        #If the fixed center box is checked, then:
-        #Print message
-        #store the current center in the quadfoldgui object
-        #Display Center on popup window
-        if self.persistCenter.isChecked() and self.currentCenter:
-            text += "\n  - Center : " + str(self.currentCenter)
 
         #Same thing for rotation
         if self.persistedRotation is not None:
@@ -4347,12 +4521,15 @@ class QuadrantFoldingGUI(QMainWindow):
         """
             Helper method for navigation: creates QuadrantFolder and applies settings
         """
-        self.quadFold = QuadrantFolder(self.file_manager.current_image, self.file_manager.dir_path, self.file_manager.current_image_name, self)
-        self.quadFold.info = {}
+        filename = self.file_manager.current_image_name
+        self.quadFold = QuadrantFolder(self.file_manager.current_image, self.file_manager.dir_path, filename, self)
         
-        # Apply persisted center if fixed
-        if self.persistCenter.isChecked() and self.currentCenter:
-            self.quadFold.info['manual_center'] = [self.currentCenter[0], self.currentCenter[1]]
+        # Don't clear info - let cache work!
+        # Apply image-specific center settings if available
+        if filename in self.imageCenterSettings:
+            settings = self.imageCenterSettings[filename]
+            if settings['mode'] == 'manual':
+                self.quadFold.info['manual_center'] = settings['center']
         
         # Apply persisted rotation if set
         if self.persistedRotation is not None:

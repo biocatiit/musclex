@@ -98,8 +98,6 @@ class QuadrantFolder:
         else:
             self.info = {}
 
-        self.info.setdefault("center_history", [])
-        self.info.setdefault("angle_history", [])
         self.info.setdefault("transform", None)
 
         # To display rotation angle relative to the original image.
@@ -107,7 +105,6 @@ class QuadrantFolder:
 
         # To display cursor point in original image.
         self.info.setdefault("inv_transform", None)
-        self.max_num_history = 5
 
         #Nick Allison
         #Used for persistirng the center when processing a folder of images that
@@ -204,86 +201,14 @@ class QuadrantFolder:
             print("Ran into some problem reading from mask file.")
             return -1.0, -1.0
 
-    def get_latest_center(self):
-        center_history = self.info.get("center_history")
-
-        if center_history:
-            latest_center_info = center_history[-1]
-            return latest_center_info["center"]
-
-        return None
-
     def _emit_center_signal(self, center):
         """
         Emit signal to update GUI with center coordinates.
-        Used by both add_center (for new centers) and findCenter (for cached centers).
         """
         if self.parent and not self.suppress_signals:
             # Ensure center is a tuple for signal consistency
             center_tuple = tuple(center) if not isinstance(center, tuple) else center
             self.parent.eventEmitter.imageCenterChangedSignal.emit(center_tuple)
-
-    def add_center(self, center, source):
-        center_in_origin_coords = None
-
-        if source in ["calibration"]:
-            # Because calibration center is in original image coordinations:
-            # Transform it to cressponding point in current image coordinations.
-            center_in_origin_coords = center
-
-            transform = self.info.get("transform")
-
-            if transform is not None:
-                x, y = center_in_origin_coords
-                # Convert to homogeneous coordinates
-                point = np.array([x, y, 1])
-
-                transformed_point = transform @ point
-                center = tuple(transformed_point)
-
-        center_info = {
-            "center": center,
-            "source": source,
-        }
-
-        if center_in_origin_coords is not None:
-            center_info["center_in_origin_coords"] = center_in_origin_coords
-
-        print("=" * 20)
-        print(f"Add center: {center_info}")
-        print("-" * 20)
-
-        self.info.setdefault("center_history", [])
-        self.info["center_history"].append(center_info)
-
-        self.info["center_history"] = self.info["center_history"][-self.max_num_history:]
-
-        # Emit signal to update GUI
-        self._emit_center_signal(center)
-
-    def get_latest_angle(self):
-        angle_history = self.info.get("angle_history")
-
-        if angle_history:
-            latest_angle_info = angle_history[-1]
-            return latest_angle_info["angle"]
-
-        return None
-
-    def add_angle(self, angle, source):
-        angle_info = {
-            "angle": angle,
-            "source": source,
-        }
-
-        print("=" * 20)
-        print(f"Add angle: {angle_info}")
-        print("-" * 20)
-
-        self.info.setdefault("angle_history", [])
-        self.info["angle_history"].append(angle_info)
-
-        self.info["angle_history"] = self.info["angle_history"][-self.max_num_history:]
 
 
     def add_transform(self, M):
@@ -449,25 +374,35 @@ class QuadrantFolder:
 
     def findCenter(self):
         """
-        Overloading previous findCenter method
         Find the center in original image coordinates
+        Priority: manual_center > auto_center (cached) > calculate new
         """
         self.parent.statusPrint("Finding Center...")
         
-        center = self.get_latest_center()
-        if center is not None:
-            self.info['center'] = center
-            # Emit signal to update GUI (but don't add to history, already cached)
-            self._emit_center_signal(center)
+        # Priority 1: Use manual center if provided by GUI
+        if 'manual_center' in self.info:
+            self.info['center'] = self.info['manual_center']
+            print(f"Using manual center: {self.info['center']}")
+            self._emit_center_signal(self.info['center'])
+            return
+        
+        # Priority 2: Use cached auto center
+        if 'auto_center' in self.info:
+            self.info['center'] = self.info['auto_center']
+            print(f"Using cached auto center: {self.info['center']}")
+            self._emit_center_signal(self.info['center'])
             return
 
-        print("Center is being calculated ... ")
+        # Priority 3: Calculate new center and cache it
+        print("Calculating new center...")
         self.orig_image_center = getCenter(self.orig_img)
         self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
         self.fixedCenterX, self.fixedCenterY = None, None
 
-        self.add_center(self.info['center'], "algorithm-getCenter-processImageForIntCenter")
-        print("Done. Center = "+str(self.info['center']))
+        # Cache the calculated center
+        self.info['auto_center'] = self.info['center']
+        print(f"Calculated and cached center: {self.info['center']}")
+        self._emit_center_signal(self.info['center'])
 
     def rotateImg(self):
         """
@@ -503,31 +438,17 @@ class QuadrantFolder:
     def getRotationAngle(self):
         """
         Figures out the rotation angle to use on the image.
+        Simplified: no longer uses angle history caching.
         """
         self.parent.statusPrint("Finding Rotation Angle...")
 
-        angle = self.get_latest_angle()
-        if angle is not None:
-            self.info["rotationAngle"] = angle
-            self.deleteFromDict(self.info, 'avg_fold')
+        # If rotation angle already calculated, use it
+        if "rotationAngle" in self.info:
+            print(f"Using existing rotation angle: {self.info['rotationAngle']}")
             return
-
-        # if self.fixedRot is not None:
-        #     self.info["rotationAngle"] = self.fixedRot
-        #     self.deleteFromDict(self.info, 'avg_fold')
-        # elif 'manual_rotationAngle' in self.info:
-        #     self.info["rotationAngle"] = self.info['manual_rotationAngle']
-        #     del self.info['manual_rotationAngle']
-        #     self.deleteFromDict(self.info, 'avg_fold')
-        # elif "mode_angle" in self.info:
-        #     print(f'Using mode orientation {self.info["mode_angle"]}')
-        #     self.info["rotationAngle"] = self.info["mode_angle"]
-        #     self.deleteFromDict(self.info, 'avg_fold')
-        # elif not self.empty and "rotationAngle" not in self.info.keys():
 
         print("Rotation Angle is being calculated ... ")
         # Selecting disk (base) image and corresponding center for determining rotation as for larger images (formed from centerize image) rotation angle is wrongly computed
-        #_, center = self.parent.getExtentAndCenter()
         _, center = self.getExtentAndCenter()
         img = copy.copy(self.initImg) if self.initImg is not None else copy.copy(self.orig_img)
         if 'detector' in self.info:
@@ -535,7 +456,6 @@ class QuadrantFolder:
         else:
             self.info["rotationAngle"] = getRotationAngle(img, center, self.info['orientation_model'])
 
-        self.add_angle(self.info["rotationAngle"], "algorithm-getRotationAngle")
         self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(self.info["rotationAngle"]) +" degree")
 
@@ -544,33 +464,23 @@ class QuadrantFolder:
         Give the extent and the center of the image in self.
         :return: extent, center
         """
-        center = self.get_latest_center()
-        if center is not None:
-            self.info['center'] = center
-            return [0,0], center
-
-        if self.orig_image_center is None and (self.fixedCenterX == None or self.fixedCenterY == None):
+        # If center already exists in info, return it with zero extent
+        if 'center' in self.info:
+            return [0, 0], self.info['center']
+        
+        # Otherwise, find the center first
+        if self.orig_image_center is None:
             self.findCenter()
             self.statusPrint("Done.")
-
-        center = self.get_latest_center()
-        if center is not None:
-            self.info['center'] = center
-            return [0,0], center
-
-        """
-        if self.fixedCenterX is not None and self.fixedCenterY is not None:
-            center = []
-            center.append(self.fixedCenterX)
-            center.append(self.fixedCenterY)
-        """
-        # if 'calib_center' in self.info:
-        #     center = self.info['calib_center']
-        # elif 'manual_center' in self.info:
-        #     center = self.info['manual_center']
-        # else:
-        center = self.orig_image_center
-        extent = [self.info['center'][0] - center[0], self.info['center'][1] - center[1]]
+        
+        # Now center should be in info
+        if 'center' in self.info:
+            center = self.info['center']
+        else:
+            center = self.orig_image_center
+        
+        # Calculate extent (usually [0, 0] now)
+        extent = [0, 0]
         print("EXTENT=", extent)
         print("CENTER=", center)
 
@@ -654,10 +564,8 @@ class QuadrantFolder:
         self.old_center = self.info['center']
         #self.info['center'] = new_center
         self.info['center'] = w_o//2, h_o//2
-        self.add_center(self.info['center'], "transformImage")
 
         self.info["rotationAngle"] = 0.0
-        self.add_angle(self.info["rotationAngle"], "transformImage")
 
     def centerizeImage(self):
         """
