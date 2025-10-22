@@ -95,18 +95,12 @@ class QF_CSVManager:
             data['comment'] = "REJECTED"
         else:
             failed = False
+            # Priority: fixedCenter > quadFold.center (manual or auto) > orig_image_center > (0,0)
             if quadFold.fixedCenterX is not None and quadFold.fixedCenterY is not None:
-                center = []
-                center.append(quadFold.fixedCenterX)
-                center.append(quadFold.fixedCenterY)
-            elif 'calib_center' in quadFold.info:
-                center = quadFold.info['calib_center']
+                center = [quadFold.fixedCenterX, quadFold.fixedCenterY]
             elif quadFold.center is not None:
                 # Use the actual center (whether manual or auto)
                 center = quadFold.center
-            elif 'auto_center' in quadFold.info:
-                # Fallback to cached auto center
-                center = quadFold.info['auto_center']
             elif quadFold.orig_image_center is not None:
                 center = (round(quadFold.orig_image_center[0], 2), round(quadFold.orig_image_center[1], 2))
             else:
