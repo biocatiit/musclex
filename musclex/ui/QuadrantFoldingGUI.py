@@ -1407,6 +1407,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageCenter.setText(
             f"Center (Current coords): x={center[0]:.2f}, y={center[1]:.2f} px"
         )
+        # Enable Apply Center button
+        self.applyCenterBtn.setEnabled(True)
 
 
     def updateLeftWidgetWidth(self):
@@ -1954,7 +1956,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.file_manager:
             return
         
-        current_index = self.file_manager.current_index
+        current_index = self.file_manager.current
         total_images = len(self.file_manager.names)
         
         if scope == 'all':
@@ -1982,7 +1984,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.file_manager:
             return
         
-        current_index = self.file_manager.current_index
+        current_index = self.file_manager.current
         total_images = len(self.file_manager.names)
         
         if scope == 'all':
@@ -3642,9 +3644,8 @@ class QuadrantFoldingGUI(QMainWindow):
                 }
                 # Save to file immediately
                 self.saveCenterSettings()
-            
-            # Enable Apply Center button
-            self.applyCenterBtn.setEnabled(True)
+            self.updateCurrentCenter(center)
+
             
             print(f"Center set to {center} from source: {source}")
 
