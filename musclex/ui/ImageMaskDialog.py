@@ -76,7 +76,6 @@ class ImageMaskDialog(QDialog):
         # The drawn mask file name should be <originalFileNoExt>-mask.edf
         self.drawn_mask_file_path = self.image_file_path.parent / f"{self.image_file_path.stem}-mask.edf"
         self.mask_config_file_path = self.image_file_path.parent / f"mask_config.json"
-        self.blank_config_file_path = self.image_file_path.parent / f"blank_image_settings.json"
 
         self.imageData = self.read_image_data(self.image_file_path)
         drawnMaskData = self.read_image_data(self.drawn_mask_file_path)
@@ -85,15 +84,6 @@ class ImageMaskDialog(QDialog):
             self.drawnMaskData = 1 - drawnMaskData
         else:
             self.drawnMaskData = None
-
-        blank_image_info = self.read_blank_image_info(self.blank_config_file_path)
-
-        if ((blank_image_info is not None)
-            and (blank_image_info.get("blank_image") is not None)
-            and blank_image_info["blank_image"].shape == self.imageData.shape):
-            self.blank_image_info = blank_image_info
-        else:
-            self.blank_image_info = None
 
         # If mask config file exists, load mask config.
         mask_config = self.readMaskConfig()
@@ -156,41 +146,16 @@ class ImageMaskDialog(QDialog):
         self.displayLayout = QVBoxLayout(self.displayGroup)
         self.displayLayout.addWidget(self.showImageCheckBox)
 
-        self.applyBlankGroup = QGroupBox("Empty Cell Image Options")
-        self.applyBlankCheckBox = QCheckBox("Apply Empty Cell Image")
-        self.applyBlankText = QLabel()
-
-        # self.selectBlankBtn = QPushButton("Select Empty Cell Image")
-        self.blankWeightLabel = QLabel("Empty Cell Image Scale: ")
-        self.blankWeightText = QDoubleSpinBox()
-        self.blankWeightText.setKeyboardTracking(False)
-        self.blankWeightText.setRange(0, 1000)
-        self.blankWeightText.setValue(1.00)
-        self.blankWeightText.setSingleStep(0.01)
-
-        self.updateBlankWidgets()
-
-        self.applyBlankLayout = QGridLayout(self.applyBlankGroup)
-        settingsRowIndex = 0
-        self.applyBlankLayout.addWidget(self.applyBlankCheckBox, settingsRowIndex, 0, 1, 2)
-        self.applyBlankLayout.addWidget(self.applyBlankText, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
-        # self.applyBlankLayout.addWidget(self.selectBlankBtn, settingsRowIndex, 0, 1, 4)
-        # settingsRowIndex += 1
-        self.applyBlankLayout.addWidget(self.blankWeightLabel, settingsRowIndex, 0, 1, 2)
-        self.applyBlankLayout.addWidget(self.blankWeightText, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
-
         self.applyMaskGroup = QGroupBox("Mask Options")
         self.applyMaskGroup.setToolTip(
             "The selected mask options will be saved to a file and"
             + " applied to the image when clicking the Save button.")
 
-        self.applyDrawnMaskCheckBox = QCheckBox("Apply Drawn Mask")
+        self.applyDrawnMaskCheckBox = QCheckBox("Drawn Mask")
         self.applyDrawnMaskText = QLabel()
 
-        self.applyLowMaskCheckBox = QCheckBox("Apply Low Mask Threshold")
-        self.applyHighMaskCheckBox= QCheckBox("Apply High Mask Threshold")
+        self.applyLowMaskCheckBox = QCheckBox("Low Mask Threshold")
+        self.applyHighMaskCheckBox= QCheckBox("High Mask Threshold")
 
         self.applyMaskLayout = QGridLayout(self.applyMaskGroup)
         settingsRowIndex = 0
@@ -354,8 +319,6 @@ class ImageMaskDialog(QDialog):
         # self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.displayGroup)
         self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.applyBlankGroup)
-        self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyMaskGroup)
         self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.drawMaskGroup)
@@ -398,9 +361,6 @@ class ImageMaskDialog(QDialog):
 
     def setConnections(self):
         self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
-        self.applyBlankCheckBox.checkStateChanged.connect(self.enableBlankSubtraction)
-        # self.selectBlankBtn.clicked.connect(self.readBlankImage)
-        self.blankWeightText.valueChanged.connect(self.updateBlankWeight)
         self.drawMaskBtn.clicked.connect(self.drawMask)
         self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
         self.applyLowMaskCheckBox.checkStateChanged.connect(self.enableLowMaskThresh)
@@ -415,39 +375,6 @@ class ImageMaskDialog(QDialog):
 
     def enableShowImage(self, state):
         self.refreshImage()
-
-    def enableBlankSubtraction(self, state):
-        if state == Qt.CheckState.Checked:
-            self.blankWeightLabel.setEnabled(True)
-            self.blankWeightText.setEnabled(True)
-
-        if state == Qt.CheckState.Unchecked:
-            self.blankWeightLabel.setEnabled(False)
-            self.blankWeightText.setEnabled(False)
-
-        self.refreshImage()
-
-    def updateBlankWeight(self, blank_image_weight):
-        self.blank_image_info["weight"] = blank_image_weight
-
-        self.refreshImage()
-
-    def updateBlankWidgets(self):
-        if self.blank_image_info is not None:
-            self.applyBlankCheckBox.setChecked(True)
-            self.applyBlankCheckBox.setEnabled(True)
-            self.applyBlankText.setText("Empty cell image is available.")
-            self.applyBlankText.setStyleSheet("color: green;")
-            self.blankWeightLabel.setEnabled(True)
-            self.blankWeightText.setEnabled(True)
-            self.blankWeightText.setValue(self.blank_image_info.get("weight", 1.0))
-        else:
-            self.applyBlankCheckBox.setChecked(False)
-            self.applyBlankCheckBox.setEnabled(False)
-            self.applyBlankText.setText("No empty cell image found. Ignore this message if expected.")
-            self.applyBlankText.setStyleSheet("color: red;")
-            self.blankWeightLabel.setEnabled(False)
-            self.blankWeightText.setEnabled(False)
 
     def updateDrawnMaskWidgets(self):
         if self.drawnMaskData is not None:
@@ -531,27 +458,8 @@ class ImageMaskDialog(QDialog):
         self.refreshImage()
 
     def okClicked(self):
-        self.saveBlankConfig()
         self.saveMaskConfig()
         self.accept()
-
-    def saveBlankConfig(self):
-        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
-            and self.applyBlankCheckBox.isChecked())
-
-        if isApplyBlank:
-            if self.blank_image_info is not None:
-                blank_config = {
-                    "file_path": str(self.blank_image_info["file_path"]),
-                    "weight": self.blank_image_info["weight"],
-                }
-
-                self.blank_config_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                with open(self.blank_config_file_path, "w") as file_stream:
-                    json.dump(blank_config, file_stream, indent=4)
-        else:
-            self.blank_config_file_path.unlink(missing_ok=True)
 
     def saveMaskConfig(self):
         isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
@@ -628,28 +536,6 @@ class ImageMaskDialog(QDialog):
             return None
 
         return mask_config
-
-    def readBlankImage(self):
-        blank_image_file_path = getAFile(path=str(self.image_file_path.parent))
-        blank_image_file_path = Path(blank_image_file_path)
-
-        if (not blank_image_file_path) or not blank_image_file_path.exists():
-            return
-
-        blank_image = self.read_image_data(blank_image_file_path)
-        blank_image_weight = 1.0
-
-        blank_image_info = {
-            "file_path": str(blank_image_file_path),
-            "blank_image": blank_image,
-            "weight": blank_image_weight
-        }
-
-        self.blank_image_info = blank_image_info
-
-        self.updateBlankWidgets()
-
-        self.refreshImage()
 
     def drawMask(self):
         if self.image_file_path.exists():
@@ -748,37 +634,6 @@ class ImageMaskDialog(QDialog):
 
         return scaledPixmap
 
-    def read_blank_image_info(self, blank_config_file_path):
-        if not blank_config_file_path.exists():
-            return None
-
-        with open(blank_config_file_path, "r") as file_stream:
-            blank_config = json.load(file_stream)
-
-        if not isinstance(blank_config, dict):
-            return None
-
-        blank_image_file_path = blank_config.get("file_path")
-
-        if not blank_image_file_path:
-            return None
-
-        blank_image_file_path = Path(blank_image_file_path)
-
-        if not blank_image_file_path.exists():
-            return None
-
-        blank_image = self.read_image_data(blank_image_file_path)
-        blank_image_weight = blank_config.get("weight", 1.0)
-
-        blank_image_info = {
-            "file_path": str(blank_image_file_path),
-            "blank_image": blank_image,
-            "weight": blank_image_weight
-        }
-
-        return blank_image_info
-
     def read_image_data(self, file_path):
         if not file_path.exists():
             return None
@@ -789,9 +644,6 @@ class ImageMaskDialog(QDialog):
     def refreshImage(self):
         isShowImage = (self.showImageCheckBox.isEnabled()
             and self.showImageCheckBox.isChecked())
-
-        isApplyBlank = (self.applyBlankCheckBox.isEnabled()
-            and self.applyBlankCheckBox.isChecked())
 
         isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
             and self.applyDrawnMaskCheckBox.isChecked())
@@ -807,72 +659,39 @@ class ImageMaskDialog(QDialog):
         # If user does not select showing image:
         if not isShowImage:
             # If nothing is selected, Show nothing.
-            if not (isApplyBlank or isApplyMask):
+            if not isApplyMask:
                 self.imageLabel.clear()
                 self.statusBar.setText(f"Current View: No Display")
                 return
 
-            # Only show empty cell.
-            if isApplyBlank and (not isApplyMask):
-                blank_image_weight = self.blank_image_info["weight"]
-                imageData = self.blank_image_info["blank_image"] * blank_image_weight
-                scaledPixmap = self.createDisplayImage(imageData,
-                    self.vmin,
-                    self.vmax,
-                    self.imageLabel.width(),
-                    self.imageLabel.height())
-                self.imageLabel.setPixmap(scaledPixmap)
-                self.statusBar.setText(f"Current View: Empty Cell (with scale: {blank_image_weight:.2f})")
-                return
-
             # Only show mask:
-            if (not isApplyBlank) and isApplyMask:
-                imageData = self.imageData.copy()
-                drawnMaskData, lowMask, highMask = self.getMasks(imageData)
-                masks = [mask for mask in
-                    [drawnMaskData, lowMask, highMask]
-                    if mask is not None]
+            imageData = self.imageData.copy()
+            drawnMaskData, lowMask, highMask = self.getMasks(imageData)
+            masks = [mask for mask in
+                [drawnMaskData, lowMask, highMask]
+                if mask is not None]
 
-                # If no mask, then show nothing.
-                if not masks:
-                    self.imageLabel.clear()
-                    return
-
-                maskData = np.prod(np.stack(masks), axis=0)
-                scaledPixmap = self.createDisplayImage(maskData,
-                    self.vmin,
-                    self.vmax,
-                    self.imageLabel.width(),
-                    self.imageLabel.height())
-
-                self.imageLabel.setPixmap(scaledPixmap)
-                self.statusBar.setText(f"Current View: Mask")
+            # If no mask, then show nothing.
+            if not masks:
+                self.imageLabel.clear()
                 return
 
-            # Show empty cell + apply mask.
-            blank_image_weight = self.blank_image_info["weight"]
-            imageData = self.blank_image_info["blank_image"] * blank_image_weight
-            drawnMaskData, lowMask, highMask = self.getMasks(imageData)
-
-            scaledPixmap = self.createDisplayImageWithMasks(
-                imageData,
+            maskData = np.prod(np.stack(masks), axis=0)
+            scaledPixmap = self.createDisplayImage(maskData,
                 self.vmin,
                 self.vmax,
-                lowMask,
-                highMask,
-                drawnMaskData,
                 self.imageLabel.width(),
                 self.imageLabel.height())
 
             self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Empty Cell (with scale: {blank_image_weight:.2f}) + Apply Mask")
+            self.statusBar.setText(f"Current View: Mask")
             return
 
         # User selected showing image:
         imageData = self.imageData.copy()
 
         # Only show image.
-        if not (isApplyBlank or isApplyMask):
+        if not isApplyMask:
             scaledPixmap = self.createDisplayImage(imageData,
                 self.vmin,
                 self.vmax,
@@ -882,44 +701,8 @@ class ImageMaskDialog(QDialog):
             self.statusBar.setText(f"Current View: Original Image")
             return
 
-        # Show image + subtract blank.
-        if isApplyBlank and (not isApplyMask):
-            blank_image_weight = self.blank_image_info["weight"]
-            imageData = imageData - self.blank_image_info["blank_image"] * blank_image_weight
-
-            scaledPixmap = self.createDisplayImage(imageData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f})")
-            return
-
         # Show image + apply mask.
-        if (not isApplyBlank) and isApplyMask:
-            drawnMaskData, lowMask, highMask = self.getMasks(
-                imageData)
-
-            scaledPixmap = self.createDisplayImageWithMasks(
-                imageData,
-                self.vmin,
-                self.vmax,
-                lowMask,
-                highMask,
-                drawnMaskData,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Original Image + Apply Mask")
-            return
-
-        # Show image + subtract empty cell + apply mask.
-        blank_image_weight = self.blank_image_info["weight"]
-        imageData = imageData - self.blank_image_info["blank_image"] * blank_image_weight
-        drawnMaskData, lowMask, highMask = self.getMasks(
-            imageData)
+        drawnMaskData, lowMask, highMask = self.getMasks(imageData)
 
         scaledPixmap = self.createDisplayImageWithMasks(
             imageData,
@@ -932,7 +715,7 @@ class ImageMaskDialog(QDialog):
             self.imageLabel.height())
 
         self.imageLabel.setPixmap(scaledPixmap)
-        self.statusBar.setText(f"Current View: Original Image + Empty Cell subtraction (with scale: {blank_image_weight:.2f}) + Apply Mask")
+        self.statusBar.setText(f"Current View: Original Image + Apply Mask")
 
     def getMasks(self, imageData):
         drawnMaskData = None

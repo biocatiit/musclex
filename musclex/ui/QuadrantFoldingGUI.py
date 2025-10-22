@@ -648,17 +648,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.modeAngleChkBx = QCheckBox("Mode Orientation")
         self.modeAngleChkBx.setChecked(False)
 
-        # self.expandImage = QCheckBox("Expand the Image")
-        # self.expandImage.setChecked(False)
-        # self.expandImage.setToolTip("Expand the size of the image, for images with an offset center")
-
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
         self.compressFoldedImageChkBx.setChecked(True)
         self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
-
-        #self.doubleZoom.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
-        #self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
 
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
@@ -696,10 +688,6 @@ class QuadrantFoldingGUI(QMainWindow):
         setCenterRotationRowIndex += 1
 
         settingsRowIndex = 0
-        #self.settingsLayout.addWidget(QLabel("Lower Bound : "), 4, 0, 1, 2)
-        #self.settingsLayout.addWidget(self.minThreshField, 4, 2, 1, 2)
-        #self.settingsLayout.addWidget(QLabel("Upper Bound : "), 5, 0, 1, 2)
-        #self.settingsLayout.addWidget(self.maxThreshField, 5, 2, 1, 2)
 
         self.settingsLayout.addWidget(QLabel("Mask Threshold : "), settingsRowIndex, 0, 1, 2)
         self.settingsLayout.addWidget(self.maskThresSpnBx, settingsRowIndex, 2, 1, 2)
@@ -714,11 +702,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 14, 2, 1, 4)
 
         # Blank Image Settings
-        self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
-        # self.blankImageGrp.setCheckable(True)
-        # self.blankImageGrp.setChecked(False)
+        self.blankImageGrp = QGroupBox("Apply Blank Image and Mask")
+
         self.blankImageLayout = QGridLayout(self.blankImageGrp)
-        self.blankSettingButton = QPushButton("Subtract Blank Image")
+        self.blankSettingButton = QPushButton("Set Empty Cell Image")
         self.blankImageLayout.addWidget(self.blankSettingButton, 1, 0, 1, 2)
         self.maskSettingButton = QPushButton("Set Mask")
         self.blankImageLayout.addWidget(self.maskSettingButton, 1, 2, 1, 2)
@@ -726,7 +713,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rightImageLayout.addWidget(self.blankImageGrp)
         self.rightImageLayout.addWidget(self.settingsGroup)
 
-        #self.blankImageGrp.setFixedHeight(200)
 
         self.rightImageLayout.addStretch()
 
