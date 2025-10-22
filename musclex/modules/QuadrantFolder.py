@@ -386,7 +386,6 @@ class QuadrantFolder:
         # Priority 1: Use pre-set center (manual mode, set by GUI)
         if self.center is not None:
             print(f"Using pre-set center: {self.center}")
-            self._emit_center_signal(self.center)
             return
         
         # Priority 2: Use cached auto center
@@ -650,7 +649,7 @@ class QuadrantFolder:
         Get rotated image by angle while image = original input image, and angle = self.info["rotationAngle"]
         """
         img = np.array(self.orig_img, dtype="float32")
-        center = self.info["center"]
+        center = self.center
         if self.center_before_rotation is not None:
             center = self.center_before_rotation
         else:
@@ -664,7 +663,7 @@ class QuadrantFolder:
         dh, dw = (hnew - h)//2, (wnew-w)//2
         final_rotImg = rotImg[dh:h + dh, dw:w + dw]
         if self.fixedCenterX is None and self.fixedCenterY is None:
-            self.info["center"] = (newCenter[0]-dw, newCenter[1]-dh)
+            self.center = (newCenter[0]-dw, newCenter[1]-dh)
         self.dl, self.db = dw, dh # storing the cropped off section to recalculate coordinates when manual center is given
 
         self.curr_dims = final_rotImg.shape
@@ -979,7 +978,7 @@ class QuadrantFolder:
         fold = np.copy(self.info["avg_fold"])
 
         img = self.makeFullImage(fold)
-        center = self.info["center"]
+        center = self.center
 
         if "roi_rad" in self.info: # if roi_rad is specified, use it
             roi_rad = int(self.info["roi_rad"])
@@ -1110,7 +1109,7 @@ class QuadrantFolder:
         # center = [fold.shape[1] + .5, fold.shape[0] + .5]
 
         img = self.makeFullImage(fold)
-        center = self.info["center"]
+        center = self.center
 
         if "roi_rad" in self.info: # if roi_rad is specified, use it
             roi_rad = int(self.info["roi_rad"])

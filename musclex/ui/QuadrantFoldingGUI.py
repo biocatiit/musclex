@@ -343,7 +343,6 @@ class QuadrantFoldingGUI(QMainWindow):
         #NA
         #Used for when the same center/rotation needs to be used to process a folder
         self.persistedRotation = None
-        self.currentCenter = None
         
         # Store center settings for each image (manual or auto mode)
         # Format: {"filename": {"mode": "auto"|"manual", "center": [x, y]}}
@@ -1405,7 +1404,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
 
     def updateCurrentCenter(self, center):
-        self.currentCenter = center
         self.imageCenter.setText(
             f"Center (Current coords): x={center[0]:.2f}, y={center[1]:.2f} px"
         )
@@ -1461,7 +1459,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
             # Create new circle (adjust x, y, radius as needed)
             radius = self.rminSpnBx.value()
-            center = self.quadFold.info['center']
+            center = self.quadFold.center
 
             self.circle_patch_rmin = plt.Circle(center, radius,
                                         fill=False,
@@ -1503,7 +1501,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # Create new circle (adjust x, y, radius as needed)
             radius = self.tranRSpnBx.value()
             delta = self.tranDeltaSpnBx.value()
-            center = self.quadFold.info['center']
+            center = self.quadFold.center
 
             self.circle_patch = plt.Circle(center, radius,
                                         fill=False,
@@ -1679,7 +1677,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 return origin_x, origin_y
 
         _, center = self.getExtentAndCenter()
-        center = self.quadFold.info['center']
+        center = self.quadFold.center
         #rotation angle in radians
         angle = 0 if 'rotationAngle' not in self.quadFold.info else -self.quadFold.info['rotationAngle'] * math.pi / 180
         cos_a = math.cos(angle)
@@ -1841,9 +1839,6 @@ class QuadrantFoldingGUI(QMainWindow):
             print("New Center ", new_center)
             self.setCenter(new_center, "Perpendicular")
 
-            if 'center' in self.quadFold.info:
-                del self.quadFold.info['center']
-
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
             self.setCentByPerp.setChecked(False)
@@ -1901,8 +1896,6 @@ class QuadrantFoldingGUI(QMainWindow):
             print("New center ", new_center)
             # Set new center and rotaion angle , re-calculate R-min
             self.setCenter(new_center, "Chords")
-            if 'center' in self.quadFold.info:
-                del self.quadFold.info['center']
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
             self.setCentByChords.setChecked(False)
@@ -1936,16 +1929,16 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def applyCenterClicked(self):
         """Handle Apply Center button click"""
-        if not self.currentCenter:
+        if not self.quadFold or not self.quadFold.center:
             QMessageBox.warning(self, "No Center", "No center available to apply.")
             return
         
         dialog = ApplyCenterDialog(self)
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
-            self._applyManualCenter(self.currentCenter, selection)
+            self._applyManualCenter(self.quadFold.center, selection)
             QMessageBox.information(self, "Center Applied", 
-                f"Center {self.currentCenter} applied to {selection} images.")
+                f"Center {self.quadFold.center} applied to {selection} images.")
     
     def restoreAutoCenterClicked(self):
         """Handle Restore Auto Center button click"""
@@ -2045,9 +2038,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # for i in range(len(ax.patches)-1,-1,-1):
             #     ax.patches[i].remove()
             #_, center = self.getExtentAndCenter()
-            center = self.quadFold.info['center']
-            if self.quadFold.fixedCenterX is None and self.quadFold.fixedCenterY is None:
-                self.quadFold.info['center'] = center
+
             self.imageCanvas.draw_idle()
             self.function = ["im_rotate"]
             self.display_points = ["im_rotate"]
@@ -2331,25 +2322,24 @@ class QuadrantFoldingGUI(QMainWindow):
 
                     cx = int(round((x1 + x2) / 2.) + extent[0])
                     cy = int(round((y1 + y2) / 2.) + extent[1])
-                    # M = cv2.getRotationMatrix2D(tuple(self.quadFold.info['center']), self.quadFold.info['rotationAngle'], 1)
+                    # M = cv2.getRotationMatrix2D(tuple(self.quadFold.center), self.quadFold.info['rotationAngle'], 1)
                     new_center = [cx, cy]
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
-                    self.setCenter((cx, cy), "CenterRotate")
-                    if 'center' in self.quadFold.info:
-                        del self.quadFold.info['center']
+                self.setCenter((cx, cy), "CenterRotate")
+                # No need to delete center - it's in self.center now
 
-                    self.setAngle(new_angle, "CenterRotate")
-                    self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
-                    self.deleteInfo(['avg_fold'])
-                    self.newImgDimension = None
-                    self.setCenterRotationButton.setChecked(False)
-                    self.persistRotation.setVisible(True)
-                    self.processImage()
+                self.setAngle(new_angle, "CenterRotate")
+                self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
+                self.deleteInfo(['avg_fold'])
+                self.newImgDimension = None
+                self.setCenterRotationButton.setChecked(False)
+                self.persistRotation.setVisible(True)
+                self.processImage()
             elif func[0] == "im_rotate":
                 # set rotation angle
                 extent, center = self.getExtentAndCenter()
-                center = self.quadFold.info['center']
+                center = self.quadFold.center
 
                 # x_o, y_o = self.getOrigCoordsCenter(x, y)
                 # cx_o, cy_o = self.getOrigCoordsCenter(center[0], center[1])
@@ -2386,8 +2376,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.persistRotation.setVisible(True)
 
                 #Put the center (in original image coordinates) into the manual center entry of the key so that it will be used during processing.
-                if 'center' in self.quadFold.info:
-                    del self.quadFold.info['center']
 
                 self.processImage()
 
@@ -2474,7 +2462,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.imgCoordOnStatusBar.setText("Cursor (Current coords): x={x:.2f}, y={y:.2f}, value={pixel_value:.2f}, distance={q:.2f} {unit}")
                 else:
-                    mouse_distance = np.sqrt((self.quadFold.info['center'][0] - x) ** 2 + (self.quadFold.info['center'][1] - y) ** 2)
+                    mouse_distance = np.sqrt((self.quadFold.center[0] - x) ** 2 + (self.quadFold.center[1] - y) ** 2)
                     self.imgCoordOnStatusBar.setText(f"Cursor (Current coords): x={x:.2f}, y={y:.2f}, value={pixel_value:.2f}, distance={mouse_distance:.2f} {unit}")
 
                 o_x, o_y = self.getOrigCoordsCenter(x, y)
@@ -2615,7 +2603,7 @@ class QuadrantFoldingGUI(QMainWindow):
             """if self.calSettings is None or 'center' not in self.calSettings:
             self.calSettings = {}
             extent, self.calSettings['center'] = self.getExtentAndCenter()"""
-            center = self.quadFold.info['center']
+            center = self.quadFold.center
 
             deltax = x - center[0]
             deltay = y - center[1]
@@ -3520,7 +3508,7 @@ class QuadrantFoldingGUI(QMainWindow):
             img = self.quadFold.orig_img
 
             extent = [0,0]
-            center = self.quadFold.info['center']
+            center = self.quadFold.center
 
             self.extent = extent
 
@@ -3621,18 +3609,18 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is None:
             return [0, 0], (0, 0)
 
-        # If center already exists in info, return it with zero extent
-        if 'center' in self.quadFold.info:
-            return [0, 0], self.quadFold.info['center']
+        # If center already exists, return it with zero extent
+        if self.quadFold.center is not None:
+            return [0, 0], self.quadFold.center
         
         # Otherwise, find the center first
         if self.quadFold.orig_image_center is None:
             self.quadFold.findCenter()
             self.statusPrint("Done.")
         
-        # Now center should be in info
-        if 'center' in self.quadFold.info:
-            center = self.quadFold.info['center']
+        # Now center should be set
+        if self.quadFold.center is not None:
+            center = self.quadFold.center
         else:
             center = self.quadFold.orig_image_center
         
@@ -3644,9 +3632,6 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold:
             # Set center directly
             self.quadFold.center = tuple(center)
-            
-            # Update current center
-            self.currentCenter = tuple(center)
             
             # Store in imageCenterSettings for current image
             if self.file_manager:
@@ -3882,7 +3867,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 print("Cropping folded image ")
                 ylim, xlim = self.quadFold.initImg.shape
                 xlim, ylim = int(xlim / 2), int(ylim / 2)
-                cx,cy = self.quadFold.info['center']
+                cx,cy = self.quadFold.center
                 xl,xh = (cx - xlim, cx + xlim)
                 yl,yh = (cy - ylim, cy + ylim)
                 print("Before cropping ", img.shape)
@@ -3995,7 +3980,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 _, center = self.getExtentAndCenter()
                 print(center)
                 cx, cy = center
-                cxr, cyr = self.quadFold.info['center']
+                cxr, cyr = self.quadFold.center
                 print(self.quadFold.initImg)
                 xlim, ylim = self.quadFold.initImg.shape
                 xlim, ylim = int(xlim/2), int(ylim/2)
