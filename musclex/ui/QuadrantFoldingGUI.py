@@ -152,6 +152,84 @@ class RestoreAutoCenterDialog(QDialog):
             return 'all'
 
 
+class ApplyRotationDialog(QDialog):
+    """Dialog for choosing how to apply rotation to images"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Apply Rotation")
+        
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Apply current rotation to:"))
+        
+        # Create radio buttons for exclusive selection
+        self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.previousRadio = QRadioButton("Apply to previous images")
+        self.allRadio = QRadioButton("Apply to all images")
+        
+        # Set default selection
+        self.subsequentRadio.setChecked(True)
+        
+        layout.addWidget(self.subsequentRadio)
+        layout.addWidget(self.previousRadio)
+        layout.addWidget(self.allRadio)
+        
+        # OK and Cancel buttons
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        layout.addWidget(buttonBox)
+        
+        self.setLayout(layout)
+    
+    def getSelection(self):
+        """Returns 'subsequent', 'previous', or 'all'"""
+        if self.subsequentRadio.isChecked():
+            return 'subsequent'
+        elif self.previousRadio.isChecked():
+            return 'previous'
+        else:
+            return 'all'
+
+
+class RestoreAutoRotationDialog(QDialog):
+    """Dialog for choosing how to restore auto rotation to images"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Restore Auto Rotation")
+        
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Restore auto rotation to:"))
+        
+        # Create radio buttons for exclusive selection
+        self.subsequentRadio = QRadioButton("Apply to subsequent images")
+        self.previousRadio = QRadioButton("Apply to previous images")
+        self.allRadio = QRadioButton("Apply to all images")
+        
+        # Set default selection
+        self.subsequentRadio.setChecked(True)
+        
+        layout.addWidget(self.subsequentRadio)
+        layout.addWidget(self.previousRadio)
+        layout.addWidget(self.allRadio)
+        
+        # OK and Cancel buttons
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        layout.addWidget(buttonBox)
+        
+        self.setLayout(layout)
+    
+    def getSelection(self):
+        """Returns 'subsequent', 'previous', or 'all'"""
+        if self.subsequentRadio.isChecked():
+            return 'subsequent'
+        elif self.previousRadio.isChecked():
+            return 'previous'
+        else:
+            return 'all'
+
+
 class WorkerSignals(QObject):
 
     finished = Signal()
@@ -161,8 +239,8 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, params, image_center_settings,
-                 persist_rot, bgsub = 'Circularly-symmetric',
+    def __init__(self, params, image_center_settings, image_rotation_settings,
+                 bgsub = 'Circularly-symmetric',
                  bgDict = None, bg_lock=None):
 
         super().__init__()
@@ -171,10 +249,9 @@ class Worker(QRunnable):
         self.signals = WorkerSignals()
         self.lock = Lock()
 
-        # Store reference to imageCenterSettings dict
+        # Store reference to imageCenterSettings and imageRotationSettings dicts
         self.imageCenterSettings = image_center_settings
-
-        self.persist_rot = persist_rot
+        self.imageRotationSettings = image_rotation_settings
 
         self.bgsub = bgsub
 
@@ -202,10 +279,12 @@ class Worker(QRunnable):
                 # Set center directly before processing
                 self.quadFold.center = tuple(settings['center'])
 
-            # Pass the persisted rotation to the quadfold object
-            if self.persist_rot is not None:
-                self.quadFold.fixedRot = self.persist_rot
-
+            # Apply image-specific rotation settings if available
+            # Presence in imageRotationSettings means manual mode
+            if filename in self.imageRotationSettings:
+                settings = self.imageRotationSettings[filename]
+                # Set rotation directly before processing
+                self.quadFold.rotation = settings['rotation']
 
             self.quadFold.process(self.flags)
             self.saveBackground()
@@ -339,15 +418,16 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rotationAngle = None
 
         self.calSettingsDialog = None
-
-        #NA
-        #Used for when the same center/rotation needs to be used to process a folder
-        self.persistedRotation = None
         
         # Store center settings for each image
         # Presence in this dict = manual mode, absence = auto mode
         # Format: {"filename": {"center": [x, y], "source": "calibration"|"user_click"|"propagated"}}
         self.imageCenterSettings = {}
+        
+        # Store rotation settings for each image
+        # Presence in this dict = manual mode, absence = auto mode
+        # Format: {"filename": {"rotation": angle, "source": "user_click"|"propagated"}}
+        self.imageRotationSettings = {}
 
         self.thresh_mask = None
 
@@ -546,10 +626,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.restoreAutoCenterBtn = QPushButton("Restore Auto Center")
 
         self.rotationAngleLabel = QLabel()
-
-        self.persistRotation = QCheckBox("Persist Rotation Angle")
-        self.persistRotation.setEnabled(False)
-        # self.persistRotation.setVisible(False)
+        
+        self.applyRotationMode = QLabel()
+        self.applyRotationMode.setStyleSheet("color: green")
+        
+        self.applyRotationBtn = QPushButton("Apply Rotation")
+        self.restoreAutoRotationBtn = QPushButton("Restore Auto Rotation")
 
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-999)
@@ -581,9 +663,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
 
-        self.fixedOrientationChkBx = QCheckBox("Persistent Orientation")
-        self.fixedOrientationChkBx.setChecked(False)
-
         centerLayoutRowIndex = 0
         self.setCenterLayout.addWidget(self.calibrationButton, centerLayoutRowIndex, 0, 1, 2)
         self.setCenterLayout.addWidget(self.setCentBtn, centerLayoutRowIndex, 2, 1, 2)
@@ -606,7 +685,10 @@ class QuadrantFoldingGUI(QMainWindow):
         rotationAngleRowIndex += 1
         self.rotationAngleLayout.addWidget(self.rotationAngleLabel, rotationAngleRowIndex, 0, 1, 4)
         rotationAngleRowIndex += 1
-        self.rotationAngleLayout.addWidget(self.persistRotation, rotationAngleRowIndex, 0, 1, 4)
+        self.rotationAngleLayout.addWidget(self.applyRotationMode, rotationAngleRowIndex, 0, 1, 4)
+        rotationAngleRowIndex += 1
+        self.rotationAngleLayout.addWidget(self.applyRotationBtn, rotationAngleRowIndex, 0, 1, 2)
+        self.rotationAngleLayout.addWidget(self.restoreAutoRotationBtn, rotationAngleRowIndex, 2, 1, 2)
         rotationAngleRowIndex += 1
 
         setCenterRotationRowIndex = 0
@@ -626,7 +708,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.orientationCmbBx, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
         self.settingsLayout.addWidget(self.modeAngleChkBx, settingsRowIndex, 0, 1, 4)
-        self.settingsLayout.addWidget(self.fixedOrientationChkBx, settingsRowIndex, 2, 1, 4)
 
 
         self.settingsLayout.addWidget(self.toggleFoldImage, 14, 0, 1, 4)
@@ -1296,7 +1377,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
         self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
-        self.fixedOrientationChkBx.stateChanged.connect(self.onFixedRotationChkBxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
 
@@ -1321,13 +1401,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
         self.applyCenterBtn.clicked.connect(self.applyCenterClicked)
         self.restoreAutoCenterBtn.clicked.connect(self.restoreAutoCenterClicked)
+        self.applyRotationBtn.clicked.connect(self.applyRotationClicked)
+        self.restoreAutoRotationBtn.clicked.connect(self.restoreAutoRotationClicked)
         self.maskThresSpnBx.valueChanged.connect(self.ignoreThresChanged)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
         self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
-
-        self.persistRotation.stateChanged.connect(self.persistRotationChecked)
 
         self.eventEmitter.imageCenterChangedSignal.connect(
             lambda center: self.updateCurrentCenter(center)
@@ -1422,10 +1502,6 @@ class QuadrantFoldingGUI(QMainWindow):
             # Set the minimum width for when the canvas is hidden
             self.leftWidget.setMinimumWidth(650)
 
-
-    def persistRotationChecked(self):
-        if self.persistRotation.isChecked():
-            self.rotationAngle = self.quadFold.info['rotationAngle']
 
     def cropFoldedImageChanged(self):
         """
@@ -1559,12 +1635,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is not None and not self.uiUpdating:
             self.quadFold.delCache()
             fileName = self.file_manager.current_image_name
-            fix_x, fix_y = self.quadFold.fixedCenterX, self.quadFold.fixedCenterY
             img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
-            if fix_x is not None and fix_y is not None:
-                self.quadFold.fixedCenterX = fix_x
-                self.quadFold.fixedCenterY = fix_y
             self.masked = False
             self.processImage()
 
@@ -1684,7 +1756,7 @@ class QuadrantFoldingGUI(QMainWindow):
         _, center = self.getExtentAndCenter()
         center = self.quadFold.center
         #rotation angle in radians
-        angle = 0 if 'rotationAngle' not in self.quadFold.info else -self.quadFold.info['rotationAngle'] * math.pi / 180
+        angle = 0 if self.quadFold.rotation is None else -self.quadFold.rotation * math.pi / 180
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
         #mouse pos in center-as-origin points
@@ -1729,7 +1801,7 @@ class QuadrantFoldingGUI(QMainWindow):
         given original image coordinates
         """
         _, center = self.getExtentAndCenter()
-        angle = -self.quadFold.info['rotationAngle'] * math.pi / 180
+        angle = 0 if self.quadFold.rotation is None else -self.quadFold.rotation * math.pi / 180
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
         #mouse pos in center-as-origin points
@@ -1954,6 +2026,28 @@ class QuadrantFoldingGUI(QMainWindow):
             QMessageBox.information(self, "Auto Center Restored", 
                 f"Auto center restored for {selection} images.")
     
+    def applyRotationClicked(self):
+        """Handle Apply Rotation button click"""
+        if not self.quadFold or self.quadFold.rotation is None:
+            QMessageBox.warning(self, "No Rotation", "No rotation available to apply.")
+            return
+        
+        dialog = ApplyRotationDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            selection = dialog.getSelection()
+            self._applyManualRotation(self.quadFold.rotation, selection)
+            QMessageBox.information(self, "Rotation Applied", 
+                f"Rotation {self.quadFold.rotation:.2f}° applied to {selection} images.")
+    
+    def restoreAutoRotationClicked(self):
+        """Handle Restore Auto Rotation button click"""
+        dialog = RestoreAutoRotationDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            selection = dialog.getSelection()
+            self._restoreAutoRotation(selection)
+            QMessageBox.information(self, "Auto Rotation Restored", 
+                f"Auto rotation restored for {selection} images.")
+    
     def _applyManualCenter(self, center, scope):
         """Apply manual center to images based on scope"""
         if not self.file_manager:
@@ -2014,6 +2108,67 @@ class QuadrantFoldingGUI(QMainWindow):
         
         # Update mode display
         self.updateApplyCenterMode()
+
+    def _applyManualRotation(self, rotation, scope):
+        """Apply manual rotation to images based on scope"""
+        if not self.file_manager:
+            return
+        
+        current_index = self.file_manager.current
+        total_images = len(self.file_manager.names)
+        
+        if scope == 'all':
+            indices = range(total_images)
+        elif scope == 'subsequent':
+            indices = range(current_index, total_images)
+        elif scope == 'previous':
+            indices = range(0, current_index + 1)
+        else:
+            return
+        
+        # Apply manual rotation setting to selected images
+        for idx in indices:
+            filename = self.file_manager.names[idx]
+            self.imageRotationSettings[filename] = {
+                'rotation': rotation,
+                'source': 'propagated'
+            }
+        
+        # Save to file
+        self.saveRotationSettings()
+        
+        # Update mode display
+        self.updateApplyRotationMode()
+    
+    def _restoreAutoRotation(self, scope):
+        """Restore auto rotation for images based on scope"""
+        if not self.file_manager:
+            return
+        
+        current_index = self.file_manager.current
+        total_images = len(self.file_manager.names)
+        
+        if scope == 'all':
+            indices = range(total_images)
+        elif scope == 'subsequent':
+            indices = range(current_index, total_images)
+        elif scope == 'previous':
+            indices = range(0, current_index + 1)
+        else:
+            return
+        
+        # Restore auto rotation mode for selected images
+        for idx in indices:
+            filename = self.file_manager.names[idx]
+            if filename in self.imageRotationSettings:
+                # Remove the entry to use auto mode
+                del self.imageRotationSettings[filename]
+        
+        # Save to file
+        self.saveRotationSettings()
+        
+        # Update mode display
+        self.updateApplyRotationMode()
 
     def drawPerpendiculars(self):
         """
@@ -2341,11 +2496,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 # No need to delete center - it's in self.center now
 
                 self.setAngle(new_angle, "CenterRotate")
-                self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
                 self.deleteInfo(['avg_fold'])
                 self.newImgDimension = None
                 self.setCenterRotationButton.setChecked(False)
-                self.persistRotation.setVisible(True)
                 self.processImage()
             elif func[0] == "im_rotate":
                 # set rotation angle
@@ -2379,12 +2532,8 @@ class QuadrantFoldingGUI(QMainWindow):
                     new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
                 self.setAngle(new_angle, "Rotate")
-                #self.quadFold.info['manual_rotationAngle'] = self.quadFold.info['rotationAngle'] + new_angle
-                self.quadFold.info['manual_rotationAngle'] = new_angle
-
                 self.deleteInfo(['avg_fold'])
                 self.setRotationButton.setChecked(False)
-                self.persistRotation.setVisible(True)
 
                 #Put the center (in original image coordinates) into the manual center entry of the key so that it will be used during processing.
 
@@ -3149,6 +3298,13 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         self.applyCenterMode.setText(f"{len(self.file_manager.names) - len(self.imageCenterSettings)}/{len(self.file_manager.names)} images have auto center settings")
 
+    def updateApplyRotationMode(self):
+        """
+        Update the apply rotation mode
+        """
+        if hasattr(self, 'applyRotationMode') and self.file_manager:
+            self.applyRotationMode.setText(f"{len(self.file_manager.names) - len(self.imageRotationSettings)}/{len(self.file_manager.names)} images have auto rotation settings")
+
     def orientationModelChanged(self):
         """
         Triggered when the orientation model is changed
@@ -3181,9 +3337,9 @@ class QuadrantFoldingGUI(QMainWindow):
             quadFold = QuadrantFolder(img, self.filePath, f, self, suppress_signals=True)
             print(f'Getting angle {f}')
 
-            if 'rotationAngle' not in quadFold.info:
+            if 'auto_rotation' not in quadFold.info:
                 return None
-            angle = quadFold.info['rotationAngle']
+            angle = quadFold.info['auto_rotation']
             angles.append(angle)
         self.modeOrientation = max(set(angles), key=angles.count)
         return self.modeOrientation
@@ -3396,8 +3552,6 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
                 self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
-        if self.persistRotation.isChecked():
-            self.quadFold.info['manual_rotationAngle'] = self.rotationAngle
 
         self.processImage()
 
@@ -3409,24 +3563,6 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.deleteFromDict(self.quadFold.imgCache, 'resultImg')
             self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
             self.processImage()
-
-
-    def onFixedRotationChkBxToggled(self):
-        """
-        Toggles whether the current rotation is persisted in the QuadrantFolderGUI object.
-        If there is no current rotation angle known, calculates it.
-        """
-
-        if self.fixedOrientationChkBx.isChecked():
-            try:
-                if 'rotationAngle' not in self.quadFold.info:
-                    self.processImage()
-
-                self.persistedRotation = self.quadFold.info['rotationAngle']
-            except:
-                print("Error trying to fix rotation")
-        else:
-            self.persistedRotation = None
 
 
     def closeEvent(self, ev):
@@ -3586,7 +3722,7 @@ class QuadrantFoldingGUI(QMainWindow):
     def redrawCenter(self):
         ax = self.imageAxes
         imshape = self.quadFold.curr_dims
-        center = [self.quadFold.fixedCenterX, self.quadFold.fixedCenterY]
+        center = list(self.quadFold.center)
         extent = self.extent
 
         for i in range(len(ax.lines)-1,-1,-1):
@@ -3664,10 +3800,26 @@ class QuadrantFoldingGUI(QMainWindow):
             print(f"Center set to {center} from source: {source}")
 
     def setAngle(self, angle, source):
+        """Set rotation angle for current image"""
         if self.quadFold:
-            # Simplified - just set the angle
-            self.quadFold.info['rotationAngle'] = angle
-            print(f"Angle set to {angle} from source: {source}")
+            # Set rotation directly
+            self.quadFold.rotation = angle
+            
+            # Store in imageRotationSettings for current image
+            # Presence in this dict means manual mode, absence means auto mode
+            if self.file_manager:
+                filename = self.file_manager.current_image_name
+                self.imageRotationSettings[filename] = {
+                    'rotation': angle,
+                    'source': source  # Track how this rotation was set
+                }
+                # Save to file immediately
+                self.saveRotationSettings()
+            
+            # Update mode display
+            self.updateApplyRotationMode()
+            
+            print(f"Rotation set to {angle} from source: {source}")
 
     def updateResultTab(self):
         """
@@ -3841,8 +3993,8 @@ class QuadrantFoldingGUI(QMainWindow):
         bg_csv_lock = Lock()
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.imageCenterSettings,
-                                      self.persistedRotation, self.bgChoiceIn.currentText(),
+            self.currentTask = Worker(params, self.imageCenterSettings, self.imageRotationSettings,
+                                      self.bgChoiceIn.currentText(),
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
@@ -4052,6 +4204,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self._scan_timer.stop()
         self.resetStatusbar()
         self.updateApplyCenterMode()
+        self.updateApplyRotationMode()
 
     def getFlags(self):
         """
@@ -4149,8 +4302,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.file_manager.set_from_file(str(newFile))
         self.filePath = self.file_manager.dir_path
         
-        # Load center settings for this folder
+        # Load center and rotation settings for this folder
         self.loadCenterSettings()
+        self.loadRotationSettings()
         
         if self.file_manager.dir_path and self.file_manager.names:
             try:
@@ -4277,6 +4431,43 @@ class QuadrantFoldingGUI(QMainWindow):
         except Exception as e:
             print(f"Error saving center settings: {e}")
 
+    def loadRotationSettings(self):
+        """Load image rotation settings from settings/rotation_settings.json"""
+        if not self.filePath:
+            return
+        
+        settings_path = Path(self.filePath) / "settings" / "rotation_settings.json"
+        if settings_path.exists():
+            try:
+                with open(settings_path, 'r') as f:
+                    self.imageRotationSettings = json.load(f)
+                print(f"Loaded rotation settings for {len(self.imageRotationSettings)} images")
+            except Exception as e:
+                print(f"Error loading rotation settings: {e}")
+                self.imageRotationSettings = {}
+        else:
+            print("No rotation settings file found, starting fresh")
+        
+        # Update mode display
+        if self.file_manager and self.file_manager.names:
+            self.updateApplyRotationMode()
+
+    def saveRotationSettings(self):
+        """Save image rotation settings to settings/rotation_settings.json"""
+        if not self.filePath:
+            return
+        
+        settings_dir = Path(self.filePath) / "settings"
+        settings_dir.mkdir(exist_ok=True)
+        
+        settings_path = settings_dir / "rotation_settings.json"
+        try:
+            with open(settings_path, 'w') as f:
+                json.dump(self.imageRotationSettings, f, indent=2)
+            print(f"Saved rotation settings for {len(self.imageRotationSettings)} images")
+        except Exception as e:
+            print(f"Error saving rotation settings: {e}")
+
     def browseFolder(self):
         """
         Process all images in current folder
@@ -4291,8 +4482,9 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
             self.ignoreFolds = set()
-            # Load center settings for this folder
+            # Load center and rotation settings for this folder
             self.loadCenterSettings()
+            self.loadRotationSettings()
             self.onImageChanged()
             self.processFolder()
 
@@ -4379,12 +4571,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         flags = self.getFlags()
         text += "\nCurrent Settings"
-
-
-        #Same thing for rotation
-        if self.persistedRotation is not None:
-            print("USING PERSISTED ROTATION ANGLE")
-            text += "\n  - Rotation Angle : " + str(self.persistedRotation)
 
         if len(self.ignoreFolds) > 0:
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
@@ -4570,9 +4756,12 @@ class QuadrantFoldingGUI(QMainWindow):
             # Set center directly before processing
             self.quadFold.center = tuple(settings['center'])
         
-        # Apply persisted rotation if set
-        if self.persistedRotation is not None:
-            self.quadFold.fixedRot = self.persistedRotation
+        # Apply image-specific rotation settings if available
+        # Presence in imageRotationSettings means manual mode
+        if filename in self.imageRotationSettings:
+            settings = self.imageRotationSettings[filename]
+            # Set rotation directly before processing
+            self.quadFold.rotation = settings['rotation']
         
         self.onImageChanged(reprocess=reprocess)
 

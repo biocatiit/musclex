@@ -95,10 +95,8 @@ class QF_CSVManager:
             data['comment'] = "REJECTED"
         else:
             failed = False
-            # Priority: fixedCenter > quadFold.center (manual or auto) > orig_image_center > (0,0)
-            if quadFold.fixedCenterX is not None and quadFold.fixedCenterY is not None:
-                center = [quadFold.fixedCenterX, quadFold.fixedCenterY]
-            elif quadFold.center is not None:
+            # Priority: quadFold.center (manual or auto) > orig_image_center > (0,0)
+            if quadFold.center is not None:
                 # Use the actual center (whether manual or auto)
                 center = quadFold.center
             elif quadFold.orig_image_center is not None:
@@ -110,7 +108,7 @@ class QF_CSVManager:
             data['Filename'] = img_name
             data['centerX'] = center[0]
             data['centerY'] = center[1]
-            data['rotationAngle'] = quadFold.info['rotationAngle']
+            data['rotationAngle'] = quadFold.rotation if quadFold.rotation is not None else 0.0
             try:
                 data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
             except:
