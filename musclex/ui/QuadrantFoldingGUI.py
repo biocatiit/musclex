@@ -199,7 +199,8 @@ class Worker(QRunnable):
             if filename in self.imageCenterSettings:
                 settings = self.imageCenterSettings[filename]
                 if settings['mode'] == 'manual':
-                    self.quadFold.info['manual_center'] = settings['center']
+                    # Set center directly before processing
+                    self.quadFold.center = tuple(settings['center'])
 
             # Pass the persisted rotation to the quadfold object
             if self.persist_rot is not None:
@@ -1979,6 +1980,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 'mode': 'manual',
                 'center': list(center)
             }
+        
+        # Save to file
+        self.saveCenterSettings()
     
     def _restoreAutoCenter(self, scope):
         """Restore auto center for images based on scope"""
@@ -2003,6 +2007,9 @@ class QuadrantFoldingGUI(QMainWindow):
             if filename in self.imageCenterSettings:
                 # Remove the entry to use auto mode
                 del self.imageCenterSettings[filename]
+        
+        # Save to file
+        self.saveCenterSettings()
 
     def drawPerpendiculars(self):
         """
@@ -2121,20 +2128,16 @@ class QuadrantFoldingGUI(QMainWindow):
                         self.setCenter(self.calSettings['center'], "calibration")
 
                         self.quadFold.info['calib_center'] = self.calSettings['center']
-                        # self.setCenterRotationButton.setEnabled(False)
-                        # self.setCenterRotationButton.setToolTip(
-                        #     "Please uncheck fixed center in calibration settings first")
-                        if 'manual_center' in self.quadFold.info:
-                            del self.quadFold.info['manual_center']
-                        if 'center' in self.quadFold.info:
-                            del self.quadFold.info['center']
+                        # Reset center to None so calibration center will be used
+                        self.quadFold.center = None
                     else:
                         # self.setCenterRotationButton.setEnabled(True)
                         # self.setCenterRotationButton.setToolTip("")
                         if self.quadFold is not None and 'calib_center' in self.quadFold.info:
                             del self.quadFold.info['calib_center']
-                        if self.quadFold is not None and 'center' in self.quadFold.info:
-                            del self.quadFold.info['center']
+                        # Reset center to None to allow auto calculation
+                        if self.quadFold is not None:
+                            self.quadFold.center = None
 
                 return True
         return False
@@ -3431,11 +3434,7 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Clean up info dict when changing images
         """
-        # Delete center to force recalculation
-        # (manual_center will be set by _navigate_and_update if needed)
-        if 'center' in currentInfo:
-            del currentInfo['center']
-
+        
         # Handle calibration center - always clean it up when changing images
         # It will be reapplied if calibration is active
         if 'calib_center' in currentInfo:
@@ -3643,21 +3642,21 @@ class QuadrantFoldingGUI(QMainWindow):
     def setCenter(self, center, source):
         """Set center for current image and enable Apply Center button"""
         if self.quadFold:
-            # Store in quadFold.info for immediate use
-            self.quadFold.info['manual_center'] = list(center)
+            # Set center directly
+            self.quadFold.center = tuple(center)
             
             # Update current center
             self.currentCenter = tuple(center)
             
             # Store in imageCenterSettings for current image
             if self.file_manager:
-
-                
                 filename = self.file_manager.current_image_name
                 self.imageCenterSettings[filename] = {
                     'mode': 'manual',
                     'center': list(center)
                 }
+                # Save to file immediately
+                self.saveCenterSettings()
             
             # Enable Apply Center button
             self.applyCenterBtn.setEnabled(True)
@@ -3760,7 +3759,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.quadFold.expandImg = 2.8 if self.expandImage.isChecked() else 1
             # quadFold_copy = copy.copy(self.quadFold)
             try:
-                # Manual center is already set in quadFold.info['manual_center'] 
+                # Center is already set in quadFold.center (if manual mode)
                 # by setCenter() or _navigate_and_update()
                 self.quadFold.process(flags)
             except Exception:
@@ -4153,6 +4152,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.file_manager.set_from_file(str(newFile))
         self.filePath = self.file_manager.dir_path
         
+        # Load center settings for this folder
+        self.loadCenterSettings()
+        
         if self.file_manager.dir_path and self.file_manager.names:
             try:
                 self.csvManager = QF_CSVManager(self.filePath)
@@ -4241,6 +4243,39 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tranDeltaSpnBx.setValue(-1)
         self.uiUpdating = False
 
+    def loadCenterSettings(self):
+        """Load image center settings from settings/center_settings.json"""
+        if not self.filePath:
+            return
+        
+        settings_path = Path(self.filePath) / "settings" / "center_settings.json"
+        if settings_path.exists():
+            try:
+                with open(settings_path, 'r') as f:
+                    self.imageCenterSettings = json.load(f)
+                print(f"Loaded center settings for {len(self.imageCenterSettings)} images")
+            except Exception as e:
+                print(f"Error loading center settings: {e}")
+                self.imageCenterSettings = {}
+        else:
+            print("No center settings file found, starting fresh")
+
+    def saveCenterSettings(self):
+        """Save image center settings to settings/center_settings.json"""
+        if not self.filePath:
+            return
+        
+        settings_dir = Path(self.filePath) / "settings"
+        settings_dir.mkdir(exist_ok=True)
+        
+        settings_path = settings_dir / "center_settings.json"
+        try:
+            with open(settings_path, 'w') as f:
+                json.dump(self.imageCenterSettings, f, indent=2)
+            print(f"Saved center settings for {len(self.imageCenterSettings)} images")
+        except Exception as e:
+            print(f"Error saving center settings: {e}")
+
     def browseFolder(self):
         """
         Process all images in current folder
@@ -4255,6 +4290,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
             self.ignoreFolds = set()
+            # Load center settings for this folder
+            self.loadCenterSettings()
             self.onImageChanged()
             self.processFolder()
 
@@ -4529,7 +4566,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if filename in self.imageCenterSettings:
             settings = self.imageCenterSettings[filename]
             if settings['mode'] == 'manual':
-                self.quadFold.info['manual_center'] = settings['center']
+                # Set center directly before processing
+                self.quadFold.center = tuple(settings['center'])
         
         # Apply persisted rotation if set
         if self.persistedRotation is not None:

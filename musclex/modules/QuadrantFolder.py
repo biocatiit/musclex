@@ -106,6 +106,9 @@ class QuadrantFolder:
         # To display cursor point in original image.
         self.info.setdefault("inv_transform", None)
 
+        # Current center (will be set by findCenter or manually by GUI)
+        self.center = None
+        
         #Nick Allison
         #Used for persistirng the center when processing a folder of images that
         #need to have the same center.
@@ -262,7 +265,7 @@ class QuadrantFolder:
             # get top left quandrant
             #rotate_img = copy.copy(self.getRotatedImage())
             rotate_img = copy.copy(self.start_img)
-            center = self.info['center']
+            center = self.center
             center_x = int(center[0])
             center_y = int(center[1])
             img_height = rotate_img.shape[0]
@@ -375,34 +378,36 @@ class QuadrantFolder:
     def findCenter(self):
         """
         Find the center in original image coordinates
-        Priority: manual_center > auto_center (cached) > calculate new
+        Sets self.center based on: pre-set (manual) > cached auto_center > calculate new
+        GUI will set self.center before calling this if manual mode is active
         """
         self.parent.statusPrint("Finding Center...")
         
-        # Priority 1: Use manual center if provided by GUI
-        if 'manual_center' in self.info:
-            self.info['center'] = self.info['manual_center']
-            print(f"Using manual center: {self.info['center']}")
-            self._emit_center_signal(self.info['center'])
+        # Priority 1: Use pre-set center (manual mode, set by GUI)
+        if self.center is not None:
+            print(f"Using pre-set center: {self.center}")
+            self._emit_center_signal(self.center)
             return
         
         # Priority 2: Use cached auto center
         if 'auto_center' in self.info:
-            self.info['center'] = self.info['auto_center']
-            print(f"Using cached auto center: {self.info['center']}")
-            self._emit_center_signal(self.info['center'])
+            self.center = tuple(self.info['auto_center'])
+            print(f"Using cached auto center: {self.center}")
+            self._emit_center_signal(self.center)
             return
 
         # Priority 3: Calculate new center and cache it
         print("Calculating new center...")
         self.orig_image_center = getCenter(self.orig_img)
-        self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, self.orig_image_center)
+        self.orig_img, calculated_center = processImageForIntCenter(self.orig_img, self.orig_image_center)
         self.fixedCenterX, self.fixedCenterY = None, None
 
-        # Cache the calculated center
-        self.info['auto_center'] = self.info['center']
-        print(f"Calculated and cached center: {self.info['center']}")
-        self._emit_center_signal(self.info['center'])
+        # Cache the calculated center (for next time)
+        self.info['auto_center'] = tuple(calculated_center)
+        # Set as current center
+        self.center = tuple(calculated_center)
+        print(f"Calculated and cached center: {self.center}")
+        self._emit_center_signal(self.center)
 
     def rotateImg(self):
         """
@@ -464,19 +469,20 @@ class QuadrantFolder:
         Give the extent and the center of the image in self.
         :return: extent, center
         """
-        # If center already exists in info, return it with zero extent
-        if 'center' in self.info:
-            return [0, 0], self.info['center']
+        # If center already exists, return it with zero extent
+        if self.center is not None:
+            return [0, 0], self.center
         
         # Otherwise, find the center first
         if self.orig_image_center is None:
             self.findCenter()
             self.statusPrint("Done.")
         
-        # Now center should be in info
-        if 'center' in self.info:
-            center = self.info['center']
+        # Now self.center should be set
+        if self.center is not None:
+            center = self.center
         else:
+            # Fallback
             center = self.orig_image_center
         
         # Calculate extent (usually [0, 0] now)
@@ -493,7 +499,7 @@ class QuadrantFolder:
         """
         h_o, w_o = self.orig_img.shape
         orig_x, orig_y = w_o//2, h_o//2
-        x, y = self.info['center']
+        x, y = self.center
 
         # corners = [
         #     (-x,      -y),
@@ -561,9 +567,9 @@ class QuadrantFolder:
 
         # new_center = [x - (tx * cos - ty * sin), y - (tx * sin + ty * cos)]
 
-        self.old_center = self.info['center']
-        #self.info['center'] = new_center
-        self.info['center'] = w_o//2, h_o//2
+        self.old_center = self.center
+        # After transformation, center is at the middle of the transformed image
+        self.center = (w_o//2, h_o//2)
 
         self.info["rotationAngle"] = 0.0
 
@@ -574,7 +580,7 @@ class QuadrantFolder:
         self.parent.statusPrint("Centererizing image...")
         if not self.centerChanged:
             return
-        center = self.info['center']
+        center = self.center
         if self.centImgTransMat is not None:
             # convert center in initial img coordinate system
             M = self.centImgTransMat
@@ -582,8 +588,8 @@ class QuadrantFolder:
             M[1,2] = -1*M[1,2]
             center = [center[0], center[1], 1]
             center = np.dot(M, center)
-            if 'manual_center' in self.info:
-                self.info['manual_center'] = (int(center[0]), int(center[1]))
+            # Update self.center with transformed coordinates
+            self.center = (int(center[0]), int(center[1]))
             if 'calib_center' in self.info:
                 self.info['calib_center'] = (int(center[0]), int(center[1]))
 
@@ -635,7 +641,7 @@ class QuadrantFolder:
         translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
 
         self.orig_img = translated_Img
-        self.info['center'] = (int(dim / 2), int(dim / 2))
+        self.center = (int(dim / 2), int(dim / 2))
         self.center_before_rotation = (int(dim / 2), int(dim / 2))
         print("Dimension of image after centerize ", self.orig_img.shape)
 
@@ -672,7 +678,7 @@ class QuadrantFolder:
         :param y: y coordinate
         :return: coordinate number
         """
-        center = self.info['center']
+        center = self.center
         center_x = center[0]
         center_y = center[1]
 
@@ -1333,7 +1339,7 @@ class QuadrantFolder:
             self.deleteFromDict(self.info, 'rmax')
             # self.imgResultForDisplay = None
             rotate_img = self.orig_img #copy.copy(self.getRotatedImage())
-            center = self.info['center']
+            center = self.center
             center_x = int(center[0])
             center_y = int(center[1])
 
