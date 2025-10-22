@@ -119,9 +119,7 @@ class Worker(QRunnable):
 
             #pass persisted center data to quadfold object
             if self.fixedCenterChecked:
-                self.quadFold.info['manual_center'] = [self.persist_center[0], self.persist_center[1]] #Name should be changed to 'fixed center or something separate from manual in theory but this works.
-                """                self.quadFold.fixedCenterX = self.persist_center[0]
-                self.quadFold.fixedCenterY = self.persist_center[1]"""
+                self.quadFold.add_center(self.persist_center, "persisted")
 
             #Pass the persisted rotation to the quadfold object
             if self.persist_rot is not None:
@@ -1749,19 +1747,14 @@ class QuadrantFoldingGUI(QMainWindow):
 
             print("Center calc ", (cx, cy))
 
-            extent, _ = self.getExtentAndCenter()
-            extent = [0,0] #Remove the extent because it moves the center out of place.
-
             new_center = [cx, cy]  # np.dot(invM, homo_coords)
             # Set new center and rotaion angle , re-calculate R-min
             print("New Center ", new_center)
             self.setCenter(new_center, "Perpendicular")
-            self.quadFold.info['manual_center'] = (
-            int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
+
             if 'center' in self.quadFold.info:
                 del self.quadFold.info['center']
 
-            print("New center after extent ", self.quadFold.info['manual_center'])
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
             self.setCentByPerp.setChecked(False)
@@ -1812,7 +1805,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     centers.append([xcent, ycent])
 
             extent, center = self.getExtentAndCenter()
-            extent = [0, 0]  # Remove the extent because it moves the center out of place.
 
             cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
             cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
@@ -1820,10 +1812,8 @@ class QuadrantFoldingGUI(QMainWindow):
             print("New center ", new_center)
             # Set new center and rotaion angle , re-calculate R-min
             self.setCenter(new_center, "Chords")
-            self.quadFold.info['manual_center'] = (int(round(new_center[0])) + extent[0], int(round(new_center[1])) + extent[1])
             if 'center' in self.quadFold.info:
                 del self.quadFold.info['center']
-            print("New center after extent ", self.quadFold.info['manual_center'])
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
             self.setCentByChords.setChecked(False)
@@ -1941,7 +1931,6 @@ class QuadrantFoldingGUI(QMainWindow):
         if success:
             self.deleteInfo(['rotationAngle'])
             self.deleteImgCache(['BgSubFold'])
-            self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
             self.processImage()
 
 
@@ -2183,7 +2172,6 @@ class QuadrantFoldingGUI(QMainWindow):
                     cx = int(round(new_center[0]))
                     cy = int(round(new_center[1]))
                     self.setCenter((cx, cy), "CenterRotate")
-                    self.quadFold.info['manual_center'] = (cx, cy)
                     if 'center' in self.quadFold.info:
                         del self.quadFold.info['center']
 
@@ -2234,7 +2222,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.persistRotation.setVisible(True)
 
                 #Put the center (in original image coordinates) into the manual center entry of the key so that it will be used during processing.
-                # self.quadFold.info['manual_center'] = (int(round(cx_o)), int(round(cy_o)))
                 if 'center' in self.quadFold.info:
                     del self.quadFold.info['center']
 
@@ -3487,16 +3474,7 @@ class QuadrantFoldingGUI(QMainWindow):
             if latest_center:
                 return [0, 0], latest_center
 
-        # if self.quadFold.fixedCenterX is not None and self.quadFold.fixedCenterY is not None:
-        #     center = []
-        #     center.append(self.quadFold.fixedCenterX)
-        #     center.append(self.quadFold.fixedCenterY)
-        # elif 'calib_center' in self.quadFold.info:
-        #     center = self.quadFold.info['calib_center']
-        # elif 'manual_center' in self.quadFold.info:
-        #     center = self.quadFold.info['manual_center']
-        # else:
-        #     center = self.quadFold.orig_image_center
+
         if 'center' not in self.quadFold.info:
             extent = [0, 0]
         else:
@@ -3602,7 +3580,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # quadFold_copy = copy.copy(self.quadFold)
             try:
                 if self.persistCenter.isChecked() and self.currentCenter:
-                    self.quadFold.fixedCenterX, self.quadFold.fixedCenterY = self.currentCenter
+                    self.quadFold.add_center(self.currentCenter, "persisted")
                 self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
@@ -4042,7 +4020,6 @@ class QuadrantFoldingGUI(QMainWindow):
                         if success:
                             self.deleteInfo(['rotationAngle'])
                             self.deleteImgCache(['BgSubFold'])
-                            self.quadFold.info['manual_center'] = [self.calSettingsDialog.centerX.value(), self.calSettingsDialog.centerY.value()]
 
                     except Exception as e:
                         print("Exception occurred:", e)
