@@ -332,38 +332,47 @@ class QuadrantFolder:
         :return: -
         """
 
-        if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
+        # Check if we need to apply blank image or mask
+        should_apply_blank = 'blank_mask' in self.info and self.info['blank_mask']
+        should_apply_mask = 'apply_mask' in self.info and self.info['apply_mask']
+        
+        if (should_apply_blank or should_apply_mask) and not self.masked:
             img = np.array(self.start_img, 'float32')
             
-            # Use improved getBlankImageAndMask function that supports both old and new methods
-            blank, mask, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
-            maskOnly = getMaskOnly(self.img_path)
+            # Apply blank image if enabled
+            if should_apply_blank:
+                # Use improved getBlankImageAndMask function that supports both old and new methods
+                blank, mask, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
 
-            if blank is not None:
-                # Apply blank image subtraction with weight
-                img = img - blank * blank_weight
-                print(f"Applied blank image subtraction with weight: {blank_weight}")
-                
-                # Store blank image config in info for cache validation
-                from pathlib import Path
-                blank_config_path = Path(self.img_path) / "settings" / "blank_image_settings.json"
-                if blank_config_path.exists():
-                    import json
-                    try:
-                        with open(blank_config_path, "r") as f:
-                            blank_config = json.load(f)
-                        self.info['blank_image_config'] = {
-                            'file_path': blank_config.get("file_path"),
-                            'weight': blank_weight
-                        }
-                    except:
-                        pass
-                        
-            if mask is not None:
-                img[mask == 0] = self.info['mask_thres'] - 1.
-            if maskOnly is not None:
-                print("Applying mask only image")
-                img[maskOnly == 0] = self.info['mask_thres'] - 1
+                if blank is not None:
+                    # Apply blank image subtraction with weight
+                    img = img - blank * blank_weight
+                    print(f"Applied blank image subtraction with weight: {blank_weight}")
+                    
+                    # Store blank image config in info for cache validation
+                    from pathlib import Path
+                    blank_config_path = Path(self.img_path) / "settings" / "blank_image_settings.json"
+                    if blank_config_path.exists():
+                        import json
+                        try:
+                            with open(blank_config_path, "r") as f:
+                                blank_config = json.load(f)
+                            self.info['blank_image_config'] = {
+                                'file_path': blank_config.get("file_path"),
+                                'weight': blank_weight
+                            }
+                        except:
+                            pass
+                            
+                if mask is not None:
+                    img[mask == 0] = self.info['mask_thres'] - 1.
+            
+            # Apply mask if enabled (separate from blank image)
+            if should_apply_mask:
+                maskOnly = getMaskOnly(self.img_path)
+                if maskOnly is not None:
+                    print("Applying mask only image")
+                    img[maskOnly == 0] = self.info['mask_thres'] - 1
 
             self.orig_img = img
             self.masked = True

@@ -706,9 +706,18 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.blankImageLayout = QGridLayout(self.blankImageGrp)
         self.blankSettingButton = QPushButton("Set Empty Cell Image")
-        self.blankImageLayout.addWidget(self.blankSettingButton, 1, 0, 1, 2)
+        self.blankImageLayout.addWidget(self.blankSettingButton, 0, 0, 1, 2)
         self.maskSettingButton = QPushButton("Set Mask")
-        self.blankImageLayout.addWidget(self.maskSettingButton, 1, 2, 1, 2)
+        self.blankImageLayout.addWidget(self.maskSettingButton, 0, 2, 1, 2)
+        
+        # Checkboxes to enable/disable blank image and mask
+        self.applyBlankImageChkBx = QCheckBox("Apply Empty Cell Image")
+        self.applyBlankImageChkBx.setEnabled(False)  # Disabled until settings exist
+        self.blankImageLayout.addWidget(self.applyBlankImageChkBx, 1, 0, 1, 2)
+        
+        self.applyMaskChkBx = QCheckBox("Apply Mask")
+        self.applyMaskChkBx.setEnabled(False)  # Disabled until settings exist
+        self.blankImageLayout.addWidget(self.applyMaskChkBx, 1, 2, 1, 2)
 
         self.rightImageLayout.addWidget(self.blankImageGrp)
         self.rightImageLayout.addWidget(self.settingsGroup)
@@ -1414,8 +1423,10 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Blank image
         self.blankSettingButton.clicked.connect(self.blankSettingClicked)
+        self.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
         # Mask
         self.maskSettingButton.clicked.connect(self.maskSettingClicked)
+        self.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
 
         # Background Subtraction
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -1680,6 +1691,8 @@ class QuadrantFoldingGUI(QMainWindow):
         dialogCode = imageBlankDialog.exec()
 
         if dialogCode == QDialog.Accepted:
+            # Update checkbox state based on settings
+            self.updateBlankMaskCheckboxStates()
             # Clear cache because blank image settings changed
             # This ensures the image will be reprocessed with new blank settings
             if self.quadFold is not None:
@@ -1688,6 +1701,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
+            # Still update checkbox states in case settings were deleted
+            self.updateBlankMaskCheckboxStates()
 
     def maskSettingClicked(self):
         if self.quadFold is None or self.quadFold.start_img is None:
@@ -1715,9 +1730,98 @@ class QuadrantFoldingGUI(QMainWindow):
         dialogCode = imageMaskDialog.exec()
 
         if dialogCode == QDialog.Accepted:
+            # Update checkbox state based on settings
+            self.updateBlankMaskCheckboxStates()
             self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"
+            # Still update checkbox states in case settings were deleted
+            self.updateBlankMaskCheckboxStates()
+
+    def updateBlankMaskCheckboxStates(self):
+        """
+        Update the state of blank image and mask checkboxes based on whether settings exist
+        """
+        if not self.filePath:
+            return
+        
+        settings_dir = Path(self.filePath) / "settings"
+        
+        # Check if blank image settings exist
+        blank_config_path = settings_dir / "blank_image_settings.json"
+        blank_exists = blank_config_path.exists()
+        blank_disabled_flag = settings_dir / ".blank_image_disabled"
+        
+        # Check if mask settings exist
+        mask_file_path = settings_dir / "mask.tif"
+        mask_exists = mask_file_path.exists()
+        mask_disabled_flag = settings_dir / ".mask_disabled"
+        
+        # Update blank image checkbox
+        self.uiUpdating = True  # Prevent triggering the handlers during update
+        if blank_exists:
+            self.applyBlankImageChkBx.setEnabled(True)
+            # Check if disabled flag exists
+            self.applyBlankImageChkBx.setChecked(not blank_disabled_flag.exists())
+        else:
+            self.applyBlankImageChkBx.setEnabled(False)
+            self.applyBlankImageChkBx.setChecked(False)
+        
+        # Update mask checkbox
+        if mask_exists:
+            self.applyMaskChkBx.setEnabled(True)
+            # Check if disabled flag exists
+            self.applyMaskChkBx.setChecked(not mask_disabled_flag.exists())
+        else:
+            self.applyMaskChkBx.setEnabled(False)
+            self.applyMaskChkBx.setChecked(False)
+        self.uiUpdating = False
+
+    def applyBlankImageChanged(self):
+        """
+        Handle when the apply blank image checkbox is toggled
+        """
+        if self.quadFold is None or self.uiUpdating:
+            return
+        
+        # Create/delete a flag file to indicate whether to apply blank image
+        settings_dir = Path(self.filePath) / "settings"
+        blank_disabled_flag = settings_dir / ".blank_image_disabled"
+        
+        if self.applyBlankImageChkBx.isChecked():
+            # Remove the disabled flag if it exists
+            if blank_disabled_flag.exists():
+                blank_disabled_flag.unlink()
+        else:
+            # Create the disabled flag
+            blank_disabled_flag.touch()
+        
+        # Clear cache and reprocess
+        self.quadFold.delCache()
+        self.processImage()
+
+    def applyMaskChanged(self):
+        """
+        Handle when the apply mask checkbox is toggled
+        """
+        if self.quadFold is None or self.uiUpdating:
+            return
+        
+        # Create/delete a flag file to indicate whether to apply mask
+        settings_dir = Path(self.filePath) / "settings"
+        mask_disabled_flag = settings_dir / ".mask_disabled"
+        
+        if self.applyMaskChkBx.isChecked():
+            # Remove the disabled flag if it exists
+            if mask_disabled_flag.exists():
+                mask_disabled_flag.unlink()
+        else:
+            # Create the disabled flag
+            mask_disabled_flag.touch()
+        
+        # Clear cache and reprocess
+        self.quadFold.delCache()
+        self.processImage()
 
     def getOrigCoordsCenter(self, x, y):
         """
@@ -1963,8 +2067,8 @@ class QuadrantFoldingGUI(QMainWindow):
     def setCentBtnClicked(self):
         if self.quadFold:
             curr_img = self.quadFold.orig_img
-            # Get current center from info
-            center = self.quadFold.info.get('center')
+            # Get current center
+            center = self.quadFold.center
 
             if (curr_img is not None) and center:
                 img = curr_img.copy()
@@ -2199,8 +2303,8 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold:
             start_img = self.quadFold.start_img
             curr_img = self.quadFold.orig_img
-            # Get current center from info
-            center = self.quadFold.info.get('center')
+            # Get current center and transform info
+            center = self.quadFold.center
             angle_to_origin = self.quadFold.info.get("angle_to_origin")
             transform = self.quadFold.info.get("transform")
 
@@ -2236,7 +2340,8 @@ class QuadrantFoldingGUI(QMainWindow):
         success = self.setCalibrationImage(force=True)
 
         if success:
-            self.deleteInfo(['rotationAngle'])
+            # Reset rotation to force recalculation
+            self.quadFold.rotation = None
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
 
@@ -3294,7 +3399,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.orientationModel = self.orientationCmbBx.currentIndex()
         if self.quadFold is None:
             return
-        self.deleteInfo(['rotationAngle'])
+        # Reset rotation to force recalculation with new orientation model
+        self.quadFold.rotation = None
         self.processImage()
 
     def modeAngleChecked(self):
@@ -3336,7 +3442,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Remove center from QuadrantFolder to make it recalculate everything from finding center
         """
-        self.deleteInfo(['center'])
+        # Reset center to force recalculation
+        self.quadFold.center = None
         self.processImage()
 
     def addIgnoreQuadrant(self):
@@ -3534,6 +3641,9 @@ class QuadrantFoldingGUI(QMainWindow):
             if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
                 self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
                 self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
+
+        # Update blank image and mask checkbox states
+        self.updateBlankMaskCheckboxStates()
 
         self.processImage()
 
@@ -4200,9 +4310,16 @@ class QuadrantFoldingGUI(QMainWindow):
         flags["ignore_folds"] = self.ignoreFolds
         flags['mask_thres'] = self.maskThresSpnBx.value()
 
-        # Check if blank image settings exist
-        blank_config_path = Path(self.filePath) / "settings" / "blank_image_settings.json"
-        flags['blank_mask'] = blank_config_path.exists()
+        # Check if blank image settings exist and is enabled
+        settings_dir = Path(self.filePath) / "settings"
+        blank_config_path = settings_dir / "blank_image_settings.json"
+        blank_disabled_flag = settings_dir / ".blank_image_disabled"
+        flags['blank_mask'] = blank_config_path.exists() and not blank_disabled_flag.exists()
+        
+        # Check if mask settings exist and is enabled
+        mask_file_path = settings_dir / "mask.tif"
+        mask_disabled_flag = settings_dir / ".mask_disabled"
+        flags['apply_mask'] = mask_file_path.exists() and not mask_disabled_flag.exists()
         
         flags['fold_image'] = self.toggleFoldImage.isChecked()
 
@@ -4334,7 +4451,8 @@ class QuadrantFoldingGUI(QMainWindow):
                         success = self.setCalibrationImage(force=True)
 
                         if success:
-                            self.deleteInfo(['rotationAngle'])
+                            # Reset rotation to force recalculation
+                            self.quadFold.rotation = None
                             self.deleteImgCache(['BgSubFold'])
 
                     except Exception as e:
