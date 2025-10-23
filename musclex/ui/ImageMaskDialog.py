@@ -62,26 +62,40 @@ from .pyqt_utils import getAFile
 
 class ImageMaskDialog(QDialog):
     def __init__(self,
-                image_file_path,
+                image_data,
+                settings_dir_path,
                 vmin,
                 vmax
         ):
+        """
+        Initialize Image Mask Dialog.
+        
+        Args:
+            image_data: numpy array of the image (not a file path!)
+            settings_dir_path: directory where mask files will be saved
+            vmin: minimum intensity for display
+            vmax: maximum intensity for display
+        """
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Set Image Mask")
-        self.image_file_path = Path(image_file_path)
+        self.settings_dir_path = Path(settings_dir_path)
         self.vmin = vmin
         self.vmax = vmax
 
-        # The drawn mask file name should be <originalFileNoExt>-mask.edf
-        self.drawn_mask_file_path = self.image_file_path.parent / f"{self.image_file_path.stem}-mask.edf"
-        self.mask_config_file_path = self.image_file_path.parent / f"mask_config.json"
+        # Store image data directly (no file I/O needed)
+        self.imageData = np.asarray(image_data).astype("float32")
+        
+        # Mask files will be saved in settings directory
+        self.drawn_mask_file_path = self.settings_dir_path / "drawn-mask.edf"
+        self.mask_config_file_path = self.settings_dir_path / "mask_config.json"
 
-        self.imageData = self.read_image_data(self.image_file_path)
         drawnMaskData = self.read_image_data(self.drawn_mask_file_path)
 
         if (drawnMaskData is not None) and drawnMaskData.shape == self.imageData.shape:
-            self.drawnMaskData = 1 - drawnMaskData
+            # pyFAI saves mask as 0=keep, 1=mask, so we invert it
+            # Also ensure it's uint8 (0 or 1 only)
+            self.drawnMaskData = (1 - drawnMaskData).astype(np.uint8)
         else:
             self.drawnMaskData = None
 
@@ -89,26 +103,26 @@ class ImageMaskDialog(QDialog):
         mask_config = self.readMaskConfig()
 
         if mask_config is not None:
-            # Copy ,drawn mask file to designed path.
-            drawn_mask_file_path = mask_config.get("drawn_mask_file_path")
-
-            if drawn_mask_file_path is not None:
-                drawn_mask_file_path = Path(drawn_mask_file_path)
-
-                if drawn_mask_file_path.exists():
-                    if drawn_mask_file_path != self.drawn_mask_file_path:
-                        self.drawn_mask_file_path.mkdir(parents=True, exist_ok=True)
-                        shutil.copy(drawn_mask_file_path, self.drawn_mask_file_path)
-
             mask_low_thresh = mask_config.get("mask_low_thresh")
             mask_low_kernel_size = mask_config.get("mask_low_kernel_size")
             mask_high_thresh = mask_config.get("mask_high_thresh")
             mask_high_kernel_size = mask_config.get("mask_high_kernel_size")
+            
+            # Save original config values before they get modified for widget defaults
+            # These will be used to determine which checkboxes to auto-check
+            config_has_low_thresh = mask_low_thresh is not None and isinstance(mask_low_thresh, (int, float))
+            config_has_low_kernel = mask_low_kernel_size is not None
+            config_has_high_thresh = mask_high_thresh is not None and isinstance(mask_high_thresh, (int, float))
+            config_has_high_kernel = mask_high_kernel_size is not None
         else:
             mask_low_thresh = None
             mask_low_kernel_size = None
             mask_high_thresh = None
             mask_high_kernel_size = None
+            config_has_low_thresh = False
+            config_has_low_kernel = False
+            config_has_high_thresh = False
+            config_has_high_kernel = False
 
         # Show image.
         self.imageLabel = QLabel()
@@ -167,7 +181,7 @@ class ImageMaskDialog(QDialog):
         self.applyMaskLayout.addWidget(self.applyHighMaskCheckBox, settingsRowIndex, 0, 1, 2)
         settingsRowIndex += 1
 
-        self.drawMaskGroup = QGroupBox("Drawn Mask with pyFAI")
+        self.drawMaskGroup = QGroupBox("Draw Mask")
         self.drawMaskLayout = QVBoxLayout(self.drawMaskGroup)
 
         self.drawMaskBtn = QPushButton("Draw Mask")
@@ -352,6 +366,28 @@ class ImageMaskDialog(QDialog):
             self.imageLabel.setPixmap(scaledPixmap)
 
         self.updateDrawnMaskWidgets()
+        
+        # Auto-check checkboxes based on loaded configuration
+        # Note: Drawn Mask is auto-checked in updateDrawnMaskWidgets() if file exists
+        
+        # Auto-check Low Mask if threshold was saved in config
+        if config_has_low_thresh:
+            self.applyLowMaskCheckBox.setChecked(True)
+            self.maskLowThreshChkbx.setChecked(True)
+            
+            # Auto-check Low Mask Dilation if kernel size was saved
+            if config_has_low_kernel:
+                self.lowMaskDilationChkbx.setChecked(True)
+        
+        # Auto-check High Mask if threshold was saved in config
+        if config_has_high_thresh:
+            self.applyHighMaskCheckBox.setChecked(True)
+            self.maskHighThreshChkbx.setChecked(True)
+            
+            # Auto-check High Mask Dilation if kernel size was saved
+            if config_has_high_kernel:
+                self.highMaskDilationChkbx.setChecked(True)
+        
         self.refreshImage()
 
         self.setConnections()
@@ -377,14 +413,21 @@ class ImageMaskDialog(QDialog):
         self.refreshImage()
 
     def updateDrawnMaskWidgets(self):
+        """
+        Update the drawn mask widgets based on file availability.
+        If drawn mask file exists, enable and auto-check the checkbox.
+        If file doesn't exist, disable and uncheck the checkbox.
+        """
         if self.drawnMaskData is not None:
-            self.applyDrawnMaskCheckBox.setChecked(True)
+            # File exists: enable and auto-check
             self.applyDrawnMaskCheckBox.setEnabled(True)
+            self.applyDrawnMaskCheckBox.setChecked(True)
             self.applyDrawnMaskText.setText("Drawn mask image is available.")
             self.applyDrawnMaskText.setStyleSheet("color: green;")
         else:
-            self.applyDrawnMaskCheckBox.setChecked(False)
+            # File doesn't exist: disable and uncheck
             self.applyDrawnMaskCheckBox.setEnabled(False)
+            self.applyDrawnMaskCheckBox.setChecked(False)
             self.applyDrawnMaskText.setText("No drawn mask image found. Ignore this message if expected.")
             self.applyDrawnMaskText.setStyleSheet("color: red;")
 
@@ -474,24 +517,31 @@ class ImageMaskDialog(QDialog):
         isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
 
         if not isApplyMask:
+            # Remove all mask-related files if no mask is applied
             self.mask_config_file_path.unlink(missing_ok=True)
+            mask_output_path = self.settings_dir_path / "mask.tif"
+            mask_output_path.unlink(missing_ok=True)
+            self.drawn_mask_file_path.unlink(missing_ok=True)
+            print("🗑️  Removed mask configuration, mask.tif, and drawn mask file")
             return
+        
+        # Handle drawn mask: delete file if user unchecked it
+        if not isApplyDrawnMask and self.drawn_mask_file_path.exists():
+            self.drawn_mask_file_path.unlink(missing_ok=True)
+            print(f"🗑️  Deleted drawn mask file: {self.drawn_mask_file_path}")
 
         # Save mask config to file.
         mask_config = {}
 
         # mask config example:
         # {
-        #     "drawn_mask_file_path": a/b/c,
         #     "mask_low_thresh": 1.0,
         #     "mask_low_kernel_size": 1.0,
         #     "mask_high_thresh": 1.0,
         #     "mask_high_kernel_size": 1.0,
         # }
-
-        if isApplyDrawnMask:
-            if self.drawn_mask_file_path.exists():
-                mask_config["drawn_mask_file_path"] = str(self.drawn_mask_file_path)
+        # Note: drawn_mask_file_path is NOT saved in config.
+        # Drawn mask presence is determined solely by file existence.
 
         if isApplyLowMask:
             mask_low_thresh = self.maskLowThresh.value()
@@ -515,16 +565,29 @@ class ImageMaskDialog(QDialog):
 
         with open(self.mask_config_file_path, "w") as file_stream:
             json.dump(mask_config, file_stream, indent=4)
+        
+        # Generate and save the final combined mask.tif file
+        imageData = self.imageData.copy()
+        drawnMaskData, lowMask, highMask = self.getMasks(imageData)
+        
+        masks = [m for m in [drawnMaskData, lowMask, highMask] if m is not None]
+        if masks:
+            # Ensure all masks are uint8 before combining
+            masks = [m.astype(np.uint8) if m.dtype != np.uint8 else m for m in masks]
+            final_mask = np.prod(np.stack(masks), axis=0).astype(np.uint8)
+            mask_output_path = self.settings_dir_path / "mask.tif"
+            fabio.tifimage.tifimage(data=final_mask).write(mask_output_path)
+            print(f"✅ Saved final mask to: {mask_output_path}")
 
     def readMaskConfig(self):
         # mask config example:
         # {
-        #     "drawn_mask_file_path": a/b/c,
         #     "mask_low_thresh": 1.0,
         #     "mask_low_kernel_size": 1.0,
         #     "mask_high_thresh": 1.0,
         #     "mask_high_kernel_size": 1.0,
         # }
+        # Note: drawn_mask_file_path is NOT in config anymore.
 
         if not self.mask_config_file_path.exists():
             return None
@@ -538,12 +601,12 @@ class ImageMaskDialog(QDialog):
         return mask_config
 
     def drawMask(self):
-        if self.image_file_path.exists():
-            # Assuming pyFAI-drawmask can be called directly from the command line
+        if self.imageData is not None:
+            # Run pyFAI-drawmask in a separate thread
             thread = threading.Thread(target=self._run_drawmask_command_and_refresh)
             thread.start()
         else:
-            print("No input file to draw on.")
+            print("No image data available for drawing mask.")
 
     def _run_drawmask_command_and_refresh(self):
         try:
@@ -560,42 +623,45 @@ class ImageMaskDialog(QDialog):
             return
 
         if (drawnMaskData is not None) and drawnMaskData.shape == self.imageData.shape:
-            self.drawnMaskData = 1 - drawnMaskData
+            # pyFAI saves mask as 0=keep, 1=mask, so we invert it
+            # Also ensure it's uint8 (0 or 1 only)
+            self.drawnMaskData = (1 - drawnMaskData).astype(np.uint8)
         else:
             self.drawnMaskData = None
 
+        # Update widgets and auto-check if mask is available
         self.updateDrawnMaskWidgets()
         self.refreshImage()
 
     def _run_drawmask_command(self):
         """
-        Run the pyFAI-drawmask command in a way that:
-        1) Applies intensity limits to produce a 'bounded' TIFF,
-        2) Calls pyFAI-drawmask on that TIFF,
-        3) Renames the resulting mask file so it matches the old naming convention: <original>.tif -> <original>-mask.edf
-        4) Removes the temporary bounded TIFF.
+        Run the pyFAI-drawmask command:
+        1) Create a temporary TIFF file for pyFAI to read (command-line tool needs a file)
+        2) Call pyFAI-drawmask on that TIFF
+        3) Move the resulting mask to the final location
+        4) Clean up temporary files
         """
 
-        # Write a bounded TIFF, so we don't overwrite original
-        bounded_file_path = self.image_file_path.parent / f"{self.image_file_path.stem}_bounded.tif"
+        # Create temporary file for pyFAI-drawmask (it's a command-line tool, needs a file path)
+        temp_input_path = self.settings_dir_path / "temp_for_drawmask.tif"
+        fabio.tifimage.tifimage(data=self.imageData).write(temp_input_path)
 
-        fabio.tifimage.tifimage(data=self.imageData).write(bounded_file_path)
+        # Run pyFAI-drawmask on the temporary file
+        command = f'pyFAI-drawmask "{temp_input_path}"'
 
-        # Run pyFAI-drawmask on the bounded TIFF
-        command = f'pyFAI-drawmask "{bounded_file_path}"'
-
-        # pyFAI will produce something like <bounded_file_nameNoExt>-mask.edf
-        # e.g. "..._bounded-mask.edf"
-        generated_mask_file_path = bounded_file_path.parent / f"{bounded_file_path.stem}-mask.edf"
+        # pyFAI will produce: temp_for_drawmask-mask.edf
+        generated_mask_path = self.settings_dir_path / "temp_for_drawmask-mask.edf"
 
         ret_val = os.system(command)
 
-        # Rename or move the temp mask file to final maskPath
-        if os.path.exists(generated_mask_file_path):
-            os.rename(generated_mask_file_path, self.drawn_mask_file_path)
+        # Move the generated mask to final location
+        if generated_mask_path.exists():
+            if self.drawn_mask_file_path.exists():
+                self.drawn_mask_file_path.unlink()
+            generated_mask_path.rename(self.drawn_mask_file_path)
 
-        # Cleanup the bounded TIFF
-        os.remove(bounded_file_path)
+        # Clean up temporary input file
+        temp_input_path.unlink(missing_ok=True)
 
     def createDisplayImage(self,
         imageArray,
