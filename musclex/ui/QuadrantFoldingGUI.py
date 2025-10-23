@@ -1659,25 +1659,23 @@ class QuadrantFoldingGUI(QMainWindow):
             return
 
         image = self.quadFold.start_img.copy()
-
         settings_dir_path = Path(self.filePath) / "settings"
-        image_file_path = settings_dir_path / "blank_input_image.tif"
-
+        
         try:
             settings_dir_path.mkdir(parents=True, exist_ok=True)
-            fabio.tifimage.tifimage(data=image).write(image_file_path)
         except Exception as e:
             print("Exception occurred:", e)
             tb_str = traceback.format_exc()
             print(f"Full traceback: {tb_str}\n")
             return
 
-        if not settings_dir_path.exists():
-            return
-
-        imageBlankDialog = ImageBlankDialog(image_file_path,
-            self.spminInt.value(),
-            self.spmaxInt.value())
+        # Pass image data directly (no file I/O needed)
+        imageBlankDialog = ImageBlankDialog(
+            image_data=image,
+            settings_dir_path=settings_dir_path,
+            vmin=self.spminInt.value(),
+            vmax=self.spmaxInt.value()
+        )
 
         dialogCode = imageBlankDialog.exec()
 

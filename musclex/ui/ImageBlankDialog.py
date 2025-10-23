@@ -61,19 +61,31 @@ from .pyqt_utils import getAFile
 
 class ImageBlankDialog(QDialog):
     def __init__(self,
-                image_file_path,
+                image_data,
+                settings_dir_path,
                 vmin,
                 vmax
         ):
+        """
+        Initialize Empty Cell Subtraction Dialog.
+        
+        Args:
+            image_data: numpy array of the image (not a file path!)
+            settings_dir_path: directory where blank config will be saved
+            vmin: minimum intensity for display
+            vmax: maximum intensity for display
+        """
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Empty Cell Subraction")
-        self.image_file_path = Path(image_file_path)
+        self.settings_dir_path = Path(settings_dir_path)
         self.vmin = vmin
         self.vmax = vmax
 
-        self.blank_config_file_path = self.image_file_path.parent / f"blank_image_settings.json"
-        self.imageData = self.read_image_data(self.image_file_path)
+        # Store image data directly (no file I/O needed)
+        self.imageData = np.asarray(image_data).astype("float32")
+        
+        self.blank_config_file_path = self.settings_dir_path / "blank_image_settings.json"
 
         blank_image_info = self.read_blank_image_info(self.blank_config_file_path)
 
@@ -308,7 +320,7 @@ class ImageBlankDialog(QDialog):
             self.statusBar.setText("Current View: No Display")
 
     def readBlankImage(self):
-        blank_image_file_path = getAFile(path=str(self.image_file_path.parent))
+        blank_image_file_path = getAFile(path=str(self.settings_dir_path.parent))
         blank_image_file_path = Path(blank_image_file_path)
 
         if (not blank_image_file_path) or not blank_image_file_path.exists():
