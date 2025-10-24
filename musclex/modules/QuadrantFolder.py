@@ -76,7 +76,6 @@ class QuadrantFolder:
         cache = self.loadCache() # load from cache if it's available
         self.initImg = None
         self.centImgTransMat = None # Centerize image transformation matrix
-        self.center_before_rotation = None # we need the center before rotation is applied each time we rotate the image
         self.rotMat = None # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
         self.centerChanged = False
         self.expandImg = 1
@@ -581,30 +580,6 @@ class QuadrantFolder:
 
         self.rotation = 0.0
 
-    def getRotatedImage(self):
-        """
-        Get rotated image by angle while image = original input image, and angle = self.rotation
-        """
-        img = np.array(self.orig_img, dtype="float32")
-        center = self.center
-        if self.center_before_rotation is not None:
-            center = self.center_before_rotation
-        else:
-            self.center_before_rotation = center
-
-        h, w = img.shape
-        angle = self.rotation if self.rotation is not None else 0.0
-        rotImg, newCenter, self.rotMat = rotateImage(img, center, angle)
-
-        # Cropping off the surrounding part since we had already expanded the image to maximum possible extent in centerize image
-        hnew, wnew = rotImg.shape
-        dh, dw = (hnew - h)//2, (wnew-w)//2
-        final_rotImg = rotImg[dh:h + dh, dw:w + dw]
-        self.center = (newCenter[0]-dw, newCenter[1]-dh)
-        self.dl, self.db = dw, dh # storing the cropped off section to recalculate coordinates when manual center is given
-
-        self.curr_dims = final_rotImg.shape
-        return final_rotImg
 
 
     def getFoldNumber(self, x, y):
@@ -1279,7 +1254,7 @@ class QuadrantFolder:
             center_x = int(center[0])
             center_y = int(center[1])
 
-            print("Quadrant folding is being processed...")
+            print("Quadrant folding is being processed...")        
             img_width = rotate_img.shape[1]
             img_height = rotate_img.shape[0]
             fold_width = max(int(center[0]), img_width-int(center[0])) # max(max(int(center[0]), img_width-int(center[0])), max(int(center[1]), img_height-int(center[1])))
