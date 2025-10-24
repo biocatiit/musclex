@@ -305,7 +305,7 @@ class QuadrantFolder:
 
             # get top left quandrant
             #rotate_img = copy.copy(self.getRotatedImage())
-            rotate_img = copy.copy(self.start_img)
+            rotate_img = copy.copy(self.orig_img)
             center = self.center
             center_x = int(center[0])
             center_y = int(center[1])
