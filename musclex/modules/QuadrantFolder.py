@@ -388,26 +388,16 @@ class QuadrantFolder:
         
         if should_apply_blank or should_apply_mask:
             img = np.array(self.start_img, 'float32')
-            mask_applied = False
             
             # Apply blank image if enabled
             if should_apply_blank:
-                # Use improved getBlankImageAndMask function that supports both old and new methods
-                blank, mask, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
-
+                blank, _, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
                 if blank is not None:
-                    # Apply blank image subtraction with weight
                     img = img - blank * blank_weight
                     print(f"Applied blank image subtraction with weight: {blank_weight}")
-                
-                # Apply mask if available (when blank_mask is enabled)
-                if mask is not None and should_apply_mask:
-                    print("Applying mask from mask.tif (via blank_mask)")
-                    img[mask == 0] = self.info['mask_thres'] - 1
-                    mask_applied = True
             
-            # Apply mask if enabled but not yet applied
-            if should_apply_mask and not mask_applied:
+            # Apply mask if enabled
+            if should_apply_mask:
                 mask = getMaskOnly(self.img_path)
                 if mask is not None:
                     print("Applying mask from mask.tif")
