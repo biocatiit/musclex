@@ -300,8 +300,6 @@ class QuadrantFolder:
         self.findCenter()
         self.getRotationAngle()
         self.transformImage()
-        #self.centerizeImage()
-        #self.rotateImg()
         self.calculateAvgFold()
         if flags['fold_image'] == False:
             self.info['folded'] = False
@@ -582,76 +580,6 @@ class QuadrantFolder:
         self.center = (w_o//2, h_o//2)
 
         self.rotation = 0.0
-
-    def centerizeImage(self):
-        """
-        Create an enlarged image such that image center is at the center of new image
-        """
-        self.parent.statusPrint("Centererizing image...")
-        if not self.centerChanged:
-            return
-        center = self.center
-        if self.centImgTransMat is not None:
-            # convert center in initial img coordinate system
-            M = self.centImgTransMat
-            M[0,2] = -1*M[0,2]
-            M[1,2] = -1*M[1,2]
-            center = [center[0], center[1], 1]
-            center = np.dot(M, center)
-            # Update self.center with transformed coordinates
-            self.center = (int(center[0]), int(center[1]))
-
-        center = (int(center[0]), int(center[1]))
-        if self.initImg is None:
-            # While centerizing image use the first image after reading from file and processing for int center
-            self.initImg = self.orig_img
-            print("Dimension of initial image before centerize ", self.orig_img.shape)
-        img = self.initImg
-        print("Dimension of image before centerize ", img.shape)
-
-        b, l = img.shape
-        if self.parent.newImgDimension is None:
-            # This is the max dimension in the case beamline is in a corner and image rotated to 45 degrees
-            qf_w, qf_h = 2.8*(l-center[0]), 2.8*(b-center[1])
-            max_side = max(max(l,b), max(qf_w, qf_h))
-            dim = int(self.expandImg*max_side)
-            self.parent.newImgDimension = dim
-        else:
-            dim = self.parent.newImgDimension
-        new_img = np.zeros((dim,dim)).astype("float32")
-        try:
-            new_img[0:b,0:l] = img
-        except:
-            print("Centerize Image : Dimension mismatched. Please report error and the steps leading up to it.")
-
-
-        #Translate image to appropriate position
-        transx = int(((dim/2) - center[0]))
-        transy = int(((dim/2) - center[1]))
-        M = np.float32([[1,0,transx],[0,1,transy]])
-        self.centImgTransMat = M
-        rows, cols = new_img.shape
-        # mask_thres = self.info["mask_thres"]
-
-        # if self.img_type == "PILATUS":
-        #     if mask_thres == -999:
-        #         mask_thres = getMaskThreshold(img, self.img_type)
-        #     mask = np.zeros((new_img.shape[0], new_img.shape[1]), dtype=np.uint8)
-        #     mask[new_img <= mask_thres] = 255
-        #     cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-        #     translated_Img = cv2.warpAffine(new_img, M, (cols, rows))
-        #     translated_mask = cv2.warpAffine(mask, M, (cols, rows))
-        #     translated_mask[translated_mask > 0.] = 255
-        #     translated_Img[translated_mask > 0] = mask_thres
-        # else:
-        cv2.setNumThreads(1) # Added to prevent segmentation fault due to cv2.warpAffine
-
-        translated_Img = cv2.warpAffine(new_img,M,(cols,rows))
-
-        self.orig_img = translated_Img
-        self.center = (int(dim / 2), int(dim / 2))
-        self.center_before_rotation = (int(dim / 2), int(dim / 2))
-        print("Dimension of image after centerize ", self.orig_img.shape)
 
     def getRotatedImage(self):
         """
