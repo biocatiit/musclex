@@ -397,7 +397,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.stop_process = False
         self.chordLines = []
         self.chordpoints = []
-        self.masked = False
         self.csvManager = None
         self._provisionalCount = False
         
@@ -1634,7 +1633,6 @@ class QuadrantFoldingGUI(QMainWindow):
             fileName = self.file_manager.current_image_name
             img = self.file_manager.current_image
             self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
-            self.masked = False
             self.processImage()
 
     def keyPressEvent(self, event):
@@ -1732,6 +1730,10 @@ class QuadrantFoldingGUI(QMainWindow):
         if dialogCode == QDialog.Accepted:
             # Update checkbox state based on settings
             self.updateBlankMaskCheckboxStates()
+            # Clear cache because mask settings changed
+            if self.quadFold is not None:
+                self.quadFold.delCache()
+                print("Cleared cache due to mask settings change")
             self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"

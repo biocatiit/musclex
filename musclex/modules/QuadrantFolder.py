@@ -90,7 +90,6 @@ class QuadrantFolder:
         # Flag to suppress signals during batch processing to avoid race conditions
         self.suppress_signals = suppress_signals
         self.newImgDimension = None
-        self.masked = False
 
         # info dictionary will save all results
         if cache is not None:
@@ -125,6 +124,9 @@ class QuadrantFolder:
         cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name + ".info")
         createFolder(fullPath(self.img_path, "qf_cache"))
         self.info['program_version'] = self.version
+        
+        # Save configuration fingerprint for cache validation
+        self.info['config_fingerprint'] = self._getConfigFingerprint()
 
         with open(cache_file, "wb") as c:
             pickle.dump(self.info, c)
@@ -140,29 +142,77 @@ class QuadrantFolder:
                 info = pickle.load(c)
             if info is not None:
                 if info['program_version'] == self.version:
-                    # Check if blank image configuration has changed
-                    from pathlib import Path
-                    import json
-                    blank_config_path = Path(self.img_path) / "settings" / "blank_image_settings.json"
+                    # Validate cache against current configuration fingerprint
+                    current_fingerprint = self._getConfigFingerprint()
+                    cached_fingerprint = info.get('config_fingerprint', {})
                     
-                    if blank_config_path.exists():
-                        try:
-                            with open(blank_config_path, "r") as f:
-                                current_blank_config = json.load(f)
-                            cached_blank_config = info.get('blank_image_config', {})
-                            
-                            # Compare configurations
-                            if (current_blank_config.get('file_path') != cached_blank_config.get('file_path') or
-                                current_blank_config.get('weight') != cached_blank_config.get('weight')):
-                                print("Blank image configuration changed. Invalidating cache and reprocessing.")
-                                return None
-                        except Exception as e:
-                            print(f"Error checking blank image config: {e}")
+                    if current_fingerprint != cached_fingerprint:
+                        changes = self._diffFingerprints(cached_fingerprint, current_fingerprint)
+                        print("Configuration changed. Invalidating cache and reprocessing.")
+                        if changes:
+                            print(f"  Changed items: {changes}")
+                        return None
                     
                     return info
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
         return None
+    
+    def _getConfigFingerprint(self):
+        """
+        Generate a fingerprint of all configuration files that affect processing.
+        Returns a dict with file paths and their modification times and sizes.
+        """
+        from pathlib import Path
+        
+        fingerprint = {}
+        settings_dir = Path(self.img_path) / "settings"
+        
+        # List of config files to track
+        config_files = [
+            'blank_image_settings.json',
+            'mask.tif',
+            'mask_config.json',
+            '.blank_image_disabled',
+            '.mask_disabled'
+        ]
+        
+        for config_file in config_files:
+            file_path = settings_dir / config_file
+            if file_path.exists():
+                # Use modification time + file size as fingerprint
+                # (faster than hashing large files like mask.tif)
+                stat = file_path.stat()
+                fingerprint[config_file] = {
+                    'mtime': stat.st_mtime,
+                    'size': stat.st_size
+                }
+            else:
+                # Track that file doesn't exist (important for disabled flags)
+                fingerprint[config_file] = None
+        
+        return fingerprint
+    
+    def _diffFingerprints(self, old_fp, new_fp):
+        """
+        Compare two fingerprints and return a list of what changed.
+        """
+        changes = []
+        all_keys = set(old_fp.keys()) | set(new_fp.keys())
+        
+        for key in all_keys:
+            old_val = old_fp.get(key)
+            new_val = new_fp.get(key)
+            
+            if old_val != new_val:
+                if old_val is None:
+                    changes.append(f"{key} (added)")
+                elif new_val is None:
+                    changes.append(f"{key} (removed)")
+                else:
+                    changes.append(f"{key} (modified)")
+        
+        return changes
 
     def delCache(self):
         """
@@ -336,8 +386,9 @@ class QuadrantFolder:
         should_apply_blank = 'blank_mask' in self.info and self.info['blank_mask']
         should_apply_mask = 'apply_mask' in self.info and self.info['apply_mask']
         
-        if (should_apply_blank or should_apply_mask) and not self.masked:
+        if should_apply_blank or should_apply_mask:
             img = np.array(self.start_img, 'float32')
+            mask_applied = False
             
             # Apply blank image if enabled
             if should_apply_blank:
@@ -348,34 +399,21 @@ class QuadrantFolder:
                     # Apply blank image subtraction with weight
                     img = img - blank * blank_weight
                     print(f"Applied blank image subtraction with weight: {blank_weight}")
-                    
-                    # Store blank image config in info for cache validation
-                    from pathlib import Path
-                    blank_config_path = Path(self.img_path) / "settings" / "blank_image_settings.json"
-                    if blank_config_path.exists():
-                        import json
-                        try:
-                            with open(blank_config_path, "r") as f:
-                                blank_config = json.load(f)
-                            self.info['blank_image_config'] = {
-                                'file_path': blank_config.get("file_path"),
-                                'weight': blank_weight
-                            }
-                        except:
-                            pass
-                            
-                if mask is not None:
-                    img[mask == 0] = self.info['mask_thres'] - 1.
+                
+                # Apply mask if available (when blank_mask is enabled)
+                if mask is not None and should_apply_mask:
+                    print("Applying mask from mask.tif (via blank_mask)")
+                    img[mask == 0] = self.info['mask_thres'] - 1
+                    mask_applied = True
             
-            # Apply mask if enabled (separate from blank image)
-            if should_apply_mask:
-                maskOnly = getMaskOnly(self.img_path)
-                if maskOnly is not None:
-                    print("Applying mask only image")
-                    img[maskOnly == 0] = self.info['mask_thres'] - 1
+            # Apply mask if enabled but not yet applied
+            if should_apply_mask and not mask_applied:
+                mask = getMaskOnly(self.img_path)
+                if mask is not None:
+                    print("Applying mask from mask.tif")
+                    img[mask == 0] = self.info['mask_thres'] - 1
 
             self.orig_img = img
-            self.masked = True
 
 
     def findCenter(self):

@@ -63,12 +63,14 @@ def getFilesAndHdf(dir_path):
 
 def getBlankImageAndMask(path, return_weight=False):
     """
-    Give the blank image and the mask threshold saved in settings
+    Give the blank image and mask saved in settings.
+    Note: Mask.tif is created by ImageMaskDialog and shared by both blank and mask-only operations.
+    
     Supports both old method (blank.tif) and new method (JSON config)
     
     :param path: directory path
     :param return_weight: if True, returns (blank_img, mask, weight), else (blank_img, mask)
-    :return: blankImage, mask threshold, [weight if return_weight=True]
+    :return: blankImage, mask, [weight if return_weight=True]
     """
     import json
     from pathlib import Path
@@ -81,7 +83,7 @@ def getBlankImageAndMask(path, return_weight=False):
     blank_img = None
     blank_weight = 1.0
     
-    # Try to load mask
+    # Try to load mask (created by ImageMaskDialog)
     if exists(mask_file):
         mask = fabio.open(mask_file).data
     
@@ -114,9 +116,10 @@ def getMaskOnly(path):
     :param path: file path
     :return: mask threshold
     """
-    maskonly_file = join(join(path, 'settings'),'maskonly.tif')
-    if exists(maskonly_file):
-        return fabio.open(maskonly_file).data
+    # Read the mask.tif file created by ImageMaskDialog
+    mask_file = join(join(path, 'settings'), 'mask.tif')
+    if exists(mask_file):
+        return fabio.open(mask_file).data
     return None
 
 def getImgFiles(fullname, headless=False):
