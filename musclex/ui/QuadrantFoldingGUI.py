@@ -52,8 +52,8 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 # from .DoubleZoomGUI import DoubleZoom
 # from .DoubleZoomViewer import DoubleZoom
-from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
-                                            DoubleZoomWidgetState)
+from .widgets.double_zoom_widget import (DoubleZoomWidget,
+                                         DoubleZoomWidgetState)
 from .SetCentDialog import SetCentDialog
 from .SetAngleDialog import SetAngleDialog
 from .ImageBlankDialog import ImageBlankDialog

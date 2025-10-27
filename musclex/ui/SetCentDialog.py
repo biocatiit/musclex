@@ -55,12 +55,12 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from ..ui_widget.double_zoom_widget import (DoubleZoomWidget,
-                                            DoubleZoomWidgetState)
-from ..ui_widget.zoomin_widget import (ZoomInWidget, ZoomInWidgetState)
-from ..ui_widget.image_mouse_move_handler import (ImageMouseMoveHandler,
-                                                  ImageMouseMoveState)
-from ..ui_widget.zoom_handler import ZoomHandler
+from .widgets.double_zoom_widget import (DoubleZoomWidget,
+                                         DoubleZoomWidgetState)
+from .widgets.zoomin_widget import (ZoomInWidget, ZoomInWidgetState)
+from .widgets.image_mouse_move_handler import (ImageMouseMoveHandler,
+                                               ImageMouseMoveState)
+from .widgets.zoom_handler import ZoomHandler
 
 def print_log(log_str):
     now = datetime.now()
