@@ -276,8 +276,9 @@ class Worker(QRunnable):
             # Presence in imageCenterSettings means manual mode
             if filename in self.imageCenterSettings:
                 settings = self.imageCenterSettings[filename]
-                # Set center directly before processing
-                self.quadFold.center = tuple(settings['center'])
+                center = tuple(settings['center'])
+                # Restore center from settings (no need to save again)
+                self.quadFold.setBaseCenter(center)
 
             # Apply image-specific rotation settings if available
             # Presence in imageRotationSettings means manual mode
@@ -2094,16 +2095,16 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def applyCenterClicked(self):
         """Handle Apply Center button click"""
-        if not self.quadFold or not self.quadFold.center:
+        if not self.quadFold or not self.quadFold.base_center:
             QMessageBox.warning(self, "No Center", "No center available to apply.")
             return
         
         dialog = ApplyCenterDialog(self)
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
-            self._applyManualCenter(self.quadFold.center, selection)
+            self._applyManualCenter(self.quadFold.base_center, selection)
             QMessageBox.information(self, "Center Applied", 
-                f"Center {self.quadFold.center} applied to {selection} images.")
+                f"Center {self.quadFold.base_center} applied to {selection} images.")
     
     def restoreAutoCenterClicked(self):
         """Handle Restore Auto Center button click"""
@@ -2383,7 +2384,7 @@ class QuadrantFoldingGUI(QMainWindow):
                                 self.updateApplyCenterMode()
                         # Reset center to None to allow auto calculation
                         if self.quadFold is not None:
-                            self.quadFold.center = None
+                            self.quadFold.setBaseCenter(None)
 
                 return True
         return False
@@ -3444,8 +3445,8 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Remove center from QuadrantFolder to make it recalculate everything from finding center
         """
-        # Reset center to force recalculation
-        self.quadFold.center = None
+        # Reset center to force recalculation (use None to trigger auto mode)
+        self.quadFold.setBaseCenter(None)
         self.processImage()
 
     def addIgnoreQuadrant(self):
@@ -3870,13 +3871,12 @@ class QuadrantFoldingGUI(QMainWindow):
         return [0, 0], center
 
     def setCenter(self, center, source):
-        """Set center for current image and enable Apply Center button"""
+        """Set center for current image and enable Apply Center button (user action - saves to settings)"""
         if self.quadFold:
-            # Set center directly
-            self.quadFold.center = tuple(center)
+            # Use QuadrantFolder's method to set base_center and center
+            self.quadFold.setBaseCenter(center)
             
-            # Store in imageCenterSettings for current image
-            # Presence in this dict means manual mode, absence means auto mode
+            # GUI responsibility: Save to settings
             if self.file_manager:
                 filename = self.file_manager.current_image_name
                 self.imageCenterSettings[filename] = {
@@ -3885,11 +3885,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 }
                 # Save to file immediately
                 self.saveCenterSettings()
-            self.updateCurrentCenter(center)
             
-            # Update mode display
+            # GUI responsibility: Update UI
+            self.updateCurrentCenter(center)
             self.updateApplyCenterMode()
-
             
             print(f"Center set to {center} from source: {source}")
 
@@ -4855,8 +4854,9 @@ class QuadrantFoldingGUI(QMainWindow):
         # Presence in imageCenterSettings means manual mode
         if filename in self.imageCenterSettings:
             settings = self.imageCenterSettings[filename]
-            # Set center directly before processing
-            self.quadFold.center = tuple(settings['center'])
+            center = tuple(settings['center'])
+            # Restore center from settings (no need to save again)
+            self.quadFold.setBaseCenter(center)
         
         # Apply image-specific rotation settings if available
         # Presence in imageRotationSettings means manual mode

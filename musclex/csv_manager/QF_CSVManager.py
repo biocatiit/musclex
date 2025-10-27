@@ -95,10 +95,10 @@ class QF_CSVManager:
             data['comment'] = "REJECTED"
         else:
             failed = False
-            # Priority: quadFold.center (manual or auto) > orig_image_center > (0,0)
-            if quadFold.center is not None:
-                # Use the actual center (whether manual or auto)
-                center = quadFold.center
+            # Priority: base_center (reference center in original coordinates) > orig_image_center > (0,0)
+            if quadFold.base_center is not None:
+                # Use base_center (the reference center in original image coordinates)
+                center = quadFold.base_center
             elif quadFold.orig_image_center is not None:
                 center = (round(quadFold.orig_image_center[0], 2), round(quadFold.orig_image_center[1], 2))
             else:

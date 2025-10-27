@@ -104,6 +104,10 @@ class QuadrantFolder:
         # To display cursor point in original image.
         self.info.setdefault("inv_transform", None)
 
+        # Base center in original image coordinates (manual or auto-calculated)
+        # Used for: saving settings, applying to other images, as input to transformImage
+        self.base_center = None
+        
         # Current center (will be set by findCenter or manually by GUI)
         self.center = None
         
@@ -256,6 +260,19 @@ class QuadrantFolder:
             center_tuple = tuple(center) if not isinstance(center, tuple) else center
             self.parent.eventEmitter.imageCenterChangedSignal.emit(center_tuple)
 
+    def setBaseCenter(self, center):
+        """
+        Set base_center and center (for manual setting or loading from settings)
+        Encapsulates the logic of setting both base_center and center consistently
+        :param center: tuple/list of (x, y) or None to reset to auto mode
+        """
+        if center is not None:
+            self.base_center = tuple(center)
+            self.center = tuple(center)
+        else:
+            self.base_center = None
+            self.center = None
+
 
     def add_transform(self, M):
         prev_transform = self.info.get("transform")
@@ -406,19 +423,23 @@ class QuadrantFolder:
     def findCenter(self):
         """
         Find the center in original image coordinates
-        Sets self.center based on: pre-set (manual) > cached auto_center > calculate new
-        GUI will set self.center before calling this if manual mode is active
+        Sets self.center based on: pre-set base_center (manual) > cached auto_center > calculate new
+        GUI will set self.base_center before calling this if manual mode is active
         """
         self.parent.statusPrint("Finding Center...")
         
-        # Priority 1: Use pre-set center (manual mode, set by GUI)
-        if self.center is not None:
-            print(f"Using pre-set center: {self.center}")
+        # Priority 1: Use pre-set base_center (manual mode, set by GUI or headless)
+        if self.base_center is not None:
+            self.center = self.base_center
+            print(f"Using pre-set base_center: {self.center}")
+            self._emit_center_signal(self.center)
             return
         
         # Priority 2: Use cached auto center
         if 'auto_center' in self.info:
-            self.center = tuple(self.info['auto_center'])
+            calculated_center = tuple(self.info['auto_center'])
+            self.base_center = calculated_center
+            self.center = calculated_center
             print(f"Using cached auto center: {self.center}")
             self._emit_center_signal(self.center)
             return
@@ -429,9 +450,11 @@ class QuadrantFolder:
         self.orig_img, calculated_center = processImageForIntCenter(self.orig_img, self.orig_image_center)
 
         # Cache the calculated center (for next time)
-        self.info['auto_center'] = tuple(calculated_center)
-        # Set as current center
-        self.center = tuple(calculated_center)
+        calculated_center = tuple(calculated_center)
+        self.info['auto_center'] = calculated_center
+        # Set as base_center and current center
+        self.base_center = calculated_center
+        self.center = calculated_center
         print(f"Calculated and cached center: {self.center}")
         self._emit_center_signal(self.center)
 

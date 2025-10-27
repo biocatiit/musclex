@@ -344,8 +344,9 @@ class QuadrantFoldingh:
                 self.inputsettings = False
                 self.calSettings = None
             if self.calSettings is not None and 'center' in self.calSettings:
-                # Set center directly on quadFold (treated as manual)
-                self.quadFold.center = tuple(self.calSettings['center'])
+                # Set center from settings file (treated as manual)
+                center = tuple(self.calSettings['center'])
+                self.quadFold.setBaseCenter(center)
             else:
                 self.inputsettings = False
             if 'manual_center' in self.quadFold.info:
@@ -355,6 +356,6 @@ class QuadrantFoldingh:
         else:
             # Reset to auto mode
             if self.quadFold is not None:
-                self.quadFold.center = None
+                self.quadFold.setBaseCenter(None)
             if self.quadFold is not None and 'center' in self.quadFold.info:
                 del self.quadFold.info['center']
