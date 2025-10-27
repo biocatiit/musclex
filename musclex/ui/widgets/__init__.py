@@ -1,5 +1,5 @@
 # Package marker for ui.widgets
-from .NavigationControls import NavigationControls
+from .navigation_controls import NavigationControls
 from .double_zoom_widget import DoubleZoomWidget, DoubleZoomWidgetState
 from .zoomin_widget import ZoomInWidget, ZoomInWidgetState
 from .image_mouse_move_handler import ImageMouseMoveHandler, ImageMouseMoveState

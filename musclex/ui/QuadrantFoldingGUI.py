@@ -61,7 +61,7 @@ from .ImageMaskDialog import ImageMaskDialog
 from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 from scipy.ndimage import rotate
-from .widgets.NavigationControls import NavigationControls
+from .widgets.navigation_controls import NavigationControls
 
 import time
 import random

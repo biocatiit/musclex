@@ -44,7 +44,7 @@ from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
 from .DoubleZoomGUI import DoubleZoom
 from PySide6.QtCore import QTimer
-from .widgets.NavigationControls import NavigationControls
+from .widgets.navigation_controls import NavigationControls
 
 
 class XRayViewerGUI(QMainWindow):
