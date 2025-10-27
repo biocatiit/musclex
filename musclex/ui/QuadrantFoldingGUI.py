@@ -62,6 +62,10 @@ from ..CalibrationSettings import CalibrationSettings
 from threading import Lock
 from scipy.ndimage import rotate
 from .widgets.navigation_controls import NavigationControls
+from .tools.tool_manager import ToolManager
+from .tools.chords_center_tool import ChordsCenterTool
+from .tools.perpendiculars_center_tool import PerpendicularsCenterTool
+from .tools.rotation_tool import RotationTool
 
 import time
 import random
@@ -1342,6 +1346,14 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
+        
+        # Initialize tool manager (after imageAxes and imageCanvas are created)
+        self.tool_manager = ToolManager(self.imageAxes, self.imageCanvas)
+        self.tool_manager.register_tool('chords', ChordsCenterTool)
+        self.tool_manager.register_tool('perpendiculars', PerpendicularsCenterTool)
+        # RotationTool needs a function to get current center
+        self.tool_manager.register_tool('rotation', lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
+        
         self.show()
 
 
@@ -1955,117 +1967,53 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def setCenterByPerpClicked(self):
         """
-        Prepare for manual center selection using perpendicular peaks
-        :return:
+        Prepare for manual center selection using perpendicular peaks.
+        Now using the new tool system.
         """
         if self.quadFold is None:
             return
+        
         if self.setCentByPerp.isChecked():
-            ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.imageCanvas.draw_idle()
-            self.function = ["perp_center"]  # set current active function
-            self.display_points = ["perp_center"]
+            # Activate the perpendiculars center tool
+            self.tool_manager.activate_tool('perpendiculars')
         else:
-            QApplication.restoreOverrideCursor()
-
-            func = self.function
-            horizontalLines = []
-            verticalLines = []
-            intersections = []
-            for i in range(1, len(func) - 1, 2):
-                slope = calcSlope(func[i], func[i + 1])
-                if abs(slope) > 1:
-                    verticalLines.append((func[i], func[i + 1]))
-                else:
-                    horizontalLines.append((func[i], func[i + 1]))
-            for line1 in verticalLines:
-                for line2 in horizontalLines:
-                    cx, cy = getIntersectionOfTwoLines(line2, line1)
-                    print("Intersection ", (cx, cy))
-                    cx_o, cy_o = self.getOrigCoordsCenter(cx, cy)
-                    print("Intersection in original coords ", (cx_o, cy_o))
-                    # intersections.append((cx_o, cy_o))
-                    intersections.append((cx, cy))
-            if len(intersections) != 0:
-                cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
-                cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
-
+            # Deactivate the tool and get the result
+            result = self.tool_manager.deactivate_tool('perpendiculars')
+            
+            if result:
+                print("Perpendiculars center found:", result)
+                # Set new center and re-process
+                self.setCenter(result, "Perpendicular")
+                self.deleteInfo(['avg_fold'])
+                self.newImgDimension = None
+                self.processImage()
             else:
-                print("Can't Calculate Center Yet; no intersections found")
-                return
-
-            print("Center calc ", (cx, cy))
-
-            new_center = [cx, cy]  # np.dot(invM, homo_coords)
-            # Set new center and rotaion angle , re-calculate R-min
-            print("New Center ", new_center)
-            self.setCenter(new_center, "Perpendicular")
-
-            self.deleteInfo(['avg_fold'])
-            self.newImgDimension = None
-            self.setCentByPerp.setChecked(False)
-
-            self.processImage()
+                print("Perpendiculars center calculation failed (need at least 2 line pairs)")
 
     def setCenterByChordsClicked(self):
         """
-        Prepare for manual rotation center setting by selecting chords
+        Prepare for manual rotation center setting by selecting chords.
+        Now using the new tool system.
         """
         if self.quadFold is None:
             return
 
         if self.setCentByChords.isChecked():
-            ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.chordpoints=[]
-            self.chordLines = []
-            self.imageCanvas.draw_idle()
-            self.function = ["chords_center"]  # set current active function
-            self.display_points = ["chords_center"]
+            # Activate the chords center tool
+            self.tool_manager.activate_tool('chords')
         else:
-            QApplication.restoreOverrideCursor()
-            print("Finding Chords center ...")
-            centers = []
-            for i, line1 in enumerate(self.chordLines):
-                for line2 in self.chordLines[i + 1:]:
-                    if line1[0] == line2[0]:
-                        continue  # parallel lines
-                    if line1[0] == float('inf'):
-                        xcent = line1[1]
-                        ycent = line2[0] * xcent + line2[1]
-                    elif line2[0] == float('inf'):
-                        xcent = line2[1]
-                        ycent = line1[0] * xcent + line1[1]
-                    else:
-                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
-                        ycent = line1[0] * xcent + line1[1]
-                    center = [xcent, ycent]
-                    print("CenterCalc ", center)
-                    cx_o, cy_o = self.getOrigCoordsCenter(xcent, ycent)
-                    print("Center in original coords ", (cx_o, cy_o))
-
-                    # centers.append([cx_o, cy_o])
-                    centers.append([xcent, ycent])
-
-            extent, center = self.getExtentAndCenter()
-
-            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
-            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            new_center = [cx, cy] #np.dot(invM, homo_coords)
-            print("New center ", new_center)
-            # Set new center and rotaion angle , re-calculate R-min
-            self.setCenter(new_center, "Chords")
-            self.deleteInfo(['avg_fold'])
-            self.newImgDimension = None
-            self.setCentByChords.setChecked(False)
-            self.processImage()
+            # Deactivate the tool and get the result
+            result = self.tool_manager.deactivate_tool('chords')
+            
+            if result:
+                print("Chords center found:", result)
+                # Set new center and re-process
+                self.setCenter(result, "Chords")
+                self.deleteInfo(['avg_fold'])
+                self.newImgDimension = None
+                self.processImage()
+            else:
+                print("Chords center calculation failed (need 3+ points)")
 
     def setCentBtnClicked(self):
         if self.quadFold:
@@ -2281,26 +2229,27 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def setRotation(self):
         """
-        Trigger when set center and rotation angle button is pressed
+        Trigger when set rotation angle button is pressed.
+        Now using the new tool system with auto-completion.
         """
         if self.setRotationButton.isChecked():
-            # clear plot
+            # Activate the rotation tool
             self.imgPathOnStatusBar.setText(
-                "Rotate the line to the pattern equator (ESC to cancel)")
-            # ax = self.imageAxes
-            # for i in range(len(ax.lines)-1,-1,-1):
-            #     ax.lines[i].remove()
-            # for i in range(len(ax.patches)-1,-1,-1):
-            #     ax.patches[i].remove()
-            #_, center = self.getExtentAndCenter()
-
-            self.imageCanvas.draw_idle()
-            self.function = ["im_rotate"]
-            self.display_points = ["im_rotate"]
+                "Rotate the line to the pattern equator (click to set angle)")
+            self.tool_manager.activate_tool('rotation')
         else:
-            self.function = None
-            self.display_points = None
+            # User manually cancelled - just deactivate without applying
+            self.tool_manager.deactivate_tool('rotation')
             self.resetStatusbar()
+    
+    def _get_current_center(self):
+        """
+        Helper method to get current center for tools that need it.
+        Returns None if no center is set.
+        """
+        if self.quadFold is None:
+            return None
+        return self.quadFold.center
 
     def setAngleBtnClicked(self):
         if self.quadFold:
@@ -2478,6 +2427,10 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.ableToProcess():
             return
 
+        # Try to dispatch to tool manager first
+        if self.tool_manager.handle_click(event):
+            return  # Event was handled by an active tool
+
         x = event.xdata
         y = event.ydata
 
@@ -2530,25 +2483,13 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.imgZoomInB.setChecked(False)
                     self.refreshImageTab()
             elif func[0] == "chords_center":
-                ax = self.imageAxes
-                axis_size = 5
-                self.chordpoints.append([x, y])
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                if len(self.chordpoints) >= 3:
-                    self.drawPerpendiculars()
-                self.imageCanvas.draw_idle()
+                # NOTE: This code path is now deprecated - chords center is handled by ChordsCenterTool
+                # Keeping this for backward compatibility during migration
+                pass
             elif func[0] == "perp_center":
-                ax = self.imageAxes
-                axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                if self.doubleZoom.is_enabled() and len(func) > 1 and len(func) % 2 == 0:
-                    start_pt = func[len(func) - 1]
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                self.imageCanvas.draw_idle()
-                func.append((x, y))
-                self.display_points.append((x, y))
+                # NOTE: This code path is now deprecated - perpendiculars center is handled by PerpendicularsCenterTool
+                # Keeping this for backward compatibility during migration
+                pass
             elif func[0] == "im_center_rotate":
                 # set center and rotation angle
                 ax = self.imageAxes
@@ -2591,43 +2532,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.setCenterRotationButton.setChecked(False)
                 self.processImage()
             elif func[0] == "im_rotate":
-                # set rotation angle
-                extent, center = self.getExtentAndCenter()
-                center = self.quadFold.center
-
-                # x_o, y_o = self.getOrigCoordsCenter(x, y)
-                # cx_o, cy_o = self.getOrigCoordsCenter(center[0], center[1])
-
-                if center[0] < x:
-                    x1, y1 = center
-                    x2, y2 = x, y
-                else:
-                    x1, y1 = x, y
-                    x2, y2 = center
-
-                # if cx_o < x:
-                #     x1 = cx_o
-                #     y1 = cy_o
-                #     x2 = x_o
-                #     y2 = y_o
-                # else:
-                #     x1 = x_o
-                #     y1 = y_o
-                #     x2 = cx_o
-                #     y2 = cy_o
-
-                if abs(x2 - x1) == 0:
-                    new_angle = -90
-                else:
-                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-
-                self.setAngle(new_angle, "Rotate")
-                self.deleteInfo(['avg_fold'])
-                self.setRotationButton.setChecked(False)
-
-                #Put the center (in original image coordinates) into the manual center entry of the key so that it will be used during processing.
-
-                self.processImage()
+                # NOTE: This code path is now deprecated - rotation is handled by RotationTool
+                # Keeping this for backward compatibility during migration
+                pass
 
 
     def calcMouseMovement(self):
@@ -2648,6 +2555,10 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Triggered when mouse hovers on image in image tab
         """
+        # Try to dispatch to tool manager first
+        if self.tool_manager.handle_motion(event):
+            return  # Event was handled by an active tool
+        
         current_time = time.time()
 
         #Wrapped in try block becasue this throws an error for missing last_executed,
@@ -2792,89 +2703,34 @@ class QuadrantFoldingGUI(QMainWindow):
             self.imageCanvas.draw_idle()
 
         elif func[0] == "perp_center":
-            # draw X on points and a line between points
-            ax = self.imageAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-
-                    for i in range(len(ax.lines) - 1, 0, -1):
-                        ax.lines[i].remove()
-
-
-                if not self.doubleZoom.is_enabled():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-
-                    for i in range(len(ax.lines) - 1, 2, -1):
-                        ax.lines[i].remove()
-
-                if not self.doubleZoom.is_enabled():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-
-
-            elif len(func) % 2 != 0:
-                if len(ax.lines) > 0:
-                    n = (len(func)-1)*5//2 + 2
-
-                    for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines[i].remove()
-
-
-                if not self.doubleZoom.is_enabled():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) % 2 == 0:
-                start_pt = func[-1]
-                if len(ax.lines) > 3:
-                    n = len(func) * 5 // 2 - 1
-
-                    for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines[i].remove()
-
-
-                if not self.doubleZoom.is_enabled():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-
-            self.imageCanvas.draw_idle()
+            # NOTE: This code path is now deprecated - perpendiculars center is handled by PerpendicularsCenterTool
+            # Keeping this for backward compatibility during migration
+            pass
 
         elif func[0] == "im_rotate":
-            """if self.calSettings is None or 'center' not in self.calSettings:
-            self.calSettings = {}
-            extent, self.calSettings['center'] = self.getExtentAndCenter()"""
-            center = self.quadFold.center
-
-            deltax = x - center[0]
-            deltay = y - center[1]
-            x2 = center[0] - deltax
-            y2 = center[1] - deltay
-            if not self.doubleZoom.is_enabled():
-                for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
-                ax.plot([x, x2], [y, y2], color="g")
-            else:
-                if self.doubleZoom.is_enabled() and self.doubleZoom.state != DoubleZoomWidgetState.MainImageClicked:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    ax.plot([x, x2], [y, y2], color="g")
-            self.imageCanvas.draw_idle()
+            # NOTE: This code path is now deprecated - rotation is handled by RotationTool
+            # Keeping this for backward compatibility during migration
+            pass
 
     def imageReleased(self, event):
         """
         Triggered when mouse released from image
         """
+        # Try to dispatch to tool manager first
+        if self.tool_manager.handle_release(event):
+            # Check if the active tool is RotationTool and has completed
+            if self.tool_manager.active_tool and hasattr(self.tool_manager.active_tool, 'completed'):
+                if self.tool_manager.active_tool.completed:
+                    # Auto-deactivate and apply the result
+                    result = self.tool_manager.deactivate_tool('rotation')
+                    if result is not None:
+                        print(f"Rotation angle set: {result:.2f} degrees")
+                        self.setAngle(result, "RotationTool")
+                        self.setRotationButton.setChecked(False)
+                        self.processImage()
+                        self.resetStatusbar()
+            return  # Event was handled by an active tool
+        
         if self.function is not None and self.function[0] == "im_move":
             self.function = None
             self.display_points = None
