@@ -1811,8 +1811,28 @@ class QuadrantFoldingGUI(QMainWindow):
             # Create the disabled flag
             blank_disabled_flag.touch()
         
-        # Clear cache and reprocess
+        # Recreate QuadrantFolder object to trigger config fingerprint validation
+        # This ensures transform matrices and all cached state are properly reset
+        filename = self.file_manager.current_image_name
+        img = self.file_manager.current_image
+        
+        # Preserve manual settings
+        saved_base_center = self.quadFold.base_center
+        saved_rotation = self.quadFold.rotation
+        
+        # Delete file cache
         self.quadFold.delCache()
+        
+        # Recreate object (will trigger config fingerprint check)
+        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
+        
+        # Restore manual settings if they were set
+        if filename in self.imageCenterSettings:
+            self.quadFold.setBaseCenter(saved_base_center)
+        if filename in self.imageRotationSettings:
+            self.quadFold.rotation = saved_rotation
+        
+        # Reprocess
         self.processImage()
 
     def applyMaskChanged(self):
@@ -1834,8 +1854,28 @@ class QuadrantFoldingGUI(QMainWindow):
             # Create the disabled flag
             mask_disabled_flag.touch()
         
-        # Clear cache and reprocess
+        # Recreate QuadrantFolder object to trigger config fingerprint validation
+        # This ensures transform matrices and all cached state are properly reset
+        filename = self.file_manager.current_image_name
+        img = self.file_manager.current_image
+        
+        # Preserve manual settings
+        saved_base_center = self.quadFold.base_center
+        saved_rotation = self.quadFold.rotation
+        
+        # Delete file cache
         self.quadFold.delCache()
+        
+        # Recreate object (will trigger config fingerprint check)
+        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
+        
+        # Restore manual settings if they were set
+        if filename in self.imageCenterSettings:
+            self.quadFold.setBaseCenter(saved_base_center)
+        if filename in self.imageRotationSettings:
+            self.quadFold.rotation = saved_rotation
+        
+        # Reprocess
         self.processImage()
 
     def getOrigCoordsCenter(self, x, y):
