@@ -60,7 +60,7 @@ class SetAngleDialog(QDialog):
                 start_img,
                 img,
                 center,
-                angle_to_origin,
+                base_rotation,
                 transform,
                 isLogScale,
                 vmin,
@@ -72,7 +72,7 @@ class SetAngleDialog(QDialog):
         self.start_img = start_img
         self.img = img
         self.center = center
-        self.angle_to_origin = angle_to_origin
+        self.base_rotation = base_rotation
         self.transform = transform
         self.isLogScale = isLogScale
         self.vmin = vmin
@@ -119,7 +119,7 @@ class SetAngleDialog(QDialog):
         self.angleSpnBox.setDecimals(2)
         self.angleSpnBox.setSingleStep(1)
         self.angleSpnBox.setRange(0, 360)
-        self.angleSpnBox.setValue(self.angle_to_origin % 360)
+        self.angleSpnBox.setValue(self.base_rotation % 360)
         self.angleSpnBox.setKeyboardTracking(False)
 
         self.setAngleGroup = QGroupBox("Set Angle")
@@ -245,7 +245,7 @@ class SetAngleDialog(QDialog):
         super().keyPressEvent(event)
 
     def get_angle(self):
-        angle =  self.angleSpnBox.value() - self.angle_to_origin
+        angle =  self.angleSpnBox.value() - self.base_rotation
         return angle
 
     def increment_angle(self, step):

@@ -288,8 +288,8 @@ class Worker(QRunnable):
             # Presence in imageRotationSettings means manual mode
             if filename in self.imageRotationSettings:
                 settings = self.imageRotationSettings[filename]
-                # Set rotation directly before processing
-                self.quadFold.rotation = settings['rotation']
+                # Set base_rotation before processing
+                self.quadFold.setBaseRotation(settings['rotation'])
 
             self.quadFold.process(self.flags)
             self.saveBackground()
@@ -362,8 +362,7 @@ class Worker(QRunnable):
                 self.csv_bg.to_csv(csv_path, mode='a')
 
 class EventEmitter(QObject):
-    imageCenterChangedSignal = Signal(tuple)
-    angleChangedSignal = Signal(tuple)
+    pass  # Signal definitions removed - GUI updates happen in processImage()
 
 class QuadrantFoldingGUI(QMainWindow):
 
@@ -1416,14 +1415,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
         self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
 
-        self.eventEmitter.imageCenterChangedSignal.connect(
-            lambda center: self.updateCurrentCenter(center)
-        )
-        self.eventEmitter.angleChangedSignal.connect(
-            lambda angleDegree: self.rotationAngleLabel.setText(
-                f"Rotation Angle (Original Coords): {angleDegree % 360:.2f} °"
-        ))
-
         ##### Result Tab #####
         self.rotate90Chkbx.stateChanged.connect(self.processImage)
         self.resultZoomInB.clicked.connect(self.resultZoomIn)
@@ -1817,8 +1808,8 @@ class QuadrantFoldingGUI(QMainWindow):
         img = self.file_manager.current_image
         
         # Preserve manual settings
-        saved_base_center = self.quadFold.base_center
-        saved_rotation = self.quadFold.rotation
+        saved_base_center = self.quadFold.info['base_center']
+        saved_base_rotation = self.quadFold.info['base_rotation']
         
         # Delete file cache
         self.quadFold.delCache()
@@ -1830,7 +1821,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if filename in self.imageCenterSettings:
             self.quadFold.setBaseCenter(saved_base_center)
         if filename in self.imageRotationSettings:
-            self.quadFold.rotation = saved_rotation
+            self.quadFold.setBaseRotation(saved_base_rotation)
         
         # Reprocess
         self.processImage()
@@ -1860,8 +1851,8 @@ class QuadrantFoldingGUI(QMainWindow):
         img = self.file_manager.current_image
         
         # Preserve manual settings
-        saved_base_center = self.quadFold.base_center
-        saved_rotation = self.quadFold.rotation
+        saved_base_center = self.quadFold.info['base_center']
+        saved_base_rotation = self.quadFold.info['base_rotation']
         
         # Delete file cache
         self.quadFold.delCache()
@@ -1873,66 +1864,36 @@ class QuadrantFoldingGUI(QMainWindow):
         if filename in self.imageCenterSettings:
             self.quadFold.setBaseCenter(saved_base_center)
         if filename in self.imageRotationSettings:
-            self.quadFold.rotation = saved_rotation
+            self.quadFold.setBaseRotation(saved_base_rotation)
         
         # Reprocess
         self.processImage()
 
     def getOrigCoordsCenter(self, x, y):
         """
-        Calculate the center in original image coordinates
+        Convert coordinates from current (transformed) image to original image coordinates.
+        Uses the inverse transformation matrix for accurate conversion.
+        
+        Args:
+            x, y: Coordinates in current (possibly transformed) image
+            
+        Returns:
+            (orig_x, orig_y): Coordinates in original image space
         """
-
         if self.quadFold:
             inv_transform = self.quadFold.info.get("inv_transform")
-
+            
             if inv_transform is not None:
-                # Convert to homogeneous coordinates
+                # Convert using inverse transformation matrix
                 point = np.array([x, y, 1])
                 origin_point = inv_transform @ point
-
                 origin_x, origin_y = origin_point
                 return origin_x, origin_y
-
-        _, center = self.getExtentAndCenter()
-        center = self.quadFold.center
-        #rotation angle in radians
-        angle = 0 if self.quadFold.rotation is None else -self.quadFold.rotation * math.pi / 180
-        cos_a = math.cos(angle)
-        sin_a = math.sin(angle)
-        #mouse pos in center-as-origin points
-        #Get the scale factor
-        s = 1 if 'scale' not in self.quadFold.info else self.quadFold.info['scale']
-        dx =  (x - center[0]) #coordinate of x relative to center
-        dy = (y - center[1]) #coordinate of y relative to center
-        x1 =  dx * cos_a + dy * sin_a
-        y1 = -dx * sin_a + dy * cos_a
-
-
-        x1 =  dx * cos_a + dy * sin_a
-        y1 = -dx * sin_a + dy * cos_a
-        #print("Rotated coords: ", (x1, y1))
-
-        # 1) bring x1,y1 back into absolute cent_img coordinates
-        center_x, center_y = center
-        x1 += center_x
-        y1 += center_y
-        #print("After re-adding center:", (x1, y1))
-
-        # 2) undo the same tx,ty you applied in transformImage
-        new_tx, new_ty = self.quadFold.new_tx, self.quadFold.new_ty
-        x2 = x1 - new_tx
-        y2 = y1 - new_ty
-        #print("After inverting translation:", (x2, y2))
-
-        # 3) undo the scale
-        s = self.quadFold.info.get('scale', 1.0)
-        x3 = x2 / s
-        y3 = y2 / s
-        #print("After inverting scale:", (x3, y3))
-
-        # the original-image coords
-        return x3, y3
+            else:
+                # No transformation applied yet, coordinates are already in original space
+                return x, y
+        
+        return x, y
 
 
     #IS THIS USED?
@@ -1942,7 +1903,8 @@ class QuadrantFoldingGUI(QMainWindow):
         given original image coordinates
         """
         _, center = self.getExtentAndCenter()
-        angle = 0 if self.quadFold.rotation is None else -self.quadFold.rotation * math.pi / 180
+        base_rotation = self.quadFold.info.get('base_rotation')
+        angle = 0 if base_rotation is None else -base_rotation * math.pi / 180
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
         #mouse pos in center-as-origin points
@@ -2022,8 +1984,10 @@ class QuadrantFoldingGUI(QMainWindow):
             
             if result:
                 print("Perpendiculars center found:", result)
-                # Set new center and re-process
-                self.setCenter(result, "Perpendicular")
+                # Convert to original coordinates
+                x, y = result
+                orig_x, orig_y = self.getOrigCoordsCenter(x, y)
+                self.setCenter((orig_x, orig_y), "Perpendicular")
                 self.deleteInfo(['avg_fold'])
                 self.newImgDimension = None
                 self.processImage()
@@ -2047,8 +2011,10 @@ class QuadrantFoldingGUI(QMainWindow):
             
             if result:
                 print("Chords center found:", result)
-                # Set new center and re-process
-                self.setCenter(result, "Chords")
+                # Convert to original coordinates
+                x, y = result
+                orig_x, orig_y = self.getOrigCoordsCenter(x, y)
+                self.setCenter((orig_x, orig_y), "Chords")
                 self.deleteInfo(['avg_fold'])
                 self.newImgDimension = None
                 self.processImage()
@@ -2060,12 +2026,14 @@ class QuadrantFoldingGUI(QMainWindow):
             curr_img = self.quadFold.orig_img
             # Get current center
             center = self.quadFold.center
+            inv_transform = self.quadFold.info.get("inv_transform")
 
             if (curr_img is not None) and center:
                 img = curr_img.copy()
                 self.setCentDialog = SetCentDialog(self,
                     img,
                     center,
+                    inv_transform=inv_transform,
                     isLogScale=self.logScaleIntChkBx.isChecked(),
                     vmin=self.spminInt.value(),
                     vmax=self.spmaxInt.value()
@@ -2083,16 +2051,16 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def applyCenterClicked(self):
         """Handle Apply Center button click"""
-        if not self.quadFold or not self.quadFold.base_center:
+        if not self.quadFold or not self.quadFold.info['base_center']:
             QMessageBox.warning(self, "No Center", "No center available to apply.")
             return
         
         dialog = ApplyCenterDialog(self)
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
-            self._applyManualCenter(self.quadFold.base_center, selection)
+            self._applyManualCenter(self.quadFold.info['base_center'], selection)
             QMessageBox.information(self, "Center Applied", 
-                f"Center {self.quadFold.base_center} applied to {selection} images.")
+                f"Center {self.quadFold.info['base_center']} applied to {selection} images.")
     
     def restoreAutoCenterClicked(self):
         """Handle Restore Auto Center button click"""
@@ -2105,16 +2073,16 @@ class QuadrantFoldingGUI(QMainWindow):
     
     def applyRotationClicked(self):
         """Handle Apply Rotation button click"""
-        if not self.quadFold or self.quadFold.rotation is None:
+        if not self.quadFold or self.quadFold.info['base_rotation'] is None:
             QMessageBox.warning(self, "No Rotation", "No rotation available to apply.")
             return
         
         dialog = ApplyRotationDialog(self)
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
-            self._applyManualRotation(self.quadFold.rotation, selection)
+            self._applyManualRotation(self.quadFold.info['base_rotation'], selection)
             QMessageBox.information(self, "Rotation Applied", 
-                f"Rotation {self.quadFold.rotation:.2f}° applied to {selection} images.")
+                f"Rotation {self.quadFold.info['base_rotation']:.2f}° applied to {selection} images.")
     
     def restoreAutoRotationClicked(self):
         """Handle Restore Auto Rotation button click"""
@@ -2297,15 +2265,15 @@ class QuadrantFoldingGUI(QMainWindow):
             curr_img = self.quadFold.orig_img
             # Get current center and transform info
             center = self.quadFold.center
-            angle_to_origin = self.quadFold.info.get("angle_to_origin")
+            base_rotation = self.quadFold.info.get("base_rotation", 0.0)
             transform = self.quadFold.info.get("transform")
 
-            if (start_img is not None) and (curr_img is not None) and center and (angle_to_origin is not None) and (transform is not None):
+            if (start_img is not None) and (curr_img is not None) and center and (transform is not None):
                 self.setAngleDialog = SetAngleDialog(self,
                     start_img.copy(),
                     curr_img.copy(),
                     center,
-                    angle_to_origin,
+                    base_rotation,
                     transform,
                     isLogScale=self.logScaleIntChkBx.isChecked(),
                     vmin=self.spminInt.value(),
@@ -2333,7 +2301,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         if success:
             # Reset rotation to force recalculation
-            self.quadFold.rotation = None
+            self.quadFold.setBaseRotation(None)
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
 
@@ -2537,11 +2505,12 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 self.imageCanvas.draw_idle()
+                # Convert to original coordinates
                 x_o, y_o = self.getOrigCoordsCenter(x, y)
-                # func.append((x_o, y_o))
-                func.append((x, y))
-                self.display_points.append((x, y))
+                func.append((x_o, y_o))  # Use original coordinates
+                self.display_points.append((x, y))  # Display coordinates for visualization
                 if len(func) == 3:
+                    # func[1] and func[2] are now in original coordinates
                     if func[1][0] < func[2][0]:
                         x1, y1 = func[1]
                         x2, y2 = func[2]
@@ -2549,23 +2518,17 @@ class QuadrantFoldingGUI(QMainWindow):
                         x1, y1 = func[2]
                         x2, y2 = func[1]
 
+                    # Calculate angle from original coordinates
                     if abs(x2 - x1) == 0:
                         new_angle = -90
                     else:
                         new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
-                    extent, center = self.getExtentAndCenter()
-                    extent = [0, 0]  # Remove the extent because it moves the center out of place.
-
-                    cx = int(round((x1 + x2) / 2.) + extent[0])
-                    cy = int(round((y1 + y2) / 2.) + extent[1])
-                    # M = cv2.getRotationMatrix2D(tuple(self.quadFold.center), self.quadFold.info['rotationAngle'], 1)
-                    new_center = [cx, cy]
-                    cx = int(round(new_center[0]))
-                    cy = int(round(new_center[1]))
+                    # Calculate center from original coordinates
+                    cx = int(round((x1 + x2) / 2.))
+                    cy = int(round((y1 + y2) / 2.))
+                    
                 self.setCenter((cx, cy), "CenterRotate")
-                # No need to delete center - it's in self.center now
-
                 self.setAngle(new_angle, "CenterRotate")
                 self.deleteInfo(['avg_fold'])
                 self.newImgDimension = None
@@ -3299,7 +3262,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is None:
             return
         # Reset rotation to force recalculation with new orientation model
-        self.quadFold.rotation = None
+        self.quadFold.setBaseRotation(None)
         self.processImage()
 
     def modeAngleChecked(self):
@@ -3789,17 +3752,36 @@ class QuadrantFoldingGUI(QMainWindow):
             print(f"Center set to {center} from source: {source}")
 
     def setAngle(self, angle, source):
-        """Set rotation angle for current image"""
+        """
+        Set rotation angle for current image.
+        
+        The angle parameter is treated as an increment (delta) to be added to the current base_rotation.
+        This is because user rotations are performed on the already-transformed (displayed) image.
+        
+        Args:
+            angle: Rotation angle increment in degrees (relative to current displayed image)
+            source: String describing the source of the angle setting
+        """
         if self.quadFold:
-            # Set rotation directly
-            self.quadFold.rotation = angle
+            # Get current base_rotation (may be None for first time)
+            current_base_rotation = self.quadFold.info.get('base_rotation', 0.0)
+            if current_base_rotation is None:
+                current_base_rotation = 0.0
+            
+            # Calculate new absolute rotation relative to original image
+            # User's angle is relative to the currently displayed (transformed) image,
+            # so we accumulate it
+            new_base_rotation = current_base_rotation + angle
+            
+            # Set the accumulated rotation
+            self.quadFold.setBaseRotation(new_base_rotation)
             
             # Store in imageRotationSettings for current image
             # Presence in this dict means manual mode, absence means auto mode
             if self.file_manager:
                 filename = self.file_manager.current_image_name
                 self.imageRotationSettings[filename] = {
-                    'rotation': angle,
+                    'rotation': new_base_rotation,
                     'source': source  # Track how this rotation was set
                 }
                 # Save to file immediately
@@ -3808,7 +3790,12 @@ class QuadrantFoldingGUI(QMainWindow):
             # Update mode display
             self.updateApplyRotationMode()
             
-            print(f"Rotation set to {angle} from source: {source}")
+            # Update rotation angle display immediately (preview)
+            self.rotationAngleLabel.setText(
+                f"Rotation Angle (Original Coords): {new_base_rotation % 360:.2f} °"
+            )
+            
+            print(f"Rotation increment: {angle:.2f}° from {source}, new base_rotation: {new_base_rotation:.2f}°")
 
     def updateResultTab(self):
         """
@@ -3923,6 +3910,20 @@ class QuadrantFoldingGUI(QMainWindow):
 
             self.toggleCircleTransition()
             self.toggleCircleRmin()
+            
+            # Update center display with transformed coordinates
+            self.updateCurrentCenter(self.quadFold.center)
+            
+            # Update rotation angle display (base_rotation is the angle relative to original image)
+            base_rotation = self.quadFold.info.get("base_rotation")
+            if base_rotation is not None:
+                self.rotationAngleLabel.setText(
+                    f"Rotation Angle (Original Coords): {base_rotation % 360:.2f} °"
+                )
+            else:
+                self.rotationAngleLabel.setText(
+                    f"Rotation Angle (Original Coords): 0.00 °"
+                )
 
             self.saveResults()
             QApplication.restoreOverrideCursor()
@@ -4349,7 +4350,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
                         if success:
                             # Reset rotation to force recalculation
-                            self.quadFold.rotation = None
+                            self.quadFold.setBaseRotation(None)
                             self.deleteImgCache(['BgSubFold'])
 
                     except Exception as e:
@@ -4758,8 +4759,8 @@ class QuadrantFoldingGUI(QMainWindow):
         # Presence in imageRotationSettings means manual mode
         if filename in self.imageRotationSettings:
             settings = self.imageRotationSettings[filename]
-            # Set rotation directly before processing
-            self.quadFold.rotation = settings['rotation']
+            # Set base_rotation before processing
+            self.quadFold.setBaseRotation(settings['rotation'])
         
         self.onImageChanged(reprocess=reprocess)
 

@@ -73,15 +73,17 @@ class SetCentDialog(QDialog):
                 parent,
                 img,
                 center,
-                isLogScale,
-                vmin,
-                vmax
+                inv_transform=None,
+                isLogScale=False,
+                vmin=0,
+                vmax=1
         ):
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Set Center")
         self.img = img
         self.center = center
+        self.inv_transform = inv_transform
         self.isLogScale = isLogScale
         self.vmin = vmin
         self.vmax = vmax
@@ -321,7 +323,14 @@ class SetCentDialog(QDialog):
                     if self.zoomInWidget.is_enabled():
                         self.zoomInWidget.click_with_double_zoom(event)
                     else:
-                        self.center = (x, y)
+                        # Convert to original coordinates if transformation exists
+                        if self.inv_transform is not None:
+                            import numpy as np
+                            point = np.array([x, y, 1])
+                            orig_point = self.inv_transform @ point
+                            self.center = (orig_point[0], orig_point[1])
+                        else:
+                            self.center = (x, y)
                         self.refreshCenter()
                 return
 
@@ -334,7 +343,14 @@ class SetCentDialog(QDialog):
             if self.zoomInWidget.is_enabled():
                 self.zoomInWidget.handle_click_event(event, x, y)
             else:
-                self.center = (x, y)
+                # Convert to original coordinates if transformation exists
+                if self.inv_transform is not None:
+                    import numpy as np
+                    point = np.array([x, y, 1])
+                    orig_point = self.inv_transform @ point
+                    self.center = (orig_point[0], orig_point[1])
+                else:
+                    self.center = (x, y)
                 self.refreshCenter(updateText=True)
 
 

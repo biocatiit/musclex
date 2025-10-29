@@ -97,22 +97,23 @@ class QuadrantFolder:
             self.info = {}
 
         self.info.setdefault("transform", None)
-
-        # To display rotation angle relative to the original image.
-        self.info.setdefault("angle_to_origin", 0.0)
-
-        # To display cursor point in original image.
         self.info.setdefault("inv_transform", None)
-
+        
         # Base center in original image coordinates (manual or auto-calculated)
-        # Used for: saving settings, applying to other images, as input to transformImage
-        self.base_center = None
+        # Persistent: saved to cache, used for settings and applying to other images
+        self.info.setdefault("base_center", None)
         
-        # Current center (will be set by findCenter or manually by GUI)
+        # Base rotation angle relative to original image (manual or auto-calculated)
+        # Persistent: saved to cache, replaces old angle_to_origin
+        self.info.setdefault("base_rotation", None)
+        
+        # Cached auto-calculated values (used when not manually set)
+        self.info.setdefault("auto_center", None)
+        self.info.setdefault("auto_rotation", None)
+        
+        # Current center (working variable, set by findCenter/transformImage)
+        # Always represents center of current (potentially transformed) image
         self.center = None
-        
-        # Current rotation (will be set by process or manually by GUI)
-        self.rotation = None
         
         self.curr_dims = None
 
@@ -251,52 +252,27 @@ class QuadrantFolder:
             print("Ran into some problem reading from mask file.")
             return -1.0, -1.0
 
-    def _emit_center_signal(self, center):
-        """
-        Emit signal to update GUI with center coordinates.
-        """
-        if self.parent and not self.suppress_signals:
-            # Ensure center is a tuple for signal consistency
-            center_tuple = tuple(center) if not isinstance(center, tuple) else center
-            self.parent.eventEmitter.imageCenterChangedSignal.emit(center_tuple)
-
     def setBaseCenter(self, center):
         """
-        Set base_center and center (for manual setting or loading from settings)
-        Encapsulates the logic of setting both base_center and center consistently
-        :param center: tuple/list of (x, y) or None to reset to auto mode
+        Set base_center for manual mode (or None to reset to auto mode)
+        
+        IMPORTANT: Only sets base_center (original image coordinates).
+        self.center will be properly set by findCenter() during process().
+        
+        :param center: tuple/list of (x, y) in ORIGINAL image coordinates, or None to reset to auto mode
         """
         if center is not None:
-            self.base_center = tuple(center)
-            self.center = tuple(center)
+            self.info['base_center'] = tuple(center)
         else:
-            self.base_center = None
-            self.center = None
+            self.info['base_center'] = None
 
-
-    def add_transform(self, M):
-        prev_transform = self.info.get("transform")
-
-        if prev_transform is not None:
-            self.info["transform"] = self.merge_warps((prev_transform, M))
-        else:
-            self.info["transform"] = M
-
-        # To display cursor point in original image.
-        self.info["inv_transform"] = cv2.invertAffineTransform(self.info["transform"])
-
-    def merge_warps(self, warps):
-        M_total = np.eye(3, dtype=np.float32)
-
-        for W in warps:
-            # Convert 2x3 -> 3x3
-            W_h = np.vstack([W, [0, 0, 1]])
-            # Multiply (note: last one in list applies last)
-            M_total = W_h @ M_total
-
-        # Convert back to 2x3
-        M = M_total[:2, :]
-        return M
+    def setBaseRotation(self, angle):
+        """
+        Set base_rotation for manual mode (or None to reset to auto mode)
+        
+        :param angle: rotation angle in degrees relative to original image, or None to reset to auto mode
+        """
+        self.info['base_rotation'] = angle
 
     def process(self, flags):
         """
@@ -366,6 +342,13 @@ class QuadrantFolder:
         :return: -
         """
         self.orig_img = copy.copy(self.start_img)
+        
+        # Clear old transform matrices since we reset to start_img
+        # Without this, transforms would accumulate incorrectly on each process()
+        if 'transform' in self.info:
+            del self.info['transform']
+        if 'inv_transform' in self.info:
+            del self.info['inv_transform']
 
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
@@ -424,24 +407,22 @@ class QuadrantFolder:
         """
         Find the center in original image coordinates
         Sets self.center based on: pre-set base_center (manual) > cached auto_center > calculate new
-        GUI will set self.base_center before calling this if manual mode is active
+        GUI will set base_center via setBaseCenter() before calling this if manual mode is active
         """
         self.parent.statusPrint("Finding Center...")
         
         # Priority 1: Use pre-set base_center (manual mode, set by GUI or headless)
-        if self.base_center is not None:
-            self.center = self.base_center
+        if self.info['base_center'] is not None:
+            self.center = self.info['base_center']
             print(f"Using pre-set base_center: {self.center}")
-            self._emit_center_signal(self.center)
             return
         
         # Priority 2: Use cached auto center
-        if 'auto_center' in self.info:
+        if self.info['auto_center'] is not None:
             calculated_center = tuple(self.info['auto_center'])
-            self.base_center = calculated_center
+            self.info['base_center'] = calculated_center
             self.center = calculated_center
             print(f"Using cached auto center: {self.center}")
-            self._emit_center_signal(self.center)
             return
 
         # Priority 3: Calculate new center and cache it
@@ -453,28 +434,28 @@ class QuadrantFolder:
         calculated_center = tuple(calculated_center)
         self.info['auto_center'] = calculated_center
         # Set as base_center and current center
-        self.base_center = calculated_center
+        self.info['base_center'] = calculated_center
         self.center = calculated_center
         print(f"Calculated and cached center: {self.center}")
-        self._emit_center_signal(self.center)
 
 
     def getRotationAngle(self):
         """
         Figures out the rotation angle to use on the image.
-        Uses self.rotation for manual rotation, or calculates and caches auto rotation.
+        Uses base_rotation for manual rotation, or calculates and caches auto rotation.
+        GUI will set base_rotation via setBaseRotation() before calling this if manual mode is active
         """
         self.parent.statusPrint("Finding Rotation Angle...")
 
-        # Priority 1: Use manual rotation if set by GUI
-        if self.rotation is not None:
-            print(f"Using manual rotation: {self.rotation}")
+        # Priority 1: Use pre-set base_rotation (manual mode, set by GUI or headless)
+        if self.info['base_rotation'] is not None:
+            print(f"Using pre-set base_rotation: {self.info['base_rotation']}")
             return
         
         # Priority 2: Use cached auto rotation
-        if 'auto_rotation' in self.info:
-            self.rotation = self.info['auto_rotation']
-            print(f"Using cached auto rotation: {self.rotation}")
+        if self.info['auto_rotation'] is not None:
+            self.info['base_rotation'] = self.info['auto_rotation']
+            print(f"Using cached auto rotation: {self.info['base_rotation']}")
             return
 
         print("Rotation Angle is being calculated ... ")
@@ -488,8 +469,8 @@ class QuadrantFolder:
 
         # Cache the calculated rotation (for next time)
         self.info['auto_rotation'] = calculated_rotation
-        # Set as current rotation
-        self.rotation = calculated_rotation
+        # Set as base_rotation
+        self.info['base_rotation'] = calculated_rotation
 
         self.deleteFromDict(self.info, 'avg_fold')
         print("Done. Rotation Angle is " + str(calculated_rotation) +" degree")
@@ -524,84 +505,56 @@ class QuadrantFolder:
 
     def transformImage(self):
         """
-        Applies Tranlation, scaling and rotation to the original image.
+        Applies translation, scaling and rotation to the original image.
         This performs the functions previously done by CenterizeImage and RotateImage
+        
+        Uses base_rotation and center from findCenter()/getRotationAngle() to build
+        a single composite transformation matrix that's applied to orig_img.
         """
         h_o, w_o = self.orig_img.shape
-        orig_x, orig_y = w_o//2, h_o//2
         x, y = self.center
+        
+        # Get angle from base_rotation (set by getRotationAngle)
+        angle = self.info['base_rotation'] if self.info['base_rotation'] is not None else 0.0
 
-        # corners = [
-        #     (-x,      -y),
-        #     ( w_o - x,  -y),
-        #     ( w_o - x,   h_o - y),
-        #     (-x,       h_o - y)
-        # ]
-
-        angle = self.rotation if self.rotation is not None else 0.0
-
-        # cos, sin = math.cos(angle * math.pi / 180), math.sin(angle * math.pi / 180)
-
-        # rot_pts = [
-        #     (cx * cos - cy * sin, cx * sin + cy * cos)
-        #     for cx, cy in corners
-        # ]
-
-
-        # max_rx = max([abs(x) for x, y in rot_pts])
-        # max_ry = max([abs(y) for x, y in rot_pts])
-
-
-        # fit‐to‐frame scale (never upscale beyond 1.0)
-        # jiongjiong: Disable scale.
-        # scale = min((w_o/2) / max_rx, (h_o/2) / max_ry, 1.0)
+        # Scaling factor (currently disabled, always 1.0)
         scale = 1.0
-
         self.info['scale'] = scale
 
+        # Translation to move center to image center
         tx = (w_o/2) - scale * x
         ty = (h_o/2) - scale * y
-
         self.new_tx, self.new_ty = tx, ty
 
-        # build M1 = S(fit_scale) about center + recenter
-        M1  = np.array([[scale, 0,         tx],
-                        [0,         scale, ty]],
-                    dtype=np.float32)
-
+        # Build M1: scale + translate to center
+        M1 = np.array([[scale, 0, tx],
+                       [0, scale, ty]], dtype=np.float32)
         self.centImgTransMat = M1
-        self.add_transform(M1)
 
-        # cent_img = cv2.warpAffine(self.orig_img, M1, (w_o, h_o))
+        # Build M2: rotate around image center
+        M2 = cv2.getRotationMatrix2D((w_o/2, h_o/2), angle, 1)
 
-        M2 = cv2.getRotationMatrix2D(
-            (w_o/2, h_o/2),
-            angle,
-            1
-        )
+        # Compose transformations: M_total = M2 @ M1 (apply M1 first, then M2)
+        # Convert to 3x3 for matrix multiplication
+        M1_3x3 = np.vstack([M1, [0, 0, 1]])
+        M2_3x3 = np.vstack([M2, [0, 0, 1]])
+        M_total_3x3 = M2_3x3 @ M1_3x3
+        
+        # Convert back to 2x3
+        transform = M_total_3x3[:2, :]
 
-        self.add_transform(M2)
+        # Set transformation matrices
+        self.info['transform'] = transform
+        self.info['inv_transform'] = cv2.invertAffineTransform(transform)
 
-        transform = self.info.get("transform")
-
-        assert transform is not None, f"transform is None after adding {M1} and {M2}!"
-
+        # Apply transformation to image
         self.orig_img = cv2.warpAffine(self.orig_img, transform, (w_o, h_o))
-
-        self.info.setdefault("angle_to_origin", 0.0)
-        self.info["angle_to_origin"] += angle
-
-        # Only emit signal if not suppressed (e.g., during batch processing)
-        if self.parent and not self.suppress_signals:
-            self.parent.eventEmitter.angleChangedSignal.emit(self.info["angle_to_origin"])
-
-        # new_center = [x - (tx * cos - ty * sin), y - (tx * sin + ty * cos)]
 
         self.old_center = self.center
         # After transformation, center is at the middle of the transformed image
         self.center = (w_o//2, h_o//2)
-
-        self.rotation = 0.0
+        
+        # base_rotation and base_center remain unchanged for next cycle
 
 
 
