@@ -2507,57 +2507,22 @@ class QuadrantFoldingGUI(QMainWindow):
         Triggered when mouse presses on image in image tab.
         
         Event Processing Pipeline:
-        1. DoubleZoom (coordinate precision layer) - provides precise coordinates
-        2. ToolManager (interaction layer) - dispatches to active tools
-        3. Legacy functions (backward compatibility)
+        1. ToolManager (interaction layer) - dispatches to active tools
+        2. Legacy functions (backward compatibility)
+        
+        Note: DoubleZoom coordinate precision is handled in imageReleased()
         """
         if not self.ableToProcess():
             return
 
         # ==========================================
-        # Layer 1: Coordinate Precision (DoubleZoom)
+        # Layer 1: Tool System (InteractionTools)
         # ==========================================
-        # DoubleZoom acts as a transparent coordinate enhancer.
-        # It intercepts clicks to provide precise coordinates via a zoom window,
-        # then passes the enhanced event to downstream handlers.
-        
-        working_event = event  # Event with potentially modified coordinates
-        
-        if self.doubleZoom.is_enabled():
-            dz_status = self.doubleZoom.handle_click(event)
-            
-            if dz_status == 'waiting':
-                # User clicked main image, now waiting for zoom window click
-                # Block all further processing until zoom click completes
-                return
-            
-            elif dz_status == 'completed':
-                # User clicked zoom window, get precise coordinates
-                precise_x, precise_y = self.doubleZoom.get_precise_coords()
-                
-                # Modify the event's coordinates to use precise values
-                # All downstream handlers will now use these precise coordinates
-                event.xdata = precise_x
-                event.ydata = precise_y
-                
-                # CRITICAL: Change inaxes to imageAxes so tools accept this event
-                # Without this, tools will reject the event because inaxes points to doubleZoomAxes
-                event.inaxes = self.imageAxes
-                
-                # Reset DoubleZoom state for next click
-                self.doubleZoom.reset_for_next_click()
-                
-                print(f"DoubleZoom: Precise coordinates ({precise_x:.2f}, {precise_y:.2f})")
-        
-        # ==========================================
-        # Layer 2: Tool System (InteractionTools)
-        # ==========================================
-        # Tools receive the event with potentially enhanced coordinates from DoubleZoom
         if self.tool_manager.handle_click(event):
             return  # Event was handled by an active tool
 
         # ==========================================
-        # Layer 3: Legacy Functions
+        # Layer 2: Legacy Functions
         # ==========================================
         x = event.xdata
         y = event.ydata
@@ -2568,8 +2533,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Provide different behavior depending on current active function
         if self.function is None:
+            # Don't set im_move if a tool is active or DoubleZoom is enabled
+            if self.tool_manager.has_active_tool() or self.doubleZoom.is_enabled():
+                return
+            
             if event.button == 3:
-                # If the click is left-click, popup a ignore quadrant
+                # If the click is right-click, popup a ignore quadrant menu
                 menu = QMenu(self)
                 fold_number = self.quadFold.getFoldNumber(x, y)
                 self.function = ["ignorefold", (x, y)]
@@ -2729,13 +2698,15 @@ class QuadrantFoldingGUI(QMainWindow):
         func = self.function
         # im_zoomin now handled by matplotlib RectangleSelector
         if func[0] == "im_move":
-            if self.img_zoom is not None:
-                move = (func[1][0] - x, func[1][1] - y)
-                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
-                ax.set_xlim(self.img_zoom[0])
-                ax.set_ylim(self.img_zoom[1])
-                #ax.invert_yaxis()
-                self.imageCanvas.draw_idle()
+            # Don't execute im_move if DoubleZoom is enabled (to prevent pan during DoubleZoom)
+            if not self.doubleZoom.is_enabled():
+                if self.img_zoom is not None:
+                    move = (func[1][0] - x, func[1][1] - y)
+                    self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
+                    ax.set_xlim(self.img_zoom[0])
+                    ax.set_ylim(self.img_zoom[1])
+                    #ax.invert_yaxis()
+                    self.imageCanvas.draw_idle()
         # Deprecated tool-specific code blocks removed - now handled by:
         # - ChordsCenterTool
         # - PerpendicularsCenterTool
@@ -2745,7 +2716,51 @@ class QuadrantFoldingGUI(QMainWindow):
     def imageReleased(self, event):
         """
         Triggered when mouse released from image
+        
+        Event Processing Pipeline:
+        1. DoubleZoom (coordinate precision layer) - provides precise coordinates
+        2. ToolManager (interaction layer) - dispatches to active tools
+        3. Legacy functions (backward compatibility)
         """
+        if not self.ableToProcess():
+            return
+        
+        # ==========================================
+        # Layer 1: Coordinate Precision (DoubleZoom)
+        # ==========================================
+        # DoubleZoom acts as a transparent coordinate enhancer.
+        # It intercepts clicks to provide precise coordinates via a zoom window,
+        # then passes the enhanced event to downstream handlers.
+        
+        if self.doubleZoom.is_enabled():
+            dz_status = self.doubleZoom.handle_click(event)
+            
+            if dz_status == 'waiting':
+                # User clicked main image, now waiting for zoom window click
+                # Block all further processing until zoom click completes
+                return
+            
+            elif dz_status == 'completed':
+                # User clicked zoom window, get precise coordinates
+                precise_x, precise_y = self.doubleZoom.get_precise_coords()
+                
+                # Modify the event's coordinates to use precise values
+                # All downstream handlers will now use these precise coordinates
+                event.xdata = precise_x
+                event.ydata = precise_y
+                
+                # CRITICAL: Change inaxes to imageAxes so tools accept this event
+                # Without this, tools will reject the event because inaxes points to doubleZoomAxes
+                event.inaxes = self.imageAxes
+                
+                # Reset DoubleZoom state for next click
+                self.doubleZoom.reset_for_next_click()
+                
+                print(f"DoubleZoom: Precise coordinates ({precise_x:.2f}, {precise_y:.2f})")
+        
+        # ==========================================
+        # Layer 2: Tool System (InteractionTools)
+        # ==========================================
         # Try to dispatch to tool manager first
         if self.tool_manager.handle_release(event):
             # Check if the active tool has completed and should auto-apply
