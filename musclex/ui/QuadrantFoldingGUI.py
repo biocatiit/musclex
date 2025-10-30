@@ -234,6 +234,55 @@ class RestoreAutoRotationDialog(QDialog):
             return 'all'
 
 
+class AutoOrientationDialog(QDialog):
+    """Dialog for configuring automatic orientation settings"""
+    def __init__(self, parent=None, current_orientation_model=None, mode_orientation_enabled=False):
+        super().__init__(parent)
+        self.setWindowTitle("Auto Orientation Settings")
+        
+        layout = QVBoxLayout()
+        
+        # Orientation Finding
+        orientationLayout = QHBoxLayout()
+        orientationLayout.addWidget(QLabel("Orientation Finding:"))
+        self.orientationCmbBx = QComboBox()
+        self.orientationCmbBx.addItem("Max Intensity")
+        self.orientationCmbBx.addItem("GMM")
+        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
+        self.orientationCmbBx.addItem("Herman Factor (Pi)")
+        if current_orientation_model is not None:
+            self.orientationCmbBx.setCurrentIndex(current_orientation_model)
+        orientationLayout.addWidget(self.orientationCmbBx)
+        layout.addLayout(orientationLayout)
+        
+        layout.addSpacing(10)
+        
+        # Mode Orientation
+        self.modeAngleChkBx = QCheckBox("Mode Orientation")
+        self.modeAngleChkBx.setChecked(mode_orientation_enabled)
+        self.modeAngleChkBx.setToolTip("Use the most common orientation angle from all images in the folder")
+        layout.addWidget(self.modeAngleChkBx)
+        
+        layout.addSpacing(20)
+        
+        # OK and Cancel buttons
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        layout.addWidget(buttonBox)
+        
+        self.setLayout(layout)
+        self.setMinimumWidth(350)
+    
+    def getOrientationModel(self):
+        """Returns the selected orientation model index"""
+        return self.orientationCmbBx.currentIndex()
+    
+    def getModeOrientationEnabled(self):
+        """Returns whether mode orientation is enabled"""
+        return self.modeAngleChkBx.isChecked()
+
+
 class WorkerSignals(QObject):
 
     finished = Signal()
@@ -620,6 +669,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setAngleBtn = QPushButton("Set Angle Manually")
         self.setAngleBtn.setCheckable(False)
         self.checkableButtons.append(self.setAngleBtn)
+        
+        self.setAutoOrientationBtn = QPushButton("Set Auto Orientation")
+        self.setAutoOrientationBtn.setCheckable(False)
 
         self.imageCenter = QLabel()
         self.applyCenterMode = QLabel()
@@ -641,15 +693,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskThresSpnBx.setMaximum(999)
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
-
-        self.orientationCmbBx = QComboBox()
-        self.orientationCmbBx.addItem("Max Intensity")
-        self.orientationCmbBx.addItem("GMM")
-        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
-        self.orientationCmbBx.addItem("Herman Factor (Pi)")
-
-        self.modeAngleChkBx = QCheckBox("Mode Orientation")
-        self.modeAngleChkBx.setChecked(False)
 
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
         self.compressFoldedImageChkBx.setChecked(True)
@@ -678,6 +721,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rotationAngleLayout.addWidget(self.setRotationButton, rotationAngleRowIndex, 0, 1, 2)
         self.rotationAngleLayout.addWidget(self.setAngleBtn, rotationAngleRowIndex, 2, 1, 2)
         rotationAngleRowIndex += 1
+        self.rotationAngleLayout.addWidget(self.setAutoOrientationBtn, rotationAngleRowIndex, 0, 1, 4)
+        rotationAngleRowIndex += 1
         self.rotationAngleLayout.addWidget(self.rotationAngleLabel, rotationAngleRowIndex, 0, 1, 4)
         rotationAngleRowIndex += 1
         self.rotationAngleLayout.addWidget(self.applyRotationMode, rotationAngleRowIndex, 0, 1, 4)
@@ -695,14 +740,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(QLabel("Mask Threshold : "), settingsRowIndex, 0, 1, 2)
         self.settingsLayout.addWidget(self.maskThresSpnBx, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-        self.settingsLayout.addWidget(QLabel("Orientation Finding: "), settingsRowIndex, 0, 1, 2)
-        self.settingsLayout.addWidget(self.orientationCmbBx, settingsRowIndex, 2, 1, 2)
+
+        self.settingsLayout.addWidget(self.toggleFoldImage, settingsRowIndex, 0, 1, 2)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-        self.settingsLayout.addWidget(self.modeAngleChkBx, settingsRowIndex, 0, 1, 4)
-
-
-        self.settingsLayout.addWidget(self.toggleFoldImage, 14, 0, 1, 4)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 14, 2, 1, 4)
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Apply Blank Image and Mask")
@@ -1368,7 +1409,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spmaxInt.valueChanged.connect(self.refreshImageTab)
         self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
-        self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         
         ##### Navigation Controls (shared between tabs) #####
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
@@ -1381,7 +1421,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
-        self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
@@ -1405,6 +1444,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.setCentBtn.clicked.connect(self.setCentBtnClicked)
         self.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
+        self.setAutoOrientationBtn.clicked.connect(self.setAutoOrientationClicked)
         self.applyCenterBtn.clicked.connect(self.applyCenterClicked)
         self.restoreAutoCenterBtn.clicked.connect(self.restoreAutoCenterClicked)
         self.applyRotationBtn.clicked.connect(self.applyRotationClicked)
@@ -2289,6 +2329,34 @@ class QuadrantFoldingGUI(QMainWindow):
                     self.processImage()
                 else:
                     assert dialogCode == QDialog.Rejected, f"SetAngleDialog closed with unexpected code:{dialogCode}"
+    
+    def setAutoOrientationClicked(self):
+        """
+        Handle when Set Auto Orientation button is clicked.
+        Shows dialog to configure orientation finding method and mode orientation.
+        """
+        dialog = AutoOrientationDialog(self, 
+                                       current_orientation_model=self.orientationModel,
+                                       mode_orientation_enabled=self.modeOrientation is not None)
+        
+        if dialog.exec() == QDialog.Accepted:
+            # Update orientation model
+            new_orientation_model = dialog.getOrientationModel()
+            if new_orientation_model != self.orientationModel:
+                self.orientationModel = new_orientation_model
+                if self.quadFold:
+                    # Reset rotation to force recalculation with new orientation model
+                    self.quadFold.setBaseRotation(None)
+                    self.processImage()
+            
+            # Update mode orientation
+            mode_enabled = dialog.getModeOrientationEnabled()
+            if mode_enabled:
+                # Calculate mode orientation if not already done
+                if self.modeOrientation is None:
+                    self.modeOrientation = self.getModeRotation()
+            else:
+                self.modeOrientation = None
 
 
     def calibrationClicked(self):
@@ -3279,19 +3347,13 @@ class QuadrantFoldingGUI(QMainWindow):
     def orientationModelChanged(self):
         """
         Triggered when the orientation model is changed
+        NOTE: This is now handled by setAutoOrientationClicked dialog
         """
-        self.orientationModel = self.orientationCmbBx.currentIndex()
         if self.quadFold is None:
             return
         # Reset rotation to force recalculation with new orientation model
         self.quadFold.setBaseRotation(None)
         self.processImage()
-
-    def modeAngleChecked(self):
-        """
-        Triggered when mode angle is checked or unchecked
-        """
-        print("Function executed", flush=True)
 
     def getModeRotation(self):
         """
@@ -3647,8 +3709,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 #ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
                 ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
             ax.set_facecolor('black')
-
-            self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
 
             if self.showSeparator.isChecked():
                 # Draw quadrant separator
@@ -4290,11 +4350,10 @@ class QuadrantFoldingGUI(QMainWindow):
         flags['deg2'] = float(self.deg2CB.currentText())
 
 
-        if self.modeAngleChkBx.isChecked():
-            modeOrientation = self.getModeRotation()
-            if modeOrientation is not None:
-                self.setAngle(modeOrientation, "ModeAngle")
-                flags["mode_angle"] = modeOrientation
+        # Apply mode orientation if enabled
+        if self.modeOrientation is not None:
+            self.setAngle(self.modeOrientation, "ModeAngle")
+            flags["mode_angle"] = self.modeOrientation
 
         if self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()
@@ -4600,7 +4659,15 @@ class QuadrantFoldingGUI(QMainWindow):
 
         if len(self.ignoreFolds) > 0:
             text += "\n  - Ignore Folds : " + str(list(self.ignoreFolds))
-        text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
+        
+        # Show orientation finding method
+        orientation_methods = ["Max Intensity", "GMM", "Herman Factor (Half Pi)", "Herman Factor (Pi)"]
+        orientation_text = orientation_methods[self.orientationModel] if self.orientationModel is not None else "Max Intensity"
+        text += "\n  - Orientation Finding : " + orientation_text
+        
+        if self.modeOrientation is not None:
+            text += "\n  - Mode Orientation : Enabled"
+        
         text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
         
         # Show blank image configuration if exists
