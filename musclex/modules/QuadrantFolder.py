@@ -90,30 +90,19 @@ class QuadrantFolder:
         self.suppress_signals = suppress_signals
         self.newImgDimension = None
 
-        # info dictionary will save all results
+        # info dictionary will save all results (loaded from cache or empty)
         if cache is not None:
             self.info = cache
         else:
             self.info = {}
 
-        self.info.setdefault("transform", None)
-        self.info.setdefault("inv_transform", None)
+        # Runtime variables for current processing run
+        # These will be set by GUI (manual mode) or by findCenter/getRotationAngle (auto mode)
+        self.base_center = None  # Base center in original image coordinates
+        self.rotation = None     # Rotation angle relative to original image
         
-        # Base center in original image coordinates (manual or auto-calculated)
-        # Persistent: saved to cache, used for settings and applying to other images
-        self.info.setdefault("base_center", None)
-        
-        # Base rotation angle relative to original image (manual or auto-calculated)
-        # Persistent: saved to cache, replaces old angle_to_origin
-        self.info.setdefault("base_rotation", None)
-        
-        # Cached auto-calculated values (used when not manually set)
-        self.info.setdefault("auto_center", None)
-        self.info.setdefault("auto_rotation", None)
-        
-        # Current center (working variable, set by findCenter/transformImage)
-        # Always represents center of current (potentially transformed) image
-        self.center = None
+        # Working variables (set during processing)
+        self.center = None       # Center of current (transformed) image
         
         self.curr_dims = None
 
@@ -129,16 +118,18 @@ class QuadrantFolder:
         createFolder(fullPath(self.img_path, "qf_cache"))
         self.info['program_version'] = self.version
         
-        # Save configuration fingerprint for cache validation
-        self.info['config_fingerprint'] = self._getConfigFingerprint()
+        # Save processing fingerprint for cache validation (config files + center + rotation)
+        self.info['processing_fingerprint'] = self._getProcessingFingerprint()
 
         with open(cache_file, "wb") as c:
             pickle.dump(self.info, c)
 
     def loadCache(self):
         """
-        Load info dict from cache. Cache file will be filename.info in folder "qf_cache"
-        :return: cached info (dict)
+        Load info dict from cache. Only validates program version.
+        All other validations (config files, center, rotation) are done in process().
+        
+        :return: cached info (dict) or None if cache doesn't exist or version mismatch
         """
         cache_file = fullPath(fullPath(self.img_path, "qf_cache"), self.img_name+".info")
         if os.path.isfile(cache_file):
@@ -146,33 +137,27 @@ class QuadrantFolder:
                 info = pickle.load(c)
             if info is not None:
                 if info['program_version'] == self.version:
-                    # Validate cache against current configuration fingerprint
-                    current_fingerprint = self._getConfigFingerprint()
-                    cached_fingerprint = info.get('config_fingerprint', {})
-                    
-                    if current_fingerprint != cached_fingerprint:
-                        changes = self._diffFingerprints(cached_fingerprint, current_fingerprint)
-                        print("Configuration changed. Invalidating cache and reprocessing.")
-                        if changes:
-                            print(f"  Changed items: {changes}")
-                        return None
-                    
-                    return info
+                    return info  # ✅ Only check version
                 print("Cache version " + info['program_version'] + " did not match with Program version " + self.version)
                 print("Invalidating cache and reprocessing the image")
         return None
     
-    def _getConfigFingerprint(self):
+    def _getProcessingFingerprint(self):
         """
-        Generate a fingerprint of all configuration files that affect processing.
-        Returns a dict with file paths and their modification times and sizes.
+        Generate a fingerprint of ALL factors that affect processing results.
+        
+        Includes:
+        - Config files (blank_image_settings, mask.tif, etc.) - affect original image processing
+        - Processing parameters (base_center, rotation) - affect transformation and folding
+        
+        Returns a dict with all factors that, if changed, require cache invalidation.
         """
         from pathlib import Path
         
         fingerprint = {}
         settings_dir = Path(self.img_path) / "settings"
         
-        # List of config files to track
+        # 1. Config files (affect original image processing)
         config_files = [
             'blank_image_settings.json',
             'mask.tif',
@@ -187,19 +172,24 @@ class QuadrantFolder:
                 # Use modification time + file size as fingerprint
                 # (faster than hashing large files like mask.tif)
                 stat = file_path.stat()
-                fingerprint[config_file] = {
+                fingerprint[f'config:{config_file}'] = {
                     'mtime': stat.st_mtime,
                     'size': stat.st_size
                 }
             else:
                 # Track that file doesn't exist (important for disabled flags)
-                fingerprint[config_file] = None
+                fingerprint[f'config:{config_file}'] = None
+        
+        # 2. Processing parameters (affect transformation and subsequent processing)
+        fingerprint['base_center'] = self.base_center
+        fingerprint['base_rotation'] = self.rotation
         
         return fingerprint
     
     def _diffFingerprints(self, old_fp, new_fp):
         """
         Compare two fingerprints and return a list of what changed.
+        Handles both config files (config:name format) and parameters (base_center, base_rotation).
         """
         changes = []
         all_keys = set(old_fp.keys()) | set(new_fp.keys())
@@ -209,14 +199,57 @@ class QuadrantFolder:
             new_val = new_fp.get(key)
             
             if old_val != new_val:
-                if old_val is None:
-                    changes.append(f"{key} (added)")
-                elif new_val is None:
-                    changes.append(f"{key} (removed)")
+                if key.startswith('config:'):
+                    # Config file change
+                    config_name = key.split(':', 1)[1]
+                    if old_val is None:
+                        changes.append(f"config:{config_name} (added)")
+                    elif new_val is None:
+                        changes.append(f"config:{config_name} (removed)")
+                    else:
+                        changes.append(f"config:{config_name} (modified)")
                 else:
-                    changes.append(f"{key} (modified)")
+                    # Parameter change
+                    changes.append(key)
         
         return changes
+    
+    def _clearDependentCaches(self, changes, old_fp, new_fp):
+        """
+        Clear caches based on what changed in processing fingerprint.
+        
+        Different changes affect different caches:
+        - Config files changed → clear auto_center, auto_rotation, avg_fold, rmin, rmax
+        - base_center changed → clear avg_fold, rmin, rmax (keep auto_center)
+        - base_rotation changed → clear avg_fold, rmin, rmax (keep auto_rotation)
+        
+        :param changes: list of changed keys
+        :param old_fp: old fingerprint
+        :param new_fp: new fingerprint
+        """
+        config_changed = any(change.startswith('config:') for change in changes)
+        center_changed = 'base_center' in changes
+        rotation_changed = 'base_rotation' in changes
+        
+        if config_changed:
+            # Config changed affects original image processing, must recalculate auto values
+            print("  Config files changed, clearing auto-calculated values")
+            self.deleteFromDict(self.info, 'auto_center')
+            self.deleteFromDict(self.info, 'auto_rotation')
+            self.deleteFromDict(self.info, 'avg_fold')
+            self.deleteFromDict(self.info, 'rmin')
+            self.deleteFromDict(self.info, 'rmax')
+        
+        elif center_changed or rotation_changed:
+            # Center/rotation changed only affects transformation, keep auto values
+            if center_changed:
+                print(f"  Center changed: {old_fp.get('base_center')} -> {new_fp.get('base_center')}")
+            if rotation_changed:
+                print(f"  Rotation changed: {old_fp.get('base_rotation')} -> {new_fp.get('base_rotation')}")
+            
+            self.deleteFromDict(self.info, 'avg_fold')
+            self.deleteFromDict(self.info, 'rmin')
+            self.deleteFromDict(self.info, 'rmax')
 
     def delCache(self):
         """
@@ -254,25 +287,23 @@ class QuadrantFolder:
 
     def setBaseCenter(self, center):
         """
-        Set base_center for manual mode (or None to reset to auto mode)
+        Set base_center runtime variable for manual mode (or None to reset to auto mode).
         
-        IMPORTANT: Only sets base_center (original image coordinates).
-        self.center will be properly set by findCenter() during process().
+        Only sets the runtime variable. Cache validation and clearing is done in process().
         
         :param center: tuple/list of (x, y) in ORIGINAL image coordinates, or None to reset to auto mode
         """
-        if center is not None:
-            self.info['base_center'] = tuple(center)
-        else:
-            self.info['base_center'] = None
+        self.base_center = tuple(center) if center is not None else None
 
     def setBaseRotation(self, angle):
         """
-        Set base_rotation for manual mode (or None to reset to auto mode)
+        Set rotation runtime variable for manual mode (or None to reset to auto mode).
+        
+        Only sets the runtime variable. Cache validation and clearing is done in process().
         
         :param angle: rotation angle in degrees relative to original image, or None to reset to auto mode
         """
-        self.info['base_rotation'] = angle
+        self.rotation = angle
 
     def process(self, flags):
         """
@@ -289,8 +320,32 @@ class QuadrantFolder:
         self.updateInfo(flags)
         self.initParams()
         self.applyBlankImageAndMask()
-        self.findCenter()
-        self.getRotationAngle()
+        
+        # Determine center and rotation to use for this run
+        self.findCenter()        # Sets self.base_center (if not already set by GUI)
+        self.getRotationAngle()  # Sets self.rotation (if not already set by GUI)
+        
+        # ==========================================
+        # Unified validation point: Check if processing parameters changed
+        # ==========================================
+        current_fingerprint = self._getProcessingFingerprint()
+        cached_fingerprint = self.info.get('processing_fingerprint', {})
+        
+        if current_fingerprint != cached_fingerprint:
+            changes = self._diffFingerprints(cached_fingerprint, current_fingerprint)
+            print("Processing parameters changed. Clearing dependent caches.")
+            if changes:
+                print(f"  Changed items: {changes}")
+            
+            # Smart cache clearing based on what changed
+            self._clearDependentCaches(changes, cached_fingerprint, current_fingerprint)
+            
+            # Update fingerprint in cache (includes base_center and base_rotation)
+            self.info['processing_fingerprint'] = current_fingerprint
+        
+        # ==========================================
+        # Continue normal processing
+        # ==========================================
         self.transformImage()
         self.calculateAvgFold()
         if flags['fold_image'] == False:
@@ -405,24 +460,27 @@ class QuadrantFolder:
 
     def findCenter(self):
         """
-        Find the center in original image coordinates
-        Sets self.center based on: pre-set base_center (manual) > cached auto_center > calculate new
-        GUI will set base_center via setBaseCenter() before calling this if manual mode is active
+        Determine center to use based on priority:
+        1. Pre-set base_center (manual mode, set by GUI via setBaseCenter())
+        2. Cached auto_center
+        3. Calculate new auto_center
+        
+        Sets both self.base_center and self.center.
         """
         self.parent.statusPrint("Finding Center...")
         
-        # Priority 1: Use pre-set base_center (manual mode, set by GUI or headless)
-        if self.info['base_center'] is not None:
-            self.center = self.info['base_center']
+        # Priority 1: Use pre-set base_center (manual mode)
+        if self.base_center is not None:
+            self.center = self.base_center
             print(f"Using pre-set base_center: {self.center}")
             return
         
-        # Priority 2: Use cached auto center
-        if self.info['auto_center'] is not None:
+        # Priority 2: Use cached auto_center
+        if self.info.get('auto_center') is not None:
             calculated_center = tuple(self.info['auto_center'])
-            self.info['base_center'] = calculated_center
+            self.base_center = calculated_center
             self.center = calculated_center
-            print(f"Using cached auto center: {self.center}")
+            print(f"Using cached auto_center: {self.center}")
             return
 
         # Priority 3: Calculate new center and cache it
@@ -430,32 +488,34 @@ class QuadrantFolder:
         self.orig_image_center = getCenter(self.orig_img)
         self.orig_img, calculated_center = processImageForIntCenter(self.orig_img, self.orig_image_center)
 
-        # Cache the calculated center (for next time)
+        # Cache and set as current center
         calculated_center = tuple(calculated_center)
         self.info['auto_center'] = calculated_center
-        # Set as base_center and current center
-        self.info['base_center'] = calculated_center
+        self.base_center = calculated_center
         self.center = calculated_center
-        print(f"Calculated and cached center: {self.center}")
+        print(f"Calculated new center: {self.center}")
 
 
     def getRotationAngle(self):
         """
-        Figures out the rotation angle to use on the image.
-        Uses base_rotation for manual rotation, or calculates and caches auto rotation.
-        GUI will set base_rotation via setBaseRotation() before calling this if manual mode is active
+        Determine rotation angle to use based on priority:
+        1. Pre-set rotation (manual mode, set by GUI via setBaseRotation())
+        2. Cached auto_rotation
+        3. Calculate new auto_rotation
+        
+        Sets self.rotation.
         """
         self.parent.statusPrint("Finding Rotation Angle...")
 
-        # Priority 1: Use pre-set base_rotation (manual mode, set by GUI or headless)
-        if self.info['base_rotation'] is not None:
-            print(f"Using pre-set base_rotation: {self.info['base_rotation']}")
+        # Priority 1: Use pre-set rotation (manual mode)
+        if self.rotation is not None:
+            print(f"Using pre-set rotation: {self.rotation}")
             return
         
-        # Priority 2: Use cached auto rotation
-        if self.info['auto_rotation'] is not None:
-            self.info['base_rotation'] = self.info['auto_rotation']
-            print(f"Using cached auto rotation: {self.info['base_rotation']}")
+        # Priority 2: Use cached auto_rotation
+        if self.info.get('auto_rotation') is not None:
+            self.rotation = self.info['auto_rotation']
+            print(f"Using cached auto rotation: {self.rotation}")
             return
 
         print("Rotation Angle is being calculated ... ")
@@ -467,12 +527,9 @@ class QuadrantFolder:
         else:
             calculated_rotation = getRotationAngle(img, center, self.info['orientation_model'])
 
-        # Cache the calculated rotation (for next time)
+        # Cache and set as current rotation
         self.info['auto_rotation'] = calculated_rotation
-        # Set as base_rotation
-        self.info['base_rotation'] = calculated_rotation
-
-        self.deleteFromDict(self.info, 'avg_fold')
+        self.rotation = calculated_rotation
         print("Done. Rotation Angle is " + str(calculated_rotation) +" degree")
 
     def getExtentAndCenter(self):
@@ -508,14 +565,14 @@ class QuadrantFolder:
         Applies translation, scaling and rotation to the original image.
         This performs the functions previously done by CenterizeImage and RotateImage
         
-        Uses base_rotation and center from findCenter()/getRotationAngle() to build
+        Uses self.rotation and self.center from findCenter()/getRotationAngle() to build
         a single composite transformation matrix that's applied to orig_img.
         """
         h_o, w_o = self.orig_img.shape
         x, y = self.center
         
-        # Get angle from base_rotation (set by getRotationAngle)
-        angle = self.info['base_rotation'] if self.info['base_rotation'] is not None else 0.0
+        # Get angle from runtime variable (set by getRotationAngle)
+        angle = self.rotation if self.rotation is not None else 0.0
 
         # Scaling factor (currently disabled, always 1.0)
         scale = 1.0

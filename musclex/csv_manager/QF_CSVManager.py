@@ -96,9 +96,9 @@ class QF_CSVManager:
         else:
             failed = False
             # Priority: base_center (reference center in original coordinates) > orig_image_center > (0,0)
-            if quadFold.info.get('base_center') is not None:
+            if quadFold.base_center is not None:
                 # Use base_center (the reference center in original image coordinates)
-                center = quadFold.info['base_center']
+                center = quadFold.base_center
             elif quadFold.orig_image_center is not None:
                 center = (round(quadFold.orig_image_center[0], 2), round(quadFold.orig_image_center[1], 2))
             else:
@@ -108,7 +108,7 @@ class QF_CSVManager:
             data['Filename'] = img_name
             data['centerX'] = center[0]
             data['centerY'] = center[1]
-            data['rotationAngle'] = quadFold.info.get('base_rotation') if quadFold.info.get('base_rotation') is not None else 0.0
+            data['rotationAngle'] = quadFold.rotation if quadFold.rotation is not None else 0.0
             try:
                 data['hash'] = hashlib.sha512(cache['resultImg']).hexdigest()
             except:

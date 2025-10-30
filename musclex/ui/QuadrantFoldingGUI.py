@@ -1808,8 +1808,8 @@ class QuadrantFoldingGUI(QMainWindow):
         img = self.file_manager.current_image
         
         # Preserve manual settings
-        saved_base_center = self.quadFold.info['base_center']
-        saved_base_rotation = self.quadFold.info['base_rotation']
+        saved_base_center = self.quadFold.base_center
+        saved_base_rotation = self.quadFold.rotation
         
         # Delete file cache
         self.quadFold.delCache()
@@ -1851,8 +1851,8 @@ class QuadrantFoldingGUI(QMainWindow):
         img = self.file_manager.current_image
         
         # Preserve manual settings
-        saved_base_center = self.quadFold.info['base_center']
-        saved_base_rotation = self.quadFold.info['base_rotation']
+        saved_base_center = self.quadFold.base_center
+        saved_base_rotation = self.quadFold.rotation
         
         # Delete file cache
         self.quadFold.delCache()
@@ -1903,7 +1903,7 @@ class QuadrantFoldingGUI(QMainWindow):
         given original image coordinates
         """
         _, center = self.getExtentAndCenter()
-        base_rotation = self.quadFold.info.get('base_rotation')
+        base_rotation = self.quadFold.rotation
         angle = 0 if base_rotation is None else -base_rotation * math.pi / 180
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
@@ -2051,16 +2051,16 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def applyCenterClicked(self):
         """Handle Apply Center button click"""
-        if not self.quadFold or not self.quadFold.info['base_center']:
+        if not self.quadFold or not self.quadFold.base_center:
             QMessageBox.warning(self, "No Center", "No center available to apply.")
             return
         
         dialog = ApplyCenterDialog(self)
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
-            self._applyManualCenter(self.quadFold.info['base_center'], selection)
+            self._applyManualCenter(self.quadFold.base_center, selection)
             QMessageBox.information(self, "Center Applied", 
-                f"Center {self.quadFold.info['base_center']} applied to {selection} images.")
+                f"Center {self.quadFold.base_center} applied to {selection} images.")
     
     def restoreAutoCenterClicked(self):
         """Handle Restore Auto Center button click"""
@@ -2073,16 +2073,16 @@ class QuadrantFoldingGUI(QMainWindow):
     
     def applyRotationClicked(self):
         """Handle Apply Rotation button click"""
-        if not self.quadFold or self.quadFold.info['base_rotation'] is None:
+        if not self.quadFold or self.quadFold.rotation is None:
             QMessageBox.warning(self, "No Rotation", "No rotation available to apply.")
             return
         
         dialog = ApplyRotationDialog(self)
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
-            self._applyManualRotation(self.quadFold.info['base_rotation'], selection)
+            self._applyManualRotation(self.quadFold.rotation, selection)
             QMessageBox.information(self, "Rotation Applied", 
-                f"Rotation {self.quadFold.info['base_rotation']:.2f}° applied to {selection} images.")
+                f"Rotation {self.quadFold.rotation:.2f}° applied to {selection} images.")
     
     def restoreAutoRotationClicked(self):
         """Handle Restore Auto Rotation button click"""
@@ -2265,7 +2265,7 @@ class QuadrantFoldingGUI(QMainWindow):
             curr_img = self.quadFold.orig_img
             # Get current center and transform info
             center = self.quadFold.center
-            base_rotation = self.quadFold.info.get("base_rotation", 0.0)
+            base_rotation = self.quadFold.rotation if self.quadFold.rotation is not None else 0.0
             transform = self.quadFold.info.get("transform")
 
             if (start_img is not None) and (curr_img is not None) and center and (transform is not None):
@@ -3763,8 +3763,8 @@ class QuadrantFoldingGUI(QMainWindow):
             source: String describing the source of the angle setting
         """
         if self.quadFold:
-            # Get current base_rotation (may be None for first time)
-            current_base_rotation = self.quadFold.info.get('base_rotation', 0.0)
+            # Get current rotation (may be None for first time)
+            current_base_rotation = self.quadFold.rotation
             if current_base_rotation is None:
                 current_base_rotation = 0.0
             
@@ -3914,8 +3914,8 @@ class QuadrantFoldingGUI(QMainWindow):
             # Update center display with transformed coordinates
             self.updateCurrentCenter(self.quadFold.center)
             
-            # Update rotation angle display (base_rotation is the angle relative to original image)
-            base_rotation = self.quadFold.info.get("base_rotation")
+            # Update rotation angle display (rotation is the angle relative to original image)
+            base_rotation = self.quadFold.rotation
             if base_rotation is not None:
                 self.rotationAngleLabel.setText(
                     f"Rotation Angle (Original Coords): {base_rotation % 360:.2f} °"
