@@ -55,8 +55,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from .widgets.double_zoom_widget import (DoubleZoomWidget,
-                                         DoubleZoomWidgetState)
+from .widgets.double_zoom_widget import DoubleZoomWidget
 from .widgets.zoomin_widget import (ZoomInWidget, ZoomInWidgetState)
 from .widgets.image_mouse_move_handler import (ImageMouseMoveHandler,
                                                ImageMouseMoveState)
@@ -319,7 +318,8 @@ class SetCentDialog(QDialog):
             self.doubleZoom.handle_mouse_button_release_event(event)
 
             if event.inaxes == self.imageAxes:
-                if DoubleZoomWidgetState.MainImageClicked in self.doubleZoom.state:
+                # Main image clicked - wait for zoom window click
+                if self.doubleZoom.waiting_for_zoom_click:
                     if self.zoomInWidget.is_enabled():
                         self.zoomInWidget.click_with_double_zoom(event)
                     else:
@@ -335,11 +335,11 @@ class SetCentDialog(QDialog):
                 return
 
             # If double-zoom image was clicked, update mouse click coordinates.
-            elif DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state:
+            elif event.inaxes == self.doubleZoom.doubleZoomAxes:
                 x, y = self.doubleZoom.doubleZoomToOrigCoord()
 
         if event.inaxes == self.imageAxes or (self.doubleZoom.is_enabled()
-            and DoubleZoomWidgetState.DoubleZoomImageClicked in self.doubleZoom.state):
+            and event.inaxes == self.doubleZoom.doubleZoomAxes):
             if self.zoomInWidget.is_enabled():
                 self.zoomInWidget.handle_click_event(event, x, y)
             else:

@@ -52,8 +52,7 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 # from .DoubleZoomGUI import DoubleZoom
 # from .DoubleZoomViewer import DoubleZoom
-from .widgets.double_zoom_widget import (DoubleZoomWidget,
-                                         DoubleZoomWidgetState)
+from .widgets.double_zoom_widget import DoubleZoomWidget
 from .SetCentDialog import SetCentDialog
 from .SetAngleDialog import SetAngleDialog
 from .ImageBlankDialog import ImageBlankDialog
@@ -2733,14 +2732,14 @@ class QuadrantFoldingGUI(QMainWindow):
         # then passes the enhanced event to downstream handlers.
         
         if self.doubleZoom.is_enabled():
-            dz_status = self.doubleZoom.handle_click(event)
-            
-            if dz_status == 'waiting':
+            # handle_click() returns True if blocking (waiting for zoom window click)
+            if self.doubleZoom.handle_click(event):
                 # User clicked main image, now waiting for zoom window click
                 # Block all further processing until zoom click completes
                 return
             
-            elif dz_status == 'completed':
+            # If we reach here and clicked on zoom window, get precise coordinates
+            if event.inaxes == self.doubleZoom.doubleZoomAxes:
                 # User clicked zoom window, get precise coordinates
                 precise_x, precise_y = self.doubleZoom.get_precise_coords()
                 
@@ -2752,9 +2751,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 # CRITICAL: Change inaxes to imageAxes so tools accept this event
                 # Without this, tools will reject the event because inaxes points to doubleZoomAxes
                 event.inaxes = self.imageAxes
-                
-                # Reset DoubleZoom state for next click
-                self.doubleZoom.reset_for_next_click()
                 
                 print(f"DoubleZoom: Precise coordinates ({precise_x:.2f}, {precise_y:.2f})")
         
