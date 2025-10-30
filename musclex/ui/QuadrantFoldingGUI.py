@@ -638,9 +638,7 @@ class QuadrantFoldingGUI(QMainWindow):
         #self.settingsGroup.setFixedHeight(300)
         #self.settingsGroup.setMinimumSize(400, 200)
 
-        self.setCenterRotationGroup = QGroupBox("Set Center and Rotation Angle")
-        self.setCenterRotationLayout = QGridLayout(self.setCenterRotationGroup)
-        self.setCenterRotationButton = QPushButton("Set Center and Rotation Angle")
+        self.setCenterRotationButton = QPushButton("Quick Center and Rotation Angle")
         self.setCenterRotationButton.setCheckable(False)
         self.checkableButtons.append(self.setCenterRotationButton)
 
@@ -701,6 +699,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.toggleFoldImage.setChecked(True)
 
         centerLayoutRowIndex = 0
+        self.setCenterLayout.addWidget(self.setCenterRotationButton, centerLayoutRowIndex, 0, 1, 4)
+        centerLayoutRowIndex += 1
         self.setCenterLayout.addWidget(self.calibrationButton, centerLayoutRowIndex, 0, 1, 2)
         self.setCenterLayout.addWidget(self.setCentBtn, centerLayoutRowIndex, 2, 1, 2)
         centerLayoutRowIndex += 1
@@ -717,10 +717,10 @@ class QuadrantFoldingGUI(QMainWindow):
         centerLayoutRowIndex += 1
 
         rotationAngleRowIndex = 0
+        self.rotationAngleLayout.addWidget(self.setAutoOrientationBtn, rotationAngleRowIndex, 0, 1, 4)
+        rotationAngleRowIndex += 1
         self.rotationAngleLayout.addWidget(self.setRotationButton, rotationAngleRowIndex, 0, 1, 2)
         self.rotationAngleLayout.addWidget(self.setAngleBtn, rotationAngleRowIndex, 2, 1, 2)
-        rotationAngleRowIndex += 1
-        self.rotationAngleLayout.addWidget(self.setAutoOrientationBtn, rotationAngleRowIndex, 0, 1, 4)
         rotationAngleRowIndex += 1
         self.rotationAngleLayout.addWidget(self.rotationAngleLabel, rotationAngleRowIndex, 0, 1, 4)
         rotationAngleRowIndex += 1
@@ -729,10 +729,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rotationAngleLayout.addWidget(self.applyRotationBtn, rotationAngleRowIndex, 0, 1, 2)
         self.rotationAngleLayout.addWidget(self.restoreAutoRotationBtn, rotationAngleRowIndex, 2, 1, 2)
         rotationAngleRowIndex += 1
-
-        setCenterRotationRowIndex = 0
-        self.setCenterRotationLayout.addWidget(self.setCenterRotationButton, setCenterRotationRowIndex, 0, 1, 4)
-        setCenterRotationRowIndex += 1
 
         settingsRowIndex = 0
 
@@ -1210,8 +1206,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.optionsLayout.addWidget(self.displayOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.blankImageGrp)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.setCenterRotationGroup)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.setCenterGroup)
         self.optionsLayout.addSpacing(10)
