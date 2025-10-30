@@ -66,6 +66,7 @@ from .tools.tool_manager import ToolManager
 from .tools.chords_center_tool import ChordsCenterTool
 from .tools.perpendiculars_center_tool import PerpendicularsCenterTool
 from .tools.rotation_tool import RotationTool
+from .tools.center_rotate_tool import CenterRotateTool
 
 import time
 import random
@@ -1386,6 +1387,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tool_manager.register_tool('perpendiculars', PerpendicularsCenterTool)
         # RotationTool needs a function to get current center
         self.tool_manager.register_tool('rotation', lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
+        # CenterRotateTool needs a function to convert coordinates
+        self.tool_manager.register_tool('center_rotate', lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
         
         self.show()
 
@@ -2409,22 +2412,16 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def setCenterRotation(self):
         """
-        Trigger when set center and rotation angle button is pressed
+        Trigger when set center and rotation angle button is pressed.
+        Now using the new tool system with auto-completion.
         """
         if self.setCenterRotationButton.isChecked():
-            # clear plot
-            self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            # ax = self.imageAxes
-            # for i in range(len(ax.lines)-1,-1,-1):
-            #     ax.lines[i].remove()
-            # for i in range(len(ax.patches)-1,-1,-1):
-            #     ax.patches[i].remove()
-            self.imageCanvas.draw_idle()
-            self.function = ["im_center_rotate"]
-            self.display_points = ["im_center_rotate"]
+            # Activate the center-rotate tool
+            self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (click to set)")
+            self.tool_manager.activate_tool('center_rotate')
         else:
-            self.function = None
-            self.display_points = None
+            # User manually cancelled - just deactivate without applying
+            self.tool_manager.deactivate_tool('center_rotate')
             self.resetStatusbar()
 
     def resultZoomIn(self):
@@ -2560,41 +2557,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 # Keeping this for backward compatibility during migration
                 pass
             elif func[0] == "im_center_rotate":
-                # set center and rotation angle
-                ax = self.imageAxes
-                axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                self.imageCanvas.draw_idle()
-                # Convert to original coordinates
-                x_o, y_o = self.getOrigCoordsCenter(x, y)
-                func.append((x_o, y_o))  # Use original coordinates
-                self.display_points.append((x, y))  # Display coordinates for visualization
-                if len(func) == 3:
-                    # func[1] and func[2] are now in original coordinates
-                    if func[1][0] < func[2][0]:
-                        x1, y1 = func[1]
-                        x2, y2 = func[2]
-                    else:
-                        x1, y1 = func[2]
-                        x2, y2 = func[1]
-
-                    # Calculate angle from original coordinates
-                    if abs(x2 - x1) == 0:
-                        new_angle = -90
-                    else:
-                        new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-
-                    # Calculate center from original coordinates
-                    cx = int(round((x1 + x2) / 2.))
-                    cy = int(round((y1 + y2) / 2.))
-                    
-                self.setCenter((cx, cy), "CenterRotate")
-                self.setAngle(new_angle, "CenterRotate")
-                self.deleteInfo(['avg_fold'])
-                self.newImgDimension = None
-                self.setCenterRotationButton.setChecked(False)
-                self.processImage()
+                # NOTE: This code path is now deprecated - center+rotation is handled by CenterRotateTool
+                # Keeping this for backward compatibility during migration
+                pass
             elif func[0] == "im_rotate":
                 # NOTE: This code path is now deprecated - rotation is handled by RotationTool
                 # Keeping this for backward compatibility during migration
@@ -2742,29 +2707,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.imageCanvas.draw_idle()
 
         elif func[0] == "im_center_rotate":
-            axis_size = 5
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                if not self.doubleZoom.is_enabled():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            elif len(func) == 2:
-                start_pt = self.display_points[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,2,-1):
-                        ax.lines[i].remove()
-                    # ax.lines = first_cross
-                if not self.doubleZoom.is_enabled():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-
-            self.imageCanvas.draw_idle()
+            # NOTE: This code path is now deprecated - center+rotation is handled by CenterRotateTool
+            # Keeping this for backward compatibility during migration
+            pass
 
         elif func[0] == "perp_center":
             # NOTE: This code path is now deprecated - perpendiculars center is handled by PerpendicularsCenterTool
@@ -2782,17 +2727,41 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         # Try to dispatch to tool manager first
         if self.tool_manager.handle_release(event):
-            # Check if the active tool is RotationTool and has completed
+            # Check if the active tool has completed and should auto-apply
             if self.tool_manager.active_tool and hasattr(self.tool_manager.active_tool, 'completed'):
                 if self.tool_manager.active_tool.completed:
-                    # Auto-deactivate and apply the result
-                    result = self.tool_manager.deactivate_tool('rotation')
-                    if result is not None:
-                        print(f"Rotation angle set: {result:.2f} degrees")
-                        self.setAngle(result, "RotationTool")
-                        self.setRotationButton.setChecked(False)
-                        self.processImage()
-                        self.resetStatusbar()
+                    # Determine which tool completed
+                    tool_name = None
+                    for name, tool in self.tool_manager.tools.items():
+                        if tool == self.tool_manager.active_tool:
+                            tool_name = name
+                            break
+                    
+                    if tool_name == 'rotation':
+                        # Handle RotationTool completion
+                        result = self.tool_manager.deactivate_tool('rotation')
+                        if result is not None:
+                            print(f"Rotation angle set: {result:.2f} degrees")
+                            self.setAngle(result, "RotationTool")
+                            self.setRotationButton.setChecked(False)
+                            self.processImage()
+                            self.resetStatusbar()
+                    
+                    elif tool_name == 'center_rotate':
+                        # Handle CenterRotateTool completion
+                        result = self.tool_manager.deactivate_tool('center_rotate')
+                        if result is not None:
+                            center = result['center']
+                            angle = result['angle']
+                            print(f"Center and rotation set: center={center}, angle={angle:.2f} degrees")
+                            self.setCenter(center, "CenterRotate")
+                            self.setAngle(angle, "CenterRotate")
+                            self.deleteInfo(['avg_fold'])
+                            self.newImgDimension = None
+                            self.setCenterRotationButton.setChecked(False)
+                            self.processImage()
+                            self.resetStatusbar()
+            
             return  # Event was handled by an active tool
         
         if self.function is not None and self.function[0] == "im_move":

@@ -10,6 +10,7 @@ from .tool_manager import ToolManager
 from .chords_center_tool import ChordsCenterTool
 from .perpendiculars_center_tool import PerpendicularsCenterTool
 from .rotation_tool import RotationTool
+from .center_rotate_tool import CenterRotateTool
 
 __all__ = [
     'InteractionTool',
@@ -17,5 +18,6 @@ __all__ = [
     'ChordsCenterTool',
     'PerpendicularsCenterTool',
     'RotationTool',
+    'CenterRotateTool',
 ]
 
