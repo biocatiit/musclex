@@ -136,7 +136,47 @@ class DoubleZoomWidget(UIWidget):
             self.set_ready()
 
     def handle_mouse_button_press_event(self, mouse_event):
+        """Legacy method - kept for compatibility"""
         pass
+    
+    def handle_click(self, mouse_event) -> str:
+        """
+        Handle click event and return status for event pipeline integration.
+        
+        This method is designed to work as a coordinate precision layer that
+        sits before the tool system. It intercepts clicks, shows a zoom window,
+        and provides precise coordinates.
+        
+        Args:
+            mouse_event: The matplotlib mouse event
+        
+        Returns:
+            'idle': DoubleZoom not enabled or event not relevant
+            'waiting': Main image clicked, waiting for zoom window click
+            'completed': Zoom window clicked, precise coordinates available
+        
+        Usage in event pipeline:
+            if self.doubleZoom.is_enabled():
+                status = self.doubleZoom.handle_click(event)
+                if status == 'waiting':
+                    return  # Block further processing
+                elif status == 'completed':
+                    x, y = self.doubleZoom.get_precise_coords()
+                    event.xdata, event.ydata = x, y  # Modify event coords
+        """
+        if not self.is_enabled():
+            return 'idle'
+        
+        # Process the click using the existing release handler
+        self.handle_mouse_button_release_event(mouse_event)
+        
+        # Return status based on current state
+        if DoubleZoomWidgetState.MainImageClicked in self.state:
+            return 'waiting'
+        elif DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
+            return 'completed'
+        else:
+            return 'idle'
 
     def handle_mouse_move_event(self, mouse_event):
         if not self.is_running():
@@ -253,13 +293,50 @@ class DoubleZoomWidget(UIWidget):
         """
         dzx, dzy = self.mainImagePoint
         x, y = self.doubleZoomPoint
-        newX = dzx -10 + x / 10
+        newX = dzx - 10 + x / 10
         newY = dzy - 10 + y / 10
 
-        # print("=" * 40)
-        # print(f"position in zoom:{x} {y}, in image: {newX} {newY}")
-        # print("^" * 40)
-        # return (newX, newY)
+        return (newX, newY)
+    
+    def get_precise_coords(self) -> tuple:
+        """
+        Get the precise coordinates after zoom window click.
+        
+        This method should be called after handle_click() returns 'completed'.
+        
+        Returns:
+            (x, y): Precise image coordinates computed from zoom window click
+        
+        Raises:
+            RuntimeError: If called before zoom window click is completed
+        """
+        if DoubleZoomWidgetState.DoubleZoomImageClicked not in self.state:
+            raise RuntimeError(
+                "get_precise_coords() called before zoom window click completed. "
+                "Check that handle_click() returned 'completed' before calling this method."
+            )
+        
+        return self.doubleZoomToOrigCoord()
+    
+    def reset_for_next_click(self):
+        """
+        Reset state to prepare for the next click.
+        
+        This should be called after precise coordinates have been retrieved
+        and used, to allow DoubleZoom to handle the next click.
+        
+        Typical usage:
+            status = self.doubleZoom.handle_click(event)
+            if status == 'completed':
+                x, y = self.doubleZoom.get_precise_coords()
+                # Use the coordinates...
+                self.doubleZoom.reset_for_next_click()
+        """
+        # Reset state to initial
+        self.state = DoubleZoomWidgetState.INIT
+        
+        # Note: We don't reset mainImagePoint and doubleZoomPoint
+        # as they might be useful for debugging or display purposes
 
     def drawBlueDot(self, x, y, ax):
         self.remove_image_lines(ax=ax, labels=["DoubleZoom Blue Dot"])

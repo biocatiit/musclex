@@ -11,6 +11,7 @@ from .chords_center_tool import ChordsCenterTool
 from .perpendiculars_center_tool import PerpendicularsCenterTool
 from .rotation_tool import RotationTool
 from .center_rotate_tool import CenterRotateTool
+from .zoom_rectangle_tool import ZoomRectangleTool
 
 __all__ = [
     'InteractionTool',
@@ -19,5 +20,6 @@ __all__ = [
     'PerpendicularsCenterTool',
     'RotationTool',
     'CenterRotateTool',
+    'ZoomRectangleTool',
 ]
 

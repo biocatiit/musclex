@@ -67,6 +67,7 @@ from .tools.chords_center_tool import ChordsCenterTool
 from .tools.perpendiculars_center_tool import PerpendicularsCenterTool
 from .tools.rotation_tool import RotationTool
 from .tools.center_rotate_tool import CenterRotateTool
+from .tools.zoom_rectangle_tool import ZoomRectangleTool
 
 import time
 import random
@@ -1389,6 +1390,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tool_manager.register_tool('rotation', lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
         # CenterRotateTool needs a function to convert coordinates
         self.tool_manager.register_tool('center_rotate', lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
+        # ZoomRectangleTool for image zoom selection (with immediate callback)
+        self.tool_manager.register_tool('zoom_rectangle', lambda axes, canvas: ZoomRectangleTool(axes, canvas, self._apply_zoom_immediately))
         
         self.show()
 
@@ -2294,6 +2297,24 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is None:
             return None
         return self.quadFold.center
+    
+    def _apply_zoom_immediately(self, zoom_bounds):
+        """
+        Callback to immediately apply zoom when ZoomRectangleTool completes selection.
+        This is called automatically when user releases mouse after dragging.
+        
+        Args:
+            zoom_bounds: [(x_min, x_max), (y_min, y_max)]
+        """
+        print(f"Zoom applied: {zoom_bounds}")
+        # First deactivate the tool to clear the selection rectangle
+        self.tool_manager.deactivate_tool('zoom_rectangle')
+        # Then apply the zoom and refresh
+        self.img_zoom = zoom_bounds
+        self.refreshImageTab()
+        # Finally reset UI state
+        self.imgZoomInB.setChecked(False)
+        self.resetStatusbar()
 
     def setAngleBtnClicked(self):
         if self.quadFold:
@@ -2457,22 +2478,17 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def imageZoomIn(self):
         """
-        Trigger when set zoom in button is pressed (image tab)
+        Trigger when set zoom in button is pressed (image tab).
+        Now using ZoomRectangleTool managed by tool_manager.
         """
         if self.imgZoomInB.isChecked():
+            # Activate the zoom rectangle tool
             self.imgPathOnStatusBar.setText(
-                "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.imageCanvas.draw_idle()
-            self.function = ["im_zoomin"]
-            self.display_points = ["im_zoomin"]
+                "Draw a rectangle on the image to zoom in (drag to select)")
+            self.tool_manager.activate_tool('zoom_rectangle')
         else:
-            self.function = None
-            self.display_points = None
+            # User manually cancelled - just deactivate without applying
+            self.tool_manager.deactivate_tool('zoom_rectangle')
             self.resetStatusbar()
 
     def imageZoomOut(self):
@@ -2488,27 +2504,59 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def imageClicked(self, event):
         """
-        Triggered when mouse presses on image in image tab
+        Triggered when mouse presses on image in image tab.
+        
+        Event Processing Pipeline:
+        1. DoubleZoom (coordinate precision layer) - provides precise coordinates
+        2. ToolManager (interaction layer) - dispatches to active tools
+        3. Legacy functions (backward compatibility)
         """
         if not self.ableToProcess():
             return
 
-        # Try to dispatch to tool manager first
+        # ==========================================
+        # Layer 1: Coordinate Precision (DoubleZoom)
+        # ==========================================
+        # DoubleZoom acts as a transparent coordinate enhancer.
+        # It intercepts clicks to provide precise coordinates via a zoom window,
+        # then passes the enhanced event to downstream handlers.
+        
+        working_event = event  # Event with potentially modified coordinates
+        
+        if self.doubleZoom.is_enabled():
+            dz_status = self.doubleZoom.handle_click(event)
+            
+            if dz_status == 'waiting':
+                # User clicked main image, now waiting for zoom window click
+                # Block all further processing until zoom click completes
+                return
+            
+            elif dz_status == 'completed':
+                # User clicked zoom window, get precise coordinates
+                precise_x, precise_y = self.doubleZoom.get_precise_coords()
+                
+                # Modify the event's coordinates to use precise values
+                # All downstream handlers will now use these precise coordinates
+                event.xdata = precise_x
+                event.ydata = precise_y
+                
+                # Reset DoubleZoom state for next click
+                self.doubleZoom.reset_for_next_click()
+                
+                print(f"DoubleZoom: Precise coordinates ({precise_x:.2f}, {precise_y:.2f})")
+        
+        # ==========================================
+        # Layer 2: Tool System (InteractionTools)
+        # ==========================================
+        # Tools receive the event with potentially enhanced coordinates from DoubleZoom
         if self.tool_manager.handle_click(event):
             return  # Event was handled by an active tool
 
+        # ==========================================
+        # Layer 3: Legacy Functions
+        # ==========================================
         x = event.xdata
         y = event.ydata
-
-        if self.doubleZoom.is_enabled():
-            self.doubleZoom.handle_mouse_button_press_event(event)
-            # If main image was clicked, do nothing and
-            #   wait for user to click double-zoom image.
-            if self.doubleZoom.state == DoubleZoomWidgetState.MainImageClicked:
-                return
-            # If double-zoom image was clicked, update mouse click coordinates.
-            elif self.doubleZoom.state == DoubleZoomWidgetState.DoubleZoomImageClicked:
-                x, y = self.doubleZoom.doubleZoomToOrigCoord()
 
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
@@ -2536,34 +2584,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.display_points = ["im_move", (x, y)]
         else:
             func = self.function
-            if func[0] == "im_zoomin":
-                # zoom in image
-                func.append((x, y))
-                self.display_points.append((x, y))
-                if len(func) == 3:
-                    p1 = func[1]
-                    p2 = func[2]
-                    self.img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-                    self.function = None
-                    self.display_points = None
-                    self.imgZoomInB.setChecked(False)
-                    self.refreshImageTab()
-            elif func[0] == "chords_center":
-                # NOTE: This code path is now deprecated - chords center is handled by ChordsCenterTool
-                # Keeping this for backward compatibility during migration
-                pass
-            elif func[0] == "perp_center":
-                # NOTE: This code path is now deprecated - perpendiculars center is handled by PerpendicularsCenterTool
-                # Keeping this for backward compatibility during migration
-                pass
-            elif func[0] == "im_center_rotate":
-                # NOTE: This code path is now deprecated - center+rotation is handled by CenterRotateTool
-                # Keeping this for backward compatibility during migration
-                pass
-            elif func[0] == "im_rotate":
-                # NOTE: This code path is now deprecated - rotation is handled by RotationTool
-                # Keeping this for backward compatibility during migration
-                pass
+            # Deprecated tool-specific code blocks removed - now handled by:
+            # - ChordsCenterTool
+            # - PerpendicularsCenterTool
+            # - CenterRotateTool
+            # - RotationTool
 
 
     def calcMouseMovement(self):
@@ -2582,12 +2607,13 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def imageOnMotion(self, event):
         """
-        Triggered when mouse hovers on image in image tab
-        """
-        # Try to dispatch to tool manager first
-        if self.tool_manager.handle_motion(event):
-            return  # Event was handled by an active tool
+        Triggered when mouse hovers on image in image tab.
         
+        Event Processing Pipeline:
+        1. DoubleZoom - updates zoom window preview
+        2. ToolManager - tool-specific motion handling
+        3. Legacy functions
+        """
         current_time = time.time()
 
         #Wrapped in try block becasue this throws an error for missing last_executed,
@@ -2603,6 +2629,22 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.ableToProcess():
             return
 
+        # ==========================================
+        # Layer 1: DoubleZoom (updates zoom preview)
+        # ==========================================
+        # DoubleZoom needs to handle motion to update the zoom window
+        # in real-time as the mouse moves
+        self.doubleZoom.handle_mouse_move_event(event)
+        
+        # ==========================================
+        # Layer 2: Tool System
+        # ==========================================
+        if self.tool_manager.handle_motion(event):
+            return  # Event was handled by an active tool
+        
+        # ==========================================
+        # Layer 3: Legacy Functions
+        # ==========================================
         x = event.xdata
         y = event.ydata
 
@@ -2610,8 +2652,6 @@ class QuadrantFoldingGUI(QMainWindow):
             return
 
         img = self.quadFold.orig_img
-
-        self.doubleZoom.handle_mouse_move_event(event)
 
         # If mouse is not moving inside main image, do nothing.
         if event.inaxes != self.imageAxes:
@@ -2683,21 +2723,8 @@ class QuadrantFoldingGUI(QMainWindow):
             return
 
         func = self.function
-        if func[0] == "im_zoomin" and len(self.function) == 2:
-            # draw rectangle
-            if not self.doubleZoom.is_enabled() or self.doubleZoom.state != DoubleZoomWidgetState.MainImageClicked:
-                if len(ax.patches) > 0:
-                    ax.patches[0].remove()
-                start_pt = func[1]
-                w = abs(start_pt[0] - x)
-                h = abs(start_pt[1] - y)
-                x = min(start_pt[0], x)
-                y = min(start_pt[1], y)
-                ax.add_patch(patches.Rectangle((x, y), w, h,
-                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-
-                self.imageCanvas.draw_idle()
-        elif func[0] == "im_move":
+        # im_zoomin now handled by matplotlib RectangleSelector
+        if func[0] == "im_move":
             if self.img_zoom is not None:
                 move = (func[1][0] - x, func[1][1] - y)
                 self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
@@ -2705,21 +2732,11 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim(self.img_zoom[1])
                 #ax.invert_yaxis()
                 self.imageCanvas.draw_idle()
-
-        elif func[0] == "im_center_rotate":
-            # NOTE: This code path is now deprecated - center+rotation is handled by CenterRotateTool
-            # Keeping this for backward compatibility during migration
-            pass
-
-        elif func[0] == "perp_center":
-            # NOTE: This code path is now deprecated - perpendiculars center is handled by PerpendicularsCenterTool
-            # Keeping this for backward compatibility during migration
-            pass
-
-        elif func[0] == "im_rotate":
-            # NOTE: This code path is now deprecated - rotation is handled by RotationTool
-            # Keeping this for backward compatibility during migration
-            pass
+        # Deprecated tool-specific code blocks removed - now handled by:
+        # - ChordsCenterTool
+        # - PerpendicularsCenterTool
+        # - CenterRotateTool
+        # - RotationTool
 
     def imageReleased(self, event):
         """
@@ -2761,6 +2778,9 @@ class QuadrantFoldingGUI(QMainWindow):
                             self.setCenterRotationButton.setChecked(False)
                             self.processImage()
                             self.resetStatusbar()
+                    
+                    # Note: zoom_rectangle is handled by immediate callback (_apply_zoom_immediately)
+                    # No auto-completion handling needed here
             
             return  # Event was handled by an active tool
         
