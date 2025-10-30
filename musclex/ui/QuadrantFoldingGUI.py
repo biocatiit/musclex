@@ -318,8 +318,7 @@ class Worker(QRunnable):
             img = self.params.file_manager.get_image_by_index(self.params.index)
             filename = self.params.file_manager.names[self.params.index]
 
-            # Suppress signals during batch processing to prevent race conditions with currentCenter
-            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, filename, self.params.parent, suppress_signals=True)
+            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, filename, self.params.parent)
             
             # Don't clear info - let cache work!
             # Only set specific fields that need to be set
@@ -3367,8 +3366,7 @@ class QuadrantFoldingGUI(QMainWindow):
         angles = []
         for f in self.file_manager.names:
             img = self.file_manager.current_image
-            # Suppress signals when loading cached info for multiple files
-            quadFold = QuadrantFolder(img, self.filePath, f, self, suppress_signals=True)
+            quadFold = QuadrantFolder(img, self.filePath, f, self)
             print(f'Getting angle {f}')
 
             if 'auto_rotation' not in quadFold.info:

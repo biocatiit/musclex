@@ -55,14 +55,13 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img, img_path, img_name, parent, suppress_signals=False):
+    def __init__(self, img, img_path, img_name, parent):
         """
         Initialize QuadrantFolder with an already-loaded image array, plus metadata.
         :param img: numpy ndarray image data
         :param img_path: directory path for caches and outputs
         :param img_name: display/file name used for caches and outputs
         :param parent: GUI/owner for status updates
-        :param suppress_signals: If True, suppress GUI signals (e.g., during batch processing to avoid race conditions)
         """
         self.orig_img = np.asarray(img).astype("float32")
         self.orig_image_center = None
@@ -86,8 +85,6 @@ class QuadrantFolder:
         else:
             self.parent = self
         
-        # Flag to suppress signals during batch processing to avoid race conditions
-        self.suppress_signals = suppress_signals
         self.newImgDimension = None
 
         # info dictionary will save all results (loaded from cache or empty)
