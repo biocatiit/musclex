@@ -3254,6 +3254,28 @@ class QuadrantFoldingGUI(QMainWindow):
         if hasattr(self, 'applyRotationMode') and self.file_manager:
             self.applyRotationMode.setText(f"{len(self.file_manager.names) - len(self.imageRotationSettings)}/{len(self.file_manager.names)} images have auto rotation settings")
 
+    def updateCenterModeIndicator(self):
+        """
+        Update the Set Center group box title to show (Auto) or (Manual) for current image
+        """
+        if self.file_manager:
+            filename = self.file_manager.current_image_name
+            if filename in self.imageCenterSettings:
+                self.setCenterGroup.setTitle("Set Center  (Current Image Mode:Manual)")
+            else:
+                self.setCenterGroup.setTitle("Set Center  (Current Image Mode:Auto)")
+
+    def updateRotationModeIndicator(self):
+        """
+        Update the Set Rotation Angle group box title to show (Auto) or (Manual) for current image
+        """
+        if self.file_manager:
+            filename = self.file_manager.current_image_name
+            if filename in self.imageRotationSettings:
+                self.rotationAngleGroup.setTitle("Set Rotation Angle  (Current Image Mode:Manual)")
+            else:
+                self.rotationAngleGroup.setTitle("Set Rotation Angle  (Current Image Mode:Auto)")
+
     def orientationModelChanged(self):
         """
         Triggered when the orientation model is changed
@@ -3506,6 +3528,10 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Update blank image and mask checkbox states
         self.updateBlankMaskCheckboxStates()
+        
+        # Update center and rotation mode indicators
+        self.updateCenterModeIndicator()
+        self.updateRotationModeIndicator()
 
         self.processImage()
 
@@ -3748,6 +3774,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # GUI responsibility: Update UI
             self.updateCurrentCenter(center)
             self.updateApplyCenterMode()
+            self.updateCenterModeIndicator()
             
             print(f"Center set to {center} from source: {source}")
 
@@ -3789,6 +3816,7 @@ class QuadrantFoldingGUI(QMainWindow):
             
             # Update mode display
             self.updateApplyRotationMode()
+            self.updateRotationModeIndicator()
             
             # Update rotation angle display immediately (preview)
             self.rotationAngleLabel.setText(
