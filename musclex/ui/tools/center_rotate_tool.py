@@ -175,35 +175,49 @@ class CenterRotateTool(InteractionTool):
         """
         Calculate and return the center and angle.
         
+        Center: Calculated in original image coordinates (for precise positioning)
+        Angle: Calculated in display coordinates (as an increment relative to current rotation)
+        
         Returns:
             Dictionary with 'center' (tuple) and 'angle' (float), or None if incomplete
         """
         if len(self.points_orig) < 2:
             return None
         
-        # Work with original coordinates for calculation
-        pt1 = self.points_orig[0]
-        pt2 = self.points_orig[1]
+        # Calculate center using original coordinates (for precise positioning)
+        pt1_orig = self.points_orig[0]
+        pt2_orig = self.points_orig[1]
         
-        # Ensure the line goes from left to right
-        if pt1[0] < pt2[0]:
-            x1, y1 = pt1
-            x2, y2 = pt2
+        if pt1_orig[0] < pt2_orig[0]:
+            x1, y1 = pt1_orig
+            x2, y2 = pt2_orig
         else:
-            x1, y1 = pt2
-            x2, y2 = pt1
+            x1, y1 = pt2_orig
+            x2, y2 = pt1_orig
         
-        # Calculate center (midpoint)
+        # Calculate center (midpoint in original coordinates)
         cx = int(round((x1 + x2) / 2.0))
         cy = int(round((y1 + y2) / 2.0))
         
-        # Calculate angle from horizontal
-        if abs(x2 - x1) == 0:
+        # Calculate angle using display coordinates (as increment relative to current rotation)
+        # This is because setAngle() accumulates: new_rotation = current_rotation + angle
+        pt1_disp = self.points_display[0]
+        pt2_disp = self.points_display[1]
+        
+        if pt1_disp[0] < pt2_disp[0]:
+            dx1, dy1 = pt1_disp
+            dx2, dy2 = pt2_disp
+        else:
+            dx1, dy1 = pt2_disp
+            dx2, dy2 = pt1_disp
+        
+        # Calculate angle from horizontal (in display coordinates)
+        if abs(dx2 - dx1) == 0:
             # Vertical line
             angle = -90.0
         else:
             # arctan gives angle from horizontal
-            angle = -180.0 * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
+            angle = -180.0 * np.arctan((dy1 - dy2) / abs(dx1 - dx2)) / np.pi
         
         return {
             'center': (cx, cy),
