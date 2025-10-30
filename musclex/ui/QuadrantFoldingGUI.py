@@ -2540,6 +2540,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 event.xdata = precise_x
                 event.ydata = precise_y
                 
+                # CRITICAL: Change inaxes to imageAxes so tools accept this event
+                # Without this, tools will reject the event because inaxes points to doubleZoomAxes
+                event.inaxes = self.imageAxes
+                
                 # Reset DoubleZoom state for next click
                 self.doubleZoom.reset_for_next_click()
                 

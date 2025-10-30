@@ -40,16 +40,20 @@ from .ui_widget import UIWidget
 
 
 class DoubleZoomWidgetState(Flag):
-    INIT = auto()
-
-    MainImageClicked = auto()
-    DoubleZoomImageClicked = auto()
-
-    MainImageMouseMoving = auto()
-    DoubleZoomImageMouseMoving = auto()
-
-    MainImageMultipleClicked = auto()
-    DoubleZoomImageMultipleClicked = auto()
+    """
+    DoubleZoom state management - simplified to 3 core states.
+    
+    State transition flow:
+    IDLE → (click main image) → WAITING_ZOOM_CLICK → (click zoom window) → COMPLETED → (reset) → IDLE
+    
+    State descriptions:
+    - IDLE: Idle state, ready to accept new clicks
+    - WAITING_ZOOM_CLICK: Main image clicked, waiting for user to click zoom window
+    - COMPLETED: Zoom window clicked, precise coordinates available
+    """
+    IDLE = auto()               # Idle state
+    WAITING_ZOOM_CLICK = auto() # Main image clicked, waiting for zoom window click
+    COMPLETED = auto()          # Zoom window clicked, coordinates available
 
 
 class DoubleZoomWidget(UIWidget):
@@ -59,11 +63,12 @@ class DoubleZoomWidget(UIWidget):
         dontShowMessage=False):
         super().__init__(imageAxes)
 
-        self.state = DoubleZoomWidgetState.INIT
+        self.state = DoubleZoomWidgetState.IDLE
 
         self.parent = parent
 
         self.doubleZoomAxes = None
+        self.doubleZoomImage = None  # Store the image object to update it later
         self.doubleZoomCheckbox = QCheckBox("Double Zoom")
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.doubleZoomCheckbox)
@@ -81,36 +86,48 @@ class DoubleZoomWidget(UIWidget):
     def set_state(self, state):
         self.state = state
 
-    # def is_running(self):
-    #     # disable_states = [DoubleZoomWidgetState.DISABLED,
-    #     #                   DoubleZoomWidgetState.PAUSED]
-    #     # is_disabled = any(disable_state in self.state
-    #     #     for disable_state in disable_states)
-    #     # return not is_disabled
-    #     return DoubleZoomWidgetState.RUNNING in self.state
+    def is_enabled(self):
+        """
+        Check if DoubleZoom is currently enabled (running).
+        This is an alias for is_running() for backward compatibility.
+        
+        Returns:
+            bool: True if DoubleZoom is enabled
+        """
+        return self.is_running()
 
     def set_running(self):
+        """
+        Enable DoubleZoom - create zoom window, content updates dynamically on mouse move.
+        
+        Does not depend on center, avoiding crashes due to missing data.
+        Zoom window content is automatically displayed when mouse moves over image.
+        """
         self.doubleZoomCheckbox.setChecked(True)
+        
+        # Create zoom window subplot
         if self.doubleZoomAxes is None:
             self.doubleZoomAxes = self.imageFigure.add_subplot(333)
             self.doubleZoomAxes.set_aspect('equal', adjustable="box")
             self.doubleZoomAxes.axes.xaxis.set_visible(False)
             self.doubleZoomAxes.axes.yaxis.set_visible(False)
-
-        img = self.parent.quadFold.orig_img
-        center = self.parent.quadFold.info['center']
-        x,y = center
-        x, y = int(x), int(y)
-        imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-        if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-            self.mainImagePoint = (x, y)
-
-            imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-            self.doubleZoomAxes.imshow(imgScaled)
-            self.doubleZoomAxes.invert_yaxis()
-
-            self.imageCanvas.draw_idle()
-
+            
+            # Display hint text to guide user
+            self.doubleZoomAxes.text(
+                0.5, 0.5, 
+                'Move mouse\nover image',
+                ha='center', 
+                va='center',
+                transform=self.doubleZoomAxes.transAxes,
+                fontsize=10, 
+                color='gray',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3)
+            )
+        
+        # Reset image object for new session
+        self.doubleZoomImage = None
+        
+        self.imageCanvas.draw_idle()
         super().set_running()
 
     def set_ready(self):
@@ -121,6 +138,10 @@ class DoubleZoomWidget(UIWidget):
         if self.doubleZoomAxes is not None:
             self.imageFigure.delaxes(self.doubleZoomAxes)
             self.doubleZoomAxes = None
+        
+        # Reset image object reference
+        self.doubleZoomImage = None
+        
         self.imageCanvas.draw_idle()
 
         super().set_ready()
@@ -170,15 +191,18 @@ class DoubleZoomWidget(UIWidget):
         # Process the click using the existing release handler
         self.handle_mouse_button_release_event(mouse_event)
         
-        # Return status based on current state
-        if DoubleZoomWidgetState.MainImageClicked in self.state:
+        # Return status based on simplified state
+        if self.state == DoubleZoomWidgetState.WAITING_ZOOM_CLICK:
             return 'waiting'
-        elif DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
+        elif self.state == DoubleZoomWidgetState.COMPLETED:
             return 'completed'
         else:
             return 'idle'
 
     def handle_mouse_move_event(self, mouse_event):
+        """
+        Handle mouse move event, update zoom window content and cursor indicators.
+        """
         if not self.is_running():
             return
 
@@ -191,89 +215,81 @@ class DoubleZoomWidget(UIWidget):
         img = self.parent.quadFold.orig_img
 
         if mouse_event.inaxes == self.imageAxes:
-            # Draw cursor location in image using blue dot.
-            self.drawBlueDot(x, y, self.imageAxes)
-
-            # Do nothing if image has been clicked.
-            if DoubleZoomWidgetState.MainImageClicked in self.state:
-                self.state = DoubleZoomWidgetState.MainImageMouseMoving
+            # If main image clicked, waiting for zoom window click, freeze zoom window
+            # Do NOT update zoom window content, just draw cursor
+            if self.state == DoubleZoomWidgetState.WAITING_ZOOM_CLICK:
+                # Only draw blue dot on main image, do not update zoom window
+                self.drawBlueDot(x, y, self.imageAxes)
                 self.imageCanvas.draw_idle()
                 return
 
-            # Update double zoom image.
+            # In normal state, draw cursor and update zoom window content in real-time
+            self.drawBlueDot(x, y, self.imageAxes)
             self.drawDoubleZoomImage(x, y, img)
             self.imageCanvas.draw_idle()
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
             # Draw cursor location in zoom using red cross lines.
             self.drawRedDot(x, y, self.doubleZoomAxes)
-
             self.imageCanvas.draw_idle()
 
-            # Do nothing if image has been clicked.
-            if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
-                self.state = DoubleZoomWidgetState.DoubleZoomImageMouseMoving
-                return
-
     def handle_mouse_button_release_event(self, mouse_event):
+        """
+        Handle mouse button release event, record click position and update state.
+        """
         if not self.is_running():
             return
 
         x = mouse_event.xdata
         y = mouse_event.ydata
 
-        # print("=" * 40)
-        # print(f"position in image:{x} {y}")
-        # print("^" * 40)
-
         if mouse_event.inaxes == self.imageAxes:
+            # User clicked main image
             if not self.dontShowAgainDoubleZoomMessageResult:
                 self.showPopup()
 
             self.mainImagePoint = (x, y)
-
-            # If image has been clicked, then it is clicked multiple times.
-            if DoubleZoomWidgetState.MainImageClicked in self.state:
-                new_state = self.state | DoubleZoomWidgetState.MainImageMultipleClicked
-            else:
-                new_state = DoubleZoomWidgetState.MainImageClicked
-
-            self.set_state(new_state)
+            
+            # Display zoom window at clicked position and freeze it
+            img = self.parent.quadFold.orig_img
+            self.drawDoubleZoomImage(x, y, img)
+            
+            # Enter waiting state - zoom window is now frozen
+            self.state = DoubleZoomWidgetState.WAITING_ZOOM_CLICK
 
         elif mouse_event.inaxes == self.doubleZoomAxes:
+            # User clicked zoom window
             self.doubleZoomPoint = (x, y)
-
-            # If image has been clicked, then it is clicked multiple times.
-            if DoubleZoomWidgetState.DoubleZoomImageClicked in self.state:
-                new_state = self.state | DoubleZoomWidgetState.DoubleZoomImageMultipleClicked
-            else:
-                new_state = DoubleZoomWidgetState.DoubleZoomImageClicked
-
-            self.set_state(new_state)
+            # Enter completed state, precise coordinates available
+            self.state = DoubleZoomWidgetState.COMPLETED
 
     def handle_mouse_scroll_event(self, mouse_event):
         pass
 
     def is_no_action_state(self, mouse_event):
-        no_action_states = {
-            "main_image": [
-                DoubleZoomWidgetState.MainImageClicked | DoubleZoomWidgetState.MainImageMouseMoving,
-            ],
-            "double_zoom_image": [
-                DoubleZoomWidgetState.DoubleZoomImageClicked | DoubleZoomWidgetState.DoubleZoomImageMouseMoving,
-            ]
-        }
-
-        if mouse_event.inaxes == self.imageAxes:
-            no_action = any(no_action_state in self.state
-                for no_action_state in no_action_states["main_image"])
-            return no_action
-        elif mouse_event.inaxes == self.doubleZoomAxes:
-            no_action = any(no_action_state in self.state
-                for no_action_state in no_action_states["double_zoom_image"])
-            return no_action
-
-        return False
+        """
+        Check if other operations should be blocked.
+        
+        When DoubleZoom is waiting for user to click zoom window, block other operations.
+        This method is kept for backward compatibility with SetCentDialog.py.
+        
+        Args:
+            mouse_event: matplotlib mouse event (unused, kept for compatibility)
+        
+        Returns:
+            bool: True if other operations should be blocked
+        """
+        # Simplified logic: block when waiting for zoom window click
+        return self.state == DoubleZoomWidgetState.WAITING_ZOOM_CLICK
+    
+    def is_blocking_other_actions(self) -> bool:
+        """
+        New, clearer method name for checking if other operations should be blocked.
+        
+        Returns:
+            bool: True if DoubleZoom is waiting for user action and should block other handlers
+        """
+        return self.state == DoubleZoomWidgetState.WAITING_ZOOM_CLICK
 
     def showPopup(self):
         msg = QMessageBox()
@@ -310,7 +326,7 @@ class DoubleZoomWidget(UIWidget):
         Raises:
             RuntimeError: If called before zoom window click is completed
         """
-        if DoubleZoomWidgetState.DoubleZoomImageClicked not in self.state:
+        if self.state != DoubleZoomWidgetState.COMPLETED:
             raise RuntimeError(
                 "get_precise_coords() called before zoom window click completed. "
                 "Check that handle_click() returned 'completed' before calling this method."
@@ -332,8 +348,8 @@ class DoubleZoomWidget(UIWidget):
                 # Use the coordinates...
                 self.doubleZoom.reset_for_next_click()
         """
-        # Reset state to initial
-        self.state = DoubleZoomWidgetState.INIT
+        # Reset state to idle (ready for next click)
+        self.state = DoubleZoomWidgetState.IDLE
         
         # Note: We don't reset mainImagePoint and doubleZoomPoint
         # as they might be useful for debugging or display purposes
@@ -362,14 +378,25 @@ class DoubleZoomWidget(UIWidget):
             ax.plot((x1, x2), (y2, y1), color='r', label="DoubleZoom Red Dot")
 
     def drawDoubleZoomImage(self, x, y, img):
+        """
+        Update zoom window content at position (x, y).
+        Uses set_data() to update existing image instead of creating new ones.
+        """
         if x > 10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
             ax = self.doubleZoomAxes
             imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                 imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomAxes.imshow(imgScaled)
-                self.doubleZoomAxes.invert_yaxis()
+                
+                # If image object doesn't exist, create it; otherwise update it
+                if self.doubleZoomImage is None:
+                    self.doubleZoomImage = self.doubleZoomAxes.imshow(imgScaled)
+                    self.doubleZoomAxes.invert_yaxis()
+                else:
+                    # Update existing image data instead of creating new one
+                    self.doubleZoomImage.set_data(imgScaled)
 
+                # Clean up red dot markers
                 if len(ax.lines) > 0:
                     for i in range(len(ax.lines)-1,-1,-1):
                         if ax.lines[i].get_label() == "Red Dot":
