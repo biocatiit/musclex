@@ -95,18 +95,6 @@ class DoubleZoomWidget(UIWidget):
             self.doubleZoomAxes.set_aspect('equal', adjustable="box")
             self.doubleZoomAxes.axes.xaxis.set_visible(False)
             self.doubleZoomAxes.axes.yaxis.set_visible(False)
-            
-            # Display hint text to guide user
-            self.doubleZoomAxes.text(
-                0.5, 0.5, 
-                'Move mouse\nover image',
-                ha='center', 
-                va='center',
-                transform=self.doubleZoomAxes.transAxes,
-                fontsize=10, 
-                color='gray',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3)
-            )
         
         # Reset image object for new session
         self.doubleZoomImage = None
