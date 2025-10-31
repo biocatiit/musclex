@@ -334,7 +334,9 @@ class DoubleZoomWidget(UIWidget):
         """
         if x > 10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
             ax = self.doubleZoomAxes
-            imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
+            cx = round(x)
+            cy = round(y)
+            imgCropped = img[cy - 10:cy + 10, cx - 10:cx + 10]
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                 imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 
