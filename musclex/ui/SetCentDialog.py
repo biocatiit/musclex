@@ -55,11 +55,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from .widgets.double_zoom_widget import DoubleZoomWidget
-from .widgets.zoomin_widget import (ZoomInWidget, ZoomInWidgetState)
 from .widgets.image_mouse_move_handler import (ImageMouseMoveHandler,
                                                ImageMouseMoveState)
 from .widgets.zoom_handler import ZoomHandler
+from .tools.zoom_rectangle_tool import ZoomRectangleTool
 
 def print_log(log_str):
     now = datetime.now()
@@ -183,12 +182,10 @@ class SetCentDialog(QDialog):
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
         self.logScaleIntChkBx.setChecked(self.isLogScale)
 
-        self.zoomInWidget = ZoomInWidget(self.imageAxes)
+        self.zoom_tool = ZoomRectangleTool(self.imageAxes, self.imageCanvas, 
+                                            on_zoom_callback=self._on_zoom_applied)
+        self.imgZoomInBtn = QPushButton("Zoom In")
         self.imgZoomOutBtn = QPushButton("Full")
-        self.doubleZoom = DoubleZoomWidget(self.imageAxes, parent)
-
-        self.doubleZoomText = QLabel("In Double Zoom mode, click a point in the image. Then, click the same point in the double zoom region to mark the center location.")
-        self.doubleZoomText.setWordWrap(True)
 
         self.dispOptLayoutRowIndex = 0
         self.dispOptLayout.addWidget(self.minIntLabel, self.dispOptLayoutRowIndex, 0, 1, 2)
@@ -199,12 +196,8 @@ class SetCentDialog(QDialog):
         self.dispOptLayoutRowIndex += 1
         self.dispOptLayout.addWidget(self.logScaleIntChkBx, self.dispOptLayoutRowIndex, 0, 1, 2)
         self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.zoomInWidget, self.dispOptLayoutRowIndex, 0, 1, 2)
+        self.dispOptLayout.addWidget(self.imgZoomInBtn, self.dispOptLayoutRowIndex, 0, 1, 2)
         self.dispOptLayout.addWidget(self.imgZoomOutBtn, self.dispOptLayoutRowIndex, 2, 1, 2)
-        self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.doubleZoom, self.dispOptLayoutRowIndex, 0, 1, 4)
-        self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.doubleZoomText, self.dispOptLayoutRowIndex, 0, 1, 4)
         self.dispOptLayoutRowIndex += 1
 
         self.optionsLayout.addWidget(self.displayOptGrpBx)
@@ -239,6 +232,7 @@ class SetCentDialog(QDialog):
         self.zoomHandler = ZoomHandler(self.imageAxes)
 
     def createConnections(self):
+        self.imgZoomInBtn.clicked.connect(self.imageZoomInToggle)
         self.imgZoomOutBtn.clicked.connect(self.imageZoomOut)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.handle_mouse_button_press_event)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.handle_mouse_move_event)
@@ -264,8 +258,8 @@ class SetCentDialog(QDialog):
             return
 
         if key == Qt.Key_Escape:
-            if self.zoomInWidget.is_enabled():
-                self.zoomInWidget.set_disabled()
+            if self.zoom_tool.is_active:
+                self.zoom_tool.deactivate()
             # Prevent closing dialog with keyboard.
             return
 
@@ -280,25 +274,11 @@ class SetCentDialog(QDialog):
 
         self.imageMouseMoveHandler.handle_mouse_button_press_event(event)
 
-        if self.doubleZoom.is_enabled():
-            self.doubleZoom.handle_mouse_button_press_event(event)
-
     def handle_mouse_move_event(self, event):
         self.imageMouseMoveHandler.handle_mouse_move_event(event)
 
         if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAGGING:
             return
-
-        if self.doubleZoom.is_enabled():
-            self.doubleZoom.handle_mouse_move_event(event)
-
-            if self.doubleZoom.is_no_action_state(event):
-                return
-
-        if event.inaxes != self.imageAxes:
-            return
-
-        self.zoomInWidget.handle_mouse_move_event(event)
 
         self.imageCanvas.draw_idle()
 
@@ -311,47 +291,23 @@ class SetCentDialog(QDialog):
         if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAG_COMPLETED:
             return
 
+        # If zoom tool is active, let it handle the event
+        if self.zoom_tool.is_active:
+            return
+
         x = event.xdata
         y = event.ydata
 
-        if self.doubleZoom.is_enabled():
-            self.doubleZoom.handle_mouse_button_release_event(event)
-
-            if event.inaxes == self.imageAxes:
-                # Main image clicked - wait for zoom window click
-                if self.doubleZoom.waiting_for_zoom_click:
-                    if self.zoomInWidget.is_enabled():
-                        self.zoomInWidget.click_with_double_zoom(event)
-                    else:
-                        # Convert to original coordinates if transformation exists
-                        if self.inv_transform is not None:
-                            import numpy as np
-                            point = np.array([x, y, 1])
-                            orig_point = self.inv_transform @ point
-                            self.center = (orig_point[0], orig_point[1])
-                        else:
-                            self.center = (x, y)
-                        self.refreshCenter()
-                return
-
-            # If double-zoom image was clicked, update mouse click coordinates.
-            elif event.inaxes == self.doubleZoom.doubleZoomAxes:
-                x, y = self.doubleZoom.doubleZoomToOrigCoord()
-
-        if event.inaxes == self.imageAxes or (self.doubleZoom.is_enabled()
-            and event.inaxes == self.doubleZoom.doubleZoomAxes):
-            if self.zoomInWidget.is_enabled():
-                self.zoomInWidget.handle_click_event(event, x, y)
+        if event.inaxes == self.imageAxes:
+            # Convert to original coordinates if transformation exists
+            if self.inv_transform is not None:
+                import numpy as np
+                point = np.array([x, y, 1])
+                orig_point = self.inv_transform @ point
+                self.center = (orig_point[0], orig_point[1])
             else:
-                # Convert to original coordinates if transformation exists
-                if self.inv_transform is not None:
-                    import numpy as np
-                    point = np.array([x, y, 1])
-                    orig_point = self.inv_transform @ point
-                    self.center = (orig_point[0], orig_point[1])
-                else:
-                    self.center = (x, y)
-                self.refreshCenter(updateText=True)
+                self.center = (x, y)
+            self.refreshCenter(updateText=True)
 
 
     def handle_mouse_wheel_scroll_event(self, event):
@@ -445,9 +401,20 @@ class SetCentDialog(QDialog):
             for p in ax.patches:
                 p.remove()
 
+    def imageZoomInToggle(self):
+        """Activate zoom tool - auto-deactivates after selection"""
+        if not self.zoom_tool.is_active:
+            self.zoom_tool.activate()
+    
+    def _on_zoom_applied(self, zoom_bounds):
+        """Called when zoom rectangle is selected - apply zoom and deactivate tool"""
+        self.resizeImage(zoom_bounds)
+        self.zoom_tool.deactivate()
+
     def imageZoomOut(self):
-        if self.zoomInWidget.is_enabled():
-            self.zoomInWidget.set_disabled()
+        """Reset to full view"""
+        if self.zoom_tool.is_active:
+            self.zoom_tool.deactivate()
 
         img_zoom = [(0, self.img.shape[1]), (0, self.img.shape[0])]
         self.resizeImage(img_zoom)
