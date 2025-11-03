@@ -2061,17 +2061,13 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def setCentBtnClicked(self):
         if self.quadFold:
-            curr_img = self.quadFold.orig_img
-            # Get current center
-            center = self.quadFold.center
-            inv_transform = self.quadFold.info.get("inv_transform")
+            center = self.quadFold.base_center
 
-            if (curr_img is not None) and center:
-                img = curr_img.copy()
+            if center:
+                img = self.file_manager.current_image.copy()
                 self.setCentDialog = SetCentDialog(self,
                     img,
                     center,
-                    inv_transform=inv_transform,
                     isLogScale=self.logScaleIntChkBx.isChecked(),
                     vmin=self.spminInt.value(),
                     vmax=self.spmaxInt.value()

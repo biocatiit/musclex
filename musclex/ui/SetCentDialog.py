@@ -129,11 +129,11 @@ class SetCentDialog(QDialog):
         # self.yInputLayout.addWidget(self.yInput)
 
         centerLayoutRowIndex = 0
-        self.setCenterLayout.addWidget(QLabel("X (Current coords): "), centerLayoutRowIndex, 0, 1, 2)
+        self.setCenterLayout.addWidget(QLabel("X (Original coords): "), centerLayoutRowIndex, 0, 1, 2)
         self.setCenterLayout.addWidget(self.xInput, centerLayoutRowIndex, 2, 1, 2)
         self.setCenterLayout.addWidget(QLabel("px"), centerLayoutRowIndex, 4, 1, 1)
         centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(QLabel("Y (Current coords): "), centerLayoutRowIndex, 0, 1, 2)
+        self.setCenterLayout.addWidget(QLabel("Y (Original coords): "), centerLayoutRowIndex, 0, 1, 2)
         self.setCenterLayout.addWidget(self.yInput, centerLayoutRowIndex, 2, 1, 2)
         self.setCenterLayout.addWidget(QLabel("px"), centerLayoutRowIndex, 4, 1, 1)
 
