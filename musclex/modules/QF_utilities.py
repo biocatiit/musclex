@@ -48,7 +48,8 @@ def get_avg_fold_float32(quadrants, nQuadrant, fold_height, fold_width, threshol
                             not_gap_edge = True
                             for k in range(y-2, y+3):
                                 for l in range(x-2, x+3):
-                                    if fold[k,l] < threshold:
+                                    # Check for invalid pixels (<= threshold, i.e., <= -1)
+                                    if fold[k,l] <= threshold:
                                         not_gap_edge = False
                             if not_gap_edge:
                                 sum_val += fold[y,x]
