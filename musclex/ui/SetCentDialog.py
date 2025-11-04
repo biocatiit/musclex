@@ -185,6 +185,7 @@ class SetCentDialog(QDialog):
         self.zoom_tool = ZoomRectangleTool(self.imageAxes, self.imageCanvas, 
                                             on_zoom_callback=self._on_zoom_applied)
         self.imgZoomInBtn = QPushButton("Zoom In")
+        self.imgZoomInBtn.setCheckable(True)  # Make it a toggle button
         self.imgZoomOutBtn = QPushButton("Full")
 
         self.dispOptLayoutRowIndex = 0
@@ -402,19 +403,31 @@ class SetCentDialog(QDialog):
                 p.remove()
 
     def imageZoomInToggle(self):
-        """Activate zoom tool - auto-deactivates after selection"""
-        if not self.zoom_tool.is_active:
+        """Toggle zoom tool on/off based on button state"""
+        if self.imgZoomInBtn.isChecked():
+            # Button is checked - activate the zoom tool
             self.zoom_tool.activate()
+        else:
+            # Button is unchecked - deactivate the zoom tool
+            self.zoom_tool.deactivate()
     
     def _on_zoom_applied(self, zoom_bounds):
         """Called when zoom rectangle is selected - apply zoom and deactivate tool"""
-        self.resizeImage(zoom_bounds)
+        # First deactivate the tool to clear the selection rectangle
         self.zoom_tool.deactivate()
+        # Then apply the zoom
+        self.resizeImage(zoom_bounds)
+        # Refresh the center display
+        self.refreshCenter()
+        # Finally uncheck the button to reset UI state
+        self.imgZoomInBtn.setChecked(False)
 
     def imageZoomOut(self):
         """Reset to full view"""
+        # Deactivate zoom tool and uncheck button if active
         if self.zoom_tool.is_active:
             self.zoom_tool.deactivate()
+        self.imgZoomInBtn.setChecked(False)
 
         img_zoom = [(0, self.img.shape[1]), (0, self.img.shape[0])]
         self.resizeImage(img_zoom)
