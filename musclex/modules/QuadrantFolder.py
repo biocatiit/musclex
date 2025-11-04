@@ -51,6 +51,11 @@ except: # for coverage
 # from subprocess import call
 # call(["python setup2.py build_ext --inplace"], shell = True)
 
+# Invalid pixel threshold constant
+# Pixels with values <= this threshold are considered invalid (masked/gap pixels)
+# and are excluded from averaging calculations
+INVALID_PIXEL_THRESHOLD = -1
+
 class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
@@ -413,7 +418,7 @@ class QuadrantFolder:
     def initParams(self):
         """
         Initial some parameters in case GUI doesn't specified
-        Note: mask_thres removed - now using fixed threshold of -1 for invalid pixels
+        Note: mask_thres removed - now using INVALID_PIXEL_THRESHOLD constant for invalid pixels
         """
         if 'ignore_folds' not in self.info:
             self.info['ignore_folds'] = set()
@@ -448,8 +453,8 @@ class QuadrantFolder:
                 mask = getMaskOnly(self.img_path)
                 if mask is not None:
                     print("Applying mask from mask.tif")
-                    # Set masked pixels to -1 (fixed threshold for invalid pixels)
-                    img[mask == 0] = -1
+                    # Set masked pixels to invalid threshold (excluded from averaging)
+                    img[mask == 0] = INVALID_PIXEL_THRESHOLD
 
             self.orig_img = img
 
@@ -1306,8 +1311,8 @@ class QuadrantFolder:
             buttom_right = cv2.flip(buttom_right,0)
 
             # Add all folds which are not ignored
-            # Initialize quadrants array with -1 (fixed threshold for invalid/empty pixels)
-            quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * (-1.)
+            # Initialize quadrants array with invalid threshold (marks empty/invalid pixels)
+            quadrants = np.ones((4, fold_height, fold_width), rotate_img.dtype) * INVALID_PIXEL_THRESHOLD
             for i, quad in enumerate([top_left, top_right, buttom_left, buttom_right]):
                 quadrants[i][-quad.shape[0]:, -quad.shape[1]:] = quad
             remained = np.ones(4, dtype=bool)
@@ -1334,9 +1339,9 @@ class QuadrantFolder:
         if len(self.info["ignore_folds"]) < 4:
             # if self.info['pixel_folding']:
             # average fold by pixel to pixel by cython
-            # Pass -1 as threshold: pixels <= -1 are excluded from averaging
+            # Pass invalid threshold: pixels <= threshold are excluded from averaging
             result = qfu.get_avg_fold_float32(np.array(quadrants, dtype="float32"), len(quadrants), fold_height, fold_width,
-                                                -1)
+                                                INVALID_PIXEL_THRESHOLD)
             # else:
             #     result = np.mean( np.array(quadrants), axis=0 )
 
