@@ -128,13 +128,15 @@ class RestoreAutoCenterDialog(QDialog):
         layout.addWidget(QLabel("Restore auto center to:"))
         
         # Create radio buttons for exclusive selection
+        self.currentRadio = QRadioButton("Apply to current image")
         self.subsequentRadio = QRadioButton("Apply to subsequent images")
         self.previousRadio = QRadioButton("Apply to previous images")
         self.allRadio = QRadioButton("Apply to all images")
         
-        # Set default selection
-        self.subsequentRadio.setChecked(True)
+        # Set default selection to current image
+        self.currentRadio.setChecked(True)
         
+        layout.addWidget(self.currentRadio)
         layout.addWidget(self.subsequentRadio)
         layout.addWidget(self.previousRadio)
         layout.addWidget(self.allRadio)
@@ -148,8 +150,10 @@ class RestoreAutoCenterDialog(QDialog):
         self.setLayout(layout)
     
     def getSelection(self):
-        """Returns 'subsequent', 'previous', or 'all'"""
-        if self.subsequentRadio.isChecked():
+        """Returns 'current', 'subsequent', 'previous', or 'all'"""
+        if self.currentRadio.isChecked():
+            return 'current'
+        elif self.subsequentRadio.isChecked():
             return 'subsequent'
         elif self.previousRadio.isChecked():
             return 'previous'
@@ -206,13 +210,15 @@ class RestoreAutoRotationDialog(QDialog):
         layout.addWidget(QLabel("Restore auto rotation to:"))
         
         # Create radio buttons for exclusive selection
+        self.currentRadio = QRadioButton("Apply to current image")
         self.subsequentRadio = QRadioButton("Apply to subsequent images")
         self.previousRadio = QRadioButton("Apply to previous images")
         self.allRadio = QRadioButton("Apply to all images")
         
-        # Set default selection
-        self.subsequentRadio.setChecked(True)
+        # Set default selection to current image
+        self.currentRadio.setChecked(True)
         
+        layout.addWidget(self.currentRadio)
         layout.addWidget(self.subsequentRadio)
         layout.addWidget(self.previousRadio)
         layout.addWidget(self.allRadio)
@@ -226,8 +232,10 @@ class RestoreAutoRotationDialog(QDialog):
         self.setLayout(layout)
     
     def getSelection(self):
-        """Returns 'subsequent', 'previous', or 'all'"""
-        if self.subsequentRadio.isChecked():
+        """Returns 'current', 'subsequent', 'previous', or 'all'"""
+        if self.currentRadio.isChecked():
+            return 'current'
+        elif self.subsequentRadio.isChecked():
             return 'subsequent'
         elif self.previousRadio.isChecked():
             return 'previous'
@@ -2094,6 +2102,12 @@ class QuadrantFoldingGUI(QMainWindow):
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
             self._restoreAutoCenter(selection)
+            
+            # Process current image immediately for 'current' or 'all' selections
+            if selection == 'current' or selection == 'all':
+                self.quadFold.setBaseCenter(None)
+                self.processImage()
+            
             QMessageBox.information(self, "Auto Center Restored", 
                 f"Auto center restored for {selection} images.")
     
@@ -2116,6 +2130,12 @@ class QuadrantFoldingGUI(QMainWindow):
         if dialog.exec() == QDialog.Accepted:
             selection = dialog.getSelection()
             self._restoreAutoRotation(selection)
+            
+            # Process current image immediately for 'current' or 'all' selections
+            if selection == 'current' or selection == 'all':
+                self.quadFold.setBaseRotation(None)
+                self.processImage()
+            
             QMessageBox.information(self, "Auto Rotation Restored", 
                 f"Auto rotation restored for {selection} images.")
     
@@ -2158,7 +2178,9 @@ class QuadrantFoldingGUI(QMainWindow):
         current_index = self.file_manager.current
         total_images = len(self.file_manager.names)
         
-        if scope == 'all':
+        if scope == 'current':
+            indices = [current_index]
+        elif scope == 'all':
             indices = range(total_images)
         elif scope == 'subsequent':
             indices = range(current_index, total_images)
@@ -2219,7 +2241,9 @@ class QuadrantFoldingGUI(QMainWindow):
         current_index = self.file_manager.current
         total_images = len(self.file_manager.names)
         
-        if scope == 'all':
+        if scope == 'current':
+            indices = [current_index]
+        elif scope == 'all':
             indices = range(total_images)
         elif scope == 'subsequent':
             indices = range(current_index, total_images)
