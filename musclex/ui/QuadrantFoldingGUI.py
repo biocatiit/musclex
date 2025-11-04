@@ -686,12 +686,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyRotationBtn = QPushButton("Apply Rotation")
         self.restoreAutoRotationBtn = QPushButton("Restore Auto Rotation")
 
-        self.maskThresSpnBx = QDoubleSpinBox()
-        self.maskThresSpnBx.setMinimum(-999)
-        self.maskThresSpnBx.setMaximum(999)
-        self.maskThresSpnBx.setValue(-999)
-        self.maskThresSpnBx.setKeyboardTracking(False)
-
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
         self.compressFoldedImageChkBx.setChecked(True)
         self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
@@ -733,8 +727,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         settingsRowIndex = 0
 
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : "), settingsRowIndex, 0, 1, 2)
-        self.settingsLayout.addWidget(self.maskThresSpnBx, settingsRowIndex, 2, 1, 2)
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : Use Set Mask"), settingsRowIndex, 0, 1, 2)
         settingsRowIndex += 1
 
         self.settingsLayout.addWidget(self.toggleFoldImage, settingsRowIndex, 0, 1, 2)
@@ -1447,7 +1440,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.restoreAutoCenterBtn.clicked.connect(self.restoreAutoCenterClicked)
         self.applyRotationBtn.clicked.connect(self.applyRotationClicked)
         self.restoreAutoRotationBtn.clicked.connect(self.restoreAutoRotationClicked)
-        self.maskThresSpnBx.valueChanged.connect(self.ignoreThresChanged)
         self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
         self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
         self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
@@ -3147,15 +3139,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.refreshResultTab()
             self.resetStatusbar()
 
-    def ignoreThresChanged(self):
-        """
-        Delete Average fold and reproduce it by current flags
-        """
-        if self.quadFold is None or self.uiUpdating:
-            return
-        self.deleteInfo(['avg_fold'])
-        self.processImage()
-
     def pixRangeChanged(self):
         """
         Trigger when pixel range is changed
@@ -3525,12 +3508,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # if 'blank_mask' in info:
         #     self.blankImageGrp.setChecked(info['blank_mask'])
-
-        if 'mask_thres' in info.keys():
-            self.maskThresSpnBx.setValue(info['mask_thres'])
-        elif self.maskThresSpnBx.value() == -999:
-            self.maskThresSpnBx.setValue(getMaskThreshold(img))
-        self.maskThresSpnBx.setRange(min_val, max_val)
 
         self.spResultmaxInt.setRange(min_val + 1, max_val)
         self.spResultminInt.setRange(min_val, max_val - 1)
@@ -4286,7 +4263,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # image
         flags['orientation_model'] = self.orientationModel
         flags["ignore_folds"] = self.ignoreFolds
-        flags['mask_thres'] = self.maskThresSpnBx.value()
 
         # Check if blank image settings exist and is enabled
         settings_dir = Path(self.filePath) / "settings"
@@ -4659,8 +4635,6 @@ class QuadrantFoldingGUI(QMainWindow):
         
         if self.modeOrientation is not None:
             text += "\n  - Mode Orientation : Enabled"
-        
-        text += "\n  - Mask Threshold : " + str(flags["mask_thres"])
         
         # Show blank image configuration if exists
         if flags.get('blank_mask', False):
