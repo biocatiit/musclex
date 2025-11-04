@@ -118,7 +118,7 @@ class SetAngleDialog(QDialog):
         self.angleSpnBox.setSuffix("°")
         self.angleSpnBox.setDecimals(2)
         self.angleSpnBox.setSingleStep(1)
-        self.angleSpnBox.setRange(0, 360)
+        self.angleSpnBox.setRange(-360, 360)
         self.angleSpnBox.setValue(self.base_rotation % 360)
         self.angleSpnBox.setKeyboardTracking(False)
 
@@ -158,16 +158,6 @@ class SetAngleDialog(QDialog):
 
         self.setAngleLayout.addLayout(self.setAngleTextLayout)
 
-        # angleLayoutRowIndex = 0
-        # self.setAngleLayout.addWidget(self.rotate45Btn,  angleLayoutRowIndex, 0, 1, 4)
-        # angleLayoutRowIndex += 1
-        # self.setAngleLayout.addWidget(self.rotate90Btn,  angleLayoutRowIndex, 0, 1, 4)
-        # angleLayoutRowIndex += 1
-        # self.setAngleLayout.addWidget(self.rotate180Btn, angleLayoutRowIndex, 0, 1, 4)
-        # angleLayoutRowIndex += 1
-        # self.setAngleLayout.addWidget(QLabel("Clockwise Rotation Angle (Original coords): "), angleLayoutRowIndex, 0, 1, 2)
-        # self.setAngleLayout.addWidget(self.angleSpnBox, angleLayoutRowIndex, 2, 1, 2)
-        # angleLayoutRowIndex += 1
 
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
@@ -185,16 +175,6 @@ class SetAngleDialog(QDialog):
 
         self.optionsLayout = QVBoxLayout()
 
-        # self.displayOptGrpBx = QGroupBox("Display Options")
-        # self.dispOptLayout = QGridLayout(self.displayOptGrpBx)
-        # self.doubleZoom = QCheckBox("Double Zoom")
-
-        # self.dispOptLayoutRowIndex = 0
-        # self.dispOptLayout.addWidget(self.doubleZoom, self.dispOptLayoutRowIndex, 0, 1, 4)
-        # self.dispOptLayoutRowIndex += 1
-
-        # self.optionsLayout.addWidget(self.displayOptGrpBx)
-        # self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.setAngleGroup)
         self.optionsLayout.addStretch()
 
