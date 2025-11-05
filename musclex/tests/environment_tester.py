@@ -26,29 +26,29 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-python_version = { "python" : "3.10.6" }
+python_version = { "python" : "3.10.12" }
 pip_details = {
-    "scikit-image" : "0.19.3",
-    "tifffile" : "2023.1.23",
-    "numpy" : "1.23.5",
-    "pandas" : "1.5.3",
-    "scikit-learn" : "1.2.0",
+    "scikit-image" : "0.25.2",
+    "tifffile" : "2023.2.28",
+    "numpy" : "1.26.4",
+    "pandas" : "2.2.0",
+    "scikit-learn" : "1.7.1",
     "lmfit" : "1.1.0",
-    "fabio" : "2022.12.1",
-    "h5py" : "3.8.0",
-    "scipy" : "1.10.0",
-    "matplotlib" : "3.6.3",
-    "opencv-python-headless" : "4.7.0",
-    "pyFAI" : "2023.1.0",
+    "fabio" : "2023.10.0",
+    "h5py" : "3.10.0",
+    "scipy" : "1.11.4",
+    "matplotlib" : "3.9.2",
+    "opencv-python-headless" : "4.10.0",
+    "pyFAI" : "2024.1.0",
     "distro" : "1.8.0",
-    "hdf5plugin" : "4.1.1",
-    "PyMca5" : "5.8.0",
-    "numba" : "0.56.4",
-    "fisx" : "1.2.0",
-    "future" : "0.18.2",
-    "openpyxl" : "3.1.1",
-    "pip" : "23.2.1",
-    "wheel" : "0.37.1"
+    "hdf5plugin" : "4.4.0",
+    "PyMca5" : "5.9.4",
+    "numba" : "0.60.0",
+    "fisx" : "1.3.2",
+    "future" : "1.0.0",
+    "openpyxl" : "3.1.2",
+    "pip" : "22.0.2",
+    "wheel" : "0.45.1"
     }
 
 import os
