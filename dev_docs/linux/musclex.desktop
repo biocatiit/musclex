@@ -2,7 +2,7 @@
 Version=1.0
 Name=MuscleX
 GenericName=MuscleX
-Exec=/usr/bin/musclex
+Exec=/usr/bin/musclex gui
 Terminal=false
 Type=Application
 Icon=/usr/share/icons/AppIconMusclex.icns
