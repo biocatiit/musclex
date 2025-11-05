@@ -92,7 +92,14 @@ class QuadrantFoldingh:
         if self.delcache:
             if cache_exist:
                 os.remove(cache_path)
-        self.quadFold = QuadrantFolder(self.dir_path, fileName, self, self.fileList, self.ext)
+        
+        # Load the image using fabio
+        img_full_path = fullPath(self.dir_path, fileName)
+        img = fabio.open(img_full_path).data
+        
+        # Create QuadrantFolder with loaded image
+        # Note: QuadrantFolder expects img_name with extension
+        self.quadFold = QuadrantFolder(img, self.dir_path, fileName, self)
 
         if self.inputsettings:
             self.setCalibrationImage()
