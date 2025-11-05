@@ -8,6 +8,7 @@ musclex/tests/eq/*
 musclex/tests/pt/*
 musclex/tests/qf/*
 musclex/tests/test_guide/
+musclex/tests/test_logs/test.log
 /venv/
 .idea/
 /venv/
