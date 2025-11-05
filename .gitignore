@@ -7,6 +7,7 @@ musclex/tests/di/*
 musclex/tests/eq/*
 musclex/tests/pt/*
 musclex/tests/qf/*
+musclex/tests/test_guide/
 /venv/
 .idea/
 /venv/
@@ -17,3 +18,4 @@ musclex/tests/qf/*
 .idea/
 
 .DS_Store
+
