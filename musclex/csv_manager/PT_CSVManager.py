@@ -60,6 +60,7 @@ class PT_CSVManager:
         self.colnames = ["Filename"]
         for box_name in boxes.keys():
             if box_name in peaks:
+                self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
                 for i in range(len(peaks[box_name])):
                     side = " right" if i%2 == 0 else " left"
@@ -79,7 +80,6 @@ class PT_CSVManager:
                 self.colnames.append ("Box " + str(box_name) + " Background Amplitude")
                 self.colnames.append ("Box " + str(box_name) + " Meridian Background Sigma")
                 self.colnames.append ("Box " + str(box_name) + " Meridian Background Amplitude")
-                self.colnames.append ("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append ("Box " + str(box_name) + " Meridian Amplitude")
                 self.colnames.append("Box " + str(box_name) + " error")
                 self.colnames.append("Box " + str(box_name) + " comments")
