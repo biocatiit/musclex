@@ -446,6 +446,7 @@ class QuadrantFolder:
                 blank, _, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
                 if blank is not None:
                     img = img - blank * blank_weight
+                    img = np.clip(img, 0, None)  # Ensure no negative values after subtraction
                     print(f"Applied blank image subtraction with weight: {blank_weight}")
             
             # Apply mask if enabled
