@@ -588,11 +588,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.dispOptLayout = QGridLayout(self.displayOptGrpBx)
 
         self.spminInt = QDoubleSpinBox()
+        self.spminInt.setRange(-1e10, 1e10)  # Allow any value
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spminInt.setKeyboardTracking(False)
         self.spminInt.setSingleStep(5)
         self.spminInt.setDecimals(0)
         self.spmaxInt = QDoubleSpinBox()
+        self.spmaxInt.setRange(-1e10, 1e10)  # Allow any value
         self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
         self.spmaxInt.setKeyboardTracking(False)
         self.spmaxInt.setSingleStep(5)
@@ -1277,6 +1279,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
 
         self.spResultmaxInt = QDoubleSpinBox()
+        self.spResultmaxInt.setRange(-1e10, 1e10)  # Allow any value
         self.spResultmaxInt.setToolTip(
             "Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spResultmaxInt.setKeyboardTracking(False)
@@ -1284,6 +1287,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.spResultmaxInt.setDecimals(0)
 
         self.spResultminInt = QDoubleSpinBox()
+        self.spResultminInt.setRange(-1e10, 1e10)  # Allow any value
         self.spResultminInt.setToolTip(
             "Increase in the minimal intensity shown to allow for more details in the image.")
         self.spResultminInt.setKeyboardTracking(False)
@@ -3452,9 +3456,7 @@ class QuadrantFoldingGUI(QMainWindow):
         max_val = img.max()
         
         if not self.persistIntensity.isChecked():
-            # Only update range and values when NOT persisting
-            self.spmaxInt.setRange(min_val, max_val)
-            self.spminInt.setRange(min_val, max_val)
+            # Only update values when NOT persisting (range is already set to allow any value)
             self.spmaxInt.setValue(max_val * .5)
             self.spminInt.setValue(min_val)
         # When persist is checked: don't touch range or values at all
@@ -3541,8 +3543,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # if 'blank_mask' in info:
         #     self.blankImageGrp.setChecked(info['blank_mask'])
 
-        self.spResultmaxInt.setRange(min_val + 1, max_val)
-        self.spResultminInt.setRange(min_val, max_val - 1)
+        # Range is already set to allow any value at spinbox creation
         if not self.resPersistIntensity.isChecked():
             self.spResultmaxInt.setValue(max_val * .1)
             self.spResultminInt.setValue(min_val)
@@ -3897,8 +3898,7 @@ class QuadrantFoldingGUI(QMainWindow):
             ## Update Widgets
             self.resultminIntLabel.setText("Min intensity (" + str(round(img.min(), 2)) + ") : ")
             self.resultmaxIntLabel.setText("Max intensity (" + str(round(img.max(), 2)) + ") : ")
-            self.spResultminInt.setRange(img.min(), img.max())
-            self.spResultmaxInt.setRange(img.min(), img.max())
+            # Range is already set to allow any value at spinbox creation
             self.rminSpnBx.setValue(self.quadFold.info['rmin'])
 
             self.tranRSpnBx.setValue(self.quadFold.info['transition_radius'])

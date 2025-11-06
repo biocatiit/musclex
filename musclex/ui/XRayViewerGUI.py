@@ -154,11 +154,13 @@ class XRayViewerGUI(QMainWindow):
         #self.dispOptLayout.setRowStretch()
 
         self.spminInt = QDoubleSpinBox()
+        self.spminInt.setRange(-1e10, 1e10)  # Allow any value
         self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spminInt.setKeyboardTracking(False)
         self.spminInt.setSingleStep(5)
         self.spminInt.setDecimals(0)
         self.spmaxInt = QDoubleSpinBox()
+        self.spmaxInt.setRange(-1e10, 1e10)  # Allow any value
         self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
         self.spmaxInt.setKeyboardTracking(False)
         self.spmaxInt.setSingleStep(5)
@@ -1454,9 +1456,7 @@ class XRayViewerGUI(QMainWindow):
         max_val = img.max()
         
         if not self.persistIntensity.isChecked():
-            # Only update range and values when NOT persisting
-            self.spmaxInt.setRange(min_val, max_val)
-            self.spminInt.setRange(min_val, max_val)
+            # Only update values when NOT persisting (range is already set to allow any value)
             self.spmaxInt.setValue(max_val * .5)
             self.spminInt.setValue(min_val)
         # When persist is checked: don't touch range or values at all

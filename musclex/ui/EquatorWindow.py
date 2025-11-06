@@ -336,10 +336,12 @@ class EquatorWindow(QMainWindow):
         self.maxIntLabel = QLabel()
         self.minIntSpnBx = QDoubleSpinBox()
         self.minIntSpnBx.setObjectName('minIntSpnBx')
+        self.minIntSpnBx.setRange(-1e10, 1e10)  # Allow any value
         self.editableVars[self.minIntSpnBx.objectName()] = None
         self.minIntSpnBx.setKeyboardTracking(False)
         self.maxIntSpnBx = QDoubleSpinBox()
         self.maxIntSpnBx.setObjectName('maxIntSpnBx')
+        self.maxIntSpnBx.setRange(-1e10, 1e10)  # Allow any value
         self.editableVars[self.maxIntSpnBx.objectName()] = None
         self.maxIntSpnBx.setKeyboardTracking(False)
         self.logScaleIntChkBx = QCheckBox("Log scale intensity")
@@ -4025,9 +4027,7 @@ class EquatorWindow(QMainWindow):
         max_val = img.max()
         
         if not self.persistIntensity.isChecked():
-            # Only update range and values when NOT persisting
-            self.minIntSpnBx.setRange(min_val, max_val)
-            self.maxIntSpnBx.setRange(min_val, max_val)
+            # Only update values when NOT persisting (range is already set to allow any value)
             # use cached values if they're available, otherwise use defaults
             if "minInt" in self.bioImg.info and "maxInt" in self.bioImg.info:
                 self.minIntSpnBx.setValue(self.bioImg.info["minInt"])
