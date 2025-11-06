@@ -584,6 +584,7 @@ class QuadrantFoldingGUI(QMainWindow):
         #self.rightImageFrame.setLayout(self.rightImageLayout)
 
         self.displayOptGrpBx = QGroupBox("Display Options")
+        self.displayOptGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.dispOptLayout = QGridLayout(self.displayOptGrpBx)
 
         self.spminInt = QDoubleSpinBox()
@@ -639,6 +640,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.optionsLayout = QVBoxLayout()
         # self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
+        self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.settingsLayout = QGridLayout(self.settingsGroup)
         #self.settingsLayout.setScaledContents(False)
         #self.settingsLayout.setWidgetResizable(False)
@@ -652,6 +654,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.checkableButtons.append(self.setCenterRotationButton)
 
         self.setCenterGroup = QGroupBox("Set Center")
+        self.setCenterGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.setCenterLayout = QGridLayout(self.setCenterGroup)
         self.calibrationButton = QPushButton("Set Center by Calibration")
 
@@ -667,6 +670,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.checkableButtons.append(self.setCentBtn)
 
         self.rotationAngleGroup = QGroupBox("Set Rotation Angle")
+        self.rotationAngleGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.rotationAngleLayout = QGridLayout(self.rotationAngleGroup)
         self.setRotationButton = QPushButton("Set Angle Interactively")
         self.setRotationButton.setCheckable(False)
@@ -680,6 +684,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setAutoOrientationBtn.setCheckable(False)
 
         self.imageCenter = QLabel()
+        self.imageCenter.setStyleSheet("color: green")
         self.applyCenterMode = QLabel()
         self.applyCenterMode.setStyleSheet("color: green")
 
@@ -687,7 +692,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.restoreAutoCenterBtn = QPushButton("Restore Auto Center")
 
         self.rotationAngleLabel = QLabel()
-        
+        self.rotationAngleLabel.setStyleSheet("color: green")
         self.applyRotationMode = QLabel()
         self.applyRotationMode.setStyleSheet("color: green")
         
@@ -744,6 +749,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Apply Blank Image and Mask")
+        self.blankImageGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
 
         self.blankImageLayout = QGridLayout(self.blankImageGrp)
         self.blankSettingButton = QPushButton("Set Empty Cell Image")
@@ -770,6 +776,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # Result processing and background Subtraction
         self.resProcGrpBx = QGroupBox()
         self.resProcGrpBx.setTitle("Result Processing")
+        self.resProcGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.resProcGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
         self.setFitRoi = QPushButton("Set Region Of Interest (ROI)")
@@ -1264,6 +1271,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Display Options
         self.resultDispOptGrp = QGroupBox("Display Options")
+        self.resultDispOptGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.resultDispOptLayout = QGridLayout(self.resultDispOptGrp)
 
         self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
