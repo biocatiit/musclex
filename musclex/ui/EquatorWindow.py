@@ -320,6 +320,7 @@ class EquatorWindow(QMainWindow):
         self.imageVLayout.addWidget(self.displayImgCanvas)
 
         self.imgDispOptionGrp = QGroupBox('Display Options')
+        self.imgDispOptionGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.imgDispOptLayout = QGridLayout()
         self.centerChkBx = QCheckBox('Center')
         self.centerChkBx.setChecked(True)
@@ -374,6 +375,7 @@ class EquatorWindow(QMainWindow):
         self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
 
         self.imgProcGrp = QGroupBox("Image Processing")
+        self.imgProcGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.imgProcLayout = QGridLayout()
         self.imgProcGrp.setLayout(self.imgProcLayout)
         self.calibrationB = QPushButton("Calibration Settings")
@@ -518,6 +520,7 @@ class EquatorWindow(QMainWindow):
         self.fittingCanvas = FigureCanvas(self.fittingFigure)
 
         self.generalGrp = QGroupBox("General Settings")
+        self.generalGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.genLayout = QGridLayout(self.generalGrp)
         self.skeletalChkBx = QCheckBox("Skeletal Muscle (Z line)")
         self.skeletalChkBx.setFixedWidth(200)
@@ -548,6 +551,7 @@ class EquatorWindow(QMainWindow):
         self.genLayout.addWidget(self.setPeaksB, 4, 0, 1, 2)
 
         self.fitDispOptionGrp = QGroupBox('Display Options')
+        self.fitDispOptionGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.fitDispOptLayout = QGridLayout()
         self.origHistChkBx = QCheckBox('Original\nHistogram')
         self.hullChkBx = QCheckBox('After\nConvexhull')
@@ -607,6 +611,7 @@ class EquatorWindow(QMainWindow):
         self.use_smooth_spnbx.setValue(3)
 
         self.gaps_grp_bx = QGroupBox()
+        self.gaps_grp_bx.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.gaps_grp_bx_layout = QVBoxLayout()
         self.gaps_grp_bx.setLayout(self.gaps_grp_bx_layout)
         self.marginLayout = QHBoxLayout()
@@ -707,6 +712,7 @@ class EquatorWindow(QMainWindow):
         self.parameterEditorTab.setContentsMargins(0, 0, 0, 0)
         self.parameterEditorLayout = QGridLayout(self.parameterEditorTab)
         self.paramEditorTitlebox = QGroupBox()
+        self.paramEditorTitlebox.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.paramEditorTitleboxLayout = QGridLayout()
 
         self.parameterEditorTable = QTableWidget()

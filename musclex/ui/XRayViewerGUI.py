@@ -149,6 +149,7 @@ class XRayViewerGUI(QMainWindow):
 
         self.displayOptGrpBx = QGroupBox()
         self.displayOptGrpBx.setTitle("Display Options")
+        self.displayOptGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.dispOptLayout = QGridLayout()
         #self.dispOptLayout.setRowStretch()
@@ -200,6 +201,7 @@ class XRayViewerGUI(QMainWindow):
         self.optionsLayout = QVBoxLayout()
         self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
+        self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.settingsLayout = QGridLayout()
         #self.settingsLayout.setRowStretch()
         self.settingsGroup.setLayout(self.settingsLayout)
