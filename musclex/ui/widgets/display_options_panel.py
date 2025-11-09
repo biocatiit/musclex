@@ -1,0 +1,295 @@
+"""
+Copyright 1999 Illinois Institute of Technology
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL ILLINOIS INSTITUTE OF TECHNOLOGY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Illinois Institute
+of Technology shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Software without prior written
+authorization from Illinois Institute of Technology.
+"""
+
+from PySide6.QtWidgets import (QGroupBox, QGridLayout, QLabel, 
+                               QDoubleSpinBox, QCheckBox, QPushButton,
+                               QComboBox)
+from PySide6.QtCore import Signal
+
+
+class DisplayOptionsPanel(QGroupBox):
+    """
+    Reusable display options panel for image viewing.
+    
+    This is a pure View component that provides common display controls:
+    - Intensity range (min/max)
+    - Log scale toggle
+    - Persist intensities (optional)
+    - Color map selector
+    - Zoom controls (Zoom In button + Full button)
+    
+    Signals:
+        intensityChanged(vmin, vmax): Intensity values changed
+        logScaleChanged(enabled): Log scale toggled
+        persistChanged(enabled): Persist toggled
+        colorMapChanged(colormap): Color map changed
+        zoomInRequested(): Zoom In button clicked
+        zoomOutRequested(): Full button clicked
+    
+    Usage:
+        panel = DisplayOptionsPanel()
+        panel.intensityChanged.connect(my_handler)
+        panel.zoomInRequested.connect(activate_zoom_tool)
+        panel.set_intensity_range(0, 65535)
+    """
+    
+    # Signals
+    intensityChanged = Signal(float, float)  # vmin, vmax
+    logScaleChanged = Signal(bool)  # log_scale enabled
+    persistChanged = Signal(bool)  # persist enabled
+    colorMapChanged = Signal(str)  # colormap name
+    zoomInRequested = Signal()  # Zoom In button clicked
+    zoomOutRequested = Signal()  # Full button clicked
+    
+    def __init__(self, parent=None, show_persist=True, show_colormap=True):
+        """
+        Initialize the display options panel.
+        
+        Args:
+            parent: Parent widget
+            show_persist: Whether to show "Persist intensities" checkbox
+            show_colormap: Whether to show color map selector
+        """
+        super().__init__("Display Options", parent)
+        
+        self._show_persist = show_persist
+        self._show_colormap = show_colormap
+        self._setup_ui()
+        self._setup_connections()
+    
+    def _setup_ui(self):
+        """Create and layout UI elements."""
+        layout = QGridLayout(self)
+        
+        # Min intensity
+        self.minIntLabel = QLabel("Min Intensity:")
+        self.minIntSpnBx = QDoubleSpinBox()
+        self.minIntSpnBx.setDecimals(2)
+        self.minIntSpnBx.setKeyboardTracking(False)
+        
+        # Max intensity
+        self.maxIntLabel = QLabel("Max Intensity:")
+        self.maxIntSpnBx = QDoubleSpinBox()
+        self.maxIntSpnBx.setDecimals(2)
+        self.maxIntSpnBx.setKeyboardTracking(False)
+        
+        # Zoom buttons
+        self.zoomInBtn = QPushButton("Zoom In")
+        self.zoomInBtn.setCheckable(True)
+        self.zoomOutBtn = QPushButton("Full")
+        
+        # Color map selector (optional)
+        if self._show_colormap:
+            self.colorMapLabel = QLabel("Color Map:")
+            self.colorMapCombo = QComboBox()
+            self.colorMapCombo.addItems(['gray', 'viridis', 'plasma', 'inferno', 
+                                         'magma', 'cividis', 'hot', 'cool', 'jet'])
+        
+        # Log scale checkbox
+        self.logScaleChkBx = QCheckBox("Log scale intensity")
+        
+        # Persist checkbox (optional)
+        if self._show_persist:
+            self.persistChkBx = QCheckBox("Persist intensities")
+        
+        # Layout
+        row = 0
+        layout.addWidget(self.minIntLabel, row, 0, 1, 2)
+        layout.addWidget(self.maxIntLabel, row, 2, 1, 2)
+        
+        row += 1
+        layout.addWidget(self.minIntSpnBx, row, 0, 1, 2)
+        layout.addWidget(self.maxIntSpnBx, row, 2, 1, 2)
+        
+        row += 1
+        layout.addWidget(self.zoomInBtn, row, 0, 1, 2)
+        layout.addWidget(self.zoomOutBtn, row, 2, 1, 2)
+        
+        if self._show_colormap:
+            row += 1
+            layout.addWidget(self.colorMapLabel, row, 0, 1, 2)
+            layout.addWidget(self.colorMapCombo, row, 2, 1, 2)
+        
+        row += 1
+        layout.addWidget(self.logScaleChkBx, row, 0, 1, 2)
+        
+        if self._show_persist:
+            layout.addWidget(self.persistChkBx, row, 2, 1, 2)
+    
+    def _setup_connections(self):
+        """Connect internal signals."""
+        # Intensity changes
+        self.minIntSpnBx.valueChanged.connect(self._on_intensity_changed)
+        self.maxIntSpnBx.valueChanged.connect(self._on_intensity_changed)
+        
+        # Checkboxes
+        self.logScaleChkBx.stateChanged.connect(
+            lambda: self.logScaleChanged.emit(self.logScaleChkBx.isChecked())
+        )
+        
+        if self._show_persist:
+            self.persistChkBx.stateChanged.connect(
+                lambda: self.persistChanged.emit(self.persistChkBx.isChecked())
+            )
+        
+        # Color map
+        if self._show_colormap:
+            self.colorMapCombo.currentTextChanged.connect(
+                lambda text: self.colorMapChanged.emit(text)
+            )
+        
+        # Zoom buttons
+        self.zoomInBtn.clicked.connect(self._on_zoom_in_clicked)
+        self.zoomOutBtn.clicked.connect(lambda: self.zoomOutRequested.emit())
+    
+    def _on_intensity_changed(self):
+        """Internal handler: collect values and emit signal."""
+        self.intensityChanged.emit(
+            self.minIntSpnBx.value(),
+            self.maxIntSpnBx.value()
+        )
+    
+    def _on_zoom_in_clicked(self):
+        """Handle Zoom In button click."""
+        # Emit signal for external handling
+        self.zoomInRequested.emit()
+    
+    # ===== Public API =====
+    
+    def set_intensity_range(self, vmin, vmax):
+        """
+        Set the range of intensity values.
+        
+        Args:
+            vmin: Minimum possible value
+            vmax: Maximum possible value
+        """
+        self.minIntSpnBx.setRange(vmin, vmax)
+        self.maxIntSpnBx.setRange(vmin, vmax)
+        
+        # Update labels to show range
+        self.minIntLabel.setText(f"Min Intensity ({vmin}):")
+        self.maxIntLabel.setText(f"Max Intensity ({vmax}):")
+    
+    def set_intensity_values(self, vmin, vmax):
+        """
+        Set the current intensity values.
+        
+        Args:
+            vmin: Minimum intensity value
+            vmax: Maximum intensity value
+        """
+        # Block signals to avoid triggering during programmatic changes
+        self.minIntSpnBx.blockSignals(True)
+        self.maxIntSpnBx.blockSignals(True)
+        
+        self.minIntSpnBx.setValue(vmin)
+        self.maxIntSpnBx.setValue(vmax)
+        
+        self.minIntSpnBx.blockSignals(False)
+        self.maxIntSpnBx.blockSignals(False)
+    
+    def set_intensity_step(self, step):
+        """
+        Set the step size for intensity spin boxes.
+        
+        Args:
+            step: Step size for increment/decrement
+        """
+        self.minIntSpnBx.setSingleStep(step)
+        self.maxIntSpnBx.setSingleStep(step)
+    
+    def get_intensity_values(self):
+        """
+        Get current intensity values.
+        
+        Returns:
+            Tuple of (vmin, vmax)
+        """
+        return (self.minIntSpnBx.value(), self.maxIntSpnBx.value())
+    
+    def set_log_scale(self, enabled):
+        """Set log scale checkbox state."""
+        self.logScaleChkBx.setChecked(enabled)
+    
+    def is_log_scale(self):
+        """Check if log scale is enabled."""
+        return self.logScaleChkBx.isChecked()
+    
+    def set_persist(self, enabled):
+        """Set persist checkbox state."""
+        if self._show_persist:
+            self.persistChkBx.setChecked(enabled)
+    
+    def is_persist_enabled(self):
+        """Check if persist is enabled."""
+        if self._show_persist:
+            return self.persistChkBx.isChecked()
+        return False
+    
+    def set_color_map(self, colormap):
+        """Set the current color map."""
+        if self._show_colormap:
+            index = self.colorMapCombo.findText(colormap)
+            if index >= 0:
+                self.colorMapCombo.setCurrentIndex(index)
+    
+    def get_color_map(self):
+        """Get current color map name."""
+        if self._show_colormap:
+            return self.colorMapCombo.currentText()
+        return 'gray'
+    
+    def set_zoom_in_checked(self, checked):
+        """Set Zoom In button checked state (for external sync)."""
+        self.zoomInBtn.setChecked(checked)
+    
+    def is_zoom_in_checked(self):
+        """Check if Zoom In button is checked."""
+        return self.zoomInBtn.isChecked()
+    
+    def get_all_values(self):
+        """
+        Get all display option values.
+        
+        Returns:
+            Dict with all settings
+        """
+        result = {
+            'vmin': self.minIntSpnBx.value(),
+            'vmax': self.maxIntSpnBx.value(),
+            'log_scale': self.logScaleChkBx.isChecked(),
+            'colormap': self.get_color_map(),
+            'zoom_in_active': self.zoomInBtn.isChecked()
+        }
+        
+        if self._show_persist:
+            result['persist'] = self.persistChkBx.isChecked()
+        
+        return result
+

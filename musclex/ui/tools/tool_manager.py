@@ -170,9 +170,9 @@ class ToolManager:
     
     # Event dispatching methods
     
-    def handle_click(self, event) -> bool:
+    def handle_press(self, event) -> bool:
         """
-        Dispatch mouse click event to active tool.
+        Dispatch mouse button press event to active tool.
         
         Args:
             event: matplotlib mouse button press event
@@ -183,6 +183,19 @@ class ToolManager:
         if self.active_tool:
             return self.active_tool.handle_click(event)
         return False
+    
+    def handle_click(self, event) -> bool:
+        """
+        Dispatch mouse click event to active tool.
+        Alias for handle_press for backward compatibility.
+        
+        Args:
+            event: matplotlib mouse button press event
+            
+        Returns:
+            True if event was handled, False otherwise
+        """
+        return self.handle_press(event)
     
     def handle_motion(self, event) -> bool:
         """
