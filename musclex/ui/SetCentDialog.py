@@ -55,9 +55,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from .widgets.image_mouse_move_handler import (ImageMouseMoveHandler,
-                                               ImageMouseMoveState)
-from .widgets.zoom_handler import ZoomHandler
+from .widgets.image_viewer_widget import ImageViewerWidget
+from .tools.tool_manager import ToolManager
 from .tools.zoom_rectangle_tool import ZoomRectangleTool
 
 def print_log(log_str):
@@ -88,30 +87,33 @@ class SetCentDialog(QDialog):
 
         x, y = self.center
 
-        self.imageFigure = plt.figure()
-        self.imageAxes = self.imageFigure.add_subplot(111)
-        self.imageAxes.set_aspect('equal', adjustable="box")
-        self.imageCanvas = FigureCanvas(self.imageFigure)
-
-        if isLogScale:
-            self.imageAxes.imshow(
-                self.img,
-                cmap="gray",
-                norm=LogNorm(vmin=max(1, vmin), vmax=vmax),
-            )
-        else:
-            self.imageAxes.imshow(
-                self.img,
-                cmap="gray",
-                norm=Normalize(vmin=vmin, vmax=vmax),
-            )
-
-        self.imageAxes.set_facecolor('black')
-
-        self.imageAxes.set_xlim((0, self.img.shape[1]))
-        self.imageAxes.set_ylim((0, self.img.shape[0]))
+        # Create ImageViewerWidget with integrated display panel
+        self.imageViewer = ImageViewerWidget(parent=self, show_display_panel=True)
+        
+        # Setup tool manager for modal interactions (needs axes and canvas)
+        self.tool_manager = ToolManager(self.imageViewer.axes, self.imageViewer.canvas)
+        self.imageViewer.set_tool_manager(self.tool_manager)
+        
+        # Register zoom tool with callback
+        # ToolManager will instantiate the tool, so we pass the class and callback as kwarg
+        self.tool_manager.register_tool('zoom', ZoomRectangleTool, 
+                                       on_zoom_callback=self._on_zoom_applied)
+        
+        # Keep reference to the instantiated tool for direct access if needed
+        self.zoom_tool = self.tool_manager.tools['zoom']
+        
+        # Quick access to axes and canvas for drawing center lines
+        self.imageAxes = self.imageViewer.axes
+        self.imageCanvas = self.imageViewer.canvas
+        self.imageFigure = self.imageViewer.figure
+        
+        # Display the image with initial settings
+        self.imageViewer.display_image(self.img, vmin, vmax, isLogScale)
+        
+        # Draw center crosshair
         self.imageAxes.axvline(x, color='y', label="Cross Center Yellow")
         self.imageAxes.axhline(y, color='y', label="Cross Center Yellow")
+        self.imageCanvas.draw()
 
         self.xInput = QLineEdit(f"{x:.2f}")
         self.yInput = QLineEdit(f"{y:.2f}")
@@ -151,57 +153,18 @@ class SetCentDialog(QDialog):
 
         self.optionsLayout = QVBoxLayout()
 
-        self.displayOptGrpBx = QGroupBox("Display Options")
-        self.dispOptLayout = QGridLayout(self.displayOptGrpBx)
-
-        self.minIntLabel = QLabel('Min Intensity')
-        self.maxIntLabel = QLabel('Max Intensity')
-
-        self.spminInt = QDoubleSpinBox()
-        self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
-        self.spminInt.setKeyboardTracking(False)
-
-        self.spmaxInt = QDoubleSpinBox()
-        self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
-        self.spmaxInt.setKeyboardTracking(False)
-
-        min_val = self.img.min()
-        max_val = self.img.max()
-        self.spminInt.setRange(min_val, max_val)
-        self.spmaxInt.setRange(min_val, max_val)
-
-        self.spminInt.setSingleStep(max_val * .05)
-        self.spmaxInt.setSingleStep(max_val * .05)
-
-        self.spminInt.setValue(self.vmin)
-        self.spmaxInt.setValue(self.vmax)
-
-        self.spminInt.setDecimals(2)
-        self.spmaxInt.setDecimals(2)
-
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.logScaleIntChkBx.setChecked(self.isLogScale)
-
-        self.zoom_tool = ZoomRectangleTool(self.imageAxes, self.imageCanvas, 
-                                            on_zoom_callback=self._on_zoom_applied)
+        # Create Zoom In button for tool toggle
         self.imgZoomInBtn = QPushButton("Zoom In")
-        self.imgZoomInBtn.setCheckable(True)  # Make it a toggle button
-        self.imgZoomOutBtn = QPushButton("Full")
-
-        self.dispOptLayoutRowIndex = 0
-        self.dispOptLayout.addWidget(self.minIntLabel, self.dispOptLayoutRowIndex, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.maxIntLabel, self.dispOptLayoutRowIndex, 2, 1, 2)
-        self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.spminInt, self.dispOptLayoutRowIndex, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.spmaxInt, self.dispOptLayoutRowIndex, 2, 1, 2)
-        self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, self.dispOptLayoutRowIndex, 0, 1, 2)
-        self.dispOptLayoutRowIndex += 1
-        self.dispOptLayout.addWidget(self.imgZoomInBtn, self.dispOptLayoutRowIndex, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomOutBtn, self.dispOptLayoutRowIndex, 2, 1, 2)
-        self.dispOptLayoutRowIndex += 1
-
-        self.optionsLayout.addWidget(self.displayOptGrpBx)
+        self.imgZoomInBtn.setCheckable(True)
+        
+        # Create a group box for zoom and other specific tools
+        self.toolsGroup = QGroupBox("Tools")
+        self.toolsLayout = QGridLayout(self.toolsGroup)
+        self.toolsLayout.addWidget(self.imgZoomInBtn, 0, 0, 1, 1)
+        
+        # Add integrated display panel from ImageViewerWidget
+        self.optionsLayout.addWidget(self.imageViewer.display_panel)
+        self.optionsLayout.addWidget(self.toolsGroup)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.setCenterGroup)
         self.optionsLayout.addStretch()
@@ -209,8 +172,7 @@ class SetCentDialog(QDialog):
         self.scrollAreaImg = QScrollArea()
         self.scrollAreaImg.setWidgetResizable(True)
         self.imageLayout.addWidget(self.scrollAreaImg)
-        # self.imageLayout.addWidget(self.imageCanvas)
-        self.scrollAreaImg.setWidget(self.imageCanvas)
+        self.scrollAreaImg.setWidget(self.imageViewer.canvas)
 
         self.scrollAreaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scrollAreaImg.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -219,7 +181,7 @@ class SetCentDialog(QDialog):
         self.mainLayout.addWidget(self.buttonBox)
         self.mainLayout.setAlignment(self.buttonBox, Qt.AlignCenter)
 
-        self.imageCanvas.setMinimumSize(800, 600)
+        self.imageViewer.canvas.setMinimumSize(800, 600)
 
         self.setMinimumSize(700, 500)
         self.resize(1200, 1000 // 4 * 3)
@@ -229,23 +191,17 @@ class SetCentDialog(QDialog):
 
         self.createConnections()
 
-        self.imageMouseMoveHandler = ImageMouseMoveHandler(self.imageAxes, self.img)
-        self.zoomHandler = ZoomHandler(self.imageAxes)
-
     def createConnections(self):
+        # Tool button connections
         self.imgZoomInBtn.clicked.connect(self.imageZoomInToggle)
-        self.imgZoomOutBtn.clicked.connect(self.imageZoomOut)
-        self.imageFigure.canvas.mpl_connect('button_press_event', self.handle_mouse_button_press_event)
-        self.imageFigure.canvas.mpl_connect('motion_notify_event', self.handle_mouse_move_event)
-        self.imageFigure.canvas.mpl_connect('button_release_event', self.handle_mouse_button_release_event)
-        self.imageFigure.canvas.mpl_connect('scroll_event', self.handle_mouse_wheel_scroll_event)
+        
+        # Connect to canvas click signal (only emitted when no tool handles it)
+        self.imageViewer.canvasClicked.connect(self.handle_canvas_click)
 
-        self.spminInt.valueChanged.connect(
-            lambda vmin: self.updateImageMinMax(vmin=vmin))
-        self.spmaxInt.valueChanged.connect(
-            lambda vmax: self.updateImageMinMax(vmax=vmax))
-        self.logScaleIntChkBx.stateChanged.connect(self.imageScaleChecked)
-
+        # Connect display panel signals to update internal state
+        self.imageViewer.display_panel.intensityChanged.connect(self._on_intensity_changed)
+        self.imageViewer.display_panel.logScaleChanged.connect(self._on_log_scale_changed)
+        
         # Update center immediately when losing focus or pressing enter, without closing dialog
         self.xInput.returnPressed.connect(self.updateCenterFromInput)
         self.yInput.returnPressed.connect(self.updateCenterFromInput)
@@ -266,40 +222,18 @@ class SetCentDialog(QDialog):
 
         super().keyPressEvent(event)
 
-    def handle_mouse_button_press_event(self, event):
+    def handle_canvas_click(self, event):
+        """
+        Handle canvas click for setting center.
+        This is only called when no tool has handled the event.
+        """
         if event.button != MouseButton.LEFT:
-            return
-
-        if event.inaxes != self.imageAxes:
-            return
-
-        self.imageMouseMoveHandler.handle_mouse_button_press_event(event)
-
-    def handle_mouse_move_event(self, event):
-        self.imageMouseMoveHandler.handle_mouse_move_event(event)
-
-        if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAGGING:
-            return
-
-        self.imageCanvas.draw_idle()
-
-    def handle_mouse_button_release_event(self, event):
-        if event.button != MouseButton.LEFT:
-            return
-
-        self.imageMouseMoveHandler.handle_mouse_button_release_event(event)
-
-        if self.imageMouseMoveHandler.state == ImageMouseMoveState.MOUSE_DRAG_COMPLETED:
-            return
-
-        # If zoom tool is active, let it handle the event
-        if self.zoom_tool.is_active:
             return
 
         x = event.xdata
         y = event.ydata
 
-        if event.inaxes == self.imageAxes:
+        if event.inaxes == self.imageAxes and x is not None and y is not None:
             # Convert to original coordinates if transformation exists
             if self.inv_transform is not None:
                 import numpy as np
@@ -310,41 +244,20 @@ class SetCentDialog(QDialog):
                 self.center = (x, y)
             self.refreshCenter(updateText=True)
 
-
-    def handle_mouse_wheel_scroll_event(self, event):
-        if event.inaxes != self.imageAxes:
-            return
-
-        self.zoomHandler.handle_mouse_wheel_scroll_event(event)
-
-    def updateImageMinMax(self, vmin=None, vmax=None):
-        if vmin is not None:
-            self.vmin = vmin
-        if vmax is not None:
-            self.vmax = vmax
-
-        self.redrawImage()
-
-    def imageScaleChecked(self):
-        self.isLogScale = self.logScaleIntChkBx.isChecked()
-        self.redrawImage()
+    def _on_intensity_changed(self, vmin, vmax):
+        """Handle intensity changes from display panel"""
+        self.vmin = vmin
+        self.vmax = vmax
+        # ImageViewerWidget will automatically update the display
+    
+    def _on_log_scale_changed(self, log_scale):
+        """Handle log scale changes from display panel"""
+        self.isLogScale = log_scale
+        # ImageViewerWidget will automatically update the display
 
     def redrawImage(self):
-        if self.isLogScale:
-            self.imageAxes.imshow(
-                self.img,
-                cmap="gray",
-                norm=LogNorm(vmin=max(1, self.vmin), vmax=self.vmax),
-            )
-        else:
-            self.imageAxes.imshow(
-                self.img,
-                cmap="gray",
-                norm=Normalize(vmin=self.vmin, vmax=self.vmax),
-            )
-
-        # self.imageFigure.tight_layout()
-        self.imageCanvas.draw()
+        """Redraw image with current settings (called after refreshCenter)"""
+        self.imageViewer.display_image(self.img, self.vmin, self.vmax, self.isLogScale)
 
 
     def resizeImage(self, img_zoom):
@@ -406,29 +319,18 @@ class SetCentDialog(QDialog):
         """Toggle zoom tool on/off based on button state"""
         if self.imgZoomInBtn.isChecked():
             # Button is checked - activate the zoom tool
-            self.zoom_tool.activate()
+            self.tool_manager.activate_tool('zoom')
         else:
             # Button is unchecked - deactivate the zoom tool
-            self.zoom_tool.deactivate()
+            self.tool_manager.deactivate_tool()
     
     def _on_zoom_applied(self, zoom_bounds):
         """Called when zoom rectangle is selected - apply zoom and deactivate tool"""
         # First deactivate the tool to clear the selection rectangle
-        self.zoom_tool.deactivate()
+        self.tool_manager.deactivate_tool()
         # Then apply the zoom
         self.resizeImage(zoom_bounds)
         # Refresh the center display
         self.refreshCenter()
         # Finally uncheck the button to reset UI state
         self.imgZoomInBtn.setChecked(False)
-
-    def imageZoomOut(self):
-        """Reset to full view"""
-        # Deactivate zoom tool and uncheck button if active
-        if self.zoom_tool.is_active:
-            self.zoom_tool.deactivate()
-        self.imgZoomInBtn.setChecked(False)
-
-        img_zoom = [(0, self.img.shape[1]), (0, self.img.shape[0])]
-        self.resizeImage(img_zoom)
-        self.refreshCenter()

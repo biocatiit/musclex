@@ -59,6 +59,7 @@ class ImageViewerWidget(QWidget):
     
     # Signals
     coordinatesChanged = Signal(float, float, float)  # x, y, value
+    canvasClicked = Signal(object)  # Emitted when canvas clicked without active tool handling it
     
     def __init__(self, parent=None, show_display_panel=False):
         super().__init__(parent)
@@ -242,14 +243,18 @@ class ImageViewerWidget(QWidget):
     def _on_button_release(self, event):
         """
         Mouse button release event coordinator.
-        Priority: tool_manager → internal handlers
+        Priority: tool_manager → internal handlers → signal emission
         """
         # 1. Try tool manager first (modal interactions)
+        tool_handled = False
         if self.tool_manager and self.tool_manager.handle_release(event):
-            return  # Tool handled it
+            tool_handled = True
         
-        # 2. Fall back to internal handlers (basic navigation)
-        self._handle_pan_end(event)
+        # 2. If no tool handled it, fall back to internal handlers and emit signal
+        if not tool_handled:
+            self._handle_pan_end(event)
+            # 3. Emit signal for external handlers (e.g., set center in SetCentDialog)
+            self.canvasClicked.emit(event)
     
     def _on_scroll(self, event):
         """
