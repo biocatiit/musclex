@@ -121,24 +121,58 @@ class ImageViewerWidget(QWidget):
         self._current_vmin = vmin
         self._current_vmax = vmax
         if self._current_image is not None:
-            self.display_image(self._current_image, vmin, vmax, self._current_log_scale)
+            self.update_display_settings()
     
     def _on_log_scale_changed_from_panel(self, log_scale):
         """Handle log scale change from display panel."""
         self._current_log_scale = log_scale
         if self._current_image is not None:
-            self.display_image(self._current_image, 
-                             self._current_vmin, self._current_vmax, log_scale)
+            self.update_display_settings()
     
     def _on_colormap_changed_from_panel(self, colormap):
         """Handle colormap change from display panel."""
         self._current_colormap = colormap
         if self._current_image is not None:
-            self.display_image(self._current_image,
-                             self._current_vmin, self._current_vmax, 
-                             self._current_log_scale)
+            self.update_display_settings()
     
     # ===== Public API =====
+    
+    def update_display_settings(self):
+        """
+        Update only the intensity/colormap settings without clearing axes.
+        Preserves zoom level and any overlays (like center crosshairs).
+        """
+        if self._current_image is None:
+            return
+        
+        # Get current zoom state
+        xlim = self.axes.get_xlim()
+        ylim = self.axes.get_ylim()
+        
+        # Get all existing artists (lines, patches) to preserve them
+        lines = list(self.axes.lines)
+        patches = list(self.axes.patches)
+        texts = list(self.axes.texts)
+        
+        # Clear only images
+        for im in self.axes.images:
+            im.remove()
+        
+        # Redraw image with new settings
+        if self._current_log_scale:
+            self.axes.imshow(self._current_image, cmap=self._current_colormap, 
+                           norm=LogNorm(vmin=max(1, self._current_vmin), 
+                                      vmax=self._current_vmax))
+        else:
+            self.axes.imshow(self._current_image, cmap=self._current_colormap,
+                           norm=Normalize(vmin=self._current_vmin, 
+                                        vmax=self._current_vmax))
+        
+        # Restore zoom state
+        self.axes.set_xlim(xlim)
+        self.axes.set_ylim(ylim)
+        
+        self.canvas.draw()
     
     def display_image(self, img, vmin=None, vmax=None, log_scale=False):
         """
@@ -292,7 +326,8 @@ class ImageViewerWidget(QWidget):
     
     def _handle_wheel_zoom(self, event):
         """Handle mouse wheel zoom (always available)."""
-        scale = 1.1 if event.button == 'up' else 0.9
+        # Scroll up = zoom in (view gets smaller), Scroll down = zoom out (view gets larger)
+        scale = 1.0 / 1.2 if event.button == 'up' else 1.2
         
         xlim = self.axes.get_xlim()
         ylim = self.axes.get_ylim()

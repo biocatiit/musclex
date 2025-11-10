@@ -152,19 +152,9 @@ class SetCentDialog(QDialog):
         self.mainLayout.addLayout(self.imageLayout)
 
         self.optionsLayout = QVBoxLayout()
-
-        # Create Zoom In button for tool toggle
-        self.imgZoomInBtn = QPushButton("Zoom In")
-        self.imgZoomInBtn.setCheckable(True)
-        
-        # Create a group box for zoom and other specific tools
-        self.toolsGroup = QGroupBox("Tools")
-        self.toolsLayout = QGridLayout(self.toolsGroup)
-        self.toolsLayout.addWidget(self.imgZoomInBtn, 0, 0, 1, 1)
         
         # Add integrated display panel from ImageViewerWidget
         self.optionsLayout.addWidget(self.imageViewer.display_panel)
-        self.optionsLayout.addWidget(self.toolsGroup)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.setCenterGroup)
         self.optionsLayout.addStretch()
@@ -192,15 +182,15 @@ class SetCentDialog(QDialog):
         self.createConnections()
 
     def createConnections(self):
-        # Tool button connections
-        self.imgZoomInBtn.clicked.connect(self.imageZoomInToggle)
-        
         # Connect to canvas click signal (only emitted when no tool handles it)
         self.imageViewer.canvasClicked.connect(self.handle_canvas_click)
 
         # Connect display panel signals to update internal state
         self.imageViewer.display_panel.intensityChanged.connect(self._on_intensity_changed)
         self.imageViewer.display_panel.logScaleChanged.connect(self._on_log_scale_changed)
+        
+        # Connect zoom in button from display panel
+        self.imageViewer.display_panel.zoomInRequested.connect(self.imageZoomInToggle)
         
         # Update center immediately when losing focus or pressing enter, without closing dialog
         self.xInput.returnPressed.connect(self.updateCenterFromInput)
@@ -248,12 +238,14 @@ class SetCentDialog(QDialog):
         """Handle intensity changes from display panel"""
         self.vmin = vmin
         self.vmax = vmax
-        # ImageViewerWidget will automatically update the display
+        # ImageViewerWidget will automatically update via update_display_settings()
+        # which preserves zoom and overlays (like center crosshair)
     
     def _on_log_scale_changed(self, log_scale):
         """Handle log scale changes from display panel"""
         self.isLogScale = log_scale
-        # ImageViewerWidget will automatically update the display
+        # ImageViewerWidget will automatically update via update_display_settings()
+        # which preserves zoom and overlays (like center crosshair)
 
     def redrawImage(self):
         """Redraw image with current settings (called after refreshCenter)"""
@@ -316,21 +308,22 @@ class SetCentDialog(QDialog):
                 p.remove()
 
     def imageZoomInToggle(self):
-        """Toggle zoom tool on/off based on button state"""
-        if self.imgZoomInBtn.isChecked():
+        """Toggle zoom tool on/off based on button state from DisplayOptionsPanel"""
+        zoom_btn = self.imageViewer.display_panel.zoomInBtn
+        if zoom_btn.isChecked():
             # Button is checked - activate the zoom tool
             self.tool_manager.activate_tool('zoom')
         else:
             # Button is unchecked - deactivate the zoom tool
-            self.tool_manager.deactivate_tool()
+            self.tool_manager.deactivate_current_tool()
     
     def _on_zoom_applied(self, zoom_bounds):
         """Called when zoom rectangle is selected - apply zoom and deactivate tool"""
         # First deactivate the tool to clear the selection rectangle
-        self.tool_manager.deactivate_tool()
+        self.tool_manager.deactivate_current_tool()
         # Then apply the zoom
         self.resizeImage(zoom_bounds)
         # Refresh the center display
         self.refreshCenter()
         # Finally uncheck the button to reset UI state
-        self.imgZoomInBtn.setChecked(False)
+        self.imageViewer.display_panel.zoomInBtn.setChecked(False)
