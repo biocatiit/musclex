@@ -47,7 +47,8 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=True )
+          console=True,
+          icon='dev_docs/win/AppIcon.ico' )
 
 lpyz = PYZ(la.pure, la.zipped_data,
              cipher=block_cipher)
@@ -58,7 +59,8 @@ lexe = EXE(lpyz,
            debug=False,
            strip=False,
            upx=True,
-           console=False )
+          console=False,
+          icon='dev_docs/win/AppIcon.ico' )
 
 coll = COLLECT(exe, lexe,
                a.binaries, la.binaries,
