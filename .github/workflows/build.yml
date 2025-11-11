@@ -197,19 +197,33 @@ jobs:
         run: |
           pyinstaller --clean -y musclex_win32.spec
       
-      - name: Create ZIP archive
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+      
+      - name: Update version in Inno Setup script
+        run: |
+          $version = python -c "from musclex import __version__; print(__version__)"
+          (Get-Content musclex_installer.iss) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content musclex_installer.iss
+      
+      - name: Build Installer with Inno Setup
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" musclex_installer.iss
+      
+      - name: Create ZIP archive (portable version)
         run: |
           # Get version
           $version = python -c "from musclex import __version__; print(__version__)"
           # Create zip file
-          Compress-Archive -Path dist\musclex\* -DestinationPath "dist\musclex-$version-Windows.zip"
+          Compress-Archive -Path dist\musclex\* -DestinationPath "dist\musclex-$version-Windows-Portable.zip"
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: musclex-windows
           path: |
-            dist/musclex-*-Windows.zip
+            dist/musclex-*-Windows-Setup.exe
+            dist/musclex-*-Windows-Portable.zip
             dist/musclex/
 
   create-release:
@@ -234,7 +248,8 @@ jobs:
             artifacts/musclex-linux/*.deb
             artifacts/musclex-macos-arm64/*.dmg
             artifacts/musclex-macos-x86_64/*.dmg
-            artifacts/musclex-windows/*.zip
+            artifacts/musclex-windows/*-Setup.exe
+            artifacts/musclex-windows/*-Portable.zip
           draft: false
           prerelease: false
           generate_release_notes: true
