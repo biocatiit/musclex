@@ -35,6 +35,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements
+          pip install -e .
       
       - name: Build with PyInstaller
         run: |
@@ -56,7 +57,14 @@ jobs:
             dist/musclex
 
   build-macos:
-    runs-on: macos-13
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       
@@ -78,6 +86,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements
+          pip install -e .
       
       - name: Build with PyInstaller
         run: |
@@ -144,16 +153,17 @@ jobs:
       - name: Create DMG
         run: |
           VERSION=$(python -c "from musclex import __version__; print(__version__)")
+          ARCH="${{ matrix.arch }}"
           mkdir -p dist/dmg_temp
           cp -r dist/musclex.app dist/dmg_temp/
           ln -s /Applications dist/dmg_temp/Applications
-          hdiutil create -volname "MuscleX ${VERSION}" -srcfolder dist/dmg_temp -ov -format UDZO "dist/musclex-${VERSION}-macOS.dmg"
+          hdiutil create -volname "MuscleX ${VERSION}" -srcfolder dist/dmg_temp -ov -format UDZO "dist/musclex-${VERSION}-macOS-${ARCH}.dmg"
           rm -rf dist/dmg_temp
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: musclex-macos
+          name: musclex-macos-${{ matrix.arch }}
           path: |
             dist/musclex-*-macOS.dmg
             dist/musclex.app
@@ -181,6 +191,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements
+          pip install -e .
       
       - name: Build with PyInstaller
         run: |
@@ -221,7 +232,8 @@ jobs:
         with:
           files: |
             artifacts/musclex-linux/*.deb
-            artifacts/musclex-macos/*.dmg
+            artifacts/musclex-macos-arm64/*.dmg
+            artifacts/musclex-macos-x86_64/*.dmg
             artifacts/musclex-windows/*.zip
           draft: false
           prerelease: false
