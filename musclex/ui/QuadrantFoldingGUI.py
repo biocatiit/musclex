@@ -437,7 +437,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.filePath = "" # current directory
         self.extent = None
         self.img = None
-        self.numberOfFiles = 0
         self.quadFold = None # QuadrantFolder object
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
@@ -4049,10 +4048,17 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.tasksQueue.empty():
             self.startNextTask()
         else:
-            if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.numberOfFiles:
+            if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
                 print("All threads are complete")
                 self.progressBar.setVisible(False)
                 self.navControls.filenameLineEdit.setEnabled(True)
+                
+                # Reset the button state - temporarily disconnect signal to avoid triggering clearTasks()
+                self.navControls.processFolderButton.toggled.disconnect(self.batchProcBtnToggled)
+                self.navControls.processFolderButton.setChecked(False)
+                self.navControls.processFolderButton.setText("Process Current Folder")
+                self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
+                
                 self.csvManager.sortCSV()
                 os.makedirs(join(self.filePath, 'qf_results'), exist_ok=True) #Makes qf_results folder if it doesn't already exist.
                 os.makedirs(join(self.filePath, 'qf_results/bg'), exist_ok=True) #Makes bg subfolder if it doesn't already exist.
@@ -4407,7 +4413,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 msg.exec_()
                 return "Retry"
             if self.csvManager is not None:
-                self.numberOfFiles = len(self.file_manager.names)
                 self.ignoreFolds = set()
                 self.selectImageButton.setHidden(True)
                 self.selectFolder.setHidden(True)
@@ -4742,17 +4747,21 @@ class QuadrantFoldingGUI(QMainWindow):
             self.stop_process = False
             self.totalFiles = len(img_ids)
             self.tasksDone = 0
-            for i in img_ids:
+            for idx, i in enumerate(img_ids):
                 if self.stop_process:
                     break
-                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                # QApplication.processEvents()
-                # self.nextClicked(reprocess=True)
                 self.addTask(i)
+                # Process UI events periodically to keep Stop button responsive
+                if idx % 10 == 0:
+                    QApplication.processEvents()
 
             # self.progressBar.setVisible(False)
-
-        self.navControls.processFolderButton.setChecked(False)
+            # Note: Don't setChecked(False) here - it will trigger clearTasks() and clear the queue!
+            # The button will be reset in thread_finished() when all tasks complete
+        else:
+            # User cancelled the dialog, reset button
+            self.navControls.processFolderButton.setChecked(False)
+        
         self.highlightApplyUndo()
 
     def processH5File(self):
