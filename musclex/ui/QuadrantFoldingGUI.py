@@ -468,6 +468,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.totalFiles = 1
         self.lock = Lock()
         self.qf_lock = Lock()
+        self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
 
         self.setCentDialog = None
@@ -4032,9 +4033,13 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.quadFold = quadFold
 
-
-        self.onProcessingFinished()
-
+        # In batch processing mode, skip UI updates for each task
+        # Only update UI when processing the last task
+        if not self.batchProcessing:
+            self.onProcessingFinished()
+        else:
+            # In batch mode, only write CSV data without UI refresh
+            self.csvManager.writeNewData(self.quadFold)
 
         if self.lock is not None:
             self.lock.release()
@@ -4050,6 +4055,7 @@ class QuadrantFoldingGUI(QMainWindow):
         else:
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
                 print("All threads are complete")
+                self.batchProcessing = False  # Disable batch processing mode
                 self.progressBar.setVisible(False)
                 self.navControls.filenameLineEdit.setEnabled(True)
                 
@@ -4070,6 +4076,10 @@ class QuadrantFoldingGUI(QMainWindow):
                     for name, sum in self.bgAsyncDict.items():
                         writer.writerow([name, sum])
 
+                # Note: UI is NOT refreshed after batch processing
+                # The displayed image remains the same as before batch processing started
+                # If you want to display a specific image after completion, you can manually navigate to it
+                
                 self.showProcessingFinishedMessage()
 
     def startNextTask(self):
@@ -4745,6 +4755,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # self.progressBar.setVisible(True)
             # self.progressBar.setValue(0)
             self.stop_process = False
+            self.batchProcessing = True  # Enable batch processing mode
             self.totalFiles = len(img_ids)
             self.tasksDone = 0
             for idx, i in enumerate(img_ids):
