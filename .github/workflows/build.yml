@@ -149,15 +149,34 @@ jobs:
           
           # Remove quarantine attributes
           xattr -cr dist/musclex.app || true
+          
+          # Give system time to finish processing
+          sleep 1
       
       - name: Create DMG
         run: |
           VERSION=$(python -c "from musclex import __version__; print(__version__)")
           ARCH="${{ matrix.arch }}"
+          
+          # Clean up any previous DMG temp folder or mounted volumes
+          rm -rf dist/dmg_temp
+          hdiutil detach "/Volumes/MuscleX ${VERSION}" 2>/dev/null || true
+          
+          # Wait a bit for system to release resources
+          sleep 2
+          
+          # Create temp folder and copy files
           mkdir -p dist/dmg_temp
           cp -r dist/musclex.app dist/dmg_temp/
           ln -s /Applications dist/dmg_temp/Applications
+          
+          # Sync to ensure all writes are complete
+          sync
+          
+          # Create DMG
           hdiutil create -volname "MuscleX ${VERSION}" -srcfolder dist/dmg_temp -ov -format UDZO "dist/musclex-${VERSION}-macOS-${ARCH}.dmg"
+          
+          # Clean up
           rm -rf dist/dmg_temp
       
       - name: Upload artifacts
