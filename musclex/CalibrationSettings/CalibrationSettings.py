@@ -41,7 +41,7 @@ class CalibrationSettings(QDialog):
     """
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
-    def __init__(self, dir_path,center=None):
+    def __init__(self, dir_path,center=None, quadrant_folded=False):
         super().__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.editableVars = {}
@@ -58,6 +58,7 @@ class CalibrationSettings(QDialog):
         self.ax2 = None
         self.version = musclex.__version__
         self.uiUpdating = False
+        self.quadrant_folded = quadrant_folded
         cache = self.loadSettings()
 
         self.recalculate = False #This is so that if only the center coords are changed, QF
@@ -240,6 +241,13 @@ class CalibrationSettings(QDialog):
         self.centerY.setObjectName('centerY')
         self.editableVars[self.centerY.objectName()] = None
 
+        # Disable center editing for quadrant folded images
+        if self.quadrant_folded:
+            self.centerX.setEnabled(False)
+            self.centerY.setEnabled(False)
+            self.centerX.setToolTip("Center cannot be modified for quadrant folded images (always uses geometric center)")
+            self.centerY.setToolTip("Center cannot be modified for quadrant folded images (always uses geometric center)")
+
         self.manDetector = QCheckBox("Manually Select Detector")
         self.detectorChoice = QComboBox()
         self.alldetectorChoices = list(Detector.registry.keys())
@@ -270,7 +278,17 @@ class CalibrationSettings(QDialog):
         self.mainLayout.addWidget(self.paramGrpChkBx)
         self.mainLayout.addWidget(self.paramGrp)
         # self.mainLayout.addWidget(self.fixedCenter)
-        self.mainLayout.addWidget(QLabel("Calibrated Center (Original Coords):"))
+        
+        # Add label for center section
+        centerLabel = QLabel("Calibrated Center (Original Coords):")
+        self.mainLayout.addWidget(centerLabel)
+        
+        # Add warning for quadrant folded images
+        if self.quadrant_folded:
+            qfWarningLabel = QLabel("Note: Center is fixed at geometric center for quadrant folded images")
+            qfWarningLabel.setStyleSheet("QLabel { color: orange; font-style: italic; }")
+            self.mainLayout.addWidget(qfWarningLabel)
+        
         self.mainLayout.addWidget(self.centerX)
         self.mainLayout.addWidget(self.centerY)
         self.mainLayout.addWidget(self.manDetector)
@@ -517,8 +535,9 @@ class CalibrationSettings(QDialog):
             self.calSettings["silverB"] = self.silverBehenate.value()
             self.calSettings["type"] = "img"
 
-        # if self.fixedCenter.isChecked():
-        self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
+        # For quadrant folded images, don't save center (always use geometric center)
+        if not self.quadrant_folded:
+            self.calSettings["center"] = [self.centerX.value(), self.centerY.value()]
 
         if self.manDetector.isChecked():
             self.calSettings["detector"] = self.detectorChoice.currentText()
@@ -556,6 +575,8 @@ class CalibrationSettings(QDialog):
     def calibrate(self):
         """
         Calibrate on the image selected.
+        Note: For quadrant_folded images, center will be calculated (for display purposes)
+        but will not be saved or used (geometric center is always used instead).
         """
         if self.manualCalPoints is not None:
             center, radius, _ = cv2.fitEllipse(np.array(self.manualCalPoints))

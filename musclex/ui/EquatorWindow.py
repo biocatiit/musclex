@@ -2051,19 +2051,26 @@ class EquatorWindow(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-        if self.calibSettingDialog is None:
-            print("CalibSettingsDialog is none")
-            # if self.bioImg is not None:
-            #     self.calibSettingDialog = CalibrationSettings(self.dir_path)
-            # else:
-            #     self.calSettings = None
-            #     return
-            if self.bioImg is None or 'orig_center' not in self.bioImg.info.keys():
-                self.calibSettingDialog = CalibrationSettings(self.dir_path)
-            else:
-                self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
-        #else:
-            #self.calibSettingDialog = CalibrationSettings(self.dir_path, center=self.bioImg.info['orig_center'])
+        # Always recreate dialog to ensure all states (quadrant_folded, center, etc.) are current
+        # This ensures consistency whether user switches images or just reopens the dialog
+        quadrant_folded = self.bioImg.quadrant_folded if self.bioImg is not None else False
+        
+        # For quadrant folded images, use the geometric center; otherwise use orig_center if available
+        center = None
+        if self.bioImg is not None:
+            if quadrant_folded:
+                # For quadrant folded images, use geometric center directly
+                center = (self.bioImg.orig_img.shape[1] / 2, self.bioImg.orig_img.shape[0] / 2)
+                print(f"Quadrant folded image - using geometric center: {center}")
+            elif 'orig_center' in self.bioImg.info:
+                # Use original center for normal images
+                center = self.bioImg.info['orig_center']
+                print(f"Normal image - using original center: {center}")
+        
+        if center is None:
+            self.calibSettingDialog = CalibrationSettings(self.dir_path, quadrant_folded=quadrant_folded)
+        else:
+            self.calibSettingDialog = CalibrationSettings(self.dir_path, center=center, quadrant_folded=quadrant_folded)
 
         self.calSettings = None
         cal_setting = self.calibSettingDialog.calSettings
@@ -2076,7 +2083,8 @@ class EquatorWindow(QMainWindow):
             if result == 1:
                 self.calSettings = self.calibSettingDialog.getValues()
 
-                if "center" in self.calSettings:
+                # For quadrant folded images, never use calibrated center (always use geometric center)
+                if "center" in self.calSettings and not quadrant_folded:
                     self.bioImg.info['calib_center'] = self.calSettings["center"]
                     self.bioImg.removeInfo('center')
                 if "detector" in self.calSettings:
@@ -3483,6 +3491,9 @@ class EquatorWindow(QMainWindow):
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         
+        # Update quadrant fold checkbox based on image type
+        self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
+        
         # First-run specific setup
         if first_run:
             if 'paramInfo' in self.bioImg.info:
@@ -3803,7 +3814,6 @@ class EquatorWindow(QMainWindow):
         self.csvManager.writeNewData2(finishedImg)
         self.resetUI()
         self.refreshStatusbar()
-        self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
         QApplication.restoreOverrideCursor()
         self.tabWidget.tabBar().setEnabled(True)
         self.tabWidget.tabBar().setToolTip("")
