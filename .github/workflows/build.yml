@@ -45,10 +45,21 @@ jobs:
         run: |
           cd dev_docs/linux
           python make_deb_installer.py
+          echo "=== Files in dev_docs/linux after build ==="
+          ls -lah
+          echo "=== Looking for .deb files ==="
+          find . -maxdepth 1 -name "*.deb"
           # Move the deb file to dist directory
-          find . -maxdepth 1 -name "*.deb" -exec mv {} ../../dist/ \;
+          if find . -maxdepth 1 -name "*.deb" | grep -q .; then
+            find . -maxdepth 1 -name "*.deb" -exec mv {} ../../dist/ \;
+            echo "✅ DEB file moved to dist/"
+          else
+            echo "❌ No .deb file found!"
+            exit 1
+          fi
           cd ../..
           # Verify the deb file exists
+          echo "=== Files in dist/ ==="
           ls -lh dist/*.deb
       
       - name: Upload artifacts
@@ -185,7 +196,7 @@ jobs:
         with:
           name: musclex-macos-${{ matrix.arch }}
           path: |
-            dist/musclex-*-macOS.dmg
+            dist/musclex-*-macOS-*.dmg
             dist/musclex.app
 
   build-windows:
@@ -249,7 +260,12 @@ jobs:
           path: artifacts
       
       - name: Display structure of downloaded files
-        run: ls -R artifacts
+        run: |
+          echo "=== Artifacts directory structure ==="
+          ls -R artifacts
+          echo ""
+          echo "=== Checking for expected files ==="
+          find artifacts -name "*.deb" -o -name "*.dmg" -o -name "*.exe"
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
