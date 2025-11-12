@@ -210,21 +210,11 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" musclex_installer.iss
       
-      - name: Create ZIP archive (portable version)
-        run: |
-          # Get version
-          $version = python -c "from musclex import __version__; print(__version__)"
-          # Create zip file
-          Compress-Archive -Path dist\musclex\* -DestinationPath "dist\musclex-$version-Windows-Portable.zip"
-      
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: musclex-windows
-          path: |
-            dist/musclex-*-Windows-Setup.exe
-            dist/musclex-*-Windows-Portable.zip
-            dist/musclex/
+          path: dist/musclex-*-Windows-Setup.exe
 
   create-release:
     needs: [build-linux, build-macos, build-windows]
@@ -249,9 +239,8 @@ jobs:
             artifacts/musclex-macos-arm64/*.dmg
             artifacts/musclex-macos-x86_64/*.dmg
             artifacts/musclex-windows/*-Setup.exe
-            artifacts/musclex-windows/*-Portable.zip
-          draft: false
-          prerelease: false
+          draft: true
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
