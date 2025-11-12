@@ -195,9 +195,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: musclex-macos-${{ matrix.arch }}
-          path: |
-            dist/musclex-*-macOS-*.dmg
-            dist/musclex.app
+          path: dist/musclex-*-macOS-*.dmg
 
   build-windows:
     runs-on: windows-2022
@@ -266,6 +264,13 @@ jobs:
           echo ""
           echo "=== Checking for expected files ==="
           find artifacts -name "*.deb" -o -name "*.dmg" -o -name "*.exe"
+      
+      - name: Delete existing release (if exists)
+        continue-on-error: true
+        run: |
+          gh release delete ${{ github.ref_name }} --yes || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
