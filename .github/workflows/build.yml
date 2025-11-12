@@ -1,0 +1,230 @@
+name: Build MuscleX
+
+on:
+  push:
+    tags:
+      - 'v*'  # Run on version tags like v1.26.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot lintian
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements
+      
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --clean -y musclex_linux.spec
+      
+      - name: Create DEB package
+        run: |
+          cd dev_docs/linux
+          python make_deb_installer.py
+          cd ../..
+          mv musclex-*_amd64\(linux\).deb dist/ || true
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: musclex-linux
+          path: |
+            dist/*.deb
+            dist/musclex
+
+  build-macos:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements
+      
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --clean -y musclex_mac.spec
+      
+      - name: Post-build fixes
+        run: |
+          # Create pyFAI utils directory (needed for pyFAI to find resources)
+          mkdir -p dist/musclex/pyFAI/utils
+      
+      - name: Create App Bundle
+        run: |
+          # Get version from Python
+          VERSION=$(python -c "from musclex import __version__; print(__version__)")
+          
+          # Remove old app bundle if it exists
+          rm -rf dist/musclex.app
+          
+          # Create App Bundle structure
+          mkdir -p dist/musclex.app/Contents/MacOS
+          mkdir -p dist/musclex.app/Contents/Resources
+          
+          # Copy executable files
+          cp -r dist/musclex dist/musclex.app/Contents/MacOS/
+          
+          # Copy icon
+          if [ -f dev_docs/linux/AppIcon.icns ]; then
+            cp dev_docs/linux/AppIcon.icns dist/musclex.app/Contents/Resources/
+          fi
+          
+          # Create Info.plist
+          cat > dist/musclex.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict><key>CFBundleDisplayName</key>
+              <string>MuscleX</string>
+              <key>CFBundleName</key>
+              <string>Muscle X</string>
+              <key>CFBundleIdentifier</key>
+              <string>musclex</string>
+              <key>CFBundleExecutable</key>
+              <string>musclex/musclex-launcher</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>VERSION_PLACEHOLDER</string>
+              <key>LSBackgroundOnly</key>
+              <string>0</string>
+          </dict>
+          </plist>
+          PLIST
+          
+          # Update version in Info.plist
+          sed -i '' "s/VERSION_PLACEHOLDER/${VERSION}/g" dist/musclex.app/Contents/Info.plist
+          
+          # Remove quarantine attributes
+          xattr -cr dist/musclex.app || true
+      
+      - name: Create DMG
+        run: |
+          VERSION=$(python -c "from musclex import __version__; print(__version__)")
+          mkdir -p dist/dmg_temp
+          cp -r dist/musclex.app dist/dmg_temp/
+          ln -s /Applications dist/dmg_temp/Applications
+          hdiutil create -volname "MuscleX ${VERSION}" -srcfolder dist/dmg_temp -ov -format UDZO "dist/musclex-${VERSION}-macOS.dmg"
+          rm -rf dist/dmg_temp
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: musclex-macos
+          path: |
+            dist/musclex-*-macOS.dmg
+            dist/musclex.app
+
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements
+      
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --clean -y musclex_win32.spec
+      
+      - name: Create ZIP archive
+        run: |
+          # Get version
+          $version = python -c "from musclex import __version__; print(__version__)"
+          # Create zip file
+          Compress-Archive -Path dist\musclex\* -DestinationPath "dist\musclex-$version-Windows.zip"
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: musclex-windows
+          path: |
+            dist/musclex-*-Windows.zip
+            dist/musclex/
+
+  create-release:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/musclex-linux/*.deb
+            artifacts/musclex-macos/*.dmg
+            artifacts/musclex-windows/*.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -8,7 +8,7 @@
     <key>CFBundleIdentifier</key>
     <string>musclex</string>
     <key>CFBundleExecutable</key>
-    <string>MacOS/musclex/musclex-launcher</string>
+    <string>musclex/musclex-launcher</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -16,7 +16,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.22.0</string>
+    <string>1.26.0</string>
     <key>LSBackgroundOnly</key>
     <string>0</string>
 </dict>
