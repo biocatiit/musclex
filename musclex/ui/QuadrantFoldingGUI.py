@@ -4048,6 +4048,10 @@ class QuadrantFoldingGUI(QMainWindow):
     def thread_finished(self):
 
         self.tasksDone += 1
+        # Ensure progress bar is in percentage mode (0-100 range)
+        if self.progressBar.maximum() != 100:
+            self.progressBar.setRange(0, 100)
+            self.progressBar.setFormat("%p%")
         self.progressBar.setValue(int(100. / self.totalFiles * self.tasksDone))
         
         if not self.tasksQueue.empty():
@@ -4752,8 +4756,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # If "yes" is pressed
         if ret == QMessageBox.Yes:
-            # self.progressBar.setVisible(True)
-            # self.progressBar.setValue(0)
+            # Reset progress bar for batch processing (percentage mode)
+            self.progressBar.setRange(0, 100)
+            self.progressBar.setFormat("%p%")
+            self.progressBar.setValue(0)
+            self.progressBar.setVisible(True)
+            
             self.stop_process = False
             self.batchProcessing = True  # Enable batch processing mode
             self.totalFiles = len(img_ids)
