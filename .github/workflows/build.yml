@@ -45,16 +45,17 @@ jobs:
         run: |
           cd dev_docs/linux
           python make_deb_installer.py
+          # Move the deb file to dist directory
+          find . -maxdepth 1 -name "*.deb" -exec mv {} ../../dist/ \;
           cd ../..
-          mv musclex-*_amd64\(linux\).deb dist/ || true
+          # Verify the deb file exists
+          ls -lh dist/*.deb
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: musclex-linux
-          path: |
-            dist/*.deb
-            dist/musclex
+          path: dist/*.deb
 
   build-macos:
     strategy:
