@@ -62,11 +62,19 @@ jobs:
           echo "=== Files in dist/ ==="
           ls -lh dist/*.deb
       
+      - name: Create source distribution (tar.gz)
+        run: |
+          python setup.py sdist
+          echo "=== Source distribution created ==="
+          ls -lh dist/*.tar.gz
+      
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: musclex-linux
-          path: dist/*.deb
+          path: |
+            dist/*.deb
+            dist/*.tar.gz
 
   build-macos:
     strategy:
@@ -188,8 +196,6 @@ jobs:
           # Create DMG
           hdiutil create -volname "MuscleX ${VERSION}" -srcfolder dist/dmg_temp -ov -format UDZO "dist/musclex-${VERSION}-macOS-${ARCH}.dmg"
           
-          # Remove quarantine from DMG
-          xattr -cr "dist/musclex-${VERSION}-macOS-${ARCH}.dmg" || true
           
           # Clean up
           rm -rf dist/dmg_temp
@@ -266,7 +272,7 @@ jobs:
           ls -R artifacts
           echo ""
           echo "=== Checking for expected files ==="
-          find artifacts -name "*.deb" -o -name "*.dmg" -o -name "*.exe"
+          find artifacts -name "*.deb" -o -name "*.tar.gz" -o -name "*.dmg" -o -name "*.exe"
       
       - name: Delete existing release (if exists)
         continue-on-error: true
@@ -280,6 +286,7 @@ jobs:
         with:
           files: |
             artifacts/musclex-linux/*.deb
+            artifacts/musclex-linux/*.tar.gz
             artifacts/musclex-macos-arm64/*.dmg
             artifacts/musclex-macos-x86_64/*.dmg
             artifacts/musclex-windows/*-Setup.exe
