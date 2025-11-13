@@ -1877,8 +1877,13 @@ class EquatorWindow(QMainWindow):
                 text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
 
         if self.calSettings is not None and len(self.calSettings) > 0:
-            if "center" in self.calSettings:
+            # For quadrant folded images, always show that geometric center is used
+            if self.bioImg and self.bioImg.quadrant_folded:
+                geo_center = (self.bioImg.orig_img.shape[1] / 2, self.bioImg.orig_img.shape[0] / 2)
+                text += "\n  - Calibration Center : " + str(geo_center) + " (geometric center for quadrant folded)"
+            elif "center" in self.calSettings:
                 text += "\n  - Calibration Center : " + str(self.calSettings["center"])
+            
             if 'type' in self.calSettings:
                 if self.calSettings["type"] == "img":
                     text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
