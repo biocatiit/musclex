@@ -64,6 +64,9 @@ jobs:
       
       - name: Create source distribution (tar.gz)
         run: |
+          # Remove old tar.gz files to avoid uploading them
+          rm -f dist/*.tar.gz
+          # Create new source distribution
           python setup.py sdist
           echo "=== Source distribution created ==="
           ls -lh dist/*.tar.gz
