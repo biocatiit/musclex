@@ -56,7 +56,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from .widgets.image_viewer_widget import ImageViewerWidget
-from .tools.tool_manager import ToolManager
 from .tools.zoom_rectangle_tool import ZoomRectangleTool
 
 def print_log(log_str):
@@ -88,19 +87,15 @@ class SetCentDialog(QDialog):
         x, y = self.center
 
         # Create ImageViewerWidget with integrated display panel
+        # (tool_manager is created internally)
         self.imageViewer = ImageViewerWidget(parent=self, show_display_panel=True)
         
-        # Setup tool manager for modal interactions (needs axes and canvas)
-        self.tool_manager = ToolManager(self.imageViewer.axes, self.imageViewer.canvas)
-        self.imageViewer.set_tool_manager(self.tool_manager)
-        
-        # Register zoom tool with callback
-        # ToolManager will instantiate the tool, so we pass the class and callback as kwarg
-        self.tool_manager.register_tool('zoom', ZoomRectangleTool, 
-                                       on_zoom_callback=self._on_zoom_applied)
+        # Register zoom tool with callback using the built-in tool_manager
+        self.imageViewer.tool_manager.register_tool('zoom', ZoomRectangleTool, 
+                                                   on_zoom_callback=self._on_zoom_applied)
         
         # Keep reference to the instantiated tool for direct access if needed
-        self.zoom_tool = self.tool_manager.tools['zoom']
+        self.zoom_tool = self.imageViewer.tool_manager.tools['zoom']
         
         # Quick access to axes and canvas for drawing center lines
         self.imageAxes = self.imageViewer.axes
@@ -312,15 +307,15 @@ class SetCentDialog(QDialog):
         zoom_btn = self.imageViewer.display_panel.zoomInBtn
         if zoom_btn.isChecked():
             # Button is checked - activate the zoom tool
-            self.tool_manager.activate_tool('zoom')
+            self.imageViewer.tool_manager.activate_tool('zoom')
         else:
             # Button is unchecked - deactivate the zoom tool
-            self.tool_manager.deactivate_current_tool()
+            self.imageViewer.tool_manager.deactivate_current_tool()
     
     def _on_zoom_applied(self, zoom_bounds):
         """Called when zoom rectangle is selected - apply zoom and deactivate tool"""
         # First deactivate the tool to clear the selection rectangle
-        self.tool_manager.deactivate_current_tool()
+        self.imageViewer.tool_manager.deactivate_current_tool()
         # Then apply the zoom
         self.resizeImage(zoom_bounds)
         # Refresh the center display
