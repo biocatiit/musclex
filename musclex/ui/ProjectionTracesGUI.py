@@ -42,6 +42,7 @@ import cv2
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
 from queue import Queue
 import fabio
+import tifffile
 from musclex import __version__
 from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
@@ -746,7 +747,9 @@ class ProjectionTracesGUI(QMainWindow):
         """
         success = self.launchCalibrationSettings(force=True)
         if self.projProc is not None and success:
-            self.center_func = 'automatic'
+            # For quadrant folded images, don't change center_func
+            if not self.qfChkBx.isChecked():
+                self.center_func = 'automatic'
             self.rotated = False
             self.projProc.rotMat = None
             self.updateImage()
@@ -759,10 +762,27 @@ class ProjectionTracesGUI(QMainWindow):
         :param force: force to popup the window
         :return: True if calibration set, False otherwise
         """
-
-        if self.calSettingsDialog is None:
-            self.calSettingsDialog = CalibrationSettings(self.dir_path) if self.projProc is None else \
-                CalibrationSettings(self.dir_path, center=self.projProc.info['orig_center'])
+        # Always recreate dialog to ensure all states (quadrant_folded, center, etc.) are current
+        # This ensures consistency whether user switches images or just reopens the dialog
+        quadrant_folded = self.qfChkBx.isChecked()
+        
+        # For quadrant folded images, use the geometric center; otherwise use orig_center if available
+        center = None
+        if self.projProc is not None:
+            if quadrant_folded:
+                # For quadrant folded images, use geometric center directly
+                center = (self.projProc.orig_img.shape[1] / 2, self.projProc.orig_img.shape[0] / 2)
+                print(f"Quadrant folded image - using geometric center: {center}")
+            elif 'orig_center' in self.projProc.info:
+                # Use original center for normal images
+                center = self.projProc.info['orig_center']
+                print(f"Normal image - using original center: {center}")
+        
+        if center is None:
+            self.calSettingsDialog = CalibrationSettings(self.dir_path, quadrant_folded=quadrant_folded)
+        else:
+            self.calSettingsDialog = CalibrationSettings(self.dir_path, center=center, quadrant_folded=quadrant_folded)
+        
         self.calSettings = None
         cal_setting = self.calSettingsDialog.calSettings
         if cal_setting is not None or force:
@@ -2405,15 +2425,16 @@ class ProjectionTracesGUI(QMainWindow):
             self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
             self.addBoxTabs()
             self.selectPeaksGrp.setEnabled(False)
-            self.launchCalibrationSettings()
             self.setH5Mode(fullfilename)
-            self.onImageChanged()
+            self.onImageChanged(first_run=True)
 
-    def onImageChanged(self):
+    def onImageChanged(self, first_run=False):
         """
         Need to be called when image is change i.e. to the next image.
         This will create a new ProjectionProcessor object for the new image and syncUI if cache is available
         Process the new image if there's no cache.
+        
+        :param first_run: True if this is the initial image load (from onImageSelect)
         """
         try:
             self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
@@ -2424,6 +2445,14 @@ class ProjectionTracesGUI(QMainWindow):
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
+        
+        # Auto-detect quadrant folded images
+        self.autoDetectQuadrantFolded()
+        
+        # Launch calibration settings on first run
+        if first_run:
+            self.launchCalibrationSettings()
+        
         # self.initSpinBoxes(self.projProc.info)
         self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
@@ -2433,6 +2462,63 @@ class ProjectionTracesGUI(QMainWindow):
         self.updateCenter() # do not update fit results
         # Process new image
         self.processImage()
+
+    def autoDetectQuadrantFolded(self):
+        """
+        Auto-detect if the current image is quadrant folded based on:
+        1. Filename containing 'folded'
+        2. TIFF metadata
+        Updates the qfChkBx checkbox state accordingly.
+        """
+        if self.projProc is None:
+            return
+        
+        quadrant_folded = False
+        filename = self.imgList[self.current_file]
+        
+        # Detection logic matching EquatorImage.py
+        if filename.endswith('.tif') or filename.endswith('.tiff'):
+            # Try to read metadata first (for both methods)
+            metadata = None
+            try:
+                filepath = fullPath(self.dir_path, filename)
+                with tifffile.TiffFile(filepath) as tif:
+                    if tif.pages and "ImageDescription" in tif.pages[0].tags:
+                        metadata = tif.pages[0].tags["ImageDescription"].value
+            except Exception as e:
+                print(f"Could not read metadata from {filename}: {e}")
+            
+            # Method 1: Check filename for 'folded'
+            if 'folded' in filename.lower():
+                quadrant_folded = True
+                print(f"Detected quadrant folded image from filename: {filename}")
+            # Method 2: Parse metadata (only if filename doesn't contain 'folded')
+            else:
+                if metadata:
+                    try:
+                        # Try to parse as JSON: [quadrant_folded, initialImgDim]
+                        parsed = json.loads(metadata)
+                        if isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
+                            quadrant_folded = bool(parsed[0])
+                            if quadrant_folded:
+                                print(f"Detected quadrant folded image from TIFF metadata: {filename}")
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        # Metadata is not in expected format, not quadrant folded
+                        pass
+        else:
+            # For non-TIFF files, only check filename
+            if 'folded' in filename.lower():
+                quadrant_folded = True
+                print(f"Detected quadrant folded image from filename: {filename}")
+        
+        # Update checkbox state (disconnect signal to avoid triggering processImage again)
+        self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
+        self.qfChkBx.setChecked(quadrant_folded)
+        self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
+        
+        # Update center_func if quadrant folded
+        if quadrant_folded:
+            self.center_func = 'quadrant_fold'
 
     def initMinMaxIntensities(self, projProc):
         """
@@ -2702,7 +2788,10 @@ class ProjectionTracesGUI(QMainWindow):
                     settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-            if "center" in self.calSettings and self.center_func != 'manual':
+            
+            # For quadrant folded images, never use calibrated center (always use geometric center)
+            quadrant_folded = self.qfChkBx.isChecked()
+            if "center" in self.calSettings and self.center_func != 'manual' and not quadrant_folded:
                 settings["center"] = self.calSettings["center"]
                 self.projProc.info['orig_center'] = self.calSettings["center"]
                 self.projProc.info['centery'] = self.calSettings["center"][1]
@@ -2712,6 +2801,7 @@ class ProjectionTracesGUI(QMainWindow):
                     del self.projProc.info['centerx']
                 if 'centery' in self.projProc.info and self.center_func != 'manual':
                     del self.projProc.info['centery']
+            
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]
 
