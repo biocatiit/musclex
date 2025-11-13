@@ -32,29 +32,31 @@ from matplotlib.colors import LogNorm, Normalize
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Signal
 from .display_options_panel import DisplayOptionsPanel
+from ..tools.tool_manager import ToolManager
 
 
 class ImageViewerWidget(QWidget):
     """
-    Reusable image viewer widget with event coordination.
+    Reusable image viewer widget with built-in tool management.
     
     This widget provides:
     - Basic image display using matplotlib
-    - Event coordination: delegates to ToolManager first, then handles internally
+    - Built-in ToolManager for modal interactions
     - Built-in non-modal features: pan (middle-click drag), scroll zoom
+    - Event coordination: delegates to tool_manager first, then handles internally
     
-    Architecture:
-        - Receives all matplotlib events
-        - Delegates to tool_manager (if set) for modal interactions
-        - Falls back to internal handlers for basic navigation
+    Components:
+        - figure, axes, canvas: Matplotlib components (accessible for advanced use)
+        - tool_manager: Manages interactive tools (use tool_manager.* methods directly)
+        - display_panel: Optional display controls
     
     Usage:
         viewer = ImageViewerWidget()
         viewer.display_image(img, vmin, vmax, log_scale=False)
         
-        # Optional: connect to tool system
-        tool_manager = ToolManager(viewer.axes)
-        viewer.set_tool_manager(tool_manager)
+        # Tool management
+        viewer.tool_manager.register_tool('zoom', ZoomRectangleTool)
+        viewer.tool_manager.activate_tool('zoom')
     """
     
     # Signals
@@ -70,14 +72,14 @@ class ImageViewerWidget(QWidget):
         self.axes.set_aspect('equal', adjustable='box')
         self.canvas = FigureCanvas(self.figure)
         
+        # Built-in tool manager (publicly accessible)
+        self.tool_manager = ToolManager(self.axes, self.canvas)
+        
         # Optional display options panel
         self.display_panel = None
         if show_display_panel:
             self.display_panel = DisplayOptionsPanel(self)
             self._connect_display_panel()
-        
-        # Tool manager reference (optional, set by external code)
-        self.tool_manager = None
         
         # Internal state
         self._current_image = None
@@ -98,15 +100,6 @@ class ImageViewerWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.canvas)
-    
-    def set_tool_manager(self, tool_manager):
-        """
-        Set the tool manager for handling modal interactions.
-        
-        Args:
-            tool_manager: ToolManager instance that will receive events first
-        """
-        self.tool_manager = tool_manager
     
     def _connect_display_panel(self):
         """Connect display panel signals to internal handlers."""
