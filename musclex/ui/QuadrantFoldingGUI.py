@@ -4038,8 +4038,9 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.batchProcessing:
             self.onProcessingFinished()
         else:
-            # In batch mode, only write CSV data without UI refresh
+            # In batch mode, write CSV data and save results without UI refresh
             self.csvManager.writeNewData(self.quadFold)
+            self.saveResults()  # Save result images to qf_results/
 
         if self.lock is not None:
             self.lock.release()
