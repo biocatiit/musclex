@@ -41,6 +41,22 @@ from .ui_widget import UIWidget
 
 
 class DoubleZoomWidget(UIWidget):
+    """
+    Widget that provides a zoomed-in view for precise coordinate selection.
+    
+    This widget is designed to be decoupled from the parent's data structure.
+    It receives image data through a callback function rather than directly
+    accessing parent attributes.
+    
+    Args:
+        imageAxes: matplotlib axes object for the main image
+        parent: parent widget (for Qt widget hierarchy, not data access)
+        get_image_func: callable that returns current image (numpy array) or None
+        dontShowMessage: whether to suppress the popup message
+    
+    Signals:
+        precise_coords_ready: emitted with (x, y) when precise coordinates are selected
+    """
     # Signal emitted when precise coordinates are available from zoom window click
     # Args: (x, y) precise coordinates in image space
     precise_coords_ready = Signal(float, float)
@@ -48,10 +64,14 @@ class DoubleZoomWidget(UIWidget):
     def __init__(self,
         imageAxes=None,
         parent=None,
+        get_image_func=None,
         dontShowMessage=False):
         super().__init__(imageAxes)
 
         self.parent = parent
+        
+        # Callback function to get current image data (decoupled from parent structure)
+        self.get_image_func = get_image_func
 
         # Simple flag: True when waiting for zoom window click, False otherwise
         self.waiting_for_zoom_click = False
@@ -72,6 +92,22 @@ class DoubleZoomWidget(UIWidget):
 
         self.set_ready()
 
+    def _get_current_image(self):
+        """
+        Get the current image using the callback function.
+        
+        Returns:
+            numpy.ndarray or None: Current image data
+        """
+        if self.get_image_func is None:
+            return None
+        
+        try:
+            return self.get_image_func()
+        except Exception as e:
+            print(f"[DoubleZoom] Error getting image: {e}")
+            return None
+    
     def is_enabled(self):
         """
         Check if DoubleZoom is currently enabled (running).
@@ -122,7 +158,13 @@ class DoubleZoomWidget(UIWidget):
 
 
     def handleDoubleZoomCheckedEvent(self, doubleZoomCheckboxState):
-        if self.parent is None or self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
+        """Handle checkbox state change - enable/disable DoubleZoom."""
+        # Check if image is available through callback
+        img = self._get_current_image()
+        if img is None:
+            # Uncheck the box if image is not available
+            if doubleZoomCheckboxState == Qt.CheckState.Checked:
+                self.doubleZoomCheckbox.setChecked(False)
             return
 
         if doubleZoomCheckboxState == Qt.CheckState.Checked:
@@ -171,13 +213,13 @@ class DoubleZoomWidget(UIWidget):
         if not self.is_running():
             return
 
-        if self.parent.quadFold is None or self.parent.quadFold.orig_img is None:
+        # Get current image through callback
+        img = self._get_current_image()
+        if img is None:
             return
 
         x = mouse_event.xdata
         y = mouse_event.ydata
-
-        img = self.parent.quadFold.orig_img
 
         if mouse_event.inaxes == self.imageAxes:
             # If waiting for zoom window click, freeze zoom window
@@ -217,8 +259,9 @@ class DoubleZoomWidget(UIWidget):
             self.mainImagePoint = (x, y)
             
             # Display zoom window at clicked position and freeze it
-            img = self.parent.quadFold.orig_img
-            self.drawDoubleZoomImage(x, y, img)
+            img = self._get_current_image()
+            if img is not None:
+                self.drawDoubleZoomImage(x, y, img)
             
             # Set waiting flag - zoom window is now frozen
             self.waiting_for_zoom_click = True
