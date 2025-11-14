@@ -32,6 +32,7 @@ from matplotlib.colors import LogNorm, Normalize
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Signal
 from .display_options_panel import DisplayOptionsPanel
+from .double_zoom_widget import DoubleZoomWidget
 from ..tools.tool_manager import ToolManager
 
 
@@ -42,12 +43,21 @@ class ImageViewerWidget(QWidget):
     This widget provides:
     - Basic image display using matplotlib
     - Built-in ToolManager for modal interactions
+    - Built-in DoubleZoomWidget for precise coordinate selection
     - Built-in non-modal features: pan (middle-click drag), scroll zoom
     - Event coordination: delegates to tool_manager first, then handles internally
+    
+    Architecture:
+        - Self-contained: manages its own image data through _current_image
+        - DoubleZoom receives image data via callback (decoupled from parent)
+        - Backward compatible: can extract image from axes.images for legacy code
+        - Tools access axes/canvas directly through tool_manager
+        - Emits signals for external coordination (toolCompleted, etc.)
     
     Components:
         - figure, axes, canvas: Matplotlib components (accessible for advanced use)
         - tool_manager: Manages interactive tools (use tool_manager.* methods directly)
+        - double_zoom: Provides zoomed view for precise clicks (access via double_zoom.*)
         - display_panel: Optional display controls
     
     Usage:
@@ -57,11 +67,28 @@ class ImageViewerWidget(QWidget):
         # Tool management
         viewer.tool_manager.register_tool('zoom', ZoomRectangleTool)
         viewer.tool_manager.activate_tool('zoom')
+        
+        # DoubleZoom
+        viewer.enable_double_zoom(True)  # or use viewer.double_zoom.doubleZoomCheckbox
     """
     
-    # Signals
-    coordinatesChanged = Signal(float, float, float)  # x, y, value
+    # Signals for mouse events (raw events from matplotlib)
+    mousePressed = Signal(object)    # Mouse button press event
+    mouseMoved = Signal(object)      # Mouse motion event
+    mouseReleased = Signal(object)   # Mouse button release event
+    mouseScrolled = Signal(object)   # Mouse scroll event
+    
+    # Signals for specific interactions
+    coordinatesChanged = Signal(float, float, float)  # x, y, value at mouse position
     canvasClicked = Signal(object)  # Emitted when canvas clicked without active tool handling it
+    rightClickAt = Signal(float, float)  # Right-click at x, y
+    leftClickAt = Signal(float, float)   # Left-click at x, y
+    
+    # Tool-related signals
+    toolCompleted = Signal(str, object)  # (tool_name, result) when a tool completes
+    
+    # DoubleZoom signals
+    preciseCoordinatesSelected = Signal(float, float)  # Precise coordinates from DoubleZoom
     
     def __init__(self, parent=None, show_display_panel=False):
         super().__init__(parent)
@@ -74,6 +101,15 @@ class ImageViewerWidget(QWidget):
         
         # Built-in tool manager (publicly accessible)
         self.tool_manager = ToolManager(self.axes, self.canvas)
+        
+        # Built-in double zoom widget (publicly accessible, disabled by default)
+        # Pass callback to get current image - decoupled from parent structure
+        self.double_zoom = DoubleZoomWidget(
+            self.axes, 
+            parent=self,  # Parent is ImageViewerWidget for UI hierarchy
+            get_image_func=self._get_current_image_data  # Callback to get current image
+        )
+        # DoubleZoomWidget is initialized in ready state (disabled) by default
         
         # Optional display options panel
         self.display_panel = None
@@ -108,6 +144,49 @@ class ImageViewerWidget(QWidget):
             self.display_panel.logScaleChanged.connect(self._on_log_scale_changed_from_panel)
             self.display_panel.colorMapChanged.connect(self._on_colormap_changed_from_panel)
             self.display_panel.zoomOutRequested.connect(self.reset_zoom)
+    
+    # ===== Internal Helper Methods =====
+    
+    def _get_current_image_data(self):
+        """
+        Get current image data for DoubleZoom and other components.
+        
+        This method provides backward compatibility:
+        1. First checks _current_image (set by display_image())
+        2. Falls back to extracting from axes.images (for legacy code)
+        
+        Returns:
+            numpy.ndarray or None: Current image data
+        """
+        # Check if image was set through display_image()
+        if self._current_image is not None:
+            return self._current_image
+        
+        # Fallback: extract from axes.images (backward compatibility)
+        if len(self.axes.images) > 0:
+            # Get the most recent image
+            img_artist = self.axes.images[-1]
+            return img_artist.get_array()
+        
+        return None
+    
+    # ===== Public API for DoubleZoom =====
+    
+    def enable_double_zoom(self, enabled=True):
+        """
+        Enable or disable the DoubleZoom feature.
+        
+        Args:
+            enabled: True to enable, False to disable
+        """
+        if enabled:
+            self.double_zoom.set_running()
+        else:
+            self.double_zoom.set_ready()
+    
+    def is_double_zoom_enabled(self):
+        """Check if DoubleZoom is currently enabled."""
+        return self.double_zoom.is_enabled()
     
     def _on_intensity_changed_from_panel(self, vmin, vmax):
         """Handle intensity change from display panel."""
@@ -243,51 +322,131 @@ class ImageViewerWidget(QWidget):
     def _on_button_press(self, event):
         """
         Mouse button press event coordinator.
-        Priority: tool_manager → internal handlers
+        
+        Processing order:
+        1. Emit signal to external handlers
+        2. DoubleZoom (coordinate precision layer)
+        3. ToolManager (modal interactions)
+        4. Emit specific click signals (right/left click)
+        5. Internal handlers (pan, etc.)
         """
-        # 1. Try tool manager first (modal interactions)
+        # 0. Emit raw event signal first
+        self.mousePressed.emit(event)
+        
+        # 1. DoubleZoom handling (coordinate precision layer)
+        if self.double_zoom.is_enabled():
+            if self.double_zoom.handle_click(event):
+                return  # DoubleZoom intercepted the event
+        
+        # 2. Try tool manager (modal interactions)
         if self.tool_manager and self.tool_manager.handle_press(event):
             return  # Tool handled it
         
-        # 2. Fall back to internal handlers (basic navigation)
+        # 3. Emit specific click signals for business logic
+        if event.inaxes == self.axes and event.xdata is not None and event.ydata is not None:
+            if event.button == 3:  # Right-click
+                self.rightClickAt.emit(event.xdata, event.ydata)
+            elif event.button == 1:  # Left-click
+                self.leftClickAt.emit(event.xdata, event.ydata)
+        
+        # 4. Fall back to internal handlers (basic navigation)
         self._handle_pan_start(event)
     
     def _on_motion(self, event):
         """
         Mouse motion event coordinator.
-        Priority: tool_manager → internal handlers → coordinate display
+        
+        Processing order:
+        1. Emit signal to external handlers
+        2. DoubleZoom updates
+        3. ToolManager motion handling
+        4. Internal handlers (pan drag)
+        5. Coordinate display
         """
-        # 1. Try tool manager first (modal interactions)
+        # 0. Emit raw event signal
+        self.mouseMoved.emit(event)
+        
+        # 1. DoubleZoom updates (updates zoom window as mouse moves)
+        if self.double_zoom.is_enabled():
+            self.double_zoom.handle_mouse_move_event(event)
+        
+        # 2. Try tool manager (modal interactions)
         if self.tool_manager and self.tool_manager.handle_motion(event):
             return  # Tool handled it
         
-        # 2. Fall back to internal handlers (basic navigation)
+        # 3. Fall back to internal handlers (basic navigation)
         self._handle_pan_drag(event)
         
-        # 3. Always display coordinates (non-blocking)
+        # 4. Always display coordinates (non-blocking)
         self._display_coordinates(event)
     
     def _on_button_release(self, event):
         """
         Mouse button release event coordinator.
-        Priority: tool_manager → internal handlers → signal emission
+        
+        Processing order:
+        1. Emit signal to external handlers
+        2. DoubleZoom precise coordinate selection (two-stage click handling)
+        3. ToolManager release handling + tool completion detection
+        4. Internal handlers (pan end)
+        5. Emit canvasClicked if not handled
         """
-        # 1. Try tool manager first (modal interactions)
+        # 0. Emit raw event signal
+        self.mouseReleased.emit(event)
+        
+        # 1. DoubleZoom handling (two-stage click: main image -> zoom window)
+        # Note: handle_click already processed in _on_button_press
+        if self.double_zoom.is_enabled():
+            # Check if DoubleZoom is blocking (waiting for zoom window click after main image click)
+            if self.double_zoom.is_blocking_other_actions():
+                # First click on main image was processed - zoom frozen, waiting for second click
+                # Don't emit coordinates yet, block all further processing
+                return
+            
+            # Check if the completed click was on zoom window (second click)
+            # If so, precise coordinates were already calculated in _on_button_press
+            if event.inaxes == self.double_zoom.doubleZoomAxes:
+                # Get the precise coordinates and emit them
+                precise_x, precise_y = self.double_zoom.get_precise_coords()
+                self.preciseCoordinatesSelected.emit(precise_x, precise_y)
+                
+                # Modify event for downstream handlers (tools, etc.)
+                event.xdata = precise_x
+                event.ydata = precise_y
+                event.inaxes = self.axes
+                # Continue to tool manager with precise coordinates
+        
+        # 2. Try tool manager (modal interactions)
         tool_handled = False
         if self.tool_manager and self.tool_manager.handle_release(event):
             tool_handled = True
+            
+            # Check if the active tool has completed
+            if self.tool_manager.active_tool and hasattr(self.tool_manager.active_tool, 'completed'):
+                if self.tool_manager.active_tool.completed:
+                    # Tool has completed! Get result and emit signal
+                    tool_name, result = self.tool_manager.deactivate_current_tool()
+                    if tool_name is not None and result is not None:
+                        self.toolCompleted.emit(tool_name, result)
         
-        # 2. If no tool handled it, fall back to internal handlers and emit signal
+        # 3. If no tool handled it, fall back to internal handlers
         if not tool_handled:
             self._handle_pan_end(event)
-            # 3. Emit signal for external handlers (e.g., set center in SetCentDialog)
+            # Emit signal for external handlers
             self.canvasClicked.emit(event)
     
     def _on_scroll(self, event):
         """
         Mouse scroll event handler.
-        Scroll zoom is a built-in feature, not delegated to tools.
+        
+        Processing order:
+        1. Emit signal to external handlers
+        2. Internal wheel zoom handling
         """
+        # 0. Emit raw event signal
+        self.mouseScrolled.emit(event)
+        
+        # 1. Handle wheel zoom (built-in feature)
         if event.inaxes != self.axes or event.xdata is None:
             return
         
