@@ -855,7 +855,8 @@ class ImageMaskDialog(QDialog):
                     flippedImageArray - minInt
                 ) / (maxInt - minInt)
 
-            normFlippedImageArray = normFlippedImageArray.astype(np.uint8)
+            # Clip values to [0, 255] range before converting to uint8 to avoid underflow/overflow
+            normFlippedImageArray = np.clip(normFlippedImageArray, 0, 255).astype(np.uint8)
 
         # 3) Convert grayscale to 3-channel RGB
         #    shape: (height, width) -> (height, width, 3)
