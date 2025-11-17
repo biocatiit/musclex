@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 from PySide6.QtWidgets import (QGroupBox, QGridLayout, QVBoxLayout, QLabel, 
                                QDoubleSpinBox, QCheckBox, QPushButton,
                                QComboBox)
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 
 
 class DisplayOptionsPanel(QGroupBox):
@@ -94,6 +94,9 @@ class DisplayOptionsPanel(QGroupBox):
         """
         super().__init__("Display Options", parent)
         
+        # Make title bold to match other sections
+        self.setStyleSheet("QGroupBox { font-weight: bold; }")
+        
         self._show_persist = show_persist
         self._show_colormap = show_colormap
         self._show_double_zoom = show_double_zoom
@@ -124,9 +127,10 @@ class DisplayOptionsPanel(QGroupBox):
         # ===== Bottom Slot (for custom controls after basics) =====
         self.main_layout.addLayout(self.bottom_slot_layout)
         
-        # Double zoom (if requested, automatically add to bottom slot)
+        # Double zoom checkbox (if requested, add just the checkbox, not the whole widget)
         if self._show_double_zoom and self.double_zoom_widget:
-            self.bottom_slot_layout.addWidget(self.double_zoom_widget)
+            # Just add the checkbox itself, it will align naturally with other checkboxes
+            self.bottom_slot_layout.addWidget(self.double_zoom_widget.doubleZoomCheckbox)
     
     def _create_basic_controls(self):
         """Create the basic controls area (using GridLayout for compact layout)"""
