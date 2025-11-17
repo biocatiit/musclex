@@ -593,20 +593,17 @@ class QuadrantFoldingGUI(QMainWindow):
             show_toggle_internally=False  # Button will be placed externally
         )
 
-        # Quadrant-specific options group box
-        self.quadrantOptGrpBx = QGroupBox("Quadrant Options")
-        self.quadrantOptGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.quadrantOptLayout = QVBoxLayout(self.quadrantOptGrpBx)
-
+        # Quadrant-specific display options (add to display panel's top slot)
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
         self.showSeparator.setChecked(True)
 
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
-
-        self.quadrantOptLayout.addWidget(self.showSeparator)
-        self.quadrantOptLayout.addWidget(self.cropFoldedImageChkBx)
+        
+        # Add quadrant-specific options to display panel's top slot (before basic controls)
+        self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
+        self.image_viewer.display_panel.add_to_top_slot(self.cropFoldedImageChkBx)
         
         # Backward compatibility: expose built-in display panel controls
         self.spminInt = self.image_viewer.display_panel.minIntSpnBx
@@ -1193,7 +1190,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Add all options to the CollapsibleRightPanel
         self.right_panel.add_widget(self.image_viewer.display_panel)
-        self.right_panel.add_widget(self.quadrantOptGrpBx)
         self.right_panel.add_widget(self.blankImageGrp)
         self.right_panel.add_widget(self.setCenterGroup)
         self.right_panel.add_widget(self.rotationAngleGroup)
