@@ -61,15 +61,24 @@ class ImageViewerWidget(QWidget):
         - display_panel: Optional display controls
     
     Usage:
+        # Basic viewer
         viewer = ImageViewerWidget()
         viewer.display_image(img, vmin, vmax, log_scale=False)
+        
+        # With display panel and double zoom
+        viewer = ImageViewerWidget(show_display_panel=True, show_double_zoom=True)
         
         # Tool management
         viewer.tool_manager.register_tool('zoom', ZoomRectangleTool)
         viewer.tool_manager.activate_tool('zoom')
         
-        # DoubleZoom
+        # DoubleZoom (if not in display panel)
         viewer.enable_double_zoom(True)  # or use viewer.double_zoom.doubleZoomCheckbox
+    
+    Args:
+        parent: Parent widget
+        show_display_panel: Whether to create and display the DisplayOptionsPanel
+        show_double_zoom: Whether to include double zoom in the display panel (requires show_display_panel=True)
     """
     
     # Signals for mouse events (raw events from matplotlib)
@@ -90,7 +99,7 @@ class ImageViewerWidget(QWidget):
     # DoubleZoom signals
     preciseCoordinatesSelected = Signal(float, float)  # Precise coordinates from DoubleZoom
     
-    def __init__(self, parent=None, show_display_panel=False):
+    def __init__(self, parent=None, show_display_panel=False, show_double_zoom=False):
         super().__init__(parent)
         
         # Matplotlib components (exposed for flexibility)
@@ -114,7 +123,11 @@ class ImageViewerWidget(QWidget):
         # Optional display options panel
         self.display_panel = None
         if show_display_panel:
-            self.display_panel = DisplayOptionsPanel(self)
+            self.display_panel = DisplayOptionsPanel(
+                self, 
+                show_double_zoom=show_double_zoom,
+                double_zoom_widget=self.double_zoom if show_double_zoom else None
+            )
             self._connect_display_panel()
         
         # Internal state

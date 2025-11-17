@@ -66,7 +66,7 @@ class DisplayOptionsPanel(QGroupBox):
     zoomInRequested = Signal()  # Zoom In button clicked
     zoomOutRequested = Signal()  # Full button clicked
     
-    def __init__(self, parent=None, show_persist=True, show_colormap=True):
+    def __init__(self, parent=None, show_persist=True, show_colormap=True, show_double_zoom=False, double_zoom_widget=None):
         """
         Initialize the display options panel.
         
@@ -74,11 +74,15 @@ class DisplayOptionsPanel(QGroupBox):
             parent: Parent widget
             show_persist: Whether to show "Persist intensities" checkbox
             show_colormap: Whether to show color map selector
+            show_double_zoom: Whether to show double zoom widget
+            double_zoom_widget: The DoubleZoomWidget instance to display (if show_double_zoom is True)
         """
         super().__init__("Display Options", parent)
         
         self._show_persist = show_persist
         self._show_colormap = show_colormap
+        self._show_double_zoom = show_double_zoom
+        self.double_zoom_widget = double_zoom_widget
         self._setup_ui()
         self._setup_connections()
     
@@ -89,14 +93,20 @@ class DisplayOptionsPanel(QGroupBox):
         # Min intensity
         self.minIntLabel = QLabel("Min Intensity:")
         self.minIntSpnBx = QDoubleSpinBox()
+        self.minIntSpnBx.setRange(-1e10, 1e10)  # Allow any value for scientific data
         self.minIntSpnBx.setDecimals(2)
+        self.minIntSpnBx.setSingleStep(5)
         self.minIntSpnBx.setKeyboardTracking(False)
+        self.minIntSpnBx.setToolTip("Minimum intensity value to display")
         
         # Max intensity
         self.maxIntLabel = QLabel("Max Intensity:")
         self.maxIntSpnBx = QDoubleSpinBox()
+        self.maxIntSpnBx.setRange(-1e10, 1e10)  # Allow any value for scientific data
         self.maxIntSpnBx.setDecimals(2)
+        self.maxIntSpnBx.setSingleStep(5)
         self.maxIntSpnBx.setKeyboardTracking(False)
+        self.maxIntSpnBx.setToolTip("Maximum intensity value to display")
         
         # Zoom buttons
         self.zoomInBtn = QPushButton("Zoom In")
@@ -140,6 +150,11 @@ class DisplayOptionsPanel(QGroupBox):
         
         if self._show_persist:
             layout.addWidget(self.persistChkBx, row, 2, 1, 2)
+        
+        # Double zoom widget (optional)
+        if self._show_double_zoom and self.double_zoom_widget:
+            row += 1
+            layout.addWidget(self.double_zoom_widget, row, 0, 1, 4)
     
     def _setup_connections(self):
         """Connect internal signals."""
