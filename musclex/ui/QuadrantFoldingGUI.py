@@ -567,9 +567,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgWd = QWidget()
         self.verImgLayout.addWidget(self.selectImageButton)
 
-        # Create ImageViewerWidget (use our own display panel, not the built-in one)
+        # Create ImageViewerWidget with built-in display panel and double zoom
         # Pass self as parent so DoubleZoom can access self.quadFold
-        self.image_viewer = ImageViewerWidget(parent=self, show_display_panel=False)
+        self.image_viewer = ImageViewerWidget(parent=self, show_display_panel=True, show_double_zoom=True)
         
         # Backward compatibility: expose axes, canvas, figure for legacy code
         self.imageAxes = self.image_viewer.axes
@@ -588,62 +588,41 @@ class QuadrantFoldingGUI(QMainWindow):
         #self.rightImageFrame.setFixedWidth(500)
         #self.rightImageFrame.setLayout(self.rightImageLayout)
 
-        self.displayOptGrpBx = QGroupBox("Display Options")
-        self.displayOptGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.dispOptLayout = QGridLayout(self.displayOptGrpBx)
-
-        self.spminInt = QDoubleSpinBox()
-        self.spminInt.setRange(-1e10, 1e10)  # Allow any value
-        self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
-        self.spminInt.setKeyboardTracking(False)
-        self.spminInt.setSingleStep(5)
-        self.spminInt.setDecimals(0)
-        self.spmaxInt = QDoubleSpinBox()
-        self.spmaxInt.setRange(-1e10, 1e10)  # Allow any value
-        self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
-        self.spmaxInt.setKeyboardTracking(False)
-        self.spmaxInt.setSingleStep(5)
-        self.spmaxInt.setDecimals(0)
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistIntensity = QCheckBox("Persist intensities")
-        #self.persistIntensity.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        # Quadrant-specific options group box
+        self.quadrantOptGrpBx = QGroupBox("Quadrant Options")
+        self.quadrantOptGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
+        self.quadrantOptLayout = QVBoxLayout(self.quadrantOptGrpBx)
 
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
         self.showSeparator.setChecked(True)
 
-        self.imgZoomInB = QPushButton("Zoom in")
-        self.imgZoomInB.setCheckable(True)
-        self.imgZoomOutB = QPushButton("Full")
-        self.checkableButtons.append(self.imgZoomInB)
-
-        self.minIntLabel = QLabel('Min Intensity')
-        self.maxIntLabel = QLabel('Max Intensity')
-
-        # Use the DoubleZoom from image_viewer (already created internally)
-        self.doubleZoom = self.image_viewer.double_zoom
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
 
-        self.dispOptLayout.addWidget(self.showSeparator, 0, 0, 1, 4)
-        self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.spminInt, 2, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 1, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.spmaxInt, 2, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 3, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistIntensity, 3, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 4, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.doubleZoom, 5, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.cropFoldedImageChkBx, 5, 2, 1, 2)
+        self.quadrantOptLayout.addWidget(self.showSeparator)
+        self.quadrantOptLayout.addWidget(self.cropFoldedImageChkBx)
 
-        self.rightImageLayout.addWidget(self.displayOptGrpBx)
+        self.rightImageLayout.addWidget(self.quadrantOptGrpBx)
         self.rightImageLayout.addSpacing(10)
-
-        #self.displayOptGrpBx.setFixedHeight(160)
-
-        #self.displayOptGrpBx.setLayout(self.dispOptLayout)
-        #self.rightImageLayout.addStretch(1)
+        
+        # Backward compatibility: expose built-in display panel controls
+        self.spminInt = self.image_viewer.display_panel.minIntSpnBx
+        self.spmaxInt = self.image_viewer.display_panel.maxIntSpnBx
+        self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
+        self.persistIntensity = self.image_viewer.display_panel.persistChkBx
+        self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
+        self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
+        self.minIntLabel = self.image_viewer.display_panel.minIntLabel
+        self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
+        self.doubleZoom = self.image_viewer.double_zoom  # Now displayed in display panel
+        
+        # QuadrantFolding-specific: start with 0 decimals (initialWidgets updates to 2 for float images)
+        self.spminInt.setDecimals(0)
+        self.spmaxInt.setDecimals(0)
+        
+        # Add zoom button to checkable buttons list
+        self.checkableButtons.append(self.imgZoomInB)
 
         self.optionsLayout = QVBoxLayout()
         # self.optionsLayout.setAlignment(Qt.AlignCenter)
@@ -1220,7 +1199,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
 
-        self.optionsLayout.addWidget(self.displayOptGrpBx)
+        self.optionsLayout.addWidget(self.image_viewer.display_panel)
+        self.optionsLayout.addSpacing(10)
+        self.optionsLayout.addWidget(self.quadrantOptGrpBx)
         self.optionsLayout.addSpacing(10)
         self.optionsLayout.addWidget(self.blankImageGrp)
         self.optionsLayout.addSpacing(10)
@@ -1421,9 +1402,9 @@ class QuadrantFoldingGUI(QMainWindow):
 
         ##### Image Tab #####
         self.selectFolder.clicked.connect(self.browseFolder)
-        self.spminInt.valueChanged.connect(self.refreshImageTab)
-        self.spmaxInt.valueChanged.connect(self.refreshImageTab)
-        self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
+        # Connect built-in display panel signals
+        self.image_viewer.display_panel.intensityChanged.connect(lambda vmin, vmax: self.refreshImageTab())
+        self.image_viewer.display_panel.logScaleChanged.connect(lambda enabled: self.refreshImageTab())
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         
         ##### Navigation Controls (shared between tabs) #####
@@ -1451,8 +1432,9 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
-        self.imgZoomInB.clicked.connect(self.imageZoomIn)
-        self.imgZoomOutB.clicked.connect(self.imageZoomOut)
+        # Connect built-in display panel zoom buttons
+        self.image_viewer.display_panel.zoomInRequested.connect(self.imageZoomIn)
+        self.image_viewer.display_panel.zoomOutRequested.connect(self.imageZoomOut)
         self.calibrationButton.clicked.connect(self.calibrationClicked)
         self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
         self.setRotationButton.clicked.connect(self.setRotation)
