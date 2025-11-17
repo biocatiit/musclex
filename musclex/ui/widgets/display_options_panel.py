@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from PySide6.QtWidgets import (QGroupBox, QGridLayout, QLabel, 
+from PySide6.QtWidgets import (QGroupBox, QGridLayout, QVBoxLayout, QLabel, 
                                QDoubleSpinBox, QCheckBox, QPushButton,
                                QComboBox)
 from PySide6.QtCore import Signal
@@ -34,7 +34,7 @@ from PySide6.QtCore import Signal
 
 class DisplayOptionsPanel(QGroupBox):
     """
-    Reusable display options panel for image viewing.
+    Reusable display options panel for image viewing with slot system.
     
     This is a pure View component that provides common display controls:
     - Intensity range (min/max)
@@ -42,6 +42,20 @@ class DisplayOptionsPanel(QGroupBox):
     - Persist intensities (optional)
     - Color map selector
     - Zoom controls (Zoom In button + Full button)
+    - Extensible slots for custom controls (top and bottom)
+    
+    Layout structure:
+    ┌─────────────────────────────┐
+    │ [Top Slot - VBoxLayout]     │  ← Custom controls before basics
+    ├─────────────────────────────┤
+    │ [Basic Controls]            │  ← Fixed standard controls
+    │  Min/Max Intensity          │
+    │  Zoom buttons               │
+    │  Log scale, Persist         │
+    ├─────────────────────────────┤
+    │ [Bottom Slot - VBoxLayout]  │  ← Custom controls after basics
+    │  - Double Zoom (optional)   │
+    └─────────────────────────────┘
     
     Signals:
         intensityChanged(vmin, vmax): Intensity values changed
@@ -54,8 +68,9 @@ class DisplayOptionsPanel(QGroupBox):
     Usage:
         panel = DisplayOptionsPanel()
         panel.intensityChanged.connect(my_handler)
-        panel.zoomInRequested.connect(activate_zoom_tool)
-        panel.set_intensity_range(0, 65535)
+        
+        # Add custom controls to slots
+        panel.add_to_bottom_slot(myCheckBox)
     """
     
     # Signals
@@ -83,12 +98,40 @@ class DisplayOptionsPanel(QGroupBox):
         self._show_colormap = show_colormap
         self._show_double_zoom = show_double_zoom
         self.double_zoom_widget = double_zoom_widget
+        
+        # Main layout: VBoxLayout to hold slots and basic controls
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setSpacing(5)
+        
+        # Slot containers
+        self.top_slot_layout = QVBoxLayout()
+        self.top_slot_layout.setSpacing(3)
+        self.bottom_slot_layout = QVBoxLayout()
+        self.bottom_slot_layout.setSpacing(3)
+        
         self._setup_ui()
         self._setup_connections()
     
     def _setup_ui(self):
-        """Create and layout UI elements."""
-        layout = QGridLayout(self)
+        """Create and layout UI elements: Top Slot -> Basic Controls -> Bottom Slot"""
+        # ===== Top Slot (for custom controls before basics) =====
+        self.main_layout.addLayout(self.top_slot_layout)
+        
+        # ===== Basic Controls (fixed standard controls) =====
+        basic_layout = self._create_basic_controls()
+        self.main_layout.addLayout(basic_layout)
+        
+        # ===== Bottom Slot (for custom controls after basics) =====
+        self.main_layout.addLayout(self.bottom_slot_layout)
+        
+        # Double zoom (if requested, automatically add to bottom slot)
+        if self._show_double_zoom and self.double_zoom_widget:
+            self.bottom_slot_layout.addWidget(self.double_zoom_widget)
+    
+    def _create_basic_controls(self):
+        """Create the basic controls area (using GridLayout for compact layout)"""
+        layout = QGridLayout()
+        layout.setSpacing(5)
         
         # Min intensity
         self.minIntLabel = QLabel("Min Intensity:")
@@ -151,10 +194,7 @@ class DisplayOptionsPanel(QGroupBox):
         if self._show_persist:
             layout.addWidget(self.persistChkBx, row, 2, 1, 2)
         
-        # Double zoom widget (optional)
-        if self._show_double_zoom and self.double_zoom_widget:
-            row += 1
-            layout.addWidget(self.double_zoom_widget, row, 0, 1, 4)
+        return layout
     
     def _setup_connections(self):
         """Connect internal signals."""
@@ -307,4 +347,59 @@ class DisplayOptionsPanel(QGroupBox):
             result['persist'] = self.persistChkBx.isChecked()
         
         return result
+    
+    # ===== Slot System API =====
+    
+    def add_to_top_slot(self, widget):
+        """
+        Add a widget to the top slot (before basic controls).
+        
+        Args:
+            widget: QWidget to add
+        """
+        self.top_slot_layout.addWidget(widget)
+    
+    def add_to_bottom_slot(self, widget):
+        """
+        Add a widget to the bottom slot (after basic controls).
+        
+        Args:
+            widget: QWidget to add
+        """
+        self.bottom_slot_layout.addWidget(widget)
+    
+    def add_custom_controls(self, widgets, position='bottom'):
+        """
+        Add multiple widgets to a slot.
+        
+        Args:
+            widgets: List of widgets or single widget
+            position: 'top' or 'bottom'
+        """
+        if not isinstance(widgets, (list, tuple)):
+            widgets = [widgets]
+        
+        for widget in widgets:
+            if position == 'top':
+                self.add_to_top_slot(widget)
+            else:
+                self.add_to_bottom_slot(widget)
+    
+    def clear_top_slot(self):
+        """Remove all widgets from the top slot."""
+        while self.top_slot_layout.count():
+            child = self.top_slot_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+    
+    def clear_bottom_slot(self):
+        """
+        Remove all widgets from the bottom slot.
+        Note: Preserves double_zoom if it was added.
+        """
+        while self.bottom_slot_layout.count():
+            child = self.bottom_slot_layout.takeAt(0)
+            widget = child.widget()
+            if widget and widget != self.double_zoom_widget:
+                widget.deleteLater()
 
