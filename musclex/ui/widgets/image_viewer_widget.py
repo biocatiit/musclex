@@ -99,6 +99,9 @@ class ImageViewerWidget(QWidget):
     # DoubleZoom signals
     preciseCoordinatesSelected = Signal(float, float)  # Precise coordinates from DoubleZoom
     
+    # Display options signals
+    displayOptionsChanged = Signal(dict)  # Display options (vmin, vmax, log_scale, colormap) changed
+    
     def __init__(self, parent=None, show_display_panel=False, show_double_zoom=False):
         super().__init__(parent)
         
@@ -207,18 +210,26 @@ class ImageViewerWidget(QWidget):
         self._current_vmax = vmax
         if self._current_image is not None:
             self.update_display_settings()
+            self._emit_display_options_changed()
     
     def _on_log_scale_changed_from_panel(self, log_scale):
         """Handle log scale change from display panel."""
         self._current_log_scale = log_scale
         if self._current_image is not None:
             self.update_display_settings()
+            self._emit_display_options_changed()
     
     def _on_colormap_changed_from_panel(self, colormap):
         """Handle colormap change from display panel."""
         self._current_colormap = colormap
         if self._current_image is not None:
             self.update_display_settings()
+            self._emit_display_options_changed()
+    
+    def _emit_display_options_changed(self):
+        """Emit signal when display options change."""
+        options = self.get_display_options()
+        self.displayOptionsChanged.emit(options)
     
     # ===== Public API =====
     
@@ -259,20 +270,23 @@ class ImageViewerWidget(QWidget):
         
         self.canvas.draw()
     
-    def display_image(self, img, vmin=None, vmax=None, log_scale=False):
+    def display_image(self, img, vmin=None, vmax=None, log_scale=False, colormap=None):
         """
         Display an image with specified intensity settings.
         
         Args:
             img: 2D numpy array
-            vmin: Minimum intensity value
-            vmax: Maximum intensity value
+            vmin: Minimum intensity value (defaults to image min)
+            vmax: Maximum intensity value (defaults to image max)
             log_scale: Whether to use logarithmic scale
+            colormap: Color map name (defaults to current colormap)
         """
         self._current_image = img
         self._current_vmin = vmin if vmin is not None else img.min()
         self._current_vmax = vmax if vmax is not None else img.max()
         self._current_log_scale = log_scale
+        if colormap is not None:
+            self._current_colormap = colormap
         
         self.axes.cla()
         
@@ -293,8 +307,81 @@ class ImageViewerWidget(QWidget):
             self.display_panel.set_intensity_range(img.min(), img.max())
             if vmin is not None and vmax is not None:
                 self.display_panel.set_intensity_values(vmin, vmax)
+            if log_scale:
+                self.display_panel.set_log_scale(log_scale)
+            if colormap is not None:
+                self.display_panel.set_color_map(colormap)
         
         self.canvas.draw()
+        
+        # Emit signal for external handlers
+        self._emit_display_options_changed()
+    
+    def refresh_display(self):
+        """
+        Refresh the display with current settings (alias for update_display_settings).
+        Preserves zoom level and any overlays.
+        """
+        self.update_display_settings()
+    
+    def get_display_options(self):
+        """
+        Get current display options.
+        
+        Returns:
+            Dict with display settings: vmin, vmax, log_scale, colormap
+        """
+        return {
+            'vmin': self._current_vmin,
+            'vmax': self._current_vmax,
+            'log_scale': self._current_log_scale,
+            'colormap': self._current_colormap
+        }
+    
+    def set_display_options(self, vmin=None, vmax=None, log_scale=None, colormap=None):
+        """
+        Set display options programmatically and update display.
+        
+        Args:
+            vmin: Minimum intensity value
+            vmax: Maximum intensity value
+            log_scale: Whether to use logarithmic scale
+            colormap: Color map name
+        """
+        changed = False
+        
+        if vmin is not None and vmin != self._current_vmin:
+            self._current_vmin = vmin
+            changed = True
+        
+        if vmax is not None and vmax != self._current_vmax:
+            self._current_vmax = vmax
+            changed = True
+        
+        if log_scale is not None and log_scale != self._current_log_scale:
+            self._current_log_scale = log_scale
+            changed = True
+        
+        if colormap is not None and colormap != self._current_colormap:
+            self._current_colormap = colormap
+            changed = True
+        
+        # Update display panel if present
+        if self.display_panel:
+            if vmin is not None or vmax is not None:
+                self.display_panel.set_intensity_values(
+                    vmin if vmin is not None else self._current_vmin,
+                    vmax if vmax is not None else self._current_vmax
+                )
+            if log_scale is not None:
+                self.display_panel.set_log_scale(log_scale)
+            if colormap is not None:
+                self.display_panel.set_color_map(colormap)
+        
+        # Refresh display if anything changed
+        if changed and self._current_image is not None:
+            self.update_display_settings()
+            self._emit_display_options_changed()
     
     def reset_zoom(self):
         """Reset view to show full image."""

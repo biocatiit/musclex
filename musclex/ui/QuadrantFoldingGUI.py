@@ -68,6 +68,7 @@ from .tools.rotation_tool import RotationTool
 from .tools.center_rotate_tool import CenterRotateTool
 from .tools.zoom_rectangle_tool import ZoomRectangleTool
 from .widgets.image_viewer_widget import ImageViewerWidget
+from .widgets.collapsible_right_panel import CollapsibleRightPanel
 import time
 import random
 
@@ -554,7 +555,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.leftWidget = QWidget()
         self.leftWidget.setLayout(self.verImgLayout)
-        self.leftWidget.setMinimumWidth(650)
+        # Remove minimum width constraint to allow image viewer to use more space
+        # The select buttons have fixed width (300px), so leftWidget will naturally size to fit
 
         self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
@@ -577,16 +579,19 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageFigure = self.image_viewer.figure
         
         self.imageCanvas.setHidden(True)  # Initially hidden
-        self.imageTabLayout.addWidget(self.leftWidget)
-        self.imageTabLayout.addWidget(self.image_viewer)
-        #self.imageTabLayout.addStretch()
+        # Set stretch factors: leftWidget(0), image_viewer(1) to make image area expand
+        self.imageTabLayout.addWidget(self.leftWidget, 0)  # Don't stretch, use minimum size
+        self.imageTabLayout.addWidget(self.image_viewer, 1)  # Stretch to fill available space
 
-
-        self.rightImageFrame = QFrame()
-        self.rightImageLayout = QVBoxLayout(self.rightImageFrame)
-
-        #self.rightImageFrame.setFixedWidth(500)
-        #self.rightImageFrame.setLayout(self.rightImageLayout)
+        # Create CollapsibleRightPanel to wrap all right-side options
+        # Toggle button will be placed externally at the top for better UX
+        self.right_panel = CollapsibleRightPanel(
+            parent=self, 
+            title="Options", 
+            settings_key="quadrant/right_panel",
+            start_visible=True,
+            show_toggle_internally=False  # Button will be placed externally
+        )
 
         # Quadrant-specific options group box
         self.quadrantOptGrpBx = QGroupBox("Quadrant Options")
@@ -602,9 +607,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.quadrantOptLayout.addWidget(self.showSeparator)
         self.quadrantOptLayout.addWidget(self.cropFoldedImageChkBx)
-
-        self.rightImageLayout.addWidget(self.quadrantOptGrpBx)
-        self.rightImageLayout.addSpacing(10)
         
         # Backward compatibility: expose built-in display panel controls
         self.spminInt = self.image_viewer.display_panel.minIntSpnBx
@@ -624,8 +626,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # Add zoom button to checkable buttons list
         self.checkableButtons.append(self.imgZoomInB)
 
-        self.optionsLayout = QVBoxLayout()
-        # self.optionsLayout.setAlignment(Qt.AlignCenter)
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.settingsLayout = QGridLayout(self.settingsGroup)
@@ -752,13 +752,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.applyMaskChkBx = QCheckBox("Apply Mask")
         self.applyMaskChkBx.setEnabled(False)  # Disabled until settings exist
         self.blankImageLayout.addWidget(self.applyMaskChkBx, 1, 2, 1, 2)
-
-        self.rightImageLayout.addWidget(self.blankImageGrp)
-        self.rightImageLayout.addWidget(self.settingsGroup)
-
-
-        self.rightImageLayout.addStretch()
-
 
         # Result processing and background Subtraction
         self.resProcGrpBx = QGroupBox()
@@ -1198,33 +1191,33 @@ class QuadrantFoldingGUI(QMainWindow):
         # Single reusable navigation widget (shared between tabs)
         self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
+        # Add all options to the CollapsibleRightPanel
+        self.right_panel.add_widget(self.image_viewer.display_panel)
+        self.right_panel.add_widget(self.quadrantOptGrpBx)
+        self.right_panel.add_widget(self.blankImageGrp)
+        self.right_panel.add_widget(self.setCenterGroup)
+        self.right_panel.add_widget(self.rotationAngleGroup)
+        self.right_panel.add_widget(self.settingsGroup)
+        
+        # Set fixed width for the right panel
+        self.right_panel.setFixedWidth(500)
 
-        self.optionsLayout.addWidget(self.image_viewer.display_panel)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.quadrantOptGrpBx)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.blankImageGrp)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.setCenterGroup)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.rotationAngleGroup)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.settingsGroup)
+        # Create a container for toggle button + right panel + navigation controls
+        # Toggle button and navigation controls should always be visible
+        self.rightSideContainer = QWidget()
+        self.rightSideLayout = QVBoxLayout(self.rightSideContainer)
+        self.rightSideLayout.setContentsMargins(0, 0, 0, 0)
+        self.rightSideLayout.setSpacing(5)
+        
+        # Extract toggle button from right_panel and add it to the top
+        # This keeps the button visible even when panel is collapsed
+        self.rightSideLayout.addWidget(self.right_panel.toggle_btn)
+        self.rightSideLayout.addWidget(self.right_panel)
+        self.rightSideLayout.addWidget(self.navControls)
+        self.rightSideContainer.setFixedWidth(500)
 
-        self.optionsLayout.addStretch()
-        self.optionsLayout.addWidget(self.navControls)
-        self.frameOfKeys = QFrame()
-        self.frameOfKeys.setFixedWidth(500)
-        self.frameOfKeys.setLayout(self.optionsLayout)
-        #self.imageTabLayout.addWidget(self.frameOfKeys)
-
-        self.scroll_areaImg = QScrollArea()
-        self.scroll_areaImg.setWidgetResizable(True)
-        self.scroll_areaImg.setWidget(self.frameOfKeys)
-
-        self.scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-
-        self.imageTabLayout.addWidget(self.scroll_areaImg)
+        # Add container to the main layout (stretch=0 to keep fixed width)
+        self.imageTabLayout.addWidget(self.rightSideContainer, 0)
 
         ##### Result Tab #####
         self.resultTab = QWidget()
@@ -1254,7 +1247,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.res_scroll_areaImg.setWidgetResizable(True)
         self.res_scroll_areaImg.setWidget(self.rightFrame)
 
-        self.scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.res_scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         self.resultTabLayout.addWidget(self.res_scroll_areaImg)
 
@@ -3650,7 +3643,8 @@ class QuadrantFoldingGUI(QMainWindow):
         
         # Add navControls to the appropriate layout based on tab index
         if index == 0:  # Image tab
-            self.optionsLayout.addWidget(self.navControls)
+            # In Image tab, navControls should be in rightSideLayout (always visible, below collapsible panel)
+            self.rightSideLayout.addWidget(self.navControls)
         elif index == 1:  # Results tab
             self.buttonsLayout2.addWidget(self.navControls, 0, 0, 1, 1)
         
