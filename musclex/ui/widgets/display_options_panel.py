@@ -228,10 +228,22 @@ class DisplayOptionsPanel(QGroupBox):
     
     def _on_intensity_changed(self):
         """Internal handler: collect values and emit signal."""
-        self.intensityChanged.emit(
-            self.minIntSpnBx.value(),
-            self.maxIntSpnBx.value()
-        )
+        vmin = self.minIntSpnBx.value()
+        vmax = self.maxIntSpnBx.value()
+        
+        # Ensure min <= max to prevent matplotlib errors
+        if vmin > vmax:
+            # Swap them silently to prevent errors
+            vmin, vmax = vmax, vmin
+            # Update the spin boxes without triggering signals again
+            self.minIntSpnBx.blockSignals(True)
+            self.maxIntSpnBx.blockSignals(True)
+            self.minIntSpnBx.setValue(vmin)
+            self.maxIntSpnBx.setValue(vmax)
+            self.minIntSpnBx.blockSignals(False)
+            self.maxIntSpnBx.blockSignals(False)
+        
+        self.intensityChanged.emit(vmin, vmax)
     
     def _on_zoom_in_clicked(self):
         """Handle Zoom In button click."""
