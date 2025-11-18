@@ -585,13 +585,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imageTabLayout.addWidget(self.image_viewer, 1)  # Stretch to fill available space
 
         # Create CollapsibleRightPanel to wrap all right-side options
-        # Toggle button will be placed externally at the top for better UX
         self.right_panel = CollapsibleRightPanel(
             parent=self, 
             title="Options", 
             settings_key="quadrant/right_panel",
             start_visible=True,
-            show_toggle_internally=False  # Button will be placed externally
+            show_toggle_internally=False  # Toggle button will be floating
         )
 
         # Quadrant-specific display options (add to display panel's top slot)
@@ -1189,32 +1188,33 @@ class QuadrantFoldingGUI(QMainWindow):
         # Single reusable navigation widget (shared between tabs)
         self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
-        # Add all options to the CollapsibleRightPanel
+        # Add options to the CollapsibleRightPanel's scrollable content area
         self.right_panel.add_widget(self.image_viewer.display_panel)
         self.right_panel.add_widget(self.blankImageGrp)
         self.right_panel.add_widget(self.setCenterGroup)
         self.right_panel.add_widget(self.rotationAngleGroup)
         self.right_panel.add_widget(self.settingsGroup)
         
+        # Add navigation controls to the fixed bottom area (always visible, no scrolling)
+        self.right_panel.add_bottom_widget(self.navControls)
+        
         # Set fixed width for the right panel
         self.right_panel.setFixedWidth(500)
-
-        # Create a container for toggle button + right panel + navigation controls
-        # Toggle button and navigation controls should always be visible
-        self.rightSideContainer = QWidget()
-        self.rightSideLayout = QVBoxLayout(self.rightSideContainer)
-        self.rightSideLayout.setContentsMargins(0, 0, 0, 0)
-        self.rightSideLayout.setSpacing(5)
         
-        # Extract toggle button from right_panel and add it to the top
-        # This keeps the button visible even when panel is collapsed
-        self.rightSideLayout.addWidget(self.right_panel.toggle_btn)
-        self.rightSideLayout.addWidget(self.right_panel)
-        self.rightSideLayout.addWidget(self.navControls)
-        self.rightSideContainer.setFixedWidth(500)
+        # Add some top margin to the panel to avoid overlap with toggle button
+        self.right_panel.setContentsMargins(0, 35, 0, 0)  # 35px top margin for toggle button
 
-        # Add container to the main layout (stretch=0 to keep fixed width)
-        self.imageTabLayout.addWidget(self.rightSideContainer, 0)
+        # Add right panel directly to the main layout (stretch=0 to keep fixed width)
+        self.imageTabLayout.addWidget(self.right_panel, 0)
+        
+        # Setup floating toggle button
+        # Make toggle button a child of imageTab so it floats above content
+        self.right_panel.toggle_btn.setParent(self.imageTab)
+        self.right_panel.toggle_btn.raise_()  # Bring to front
+        self.right_panel.toggle_btn.show()
+        
+        # Position toggle button in top-right corner (will be updated in resizeEvent)
+        self._position_toggle_button()
 
         ##### Result Tab #####
         self.resultTab = QWidget()
@@ -1397,6 +1397,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # Connect built-in display panel signals
         self.image_viewer.display_panel.intensityChanged.connect(lambda vmin, vmax: self.refreshImageTab())
         self.image_viewer.display_panel.logScaleChanged.connect(lambda enabled: self.refreshImageTab())
+        self.image_viewer.display_panel.colorMapChanged.connect(lambda cmap: self.refreshImageTab())
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         
         ##### Navigation Controls (shared between tabs) #####
@@ -3642,13 +3643,35 @@ class QuadrantFoldingGUI(QMainWindow):
         
         # Add navControls to the appropriate layout based on tab index
         if index == 0:  # Image tab
-            # In Image tab, navControls should be in rightSideLayout (always visible, below collapsible panel)
-            self.rightSideLayout.addWidget(self.navControls)
+            # In Image tab, navControls should be in right_panel's bottom area (fixed, always visible)
+            self.right_panel.add_bottom_widget(self.navControls)
+            # Show floating toggle button in Image tab
+            self.right_panel.toggle_btn.show()
+            self._position_toggle_button()
         elif index == 1:  # Results tab
             self.buttonsLayout2.addWidget(self.navControls, 0, 0, 1, 1)
+            # Hide floating toggle button in Results tab
+            self.right_panel.toggle_btn.hide()
         
         # Trigger UI update
         self.updateUI()
+    
+    def _position_toggle_button(self):
+        """Position the floating toggle button in the top-right corner of the image tab."""
+        if hasattr(self, 'right_panel') and hasattr(self, 'imageTab'):
+            # Get imageTab dimensions
+            tab_width = self.imageTab.width()
+            # Position button in top-right corner
+            # Place it above the panel, with proper spacing
+            button_x = tab_width - self.right_panel.toggle_btn.width() - 10
+            button_y = 5  # Small top margin
+            self.right_panel.toggle_btn.move(button_x, button_y)
+    
+    def resizeEvent(self, event):
+        """Handle window resize to reposition floating toggle button."""
+        super().resizeEvent(event)
+        # Reposition toggle button when window is resized
+        self._position_toggle_button()
 
     def updateUI(self):
         """
@@ -3684,12 +3707,15 @@ class QuadrantFoldingGUI(QMainWindow):
 
             self.extent = extent
 
+            # Get current colormap from display panel
+            current_cmap = self.image_viewer.display_panel.get_color_map()
+            
             if self.logScaleIntChkBx.isChecked():
-                #ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
+                #ax.imshow(img, cmap=current_cmap, norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                ax.imshow(img, cmap=current_cmap, norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
             else:
-                #ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
+                #ax.imshow(img, cmap=current_cmap, norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
+                ax.imshow(img, cmap=current_cmap, norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
             ax.set_facecolor('black')
 
             if self.showSeparator.isChecked():
@@ -3893,10 +3919,14 @@ class QuadrantFoldingGUI(QMainWindow):
             # img = getBGR(get8bitImage(img, max=self.spResultmaxInt.value(), min=self.spResultminInt.value()))
             ax = self.resultAxes
             ax.cla()
+            
+            # Get current colormap from display panel
+            current_cmap = self.image_viewer.display_panel.get_color_map()
+            
             if self.resLogScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.spResultminInt.value()), vmax=self.spResultmaxInt.value()))
+                ax.imshow(img, cmap=current_cmap, norm=LogNorm(vmin=max(1, self.spResultminInt.value()), vmax=self.spResultmaxInt.value()))
             else:
-                ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.spResultminInt.value(), vmax=self.spResultmaxInt.value()))
+                ax.imshow(img, cmap=current_cmap, norm=Normalize(vmin=self.spResultminInt.value(), vmax=self.spResultmaxInt.value()))
             ax.set_facecolor('black')
 
             # Set Zoom in location

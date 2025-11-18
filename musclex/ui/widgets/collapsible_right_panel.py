@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QScrollArea, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QFrame
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Signal, QSettings
 from PySide6.QtGui import QIcon
 
@@ -110,12 +110,12 @@ class CollapsibleRightPanel(QWidget):
     
     def _setup_ui(self):
         """Create UI components."""
-        # Toggle button
+        # Toggle button - small and compact, fixed in top-right
         self.toggle_btn = QPushButton()
         self.toggle_btn.setCheckable(True)
         self.toggle_btn.setChecked(True)  # Start as visible
         self.toggle_btn.setToolTip("Hide panel")
-        self.toggle_btn.setMaximumHeight(30)
+        self.toggle_btn.setFixedSize(50, 25)  # Small fixed size
         self.toggle_btn.clicked.connect(self._on_toggle_clicked)
         self._update_button_text()
         
@@ -135,11 +135,23 @@ class CollapsibleRightPanel(QWidget):
         
         self.scroll_area.setWidget(self.content_widget)
         
+        # Fixed bottom area (for navigation controls, always visible)
+        self.bottom_widget = QWidget()
+        self.bottom_layout = QVBoxLayout(self.bottom_widget)
+        self.bottom_layout.setContentsMargins(5, 5, 5, 5)
+        self.bottom_layout.setSpacing(5)
+        
         # Add to main layout
         # Only add toggle button if it should be shown internally
         if self.show_toggle_internally:
-            self.main_layout.addWidget(self.toggle_btn)
-        self.main_layout.addWidget(self.scroll_area)
+            # Create a horizontal layout for the button to align it to the right
+            button_layout = QHBoxLayout()
+            button_layout.setContentsMargins(0, 0, 0, 0)
+            button_layout.addStretch()  # Push button to the right
+            button_layout.addWidget(self.toggle_btn)
+            self.main_layout.addLayout(button_layout)
+        self.main_layout.addWidget(self.scroll_area, 1)  # Stretch factor 1 - can grow
+        self.main_layout.addWidget(self.bottom_widget, 0)  # Stretch factor 0 - fixed size
         
         # Animation for smooth collapse/expand
         self.animation = QPropertyAnimation(self.scroll_area, b"maximumHeight")
@@ -149,10 +161,10 @@ class CollapsibleRightPanel(QWidget):
     def _update_button_text(self):
         """Update button text based on state."""
         if self.toggle_btn.isChecked():
-            self.toggle_btn.setText("<<  Hide")
+            self.toggle_btn.setText("<<")  # Just arrow, compact
             self.toggle_btn.setToolTip(f"Hide {self.title}")
         else:
-            self.toggle_btn.setText(">>  Show")
+            self.toggle_btn.setText(">>")  # Just arrow, compact
             self.toggle_btn.setToolTip(f"Show {self.title}")
     
     def _on_toggle_clicked(self):
@@ -162,7 +174,7 @@ class CollapsibleRightPanel(QWidget):
     
     def set_visible(self, visible, animate=True):
         """
-        Set panel visibility (show/hide content area).
+        Set panel visibility (show/hide entire panel).
         
         Args:
             visible: True to show, False to hide
@@ -172,28 +184,11 @@ class CollapsibleRightPanel(QWidget):
         self.toggle_btn.setChecked(visible)
         self._update_button_text()
         
-        # Animate or instant change
-        if animate:
-            # Get target height
-            if visible:
-                # Expand: restore to content height
-                target_height = self.content_widget.sizeHint().height()
-                # Ensure reasonable limits
-                target_height = min(max(target_height, 100), 16777215)
-            else:
-                # Collapse: 0 height
-                target_height = 0
-            
-            # Animate
-            self.animation.setStartValue(self.scroll_area.height())
-            self.animation.setEndValue(target_height)
-            self.animation.start()
+        # Show or hide the entire panel widget
+        if visible:
+            self.show()
         else:
-            # Instant change
-            if visible:
-                self.scroll_area.setMaximumHeight(16777215)  # Qt max
-            else:
-                self.scroll_area.setMaximumHeight(0)
+            self.hide()
         
         # Save state
         if self.settings_key:
@@ -229,6 +224,16 @@ class CollapsibleRightPanel(QWidget):
         for widget in widgets:
             self.add_widget(widget)
     
+    def add_bottom_widget(self, widget):
+        """
+        Add a widget to the fixed bottom area (outside scroll area).
+        This area is always visible and doesn't scroll.
+        
+        Args:
+            widget: QWidget to add to bottom area
+        """
+        self.bottom_layout.addWidget(widget)
+    
     def get_content_layout(self):
         """
         Get the content layout for direct manipulation.
@@ -237,6 +242,15 @@ class CollapsibleRightPanel(QWidget):
             QVBoxLayout of content area
         """
         return self.content_layout
+    
+    def get_bottom_layout(self):
+        """
+        Get the bottom layout for direct manipulation.
+        
+        Returns:
+            QVBoxLayout of bottom fixed area
+        """
+        return self.bottom_layout
     
     def clear_content(self):
         """Remove all widgets from content area."""
