@@ -7,6 +7,7 @@ from .zoom_handler import ZoomHandler
 from .ui_widget import UIWidget
 from .display_options_panel import DisplayOptionsPanel
 from .collapsible_right_panel import CollapsibleRightPanel
+from .collapsible_groupbox import CollapsibleGroupBox
 from .image_viewer_widget import ImageViewerWidget
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     'UIWidget',
     'DisplayOptionsPanel',
     'CollapsibleRightPanel',
+    'CollapsibleGroupBox',
     'ImageViewerWidget',
 ]
