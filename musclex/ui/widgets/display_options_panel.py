@@ -30,13 +30,15 @@ from PySide6.QtWidgets import (QGroupBox, QGridLayout, QVBoxLayout, QLabel,
                                QDoubleSpinBox, QCheckBox, QPushButton,
                                QComboBox)
 from PySide6.QtCore import Signal, Qt
+from .collapsible_groupbox import CollapsibleGroupBox
 
 
-class DisplayOptionsPanel(QGroupBox):
+class DisplayOptionsPanel(CollapsibleGroupBox):
     """
-    Reusable display options panel for image viewing with slot system.
+    Reusable collapsible display options panel for image viewing with slot system.
     
     This is a pure View component that provides common display controls:
+    - Collapsible/expandable (inherits from CollapsibleGroupBox)
     - Intensity range (min/max)
     - Log scale toggle
     - Persist intensities (optional)
@@ -45,7 +47,7 @@ class DisplayOptionsPanel(QGroupBox):
     - Extensible slots for custom controls (top and bottom)
     
     Layout structure:
-    ┌─────────────────────────────┐
+    ┌─ ▼ Display Options ─────────┐
     │ [Top Slot - VBoxLayout]     │  ← Custom controls before basics
     ├─────────────────────────────┤
     │ [Basic Controls]            │  ← Fixed standard controls
@@ -57,6 +59,9 @@ class DisplayOptionsPanel(QGroupBox):
     │  - Double Zoom (optional)   │
     └─────────────────────────────┘
     
+    When collapsed:
+    ┌─ ▶ Display Options ─────────┐
+    
     Signals:
         intensityChanged(vmin, vmax): Intensity values changed
         logScaleChanged(enabled): Log scale toggled
@@ -64,13 +69,18 @@ class DisplayOptionsPanel(QGroupBox):
         colorMapChanged(colormap): Color map changed
         zoomInRequested(): Zoom In button clicked
         zoomOutRequested(): Full button clicked
+        toggled(expanded): Inherited from CollapsibleGroupBox
     
     Usage:
-        panel = DisplayOptionsPanel()
+        panel = DisplayOptionsPanel(start_expanded=True)
         panel.intensityChanged.connect(my_handler)
         
         # Add custom controls to slots
         panel.add_to_bottom_slot(myCheckBox)
+        
+        # Control collapse/expand
+        panel.set_expanded(False)  # Collapse
+        panel.set_expanded(True)   # Expand
     """
     
     # Signals
@@ -81,7 +91,7 @@ class DisplayOptionsPanel(QGroupBox):
     zoomInRequested = Signal()  # Zoom In button clicked
     zoomOutRequested = Signal()  # Full button clicked
     
-    def __init__(self, parent=None, show_persist=True, show_colormap=True, show_double_zoom=False, double_zoom_widget=None):
+    def __init__(self, parent=None, show_persist=True, show_colormap=True, show_double_zoom=False, double_zoom_widget=None, start_expanded=True):
         """
         Initialize the display options panel.
         
@@ -91,11 +101,10 @@ class DisplayOptionsPanel(QGroupBox):
             show_colormap: Whether to show color map selector
             show_double_zoom: Whether to show double zoom widget
             double_zoom_widget: The DoubleZoomWidget instance to display (if show_double_zoom is True)
+            start_expanded: Whether to start expanded (default: True)
         """
-        super().__init__("Display Options", parent)
-        
-        # Make title bold to match other sections
-        self.setStyleSheet("QGroupBox { font-weight: bold; }")
+        # Call CollapsibleGroupBox constructor (includes bold title style)
+        super().__init__("Display Options", parent, start_expanded=start_expanded)
         
         self._show_persist = show_persist
         self._show_colormap = show_colormap
@@ -103,7 +112,7 @@ class DisplayOptionsPanel(QGroupBox):
         self.double_zoom_widget = double_zoom_widget
         
         # Main layout: VBoxLayout to hold slots and basic controls
-        self.main_layout = QVBoxLayout(self)
+        self.main_layout = QVBoxLayout()
         self.main_layout.setSpacing(5)
         
         # Slot containers
@@ -114,6 +123,9 @@ class DisplayOptionsPanel(QGroupBox):
         
         self._setup_ui()
         self._setup_connections()
+        
+        # Set the layout after all widgets are created (required for CollapsibleGroupBox)
+        self.setLayout(self.main_layout)
     
     def _setup_ui(self):
         """Create and layout UI elements: Top Slot -> Basic Controls -> Bottom Slot"""
