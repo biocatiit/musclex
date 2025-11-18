@@ -300,6 +300,8 @@ class ImageViewerWidget(QWidget):
         self.axes.set_facecolor('black')
         self.axes.set_xlim(0, img.shape[1])
         self.axes.set_ylim(0, img.shape[0])
+        # Invert Y-axis to match image coordinates: (0,0) at top-left
+        # This ensures Y increases downward, matching image array indexing
         self.axes.invert_yaxis()
         
         # Update display panel if present
@@ -387,8 +389,8 @@ class ImageViewerWidget(QWidget):
         """Reset view to show full image."""
         if self._current_image is not None:
             self.axes.set_xlim(0, self._current_image.shape[1])
-            self.axes.set_ylim(0, self._current_image.shape[0])
-            self.axes.invert_yaxis()
+            # Set ylim in correct order for inverted Y-axis (already inverted in display_image)
+            self.axes.set_ylim(self._current_image.shape[0], 0)
             self.canvas.draw()
     
     def set_zoom_bounds(self, xlim, ylim):
@@ -397,11 +399,10 @@ class ImageViewerWidget(QWidget):
         
         Args:
             xlim: Tuple (xmin, xmax)
-            ylim: Tuple (ymin, ymax)
+            ylim: Tuple (ymin, ymax) - Note: for inverted Y-axis, use (ymax, ymin)
         """
         self.axes.set_xlim(xlim)
         self.axes.set_ylim(ylim)
-        self.axes.invert_yaxis()
         self.canvas.draw()
     
     def get_zoom_bounds(self):
@@ -578,25 +579,71 @@ class ImageViewerWidget(QWidget):
     
     def _handle_wheel_zoom(self, event):
         """Handle mouse wheel zoom (always available)."""
-        # Scroll up = zoom in (view gets smaller), Scroll down = zoom out (view gets larger)
-        scale = 1.0 / 1.2 if event.button == 'up' else 1.2
+        if self._current_image is None or event.xdata is None or event.ydata is None:
+            return
+        
+        direction = event.button
+        x = event.xdata
+        y = event.ydata
+        img_shape = self._current_image.shape
         
         xlim = self.axes.get_xlim()
         ylim = self.axes.get_ylim()
         
-        # Zoom centered on mouse position
-        xdata, ydata = event.xdata, event.ydata
+        # Calculate current view size (using absolute difference to handle inverted axes)
+        zoom_width = abs(xlim[1] - xlim[0])
+        zoom_height = abs(ylim[1] - ylim[0])
         
-        new_width = (xlim[1] - xlim[0]) * scale
-        new_height = (ylim[1] - ylim[0]) * scale
+        # Calculate clicked position percentage within current view
+        # Work with actual min/max regardless of axis direction
+        x_min, x_max = min(xlim), max(xlim)
+        y_min, y_max = min(ylim), max(ylim)
         
-        relx = (xlim[1] - xdata) / (xlim[1] - xlim[0])
-        rely = (ylim[1] - ydata) / (ylim[1] - ylim[0])
+        clicked_x_percentage = (x - x_min) / zoom_width if zoom_width > 0 else 0.5
+        clicked_y_percentage = (y - y_min) / zoom_height if zoom_height > 0 else 0.5
         
-        self.axes.set_xlim([xdata - new_width * (1 - relx),
-                           xdata + new_width * relx])
-        self.axes.set_ylim([ydata - new_height * (1 - rely),
-                           ydata + new_height * rely])
+        # Calculate step size (10% of current view)
+        step_x = 0.1 * zoom_width
+        step_y = 0.1 * zoom_height
+        
+        # Adjust step direction: zoom in = reduce view, zoom out = increase view
+        if direction == 'up':  # zoom in
+            step_x *= -1
+            step_y *= -1
+        
+        # Calculate new view size with constraints
+        zoom_width = min(img_shape[1], max(zoom_width + step_x, 50))
+        zoom_height = min(img_shape[0], max(zoom_height + step_y, 50))
+        
+        # Calculate new bounds centered on mouse position
+        x1 = x - clicked_x_percentage * zoom_width
+        x2 = x1 + zoom_width
+        y1 = y - clicked_y_percentage * zoom_height
+        y2 = y1 + zoom_height
+        
+        # Constrain to image bounds
+        if x1 < 0:
+            x1 = 0
+            x2 = zoom_width
+        if x2 > img_shape[1]:
+            x2 = img_shape[1]
+            x1 = img_shape[1] - zoom_width
+        
+        if y1 < 0:
+            y1 = 0
+            y2 = zoom_height
+        if y2 > img_shape[0]:
+            y2 = img_shape[0]
+            y1 = img_shape[0] - zoom_height
+        
+        # Apply new limits
+        self.axes.set_xlim(x1, x2)
+        # For inverted Y-axis, set limits in reverse order to maintain inversion
+        if ylim[0] > ylim[1]:  # Y-axis is inverted
+            self.axes.set_ylim(y2, y1)
+        else:  # Normal Y-axis
+            self.axes.set_ylim(y1, y2)
+        
         self.canvas.draw_idle()
     
     def _display_coordinates(self, event):

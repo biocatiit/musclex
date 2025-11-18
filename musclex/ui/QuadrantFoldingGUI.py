@@ -1446,7 +1446,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.image_viewer.mousePressed.connect(self.imageClicked)
         self.image_viewer.mouseMoved.connect(self.imageOnMotion)
         self.image_viewer.mouseReleased.connect(self.imageReleased)
-        self.image_viewer.mouseScrolled.connect(self.imgScrolled)
+
         self.image_viewer.coordinatesChanged.connect(self._on_image_coordinates_changed)
         self.image_viewer.rightClickAt.connect(self._on_image_right_click)
         self.image_viewer.toolCompleted.connect(self._on_tool_completed)
@@ -2807,65 +2807,6 @@ class QuadrantFoldingGUI(QMainWindow):
             self.function = None
             self.display_points = None
 
-    def imgScrolled(self, event):
-        """
-        This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out
-        """
-        if self.quadFold is None or event.xdata is None or event.ydata is None:
-            return
-
-        direction = event.button
-        x = event.xdata
-        y = event.ydata
-        img_size = self.quadFold.orig_img.shape
-
-        if self.img_zoom is None:
-            self.img_zoom = [(0, img_size[1]), (0, img_size[0])]
-
-        zoom_height = self.img_zoom[1][1] - self.img_zoom[1][0]
-        zoom_width = self.img_zoom[0][1] - self.img_zoom[0][0]
-
-        clicked_x_percentage = 1. * (x - self.img_zoom[0][0]) / zoom_width
-        clicked_y_percentage = 1. * (y - self.img_zoom[1][0]) / zoom_height
-
-        step_x = .1 * zoom_width
-        step_y = .1 * zoom_height
-        if direction == 'up':  # zoom in
-            step_x *= -1
-            step_y *= -1
-        zoom_width = min(img_size[1], max(zoom_width + step_x, 50))
-        zoom_height = min(img_size[0], max(zoom_height + step_y, 50))
-
-        x1 = x - clicked_x_percentage * zoom_width
-        x2 = x1 + zoom_width
-        y1 = y - clicked_y_percentage * zoom_height
-        y2 = y1 + zoom_height
-
-        if x1 < 0:
-            x1 = 0
-            x2 = zoom_width
-
-        if y1 < 0:
-            y1 = 0
-            y2 = zoom_height
-
-        if x2 > img_size[1]:
-            x2 = img_size[1]
-            x1 = img_size[1] - zoom_width
-
-        if y2 > img_size[0]:
-            y2 = img_size[0]
-            y1 = img_size[0] - zoom_height
-
-        # Set new x, y ranges
-        self.img_zoom = [(x1, x2), (y1, y2)]
-
-        # To zoom-in or zoom-out is setting x and y limit of figure
-        ax = self.imageAxes
-        ax.set_xlim(self.img_zoom[0])
-        ax.set_ylim(self.img_zoom[1])
-        #ax.invert_yaxis()
-        self.imageCanvas.draw_idle()
 
     def RminChanged(self):
         """
@@ -3132,7 +3073,7 @@ class QuadrantFoldingGUI(QMainWindow):
         ax = self.resultAxes
         ax.set_xlim(self.result_zoom[0])
         ax.set_ylim(self.result_zoom[1])
-        ax.invert_yaxis()
+        # Y-axis already inverted in updateResultTab, don't toggle it again
         self.resultCanvas.draw_idle()
 
     def setManualRmin(self):
@@ -3694,29 +3635,26 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.updated['img']:
             self.uiUpdating = True
 
-            ax = self.imageAxes
-            ax.cla()
-
             if self.quadFold is None or self.quadFold.orig_img is None:
                 return
 
             img = self.quadFold.orig_img
-
             extent = [0,0]
             center = self.quadFold.center
-
             self.extent = extent
 
-            # Get current colormap from display panel
+            # Use ImageViewerWidget's API to display image (handles invert_yaxis internally)
             current_cmap = self.image_viewer.display_panel.get_color_map()
+            self.image_viewer.display_image(
+                img, 
+                vmin=self.spminInt.value(),
+                vmax=self.spmaxInt.value(),
+                log_scale=self.logScaleIntChkBx.isChecked(),
+                colormap=current_cmap
+            )
             
-            if self.logScaleIntChkBx.isChecked():
-                #ax.imshow(img, cmap=current_cmap, norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
-                ax.imshow(img, cmap=current_cmap, norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
-            else:
-                #ax.imshow(img, cmap=current_cmap, norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()), extent=[0-extent[0], img.shape[1] - extent[0], img.shape[0]-extent[1], 0 - extent[1]])
-                ax.imshow(img, cmap=current_cmap, norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
-            ax.set_facecolor('black')
+            # Get axes for drawing overlays
+            ax = self.imageAxes
 
             if self.showSeparator.isChecked():
                 # Draw quadrant separator
@@ -3757,10 +3695,10 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim(self.default_img_zoom[1])
             else:
                 ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
-                ax.set_ylim((0-extent[1], img.shape[0] - extent[1]))
+                ax.set_ylim((img.shape[0] - extent[1], 0-extent[1]))  # Note: (bottom, top) for inverted Y
 
             self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
-            #ax.invert_yaxis()
+            # No need to call invert_yaxis() - already handled by image_viewer.display_image()
             self.imageFigure.tight_layout()
             self.imageCanvas.draw()
 
@@ -3941,7 +3879,7 @@ class QuadrantFoldingGUI(QMainWindow):
                 ax.set_ylim((0, img.shape[0]))
 
             self.result_zoom = [ax.get_xlim(), ax.get_ylim()]
-            #ax.invert_yaxis()
+            ax.invert_yaxis()
             self.resultFigure.tight_layout()
             self.resultCanvas.draw()
 
