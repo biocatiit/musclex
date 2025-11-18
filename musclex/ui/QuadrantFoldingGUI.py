@@ -69,6 +69,7 @@ from .tools.center_rotate_tool import CenterRotateTool
 from .tools.zoom_rectangle_tool import ZoomRectangleTool
 from .widgets.image_viewer_widget import ImageViewerWidget
 from .widgets.collapsible_right_panel import CollapsibleRightPanel
+from .widgets.collapsible_groupbox import CollapsibleGroupBox
 import time
 import random
 
@@ -623,9 +624,8 @@ class QuadrantFoldingGUI(QMainWindow):
         # Add zoom button to checkable buttons list
         self.checkableButtons.append(self.imgZoomInB)
 
-        self.settingsGroup = QGroupBox("Image Processing")
-        self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.settingsLayout = QGridLayout(self.settingsGroup)
+        self.settingsGroup = CollapsibleGroupBox("Image Processing", start_expanded=True)
+        self.settingsLayout = QGridLayout()
         #self.settingsLayout.setScaledContents(False)
         #self.settingsLayout.setWidgetResizable(False)
         #self.settingsGroup.setLayout(self.settingsLayout)
@@ -637,9 +637,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setCenterRotationButton.setCheckable(False)
         self.checkableButtons.append(self.setCenterRotationButton)
 
-        self.setCenterGroup = QGroupBox("Set Center")
-        self.setCenterGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.setCenterLayout = QGridLayout(self.setCenterGroup)
+        self.setCenterGroup = CollapsibleGroupBox("Set Center", start_expanded=True)
+        self.setCenterLayout = QGridLayout()
         self.calibrationButton = QPushButton("Set Center by Calibration")
 
         self.setCentByChords = QPushButton("Set Center by Chords")
@@ -653,9 +652,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.setCentBtn.setCheckable(False)
         self.checkableButtons.append(self.setCentBtn)
 
-        self.rotationAngleGroup = QGroupBox("Set Rotation Angle")
-        self.rotationAngleGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.rotationAngleLayout = QGridLayout(self.rotationAngleGroup)
+        self.rotationAngleGroup = CollapsibleGroupBox("Set Rotation Angle", start_expanded=True)
+        self.rotationAngleLayout = QGridLayout()
         self.setRotationButton = QPushButton("Set Angle Interactively")
         self.setRotationButton.setCheckable(False)
         self.checkableButtons.append(self.setRotationButton)
@@ -732,10 +730,9 @@ class QuadrantFoldingGUI(QMainWindow):
         settingsRowIndex += 1
 
         # Blank Image Settings
-        self.blankImageGrp = QGroupBox("Apply Blank Image and Mask")
-        self.blankImageGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
+        self.blankImageGrp = CollapsibleGroupBox("Apply Blank Image and Mask", start_expanded=True)
 
-        self.blankImageLayout = QGridLayout(self.blankImageGrp)
+        self.blankImageLayout = QGridLayout()
         self.blankSettingButton = QPushButton("Set Empty Cell Image")
         self.blankImageLayout.addWidget(self.blankSettingButton, 0, 0, 1, 2)
         self.maskSettingButton = QPushButton("Set Mask")
@@ -751,9 +748,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.blankImageLayout.addWidget(self.applyMaskChkBx, 1, 2, 1, 2)
 
         # Result processing and background Subtraction
-        self.resProcGrpBx = QGroupBox()
-        self.resProcGrpBx.setTitle("Result Processing")
-        self.resProcGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
+        self.resProcGrpBx = CollapsibleGroupBox("Result Processing", start_expanded=False)
         self.resProcGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
         self.setFitRoi = QPushButton("Set Region Of Interest (ROI)")
@@ -1185,6 +1180,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.resProcGrpBx.setLayout(self.bgLayout)
 
+        # Set layouts for all CollapsibleGroupBox widgets
+        self.blankImageGrp.setLayout(self.blankImageLayout)
+        self.setCenterGroup.setLayout(self.setCenterLayout)
+        self.rotationAngleGroup.setLayout(self.rotationAngleLayout)
+        self.settingsGroup.setLayout(self.settingsLayout)
+
         # Single reusable navigation widget (shared between tabs)
         self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
 
@@ -1248,9 +1249,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultTabLayout.addWidget(self.res_scroll_areaImg)
 
         # Display Options
-        self.resultDispOptGrp = QGroupBox("Display Options")
-        self.resultDispOptGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.resultDispOptLayout = QGridLayout(self.resultDispOptGrp)
+        self.resultDispOptGrp = CollapsibleGroupBox("Display Options", start_expanded=True)
+        self.resultDispOptLayout = QGridLayout()
 
         self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
 
@@ -1294,6 +1294,9 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.leftLayout.addSpacing(10)
         # self.leftLayout.addWidget(self.blankImageGrp)
         # self.leftLayout.addStretch()
+
+        # Set layout for resultDispOptGrp (CollapsibleGroupBox)
+        self.resultDispOptGrp.setLayout(self.resultDispOptLayout)
 
         self.rightLayout.addWidget(self.resultDispOptGrp)
         self.rightLayout.addSpacing(10)
