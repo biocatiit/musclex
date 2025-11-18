@@ -141,6 +141,7 @@ class ImageViewerWidget(QWidget):
         self._current_log_scale = False
         self._pan_start = None
         self._zoom_bounds = None
+        self._left_button_pressed = False  # Track left button for drag panning
         
         # Connect matplotlib events (event coordination hub)
         self.canvas.mpl_connect('button_press_event', self._on_button_press)
@@ -556,26 +557,91 @@ class ImageViewerWidget(QWidget):
     # ===== Internal Handlers (built-in non-modal features) =====
     
     def _handle_pan_start(self, event):
-        """Start pan operation (middle-click drag)."""
-        if event.button == 2 and event.inaxes == self.axes:  # Middle button
+        """
+        Start pan operation.
+        
+        Supports:
+        - Middle-click drag (always available)
+        - Left-click drag (only when no tool/DoubleZoom is active)
+        """
+        if event.inaxes != self.axes or event.xdata is None or event.ydata is None:
+            return
+        
+        # Middle-click: always available for pan
+        if event.button == 2:
             self._pan_start = (event.xdata, event.ydata)
+            return
+        
+        # Left-click: only when no tool or DoubleZoom is active
+        if event.button == 1:
+            # Check if any tool is active or DoubleZoom is enabled
+            has_active_tool = self.tool_manager and self.tool_manager.has_active_tool()
+            double_zoom_enabled = self.double_zoom.is_enabled()
+            
+            if not has_active_tool and not double_zoom_enabled:
+                self._pan_start = (event.xdata, event.ydata)
+                self._left_button_pressed = True
     
     def _handle_pan_drag(self, event):
-        """Execute pan operation."""
-        if self._pan_start and event.xdata is not None and event.ydata is not None:
-            dx = self._pan_start[0] - event.xdata
-            dy = self._pan_start[1] - event.ydata
-            
-            xlim = self.axes.get_xlim()
-            ylim = self.axes.get_ylim()
-            
-            self.axes.set_xlim(xlim[0] + dx, xlim[1] + dx)
-            self.axes.set_ylim(ylim[0] + dy, ylim[1] + dy)
-            self.canvas.draw_idle()
+        """Execute pan operation with boundary constraints."""
+        if not self._pan_start or event.xdata is None or event.ydata is None:
+            return
+        
+        if self._current_image is None:
+            return
+        
+        dx = self._pan_start[0] - event.xdata
+        dy = self._pan_start[1] - event.ydata
+        
+        xlim = self.axes.get_xlim()
+        ylim = self.axes.get_ylim()
+        
+        # Calculate new limits
+        new_x1 = xlim[0] + dx
+        new_x2 = xlim[1] + dx
+        new_y1 = ylim[0] + dy
+        new_y2 = ylim[1] + dy
+        
+        # Get image bounds
+        img_width = self._current_image.shape[1]
+        img_height = self._current_image.shape[0]
+        
+        # Apply boundary constraints for X axis
+        zoom_width = xlim[1] - xlim[0]
+        if new_x1 < 0:
+            new_x1 = 0
+            new_x2 = zoom_width
+        if new_x2 > img_width:
+            new_x2 = img_width
+            new_x1 = img_width - zoom_width
+        
+        # Apply boundary constraints for Y axis
+        # Handle both normal and inverted Y-axis
+        if ylim[0] > ylim[1]:  # Inverted Y-axis
+            zoom_height = ylim[0] - ylim[1]
+            if new_y2 < 0:
+                new_y2 = 0
+                new_y1 = zoom_height
+            if new_y1 > img_height:
+                new_y1 = img_height
+                new_y2 = img_height - zoom_height
+        else:  # Normal Y-axis
+            zoom_height = ylim[1] - ylim[0]
+            if new_y1 < 0:
+                new_y1 = 0
+                new_y2 = zoom_height
+            if new_y2 > img_height:
+                new_y2 = img_height
+                new_y1 = img_height - zoom_height
+        
+        self.axes.set_xlim(new_x1, new_x2)
+        self.axes.set_ylim(new_y1, new_y2)
+        self.canvas.draw_idle()
     
     def _handle_pan_end(self, event):
         """End pan operation."""
         self._pan_start = None
+        self._left_button_pressed = False
     
     def _handle_wheel_zoom(self, event):
         """Handle mouse wheel zoom (always available)."""

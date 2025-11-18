@@ -2625,7 +2625,8 @@ class QuadrantFoldingGUI(QMainWindow):
         - ToolManager handling
         - Right-click handling (via _on_image_right_click signal)
         
-        So this only handles legacy im_move functionality.
+        Left-click pan/drag is now handled internally by ImageViewerWidget.
+        This only handles legacy state cleanup.
         """
         if not self.ableToProcess():
             return
@@ -2640,18 +2641,6 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.function is not None and self.function[0] == 'ignorefold':
             self.function = None
             self.display_points = None
-
-        # Only handle im_move for left-click when no tool is active
-        if self.function is None:
-            # Don't set im_move if a tool is active or DoubleZoom is enabled
-            if self.image_viewer.tool_manager.has_active_tool() or self.image_viewer.is_double_zoom_enabled():
-                return
-            
-            # Right-click is handled by _on_image_right_click signal
-            # So this only handles left-click (button == 1)
-            if event.button == 1:
-                self.function = ["im_move", (x, y)]
-                self.display_points = ["im_move", (x, y)]
 
 
     def calcMouseMovement(self):
@@ -2767,26 +2756,9 @@ class QuadrantFoldingGUI(QMainWindow):
             y = int(round(y))
 
 
-        if self.function is None:
-            return
-
-        func = self.function
-        # im_zoomin now handled by matplotlib RectangleSelector
-        if func[0] == "im_move":
-            # Don't execute im_move if DoubleZoom is enabled (to prevent pan during DoubleZoom)
-            if not self.doubleZoom.is_enabled():
-                if self.img_zoom is not None:
-                    move = (func[1][0] - x, func[1][1] - y)
-                    self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
-                    ax.set_xlim(self.img_zoom[0])
-                    ax.set_ylim(self.img_zoom[1])
-                    #ax.invert_yaxis()
-                    self.imageCanvas.draw_idle()
-        # Deprecated tool-specific code blocks removed - now handled by:
-        # - ChordsCenterTool
-        # - PerpendicularsCenterTool
-        # - CenterRotateTool
-        # - RotationTool
+        # Pan/drag is now handled internally by ImageViewerWidget
+        # All tool interactions are handled by ToolManager in ImageViewerWidget
+        # This function is kept for potential future use but no longer processes mouse motion
 
     def imageReleased(self, event):
         """
@@ -2797,15 +2769,11 @@ class QuadrantFoldingGUI(QMainWindow):
         - ToolManager release handling (handled in ImageViewerWidget)
         - Tool completion detection (handled via _on_tool_completed signal)
         
-        This only handles legacy im_move cleanup.
+        Pan/drag is now handled internally by ImageViewerWidget.
+        This function is kept for potential future use.
         """
         if not self.ableToProcess():
             return
-        
-        # Clean up im_move state
-        if self.function is not None and self.function[0] == "im_move":
-            self.function = None
-            self.display_points = None
 
 
     def RminChanged(self):
@@ -2876,7 +2844,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # Provide different behavior depending on current active function
         if self.function is None:
             self.function = ["r_move", (x, y)]
-            self.display_points = ["im_move", (x, y)]
+            self.display_points = ["r_move", (x, y)]
         else:
             func = self.function
             if func[0] == "r_zoomin":
