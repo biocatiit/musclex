@@ -467,4 +467,14 @@ def main(arguments=None):
         print("Submit Feedback or issues : https://www.github.com/biocatiit/musclex/issues\n\n")
 
 if __name__ == "__main__":
+    import multiprocessing
+    # Critical for frozen apps (PyInstaller/py2app) on macOS
+    multiprocessing.freeze_support()
+    # Set spawn as default start method globally
+    # Must be done before any GUI or multiprocessing usage
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass  # Already set
+    
     main(sys.argv)

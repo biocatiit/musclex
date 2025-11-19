@@ -603,4 +603,13 @@ class TestDialog(QDialog):
         return release
 
 if __name__ == "__main__":
+    import multiprocessing
+    # Critical for frozen apps (PyInstaller/py2app) on macOS
+    multiprocessing.freeze_support()
+    # Set spawn as default start method globally
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass  # Already set
+    
     LauncherForm.main()

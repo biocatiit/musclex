@@ -198,12 +198,16 @@ class EquatorWindow(QMainWindow):
         from concurrent.futures import ProcessPoolExecutor
         from ..headless.mp_executor import init_worker
         import os
+        import multiprocessing
         
         worker_count = int(os.environ.get('MUSCLEX_WORKERS', max(1, os.cpu_count() - 2)))
         
         try:
+            # Use spawn context explicitly for better stability on macOS
+            ctx = multiprocessing.get_context('spawn')
             self.processExecutor = ProcessPoolExecutor(
                 max_workers=worker_count,
+                mp_context=ctx,
                 initializer=init_worker
             )
             print(f"✓ Initialized process pool with {worker_count} workers")

@@ -34,6 +34,7 @@ import fabio
 from .hdf5_manager import loadFile
 from PySide6.QtWidgets import QMessageBox
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 import hashlib
 import time
 import pickle
@@ -436,7 +437,9 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
             progress_dict['h5_total'] = len(h5_files)
             progress_dict['h5_done'] = 0
         
-        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+        # Use spawn context explicitly to avoid macOS fork issues in packaged apps
+        ctx = multiprocessing.get_context('spawn')
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as pool:
             paths = [p for _, _, p in h5_files]
             # Use submit instead of map to track progress
             futures = [pool.submit(_h5_nframes, path) for path in paths]
