@@ -70,6 +70,8 @@ from .tools.zoom_rectangle_tool import ZoomRectangleTool
 from .widgets.image_viewer_widget import ImageViewerWidget
 from .widgets.collapsible_right_panel import CollapsibleRightPanel
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
+from .widgets.center_settings_widget import CenterSettingsWidget
+from .widgets.rotation_settings_widget import RotationSettingsWidget
 import time
 import random
 
@@ -79,219 +81,6 @@ class QuadFoldParams:
         self.index = index
         self.file_manager = file_manager
         self.parent = parent
-
-
-class ApplyCenterDialog(QDialog):
-    """Dialog for choosing how to apply center to images"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Apply Center")
-        
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Apply current center to:"))
-        
-        # Create radio buttons for exclusive selection
-        self.subsequentRadio = QRadioButton("Apply to subsequent images")
-        self.previousRadio = QRadioButton("Apply to previous images")
-        self.allRadio = QRadioButton("Apply to all images")
-        
-        # Set default selection
-        self.subsequentRadio.setChecked(True)
-        
-        layout.addWidget(self.subsequentRadio)
-        layout.addWidget(self.previousRadio)
-        layout.addWidget(self.allRadio)
-        
-        # OK and Cancel buttons
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
-        layout.addWidget(buttonBox)
-        
-        self.setLayout(layout)
-    
-    def getSelection(self):
-        """Returns 'subsequent', 'previous', or 'all'"""
-        if self.subsequentRadio.isChecked():
-            return 'subsequent'
-        elif self.previousRadio.isChecked():
-            return 'previous'
-        else:
-            return 'all'
-
-
-class RestoreAutoCenterDialog(QDialog):
-    """Dialog for choosing how to restore auto center to images"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Restore Auto Center")
-        
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Restore auto center to:"))
-        
-        # Create radio buttons for exclusive selection
-        self.currentRadio = QRadioButton("Apply to current image")
-        self.subsequentRadio = QRadioButton("Apply to subsequent images")
-        self.previousRadio = QRadioButton("Apply to previous images")
-        self.allRadio = QRadioButton("Apply to all images")
-        
-        # Set default selection to current image
-        self.currentRadio.setChecked(True)
-        
-        layout.addWidget(self.currentRadio)
-        layout.addWidget(self.subsequentRadio)
-        layout.addWidget(self.previousRadio)
-        layout.addWidget(self.allRadio)
-        
-        # OK and Cancel buttons
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
-        layout.addWidget(buttonBox)
-        
-        self.setLayout(layout)
-    
-    def getSelection(self):
-        """Returns 'current', 'subsequent', 'previous', or 'all'"""
-        if self.currentRadio.isChecked():
-            return 'current'
-        elif self.subsequentRadio.isChecked():
-            return 'subsequent'
-        elif self.previousRadio.isChecked():
-            return 'previous'
-        else:
-            return 'all'
-
-
-class ApplyRotationDialog(QDialog):
-    """Dialog for choosing how to apply rotation to images"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Apply Rotation")
-        
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Apply current rotation to:"))
-        
-        # Create radio buttons for exclusive selection
-        self.subsequentRadio = QRadioButton("Apply to subsequent images")
-        self.previousRadio = QRadioButton("Apply to previous images")
-        self.allRadio = QRadioButton("Apply to all images")
-        
-        # Set default selection
-        self.subsequentRadio.setChecked(True)
-        
-        layout.addWidget(self.subsequentRadio)
-        layout.addWidget(self.previousRadio)
-        layout.addWidget(self.allRadio)
-        
-        # OK and Cancel buttons
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
-        layout.addWidget(buttonBox)
-        
-        self.setLayout(layout)
-    
-    def getSelection(self):
-        """Returns 'subsequent', 'previous', or 'all'"""
-        if self.subsequentRadio.isChecked():
-            return 'subsequent'
-        elif self.previousRadio.isChecked():
-            return 'previous'
-        else:
-            return 'all'
-
-
-class RestoreAutoRotationDialog(QDialog):
-    """Dialog for choosing how to restore auto rotation to images"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Restore Auto Rotation")
-        
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Restore auto rotation to:"))
-        
-        # Create radio buttons for exclusive selection
-        self.currentRadio = QRadioButton("Apply to current image")
-        self.subsequentRadio = QRadioButton("Apply to subsequent images")
-        self.previousRadio = QRadioButton("Apply to previous images")
-        self.allRadio = QRadioButton("Apply to all images")
-        
-        # Set default selection to current image
-        self.currentRadio.setChecked(True)
-        
-        layout.addWidget(self.currentRadio)
-        layout.addWidget(self.subsequentRadio)
-        layout.addWidget(self.previousRadio)
-        layout.addWidget(self.allRadio)
-        
-        # OK and Cancel buttons
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
-        layout.addWidget(buttonBox)
-        
-        self.setLayout(layout)
-    
-    def getSelection(self):
-        """Returns 'current', 'subsequent', 'previous', or 'all'"""
-        if self.currentRadio.isChecked():
-            return 'current'
-        elif self.subsequentRadio.isChecked():
-            return 'subsequent'
-        elif self.previousRadio.isChecked():
-            return 'previous'
-        else:
-            return 'all'
-
-
-class AutoOrientationDialog(QDialog):
-    """Dialog for configuring automatic orientation settings"""
-    def __init__(self, parent=None, current_orientation_model=None, mode_orientation_enabled=False):
-        super().__init__(parent)
-        self.setWindowTitle("Auto Orientation Settings")
-        
-        layout = QVBoxLayout()
-        
-        # Orientation Finding
-        orientationLayout = QHBoxLayout()
-        orientationLayout.addWidget(QLabel("Orientation Finding:"))
-        self.orientationCmbBx = QComboBox()
-        self.orientationCmbBx.addItem("Max Intensity")
-        self.orientationCmbBx.addItem("GMM")
-        self.orientationCmbBx.addItem("Herman Factor (Half Pi)")
-        self.orientationCmbBx.addItem("Herman Factor (Pi)")
-        if current_orientation_model is not None:
-            self.orientationCmbBx.setCurrentIndex(current_orientation_model)
-        orientationLayout.addWidget(self.orientationCmbBx)
-        layout.addLayout(orientationLayout)
-        
-        layout.addSpacing(10)
-        
-        # Mode Orientation
-        self.modeAngleChkBx = QCheckBox("Mode Orientation")
-        self.modeAngleChkBx.setChecked(mode_orientation_enabled)
-        self.modeAngleChkBx.setToolTip("Use the most common orientation angle from all images in the folder")
-        layout.addWidget(self.modeAngleChkBx)
-        
-        layout.addSpacing(20)
-        
-        # OK and Cancel buttons
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
-        layout.addWidget(buttonBox)
-        
-        self.setLayout(layout)
-        self.setMinimumWidth(350)
-    
-    def getOrientationModel(self):
-        """Returns the selected orientation model index"""
-        return self.orientationCmbBx.currentIndex()
-    
-    def getModeOrientationEnabled(self):
-        """Returns whether mode orientation is enabled"""
-        return self.modeAngleChkBx.isChecked()
 
 
 class WorkerSignals(QObject):
@@ -632,53 +421,19 @@ class QuadrantFoldingGUI(QMainWindow):
         #self.settingsGroup.setFixedHeight(300)
         #self.settingsGroup.setMinimumSize(400, 200)
 
-        self.setCenterRotationButton = QPushButton("Quick Center and Rotation Angle")
-        self.setCenterRotationButton.setCheckable(False)
-        self.checkableButtons.append(self.setCenterRotationButton)
-
-        self.setCenterGroup = CollapsibleGroupBox("Set Center", start_expanded=True)
-        self.setCenterLayout = QGridLayout()
-        self.calibrationButton = QPushButton("Set Center by Calibration")
-
-        self.setCentByChords = QPushButton("Set Center by Chords")
-        self.setCentByChords.setCheckable(False)
-        self.checkableButtons.append(self.setCentByChords)
-        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
-        self.setCentByPerp.setCheckable(False)
-        self.checkableButtons.append(self.setCentByPerp)
-
-        self.setCentBtn = QPushButton("Set Center Manually")
-        self.setCentBtn.setCheckable(False)
-        self.checkableButtons.append(self.setCentBtn)
-
-        self.rotationAngleGroup = CollapsibleGroupBox("Set Rotation Angle", start_expanded=True)
-        self.rotationAngleLayout = QGridLayout()
-        self.setRotationButton = QPushButton("Set Angle Interactively")
-        self.setRotationButton.setCheckable(False)
-        self.checkableButtons.append(self.setRotationButton)
-
-        self.setAngleBtn = QPushButton("Set Angle Manually")
-        self.setAngleBtn.setCheckable(False)
-        self.checkableButtons.append(self.setAngleBtn)
+        # Create center and rotation settings widgets
+        self.centerSettings = CenterSettingsWidget(parent=self)
+        self.rotationSettings = RotationSettingsWidget(parent=self, 
+                                                       orientation_model=self.orientationModel,
+                                                       mode_orientation_enabled=self.modeOrientation is not None)
         
-        self.setAutoOrientationBtn = QPushButton("Set Auto Orientation")
-        self.setAutoOrientationBtn.setCheckable(False)
-
-        self.imageCenter = QLabel()
-        self.imageCenter.setStyleSheet("color: green")
-        self.applyCenterMode = QLabel()
-        self.applyCenterMode.setStyleSheet("color: green")
-
-        self.applyCenterBtn = QPushButton("Apply Center")
-        self.restoreAutoCenterBtn = QPushButton("Restore Auto Center")
-
-        self.rotationAngleLabel = QLabel()
-        self.rotationAngleLabel.setStyleSheet("color: green")
-        self.applyRotationMode = QLabel()
-        self.applyRotationMode.setStyleSheet("color: green")
-        
-        self.applyRotationBtn = QPushButton("Apply Rotation")
-        self.restoreAutoRotationBtn = QPushButton("Restore Auto Rotation")
+        # Add checkable buttons from widgets to checkableButtons list
+        self.checkableButtons.append(self.centerSettings.setCenterRotationButton)
+        self.checkableButtons.append(self.centerSettings.setCentByChords)
+        self.checkableButtons.append(self.centerSettings.setCentByPerp)
+        self.checkableButtons.append(self.centerSettings.setCentBtn)
+        self.checkableButtons.append(self.rotationSettings.setRotationButton)
+        self.checkableButtons.append(self.rotationSettings.setAngleBtn)
 
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
         self.compressFoldedImageChkBx.setChecked(True)
@@ -686,38 +441,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
-
-        centerLayoutRowIndex = 0
-        self.setCenterLayout.addWidget(self.setCenterRotationButton, centerLayoutRowIndex, 0, 1, 4)
-        centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(self.calibrationButton, centerLayoutRowIndex, 0, 1, 2)
-        self.setCenterLayout.addWidget(self.setCentBtn, centerLayoutRowIndex, 2, 1, 2)
-        centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(self.setCentByChords, centerLayoutRowIndex, 0, 1, 2)
-        self.setCenterLayout.addWidget(self.setCentByPerp, centerLayoutRowIndex, 2, 1, 2)
-        centerLayoutRowIndex += 1
-
-        self.setCenterLayout.addWidget(self.imageCenter, centerLayoutRowIndex, 0, 1, 4)
-        centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(self.applyCenterMode, centerLayoutRowIndex, 0, 1, 4)
-        centerLayoutRowIndex += 1
-        self.setCenterLayout.addWidget(self.applyCenterBtn, centerLayoutRowIndex, 0, 1, 2)
-        self.setCenterLayout.addWidget(self.restoreAutoCenterBtn, centerLayoutRowIndex, 2, 1, 2)
-        centerLayoutRowIndex += 1
-
-        rotationAngleRowIndex = 0
-        self.rotationAngleLayout.addWidget(self.setAutoOrientationBtn, rotationAngleRowIndex, 0, 1, 4)
-        rotationAngleRowIndex += 1
-        self.rotationAngleLayout.addWidget(self.setRotationButton, rotationAngleRowIndex, 0, 1, 2)
-        self.rotationAngleLayout.addWidget(self.setAngleBtn, rotationAngleRowIndex, 2, 1, 2)
-        rotationAngleRowIndex += 1
-        self.rotationAngleLayout.addWidget(self.rotationAngleLabel, rotationAngleRowIndex, 0, 1, 4)
-        rotationAngleRowIndex += 1
-        self.rotationAngleLayout.addWidget(self.applyRotationMode, rotationAngleRowIndex, 0, 1, 4)
-        rotationAngleRowIndex += 1
-        self.rotationAngleLayout.addWidget(self.applyRotationBtn, rotationAngleRowIndex, 0, 1, 2)
-        self.rotationAngleLayout.addWidget(self.restoreAutoRotationBtn, rotationAngleRowIndex, 2, 1, 2)
-        rotationAngleRowIndex += 1
 
         settingsRowIndex = 0
 
@@ -1181,8 +904,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Set layouts for all CollapsibleGroupBox widgets
         self.blankImageGrp.setLayout(self.blankImageLayout)
-        self.setCenterGroup.setLayout(self.setCenterLayout)
-        self.rotationAngleGroup.setLayout(self.rotationAngleLayout)
         self.settingsGroup.setLayout(self.settingsLayout)
 
         # Single reusable navigation widget (shared between tabs)
@@ -1191,8 +912,8 @@ class QuadrantFoldingGUI(QMainWindow):
         # Add options to the CollapsibleRightPanel's scrollable content area
         self.right_panel.add_widget(self.image_viewer.display_panel)
         self.right_panel.add_widget(self.blankImageGrp)
-        self.right_panel.add_widget(self.setCenterGroup)
-        self.right_panel.add_widget(self.rotationAngleGroup)
+        self.right_panel.add_widget(self.centerSettings)
+        self.right_panel.add_widget(self.rotationSettings)
         self.right_panel.add_widget(self.settingsGroup)
         
         # Add navigation controls to the fixed bottom area (always visible, no scrolling)
@@ -1428,18 +1149,24 @@ class QuadrantFoldingGUI(QMainWindow):
         # Connect built-in display panel zoom buttons
         self.image_viewer.display_panel.zoomInRequested.connect(self.imageZoomIn)
         self.image_viewer.display_panel.zoomOutRequested.connect(self.imageZoomOut)
-        self.calibrationButton.clicked.connect(self.calibrationClicked)
-        self.setCenterRotationButton.clicked.connect(self.setCenterRotation)
-        self.setRotationButton.clicked.connect(self.setRotation)
-        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
-        self.setCentBtn.clicked.connect(self.setCentBtnClicked)
-        self.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
-        self.setAutoOrientationBtn.clicked.connect(self.setAutoOrientationClicked)
-        self.applyCenterBtn.clicked.connect(self.applyCenterClicked)
-        self.restoreAutoCenterBtn.clicked.connect(self.restoreAutoCenterClicked)
-        self.applyRotationBtn.clicked.connect(self.applyRotationClicked)
-        self.restoreAutoRotationBtn.clicked.connect(self.restoreAutoRotationClicked)
+        
+        # Connect center settings widget - simple button connections
+        self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
+        self.centerSettings.setCenterRotationButton.clicked.connect(self.setCenterRotation)
+        self.centerSettings.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
+        self.centerSettings.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
+        self.centerSettings.setCentBtn.clicked.connect(self.setCentBtnClicked)
+        # Connect center settings widget - complex signal connections
+        self.centerSettings.applyCenterRequested.connect(self._handle_apply_center)
+        self.centerSettings.restoreAutoCenterRequested.connect(self._handle_restore_auto_center)
+        
+        # Connect rotation settings widget - simple button connections
+        self.rotationSettings.setRotationButton.clicked.connect(self.setRotation)
+        self.rotationSettings.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
+        # Connect rotation settings widget - complex signal connections
+        self.rotationSettings.autoOrientationRequested.connect(self._handle_auto_orientation)
+        self.rotationSettings.applyRotationRequested.connect(self._handle_apply_rotation)
+        self.rotationSettings.restoreAutoRotationRequested.connect(self._handle_restore_auto_rotation)
         
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
@@ -1525,9 +1252,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
 
     def updateCurrentCenter(self, center):
-        self.imageCenter.setText(
-            f"Center (Current coords): x={center[0]:.2f}, y={center[1]:.2f} px"
-        )
+        """Update the displayed center in the center settings widget"""
+        self.centerSettings.update_current_center(center)
 
 
 
@@ -1688,10 +1414,10 @@ class QuadrantFoldingGUI(QMainWindow):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
-            self.setCenterRotationButton.setChecked(False)
-            self.setCentByChords.setChecked(False)
-            self.setCentByPerp.setChecked(False)
-            self.setRotationButton.setChecked(False)
+            self.centerSettings.setCenterRotationButton.setChecked(False)
+            self.centerSettings.setCentByChords.setChecked(False)
+            self.centerSettings.setCentByPerp.setChecked(False)
+            self.rotationSettings.setRotationButton.setChecked(False)
 
     # def expandImageChecked(self):
     #     """
@@ -2012,7 +1738,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is None:
             return
         
-        if self.setCentByPerp.isChecked():
+        if self.centerSettings.setCentByPerp.isChecked():
             # Activate the perpendiculars center tool
             self.image_viewer.tool_manager.activate_tool('perpendiculars')
         else:
@@ -2039,7 +1765,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.quadFold is None:
             return
 
-        if self.setCentByChords.isChecked():
+        if self.centerSettings.setCentByChords.isChecked():
             # Activate the chords center tool
             self.image_viewer.tool_manager.activate_tool('chords')
         else:
@@ -2082,61 +1808,49 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     assert dialogCode == QDialog.Rejected, f"SetCentDialog closed with unexpected code:{dialogCode}"
 
-    def applyCenterClicked(self):
-        """Handle Apply Center button click"""
+    def _handle_apply_center(self, scope):
+        """Handle Apply Center request from widget (dialog already shown)"""
         if not self.quadFold or not self.quadFold.base_center:
             QMessageBox.warning(self, "No Center", "No center available to apply.")
             return
         
-        dialog = ApplyCenterDialog(self)
-        if dialog.exec() == QDialog.Accepted:
-            selection = dialog.getSelection()
-            self._applyManualCenter(self.quadFold.base_center, selection)
-            QMessageBox.information(self, "Center Applied", 
-                f"Center {self.quadFold.base_center} applied to {selection} images.")
+        self._applyManualCenter(self.quadFold.base_center, scope)
+        QMessageBox.information(self, "Center Applied", 
+            f"Center {self.quadFold.base_center} applied to {scope} images.")
     
-    def restoreAutoCenterClicked(self):
-        """Handle Restore Auto Center button click"""
-        dialog = RestoreAutoCenterDialog(self)
-        if dialog.exec() == QDialog.Accepted:
-            selection = dialog.getSelection()
-            self._restoreAutoCenter(selection)
-            
-            # Process current image immediately for 'current' or 'all' selections
-            if selection == 'current' or selection == 'all':
-                self.quadFold.setBaseCenter(None)
-                self.processImage()
-            
-            QMessageBox.information(self, "Auto Center Restored", 
-                f"Auto center restored for {selection} images.")
+    def _handle_restore_auto_center(self, scope):
+        """Handle Restore Auto Center request from widget (dialog already shown)"""
+        self._restoreAutoCenter(scope)
+        
+        # Process current image immediately for 'current' or 'all' selections
+        if scope == 'current' or scope == 'all':
+            self.quadFold.setBaseCenter(None)
+            self.processImage()
+        
+        QMessageBox.information(self, "Auto Center Restored", 
+            f"Auto center restored for {scope} images.")
     
-    def applyRotationClicked(self):
-        """Handle Apply Rotation button click"""
+    def _handle_apply_rotation(self, scope):
+        """Handle Apply Rotation request from widget (dialog already shown)"""
         if not self.quadFold or self.quadFold.rotation is None:
             QMessageBox.warning(self, "No Rotation", "No rotation available to apply.")
             return
         
-        dialog = ApplyRotationDialog(self)
-        if dialog.exec() == QDialog.Accepted:
-            selection = dialog.getSelection()
-            self._applyManualRotation(self.quadFold.rotation, selection)
-            QMessageBox.information(self, "Rotation Applied", 
-                f"Rotation {self.quadFold.rotation:.2f}° applied to {selection} images.")
+        self._applyManualRotation(self.quadFold.rotation, scope)
+        QMessageBox.information(self, "Rotation Applied", 
+            f"Rotation {self.quadFold.rotation:.2f}° applied to {scope} images.")
     
-    def restoreAutoRotationClicked(self):
-        """Handle Restore Auto Rotation button click"""
-        dialog = RestoreAutoRotationDialog(self)
-        if dialog.exec() == QDialog.Accepted:
-            selection = dialog.getSelection()
-            self._restoreAutoRotation(selection)
-            
-            # Process current image immediately for 'current' or 'all' selections
-            if selection == 'current' or selection == 'all':
-                self.quadFold.setBaseRotation(None)
-                self.processImage()
-            
-            QMessageBox.information(self, "Auto Rotation Restored", 
-                f"Auto rotation restored for {selection} images.")
+    def _handle_restore_auto_rotation(self, scope):
+        """Handle Restore Auto Rotation request from widget (dialog already shown)"""
+        self._restoreAutoRotation(scope)
+        
+        # Process current image immediately for 'current' or 'all' selections
+        if scope == 'current' or scope == 'all':
+            self.quadFold.setBaseRotation(None)
+            self.processImage()
+        
+        QMessageBox.information(self, "Auto Rotation Restored", 
+            f"Auto rotation restored for {scope} images.")
     
     def _applyManualCenter(self, center, scope):
         """Apply manual center to images based on scope"""
@@ -2289,7 +2003,7 @@ class QuadrantFoldingGUI(QMainWindow):
         Trigger when set rotation angle button is pressed.
         Now using the new tool system with auto-completion.
         """
-        if self.setRotationButton.isChecked():
+        if self.rotationSettings.setRotationButton.isChecked():
             # Activate the rotation tool
             self.imgPathOnStatusBar.setText(
                 "Rotate the line to the pattern equator (click to set angle)")
@@ -2345,7 +2059,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # RotationTool: result is the rotation angle
             angle = result
             self.setAngle(angle, "RotationTool")
-            self.setRotationButton.setChecked(False)
+            self.rotationSettings.setRotationButton.setChecked(False)
             self.processImage()
             self.resetStatusbar()
         
@@ -2357,7 +2071,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.setAngle(angle, "CenterRotate")
             self.deleteInfo(['avg_fold'])
             self.newImgDimension = None
-            self.setCenterRotationButton.setChecked(False)
+            self.centerSettings.setCenterRotationButton.setChecked(False)
             self.processImage()
             self.resetStatusbar()
         
@@ -2365,7 +2079,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # ChordsCenterTool: result is center (x, y)
             center = result
             self.setCenter(center, "ChordsCenter")
-            self.setCentByChords.setChecked(False)
+            self.centerSettings.setCentByChords.setChecked(False)
             self.processImage()
             self.resetStatusbar()
         
@@ -2373,7 +2087,7 @@ class QuadrantFoldingGUI(QMainWindow):
             # PerpendicularsCenterTool: result is center (x, y)
             center = result
             self.setCenter(center, "PerpendicularCenter")
-            self.setCentByPerp.setChecked(False)
+            self.centerSettings.setCentByPerp.setChecked(False)
             self.processImage()
             self.resetStatusbar()
         
@@ -2461,33 +2175,34 @@ class QuadrantFoldingGUI(QMainWindow):
                 else:
                     assert dialogCode == QDialog.Rejected, f"SetAngleDialog closed with unexpected code:{dialogCode}"
     
-    def setAutoOrientationClicked(self):
+    def _handle_auto_orientation(self, orientation_model, mode_enabled):
         """
-        Handle when Set Auto Orientation button is clicked.
-        Shows dialog to configure orientation finding method and mode orientation.
-        """
-        dialog = AutoOrientationDialog(self, 
-                                       current_orientation_model=self.orientationModel,
-                                       mode_orientation_enabled=self.modeOrientation is not None)
+        Handle Auto Orientation request from widget (dialog already shown).
         
-        if dialog.exec() == QDialog.Accepted:
-            # Update orientation model
-            new_orientation_model = dialog.getOrientationModel()
-            if new_orientation_model != self.orientationModel:
-                self.orientationModel = new_orientation_model
-                if self.quadFold:
-                    # Reset rotation to force recalculation with new orientation model
-                    self.quadFold.setBaseRotation(None)
-                    self.processImage()
-            
-            # Update mode orientation
-            mode_enabled = dialog.getModeOrientationEnabled()
-            if mode_enabled:
-                # Calculate mode orientation if not already done
-                if self.modeOrientation is None:
-                    self.modeOrientation = self.getModeRotation()
-            else:
-                self.modeOrientation = None
+        Args:
+            orientation_model: The selected orientation model index
+            mode_enabled: Whether mode orientation is enabled
+        """
+        # Update orientation model
+        if orientation_model != self.orientationModel:
+            self.orientationModel = orientation_model
+            # Update widget's internal state
+            self.rotationSettings.set_orientation_model(orientation_model)
+            if self.quadFold:
+                # Reset rotation to force recalculation with new orientation model
+                self.quadFold.setBaseRotation(None)
+                self.processImage()
+        
+        # Update mode orientation
+        if mode_enabled:
+            # Calculate mode orientation if not already done
+            if self.modeOrientation is None:
+                self.modeOrientation = self.getModeRotation()
+        else:
+            self.modeOrientation = None
+        
+        # Update widget's internal state
+        self.rotationSettings.set_mode_orientation_enabled(mode_enabled)
 
 
     def calibrationClicked(self):
@@ -2550,7 +2265,7 @@ class QuadrantFoldingGUI(QMainWindow):
         Trigger when set center and rotation angle button is pressed.
         Now using the new tool system with auto-completion.
         """
-        if self.setCenterRotationButton.isChecked():
+        if self.centerSettings.setCenterRotationButton.isChecked():
             # Activate the center-rotate tool
             self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (click to set)")
             self.image_viewer.tool_manager.activate_tool('center_rotate')
@@ -3212,38 +2927,39 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def updateApplyCenterMode(self):
         """
-        Update the apply center mode
+        Update the apply center mode statistics display
         """
-        self.applyCenterMode.setText(f"{len(self.file_manager.names) - len(self.imageCenterSettings)}/{len(self.file_manager.names)} images have auto center settings")
+        if self.file_manager:
+            auto_count = len(self.file_manager.names) - len(self.imageCenterSettings)
+            total_count = len(self.file_manager.names)
+            self.centerSettings.update_mode_display(auto_count, total_count)
 
     def updateApplyRotationMode(self):
         """
-        Update the apply rotation mode
+        Update the apply rotation mode statistics display
         """
-        if hasattr(self, 'applyRotationMode') and self.file_manager:
-            self.applyRotationMode.setText(f"{len(self.file_manager.names) - len(self.imageRotationSettings)}/{len(self.file_manager.names)} images have auto rotation settings")
+        if self.file_manager:
+            auto_count = len(self.file_manager.names) - len(self.imageRotationSettings)
+            total_count = len(self.file_manager.names)
+            self.rotationSettings.update_mode_display(auto_count, total_count)
 
     def updateCenterModeIndicator(self):
         """
-        Update the Set Center group box title to show (Auto) or (Manual) for current image
+        Update the Set Center widget title to show (Auto) or (Manual) for current image
         """
         if self.file_manager:
             filename = self.file_manager.current_image_name
-            if filename in self.imageCenterSettings:
-                self.setCenterGroup.setTitle("Set Center  (Current Image Mode:Manual)")
-            else:
-                self.setCenterGroup.setTitle("Set Center  (Current Image Mode:Auto)")
+            is_manual = filename in self.imageCenterSettings
+            self.centerSettings.update_mode_indicator(is_manual)
 
     def updateRotationModeIndicator(self):
         """
-        Update the Set Rotation Angle group box title to show (Auto) or (Manual) for current image
+        Update the Set Rotation Angle widget title to show (Auto) or (Manual) for current image
         """
         if self.file_manager:
             filename = self.file_manager.current_image_name
-            if filename in self.imageRotationSettings:
-                self.rotationAngleGroup.setTitle("Set Rotation Angle  (Current Image Mode:Manual)")
-            else:
-                self.rotationAngleGroup.setTitle("Set Rotation Angle  (Current Image Mode:Auto)")
+            is_manual = filename in self.imageRotationSettings
+            self.rotationSettings.update_mode_indicator(is_manual)
 
     def orientationModelChanged(self):
         """
@@ -3793,9 +3509,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.updateRotationModeIndicator()
             
             # Update rotation angle display immediately (preview)
-            self.rotationAngleLabel.setText(
-                f"Rotation Angle (Original Coords): {new_base_rotation % 360:.2f} °"
-            )
+            self.rotationSettings.update_rotation_display(new_base_rotation)
             
             print(f"Rotation increment: {angle:.2f}° from {source}, new base_rotation: {new_base_rotation:.2f}°")
 
@@ -3922,13 +3636,9 @@ class QuadrantFoldingGUI(QMainWindow):
             # Update rotation angle display (rotation is the angle relative to original image)
             base_rotation = self.quadFold.rotation
             if base_rotation is not None:
-                self.rotationAngleLabel.setText(
-                    f"Rotation Angle (Original Coords): {base_rotation % 360:.2f} °"
-                )
+                self.rotationSettings.update_rotation_display(base_rotation)
             else:
-                self.rotationAngleLabel.setText(
-                    f"Rotation Angle (Original Coords): 0.00 °"
-                )
+                self.rotationSettings.update_rotation_display(0.0)
 
             self.saveResults()
             QApplication.restoreOverrideCursor()
@@ -4350,13 +4060,9 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.imageCanvas.setHidden(False)
                 self.updateLeftWidgetWidth()
 
-                self.setCentByChords.setCheckable(True)
-                self.setCentByPerp.setCheckable(True)
-
-                self.setCenterRotationButton.setCheckable(True)
-
-                self.setRotationButton.setCheckable(True)
-
+                # Buttons in widgets are already created with correct checkable state
+                # No need to set them here anymore
+                
                 self.resetWidgets()
                 QApplication.restoreOverrideCursor()
 
