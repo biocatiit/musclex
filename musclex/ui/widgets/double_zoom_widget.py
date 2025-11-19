@@ -133,6 +133,8 @@ class DoubleZoomWidget(UIWidget):
             self.doubleZoomAxes.set_aspect('equal', adjustable="box")
             self.doubleZoomAxes.axes.xaxis.set_visible(False)
             self.doubleZoomAxes.axes.yaxis.set_visible(False)
+            # Invert Y-axis once when creating axes (not when creating image)
+            self.doubleZoomAxes.invert_yaxis()
         
         # Reset image object for new session
         self.doubleZoomImage = None
@@ -357,14 +359,18 @@ class DoubleZoomWidget(UIWidget):
     def drawRedDot(self, x, y, ax):
             axis_size = 1
 
-            x_min, x_max = ax.get_xlim()
-            y_min, y_max = ax.get_ylim()
+            x_lim = ax.get_xlim()
+            y_lim = ax.get_ylim()
+            
+            # Handle both normal and inverted axes by using actual min/max
+            x_lower, x_upper = min(x_lim), max(x_lim)
+            y_lower, y_upper = min(y_lim), max(y_lim)
 
             # Clamp values so they stay inside axis bounds
-            x1 = max(x_min, min(x - axis_size, x_max))
-            x2 = max(x_min, min(x + axis_size, x_max))
-            y1 = max(y_min, min(y - axis_size, y_max))
-            y2 = max(y_min, min(y + axis_size, y_max))
+            x1 = max(x_lower, min(x - axis_size, x_upper))
+            x2 = max(x_lower, min(x + axis_size, x_upper))
+            y1 = max(y_lower, min(y - axis_size, y_upper))
+            y2 = max(y_lower, min(y + axis_size, y_upper))
 
             self.remove_image_lines(ax=ax, labels=["DoubleZoom Red Dot"])
 
@@ -400,7 +406,7 @@ class DoubleZoomWidget(UIWidget):
                         cmap='viridis',
                         norm=norm
                     )
-                    self.doubleZoomAxes.invert_yaxis()
+                    # Don't invert Y-axis here - already inverted when axes was created
                 else:
                     # Update existing image data and norm
                     self.doubleZoomImage.set_data(imgScaled)
