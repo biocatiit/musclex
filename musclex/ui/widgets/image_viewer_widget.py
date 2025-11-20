@@ -34,6 +34,7 @@ from PySide6.QtCore import Signal
 from .display_options_panel import DisplayOptionsPanel
 from .double_zoom_widget import DoubleZoomWidget
 from ..tools.tool_manager import ToolManager
+from ..tools.zoom_rectangle_tool import ZoomRectangleTool
 
 
 class ImageViewerWidget(QWidget):
@@ -113,6 +114,10 @@ class ImageViewerWidget(QWidget):
         
         # Built-in tool manager (publicly accessible)
         self.tool_manager = ToolManager(self.axes, self.canvas)
+        
+        # Register built-in zoom rectangle tool
+        self.tool_manager.register_tool('zoom_rectangle', 
+            lambda axes, canvas: ZoomRectangleTool(axes, canvas, self._on_zoom_applied))
         
         # Built-in double zoom widget (publicly accessible, disabled by default)
         # Pass callback to get current image - decoupled from parent structure
@@ -232,6 +237,21 @@ class ImageViewerWidget(QWidget):
         options = self.get_display_options()
         self.displayOptionsChanged.emit(options)
     
+    def _on_zoom_applied(self, zoom_bounds):
+        """
+        Internal callback for zoom_rectangle tool.
+        Applies the zoom and emits toolCompleted signal for external handlers.
+        
+        Args:
+            zoom_bounds: [(x_min, x_max), (y_min, y_max)]
+        """
+        # Apply the zoom
+        self.set_zoom_bounds(zoom_bounds[0], zoom_bounds[1])
+        # Deactivate the tool (clears selection rectangle)
+        self.tool_manager.deactivate_tool('zoom_rectangle')
+        # Emit signal for external handlers (e.g., to update UI state, save zoom state, etc.)
+        self.toolCompleted.emit('zoom_rectangle', zoom_bounds)
+    
     # ===== Public API =====
     
     def update_display_settings(self):
@@ -271,21 +291,35 @@ class ImageViewerWidget(QWidget):
         
         self.canvas.draw()
     
-    def display_image(self, img, vmin=None, vmax=None, log_scale=False, colormap=None):
+    def display_image(self, img, vmin=None, vmax=None, log_scale=None, colormap=None):
         """
         Display an image with specified intensity settings.
         
         Args:
             img: 2D numpy array
-            vmin: Minimum intensity value (defaults to image min)
-            vmax: Maximum intensity value (defaults to image max)
-            log_scale: Whether to use logarithmic scale
-            colormap: Color map name (defaults to current colormap)
+            vmin: Minimum intensity value (None = keep current if exists, else image min)
+            vmax: Maximum intensity value (None = keep current if exists, else image max)
+            log_scale: Whether to use logarithmic scale (None = keep current)
+            colormap: Color map name (None = keep current)
         """
         self._current_image = img
-        self._current_vmin = vmin if vmin is not None else img.min()
-        self._current_vmax = vmax if vmax is not None else img.max()
-        self._current_log_scale = log_scale
+        
+        # Update vmin/vmax: prefer explicit values, then current values, finally image min/max
+        if vmin is not None:
+            self._current_vmin = vmin
+        elif self._current_vmin is None:
+            self._current_vmin = img.min()
+        
+        if vmax is not None:
+            self._current_vmax = vmax
+        elif self._current_vmax is None:
+            self._current_vmax = img.max()
+        
+        # Update log_scale: prefer explicit value, then keep current
+        if log_scale is not None:
+            self._current_log_scale = log_scale
+        
+        # Update colormap: prefer explicit value, then keep current
         if colormap is not None:
             self._current_colormap = colormap
         
