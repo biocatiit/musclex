@@ -66,7 +66,6 @@ from .tools.chords_center_tool import ChordsCenterTool
 from .tools.perpendiculars_center_tool import PerpendicularsCenterTool
 from .tools.rotation_tool import RotationTool
 from .tools.center_rotate_tool import CenterRotateTool
-from .tools.zoom_rectangle_tool import ZoomRectangleTool
 from .widgets.image_viewer_widget import ImageViewerWidget
 from .widgets.collapsible_right_panel import CollapsibleRightPanel
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
@@ -1081,8 +1080,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.image_viewer.tool_manager.register_tool('rotation', lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
         # CenterRotateTool needs a function to convert coordinates
         self.image_viewer.tool_manager.register_tool('center_rotate', lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
-        # ZoomRectangleTool for image zoom selection (with immediate callback)
-        self.image_viewer.tool_manager.register_tool('zoom_rectangle', lambda axes, canvas: ZoomRectangleTool(axes, canvas, self._apply_zoom_immediately))
+        # Note: zoom_rectangle tool is now registered by default in ImageViewerWidget
         
         self.show()
 
@@ -1976,24 +1974,6 @@ class QuadrantFoldingGUI(QMainWindow):
             return None
         return self.quadFold.center
     
-    def _apply_zoom_immediately(self, zoom_bounds):
-        """
-        Callback to immediately apply zoom when ZoomRectangleTool completes selection.
-        This is called automatically when user releases mouse after dragging.
-        
-        Args:
-            zoom_bounds: [(x_min, x_max), (y_min, y_max)]
-        """
-        print(f"Zoom applied: {zoom_bounds}")
-        # First deactivate the tool to clear the selection rectangle
-        self.image_viewer.tool_manager.deactivate_tool('zoom_rectangle')
-        # Then apply the zoom and refresh
-        self.img_zoom = zoom_bounds
-        self.refreshImageTab()
-        # Finally reset UI state
-        self.imgZoomInB.setChecked(False)
-        self.resetStatusbar()
-    
     # ===== ImageViewerWidget Signal Handlers =====
     
     def _on_tool_completed(self, tool_name, result):
@@ -2009,7 +1989,15 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         print(f"Tool '{tool_name}' completed with result: {result}")
         
-        if tool_name == 'rotation':
+        if tool_name == 'zoom_rectangle':
+            # ZoomRectangleTool: result is zoom_bounds [(x_min, x_max), (y_min, y_max)]
+            # Zoom has already been applied by ImageViewerWidget
+            self.img_zoom = result
+            self.refreshImageTab()
+            self.imgZoomInB.setChecked(False)
+            self.resetStatusbar()
+        
+        elif tool_name == 'rotation':
             # RotationTool: result is the rotation angle
             angle = result
             self.setAngle(angle, "RotationTool")
@@ -3282,14 +3270,8 @@ class QuadrantFoldingGUI(QMainWindow):
             self.extent = extent
 
             # Use ImageViewerWidget's API to display image (handles invert_yaxis internally)
-            current_cmap = self.image_viewer.display_panel.get_color_map()
-            self.image_viewer.display_image(
-                img, 
-                vmin=self.spminInt.value(),
-                vmax=self.spmaxInt.value(),
-                log_scale=self.logScaleIntChkBx.isChecked(),
-                colormap=current_cmap
-            )
+            # display_panel automatically maintains vmin/vmax/log_scale/colormap settings
+            self.image_viewer.display_image(img)
             
             # Get axes for drawing overlays
             ax = self.imageAxes
@@ -3320,25 +3302,23 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.plot([center[0], img.shape[1] - extent[0]], [center[1], img.shape[0] - extent[1]], color="w")
                         ax.plot([center[0], img.shape[1] - extent[0]], [img.shape[0] - extent[1], center[1]], color="w")
 
-            #Show the masked image in the image tab
-            #NICKAA
-
-
-            # Set Zoom in location
-            if self.img_zoom is not None and len(self.img_zoom) == 2:
-                ax.set_xlim(self.img_zoom[0])
-                ax.set_ylim(self.img_zoom[1])
-            elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
-                ax.set_xlim(self.default_img_zoom[0])
-                ax.set_ylim(self.default_img_zoom[1])
-            else:
-                ax.set_xlim((0-extent[0], img.shape[1] - extent[0]))
-                ax.set_ylim((img.shape[0] - extent[1], 0-extent[1]))  # Note: (bottom, top) for inverted Y
-
-            self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
-            # No need to call invert_yaxis() - already handled by image_viewer.display_image()
+            # Apply layout adjustment
             self.imageFigure.tight_layout()
-            self.imageCanvas.draw()
+            
+            # Set Zoom in location using ImageViewerWidget's API
+            if self.img_zoom is not None and len(self.img_zoom) == 2:
+                self.image_viewer.set_zoom_bounds(self.img_zoom[0], self.img_zoom[1])
+            elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+                self.image_viewer.set_zoom_bounds(self.default_img_zoom[0], self.default_img_zoom[1])
+            else:
+                # Set default zoom with extent adjustment
+                xlim = (0-extent[0], img.shape[1] - extent[0])
+                ylim = (img.shape[0] - extent[1], 0-extent[1])  # Note: (bottom, top) for inverted Y
+                self.image_viewer.set_zoom_bounds(xlim, ylim)
+
+            # Save current zoom state
+            self.img_zoom = list(self.image_viewer.get_zoom_bounds())
+            # Note: set_zoom_bounds() internally calls canvas.draw()
 
             self.updated['img'] = True
             self.uiUpdating = False
