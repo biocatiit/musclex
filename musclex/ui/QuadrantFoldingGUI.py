@@ -72,6 +72,7 @@ from .widgets.collapsible_right_panel import CollapsibleRightPanel
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .widgets.center_settings_widget import CenterSettingsWidget
 from .widgets.rotation_settings_widget import RotationSettingsWidget
+from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
 import time
 import random
 
@@ -414,12 +415,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.settingsGroup = CollapsibleGroupBox("Image Processing", start_expanded=True)
         self.settingsLayout = QGridLayout()
-        #self.settingsLayout.setScaledContents(False)
-        #self.settingsLayout.setWidgetResizable(False)
-        #self.settingsGroup.setLayout(self.settingsLayout)
-        #self.settingsGroup.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        #self.settingsGroup.setFixedHeight(300)
-        #self.settingsGroup.setMinimumSize(400, 200)
+
 
         # Create center and rotation settings widgets
         self.centerSettings = CenterSettingsWidget(parent=self)
@@ -451,23 +447,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
 
-        # Empty Cell Image Settings
-        self.blankImageGrp = CollapsibleGroupBox("Apply Empty Cell Image and Mask", start_expanded=True)
-
-        self.blankImageLayout = QGridLayout()
-        self.blankSettingButton = QPushButton("Set Empty Cell Image")
-        self.blankImageLayout.addWidget(self.blankSettingButton, 0, 0, 1, 2)
-        self.maskSettingButton = QPushButton("Set Mask")
-        self.blankImageLayout.addWidget(self.maskSettingButton, 0, 2, 1, 2)
-        
-        # Checkboxes to enable/disable empty cell image and mask
-        self.applyBlankImageChkBx = QCheckBox("Apply Empty Cell Image")
-        self.applyBlankImageChkBx.setEnabled(False)  # Disabled until settings exist
-        self.blankImageLayout.addWidget(self.applyBlankImageChkBx, 1, 0, 1, 2)
-        
-        self.applyMaskChkBx = QCheckBox("Apply Mask")
-        self.applyMaskChkBx.setEnabled(False)  # Disabled until settings exist
-        self.blankImageLayout.addWidget(self.applyMaskChkBx, 1, 2, 1, 2)
+        # Create Empty Cell Image and Mask Settings Widget
+        self.blankMaskSettings = BlankMaskSettingsWidget(parent=self)
 
         # Result processing and background Subtraction
         self.resProcGrpBx = CollapsibleGroupBox("Result Processing", start_expanded=False)
@@ -903,7 +884,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resProcGrpBx.setLayout(self.bgLayout)
 
         # Set layouts for all CollapsibleGroupBox widgets
-        self.blankImageGrp.setLayout(self.blankImageLayout)
         self.settingsGroup.setLayout(self.settingsLayout)
 
         # Single reusable navigation widget (shared between tabs)
@@ -911,7 +891,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
         # Add options to the CollapsibleRightPanel's scrollable content area
         self.right_panel.add_widget(self.image_viewer.display_panel)
-        self.right_panel.add_widget(self.blankImageGrp)
+        self.right_panel.add_widget(self.blankMaskSettings)
         self.right_panel.add_widget(self.centerSettings)
         self.right_panel.add_widget(self.rotationSettings)
         self.right_panel.add_widget(self.settingsGroup)
@@ -1188,12 +1168,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
-        # Empty cell image
-        self.blankSettingButton.clicked.connect(self.blankSettingClicked)
-        self.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
-        # Mask
-        self.maskSettingButton.clicked.connect(self.maskSettingClicked)
-        self.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
+        # Empty cell image and mask settings widget - direct connections
+        self.blankMaskSettings.blankSettingButton.clicked.connect(self.blankSettingClicked)
+        self.blankMaskSettings.maskSettingButton.clicked.connect(self.maskSettingClicked)
+        # Connect checkbox state changes - direct connection like original
+        self.blankMaskSettings.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
+        self.blankMaskSettings.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
 
         # Background Subtraction
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -1509,46 +1489,20 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def updateBlankMaskCheckboxStates(self):
         """
-        Update the state of empty cell image and mask checkboxes based on whether settings exist
+        Update the state of empty cell image and mask checkboxes based on whether settings exist.
+        Delegates to the widget's update_from_directory method.
         """
         if not self.filePath:
             return
         
         settings_dir = Path(self.filePath) / "settings"
         
-        # Check if empty cell image settings exist
-        blank_config_path = settings_dir / "blank_image_settings.json"
-        blank_exists = blank_config_path.exists()
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        
-        # Check if mask settings exist
-        mask_file_path = settings_dir / "mask.tif"
-        mask_exists = mask_file_path.exists()
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        
-        # Update empty cell image checkbox
-        self.uiUpdating = True  # Prevent triggering the handlers during update
-        if blank_exists:
-            self.applyBlankImageChkBx.setEnabled(True)
-            # Check if disabled flag exists
-            self.applyBlankImageChkBx.setChecked(not blank_disabled_flag.exists())
-        else:
-            self.applyBlankImageChkBx.setEnabled(False)
-            self.applyBlankImageChkBx.setChecked(False)
-        
-        # Update mask checkbox
-        if mask_exists:
-            self.applyMaskChkBx.setEnabled(True)
-            # Check if disabled flag exists
-            self.applyMaskChkBx.setChecked(not mask_disabled_flag.exists())
-        else:
-            self.applyMaskChkBx.setEnabled(False)
-            self.applyMaskChkBx.setChecked(False)
-        self.uiUpdating = False
+        # Widget handles all the checking and updating internally
+        self.blankMaskSettings.update_from_directory(settings_dir)
 
     def applyBlankImageChanged(self):
         """
-        Handle when the apply empty cell image checkbox is toggled
+        Handle when the apply empty cell image checkbox is toggled.
         """
         if self.quadFold is None or self.uiUpdating:
             return
@@ -1557,7 +1511,7 @@ class QuadrantFoldingGUI(QMainWindow):
         settings_dir = Path(self.filePath) / "settings"
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
         
-        if self.applyBlankImageChkBx.isChecked():
+        if self.blankMaskSettings.applyBlankImageChkBx.isChecked():
             # Remove the disabled flag if it exists
             if blank_disabled_flag.exists():
                 blank_disabled_flag.unlink()
@@ -1591,7 +1545,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def applyMaskChanged(self):
         """
-        Handle when the apply mask checkbox is toggled
+        Handle when the apply mask checkbox is toggled.
         """
         if self.quadFold is None or self.uiUpdating:
             return
@@ -1600,7 +1554,7 @@ class QuadrantFoldingGUI(QMainWindow):
         settings_dir = Path(self.filePath) / "settings"
         mask_disabled_flag = settings_dir / ".mask_disabled"
         
-        if self.applyMaskChkBx.isChecked():
+        if self.blankMaskSettings.applyMaskChkBx.isChecked():
             # Remove the disabled flag if it exists
             if mask_disabled_flag.exists():
                 mask_disabled_flag.unlink()
