@@ -451,8 +451,8 @@ class QuadrantFoldingGUI(QMainWindow):
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
 
-        # Blank Image Settings
-        self.blankImageGrp = CollapsibleGroupBox("Apply Blank Image and Mask", start_expanded=True)
+        # Empty Cell Image Settings
+        self.blankImageGrp = CollapsibleGroupBox("Apply Empty Cell Image and Mask", start_expanded=True)
 
         self.blankImageLayout = QGridLayout()
         self.blankSettingButton = QPushButton("Set Empty Cell Image")
@@ -460,7 +460,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.maskSettingButton = QPushButton("Set Mask")
         self.blankImageLayout.addWidget(self.maskSettingButton, 0, 2, 1, 2)
         
-        # Checkboxes to enable/disable blank image and mask
+        # Checkboxes to enable/disable empty cell image and mask
         self.applyBlankImageChkBx = QCheckBox("Apply Empty Cell Image")
         self.applyBlankImageChkBx.setEnabled(False)  # Disabled until settings exist
         self.blankImageLayout.addWidget(self.applyBlankImageChkBx, 1, 0, 1, 2)
@@ -1188,7 +1188,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
-        # Blank image
+        # Empty cell image
         self.blankSettingButton.clicked.connect(self.blankSettingClicked)
         self.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
         # Mask
@@ -1393,7 +1393,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def blankChecked(self):
         """
-        Handle when the Blank image and mask is checked or unchecked
+        Handle when the Empty Cell image and mask is checked or unchecked
         """
         if self.quadFold is not None and not self.uiUpdating:
             self.quadFold.delCache()
@@ -1429,7 +1429,7 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def blankSettingClicked(self):
         """
-        Trigger when Set Blank Image and Mask clicked
+        Trigger when Set Empty Cell Image and Mask clicked
         """
         if self.quadFold is None or self.quadFold.start_img is None:
             return
@@ -1458,11 +1458,11 @@ class QuadrantFoldingGUI(QMainWindow):
         if dialogCode == QDialog.Accepted:
             # Update checkbox state based on settings
             self.updateBlankMaskCheckboxStates()
-            # Clear cache because blank image settings changed
-            # This ensures the image will be reprocessed with new blank settings
+            # Clear cache because empty cell image settings changed
+            # This ensures the image will be reprocessed with new empty cell settings
             if self.quadFold is not None:
                 self.quadFold.delCache()
-                print("Cleared cache due to blank image settings change")
+                print("Cleared cache due to empty cell image settings change")
             self.processImage()
         else:
             assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
@@ -1509,14 +1509,14 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def updateBlankMaskCheckboxStates(self):
         """
-        Update the state of blank image and mask checkboxes based on whether settings exist
+        Update the state of empty cell image and mask checkboxes based on whether settings exist
         """
         if not self.filePath:
             return
         
         settings_dir = Path(self.filePath) / "settings"
         
-        # Check if blank image settings exist
+        # Check if empty cell image settings exist
         blank_config_path = settings_dir / "blank_image_settings.json"
         blank_exists = blank_config_path.exists()
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
@@ -1526,7 +1526,7 @@ class QuadrantFoldingGUI(QMainWindow):
         mask_exists = mask_file_path.exists()
         mask_disabled_flag = settings_dir / ".mask_disabled"
         
-        # Update blank image checkbox
+        # Update empty cell image checkbox
         self.uiUpdating = True  # Prevent triggering the handlers during update
         if blank_exists:
             self.applyBlankImageChkBx.setEnabled(True)
@@ -1548,12 +1548,12 @@ class QuadrantFoldingGUI(QMainWindow):
 
     def applyBlankImageChanged(self):
         """
-        Handle when the apply blank image checkbox is toggled
+        Handle when the apply empty cell image checkbox is toggled
         """
         if self.quadFold is None or self.uiUpdating:
             return
         
-        # Create/delete a flag file to indicate whether to apply blank image
+        # Create/delete a flag file to indicate whether to apply empty cell image
         settings_dir = Path(self.filePath) / "settings"
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
         
@@ -3943,7 +3943,7 @@ class QuadrantFoldingGUI(QMainWindow):
         flags['orientation_model'] = self.orientationModel
         flags["ignore_folds"] = self.ignoreFolds
 
-        # Check if blank image settings exist and is enabled
+        # Check if empty cell image settings exist and is enabled
         settings_dir = Path(self.filePath) / "settings"
         blank_config_path = settings_dir / "blank_image_settings.json"
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
@@ -4310,7 +4310,7 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.modeOrientation is not None:
             text += "\n  - Mode Orientation : Enabled"
         
-        # Show blank image configuration if exists
+        # Show empty cell image configuration if exists
         if flags.get('blank_mask', False):
             blank_config_path = Path(self.filePath) / "settings" / "blank_image_settings.json"
             try:
