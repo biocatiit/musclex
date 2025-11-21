@@ -148,11 +148,6 @@ class ImageMaskDialog(QDialog):
 
         self.applyMaskLayout = QGridLayout(self.applyMaskGroup)
         
-        # Create hidden checkboxes for backward compatibility with existing logic
-        self.applyLowMaskCheckBox = QCheckBox("Low Mask Threshold")
-        self.applyLowMaskCheckBox.setVisible(False)
-        self.applyHighMaskCheckBox = QCheckBox("High Mask Threshold")
-        self.applyHighMaskCheckBox.setVisible(False)
         
         # Drawn Mask section
         settingsRowIndex = 0
@@ -326,18 +321,24 @@ class ImageMaskDialog(QDialog):
         # Auto-check Low Mask if threshold was saved in config
         if config_has_low_thresh:
             self.maskLowThreshChkbx.setChecked(True)
+            self.maskLowThresh.setEnabled(True)
+            self.lowMaskDilationChkbx.setEnabled(True)
             
             # Auto-check Low Mask Dilation if kernel size was saved
             if config_has_low_kernel:
                 self.lowMaskDilationChkbx.setChecked(True)
+                self.lowDilComboBox.setEnabled(True)
         
         # Auto-check High Mask if threshold was saved in config
         if config_has_high_thresh:
             self.maskHighThreshChkbx.setChecked(True)
+            self.maskHighThresh.setEnabled(True)
+            self.highMaskDilationChkbx.setEnabled(True)
             
             # Auto-check High Mask Dilation if kernel size was saved
             if config_has_high_kernel:
                 self.highMaskDilationChkbx.setChecked(True)
+                self.highDilComboBox.setEnabled(True)
         
         self.refreshImage()
 
@@ -349,10 +350,8 @@ class ImageMaskDialog(QDialog):
     def setConnections(self):
         self.drawMaskBtn.clicked.connect(self.drawMask)
         self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
-        self.applyLowMaskCheckBox.checkStateChanged.connect(self.enableLowMaskThresh)
         self.maskLowThreshChkbx.checkStateChanged.connect(self.enableLowMaskThresh)
 
-        self.applyHighMaskCheckBox.checkStateChanged.connect(self.enableHighMaskThresh)
         self.maskHighThreshChkbx.checkStateChanged.connect(self.enableHighMaskThresh)
 
         self.lowMaskDilationChkbx.checkStateChanged.connect(self.enableLowMaskDilation)
@@ -382,9 +381,6 @@ class ImageMaskDialog(QDialog):
         self.refreshImage()
 
     def enableLowMaskThresh(self, state):
-        self.applyLowMaskCheckBox.setCheckState(state)
-        self.maskLowThreshChkbx.setCheckState(state)
-
         if state == Qt.CheckState.Checked:
             self.maskLowThresh.setEnabled(True)
             self.lowMaskDilationChkbx.setEnabled(True)
@@ -415,9 +411,6 @@ class ImageMaskDialog(QDialog):
         self.refreshImage()
 
     def enableHighMaskThresh(self, state):
-        self.applyHighMaskCheckBox.setCheckState(state)
-        self.maskHighThreshChkbx.setCheckState(state)
-
         if state == Qt.CheckState.Checked:
             self.maskHighThresh.setEnabled(True)
             self.highMaskDilationChkbx.setEnabled(True)
@@ -455,11 +448,11 @@ class ImageMaskDialog(QDialog):
         isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
             and self.applyDrawnMaskCheckBox.isChecked())
 
-        isApplyLowMask = (self.applyLowMaskCheckBox.isEnabled()
-            and self.applyLowMaskCheckBox.isChecked())
+        isApplyLowMask = (self.maskLowThreshChkbx.isEnabled()
+            and self.maskLowThreshChkbx.isChecked())
 
-        isApplyHighMask = (self.applyHighMaskCheckBox.isEnabled()
-            and self.applyHighMaskCheckBox.isChecked())
+        isApplyHighMask = (self.maskHighThreshChkbx.isEnabled()
+            and self.maskHighThreshChkbx.isChecked())
 
         isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
 
@@ -659,11 +652,11 @@ class ImageMaskDialog(QDialog):
         isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
             and self.applyDrawnMaskCheckBox.isChecked())
 
-        isApplyLowMask = (self.applyLowMaskCheckBox.isEnabled()
-            and self.applyLowMaskCheckBox.isChecked())
+        isApplyLowMask = (self.maskLowThreshChkbx.isEnabled()
+            and self.maskLowThreshChkbx.isChecked())
 
-        isApplyHighMask = (self.applyHighMaskCheckBox.isEnabled()
-            and self.applyHighMaskCheckBox.isChecked())
+        isApplyHighMask = (self.maskHighThreshChkbx.isEnabled()
+            and self.maskHighThreshChkbx.isChecked())
 
         isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
 
@@ -705,8 +698,8 @@ class ImageMaskDialog(QDialog):
 
         lowMask = None
 
-        if (self.applyLowMaskCheckBox.isEnabled()
-            and self.applyLowMaskCheckBox.isChecked()):
+        if (self.maskLowThreshChkbx.isEnabled()
+            and self.maskLowThreshChkbx.isChecked()):
             lowMask = (imageData > self.maskLowThresh.value()).astype(np.uint8)
 
             if (self.lowMaskDilationChkbx.isEnabled()
@@ -715,8 +708,8 @@ class ImageMaskDialog(QDialog):
                 lowMask = self.dilateMask(lowMask, mask_low_kernel_size)
 
         highMask = None
-        if (self.applyHighMaskCheckBox.isEnabled()
-            and self.applyHighMaskCheckBox.isChecked()):
+        if (self.maskHighThreshChkbx.isEnabled()
+            and self.maskHighThreshChkbx.isChecked()):
             highMask = (imageData < self.maskHighThresh.value()).astype(np.uint8)
 
             if (self.highMaskDilationChkbx.isEnabled()
@@ -779,12 +772,6 @@ class ImageMaskDialog(QDialog):
             normFlippedImageArray,
             normFlippedImageArray
         ])
-
-        # 4) Overlay masks:
-        #    Assign mask color wherever mask == 1
-        #    Note: The order below determines overwrite precedence
-        #          if a pixel is in multiple masks
-        # Red mask (drawnMask)
 
 
         # Red mask (drawnMask)
