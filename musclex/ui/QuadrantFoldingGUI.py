@@ -229,7 +229,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.extent = None
         self.img = None
         self.quadFold = None # QuadrantFolder object
-        self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
         self.default_result_img_zoom = None # default result image zoom calculated after processing image
         self.zoomOutClicked = False # to check whether zoom out is clicked for using default zoom value
@@ -1093,10 +1092,8 @@ class QuadrantFoldingGUI(QMainWindow):
 
         ##### Image Tab #####
         self.selectFolder.clicked.connect(self.browseFolder)
-        # Connect built-in display panel signals
-        self.image_viewer.display_panel.intensityChanged.connect(lambda vmin, vmax: self.refreshImageTab())
-        self.image_viewer.display_panel.logScaleChanged.connect(lambda enabled: self.refreshImageTab())
-        self.image_viewer.display_panel.colorMapChanged.connect(lambda cmap: self.refreshImageTab())
+        # Note: intensity/log_scale/colormap changes are handled automatically by ImageViewerWidget
+        # via update_display_settings() which preserves overlays - no need to call refreshImageTab()
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         
         ##### Navigation Controls (shared between tabs) #####
@@ -1989,15 +1986,10 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         print(f"Tool '{tool_name}' completed with result: {result}")
         
-        if tool_name == 'zoom_rectangle':
-            # ZoomRectangleTool: result is zoom_bounds [(x_min, x_max), (y_min, y_max)]
-            # Zoom has already been applied by ImageViewerWidget
-            self.img_zoom = result
-            self.refreshImageTab()
-            self.imgZoomInB.setChecked(False)
-            self.resetStatusbar()
+        # Note: zoom_rectangle is handled entirely by ImageViewerWidget
+        # No external response needed - it's a pure view operation
         
-        elif tool_name == 'rotation':
+        if tool_name == 'rotation':
             # RotationTool: result is the rotation angle
             angle = result
             self.setAngle(angle, "RotationTool")
@@ -2270,7 +2262,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.zoomOutClicked = True
         self.default_img_zoom = None
         self.default_result_img_zoom = None
-        self.img_zoom = None
         self.refreshImageTab()
 
     def imageClicked(self, event):
@@ -2847,25 +2838,27 @@ class QuadrantFoldingGUI(QMainWindow):
         """
         Trigger when min intensity is changed
         """
-        QApplication.processEvents()
         if self.ableToProcess():
             if self.spmaxInt.value() <= self.spminInt.value():
                 self.uiUpdating = True
                 self.spmaxInt.setValue(self.spminInt.value() + 1)
                 self.uiUpdating = False
-            self.refreshImageTab()
+            # Note: changing spinbox values triggers intensityChanged signal
+            # ImageViewerWidget will update automatically via update_display_settings()
+            # No need for processEvents() - Qt signal/slot is synchronous
 
     def maxIntChanged(self):
         """
-        Trigger when min intensity is changed
+        Trigger when max intensity is changed
         """
-        QApplication.processEvents()
         if self.ableToProcess():
             if self.spmaxInt.value() <= self.spminInt.value():
                 self.uiUpdating = True
                 self.spminInt.setValue(self.spmaxInt.value() - 1)
                 self.uiUpdating = False
-            self.refreshImageTab()
+            # Note: changing spinbox values triggers intensityChanged signal
+            # ImageViewerWidget will update automatically via update_display_settings()
+            # No need for processEvents() - Qt signal/slot is synchronous
 
     def updateApplyCenterMode(self):
         """
@@ -3269,6 +3262,11 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.quadFold.center
             self.extent = extent
 
+            # Save current zoom before redrawing (if image exists)
+            current_zoom = None
+            if self.image_viewer._current_image is not None:
+                current_zoom = self.image_viewer.get_zoom_bounds()
+            
             # Use ImageViewerWidget's API to display image (handles invert_yaxis internally)
             # display_panel automatically maintains vmin/vmax/log_scale/colormap settings
             self.image_viewer.display_image(img)
@@ -3305,20 +3303,16 @@ class QuadrantFoldingGUI(QMainWindow):
             # Apply layout adjustment
             self.imageFigure.tight_layout()
             
-            # Set Zoom in location using ImageViewerWidget's API
-            if self.img_zoom is not None and len(self.img_zoom) == 2:
-                self.image_viewer.set_zoom_bounds(self.img_zoom[0], self.img_zoom[1])
+            # Restore zoom (if there was one before, restore it; otherwise use default)
+            if current_zoom is not None:
+                # Restore previous zoom
+                self.image_viewer.set_zoom_bounds(current_zoom[0], current_zoom[1])
             elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
+                # Use default zoom if no previous zoom
                 self.image_viewer.set_zoom_bounds(self.default_img_zoom[0], self.default_img_zoom[1])
             else:
-                # Set default zoom with extent adjustment
-                xlim = (0-extent[0], img.shape[1] - extent[0])
-                ylim = (img.shape[0] - extent[1], 0-extent[1])  # Note: (bottom, top) for inverted Y
-                self.image_viewer.set_zoom_bounds(xlim, ylim)
-
-            # Save current zoom state
-            self.img_zoom = list(self.image_viewer.get_zoom_bounds())
-            # Note: set_zoom_bounds() internally calls canvas.draw()
+                # No zoom to restore - just redraw to show overlays
+                self.imageCanvas.draw()
 
             self.updated['img'] = True
             self.uiUpdating = False
