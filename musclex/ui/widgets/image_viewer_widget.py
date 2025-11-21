@@ -240,17 +240,20 @@ class ImageViewerWidget(QWidget):
     def _on_zoom_applied(self, zoom_bounds):
         """
         Internal callback for zoom_rectangle tool.
-        Applies the zoom and emits toolCompleted signal for external handlers.
+        Completely handles zoom operation internally - no external notification needed.
         
         Args:
             zoom_bounds: [(x_min, x_max), (y_min, y_max)]
         """
-        # Apply the zoom
+        # Apply the zoom (preserves overlays)
         self.set_zoom_bounds(zoom_bounds[0], zoom_bounds[1])
         # Deactivate the tool (clears selection rectangle)
         self.tool_manager.deactivate_tool('zoom_rectangle')
-        # Emit signal for external handlers (e.g., to update UI state, save zoom state, etc.)
-        self.toolCompleted.emit('zoom_rectangle', zoom_bounds)
+        # Uncheck the zoom button in display_panel (if present)
+        if self.display_panel:
+            self.display_panel.set_zoom_in_checked(False)
+        # Note: No signal emission - zoom is a pure view operation
+        # External code can query zoom state via get_zoom_bounds() if needed
     
     # ===== Public API =====
     

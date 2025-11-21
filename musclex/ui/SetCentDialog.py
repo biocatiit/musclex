@@ -89,8 +89,7 @@ class SetCentDialog(QDialog):
         # (tool_manager is created internally, includes zoom_rectangle tool by default)
         self.imageViewer = ImageViewerWidget(parent=self, show_display_panel=True)
         
-        # Connect to tool completion signal to handle zoom
-        self.imageViewer.toolCompleted.connect(self._on_tool_completed)
+
         
         # Quick access to axes and canvas for drawing center lines
         self.imageAxes = self.imageViewer.axes
@@ -198,7 +197,8 @@ class SetCentDialog(QDialog):
             # Check if zoom tool is active and deactivate it
             if self.imageViewer.tool_manager.is_tool_active('zoom_rectangle'):
                 self.imageViewer.tool_manager.deactivate_tool('zoom_rectangle')
-                self.imageViewer.display_panel.zoomInBtn.setChecked(False)
+                # Uncheck button via display_panel API
+                self.imageViewer.display_panel.set_zoom_in_checked(False)
             # Prevent closing dialog with keyboard.
             return
 
@@ -308,20 +308,3 @@ class SetCentDialog(QDialog):
         else:
             # Button is unchecked - deactivate the zoom tool
             self.imageViewer.tool_manager.deactivate_current_tool()
-    
-    def _on_tool_completed(self, tool_name, result):
-        """
-        Handle tool completion events from ImageViewerWidget.
-        
-        Args:
-            tool_name: String identifier of the completed tool
-            result: The tool's result (varies by tool type)
-        """
-        if tool_name == 'zoom_rectangle':
-            # ZoomRectangleTool: result is zoom_bounds [(x_min, x_max), (y_min, y_max)]
-            # Zoom has already been applied by ImageViewerWidget
-            # Just need to resize the image and refresh center display
-            self.resizeImage(result)
-            self.refreshCenter()
-            # Uncheck the button to reset UI state
-            self.imageViewer.display_panel.zoomInBtn.setChecked(False)
