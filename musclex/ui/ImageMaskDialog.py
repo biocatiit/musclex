@@ -140,166 +140,148 @@ class ImageMaskDialog(QDialog):
         self.imageLayout.addWidget(self.imageLabel)
         self.imageLayout.addWidget(self.statusBar)
 
-        # self.displayDescGroup = QGroupBox("Current View")
-        # self.displayDescLayout = QVBoxLayout(self.displayDescGroup)
-        # self.displayDescLabel = QLabel()
-        # self.displayDescLabel.setStyleSheet("color: green;")
-        # self.displayDescLayout.addWidget(self.displayDescLabel)
-
-        self.displayGroup = QGroupBox("Display Options")
-
-        self.showImageCheckBox = QCheckBox("Show Image")
-
-        if self.imageData is not None:
-            self.showImageCheckBox.setCheckState(Qt.CheckState.Checked)
-        else:
-            self.showImageCheckBox.setEnabled(False)
-
-        self.showImageCheckBox.setToolTip("Uncheck to show mask only")
-
-        self.displayLayout = QVBoxLayout(self.displayGroup)
-        self.displayLayout.addWidget(self.showImageCheckBox)
-
+        # Single unified Mask Options group
         self.applyMaskGroup = QGroupBox("Mask Options")
         self.applyMaskGroup.setToolTip(
             "The selected mask options will be saved to a file and"
             + " applied to the image when clicking the Save button.")
 
-        self.applyDrawnMaskCheckBox = QCheckBox("Drawn Mask")
-        self.applyDrawnMaskText = QLabel()
-
-        self.applyLowMaskCheckBox = QCheckBox("Low Mask Threshold")
-        self.applyHighMaskCheckBox= QCheckBox("High Mask Threshold")
-
         self.applyMaskLayout = QGridLayout(self.applyMaskGroup)
+        
+        # Create hidden checkboxes for backward compatibility with existing logic
+        self.applyLowMaskCheckBox = QCheckBox("Low Mask Threshold")
+        self.applyLowMaskCheckBox.setVisible(False)
+        self.applyHighMaskCheckBox = QCheckBox("High Mask Threshold")
+        self.applyHighMaskCheckBox.setVisible(False)
+        
+        # Drawn Mask section
         settingsRowIndex = 0
-        self.applyMaskLayout.addWidget(self.applyDrawnMaskCheckBox, settingsRowIndex, 0, 1, 2)
-        self.applyMaskLayout.addWidget(self.applyDrawnMaskText, settingsRowIndex, 2, 1, 2)
+        self.applyDrawnMaskCheckBox = QCheckBox("Drawn Mask")
+        self.applyMaskLayout.addWidget(self.applyDrawnMaskCheckBox, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-        self.applyMaskLayout.addWidget(self.applyLowMaskCheckBox, settingsRowIndex, 0, 1, 2)
+        
+        self.applyDrawnMaskText = QLabel()
+        self.applyMaskLayout.addWidget(self.applyDrawnMaskText, settingsRowIndex, 0, 1, 4)
         settingsRowIndex += 1
-        self.applyMaskLayout.addWidget(self.applyHighMaskCheckBox, settingsRowIndex, 0, 1, 2)
-        settingsRowIndex += 1
-
-        self.drawMaskGroup = QGroupBox("Draw Mask")
-        self.drawMaskLayout = QVBoxLayout(self.drawMaskGroup)
-
+        
         self.drawMaskBtn = QPushButton("Draw Mask")
-        self.drawMaskLayout.addWidget(self.drawMaskBtn)
-
-        self.maskLowThresGroup = QGroupBox("Low Mask Threshold Settings")
-        self.maskLowThresLayout = QGridLayout(self.maskLowThresGroup)
-
+        self.applyMaskLayout.addWidget(self.drawMaskBtn, settingsRowIndex, 0, 1, 4)
+        settingsRowIndex += 1
+        
+        # Add spacing
+        self.applyMaskLayout.setRowMinimumHeight(settingsRowIndex, 15)
+        settingsRowIndex += 1
+        
+        # Low Mask Threshold section
         self.maskLowThreshChkbx = QCheckBox("Low Mask Threshold")
-
+        self.applyMaskLayout.addWidget(self.maskLowThreshChkbx, settingsRowIndex, 0, 1, 2)
+        
         self.maskLowThresh = QDoubleSpinBox()
         self.maskLowThresh.setMinimum(-50)
         self.maskLowThresh.setMaximum(10000)
         if not isinstance(mask_low_thresh, float):
-            mask_low_thresh = -1
+            mask_low_thresh = -0.01
         self.maskLowThresh.setValue(mask_low_thresh)
         self.maskLowThresh.setSingleStep(0.01)
         self.maskLowThresh.setEnabled(False)
         self.maskLowThresh.valueChanged.connect(self.maskLowThresholdChanged)
-
+        self.applyMaskLayout.addWidget(self.maskLowThresh, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
+        
         self.lowMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
         self.lowMaskDilationChkbx.setEnabled(False)
-
+        self.applyMaskLayout.addWidget(self.lowMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
+        
         self.lowDilComboBox = QComboBox()
         self.lowDilComboBox.addItem("3x3 Kernel")
         self.lowDilComboBox.addItem("5x5 Kernel")
         self.lowDilComboBox.addItem("7x7 Kernel")
 
         lowDilComboBoxIndex = 0
-
         if mask_low_kernel_size == 3:
             lowDilComboBoxIndex = 0
         elif mask_low_kernel_size == 5:
             lowDilComboBoxIndex = 1
         elif mask_low_kernel_size == 7:
             lowDilComboBoxIndex = 2
-
         self.lowDilComboBox.setCurrentIndex(lowDilComboBoxIndex)
-
         self.lowDilComboBox.setEnabled(False)
         self.lowDilComboBox.currentIndexChanged.connect(self.lowDilComboBoxChanged)
-
-        settingsRowIndex = 0
-        self.maskLowThresLayout.addWidget(self.maskLowThreshChkbx, settingsRowIndex, 0, 1, 2)
-        self.maskLowThresLayout.addWidget(self.maskLowThresh, settingsRowIndex, 3, 1, 2)
+        self.applyMaskLayout.addWidget(self.lowDilComboBox, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-        self.maskLowThresLayout.addWidget(self.lowMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
-        self.maskLowThresLayout.addWidget(self.lowDilComboBox, settingsRowIndex, 3, 1, 1)
+        
+        # Add spacing
+        self.applyMaskLayout.setRowMinimumHeight(settingsRowIndex, 15)
         settingsRowIndex += 1
-
-        self.maskHighThresGroup = QGroupBox("High Mask Threshold Settings")
-        self.maskHighThresLayout = QGridLayout(self.maskHighThresGroup)
-
+        
+        # High Mask Threshold section
         self.maskHighThreshChkbx = QCheckBox("High Mask Threshold")
-
+        self.applyMaskLayout.addWidget(self.maskHighThreshChkbx, settingsRowIndex, 0, 1, 2)
+        
         self.maskHighThresh = QDoubleSpinBox()
         self.maskHighThresh.setMinimum(0)
-        self.maskHighThresh.setMaximum(self.imageData.max() + 1.0)
-
+        self.maskHighThresh.setMaximum(float('inf'))
         if not isinstance(mask_high_thresh, float):
-            mask_high_thresh = self.imageData.max() + 1.0
+            mask_high_thresh = 64000.0
         self.maskHighThresh.setValue(mask_high_thresh)
-
         self.maskHighThresh.setSingleStep(0.01)
         self.maskHighThresh.setEnabled(False)
-
         self.maskHighThresh.valueChanged.connect(self.maskHighThresholdChanged)
-
-        #Enable or disable dilation for upper bound mask
+        self.applyMaskLayout.addWidget(self.maskHighThresh, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
+        
+        # Enable or disable dilation for upper bound mask
         self.highMaskDilationChkbx = QCheckBox("Enable Mask Dilation")
         self.highMaskDilationChkbx.setEnabled(False)
-
-        #Choose the kernel size for dilation (upper bound threshold)
+        self.applyMaskLayout.addWidget(self.highMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
+        
+        # Choose the kernel size for dilation (upper bound threshold)
         self.highDilComboBox = QComboBox()
         self.highDilComboBox.addItem("3x3 Kernel")
         self.highDilComboBox.addItem("5x5 Kernel")
         self.highDilComboBox.addItem("7x7 Kernel")
 
         highDilComboBoxIndex = 0
-
         if mask_high_kernel_size == 3:
             highDilComboBoxIndex = 0
         elif mask_high_kernel_size == 5:
             highDilComboBoxIndex = 1
         elif mask_high_kernel_size == 7:
             highDilComboBoxIndex = 2
-
         self.highDilComboBox.setCurrentIndex(highDilComboBoxIndex)
-
         self.highDilComboBox.setEnabled(False)
         self.highDilComboBox.currentIndexChanged.connect(self.highDilComboBoxChanged)
-
-        settingsRowIndex = 0
-        self.maskHighThresLayout.addWidget(self.maskHighThreshChkbx, settingsRowIndex, 0, 1, 2)
-        self.maskHighThresLayout.addWidget(self.maskHighThresh, settingsRowIndex, 3, 1, 2)
+        self.applyMaskLayout.addWidget(self.highDilComboBox, settingsRowIndex, 2, 1, 2)
         settingsRowIndex += 1
-        self.maskHighThresLayout.addWidget(self.highMaskDilationChkbx, settingsRowIndex, 0, 1, 2)
-        self.maskHighThresLayout.addWidget(self.highDilComboBox, settingsRowIndex, 3, 1, 1)
+        
+        # Add spacing before color labels
+        self.applyMaskLayout.setRowMinimumHeight(settingsRowIndex, 15)
         settingsRowIndex += 1
 
+        # Color legend labels inside the Mask Options group
         self.greenLabel = QLabel("Green: Low Mask Threshold")
         self.greenLabel.setStyleSheet("color: green")
+        self.applyMaskLayout.addWidget(self.greenLabel, settingsRowIndex, 0, 1, 2)
+        
         self.blueLabel = QLabel("Blue: High Mask Threshold")
         self.blueLabel.setStyleSheet("color: blue")
+        self.applyMaskLayout.addWidget(self.blueLabel, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
+        
         self.redLabel = QLabel("Red: Drawn Mask")
         self.redLabel.setStyleSheet("color: red")
+        self.applyMaskLayout.addWidget(self.redLabel, settingsRowIndex, 0, 1, 2)
+        
         self.purpleLabel = QLabel("Purple: Rmin / Rmax mask")
         self.purpleLabel.setStyleSheet("color: purple")
+        self.applyMaskLayout.addWidget(self.purpleLabel, settingsRowIndex, 2, 1, 2)
+        settingsRowIndex += 1
 
         self.negativeValuesLabel = QLabel("Negative Values Detected in Image: ")
         font = QFont()
         font.setBold(True)
         self.negativeValuesLabel.setFont(font)
         self.negativeValuesLabel.setVisible(False)
-
-        # self.clampNegativeValuesChkbx = QCheckBox("Clamp Negative Values to 0")
-        # self.clampNegativeValuesChkbx.setToolTip("Sets all negative values after subtraction to 0")
-        # self.clampNegativeValuesChkbx.setEnabled(False)
 
         self.dialogButtons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         okButton = self.dialogButtons.button(QDialogButtonBox.Ok)
@@ -308,40 +290,11 @@ class ImageMaskDialog(QDialog):
         self.dialogButtons.accepted.connect(self.okClicked)
         self.dialogButtons.rejected.connect(self.reject)
 
-        self.buttonLayout = QGridLayout()
-
-        settingsRowIndex = 0
-        self.buttonLayout.addWidget(self.greenLabel, settingsRowIndex, 0, 1, 2)
-        self.buttonLayout.addWidget(self.blueLabel, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
-        self.buttonLayout.addWidget(self.redLabel, settingsRowIndex, 0, 1, 2)
-        self.buttonLayout.addWidget(self.purpleLabel, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
-        self.buttonLayout.addWidget(self.negativeValuesLabel, settingsRowIndex, 0, 1, 4)
-        settingsRowIndex += 1
-        # self.buttonLayout.addWidget(self.clampNegativeValuesChkbx, settingsRowIndex, 0, 1, 2)
-        # settingsRowIndex += 1
-        # self.buttonLayout.addWidget(self.dialogButtons, settingsRowIndex, 0, 1, 4)
-        # settingsRowIndex += 1
-
-        self.buttonWidget = QWidget()
-        self.buttonWidget.setLayout(self.buttonLayout)
-
+        # Settings widget with only the applyMaskGroup
         self.settingsWidget = QWidget()
         self.settingsLayout = QVBoxLayout(self.settingsWidget)
-        # self.settingsLayout.addWidget(self.displayDescGroup)
-        # self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.displayGroup)
-        self.settingsLayout.addSpacing(10)
         self.settingsLayout.addWidget(self.applyMaskGroup)
-        self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.drawMaskGroup)
-        self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.maskLowThresGroup)
-        self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.maskHighThresGroup)
-        self.settingsLayout.addSpacing(10)
-        self.settingsLayout.addWidget(self.buttonWidget)
+        self.settingsLayout.addStretch()
 
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
@@ -372,7 +325,6 @@ class ImageMaskDialog(QDialog):
         
         # Auto-check Low Mask if threshold was saved in config
         if config_has_low_thresh:
-            self.applyLowMaskCheckBox.setChecked(True)
             self.maskLowThreshChkbx.setChecked(True)
             
             # Auto-check Low Mask Dilation if kernel size was saved
@@ -381,7 +333,6 @@ class ImageMaskDialog(QDialog):
         
         # Auto-check High Mask if threshold was saved in config
         if config_has_high_thresh:
-            self.applyHighMaskCheckBox.setChecked(True)
             self.maskHighThreshChkbx.setChecked(True)
             
             # Auto-check High Mask Dilation if kernel size was saved
@@ -396,7 +347,6 @@ class ImageMaskDialog(QDialog):
         self.adjustSize()
 
     def setConnections(self):
-        self.showImageCheckBox.checkStateChanged.connect(self.enableShowImage)
         self.drawMaskBtn.clicked.connect(self.drawMask)
         self.applyDrawnMaskCheckBox.checkStateChanged.connect(self.applyDrawnMask)
         self.applyLowMaskCheckBox.checkStateChanged.connect(self.enableLowMaskThresh)
@@ -408,9 +358,6 @@ class ImageMaskDialog(QDialog):
         self.lowMaskDilationChkbx.checkStateChanged.connect(self.enableLowMaskDilation)
 
         self.highMaskDilationChkbx.checkStateChanged.connect(self.enableHighMaskDilation)
-
-    def enableShowImage(self, state):
-        self.refreshImage()
 
     def updateDrawnMaskWidgets(self):
         """
@@ -708,9 +655,7 @@ class ImageMaskDialog(QDialog):
         return image_data
 
     def refreshImage(self):
-        isShowImage = (self.showImageCheckBox.isEnabled()
-            and self.showImageCheckBox.isChecked())
-
+        # Image is always shown
         isApplyDrawnMask = (self.applyDrawnMaskCheckBox.isEnabled()
             and self.applyDrawnMaskCheckBox.isChecked())
 
@@ -722,41 +667,9 @@ class ImageMaskDialog(QDialog):
 
         isApplyMask = isApplyDrawnMask or isApplyLowMask or isApplyHighMask
 
-        # If user does not select showing image:
-        if not isShowImage:
-            # If nothing is selected, Show nothing.
-            if not isApplyMask:
-                self.imageLabel.clear()
-                self.statusBar.setText(f"Current View: No Display")
-                return
-
-            # Only show mask:
-            imageData = self.imageData.copy()
-            drawnMaskData, lowMask, highMask = self.getMasks(imageData)
-            masks = [mask for mask in
-                [drawnMaskData, lowMask, highMask]
-                if mask is not None]
-
-            # If no mask, then show nothing.
-            if not masks:
-                self.imageLabel.clear()
-                return
-
-            maskData = np.prod(np.stack(masks), axis=0)
-            scaledPixmap = self.createDisplayImage(maskData,
-                self.vmin,
-                self.vmax,
-                self.imageLabel.width(),
-                self.imageLabel.height())
-
-            self.imageLabel.setPixmap(scaledPixmap)
-            self.statusBar.setText(f"Current View: Mask")
-            return
-
-        # User selected showing image:
         imageData = self.imageData.copy()
 
-        # Only show image.
+        # Only show image (no mask overlay)
         if not isApplyMask:
             scaledPixmap = self.createDisplayImage(imageData,
                 self.vmin,
@@ -767,7 +680,7 @@ class ImageMaskDialog(QDialog):
             self.statusBar.setText(f"Current View: Original Image")
             return
 
-        # Show image + apply mask.
+        # Show image + apply mask overlay
         drawnMaskData, lowMask, highMask = self.getMasks(imageData)
 
         scaledPixmap = self.createDisplayImageWithMasks(
@@ -781,7 +694,7 @@ class ImageMaskDialog(QDialog):
             self.imageLabel.height())
 
         self.imageLabel.setPixmap(scaledPixmap)
-        self.statusBar.setText(f"Current View: Original Image + Apply Mask")
+        self.statusBar.setText(f"Current View: Original Image + Mask Overlay")
 
     def getMasks(self, imageData):
         drawnMaskData = None
