@@ -2797,9 +2797,9 @@ class ProjectionTracesGUI(QMainWindow):
                 self.projProc.info['centery'] = self.calSettings["center"][1]
                 self.projProc.info['centerx'] = self.calSettings["center"][0]
             else:
-                if 'centerx' in self.projProc.info and self.center_func != 'manual':
+                if 'centerx' in self.projProc.info and self.center_func not in ['manual', 'quadrant_fold']:
                     del self.projProc.info['centerx']
-                if 'centery' in self.projProc.info and self.center_func != 'manual':
+                if 'centery' in self.projProc.info and self.center_func not in ['manual', 'quadrant_fold']:
                     del self.projProc.info['centery']
             
             if "detector" in self.calSettings:
