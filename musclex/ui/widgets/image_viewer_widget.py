@@ -64,10 +64,13 @@ class ImageViewerWidget(QWidget):
     Usage:
         # Basic viewer
         viewer = ImageViewerWidget()
-        viewer.display_image(img, vmin, vmax, log_scale=False)
+        viewer.display_image(img)
         
         # With display panel and double zoom
         viewer = ImageViewerWidget(show_display_panel=True, show_double_zoom=True)
+        # Settings are managed through display_panel
+        viewer.display_panel.set_intensity_values(vmin, vmax)
+        viewer.display_image(img)
         
         # Tool management
         viewer.tool_manager.register_tool('zoom', ZoomRectangleTool)
@@ -165,6 +168,7 @@ class ImageViewerWidget(QWidget):
             self.display_panel.intensityChanged.connect(self._on_intensity_changed_from_panel)
             self.display_panel.logScaleChanged.connect(self._on_log_scale_changed_from_panel)
             self.display_panel.colorMapChanged.connect(self._on_colormap_changed_from_panel)
+            self.display_panel.zoomInRequested.connect(self._on_zoom_in_requested)
             self.display_panel.zoomOutRequested.connect(self.reset_zoom)
     
     # ===== Internal Helper Methods =====
@@ -232,6 +236,15 @@ class ImageViewerWidget(QWidget):
             self.update_display_settings()
             self._emit_display_options_changed()
     
+    def _on_zoom_in_requested(self):
+        """Handle zoom in button click from display panel."""
+        if self.display_panel.zoomInBtn.isChecked():
+            # Button is checked - activate zoom rectangle tool
+            self.tool_manager.activate_tool('zoom_rectangle')
+        else:
+            # Button is unchecked - deactivate tool
+            self.tool_manager.deactivate_tool('zoom_rectangle')
+    
     def _emit_display_options_changed(self):
         """Emit signal when display options change."""
         options = self.get_display_options()
@@ -294,41 +307,40 @@ class ImageViewerWidget(QWidget):
         
         self.canvas.draw()
     
-    def display_image(self, img, vmin=None, vmax=None, log_scale=None, colormap=None):
+    def display_image(self, img):
         """
-        Display an image with specified intensity settings.
+        Display an image.
+        
+        Display settings (vmin/vmax/log_scale/colormap) are managed by display_panel.
+        Automatically preserves zoom state if an image was already displayed.
+        
+        For first-time setup, set display options before calling this:
+            viewer.display_panel.set_intensity_values(vmin, vmax)
+            viewer.display_panel.set_log_scale(True)
+            viewer.display_image(img)
+        
+        To reset zoom to full view, use reset_zoom() after display_image().
         
         Args:
             img: 2D numpy array
-            vmin: Minimum intensity value (None = keep current if exists, else image min)
-            vmax: Maximum intensity value (None = keep current if exists, else image max)
-            log_scale: Whether to use logarithmic scale (None = keep current)
-            colormap: Color map name (None = keep current)
         """
         self._current_image = img
         
-        # Update vmin/vmax: prefer explicit values, then current values, finally image min/max
-        if vmin is not None:
-            self._current_vmin = vmin
-        elif self._current_vmin is None:
+        # Initialize display settings if this is the first image
+        if self._current_vmin is None:
             self._current_vmin = img.min()
-        
-        if vmax is not None:
-            self._current_vmax = vmax
-        elif self._current_vmax is None:
+        if self._current_vmax is None:
             self._current_vmax = img.max()
         
-        # Update log_scale: prefer explicit value, then keep current
-        if log_scale is not None:
-            self._current_log_scale = log_scale
-        
-        # Update colormap: prefer explicit value, then keep current
-        if colormap is not None:
-            self._current_colormap = colormap
+        # Automatically preserve zoom if there was a previous image
+        saved_zoom = None
+        if len(self.axes.images) > 0:
+            saved_zoom = self.get_zoom_bounds()
         
         self.axes.cla()
         
-        if log_scale:
+        # Draw image using current display settings
+        if self._current_log_scale:
             self.axes.imshow(img, cmap=self._current_colormap, 
                            norm=LogNorm(vmin=max(1, self._current_vmin), vmax=self._current_vmax))
         else:
@@ -336,21 +348,24 @@ class ImageViewerWidget(QWidget):
                            norm=Normalize(vmin=self._current_vmin, vmax=self._current_vmax))
         
         self.axes.set_facecolor('black')
-        self.axes.set_xlim(0, img.shape[1])
-        self.axes.set_ylim(0, img.shape[0])
+        
+        # Restore zoom or set to full image
+        if saved_zoom is not None:
+            # Restore previous zoom (subsequent calls)
+            self.axes.set_xlim(saved_zoom[0])
+            self.axes.set_ylim(saved_zoom[1])
+        else:
+            # First time displaying: show full image
+            self.axes.set_xlim(0, img.shape[1])
+            self.axes.set_ylim(0, img.shape[0])
+        
         # Invert Y-axis to match image coordinates: (0,0) at top-left
         # This ensures Y increases downward, matching image array indexing
         self.axes.invert_yaxis()
         
-        # Update display panel if present
+        # Update display panel intensity range (for slider bounds)
         if self.display_panel:
             self.display_panel.set_intensity_range(img.min(), img.max())
-            if vmin is not None and vmax is not None:
-                self.display_panel.set_intensity_values(vmin, vmax)
-            if log_scale:
-                self.display_panel.set_log_scale(log_scale)
-            if colormap is not None:
-                self.display_panel.set_color_map(colormap)
         
         self.canvas.draw()
         

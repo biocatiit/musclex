@@ -1121,9 +1121,7 @@ class QuadrantFoldingGUI(QMainWindow):
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
         self.selectImageButton.clicked.connect(self.browseFile)
-        # Connect built-in display panel zoom buttons
-        self.image_viewer.display_panel.zoomInRequested.connect(self.imageZoomIn)
-        self.image_viewer.display_panel.zoomOutRequested.connect(self.imageZoomOut)
+        # Note: zoom buttons are handled internally by ImageViewerWidget
         
         # Connect center settings widget - simple button connections
         self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
@@ -2239,30 +2237,10 @@ class QuadrantFoldingGUI(QMainWindow):
         self.default_result_img_zoom = None
         self.refreshResultTab()
 
-    def imageZoomIn(self):
-        """
-        Trigger when set zoom in button is pressed (image tab).
-        Now using ZoomRectangleTool managed by tool_manager.
-        """
-        if self.imgZoomInB.isChecked():
-            # Activate the zoom rectangle tool
-            self.imgPathOnStatusBar.setText(
-                "Draw a rectangle on the image to zoom in (drag to select)")
-            self.image_viewer.tool_manager.activate_tool('zoom_rectangle')
-        else:
-            # User manually cancelled - just deactivate without applying
-            self.image_viewer.tool_manager.deactivate_tool('zoom_rectangle')
-            self.resetStatusbar()
-
-    def imageZoomOut(self):
-        """
-        Trigger when set zoom out button is pressed (image tab)
-        """
-        self.imgZoomInB.setChecked(False)
-        self.zoomOutClicked = True
-        self.default_img_zoom = None
-        self.default_result_img_zoom = None
-        self.refreshImageTab()
+    # Note: Zoom in/out are now handled entirely by ImageViewerWidget
+    # - Zoom in button activates zoom_rectangle tool
+    # - Zoom out button calls reset_zoom()
+    # No GUI-specific handling needed
 
     def imageClicked(self, event):
         """
@@ -3262,13 +3240,10 @@ class QuadrantFoldingGUI(QMainWindow):
             center = self.quadFold.center
             self.extent = extent
 
-            # Save current zoom before redrawing (if image exists)
-            current_zoom = None
-            if self.image_viewer._current_image is not None:
-                current_zoom = self.image_viewer.get_zoom_bounds()
-            
-            # Use ImageViewerWidget's API to display image (handles invert_yaxis internally)
-            # display_panel automatically maintains vmin/vmax/log_scale/colormap settings
+            # Use ImageViewerWidget's API to display image
+            # - Automatically preserves zoom (if not first time)
+            # - Automatically maintains vmin/vmax/log_scale/colormap from display_panel
+            # - Handles invert_yaxis internally
             self.image_viewer.display_image(img)
             
             # Get axes for drawing overlays
@@ -3300,19 +3275,9 @@ class QuadrantFoldingGUI(QMainWindow):
                         ax.plot([center[0], img.shape[1] - extent[0]], [center[1], img.shape[0] - extent[1]], color="w")
                         ax.plot([center[0], img.shape[1] - extent[0]], [img.shape[0] - extent[1], center[1]], color="w")
 
-            # Apply layout adjustment
+            # Apply layout and redraw to show overlays
             self.imageFigure.tight_layout()
-            
-            # Restore zoom (if there was one before, restore it; otherwise use default)
-            if current_zoom is not None:
-                # Restore previous zoom
-                self.image_viewer.set_zoom_bounds(current_zoom[0], current_zoom[1])
-            elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
-                # Use default zoom if no previous zoom
-                self.image_viewer.set_zoom_bounds(self.default_img_zoom[0], self.default_img_zoom[1])
-            else:
-                # No zoom to restore - just redraw to show overlays
-                self.imageCanvas.draw()
+            self.imageCanvas.draw()
 
             self.updated['img'] = True
             self.uiUpdating = False
