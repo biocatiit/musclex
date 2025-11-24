@@ -1143,10 +1143,7 @@ class QuadrantFoldingGUI(QMainWindow):
         
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
-        self.image_viewer.mousePressed.connect(self.imageClicked)
         self.image_viewer.mouseMoved.connect(self.imageOnMotion)
-        self.image_viewer.mouseReleased.connect(self.imageReleased)
-
         self.image_viewer.coordinatesChanged.connect(self._on_image_coordinates_changed)
         self.image_viewer.rightClickAt.connect(self._on_image_right_click)
         self.image_viewer.toolCompleted.connect(self._on_tool_completed)
@@ -1392,13 +1389,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.centerSettings.setCentByPerp.setChecked(False)
             self.rotationSettings.setRotationButton.setChecked(False)
 
-    # def expandImageChecked(self):
-    #     """
-    #     Triggered when the expand image checkbox is changed
-    #     """
-    #     if self.ableToProcess():
-    #         self.newImgDimension = None
-    #         self.onImageChanged()
+
 
     def blankSettingClicked(self):
         """
@@ -2063,7 +2054,19 @@ class QuadrantFoldingGUI(QMainWindow):
             unignoreThis.triggered.connect(self.removeIgnoreQuadrant)
             menu.addAction(unignoreThis)
         
+        # Clean up state when menu is closed without selection
+        menu.aboutToHide.connect(lambda: self._clear_ignorefold_state())
+        
         menu.popup(QCursor.pos())
+    
+    def _clear_ignorefold_state(self):
+        """
+        Clear ignorefold state if it's still set.
+        This is called when the right-click menu is closed without selection.
+        """
+        if self.function is not None and self.function[0] == 'ignorefold':
+            self.function = None
+            self.display_points = None
     
     def _on_precise_coordinates(self, x, y):
         """
@@ -2242,33 +2245,6 @@ class QuadrantFoldingGUI(QMainWindow):
     # - Zoom out button calls reset_zoom()
     # No GUI-specific handling needed
 
-    def imageClicked(self, event):
-        """
-        Triggered when mouse presses on image in image tab.
-        
-        NOTE: This receives events from ImageViewerWidget after:
-        - DoubleZoom processing
-        - ToolManager handling
-        - Right-click handling (via _on_image_right_click signal)
-        
-        Left-click pan/drag is now handled internally by ImageViewerWidget.
-        This only handles legacy state cleanup.
-        """
-        if not self.ableToProcess():
-            return
-
-        x = event.xdata
-        y = event.ydata
-        
-        if x is None or y is None:
-            return
-
-        # Clear ignorefold state if set
-        if self.function is not None and self.function[0] == 'ignorefold':
-            self.function = None
-            self.display_points = None
-
-
     def calcMouseMovement(self):
         "Determines relatively how fast the mouse is moving around"
 
@@ -2385,22 +2361,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # Pan/drag is now handled internally by ImageViewerWidget
         # All tool interactions are handled by ToolManager in ImageViewerWidget
         # This function is kept for potential future use but no longer processes mouse motion
-
-    def imageReleased(self, event):
-        """
-        Triggered when mouse released from image
-        
-        NOTE: This receives events from ImageViewerWidget after:
-        - DoubleZoom coordinate precision (handled in ImageViewerWidget)
-        - ToolManager release handling (handled in ImageViewerWidget)
-        - Tool completion detection (handled via _on_tool_completed signal)
-        
-        Pan/drag is now handled internally by ImageViewerWidget.
-        This function is kept for potential future use.
-        """
-        if not self.ableToProcess():
-            return
-
 
     def RminChanged(self):
         """
@@ -2812,31 +2772,6 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.highlightApplyUndo()
 
-    def minIntChanged(self):
-        """
-        Trigger when min intensity is changed
-        """
-        if self.ableToProcess():
-            if self.spmaxInt.value() <= self.spminInt.value():
-                self.uiUpdating = True
-                self.spmaxInt.setValue(self.spminInt.value() + 1)
-                self.uiUpdating = False
-            # Note: changing spinbox values triggers intensityChanged signal
-            # ImageViewerWidget will update automatically via update_display_settings()
-            # No need for processEvents() - Qt signal/slot is synchronous
-
-    def maxIntChanged(self):
-        """
-        Trigger when max intensity is changed
-        """
-        if self.ableToProcess():
-            if self.spmaxInt.value() <= self.spminInt.value():
-                self.uiUpdating = True
-                self.spminInt.setValue(self.spmaxInt.value() - 1)
-                self.uiUpdating = False
-            # Note: changing spinbox values triggers intensityChanged signal
-            # ImageViewerWidget will update automatically via update_display_settings()
-            # No need for processEvents() - Qt signal/slot is synchronous
 
     def updateApplyCenterMode(self):
         """
