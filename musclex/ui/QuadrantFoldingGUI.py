@@ -1258,8 +1258,6 @@ class QuadrantFoldingGUI(QMainWindow):
         if not self.fixedRoiChkBx.isChecked() and self.quadFold is not None:
             if 'fixed_roi_rad' in self.quadFold.info:
                 del self.quadFold.info['fixed_roi_rad']
-            # if 'roi_rad' in self.quadFold.info:
-            #     del self.quadFold.info['roi_rad']
             self.processImage()
 
     def toggleCircleRmin(self):
@@ -1597,31 +1595,6 @@ class QuadrantFoldingGUI(QMainWindow):
         return x, y
 
 
-    #IS THIS USED?
-    def getNewCoordsCenter(self, x, y):
-        """
-        Calculate the center in new image coordinates
-        given original image coordinates
-        """
-        _, center = self.getExtentAndCenter()
-        base_rotation = self.quadFold.rotation
-        angle = 0 if base_rotation is None else -base_rotation * math.pi / 180
-        cos_a = math.cos(angle)
-        sin_a = math.sin(angle)
-        #mouse pos in center-as-origin points
-        dx =  x - center[0]
-        dy = y - center[1]
-        #apply rotation
-        x1 =  dx * cos_a + dy * sin_a
-        y1 = -dx * sin_a + dy * cos_a
-        #Move the origin back to the bottom left
-        x_ir = x1 + center[0]
-        y_ir = y1 + center[1]
-        #Apply inverse translation to the point
-        o_x = x_ir
-        o_y = y_ir
-        return o_x, o_y
-
     def getRectanglePatch(self, center, w, h):
         """
         Give the rectangle patch
@@ -1916,25 +1889,6 @@ class QuadrantFoldingGUI(QMainWindow):
         # Update mode display
         self.updateApplyRotationMode()
 
-    def drawPerpendiculars(self):
-        """
-        Draw perpendiculars on the image
-        """
-        ax = self.imageAxes
-        points = self.chordpoints
-        self.chordLines = []
-        for i, p1 in enumerate(points):
-            for p2 in points[i + 1:]:
-                slope, cent = getPerpendicularLineHomogenous(p1, p2)
-                if slope == float('inf'):
-                    y_vals = np.array(ax.get_ylim())
-                    x_vals = cent[0] + np.zeros(y_vals.shape)
-                    self.chordLines.append([slope, cent[0]])
-                else:
-                    x_vals = np.array(ax.get_xlim())
-                    y_vals = (x_vals - cent[0]) * slope + cent[1]
-                    self.chordLines.append([slope, cent[1] - slope * cent[0]])
-                ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
 
     def setRotation(self):
         """
@@ -2240,24 +2194,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.default_result_img_zoom = None
         self.refreshResultTab()
 
-    # Note: Zoom in/out are now handled entirely by ImageViewerWidget
-    # - Zoom in button activates zoom_rectangle tool
-    # - Zoom out button calls reset_zoom()
-    # No GUI-specific handling needed
-
-    def calcMouseMovement(self):
-        "Determines relatively how fast the mouse is moving around"
-
-        mph = self.mousePosHist
-        if len(mph) < 2:
-            return 0
-
-        diffs = len(self.mousePosHist) - 1
-        total = 0
-        for i in range(diffs):
-            total += np.sqrt(((mph[i][0] - mph[i+1][0]) ** 2) + ((mph[i][1] - mph[i+1][1]) ** 2))
-
-        return total / diffs
 
     def imageOnMotion(self, event):
         """
@@ -2992,10 +2928,6 @@ class QuadrantFoldingGUI(QMainWindow):
                 self.deg2CB.setCurrentIndex(2)
 
 
-
-        # if 'blank_mask' in info:
-        #     self.blankImageGrp.setChecked(info['blank_mask'])
-
         # Range is already set to allow any value at spinbox creation
         if not self.resPersistIntensity.isChecked():
             self.spResultmaxInt.setValue(max_val * .1)
@@ -3029,10 +2961,7 @@ class QuadrantFoldingGUI(QMainWindow):
             self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
         self.markFixedInfo(self.quadFold.info, previnfo)
         original_image = self.quadFold.orig_img
-        # if self.calSettings is not None and not self.calSettings:
-        #     self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
-        # elif self.calSettings is not None and self.calSettings:
-        #     self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype) + " (Image Calibrated)")
+
         self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
         self.initialWidgets(original_image, previnfo)
         if 'ignore_folds' in self.quadFold.info:
@@ -3499,7 +3428,6 @@ class QuadrantFoldingGUI(QMainWindow):
         if self.lock is not None:
             self.lock.release()
 
-    # placeholder method
     def thread_finished(self):
 
         self.tasksDone += 1
