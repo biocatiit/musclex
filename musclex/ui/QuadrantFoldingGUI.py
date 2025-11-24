@@ -402,7 +402,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
         self.minIntLabel = self.image_viewer.display_panel.minIntLabel
         self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
-        self.doubleZoom = self.image_viewer.double_zoom  # Now displayed in display panel
         
         # QuadrantFolding-specific: start with 0 decimals (initialWidgets updates to 2 for float images)
         self.spminInt.setDecimals(0)
