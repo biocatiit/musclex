@@ -96,8 +96,12 @@ class SetCentDialog(QDialog):
         self.imageCanvas = self.imageViewer.canvas
         self.imageFigure = self.imageViewer.figure
         
-        # Display the image with initial settings
-        self.imageViewer.display_image(self.img, vmin, vmax, isLogScale)
+        # Display the image
+        self.imageViewer.display_image(self.img)
+        
+        # Set initial display settings via display_panel
+        self.imageViewer.display_panel.set_intensity_values(vmin, vmax)
+        self.imageViewer.display_panel.set_log_scale(isLogScale)
         
         # Draw center crosshair
         self.imageAxes.axvline(x, color='y', label="Cross Center Yellow")
@@ -238,10 +242,6 @@ class SetCentDialog(QDialog):
         self.isLogScale = log_scale
         # ImageViewerWidget will automatically update via update_display_settings()
         # which preserves zoom and overlays (like center crosshair)
-
-    def redrawImage(self):
-        """Redraw image with current settings (called after refreshCenter)"""
-        self.imageViewer.display_image(self.img, self.vmin, self.vmax, self.isLogScale)
 
 
     def resizeImage(self, img_zoom):
