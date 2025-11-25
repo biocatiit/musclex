@@ -54,6 +54,7 @@ from ..csv_manager import PT_CSVManager
 from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from .pyqt_utils import *
+from .base_gui import BaseGUI
 
 class ProjectionParams:
     def __init__(self, dir_path, img_name, fileList, ext, settings):
@@ -275,13 +276,12 @@ class EditBoxDetails(QDialog):
         self.accept()
         
 
-class ProjectionTracesGUI(QMainWindow):
+class ProjectionTracesGUI(BaseGUI):
     """
     This class is for Projection Traces GUI Object
     """
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Muscle X Projection Traces v." + __version__)
         self.current_file = 0
         self.dir_path = ""
         self.calSettings = None
@@ -333,47 +333,45 @@ class ProjectionTracesGUI(QMainWindow):
 
         self.browseFile()
 
-    def initUI(self):
-        """
-        Initial all GUI
-        """
-        #### Image Tab ####
-        self.scrollArea = QScrollArea()
-        self.scrollArea.setWidgetResizable(True)
-        self.centralWidget = QWidget(self)
-
-        self.scrollArea.setWidget(self.centralWidget)
-        self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.scrollArea)
-
-        self.tabWidget = QTabWidget()
-        self.tabWidget.setTabPosition(QTabWidget.North)
-        self.tabWidget.setDocumentMode(False)
-        self.tabWidget.setTabsClosable(True)
-        self.tabWidget.setStyleSheet("QTabBar::tab { height: 20px; width: 200px; }")
-
-        self.imageTab = QWidget()
-        self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayer = QHBoxLayout(self.imageTab)
-
-        self.displayImgFigure = plt.figure()
-        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
-        #self.imageVLayout = QVBoxLayout()
-        self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
-        #self.imageVLayout.addWidget(self.displayImgCanvas)
-
-        self.imageLeftFrame = QFrame()
-        self.imageLeftFrame.setFixedWidth(300)
-        self.leftFrameLayout = QVBoxLayout(self.imageLeftFrame)
-
-        # Image selection
-        self.selectImageGrp = QGroupBox("1. Select an image")
-        self.selectImageLayout = QVBoxLayout(self.selectImageGrp)
-        self.browseImageButton = QPushButton("Browse")
-        self.selectImageLayout.addWidget(self.browseImageButton)
-
+    def _setup_window(self):
+        """Set window title"""
+        from musclex import __version__
+        self.setWindowTitle("Muscle X Projection Traces v." + __version__)
+    
+    def _tabs_closable(self) -> bool:
+        """PT allows closing tabs"""
+        return True
+    
+    def _tab_stylesheet(self) -> str:
+        """PT uses smaller tabs"""
+        return "QTabBar::tab { height: 20px; width: 200px; }"
+    
+    def _create_tabs(self):
+        """Create image tab and box tabs"""
+        # Use standard image tab (same as QuadrantFolding)
+        self._create_standard_image_tab(tab_title="Image")
+        
+        # Make first tab not closable
+        self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
+        self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
+        
+        # Add PT-specific display options (only the 3 unique checkboxes)
+        self._add_display_options()
+        
+        # Add PT-specific settings to right panel
+        self._create_pattern_settings()
+        self._create_box_settings()
+        self._create_peaks_settings()
+        self._create_blank_settings()
+        
+        # Add navigation controls to bottom
+        self._create_navigation()
+        self.right_panel.add_bottom_widget(self.bottomWidget)
+    
+    def _create_pattern_settings(self):
+        """Create pattern properties settings group"""
         # Pattern Properties
-        self.propGrp = QGroupBox("2. Pattern Settings (Optional)")
+        self.propGrp = QGroupBox("Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
 
@@ -408,9 +406,14 @@ class ProjectionTracesGUI(QMainWindow):
         self.propLayout.addWidget(self.doubleZoom, 5, 2, 1, 2)
         self.propLayout.addWidget(QLabel('Mask Threshold:'), 6, 0, 1, 2)
         self.propLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
-
+        
+        # Add to right panel
+        self.right_panel.add_widget(self.propGrp)
+    
+    def _create_box_settings(self):
+        """Create box selection settings group"""
         # Box selection
-        self.boxGrp = QGroupBox("3. Add boxes")
+        self.boxGrp = QGroupBox("Add Boxes")
         self.boxGrp.setEnabled(False)
         self.boxesLayout = QVBoxLayout(self.boxGrp)
         self.addBoxButton = QPushButton("Add Axis Aligned Box")
@@ -429,70 +432,53 @@ class ProjectionTracesGUI(QMainWindow):
         self.boxesLayout.addWidget(self.addCenterOrientedBoxButton)
         self.boxesLayout.addWidget(self.editBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
-
+        
+        # Add to right panel
+        self.right_panel.add_widget(self.boxGrp)
+    
+    def _create_peaks_settings(self):
+        """Create peaks selection settings group"""
         # Peaks Selection
-        self.selectPeaksGrp = QGroupBox("4. Peaks")
+        self.selectPeaksGrp = QGroupBox("Peaks")
         self.selectPeaksGrp.setEnabled(False)
         self.selectPeaksLayout = QVBoxLayout(self.selectPeaksGrp)
         self.selectPeaksButton = QPushButton("Select Approximate Peak Locations")
         self.selectPeaksButton.setCheckable(True)
         self.checkableButtons.append(self.selectPeaksButton)
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
-
-        self.leftFrameLayout.addWidget(self.selectImageGrp)
-        self.leftFrameLayout.addSpacing(10)
-        self.leftFrameLayout.addWidget(self.propGrp)
-        self.leftFrameLayout.addSpacing(10)
-        self.leftFrameLayout.addWidget(self.boxGrp)
-        self.leftFrameLayout.addSpacing(10)
-        self.leftFrameLayout.addWidget(self.selectPeaksGrp)
-        self.leftFrameLayout.addStretch()
-
-        self.imageRightFrame = QFrame()
-        self.imageRightFrame.setFixedWidth(250)
-        self.rightFrameLayout = QVBoxLayout(self.imageRightFrame)
-
-        # Display Options
-        self.dispOptGrp = QGroupBox("Display Options")
-        self.dispOptLayout = QGridLayout(self.dispOptGrp)
-
-        self.boxesChkBx = QCheckBox("Boxes")
-        self.boxesChkBx.setChecked(True)
-        self.peaksChkBx = QCheckBox("Peaks")
-        self.peaksChkBx.setChecked(True)
+        
+        # Add to right panel
+        self.right_panel.add_widget(self.selectPeaksGrp)
+    
+    def _add_display_options(self):
+        """Add PT-specific display options (only the 3 unique checkboxes)"""
+        # Add PT-specific checkboxes to display panel
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
-
-        self.imgZoomInB = QPushButton("Zoom In")
-        self.imgZoomInB.setCheckable(True)
-        self.checkableButtons.append(self.imgZoomInB)
-        self.imgZoomOutB = QPushButton("Full")
-
-        self.minIntLabel = QLabel("Min Intensity")
-        self.minIntSpnBx = QDoubleSpinBox()
-        self.minIntSpnBx.setKeyboardTracking(False)
-        self.minIntSpnBx.setDecimals(2)
-
-        self.maxIntLabel = QLabel("Max Intensity")
-        self.maxIntSpnBx = QDoubleSpinBox()
-        self.maxIntSpnBx.setValue(0)
-        self.maxIntSpnBx.setDecimals(2)
-        self.maxIntSpnBx.setKeyboardTracking(False)
-
-        self.persistIntensity = QCheckBox("Persist intensities")
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-
-        self.dispOptLayout.addWidget(self.minIntLabel, 0, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.minIntSpnBx, 1, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 0, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.maxIntSpnBx, 1, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.persistIntensity, 2, 0, 1, 4)
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 3, 0, 1, 4)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 4, 2, 1, 2)
-        self.dispOptLayout.addWidget(self.centerChkBx, 5, 0, 1, 4)
-        self.dispOptLayout.addWidget(self.boxesChkBx, 6, 0, 1, 4)
-        self.dispOptLayout.addWidget(self.peaksChkBx, 7, 0, 1, 4)
+        
+        self.boxesChkBx = QCheckBox("Boxes")
+        self.boxesChkBx.setChecked(True)
+        
+        self.peaksChkBx = QCheckBox("Peaks")
+        self.peaksChkBx.setChecked(True)
+        
+        # Add to display panel's top slot
+        self.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
+        self.image_viewer.display_panel.add_to_top_slot(self.boxesChkBx)
+        self.image_viewer.display_panel.add_to_top_slot(self.peaksChkBx)
+        
+        # Expose built-in controls with PT's naming convention for backward compatibility
+        self.minIntSpnBx = self.spminInt
+        self.maxIntSpnBx = self.spmaxInt
+        self.minIntLabel = self.image_viewer.display_panel.minIntLabel
+        self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
+        self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
+        self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
+        
+        # Note: imgZoomInB is already added to checkableButtons by display panel
+    
+    def _create_blank_settings(self):
+        """Create blank image settings group"""
         # Blank Image Settings
         self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
         self.blankImageGrp.setCheckable(True)
@@ -500,7 +486,12 @@ class ProjectionTracesGUI(QMainWindow):
         self.blankImageLayout = QVBoxLayout(self.blankImageGrp)
         self.blankSettingButton = QPushButton("Set Blank Image and Mask")
         self.blankImageLayout.addWidget(self.blankSettingButton)
-
+        
+        # Add to right panel
+        self.right_panel.add_widget(self.blankImageGrp)
+    
+    def _create_navigation(self):
+        """Create navigation and process buttons"""
         # Process Folder Button
         pfss = "QPushButton { color: #ededed; background-color: #af6207}"
         self.processFolderButton = QPushButton("Process Current Folder")
@@ -531,44 +522,13 @@ class ProjectionTracesGUI(QMainWindow):
         self.bottomLayout.addWidget(self.nextButton, 3, 2, 1, 2)
         self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 2)
         self.bottomLayout.addWidget(self.nextFileButton, 4, 2, 1, 2)
-
-        self.rightFrameLayout.addWidget(self.dispOptGrp)
-        self.rightFrameLayout.addSpacing(10)
-        self.rightFrameLayout.addWidget(self.blankImageGrp)
-        self.rightFrameLayout.addStretch()
-        self.rightFrameLayout.addLayout(self.bottomLayout)
-
-        self.imageTabLayer.addWidget(self.imageLeftFrame)
-        self.imageTabLayer.addWidget(self.displayImgCanvas)
-        self.imageTabLayer.addWidget(self.imageRightFrame)
-
-        self.tabWidget.addTab(self.imageTab, "Image")
-        self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
-        self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
-
-        ### Status Bars ###
-        self.upperStatusBar = QStatusBar()
         
-        self.right_status = QLabel()
-        self.pixel_detail = QLabel()
-        self.progressBar = QProgressBar()
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        
-        self.upperStatusBar.addPermanentWidget(self.pixel_detail)
-        self.upperStatusBar.addPermanentWidget(self.right_status)
-        self.upperStatusBar.addPermanentWidget(self.progressBar)
-
-        self.lowerStatusBar = QStatusBar()
-        self.left_status = QLabel()
-        self.lowerStatusBar.addWidget(self.left_status)
-
-        self.mainLayout.addWidget(self.tabWidget)
-        self.mainLayout.addWidget(self.upperStatusBar)
-        self.mainLayout.addWidget(self.lowerStatusBar)
-
-        #### Menu Bar #####
+        # Wrap bottom layout in a widget
+        self.bottomWidget = QWidget()
+        self.bottomWidget.setLayout(self.bottomLayout)
+    
+    def _create_menu_bar(self):
+        """Create menu bar"""
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
         saveSettingsAction.triggered.connect(self.saveSettings)
@@ -582,9 +542,59 @@ class ProjectionTracesGUI(QMainWindow):
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
-
-        self.show()
+    
+    def _create_status_bars(self):
+        """Create custom status bars with pixel detail and progress bar"""
+        # Upper status bar with pixel detail, right status, and progress bar
+        self.statusBar = QStatusBar()
+        
+        self.right_status = QLabel()
+        self.pixel_detail = QLabel()
+        self.progressBar = QProgressBar()
+        self.progressBar.setFixedWidth(300)
+        self.progressBar.setTextVisible(True)
+        self.progressBar.setVisible(False)
+        
+        self.statusBar.addPermanentWidget(self.pixel_detail)
+        self.statusBar.addPermanentWidget(self.right_status)
+        self.statusBar.addPermanentWidget(self.progressBar)
+        
+        # Lower status bar with left status
+        self.lowerStatusBar = QStatusBar()
+        self.left_status = QLabel()
+        self.lowerStatusBar.addWidget(self.left_status)
+        
+        # Add both status bars to main layout
+        self.mainVLayout.addWidget(self.statusBar)
+        self.mainVLayout.addWidget(self.lowerStatusBar)
+        
+        # Aliases for compatibility
+        self.imgPathOnStatusBar = self.left_status
+        self.imgDetailOnStatusBar = self.right_status
+        self.imgCoordOnStatusBar = self.pixel_detail
+        self.statusReport = self.right_status
+    
+    def _finalize_ui(self):
+        """Custom finalization for PT"""
         self.resize(1300, 700)
+        self.show()
+    
+    def _additional_setup(self):
+        """Additional PT-specific setup"""
+        # Use BaseGUI's image_viewer canvas (already in layout with correct stretch)
+        # Create aliases for backward compatibility with PT code
+        self.displayImgCanvas = self.imageCanvas
+        self.displayImgAxes = self.imageAxes
+        self.displayImgFigure = self.imageFigure
+    
+    def updateLeftWidgetWidth(self):
+        """Update left widget width based on canvas visibility"""
+        if self.displayImgCanvas.isVisible():
+            # Remove the minimum width constraint when canvas is visible
+            self.leftWidget.setMinimumWidth(0)
+        else:
+            # Set the minimum width for when the canvas is hidden
+            self.leftWidget.setMinimumWidth(650)
 
     def setConnections(self):
         """
@@ -593,8 +603,9 @@ class ProjectionTracesGUI(QMainWindow):
         self.tabWidget.currentChanged.connect(self.updateUI)
         self.tabWidget.tabCloseRequested.connect(self.removeTab)
 
-        # Image seletion
-        self.browseImageButton.clicked.connect(self.browseFile)
+        # Image selection (standard left panel buttons)
+        self.selectImageButton.clicked.connect(self.browseFile)
+        self.selectFolder.clicked.connect(self.browseFile)
 
         # # Pattern Properties
         self.calibrateButton.clicked.connect(self.calibrationClicked)
@@ -2404,6 +2415,12 @@ class ProjectionTracesGUI(QMainWindow):
         """
         self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
         if self.dir_path is not None and self.imgList is not None and self.imgList:
+            # Hide left panel buttons and show canvas (like QuadrantFoldingGUI)
+            self.selectImageButton.setHidden(True)
+            self.selectFolder.setHidden(True)
+            self.displayImgCanvas.setHidden(False)
+            self.updateLeftWidgetWidth()
+            
             self.propGrp.setEnabled(True)
             self.boxGrp.setEnabled(True)
             cache = self.loadBoxesAndPeaks()

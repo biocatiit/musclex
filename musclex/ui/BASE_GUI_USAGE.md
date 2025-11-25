@@ -315,12 +315,14 @@ This **drastically reduces boilerplate** and ensures **consistent UI** across al
 ```python
 def _create_tabs(self):
     # Create standard image tab with default settings
+    # Note: display_panel is automatically added to right_panel
     self._create_standard_image_tab(tab_title="Image")
     
     # Add your GUI-specific display options
     self._add_display_options()
     
     # Add your GUI-specific settings to right panel
+    # (display_panel is already there, just add your custom settings)
     self._create_my_settings()
     
     # Add navigation controls to bottom of right panel
@@ -354,6 +356,7 @@ After calling `_create_standard_image_tab()`, you have access to:
 
 **Right Panel:**
 - `self.right_panel` - CollapsibleRightPanel instance
+- Display panel is **automatically added** to right_panel (if `show_display_panel=True`)
 - `self.navControls` - Navigation controls (created but not added - you add it)
 
 ### Parameters
