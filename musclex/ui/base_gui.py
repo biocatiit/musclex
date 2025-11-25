@@ -383,6 +383,10 @@ class BaseGUI(QMainWindow):
         self.right_panel.setFixedWidth(500)
         self.right_panel.setContentsMargins(0, 35, 0, 0)
         
+        # Add display panel to right panel (if display panel is shown)
+        if show_display_panel:
+            self.right_panel.add_widget(self.image_viewer.display_panel)
+        
         self.imageTabLayout.addWidget(self.right_panel, 0)  # No stretch
         
         # Setup floating toggle button
