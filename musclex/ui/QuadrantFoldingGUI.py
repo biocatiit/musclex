@@ -966,34 +966,49 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultAxes.set_aspect('equal', adjustable="box")
         self.resultVLayout = QVBoxLayout()
         self.resultCanvas = FigureCanvas(self.resultFigure)
-        self.resultTabLayout.addWidget(self.resultCanvas)
+        self.resultTabLayout.addWidget(self.resultCanvas, 1)  # Add stretch factor to fill space
     
     def _create_result_right_panel(self):
-        """Create right panel for result tab"""
-        # Create scrollable right frame
-        self.rightLayout = QVBoxLayout()
-        self.rightFrame = QFrame()
-        self.rightFrame.setFixedWidth(500)
-        self.rightFrame.setLayout(self.rightLayout)
-        
-        self.res_scroll_areaImg = QScrollArea()
-        self.res_scroll_areaImg.setWidgetResizable(True)
-        self.res_scroll_areaImg.setWidget(self.rightFrame)
-        self.res_scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.resultTabLayout.addWidget(self.res_scroll_areaImg)
+        """Create right panel for result tab using CollapsibleRightPanel (same as Image tab)"""
+        # Create CollapsibleRightPanel to match Image tab layout
+        self.result_right_panel = CollapsibleRightPanel(
+            parent=self, 
+            title="Options", 
+            settings_key="quadrant/result_right_panel",
+            start_visible=True,
+            show_toggle_internally=False  # Toggle button will be floating
+        )
         
         # Create display options
         self._create_result_display_options()
         
-        # Add widgets to right layout
-        self.rightLayout.addWidget(self.resultDispOptGrp)
-        self.rightLayout.addSpacing(10)
-        self.rightLayout.addWidget(self.resProcGrpBx)
-        self.rightLayout.addStretch()
+        # Add widgets to panel (same structure as Image tab)
+        self.result_right_panel.add_widget(self.resultDispOptGrp)
+        self.result_right_panel.add_widget(self.resProcGrpBx)
         
-        # Navigation widget container (navControls added dynamically on tab switch)
+        # Navigation widget container (added to bottom, navControls moved here dynamically on tab switch)
         self.buttonsLayout2 = QGridLayout()
-        self.rightLayout.addLayout(self.buttonsLayout2)
+        buttonsWidget = QWidget()
+        buttonsWidget.setLayout(self.buttonsLayout2)
+        self.result_right_panel.add_bottom_widget(buttonsWidget)
+        
+        # Set fixed width and margins (same as Image tab)
+        self.result_right_panel.setFixedWidth(500)
+        self.result_right_panel.setContentsMargins(0, 35, 0, 0)  # Top margin for toggle button
+        
+        # Add to layout
+        self.resultTabLayout.addWidget(self.result_right_panel, 0)  # No stretch, fixed width
+        
+        # Setup floating toggle button
+        self.result_right_panel.toggle_btn.setParent(self.resultTab)
+        self.result_right_panel.toggle_btn.raise_()
+        # Initially hidden (Image tab is shown first)
+        self.result_right_panel.toggle_btn.hide()
+        
+        # Keep old references for backward compatibility
+        self.rightLayout = self.result_right_panel.content_layout
+        self.rightFrame = self.result_right_panel.content_widget
+        self.res_scroll_areaImg = self.result_right_panel.scroll_area
     
     def _create_result_display_options(self):
         """Create result display options group"""
@@ -3082,30 +3097,41 @@ class QuadrantFoldingGUI(QMainWindow):
         if index == 0:  # Image tab
             # In Image tab, navControls should be in right_panel's bottom area (fixed, always visible)
             self.right_panel.add_bottom_widget(self.navControls)
-            # Show floating toggle button in Image tab
+            # Show Image tab toggle button, hide Result tab toggle button
             self.right_panel.toggle_btn.show()
+            self.result_right_panel.toggle_btn.hide()
             self._position_toggle_button()
         elif index == 1:  # Results tab
+            # In Results tab, navControls should be in result_right_panel's bottom area
             self.buttonsLayout2.addWidget(self.navControls, 0, 0, 1, 1)
-            # Hide floating toggle button in Results tab
+            # Show Result tab toggle button, hide Image tab toggle button
+            self.result_right_panel.toggle_btn.show()
             self.right_panel.toggle_btn.hide()
+            self._position_toggle_button()
         
         # Trigger UI update
         self.updateUI()
     
     def _position_toggle_button(self):
-        """Position the floating toggle button in the top-right corner of the image tab."""
-        if hasattr(self, 'right_panel') and hasattr(self, 'imageTab'):
-            # Get imageTab dimensions
+        """Position the floating toggle buttons in the top-right corner of active tab."""
+        current_index = self.tabWidget.currentIndex()
+        
+        if current_index == 0 and hasattr(self, 'right_panel') and hasattr(self, 'imageTab'):
+            # Position Image tab toggle button
             tab_width = self.imageTab.width()
-            # Position button in top-right corner
-            # Place it above the panel, with proper spacing
             button_x = tab_width - self.right_panel.toggle_btn.width() - 10
-            button_y = 5  # Small top margin
+            button_y = 5
             self.right_panel.toggle_btn.move(button_x, button_y)
+        
+        elif current_index == 1 and hasattr(self, 'result_right_panel') and hasattr(self, 'resultTab'):
+            # Position Result tab toggle button
+            tab_width = self.resultTab.width()
+            button_x = tab_width - self.result_right_panel.toggle_btn.width() - 10
+            button_y = 5
+            self.result_right_panel.toggle_btn.move(button_x, button_y)
     
     def resizeEvent(self, event):
-        """Handle window resize to reposition floating toggle button."""
+        """Handle window resize to reposition floating toggle buttons."""
         super().resizeEvent(event)
         # Reposition toggle button when window is resized
         self._position_toggle_button()
