@@ -72,6 +72,7 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .widgets.center_settings_widget import CenterSettingsWidget
 from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
+from .base_gui import BaseGUI
 import time
 import random
 
@@ -212,8 +213,7 @@ class Worker(QRunnable):
 class EventEmitter(QObject):
     pass  # Signal definitions removed - GUI updates happen in processImage()
 
-class QuadrantFoldingGUI(QMainWindow):
-
+class QuadrantFoldingGUI(BaseGUI):
     """
     A class for window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
@@ -306,50 +306,58 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.bgAsyncDict = {}
 
-    def initUI(self):
-        """Initialize the user interface"""
+    # ===== BaseGUI abstract methods implementation =====
+    
+    def _setup_window(self):
+        """Set window title"""
+        from musclex import __version__
         self.setWindowTitle("Muscle X Quadrant Folding v." + __version__)
-        
-        # Create main layout and tabs
-        self._setup_main_layout()
-        
-        # Create tabs
+    
+    def _create_tabs(self):
+        """Create image tab and result tab"""
         self._create_image_tab()
         self._create_result_tab()
+    
+    def _create_menu_bar(self):
+        """Create menu bar with File and Help menus"""
+        selectImageAction = QAction('Select an Image...', self)
+        selectImageAction.setShortcut('Ctrl+I')
+        selectImageAction.triggered.connect(self.browseFile)
         
-        # Create status bars
-        self._create_status_bars()
+        selectFolderAction = QAction('Select a Folder...', self)
+        selectFolderAction.setShortcut('Ctrl+F')
+        selectFolderAction.triggered.connect(self.browseFolder)
         
-        # Initialize patch objects for circles
+        saveSettingsAction = QAction('Save Current Settings', self)
+        saveSettingsAction.setShortcut('Ctrl+S')
+        saveSettingsAction.triggered.connect(self.saveSettings)
+        
+        aboutAct = QAction('About', self)
+        aboutAct.triggered.connect(self.showAbout)
+        
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(selectImageAction)
+        fileMenu.addAction(selectFolderAction)
+        fileMenu.addAction(saveSettingsAction)
+        
+        helpMenu = menubar.addMenu('&Help')
+        helpMenu.addAction(aboutAct)
+    
+    def _additional_setup(self):
+        """Initialize patches, register tools, and setup background choice"""
+        # Set initial status bar text
+        self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
+        
+        # Initialize patches and tools
         self._initialize_patches()
-        
-        # Create menu bar
-        self._create_menu_bar()
-        
-        # Register tools and finalize UI
-        self.bgChoiceInChanged()
-        self.bgChoiceOutChanged()
         self._register_tools()
         
-        # Show window
-        self.resize(1200, 900)
-        self.show()
+        # Setup background choice UI
+        self.bgChoiceInChanged()
+        self.bgChoiceOutChanged()
     
-    def _setup_main_layout(self):
-        """Setup main scroll area and tab widget"""
-        self.scrollArea = QScrollArea()
-        self.scrollArea.setWidgetResizable(True)
-        self.centralWidget = QWidget(self)
-        self.scrollArea.setWidget(self.centralWidget)
-        self.mainVLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.scrollArea)
-        
-        self.tabWidget = QTabWidget()
-        self.tabWidget.setTabPosition(QTabWidget.North)
-        self.tabWidget.setDocumentMode(False)
-        self.tabWidget.setTabsClosable(False)
-        self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
-        self.mainVLayout.addWidget(self.tabWidget)
+    # ===== UI setup methods =====
 
     def _create_image_tab(self):
         """Create the image tab with all its components"""
@@ -1056,37 +1064,6 @@ class QuadrantFoldingGUI(QMainWindow):
         
         self.resultDispOptGrp.setLayout(self.resultDispOptLayout)
 
-    def _create_status_bars(self):
-        """Create main and lower status bars"""
-        # Main status bar
-        self.statusBar = QStatusBar()
-        self.progressBar = QProgressBar()
-        self.progressBar.setMaximum(100)
-        self.progressBar.setMinimum(0)
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        
-        self.statusReport = QLabel()
-        self.imgDetailOnStatusBar = QLabel()
-        self.imgCoordOnStatusBar = QLabel()
-        self.imgPathOnStatusBar = QLabel()
-        self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
-        
-        self.statusBar.addPermanentWidget(self.statusReport)
-        self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
-        self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
-        self.statusBar.addPermanentWidget(self.progressBar)
-        self.statusBar.addWidget(QLabel("    "))
-        self.statusBar.addWidget(self.imgPathOnStatusBar)
-        
-        # Lower status bar
-        self.lowerStatusBar = QStatusBar()
-        self.left_status = QLabel()
-        self.lowerStatusBar.addWidget(self.left_status)
-        
-        self.mainVLayout.addWidget(self.statusBar)
-        self.mainVLayout.addWidget(self.lowerStatusBar)
     
     def _initialize_patches(self):
         """Initialize patch objects for circles"""
@@ -1094,35 +1071,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.circle_patch2 = None
         self.circle_patch3 = None
         self.circle_patch_rmin = None
-    
-    def _create_menu_bar(self):
-        """Create menu bar with File and Help menus"""
-        # File menu actions
-        selectImageAction = QAction('Select an Image...', self)
-        selectImageAction.setShortcut('Ctrl+I')
-        selectImageAction.triggered.connect(self.browseFile)
-        
-        selectFolderAction = QAction('Select a Folder...', self)
-        selectFolderAction.setShortcut('Ctrl+F')
-        selectFolderAction.triggered.connect(self.browseFolder)
-        
-        saveSettingsAction = QAction('Save Current Settings', self)
-        saveSettingsAction.setShortcut('Ctrl+S')
-        saveSettingsAction.triggered.connect(self.saveSettings)
-        
-        # Help menu actions
-        aboutAct = QAction('About', self)
-        aboutAct.triggered.connect(self.showAbout)
-        
-        # Create menus
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(selectImageAction)
-        fileMenu.addAction(selectFolderAction)
-        fileMenu.addAction(saveSettingsAction)
-        
-        helpMenu = menubar.addMenu('&Help')
-        helpMenu.addAction(aboutAct)
     
     def _register_tools(self):
         """Register tools with the image viewer"""
