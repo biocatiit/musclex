@@ -307,24 +307,43 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgAsyncDict = {}
 
     def initUI(self):
-        """
-        Open a file finder and return the name of the file selected
-        """
+        """Initialize the user interface"""
         self.setWindowTitle("Muscle X Quadrant Folding v." + __version__)
-
+        
+        # Create main layout and tabs
+        self._setup_main_layout()
+        
+        # Create tabs
+        self._create_image_tab()
+        self._create_result_tab()
+        
+        # Create status bars
+        self._create_status_bars()
+        
+        # Initialize patch objects for circles
+        self._initialize_patches()
+        
+        # Create menu bar
+        self._create_menu_bar()
+        
+        # Register tools and finalize UI
+        self.bgChoiceInChanged()
+        self.bgChoiceOutChanged()
+        self._register_tools()
+        
+        # Show window
+        self.resize(1200, 900)
+        self.show()
+    
+    def _setup_main_layout(self):
+        """Setup main scroll area and tab widget"""
         self.scrollArea = QScrollArea()
-        #self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        #self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-
         self.scrollArea.setWidgetResizable(True)
         self.centralWidget = QWidget(self)
-
         self.scrollArea.setWidget(self.centralWidget)
-        #self.setCentralWidget(self.centralWidget)
         self.mainVLayout = QVBoxLayout(self.centralWidget)
         self.setCentralWidget(self.scrollArea)
-
+        
         self.tabWidget = QTabWidget()
         self.tabWidget.setTabPosition(QTabWidget.North)
         self.tabWidget.setDocumentMode(False)
@@ -332,64 +351,67 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
         self.mainVLayout.addWidget(self.tabWidget)
 
-        ##### Image Tab #####
+    def _create_image_tab(self):
+        """Create the image tab with all its components"""
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
         self.tabWidget.addTab(self.imageTab, "Original Image")
-
+        
+        # Create sub-components
+        self._create_image_left_panel()
+        self._create_image_viewer()
+        self._create_image_right_panel()
+    
+    def _create_image_left_panel(self):
+        """Create left panel with select buttons"""
         self.verImgLayout = QVBoxLayout()
         self.verImgLayout.setContentsMargins(0, 0, 0, 0)
         self.verImgLayout.setAlignment(Qt.AlignCenter)
-
+        
         self.leftWidget = QWidget()
         self.leftWidget.setLayout(self.verImgLayout)
-        # Remove minimum width constraint to allow image viewer to use more space
-        # The select buttons have fixed width (300px), so leftWidget will naturally size to fit
-
+        
         self.selectImageButton = QPushButton('Click Here to Select an Image...')
         self.selectImageButton.setFixedHeight(100)
         self.selectImageButton.setFixedWidth(300)
-
+        
         self.selectFolder = QPushButton('Click Here to Select a Folder...')
         self.selectFolder.setFixedHeight(100)
         self.selectFolder.setFixedWidth(300)
-
+        
         self.bgWd = QWidget()
         self.verImgLayout.addWidget(self.selectImageButton)
-
+        
+        self.imageTabLayout.addWidget(self.leftWidget, 0)
+    
+    def _create_image_viewer(self):
+        """Create image viewer widget with display panel and double zoom"""
         # Create ImageViewerWidget with built-in display panel and double zoom
-        # Pass self as parent so DoubleZoom can access self.quadFold
         self.image_viewer = ImageViewerWidget(parent=self, show_display_panel=True, show_double_zoom=True)
         
         # Backward compatibility: expose axes, canvas, figure for legacy code
         self.imageAxes = self.image_viewer.axes
         self.imageCanvas = self.image_viewer.canvas
         self.imageFigure = self.image_viewer.figure
+        self.imageCanvas.setHidden(True)
         
-        self.imageCanvas.setHidden(True)  # Initially hidden
-        # Set stretch factors: leftWidget(0), image_viewer(1) to make image area expand
-        self.imageTabLayout.addWidget(self.leftWidget, 0)  # Don't stretch, use minimum size
-        self.imageTabLayout.addWidget(self.image_viewer, 1)  # Stretch to fill available space
-
-        # Create CollapsibleRightPanel to wrap all right-side options
-        self.right_panel = CollapsibleRightPanel(
-            parent=self, 
-            title="Options", 
-            settings_key="quadrant/right_panel",
-            start_visible=True,
-            show_toggle_internally=False  # Toggle button will be floating
-        )
-
-        # Quadrant-specific display options (add to display panel's top slot)
+        # Add quadrant-specific display options
+        self._add_display_options()
+        
+        # Add to layout
+        self.imageTabLayout.addWidget(self.image_viewer, 1)
+    
+    def _add_display_options(self):
+        """Add quadrant-specific display options to display panel"""
         self.showSeparator = QCheckBox()
         self.showSeparator.setText("Show Quadrant Separator")
         self.showSeparator.setChecked(True)
-
+        
         self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image (Original Size)")
         self.cropFoldedImageChkBx.setChecked(False)
         
-        # Add quadrant-specific options to display panel's top slot (before basic controls)
+        # Add quadrant-specific options to display panel's top slot
         self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
         self.image_viewer.display_panel.add_to_top_slot(self.cropFoldedImageChkBx)
         
@@ -403,54 +425,112 @@ class QuadrantFoldingGUI(QMainWindow):
         self.minIntLabel = self.image_viewer.display_panel.minIntLabel
         self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
         
-        # QuadrantFolding-specific: start with 0 decimals (initialWidgets updates to 2 for float images)
+        # QuadrantFolding-specific: start with 0 decimals
         self.spminInt.setDecimals(0)
         self.spmaxInt.setDecimals(0)
         
         # Add zoom button to checkable buttons list
         self.checkableButtons.append(self.imgZoomInB)
 
+    def _create_image_right_panel(self):
+        """Create right panel with all settings"""
+        # Create collapsible right panel
+        self.right_panel = CollapsibleRightPanel(
+            parent=self, 
+            title="Options", 
+            settings_key="quadrant/right_panel",
+            start_visible=True,
+            show_toggle_internally=False
+        )
+        
+        # Add settings groups
+        self._create_processing_settings()
+        self._create_center_rotation_settings()
+        self._create_blank_mask_settings()
+        self._create_result_processing_settings()
+        
+        # Add navigation controls at bottom
+        self.navControls = NavigationControls(
+            process_folder_text="Process Current Folder", 
+            process_h5_text="Process Current H5 File"
+        )
+        self.right_panel.add_bottom_widget(self.navControls)
+        
+        # Set fixed width and margins
+        self.right_panel.setFixedWidth(500)
+        self.right_panel.setContentsMargins(0, 35, 0, 0)
+        
+        # Add to layout and setup toggle button
+        self.imageTabLayout.addWidget(self.right_panel, 0)
+        self._setup_toggle_button()
+    
+    def _create_processing_settings(self):
+        """Create image processing settings group"""
         self.settingsGroup = CollapsibleGroupBox("Image Processing", start_expanded=True)
         self.settingsLayout = QGridLayout()
-
-
-        # Create center and rotation settings widgets
-        self.centerSettings = CenterSettingsWidget(parent=self)
-        self.rotationSettings = RotationSettingsWidget(parent=self, 
-                                                       orientation_model=self.orientationModel,
-                                                       mode_orientation_enabled=self.modeOrientation is not None)
         
-        # Add checkable buttons from widgets to checkableButtons list
-        self.checkableButtons.append(self.centerSettings.setCenterRotationButton)
-        self.checkableButtons.append(self.centerSettings.setCentByChords)
-        self.checkableButtons.append(self.centerSettings.setCentByPerp)
-        self.checkableButtons.append(self.centerSettings.setCentBtn)
-        self.checkableButtons.append(self.rotationSettings.setRotationButton)
-        self.checkableButtons.append(self.rotationSettings.setAngleBtn)
-
         self.compressFoldedImageChkBx = QCheckBox("Save Compressed Image")
         self.compressFoldedImageChkBx.setChecked(True)
-        self.compressFoldedImageChkBx.setToolTip("Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
-
+        self.compressFoldedImageChkBx.setToolTip(
+            "Saves the images as compressed tifs (might not be compatible with fit2d, but works with imagej)")
+        
         self.toggleFoldImage = QCheckBox("Fold Image")
         self.toggleFoldImage.setChecked(True)
-
-        settingsRowIndex = 0
-
-        self.settingsLayout.addWidget(QLabel("Mask Threshold : Use Set Mask"), settingsRowIndex, 0, 1, 2)
-        settingsRowIndex += 1
-
-        self.settingsLayout.addWidget(self.toggleFoldImage, settingsRowIndex, 0, 1, 2)
-        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, settingsRowIndex, 2, 1, 2)
-        settingsRowIndex += 1
-
-        # Create Empty Cell Image and Mask Settings Widget
+        
+        self.settingsLayout.addWidget(QLabel("Mask Threshold : Use Set Mask"), 0, 0, 1, 2)
+        self.settingsLayout.addWidget(self.toggleFoldImage, 1, 0, 1, 2)
+        self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 1, 2, 1, 2)
+        
+        self.settingsGroup.setLayout(self.settingsLayout)
+        self.right_panel.add_widget(self.image_viewer.display_panel)
+        self.right_panel.add_widget(self.settingsGroup)
+    
+    def _create_center_rotation_settings(self):
+        """Create center and rotation settings widgets"""
+        self.centerSettings = CenterSettingsWidget(parent=self)
+        self.rotationSettings = RotationSettingsWidget(
+            parent=self, 
+            orientation_model=self.orientationModel,
+            mode_orientation_enabled=self.modeOrientation is not None
+        )
+        
+        # Add checkable buttons from widgets to checkableButtons list
+        self.checkableButtons.extend([
+            self.centerSettings.setCenterRotationButton,
+            self.centerSettings.setCentByChords,
+            self.centerSettings.setCentByPerp,
+            self.centerSettings.setCentBtn,
+            self.rotationSettings.setRotationButton,
+            self.rotationSettings.setAngleBtn
+        ])
+        
+        self.right_panel.add_widget(self.centerSettings)
+        self.right_panel.add_widget(self.rotationSettings)
+    
+    def _create_blank_mask_settings(self):
+        """Create empty cell image and mask settings widget"""
         self.blankMaskSettings = BlankMaskSettingsWidget(parent=self)
+        self.right_panel.add_widget(self.blankMaskSettings)
+    
+    def _setup_toggle_button(self):
+        """Setup floating toggle button for right panel"""
+        self.right_panel.toggle_btn.setParent(self.imageTab)
+        self.right_panel.toggle_btn.raise_()
+        self.right_panel.toggle_btn.show()
+        self._position_toggle_button()
 
-        # Result processing and background Subtraction
+    def _create_result_processing_settings(self):
+        """
+        Create result processing and background subtraction settings.
+        
+        NOTE: This method contains the complete background subtraction setup.
+        It is kept as a complete unit to preserve all original functionality
+        and ensure no settings are lost during refactoring.
+        """
         self.resProcGrpBx = CollapsibleGroupBox("Result Processing", start_expanded=False)
         self.resProcGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
+        # ===== ROI Settings =====
         self.setFitRoi = QPushButton("Set Region Of Interest (ROI)")
         self.setFitRoi.setCheckable(True)
         self.unsetRoi = QPushButton("Unset ROI")
@@ -463,7 +543,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.fixedRoi.setRange(1, 10000)
         self.fixedRoi.setEnabled(False)
 
-
+        # ===== Background Choice Dropdowns =====
         self.allBGChoices = ['None', '2D Convexhull', 'Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian', 'Smoothed-BoxCar', 'Roving Window']
         self.bgChoiceIn = QComboBox()
         self.bgChoiceIn.setCurrentIndex(0)
@@ -476,6 +556,7 @@ class QuadrantFoldingGUI(QMainWindow):
         for c in self.allBGChoicesOut:
             self.bgChoiceOut.addItem(c)
 
+        # ===== R-min Settings =====
         self.setRminButton = QPushButton("Set Manual R-min")
         self.setRminButton.setCheckable(True)
         self.checkableButtons.append(self.setRminButton)
@@ -488,9 +569,9 @@ class QuadrantFoldingGUI(QMainWindow):
         self.rminLabel = QLabel("R-min")
 
         self.showRminChkBx = QCheckBox("Show R-min")
-        # self.radiusLabel = QLabel("Radius Range : ")
         self.fixedRadiusRangeChkBx = QCheckBox("Persist R-min")
 
+        # ===== Background Subtraction (In) Parameters =====
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
         self.gaussFWHM = QSpinBox()
         self.gaussFWHM.setRange(1, 3000)
@@ -585,7 +666,13 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tophat1SpnBx.setValue(5)
         self.tophat1SpnBx.setKeyboardTracking(False)
         self.tophat1Label = QLabel("Top-hat disk size: ")
+        
+        self.deg1Label = QLabel("Step (deg) : ")
+        self.deg1CB = QComboBox()
+        self.deg1CB.addItems(["0.5", "1", "2", "3", "5", "9", "10", "15"])
+        self.deg1CB.setCurrentIndex(1)
 
+        # ===== Background Subtraction (Out) Parameters =====
         self.tophat2SpnBx = QSpinBox()
         self.tophat2SpnBx.setRange(1, 100)
         self.tophat2SpnBx.setValue(20)
@@ -662,11 +749,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.thetabinCB2.addItems(["3", "5", "10", "15", "30", "45", "90"])
         self.thetabinCB2.setCurrentIndex(4)
 
-        self.deg1Label = QLabel("Step (deg) : ")
-        self.deg1CB = QComboBox()
-        self.deg1CB.addItems(["0.5", "1", "2", "3", "5", "9", "10", "15"])
-        self.deg1CB.setCurrentIndex(1)
-
         self.deg2Label = QLabel("Step (deg) : ")
         self.deg2CB = QComboBox()
         self.deg2CB.addItems(["0.5","1", "2", "3", "5", "9", "10", "15"])
@@ -691,6 +773,7 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tension2SpnBx.setKeyboardTracking(False)
         self.tension2Label = QLabel("Tension factor : ")
 
+        # ===== Merge/Transition Settings =====
         self.tranRSpnBx = QSpinBox()
         self.tranRSpnBx.setRange(-1, 5000)
         self.tranRSpnBx.setValue(-1)
@@ -704,7 +787,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.tranDeltaLabel = QLabel("Transition Delta : ")
 
         self.applyBGButton = QPushButton("Apply")
-        # self.applyBG2Button = QPushButton("Apply (Out)")
 
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
@@ -716,11 +798,11 @@ class QuadrantFoldingGUI(QMainWindow):
         separator_2.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         separator_2.setLineWidth(1)
 
-
         self.showTranRadDeltaChkBx = QCheckBox("Show Transition Radius and Delta")
 
         self.outBGWidgets = [self.tranDeltaSpnBx, self.tranDeltaLabel, self.tranRSpnBx, self.tranRLabel, self.showTranRadDeltaChkBx, separator, separator_2]
 
+        # ===== Layout All Widgets =====
         self.bgLayout = QGridLayout()
         self.bgLayout.addWidget(self.setFitRoi, 0, 0, 1, 3)
         self.bgLayout.addWidget(self.unsetRoi, 0, 3, 1, 1)
@@ -729,25 +811,16 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgLayout.addWidget(QLabel("Background Subtraction (In) :"), 2, 0, 1, 2)
         self.bgLayout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
 
-
-
         # R-min settings
         self.rrangeSettingFrame = QFrame()
         self.rrangeSettingLayout = QGridLayout(self.rrangeSettingFrame)
         self.rrangeSettingLayout.setContentsMargins(0, 0, 0, 0)
-
         self.rrangeSettingLayout.addWidget(self.setRminButton, 2, 2, 1, 2)
         self.rrangeSettingLayout.addWidget(self.rminLabel, 2, 0, 1, 1)
-
         self.rrangeSettingLayout.addWidget(self.rminSpnBx, 2, 1, 1, 1)
-
         self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 0, 1, 1)
-
         self.rrangeSettingLayout.addWidget(self.showRminChkBx, 3, 2, 1, 1)
-
         self.bgLayout.addWidget(self.rrangeSettingFrame, 3, 0, 3, 4)
-
-
 
         # Gaussian FWHM
         self.bgLayout.addWidget(self.gaussFWHMLabel, 6, 0, 1, 2)
@@ -802,7 +875,6 @@ class QuadrantFoldingGUI(QMainWindow):
         self.bgLayout.addWidget(self.tophat1SpnBx, 16, 2, 1, 2)
 
         self.bgLayout.addWidget(separator, 20, 0, 1, 4)
-
 
         self.bgLayout.addWidget(QLabel("Background Subtraction (Out) :"), 22, 0, 1, 2)
         self.bgLayout.addWidget(self.bgChoiceOut, 22, 2, 1, 2)
@@ -870,114 +942,93 @@ class QuadrantFoldingGUI(QMainWindow):
 
         self.bgLayout.addWidget(self.showTranRadDeltaChkBx, 43, 0, 1, 4)
 
-        # Merging params
-        # self.bgLayout.addWidget(self.mergeGradientLabel, 41, 0, 1, 2)
-
         # Apply button
         self.bgLayout.addWidget(self.applyBGButton, 45, 0, 1, 4)
 
-        # self.bgLayout.setColumnStretch(0, 2)
-
         self.resProcGrpBx.setLayout(self.bgLayout)
+        self.right_panel.add_widget(self.resProcGrpBx)
 
-        # Set layouts for all CollapsibleGroupBox widgets
-        self.settingsGroup.setLayout(self.settingsLayout)
-
-        # Single reusable navigation widget (shared between tabs)
-        self.navControls = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
-
-        # Add options to the CollapsibleRightPanel's scrollable content area
-        self.right_panel.add_widget(self.image_viewer.display_panel)
-        self.right_panel.add_widget(self.blankMaskSettings)
-        self.right_panel.add_widget(self.centerSettings)
-        self.right_panel.add_widget(self.rotationSettings)
-        self.right_panel.add_widget(self.settingsGroup)
-        
-        # Add navigation controls to the fixed bottom area (always visible, no scrolling)
-        self.right_panel.add_bottom_widget(self.navControls)
-        
-        # Set fixed width for the right panel
-        self.right_panel.setFixedWidth(500)
-        
-        # Add some top margin to the panel to avoid overlap with toggle button
-        self.right_panel.setContentsMargins(0, 35, 0, 0)  # 35px top margin for toggle button
-
-        # Add right panel directly to the main layout (stretch=0 to keep fixed width)
-        self.imageTabLayout.addWidget(self.right_panel, 0)
-        
-        # Setup floating toggle button
-        # Make toggle button a child of imageTab so it floats above content
-        self.right_panel.toggle_btn.setParent(self.imageTab)
-        self.right_panel.toggle_btn.raise_()  # Bring to front
-        self.right_panel.toggle_btn.show()
-        
-        # Position toggle button in top-right corner (will be updated in resizeEvent)
-        self._position_toggle_button()
-
-        ##### Result Tab #####
+    def _create_result_tab(self):
+        """Create the result tab"""
         self.resultTab = QWidget()
         self.resultTab.setContentsMargins(0, 0, 0, 0)
         self.resultTabLayout = QHBoxLayout(self.resultTab)
         self.tabWidget.addTab(self.resultTab, "Results")
-
-        # self.leftLayout = QVBoxLayout()
-        # self.leftFrame = QFrame()
-        # self.leftFrame.setFixedWidth(300)
-        # self.leftFrame.setLayout(self.leftLayout)
-        # self.resultTabLayout.addWidget(self.leftFrame)
-
+        
+        # Create result canvas and right panel
+        self._create_result_canvas()
+        self._create_result_right_panel()
+    
+    def _create_result_canvas(self):
+        """Create result canvas for displaying processed image"""
         self.resultFigure = plt.figure()
         self.resultAxes = self.resultFigure.add_subplot(111)
         self.resultAxes.set_aspect('equal', adjustable="box")
         self.resultVLayout = QVBoxLayout()
         self.resultCanvas = FigureCanvas(self.resultFigure)
         self.resultTabLayout.addWidget(self.resultCanvas)
-
+    
+    def _create_result_right_panel(self):
+        """Create right panel for result tab"""
+        # Create scrollable right frame
         self.rightLayout = QVBoxLayout()
         self.rightFrame = QFrame()
         self.rightFrame.setFixedWidth(500)
         self.rightFrame.setLayout(self.rightLayout)
-
+        
         self.res_scroll_areaImg = QScrollArea()
         self.res_scroll_areaImg.setWidgetResizable(True)
         self.res_scroll_areaImg.setWidget(self.rightFrame)
-
         self.res_scroll_areaImg.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-
         self.resultTabLayout.addWidget(self.res_scroll_areaImg)
-
-        # Display Options
+        
+        # Create display options
+        self._create_result_display_options()
+        
+        # Add widgets to right layout
+        self.rightLayout.addWidget(self.resultDispOptGrp)
+        self.rightLayout.addSpacing(10)
+        self.rightLayout.addWidget(self.resProcGrpBx)
+        self.rightLayout.addStretch()
+        
+        # Navigation widget container (navControls added dynamically on tab switch)
+        self.buttonsLayout2 = QGridLayout()
+        self.rightLayout.addLayout(self.buttonsLayout2)
+    
+    def _create_result_display_options(self):
+        """Create result display options group"""
         self.resultDispOptGrp = CollapsibleGroupBox("Display Options", start_expanded=True)
         self.resultDispOptLayout = QGridLayout()
-
+        
         self.rotate90Chkbx = QCheckBox("Rotate 90 degree")
-
+        
         self.spResultmaxInt = QDoubleSpinBox()
-        self.spResultmaxInt.setRange(-1e10, 1e10)  # Allow any value
+        self.spResultmaxInt.setRange(-1e10, 1e10)
         self.spResultmaxInt.setToolTip(
             "Reduction in the maximal intensity shown to allow for more details in the image.")
         self.spResultmaxInt.setKeyboardTracking(False)
         self.spResultmaxInt.setSingleStep(5)
         self.spResultmaxInt.setDecimals(0)
-
+        
         self.spResultminInt = QDoubleSpinBox()
-        self.spResultminInt.setRange(-1e10, 1e10)  # Allow any value
+        self.spResultminInt.setRange(-1e10, 1e10)
         self.spResultminInt.setToolTip(
             "Increase in the minimal intensity shown to allow for more details in the image.")
         self.spResultminInt.setKeyboardTracking(False)
         self.spResultminInt.setSingleStep(5)
         self.spResultminInt.setDecimals(0)
-
+        
         self.resultZoomInB = QPushButton("Zoom In")
         self.resultZoomInB.setCheckable(True)
         self.resultZoomOutB = QPushButton("Full")
         self.checkableButtons.append(self.resultZoomInB)
-
+        
         self.resultminIntLabel = QLabel("Min intensity : ")
         self.resultmaxIntLabel = QLabel("Max intensity : ")
         self.resLogScaleIntChkBx = QCheckBox("Log scale intensity")
         self.resPersistIntensity = QCheckBox("Persist intensities")
-
+        
+        # Layout display options
         self.resultDispOptLayout.addWidget(self.rotate90Chkbx, 0, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultminIntLabel, 1, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.spResultminInt, 2, 0, 1, 2)
@@ -987,26 +1038,12 @@ class QuadrantFoldingGUI(QMainWindow):
         self.resultDispOptLayout.addWidget(self.resPersistIntensity, 3, 2, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultZoomInB, 4, 0, 1, 2)
         self.resultDispOptLayout.addWidget(self.resultZoomOutB, 4, 2, 1, 2)
-
-        # self.leftLayout.addWidget(self.resultDispOptGrp)
-        # self.leftLayout.addSpacing(10)
-        # self.leftLayout.addWidget(self.blankImageGrp)
-        # self.leftLayout.addStretch()
-
-        # Set layout for resultDispOptGrp (CollapsibleGroupBox)
+        
         self.resultDispOptGrp.setLayout(self.resultDispOptLayout)
 
-        self.rightLayout.addWidget(self.resultDispOptGrp)
-        self.rightLayout.addSpacing(10)
-        self.rightLayout.addWidget(self.resProcGrpBx)
-        self.rightLayout.addStretch()
-
-        # Navigation widget container for Results tab (widget moved here on tab switch)
-        self.buttonsLayout2 = QGridLayout()
-        # navControls will be added here dynamically when switching to Results tab
-        self.rightLayout.addLayout(self.buttonsLayout2)
-
-        #### Status bar #####
+    def _create_status_bars(self):
+        """Create main and lower status bars"""
+        # Main status bar
         self.statusBar = QStatusBar()
         self.progressBar = QProgressBar()
         self.progressBar.setMaximum(100)
@@ -1014,73 +1051,72 @@ class QuadrantFoldingGUI(QMainWindow):
         self.progressBar.setFixedWidth(300)
         self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
+        
         self.statusReport = QLabel()
         self.imgDetailOnStatusBar = QLabel()
         self.imgCoordOnStatusBar = QLabel()
         self.imgPathOnStatusBar = QLabel()
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
+        
         self.statusBar.addPermanentWidget(self.statusReport)
         self.statusBar.addPermanentWidget(self.imgCoordOnStatusBar)
         self.statusBar.addPermanentWidget(self.imgDetailOnStatusBar)
         self.statusBar.addPermanentWidget(self.progressBar)
         self.statusBar.addWidget(QLabel("    "))
         self.statusBar.addWidget(self.imgPathOnStatusBar)
-
+        
+        # Lower status bar
         self.lowerStatusBar = QStatusBar()
         self.left_status = QLabel()
         self.lowerStatusBar.addWidget(self.left_status)
-
+        
         self.mainVLayout.addWidget(self.statusBar)
         self.mainVLayout.addWidget(self.lowerStatusBar)
-        #self.setStatusBar(self.statusBar)
-
-        # show transition radius and delta
+    
+    def _initialize_patches(self):
+        """Initialize patch objects for circles"""
         self.circle_patch = None
         self.circle_patch2 = None
         self.circle_patch3 = None
-
-        # show rmin
         self.circle_patch_rmin = None
-
-
-        #### Menu Bar #####
+    
+    def _create_menu_bar(self):
+        """Create menu bar with File and Help menus"""
+        # File menu actions
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
         selectImageAction.triggered.connect(self.browseFile)
-
+        
         selectFolderAction = QAction('Select a Folder...', self)
         selectFolderAction.setShortcut('Ctrl+F')
         selectFolderAction.triggered.connect(self.browseFolder)
-
+        
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
         saveSettingsAction.triggered.connect(self.saveSettings)
-
+        
+        # Help menu actions
+        aboutAct = QAction('About', self)
+        aboutAct.triggered.connect(self.showAbout)
+        
+        # Create menus
         menubar = self.menuBar()
-        # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
         fileMenu.addAction(selectFolderAction)
         fileMenu.addAction(saveSettingsAction)
-
-        aboutAct = QAction('About', self)
-        aboutAct.triggered.connect(self.showAbout)
+        
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
-
-        self.bgChoiceInChanged()
-        self.bgChoiceOutChanged()
-        
-
+    
+    def _register_tools(self):
+        """Register tools with the image viewer"""
         self.image_viewer.tool_manager.register_tool('chords', ChordsCenterTool)
         self.image_viewer.tool_manager.register_tool('perpendiculars', PerpendicularsCenterTool)
-        # RotationTool needs a function to get current center
-        self.image_viewer.tool_manager.register_tool('rotation', lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
-        # CenterRotateTool needs a function to convert coordinates
-        self.image_viewer.tool_manager.register_tool('center_rotate', lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
-        # Note: zoom_rectangle tool is now registered by default in ImageViewerWidget
-        
-        self.show()
+        self.image_viewer.tool_manager.register_tool('rotation', 
+            lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
+        self.image_viewer.tool_manager.register_tool('center_rotate', 
+            lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
 
 
     def setConnections(self):
