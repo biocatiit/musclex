@@ -315,7 +315,19 @@ class QuadrantFoldingGUI(BaseGUI):
     
     def _create_tabs(self):
         """Create image tab and result tab"""
-        self._create_image_tab()
+        # Use the standard image tab from BaseGUI
+        self._create_standard_image_tab(tab_title="Original Image")
+        
+        # Add quadrant-specific display options
+        self._add_display_options()
+        
+        # Add quadrant-specific settings to right panel
+        self._create_quadrant_settings()
+        
+        # Add navigation controls to right panel bottom
+        self.right_panel.add_bottom_widget(self.navControls)
+        
+        # Create result tab
         self._create_result_tab()
     
     def _create_menu_bar(self):
@@ -357,58 +369,11 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
     
+    def _position_floating_widgets(self):
+        """Position floating toggle buttons after window is fully rendered"""
+        self._position_toggle_button()
+    
     # ===== UI setup methods =====
-
-    def _create_image_tab(self):
-        """Create the image tab with all its components"""
-        self.imageTab = QWidget()
-        self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QHBoxLayout(self.imageTab)
-        self.tabWidget.addTab(self.imageTab, "Original Image")
-        
-        # Create sub-components
-        self._create_image_left_panel()
-        self._create_image_viewer()
-        self._create_image_right_panel()
-    
-    def _create_image_left_panel(self):
-        """Create left panel with select buttons"""
-        self.verImgLayout = QVBoxLayout()
-        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
-        self.verImgLayout.setAlignment(Qt.AlignCenter)
-        
-        self.leftWidget = QWidget()
-        self.leftWidget.setLayout(self.verImgLayout)
-        
-        self.selectImageButton = QPushButton('Click Here to Select an Image...')
-        self.selectImageButton.setFixedHeight(100)
-        self.selectImageButton.setFixedWidth(300)
-        
-        self.selectFolder = QPushButton('Click Here to Select a Folder...')
-        self.selectFolder.setFixedHeight(100)
-        self.selectFolder.setFixedWidth(300)
-        
-        self.bgWd = QWidget()
-        self.verImgLayout.addWidget(self.selectImageButton)
-        
-        self.imageTabLayout.addWidget(self.leftWidget, 0)
-    
-    def _create_image_viewer(self):
-        """Create image viewer widget with display panel and double zoom"""
-        # Create ImageViewerWidget with built-in display panel and double zoom
-        self.image_viewer = ImageViewerWidget(parent=self, show_display_panel=True, show_double_zoom=True)
-        
-        # Backward compatibility: expose axes, canvas, figure for legacy code
-        self.imageAxes = self.image_viewer.axes
-        self.imageCanvas = self.image_viewer.canvas
-        self.imageFigure = self.image_viewer.figure
-        self.imageCanvas.setHidden(True)
-        
-        # Add quadrant-specific display options
-        self._add_display_options()
-        
-        # Add to layout
-        self.imageTabLayout.addWidget(self.image_viewer, 1)
     
     def _add_display_options(self):
         """Add quadrant-specific display options to display panel"""
@@ -423,16 +388,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
         self.image_viewer.display_panel.add_to_top_slot(self.cropFoldedImageChkBx)
         
-        # Backward compatibility: expose built-in display panel controls
-        self.spminInt = self.image_viewer.display_panel.minIntSpnBx
-        self.spmaxInt = self.image_viewer.display_panel.maxIntSpnBx
-        self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
-        self.persistIntensity = self.image_viewer.display_panel.persistChkBx
-        self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
-        self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
-        self.minIntLabel = self.image_viewer.display_panel.minIntLabel
-        self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
-        
         # QuadrantFolding-specific: start with 0 decimals
         self.spminInt.setDecimals(0)
         self.spmaxInt.setDecimals(0)
@@ -440,37 +395,13 @@ class QuadrantFoldingGUI(BaseGUI):
         # Add zoom button to checkable buttons list
         self.checkableButtons.append(self.imgZoomInB)
 
-    def _create_image_right_panel(self):
-        """Create right panel with all settings"""
-        # Create collapsible right panel
-        self.right_panel = CollapsibleRightPanel(
-            parent=self, 
-            title="Options", 
-            settings_key="quadrant/right_panel",
-            start_visible=True,
-            show_toggle_internally=False
-        )
-        
+    def _create_quadrant_settings(self):
+        """Add quadrant-specific settings to right panel"""
         # Add settings groups
         self._create_processing_settings()
         self._create_center_rotation_settings()
         self._create_blank_mask_settings()
         self._create_result_processing_settings()
-        
-        # Add navigation controls at bottom
-        self.navControls = NavigationControls(
-            process_folder_text="Process Current Folder", 
-            process_h5_text="Process Current H5 File"
-        )
-        self.right_panel.add_bottom_widget(self.navControls)
-        
-        # Set fixed width and margins
-        self.right_panel.setFixedWidth(500)
-        self.right_panel.setContentsMargins(0, 35, 0, 0)
-        
-        # Add to layout and setup toggle button
-        self.imageTabLayout.addWidget(self.right_panel, 0)
-        self._setup_toggle_button()
     
     def _create_processing_settings(self):
         """Create image processing settings group"""
@@ -519,13 +450,6 @@ class QuadrantFoldingGUI(BaseGUI):
         """Create empty cell image and mask settings widget"""
         self.blankMaskSettings = BlankMaskSettingsWidget(parent=self)
         self.right_panel.add_widget(self.blankMaskSettings)
-    
-    def _setup_toggle_button(self):
-        """Setup floating toggle button for right panel"""
-        self.right_panel.toggle_btn.setParent(self.imageTab)
-        self.right_panel.toggle_btn.raise_()
-        self.right_panel.toggle_btn.show()
-        self._position_toggle_button()
 
     def _create_result_processing_settings(self):
         """
