@@ -8,11 +8,11 @@ Copyright 1999 Illinois Institute of Technology
 """
 
 from PySide6.QtWidgets import (
-    QMainWindow, QScrollArea, QWidget, QVBoxLayout, QTabWidget,
-    QStatusBar, QProgressBar, QLabel
+    QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
+    QStatusBar, QProgressBar, QLabel, QPushButton
 )
 from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 
 class BaseGUI(QMainWindow):
@@ -214,6 +214,10 @@ class BaseGUI(QMainWindow):
         """
         self.resize(1200, 900)
         self.show()
+        
+        # Position floating widgets after window is fully rendered
+        # Use QTimer to ensure geometry is calculated correctly
+        QTimer.singleShot(0, self._position_floating_widgets)
     
     # ===== Hook methods - subclasses CAN override =====
     
@@ -266,4 +270,160 @@ class BaseGUI(QMainWindow):
                 self._register_tools()
         """
         pass
+    
+    def _position_floating_widgets(self):
+        """
+        Hook: Position floating widgets (like toggle buttons) after window is rendered.
+        
+        This is called via QTimer.singleShot(0) after show() to ensure
+        widget geometry is calculated correctly.
+        
+        Override this in subclasses that have floating widgets:
+            def _position_floating_widgets(self):
+                self._position_toggle_button()
+        
+        Default implementation does nothing.
+        """
+        pass
+    
+    # ===== Standard Image Tab Creation =====
+    
+    def _create_standard_image_tab(
+        self,
+        tab_title: str = "Image",
+        show_left_select_buttons: bool = True,
+        show_display_panel: bool = True,
+        show_double_zoom: bool = True
+    ):
+        """
+        Create a standardized image tab with the QuadrantFolding layout.
+        
+        This is the standard layout for all MuscleX GUIs:
+        [Left: Select Buttons] [Center: ImageViewerWidget] [Right: CollapsibleRightPanel]
+        
+        After calling this, GUIs can:
+        - Add custom display options: self.image_viewer.display_panel.add_to_top_slot(widget)
+        - Add settings to right panel: self.right_panel.add_widget(widget)
+        - Add bottom widgets: self.right_panel.add_bottom_widget(widget)
+        - Replace left panel if needed (e.g., ProjectionTraces)
+        
+        Args:
+            tab_title: Title for the tab (default: "Image")
+            show_left_select_buttons: Show standard left panel with select buttons
+            show_display_panel: Show ImageViewerWidget's display panel
+            show_double_zoom: Show double zoom feature
+        
+        Sets up these attributes:
+            - self.imageTab
+            - self.imageTabLayout
+            - self.image_viewer
+            - self.imageAxes, self.imageCanvas, self.imageFigure (backward compat)
+            - self.right_panel
+            - self.navControls
+            - self.spminInt, self.spmaxInt, etc. (if show_display_panel=True)
+        
+        Example:
+            def _create_tabs(self):
+                # Create standard image tab
+                self._create_standard_image_tab(tab_title="Original Image")
+                
+                # Add GUI-specific settings
+                self.right_panel.add_widget(self.my_settings_widget)
+                self.right_panel.add_bottom_widget(self.navControls)
+        """
+        from .widgets.image_viewer_widget import ImageViewerWidget
+        from .widgets.collapsible_right_panel import CollapsibleRightPanel
+        from .widgets.navigation_controls import NavigationControls
+        from PySide6.QtCore import Qt
+        
+        # Create tab
+        self.imageTab = QWidget()
+        self.imageTab.setContentsMargins(0, 0, 0, 0)
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
+        self.tabWidget.addTab(self.imageTab, tab_title)
+        
+        # ===== Left Panel: Select Buttons =====
+        if show_left_select_buttons:
+            self._create_standard_left_panel()
+        
+        # ===== Center: ImageViewerWidget =====
+        self.image_viewer = ImageViewerWidget(
+            parent=self,
+            show_display_panel=show_display_panel,
+            show_double_zoom=show_double_zoom
+        )
+        
+        # Backward compatibility: expose axes, canvas, figure
+        self.imageAxes = self.image_viewer.axes
+        self.imageCanvas = self.image_viewer.canvas
+        self.imageFigure = self.image_viewer.figure
+        self.imageCanvas.setHidden(True)
+        
+        # Expose display panel controls (if display panel is shown)
+        if show_display_panel:
+            self.spminInt = self.image_viewer.display_panel.minIntSpnBx
+            self.spmaxInt = self.image_viewer.display_panel.maxIntSpnBx
+            self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
+            self.persistIntensity = self.image_viewer.display_panel.persistChkBx
+            self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
+            self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
+            self.minIntLabel = self.image_viewer.display_panel.minIntLabel
+            self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
+        
+        self.imageTabLayout.addWidget(self.image_viewer, 1)  # Stretch to fill
+        
+        # ===== Right Panel: CollapsibleRightPanel =====
+        self.right_panel = CollapsibleRightPanel(
+            parent=self,
+            title="Options",
+            settings_key=f"{self.__class__.__name__.lower()}/right_panel",
+            start_visible=True,
+            show_toggle_internally=False
+        )
+        self.right_panel.setFixedWidth(500)
+        self.right_panel.setContentsMargins(0, 35, 0, 0)
+        
+        self.imageTabLayout.addWidget(self.right_panel, 0)  # No stretch
+        
+        # Setup floating toggle button
+        self.right_panel.toggle_btn.setParent(self.imageTab)
+        self.right_panel.toggle_btn.raise_()
+        self.right_panel.toggle_btn.show()
+        
+        # Create navigation controls (GUIs will add this to right_panel bottom)
+        self.navControls = NavigationControls(
+            process_folder_text="Process Current Folder",
+            process_h5_text="Process Current H5 File"
+        )
+    
+    def _create_standard_left_panel(self):
+        """
+        Create standard left panel with select buttons.
+        
+        This is the default left panel used by most GUIs.
+        Some GUIs (like ProjectionTraces) may replace this with custom content.
+        """
+        from PySide6.QtCore import Qt
+        
+        self.verImgLayout = QVBoxLayout()
+        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
+        self.verImgLayout.setAlignment(Qt.AlignCenter)
+        
+        self.leftWidget = QWidget()
+        self.leftWidget.setLayout(self.verImgLayout)
+        
+        self.selectImageButton = QPushButton('Click Here to Select an Image...')
+        self.selectImageButton.setFixedHeight(100)
+        self.selectImageButton.setFixedWidth(300)
+        
+        self.selectFolder = QPushButton('Click Here to Select a Folder...')
+        self.selectFolder.setFixedHeight(100)
+        self.selectFolder.setFixedWidth(300)
+        
+        self.bgWd = QWidget()  # Background widget (for compatibility)
+        
+        self.verImgLayout.addWidget(self.selectImageButton)
+        self.verImgLayout.addWidget(self.selectFolder)
+        
+        self.imageTabLayout.addWidget(self.leftWidget, 0)  # No stretch
 
