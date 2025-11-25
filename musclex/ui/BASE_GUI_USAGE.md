@@ -10,6 +10,7 @@
 - ✅ **Consistent structure** - All GUIs follow the same initialization pattern
 - ✅ **Easy to maintain** - Changes to common behavior only need to be made in one place
 - ✅ **Flexible** - Subclasses can customize specific parts while reusing common code
+- ✅ **Standard Image Tab** - Pre-built image tab with modern layout for all GUIs
 
 ## Initialization Flow
 
@@ -22,6 +23,7 @@ When you call `initUI()`, `BaseGUI` executes this sequence:
 5. `_create_menu_bar()` - Create menu bar
 6. `_additional_setup()` - Hook for extra initialization
 7. `_finalize_ui()` - Show window and set size
+8. `_position_floating_widgets()` - Position floating widgets (called automatically after window is rendered)
 
 ## How to Use
 
@@ -107,6 +109,18 @@ def _additional_setup(self):
     self._register_tools()
     self._initialize_patches()
 ```
+
+#### `_position_floating_widgets()`
+Position floating widgets (like toggle buttons) after window is fully rendered.
+
+This is called automatically via `QTimer.singleShot(0)` after `show()` to ensure widget geometry is calculated correctly.
+
+```python
+def _position_floating_widgets(self):
+    self._position_toggle_button()  # Position your floating buttons
+```
+
+**Why is this needed?** When the window first shows, widget geometries may not be calculated yet. This hook ensures floating widgets are positioned correctly after the window is fully rendered.
 
 #### `_create_status_bars()`
 Create custom status bars (rarely needed).
@@ -283,6 +297,171 @@ Much cleaner! All the boilerplate is handled by `BaseGUI`.
 
 - [ ] Refactor `ProjectionTracesGUI` to use BaseGUI
 - [ ] Refactor `XRayViewerGUI` to use BaseGUI
+
+## Standard Image Tab
+
+### Overview
+
+`BaseGUI` provides `_create_standard_image_tab()`, a method that creates a standardized image tab with the modern QuadrantFolding layout:
+
+```
+[Left Panel: Select Buttons] [Center: ImageViewerWidget] [Right: CollapsibleRightPanel]
+```
+
+This **drastically reduces boilerplate** and ensures **consistent UI** across all MuscleX GUIs.
+
+### Basic Usage
+
+```python
+def _create_tabs(self):
+    # Create standard image tab with default settings
+    self._create_standard_image_tab(tab_title="Image")
+    
+    # Add your GUI-specific display options
+    self._add_display_options()
+    
+    # Add your GUI-specific settings to right panel
+    self._create_my_settings()
+    
+    # Add navigation controls to bottom of right panel
+    self.right_panel.add_bottom_widget(self.navControls)
+```
+
+### What It Creates
+
+After calling `_create_standard_image_tab()`, you have access to:
+
+**Tab Structure:**
+- `self.imageTab` - The tab widget
+- `self.imageTabLayout` - The horizontal layout (left | center | right)
+
+**Left Panel (optional):**
+- `self.leftWidget` - Container widget
+- `self.selectImageButton` - Standard "Select Image" button
+- `self.selectFolder` - Standard "Select Folder" button
+- `self.bgWd` - Background widget (for compatibility)
+
+**Center Panel (ImageViewerWidget):**
+- `self.image_viewer` - The ImageViewerWidget instance
+- `self.imageAxes`, `self.imageCanvas`, `self.imageFigure` - (backward compatibility)
+
+**Display Controls (if `show_display_panel=True`):**
+- `self.spminInt`, `self.spmaxInt` - Min/max intensity spinboxes
+- `self.logScaleIntChkBx` - Log scale checkbox
+- `self.persistIntensity` - Persist intensity checkbox
+- `self.imgZoomInB`, `self.imgZoomOutB` - Zoom buttons
+- Access via `self.image_viewer.display_panel`
+
+**Right Panel:**
+- `self.right_panel` - CollapsibleRightPanel instance
+- `self.navControls` - Navigation controls (created but not added - you add it)
+
+### Parameters
+
+```python
+_create_standard_image_tab(
+    tab_title: str = "Image",              # Tab title
+    show_left_select_buttons: bool = True, # Show standard left panel
+    show_display_panel: bool = True,       # Show display controls
+    show_double_zoom: bool = True          # Show double zoom feature
+)
+```
+
+### Customizing the Image Tab
+
+#### 1. Add Display Options
+
+Add custom widgets to the display panel:
+
+```python
+def _add_display_options(self):
+    """Add GUI-specific display options"""
+    self.myCheckbox = QCheckBox("My Option")
+    self.image_viewer.display_panel.add_to_top_slot(self.myCheckbox)
+```
+
+#### 2. Add Settings to Right Panel
+
+Add your settings groups to the right panel:
+
+```python
+def _create_my_settings(self):
+    """Add GUI-specific settings"""
+    # Display panel is automatically added to right panel
+    # Just add your custom settings groups
+    self.right_panel.add_widget(self.my_settings_group)
+```
+
+#### 3. Replace Left Panel
+
+Some GUIs need custom left panels:
+
+```python
+def _create_tabs(self):
+    # Create standard tab but without left buttons
+    self._create_standard_image_tab(
+        tab_title="Image",
+        show_left_select_buttons=False
+    )
+    
+    # Add your custom left panel
+    self._create_custom_left_panel()
+```
+
+### Complete Example (QuadrantFoldingGUI)
+
+```python
+class QuadrantFoldingGUI(BaseGUI):
+    def _create_tabs(self):
+        # 1. Create standard image tab
+        self._create_standard_image_tab(tab_title="Original Image")
+        
+        # 2. Add quadrant-specific display options
+        self._add_display_options()
+        
+        # 3. Add quadrant-specific settings
+        self._create_quadrant_settings()
+        
+        # 4. Add navigation controls to bottom
+        self.right_panel.add_bottom_widget(self.navControls)
+        
+        # 5. Create result tab
+        self._create_result_tab()
+    
+    def _add_display_options(self):
+        """Add quadrant-specific display options"""
+        self.showSeparator = QCheckBox("Show Quadrant Separator")
+        self.showSeparator.setChecked(True)
+        
+        self.cropFoldedImageChkBx = QCheckBox("Save Cropped Image")
+        self.cropFoldedImageChkBx.setChecked(False)
+        
+        # Add to display panel
+        self.image_viewer.display_panel.add_to_top_slot(self.showSeparator)
+        self.image_viewer.display_panel.add_to_top_slot(self.cropFoldedImageChkBx)
+    
+    def _create_quadrant_settings(self):
+        """Add quadrant-specific settings to right panel"""
+        self._create_processing_settings()
+        self._create_center_rotation_settings()
+        self._create_blank_mask_settings()
+        self._create_result_processing_settings()
+    
+    def _position_floating_widgets(self):
+        """Position floating toggle buttons after window is fully rendered"""
+        self._position_toggle_button()
+```
+
+**Before:** ~250 lines of boilerplate  
+**After:** ~15 lines + your specific content
+
+### Benefits
+
+✅ **Eliminates ~200+ lines of boilerplate per GUI**  
+✅ **Consistent modern layout across all GUIs**  
+✅ **Easy to customize** - just add your specific widgets  
+✅ **Backward compatible** - exposes all legacy attributes  
+✅ **Flexible** - can disable features or replace panels
 
 ## Notes
 
