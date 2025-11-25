@@ -421,7 +421,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 1, 2, 1, 2)
         
         self.settingsGroup.setLayout(self.settingsLayout)
-        self.right_panel.add_widget(self.image_viewer.display_panel)
+        # Note: display_panel is automatically added by BaseGUI._create_standard_image_tab()
         self.right_panel.add_widget(self.settingsGroup)
     
     def _create_center_rotation_settings(self):
