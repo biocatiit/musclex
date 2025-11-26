@@ -43,7 +43,7 @@ setup(
     version = __version__,
     description = 'Muscle X',
     author = 'BioCAT',
-    author_email = 'biocat@lethocerus.biol.iit.edu',
+    author_email = 'biocatiit@gmail.com',
     url = 'https://github.com/biocatiit/musclex',
     keywords = ['musclex', 'biomuscle', 'diffraction', 'biocat'],
     # python_requires='>=2.7.10, <=3.6',
