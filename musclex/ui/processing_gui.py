@@ -117,6 +117,22 @@ class ProcessingGUI(BaseGUI):
         # Add to right panel
         self.right_panel.add_widget(self.rotationSettings)
     
+    def _create_center_rotation_settings(self, orientation_model=None, mode_orientation_enabled=False):
+        """
+        Create and add both center and rotation settings widgets.
+        
+        This is a convenience method that calls both _create_center_settings()
+        and _create_rotation_settings() in sequence.
+        
+        Args:
+            orientation_model: Optional orientation model for rotation analysis
+            mode_orientation_enabled: Whether mode-based orientation is enabled
+        
+        Call this in subclass's _create_tabs() for apps that need both widgets.
+        """
+        self._create_center_settings()
+        self._create_rotation_settings(orientation_model, mode_orientation_enabled)
+    
     def _create_blank_mask_settings(self):
         """
         Create and add blank/mask settings widget to right panel.

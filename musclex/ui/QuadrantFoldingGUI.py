@@ -427,15 +427,14 @@ class QuadrantFoldingGUI(ProcessingGUI):
         self.right_panel.add_widget(self.settingsGroup)
     
     def _create_center_rotation_settings(self):
-        """Create center and rotation settings widgets (using ProcessingGUI)"""
-        # Use ProcessingGUI's methods for center and rotation settings
-        self._create_center_settings()
-        self._create_rotation_settings(
+        """Create center and rotation settings widgets (override to add QF-specific signals)"""
+        # Use ProcessingGUI's shared method
+        super()._create_center_rotation_settings(
             orientation_model=self.orientationModel,
             mode_orientation_enabled=self.modeOrientation is not None
         )
         
-        # Connect QF-specific complex signals
+        # Connect QF-specific complex signals (apply/restore functionality)
         self.centerSettings.applyCenterRequested.connect(self._handle_apply_center)
         self.centerSettings.restoreAutoCenterRequested.connect(self._handle_restore_auto_center)
         self.rotationSettings.autoOrientationRequested.connect(self._handle_auto_orientation)
