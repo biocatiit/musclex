@@ -20,3 +20,5 @@ musclex/tests/test_logs/test.log
 
 .DS_Store
 
+MACOS_INSTALL.md
+MACOS_MULTIPROCESSING_FIX.md
