@@ -346,16 +346,6 @@ class ProjectionTracesGUI(ProcessingGUI):
         """PT uses smaller tabs"""
         return "QTabBar::tab { height: 20px; width: 200px; }"
     
-    def _add_standard_processing_widgets(self):
-        """
-        Override: PT uses standard center/rotation but has custom blank settings.
-        
-        Note: PT has its own blank settings (_create_blank_settings), so we
-        don't use ProcessingGUI's standard blank/mask settings.
-        """
-        self._create_center_rotation_settings()
-        # Skip _create_blank_mask_settings() - PT uses _create_blank_settings() instead
-    
     def _add_custom_widgets(self):
         """Add PT-specific widgets to right panel (implements ProcessingGUI hook)"""
         # Make first tab not closable
@@ -366,7 +356,6 @@ class ProjectionTracesGUI(ProcessingGUI):
         self._create_pattern_settings()
         self._create_box_settings()
         self._create_peaks_settings()
-        self._create_blank_settings()  # PT-specific blank settings
     
     def _add_navigation_controls(self):
         """Override: Use PT-specific navigation widget instead of standard navControls"""
@@ -481,18 +470,6 @@ class ProjectionTracesGUI(ProcessingGUI):
         
         # Note: imgZoomInB is already added to checkableButtons by display panel
     
-    def _create_blank_settings(self):
-        """Create blank image settings group"""
-        # Blank Image Settings
-        self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
-        self.blankImageGrp.setCheckable(True)
-        self.blankImageGrp.setChecked(False)
-        self.blankImageLayout = QVBoxLayout(self.blankImageGrp)
-        self.blankSettingButton = QPushButton("Set Blank Image and Mask")
-        self.blankImageLayout.addWidget(self.blankSettingButton)
-        
-        # Add to right panel
-        self.right_panel.add_widget(self.blankImageGrp)
     
     def _create_navigation(self):
         """Create navigation and process buttons"""
@@ -631,12 +608,12 @@ class ProjectionTracesGUI(ProcessingGUI):
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
         self.logScaleIntChkBx.stateChanged.connect(self.updateImageTab)
 
-        # Blank Image
-        self.blankImageGrp.clicked.connect(self.blankChecked)
-        self.blankSettingButton.clicked.connect(self.blankSettingClicked)
-
-        # Mask
-        self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
+        # Blank Image and Mask - now handled by ProcessingGUI's BlankMaskSettingsWidget
+        # (signals automatically connected in ProcessingGUI._create_blank_mask_settings)
+        
+        # Keep PT-specific mask threshold changed signal (not in standard widget)
+        if hasattr(self, 'maskThresSpnBx'):
+            self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
 
         # select boxes
         self.addBoxButton.clicked.connect(self.addABox)
@@ -686,71 +663,35 @@ class ProjectionTracesGUI(ProcessingGUI):
                 with open(filename, 'w') as f:
                     json.dump(settings, f)
 
-    def blankChecked(self):
-        """
-        Handle when the Blank image and mask is checked or unchecked
-        """
-        if self.projProc is not None and not self.syncUI:
+    # ========== ProcessingGUI Abstract Method Implementations ==========
+    
+    def _get_settings_dir(self):
+        """Return settings directory path (implements ProcessingGUI)"""
+        return self.dir_path
+    
+    def _handle_blank_toggle(self):
+        """Handle blank image toggle (implements ProcessingGUI)"""
+        if self.projProc is not None:
+            # Recreate processor to reload settings
             self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
             self.projProc.info['hists'] = {}
             self.masked = False
-            print("Blank checked")
+            print("Blank image toggle")
             self.processImage()
-            self.updateImage
-
-    def blankSettingClicked(self):
-        """
-        Trigger when Set Blank Image and Mask clicked
-        """
-
-        img = self.projProc.getRotatedImage()
-
-        try:
-            fabio.tifimage.tifimage(data=img).write(join(self.dir_path,'settings/tempMaskFile_pt.tif'))
-        except:
-            print("ERROR WITH SAVING THE IMAGE")
-
-        max_val = np.max(np.ravel(img))
-
-        ext = self.projProc.filename.split('.')[-1]
-
-        rot_ang = None if 'rotationAngle' not in self.projProc.info else self.projProc.info['rotationAngle']
-
-        trans_x = (img.shape[0] - self.projProc.orig_img.shape[0]) / 2
-        trans_y = (img.shape[1] - self.projProc.orig_img.shape[1]) / 2
-
-        trans_mat = np.float32([[1,0,trans_x],[0,1,trans_y]])
-
-        imageMaskingTool = ImageMaskerWindow(self.dir_path, 
-                                             os.path.join(self.dir_path, "settings/tempMaskFile_pt.tif"), 
-                                             self.minIntSpnBx.value(),
-                                             self.maxIntSpnBx.value(),
-                                             max_val,
-                                             orig_size=self.projProc.orig_img.shape,
-                                             trans_mat=trans_mat,                                            
-                                             rot_angle=rot_ang,
-                                             isHDF5= ext in ('hdf5', 'h5'),
-                                             )
-
-        if imageMaskingTool is not None and imageMaskingTool.exec_():
-            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
-                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
-                    info = json.load(f)
-                    if 'path' in info:
-                        img = fabio.open(info['path']).data
-                        fabio.tifimage.tifimage(data=img).write(join(join(self.dir_path, 'settings'),'blank.tif'))    
-            else:
-                if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
-                    os.rename(join(join(self.dir_path, 'settings'), 'mask.tif'), join(join(self.dir_path, 'settings'), 'maskonly.tif'))
-
+    
+    def _handle_mask_toggle(self):
+        """Handle mask toggle (implements ProcessingGUI)"""
         if self.projProc is not None:
+            # Recreate processor to reload settings
+            self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
+            self.projProc.info['hists'] = {}
             self.masked = False
-            print("Blank setting clicked")
+            print("Mask toggle")
             self.processImage()
-
+    
     def maskThresChanged(self):
         """
-        Trigger when Mask threshold is changed
+        Trigger when Mask threshold is changed (PT-specific functionality)
         """
         if self.projProc is not None:
             self.projProc.info['hists'] = {}
@@ -2495,7 +2436,8 @@ class ProjectionTracesGUI(ProcessingGUI):
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
         # self.maskThresSpnBx.setRange(img.min(), img.max())
         if 'blank_mask' in self.projProc.info:
-            self.blankImageGrp.setChecked(self.projProc.info['blank_mask'])
+            # Now using BlankMaskSettingsWidget from ProcessingGUI
+            self.blankMaskSettings.applyBlankImageChkBx.setChecked(self.projProc.info['blank_mask'])
         self.syncUI = False
 
     def updateCenter(self, refit=False):
@@ -2706,8 +2648,8 @@ class ProjectionTracesGUI(ProcessingGUI):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
-        # add blank image and mask
-        settings['blank_mask'] = self.blankImageGrp.isChecked()
+        # add blank image and mask (now using BlankMaskSettingsWidget from ProcessingGUI)
+        settings['blank_mask'] = self.blankMaskSettings.applyBlankImageChkBx.isChecked()
 
         settings['mask_thres'] = self.maskThresSpnBx.value()
 

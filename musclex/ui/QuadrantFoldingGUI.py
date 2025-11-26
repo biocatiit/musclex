@@ -430,16 +430,7 @@ class QuadrantFoldingGUI(ProcessingGUI):
         self.rotationSettings.applyRotationRequested.connect(self._handle_apply_rotation)
         self.rotationSettings.restoreAutoRotationRequested.connect(self._handle_restore_auto_rotation)
     
-    def _create_blank_mask_settings(self):
-        """Create empty cell image and mask settings widget (using ProcessingGUI)"""
-        # Use ProcessingGUI's method
-        super()._create_blank_mask_settings()
-        
-        # Connect QF-specific signals
-        self.blankMaskSettings.blankSettingButton.clicked.connect(self.blankSettingClicked)
-        self.blankMaskSettings.maskSettingButton.clicked.connect(self.maskSettingClicked)
-        self.blankMaskSettings.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
-        self.blankMaskSettings.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
+    # Blank/Mask settings now automatically handled by ProcessingGUI
 
     def _create_result_processing_settings(self):
         """
@@ -1293,184 +1284,77 @@ class QuadrantFoldingGUI(ProcessingGUI):
 
 
 
-    def blankSettingClicked(self):
-        """
-        Trigger when Set Empty Cell Image and Mask clicked
-        """
-        if self.quadFold is None or self.quadFold.start_img is None:
+    # ========== ProcessingGUI Abstract Method Implementations ==========
+    
+    def _get_settings_dir(self):
+        """Return settings directory path (implements ProcessingGUI)"""
+        return self.filePath
+    
+    def _handle_blank_toggle(self):
+        """Handle blank image toggle (implements ProcessingGUI)"""
+        if self.quadFold is None:
             return
-
-        image = self.quadFold.start_img.copy()
-        settings_dir_path = Path(self.filePath) / "settings"
         
-        try:
-            settings_dir_path.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print("Exception occurred:", e)
-            tb_str = traceback.format_exc()
-            print(f"Full traceback: {tb_str}\n")
-            return
-
-        # Pass image data directly (no file I/O needed)
-        imageBlankDialog = ImageBlankDialog(
-            image_data=image,
-            settings_dir_path=settings_dir_path,
-            vmin=self.spminInt.value(),
-            vmax=self.spmaxInt.value()
-        )
-
-        dialogCode = imageBlankDialog.exec()
-
-        if dialogCode == QDialog.Accepted:
-            # Update checkbox state based on settings
-            self.updateBlankMaskCheckboxStates()
-            # Clear cache because empty cell image settings changed
-            # This ensures the image will be reprocessed with new empty cell settings
-            if self.quadFold is not None:
-                self.quadFold.delCache()
-                print("Cleared cache due to empty cell image settings change")
-            self.processImage()
-        else:
-            assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
-            # Still update checkbox states in case settings were deleted
-            self.updateBlankMaskCheckboxStates()
-
-    def maskSettingClicked(self):
-        if self.quadFold is None or self.quadFold.start_img is None:
-            return
-
-        image = self.quadFold.start_img.copy()
-        settings_dir_path = Path(self.filePath) / "settings"
+        # Recreate QuadrantFolder object to trigger config fingerprint validation
+        # This ensures transform matrices and all cached state are properly reset
+        filename = self.file_manager.current_image_name
+        img = self.file_manager.current_image
         
-        try:
-            settings_dir_path.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print("Exception occurred:", e)
-            tb_str = traceback.format_exc()
-            print(f"Full traceback: {tb_str}\n")
+        # Preserve manual settings
+        saved_base_center = self.quadFold.base_center
+        saved_base_rotation = self.quadFold.rotation
+        
+        # Delete file cache
+        self.quadFold.delCache()
+        
+        # Recreate object (will trigger config fingerprint check)
+        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
+        
+        # Restore manual settings if they were set
+        if filename in self.imageCenterSettings:
+            self.quadFold.setBaseCenter(saved_base_center)
+        if filename in self.imageRotationSettings:
+            self.quadFold.setBaseRotation(saved_base_rotation)
+        
+        # Reprocess
+        self.processImage()
+    
+    def _handle_mask_toggle(self):
+        """Handle mask toggle (implements ProcessingGUI)"""
+        if self.quadFold is None:
             return
-
-        # Pass image data directly (no file I/O needed)
-        imageMaskDialog = ImageMaskDialog(
-            image_data=image,
-            settings_dir_path=settings_dir_path,
-            vmin=self.spminInt.value(),
-            vmax=self.spmaxInt.value()
-        )
-
-        dialogCode = imageMaskDialog.exec()
-
-        if dialogCode == QDialog.Accepted:
-            # Update checkbox state based on settings
-            self.updateBlankMaskCheckboxStates()
-            # Clear cache because mask settings changed
-            if self.quadFold is not None:
-                self.quadFold.delCache()
-                print("Cleared cache due to mask settings change")
-            self.processImage()
-        else:
-            assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"
-            # Still update checkbox states in case settings were deleted
-            self.updateBlankMaskCheckboxStates()
-
+        
+        # Recreate QuadrantFolder object to trigger config fingerprint validation
+        # This ensures transform matrices and all cached state are properly reset
+        filename = self.file_manager.current_image_name
+        img = self.file_manager.current_image
+        
+        # Preserve manual settings
+        saved_base_center = self.quadFold.base_center
+        saved_base_rotation = self.quadFold.rotation
+        
+        # Delete file cache
+        self.quadFold.delCache()
+        
+        # Recreate object (will trigger config fingerprint check)
+        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
+        
+        # Restore manual settings if they were set
+        if filename in self.imageCenterSettings:
+            self.quadFold.setBaseCenter(saved_base_center)
+        if filename in self.imageRotationSettings:
+            self.quadFold.setBaseRotation(saved_base_rotation)
+        
+        # Reprocess
+        self.processImage()
+    
     def updateBlankMaskCheckboxStates(self):
         """
         Update the state of empty cell image and mask checkboxes based on whether settings exist.
-        Delegates to the widget's update_from_directory method.
+        
+        This is kept for backward compatibility. Internally uses ProcessingGUI's method.
         """
-        if not self.filePath:
-            return
-        
-        settings_dir = Path(self.filePath) / "settings"
-        
-        # Widget handles all the checking and updating internally
-        self.blankMaskSettings.update_from_directory(settings_dir)
-
-    def applyBlankImageChanged(self):
-        """
-        Handle when the apply empty cell image checkbox is toggled.
-        """
-        if self.quadFold is None or self.uiUpdating:
-            return
-        
-        # Create/delete a flag file to indicate whether to apply empty cell image
-        settings_dir = Path(self.filePath) / "settings"
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        
-        if self.blankMaskSettings.applyBlankImageChkBx.isChecked():
-            # Remove the disabled flag if it exists
-            if blank_disabled_flag.exists():
-                blank_disabled_flag.unlink()
-        else:
-            # Create the disabled flag
-            blank_disabled_flag.touch()
-        
-        # Recreate QuadrantFolder object to trigger config fingerprint validation
-        # This ensures transform matrices and all cached state are properly reset
-        filename = self.file_manager.current_image_name
-        img = self.file_manager.current_image
-        
-        # Preserve manual settings
-        saved_base_center = self.quadFold.base_center
-        saved_base_rotation = self.quadFold.rotation
-        
-        # Delete file cache
-        self.quadFold.delCache()
-        
-        # Recreate object (will trigger config fingerprint check)
-        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
-        
-        # Restore manual settings if they were set
-        if filename in self.imageCenterSettings:
-            self.quadFold.setBaseCenter(saved_base_center)
-        if filename in self.imageRotationSettings:
-            self.quadFold.setBaseRotation(saved_base_rotation)
-        
-        # Reprocess
-        self.processImage()
-
-    def applyMaskChanged(self):
-        """
-        Handle when the apply mask checkbox is toggled.
-        """
-        if self.quadFold is None or self.uiUpdating:
-            return
-        
-        # Create/delete a flag file to indicate whether to apply mask
-        settings_dir = Path(self.filePath) / "settings"
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        
-        if self.blankMaskSettings.applyMaskChkBx.isChecked():
-            # Remove the disabled flag if it exists
-            if mask_disabled_flag.exists():
-                mask_disabled_flag.unlink()
-        else:
-            # Create the disabled flag
-            mask_disabled_flag.touch()
-        
-        # Recreate QuadrantFolder object to trigger config fingerprint validation
-        # This ensures transform matrices and all cached state are properly reset
-        filename = self.file_manager.current_image_name
-        img = self.file_manager.current_image
-        
-        # Preserve manual settings
-        saved_base_center = self.quadFold.base_center
-        saved_base_rotation = self.quadFold.rotation
-        
-        # Delete file cache
-        self.quadFold.delCache()
-        
-        # Recreate object (will trigger config fingerprint check)
-        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
-        
-        # Restore manual settings if they were set
-        if filename in self.imageCenterSettings:
-            self.quadFold.setBaseCenter(saved_base_center)
-        if filename in self.imageRotationSettings:
-            self.quadFold.setBaseRotation(saved_base_rotation)
-        
-        # Reprocess
-        self.processImage()
+        self._update_blank_mask_checkbox_states()
 
     def getOrigCoordsCenter(self, x, y):
         """

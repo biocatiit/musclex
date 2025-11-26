@@ -249,11 +249,24 @@ class ProcessingGUI(BaseGUI):
     
     def _create_blank_mask_settings(self):
         """
-        Create and add blank/mask settings widget to right panel.
+        Create and add blank/mask settings widget to right panel with standard signal connections.
+        
+        Automatically connects:
+        - blankSettingButton -> _on_blank_setting_clicked()
+        - maskSettingButton -> _on_mask_setting_clicked()
+        - applyBlankImageChkBx -> _on_apply_blank_changed()
+        - applyMaskChkBx -> _on_apply_mask_changed()
         
         Call this in subclass's _create_tabs() if blank/mask settings are needed.
         """
         self.blankMaskSettings = BlankMaskSettingsWidget(parent=self)
+        
+        # Connect standard signals
+        self.blankMaskSettings.blankSettingButton.clicked.connect(self._on_blank_setting_clicked)
+        self.blankMaskSettings.maskSettingButton.clicked.connect(self._on_mask_setting_clicked)
+        self.blankMaskSettings.applyBlankImageChkBx.stateChanged.connect(self._on_apply_blank_changed)
+        self.blankMaskSettings.applyMaskChkBx.stateChanged.connect(self._on_apply_mask_changed)
+        
         self.right_panel.add_widget(self.blankMaskSettings)
     
     # ========== Center Tool Handlers ==========
@@ -303,6 +316,171 @@ class ProcessingGUI(BaseGUI):
         Default implementation does nothing. Subclasses should override if needed.
         """
         pass
+    
+    # ========== Blank/Mask Handlers ==========
+    
+    def _on_blank_setting_clicked(self):
+        """
+        Handle blank (empty cell) image settings button click.
+        
+        Opens dialog to set blank image and saves settings.
+        Subclasses can override for custom behavior, or use this default implementation.
+        """
+        processor = self._get_image_processor()
+        if processor is None or not hasattr(processor, 'start_img') or processor.start_img is None:
+            return
+        
+        from pathlib import Path
+        import traceback
+        
+        image = processor.start_img.copy()
+        settings_dir_path = Path(self._get_settings_dir())
+        
+        try:
+            settings_dir_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print("Exception occurred:", e)
+            tb_str = traceback.format_exc()
+            print(f"Full traceback: {tb_str}\n")
+            return
+        
+        # Import dialog
+        from .ImageBlankDialog import ImageBlankDialog
+        
+        # Pass image data directly (no file I/O needed)
+        imageBlankDialog = ImageBlankDialog(
+            image_data=image,
+            settings_dir_path=settings_dir_path,
+            vmin=self.spminInt.value(),
+            vmax=self.spmaxInt.value()
+        )
+        
+        dialogCode = imageBlankDialog.exec()
+        
+        if dialogCode == QDialog.Accepted:
+            # Update checkbox state based on settings
+            self._update_blank_mask_checkbox_states()
+            # Notify subclass that settings changed
+            self._on_blank_settings_changed()
+        else:
+            assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
+            # Still update checkbox states in case settings were deleted
+            self._update_blank_mask_checkbox_states()
+    
+    def _on_mask_setting_clicked(self):
+        """
+        Handle mask settings button click.
+        
+        Opens dialog to set mask and saves settings.
+        Subclasses can override for custom behavior, or use this default implementation.
+        """
+        processor = self._get_image_processor()
+        if processor is None or not hasattr(processor, 'start_img') or processor.start_img is None:
+            return
+        
+        from pathlib import Path
+        import traceback
+        
+        image = processor.start_img.copy()
+        settings_dir_path = Path(self._get_settings_dir())
+        
+        try:
+            settings_dir_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print("Exception occurred:", e)
+            tb_str = traceback.format_exc()
+            print(f"Full traceback: {tb_str}\n")
+            return
+        
+        # Import dialog
+        from .ImageMaskDialog import ImageMaskDialog
+        
+        # Pass image data directly (no file I/O needed)
+        imageMaskDialog = ImageMaskDialog(
+            image_data=image,
+            settings_dir_path=settings_dir_path,
+            vmin=self.spminInt.value(),
+            vmax=self.spmaxInt.value()
+        )
+        
+        dialogCode = imageMaskDialog.exec()
+        
+        if dialogCode == QDialog.Accepted:
+            # Update checkbox state based on settings
+            self._update_blank_mask_checkbox_states()
+            # Notify subclass that settings changed
+            self._on_mask_settings_changed()
+        else:
+            assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"
+            # Still update checkbox states in case settings were deleted
+            self._update_blank_mask_checkbox_states()
+    
+    def _update_blank_mask_checkbox_states(self):
+        """
+        Update the state of empty cell image and mask checkboxes based on whether settings exist.
+        """
+        from pathlib import Path
+        
+        settings_dir = Path(self._get_settings_dir())
+        
+        # Widget handles all the checking and updating internally
+        self.blankMaskSettings.update_from_directory(settings_dir)
+    
+    def _on_apply_blank_changed(self):
+        """
+        Handle when the apply empty cell image checkbox is toggled.
+        
+        Default implementation manages the disabled flag file.
+        Subclasses should override to add specific reprocessing logic.
+        """
+        processor = self._get_image_processor()
+        if processor is None or (hasattr(self, 'uiUpdating') and self.uiUpdating):
+            return
+        
+        from pathlib import Path
+        
+        # Create/delete a flag file to indicate whether to apply empty cell image
+        settings_dir = Path(self._get_settings_dir())
+        blank_disabled_flag = settings_dir / ".blank_image_disabled"
+        
+        if self.blankMaskSettings.applyBlankImageChkBx.isChecked():
+            # Remove the disabled flag if it exists
+            if blank_disabled_flag.exists():
+                blank_disabled_flag.unlink()
+        else:
+            # Create the disabled flag
+            blank_disabled_flag.touch()
+        
+        # Notify subclass to handle processor-specific logic
+        self._handle_blank_toggle()
+    
+    def _on_apply_mask_changed(self):
+        """
+        Handle when the apply mask checkbox is toggled.
+        
+        Default implementation manages the disabled flag file.
+        Subclasses should override to add specific reprocessing logic.
+        """
+        processor = self._get_image_processor()
+        if processor is None or (hasattr(self, 'uiUpdating') and self.uiUpdating):
+            return
+        
+        from pathlib import Path
+        
+        # Create/delete a flag file to indicate whether to apply mask
+        settings_dir = Path(self._get_settings_dir())
+        mask_disabled_flag = settings_dir / ".mask_disabled"
+        
+        if self.blankMaskSettings.applyMaskChkBx.isChecked():
+            # Remove the disabled flag if it exists
+            if mask_disabled_flag.exists():
+                mask_disabled_flag.unlink()
+        else:
+            # Create the disabled flag
+            mask_disabled_flag.touch()
+        
+        # Notify subclass to handle processor-specific logic
+        self._handle_mask_toggle()
     
     # ========== Abstract Methods (Subclasses Must Implement) ==========
     
@@ -371,6 +549,103 @@ class ProcessingGUI(BaseGUI):
             if dlg.exec() == QDialog.Accepted:
                 new_center = dlg.center
                 # Apply center...
+        """
+        pass
+    
+    @abstractmethod
+    def _get_settings_dir(self):
+        """
+        Return the path to the settings directory for blank/mask files.
+        
+        Returns:
+            str or Path: Path to settings directory
+        
+        Example (QF):
+            return self.filePath
+        
+        Example (PT):
+            return self.dir_path
+        """
+        pass
+    
+    def _on_blank_settings_changed(self):
+        """
+        Hook: Called after blank image settings are successfully changed.
+        
+        Default: Clears processor cache and reprocesses image.
+        Subclasses can override for custom behavior.
+        """
+        processor = self._get_image_processor()
+        if processor and hasattr(processor, 'delCache'):
+            processor.delCache()
+            print("Cleared cache due to empty cell image settings change")
+        
+        if hasattr(self, 'processImage'):
+            self.processImage()
+    
+    def _on_mask_settings_changed(self):
+        """
+        Hook: Called after mask settings are successfully changed.
+        
+        Default: Clears processor cache and reprocesses image.
+        Subclasses can override for custom behavior.
+        """
+        processor = self._get_image_processor()
+        if processor and hasattr(processor, 'delCache'):
+            processor.delCache()
+            print("Cleared cache due to mask settings change")
+        
+        if hasattr(self, 'processImage'):
+            self.processImage()
+    
+    @abstractmethod
+    def _handle_blank_toggle(self):
+        """
+        Handle processor-specific logic when blank image checkbox is toggled.
+        
+        Called after the flag file is updated. Should recreate processor object
+        and reprocess the image.
+        
+        Example (QF):
+            # Recreate QuadrantFolder object to trigger config fingerprint validation
+            filename = self.file_manager.current_image_name
+            img = self.file_manager.current_image
+            
+            # Preserve manual settings
+            saved_base_center = self.quadFold.base_center
+            saved_base_rotation = self.quadFold.rotation
+            
+            # Delete file cache
+            self.quadFold.delCache()
+            
+            # Recreate object (will trigger config fingerprint check)
+            self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
+            
+            # Restore manual settings if they were set
+            if filename in self.imageCenterSettings:
+                self.quadFold.setBaseCenter(saved_base_center)
+            if filename in self.imageRotationSettings:
+                self.quadFold.setBaseRotation(saved_base_rotation)
+            
+            # Reprocess
+            self.processImage()
+        
+        Example (PT):
+            # PT may need different handling
+            if self.projProc is not None:
+                self.processImage()
+        """
+        pass
+    
+    @abstractmethod
+    def _handle_mask_toggle(self):
+        """
+        Handle processor-specific logic when mask checkbox is toggled.
+        
+        Called after the flag file is updated. Should recreate processor object
+        and reprocess the image.
+        
+        Similar to _handle_blank_toggle() but for mask settings.
         """
         pass
 
