@@ -346,28 +346,30 @@ class ProjectionTracesGUI(ProcessingGUI):
         """PT uses smaller tabs"""
         return "QTabBar::tab { height: 20px; width: 200px; }"
     
-    def _create_tabs(self):
-        """Create image tab and box tabs"""
-        # Use standard image tab (same as QuadrantFolding)
-        self._create_standard_image_tab(tab_title="Image")
+    def _add_standard_processing_widgets(self):
+        """
+        Override: PT uses standard center/rotation but has custom blank settings.
         
+        Note: PT has its own blank settings (_create_blank_settings), so we
+        don't use ProcessingGUI's standard blank/mask settings.
+        """
+        self._create_center_rotation_settings()
+        # Skip _create_blank_mask_settings() - PT uses _create_blank_settings() instead
+    
+    def _add_custom_widgets(self):
+        """Add PT-specific widgets to right panel (implements ProcessingGUI hook)"""
         # Make first tab not closable
         self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
         self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
         
-        # Add PT-specific display options (only the 3 unique checkboxes)
-        self._add_display_options()
-        
-        # Add processing widgets (center, rotation, etc.) - from ProcessingGUI
-        self._create_center_settings()
-        
-        # Add PT-specific settings to right panel
+        # Add PT-specific settings groups
         self._create_pattern_settings()
         self._create_box_settings()
         self._create_peaks_settings()
-        self._create_blank_settings()
-        
-        # Add navigation controls to bottom
+        self._create_blank_settings()  # PT-specific blank settings
+    
+    def _add_navigation_controls(self):
+        """Override: Use PT-specific navigation widget instead of standard navControls"""
         self._create_navigation()
         self.right_panel.add_bottom_widget(self.bottomWidget)
     

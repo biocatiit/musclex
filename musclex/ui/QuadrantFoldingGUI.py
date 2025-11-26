@@ -313,19 +313,15 @@ class QuadrantFoldingGUI(ProcessingGUI):
         from musclex import __version__
         self.setWindowTitle("Muscle X Quadrant Folding v." + __version__)
     
-    def _create_tabs(self):
-        """Create image tab and result tab"""
-        # Use the standard image tab from BaseGUI
-        self._create_standard_image_tab(tab_title="Original Image")
-        
-        # Add quadrant-specific display options
-        self._add_display_options()
-        
-        # Add quadrant-specific settings to right panel
-        self._create_quadrant_settings()
-        
-        # Add navigation controls to right panel bottom
-        self.right_panel.add_bottom_widget(self.navControls)
+    def _get_image_tab_title(self) -> str:
+        """Override: Return custom title for image tab"""
+        return "Original Image"
+    
+    def _add_custom_widgets(self):
+        """Add QF-specific widgets to right panel (implements ProcessingGUI hook)"""
+        # Add QF-specific settings groups
+        self._create_processing_settings()
+        self._create_result_processing_settings()
         
         # Create result tab
         self._create_result_tab()
@@ -397,13 +393,6 @@ class QuadrantFoldingGUI(ProcessingGUI):
         # Add zoom button to checkable buttons list
         self.checkableButtons.append(self.imgZoomInB)
 
-    def _create_quadrant_settings(self):
-        """Add quadrant-specific settings to right panel"""
-        # Add settings groups
-        self._create_processing_settings()
-        self._create_center_rotation_settings()
-        self._create_blank_mask_settings()
-        self._create_result_processing_settings()
     
     def _create_processing_settings(self):
         """Create image processing settings group"""

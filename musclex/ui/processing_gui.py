@@ -30,13 +30,16 @@ class ProcessingGUI(BaseGUI):
     - Blank image and mask handling
     - Settings persistence
     
+    Automatically provides standard processing widgets (center, rotation, blank/mask)
+    via template method pattern in _create_tabs().
+    
     Used by: QuadrantFoldingGUI, ProjectionTracesGUI, EquatorialGUI
     Not used by: XRayViewerGUI (viewer only, inherits BaseGUI directly)
     
     Subclasses must implement:
+        - _add_custom_widgets() - Add GUI-specific widgets to right panel
         - _get_image_processor() - Return the processor object
         - _apply_center_from_tool(center, tool_name) - Apply center result
-        - _apply_rotation_from_tool(rotation, tool_name) - Apply rotation result
         - calibrationClicked() - Handle calibration button
         - setCentBtnClicked() - Handle manual center button
     """
@@ -53,6 +56,117 @@ class ProcessingGUI(BaseGUI):
         """Hook: Register processing tools after UI is created"""
         super()._additional_setup()
         self._register_processing_tools()
+    
+    # ========== Tab Creation Template ==========
+    
+    def _create_tabs(self):
+        """
+        Template method: Create tabs with standard processing setup.
+        
+        Standard flow:
+        1. Create standard image tab (from BaseGUI)
+        2. Add display options (subclass hook: _add_display_options)
+        3. Add standard processing widgets (center, rotation, blank/mask)
+        4. Add custom widgets (subclass hook: _add_custom_widgets)
+        5. Add navigation controls to bottom (subclass hook: _add_navigation_controls)
+        
+        Subclasses typically only need to implement:
+        - _get_image_tab_title() - Optional, return custom title
+        - _add_display_options() - Optional, add GUI-specific display checkboxes
+        - _add_custom_widgets() - Required, add GUI-specific settings/tabs
+        - _add_standard_processing_widgets() - Optional override to customize
+        - _add_navigation_controls() - Optional override for custom navigation
+        """
+        # 1. Create standard image tab
+        self._create_standard_image_tab(tab_title=self._get_image_tab_title())
+        
+        # 2. Add display options (subclass-specific)
+        if hasattr(self, '_add_display_options'):
+            self._add_display_options()
+        
+        # 3. Add standard processing widgets (automatic)
+        self._add_standard_processing_widgets()
+        
+        # 4. Add custom widgets (subclass hook)
+        self._add_custom_widgets()
+        
+        # 5. Add navigation controls to bottom (subclass hook)
+        self._add_navigation_controls()
+    
+    def _get_image_tab_title(self) -> str:
+        """
+        Hook: Return the title for the image tab.
+        
+        Default: "Image"
+        Subclasses can override to customize.
+        
+        Example:
+            return "Original Image"  # QuadrantFoldingGUI
+        """
+        return "Image"
+    
+    def _add_standard_processing_widgets(self):
+        """
+        Add standard processing widgets to right panel.
+        
+        By default, adds:
+        - Center settings (calibration, chords, perpendiculars, manual)
+        - Rotation settings
+        - Blank/Mask settings
+        
+        Subclasses can override to customize. For example:
+        
+        Example (skip blank/mask if GUI has its own):
+            def _add_standard_processing_widgets(self):
+                self._create_center_rotation_settings()
+                # Skip blank/mask - we have custom blank settings
+        
+        Example (no rotation needed):
+            def _add_standard_processing_widgets(self):
+                self._create_center_settings()
+                self._create_blank_mask_settings()
+        """
+        self._create_center_rotation_settings()
+        self._create_blank_mask_settings()
+    
+    @abstractmethod
+    def _add_custom_widgets(self):
+        """
+        Hook: Add GUI-specific widgets to right panel.
+        
+        Called after standard processing widgets are added.
+        This is where you add your custom settings groups and tabs.
+        
+        Example (QuadrantFoldingGUI):
+            def _add_custom_widgets(self):
+                self._create_processing_settings()
+                self._create_result_processing_settings()
+                self._create_result_tab()
+        
+        Example (ProjectionTracesGUI):
+            def _add_custom_widgets(self):
+                self._create_pattern_settings()
+                self._create_box_settings()
+                self._create_peaks_settings()
+                self._create_blank_settings()  # PT-specific blank settings
+        """
+        pass
+    
+    def _add_navigation_controls(self):
+        """
+        Hook: Add navigation controls to bottom of right panel.
+        
+        Default: adds standard navigation controls (self.navControls).
+        Subclasses can override to add custom navigation widget.
+        
+        Example (override with custom navigation):
+            def _add_navigation_controls(self):
+                self._create_navigation()  # Create custom bottomWidget
+                self.right_panel.add_bottom_widget(self.bottomWidget)
+        """
+        self.right_panel.add_bottom_widget(self.navControls)
+    
+    # ========== Tool Registration ==========
     
     def _register_processing_tools(self):
         """
