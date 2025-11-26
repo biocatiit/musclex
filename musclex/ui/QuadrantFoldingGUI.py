@@ -72,7 +72,7 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .widgets.center_settings_widget import CenterSettingsWidget
 from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
-from .base_gui import BaseGUI
+from .processing_gui import ProcessingGUI
 import time
 import random
 
@@ -213,7 +213,7 @@ class Worker(QRunnable):
 class EventEmitter(QObject):
     pass  # Signal definitions removed - GUI updates happen in processImage()
 
-class QuadrantFoldingGUI(BaseGUI):
+class QuadrantFoldingGUI(ProcessingGUI):
     """
     A class for window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
@@ -358,12 +358,14 @@ class QuadrantFoldingGUI(BaseGUI):
     
     def _additional_setup(self):
         """Initialize patches, register tools, and setup background choice"""
+        # Call parent to register processing tools
+        super()._additional_setup()
+        
         # Set initial status bar text
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
         
-        # Initialize patches and tools
+        # Initialize patches
         self._initialize_patches()
-        self._register_tools()
         
         # Setup background choice UI
         self.bgChoiceInChanged()
@@ -425,31 +427,31 @@ class QuadrantFoldingGUI(BaseGUI):
         self.right_panel.add_widget(self.settingsGroup)
     
     def _create_center_rotation_settings(self):
-        """Create center and rotation settings widgets"""
-        self.centerSettings = CenterSettingsWidget(parent=self)
-        self.rotationSettings = RotationSettingsWidget(
-            parent=self, 
+        """Create center and rotation settings widgets (using ProcessingGUI)"""
+        # Use ProcessingGUI's methods for center and rotation settings
+        self._create_center_settings()
+        self._create_rotation_settings(
             orientation_model=self.orientationModel,
             mode_orientation_enabled=self.modeOrientation is not None
         )
         
-        # Add checkable buttons from widgets to checkableButtons list
-        self.checkableButtons.extend([
-            self.centerSettings.setCenterRotationButton,
-            self.centerSettings.setCentByChords,
-            self.centerSettings.setCentByPerp,
-            self.centerSettings.setCentBtn,
-            self.rotationSettings.setRotationButton,
-            self.rotationSettings.setAngleBtn
-        ])
-        
-        self.right_panel.add_widget(self.centerSettings)
-        self.right_panel.add_widget(self.rotationSettings)
+        # Connect QF-specific complex signals
+        self.centerSettings.applyCenterRequested.connect(self._handle_apply_center)
+        self.centerSettings.restoreAutoCenterRequested.connect(self._handle_restore_auto_center)
+        self.rotationSettings.autoOrientationRequested.connect(self._handle_auto_orientation)
+        self.rotationSettings.applyRotationRequested.connect(self._handle_apply_rotation)
+        self.rotationSettings.restoreAutoRotationRequested.connect(self._handle_restore_auto_rotation)
     
     def _create_blank_mask_settings(self):
-        """Create empty cell image and mask settings widget"""
-        self.blankMaskSettings = BlankMaskSettingsWidget(parent=self)
-        self.right_panel.add_widget(self.blankMaskSettings)
+        """Create empty cell image and mask settings widget (using ProcessingGUI)"""
+        # Use ProcessingGUI's method
+        super()._create_blank_mask_settings()
+        
+        # Connect QF-specific signals
+        self.blankMaskSettings.blankSettingButton.clicked.connect(self.blankSettingClicked)
+        self.blankMaskSettings.maskSettingButton.clicked.connect(self.maskSettingClicked)
+        self.blankMaskSettings.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
+        self.blankMaskSettings.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
 
     def _create_result_processing_settings(self):
         """
@@ -996,10 +998,15 @@ class QuadrantFoldingGUI(BaseGUI):
         self.circle_patch3 = None
         self.circle_patch_rmin = None
     
-    def _register_tools(self):
-        """Register tools with the image viewer"""
-        self.image_viewer.tool_manager.register_tool('chords', ChordsCenterTool)
-        self.image_viewer.tool_manager.register_tool('perpendiculars', PerpendicularsCenterTool)
+    def _register_processing_tools(self):
+        """Register tools with the image viewer (extends ProcessingGUI)"""
+        # Call parent to register common tools (chords, perpendiculars)
+        super()._register_processing_tools()
+        
+        # Register QF-specific tools
+        from .tools.rotation_tool import RotationTool
+        from .tools.center_rotate_tool import CenterRotateTool
+        
         self.image_viewer.tool_manager.register_tool('rotation', 
             lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
         self.image_viewer.tool_manager.register_tool('center_rotate', 
@@ -1045,23 +1052,15 @@ class QuadrantFoldingGUI(BaseGUI):
         self.selectImageButton.clicked.connect(self.browseFile)
         # Note: zoom buttons are handled internally by ImageViewerWidget
         
-        # Connect center settings widget - simple button connections
-        self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
+        # Note: Basic center settings connections are handled by ProcessingGUI
+        # Connect QF-specific center rotation button
         self.centerSettings.setCenterRotationButton.clicked.connect(self.setCenterRotation)
-        self.centerSettings.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.centerSettings.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
-        self.centerSettings.setCentBtn.clicked.connect(self.setCentBtnClicked)
-        # Connect center settings widget - complex signal connections
-        self.centerSettings.applyCenterRequested.connect(self._handle_apply_center)
-        self.centerSettings.restoreAutoCenterRequested.connect(self._handle_restore_auto_center)
+        # Note: Complex signal connections are handled in _create_center_rotation_settings()
         
-        # Connect rotation settings widget - simple button connections
+        # Connect QF-specific rotation settings
         self.rotationSettings.setRotationButton.clicked.connect(self.setRotation)
         self.rotationSettings.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
-        # Connect rotation settings widget - complex signal connections
-        self.rotationSettings.autoOrientationRequested.connect(self._handle_auto_orientation)
-        self.rotationSettings.applyRotationRequested.connect(self._handle_apply_rotation)
-        self.rotationSettings.restoreAutoRotationRequested.connect(self._handle_restore_auto_rotation)
+        # Note: Complex signal connections are handled in _create_center_rotation_settings()
         
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
@@ -1080,12 +1079,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resultFigure.canvas.mpl_connect('button_release_event', self.resultReleased)
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
-        # Empty cell image and mask settings widget - direct connections
-        self.blankMaskSettings.blankSettingButton.clicked.connect(self.blankSettingClicked)
-        self.blankMaskSettings.maskSettingButton.clicked.connect(self.maskSettingClicked)
-        # Connect checkbox state changes - direct connection like original
-        self.blankMaskSettings.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
-        self.blankMaskSettings.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
+        # Note: Blank/mask settings connections are handled in _create_blank_mask_settings()
 
         # Background Subtraction
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -1563,59 +1557,21 @@ class QuadrantFoldingGUI(BaseGUI):
             self.default_result_img_zoom = None
             self.processImage()
 
-    def setCenterByPerpClicked(self):
-        """
-        Prepare for manual center selection using perpendicular peaks.
-        Now using the new tool system.
-        """
-        if self.quadFold is None:
-            return
-        
-        if self.centerSettings.setCentByPerp.isChecked():
-            # Activate the perpendiculars center tool
-            self.image_viewer.tool_manager.activate_tool('perpendiculars')
-        else:
-            # Deactivate the tool and get the result
-            result = self.image_viewer.tool_manager.deactivate_tool('perpendiculars')
-            
-            if result:
-                print("Perpendiculars center found:", result)
-                # Convert to original coordinates
-                x, y = result
-                orig_x, orig_y = self.getOrigCoordsCenter(x, y)
-                self.setCenter((orig_x, orig_y), "Perpendicular")
-                self.deleteInfo(['avg_fold'])
-                self.newImgDimension = None
-                self.processImage()
-            else:
-                print("Perpendiculars center calculation failed (need at least 2 line pairs)")
-
-    def setCenterByChordsClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting chords.
-        Now using the new tool system.
-        """
-        if self.quadFold is None:
-            return
-
-        if self.centerSettings.setCentByChords.isChecked():
-            # Activate the chords center tool
-            self.image_viewer.tool_manager.activate_tool('chords')
-        else:
-            # Deactivate the tool and get the result
-            result = self.image_viewer.tool_manager.deactivate_tool('chords')
-            
-            if result:
-                print("Chords center found:", result)
-                # Convert to original coordinates
-                x, y = result
-                orig_x, orig_y = self.getOrigCoordsCenter(x, y)
-                self.setCenter((orig_x, orig_y), "Chords")
-                self.deleteInfo(['avg_fold'])
-                self.newImgDimension = None
-                self.processImage()
-            else:
-                print("Chords center calculation failed (need 3+ points)")
+    # ========== ProcessingGUI Abstract Methods Implementation ==========
+    
+    def _get_image_processor(self):
+        """Return the QuadrantFolder processor"""
+        return self.quadFold
+    
+    def _apply_center_from_tool(self, center, tool_name):
+        """Apply center result from interactive tool (QF-specific)"""
+        # Convert to original coordinates
+        x, y = center
+        orig_x, orig_y = self.getOrigCoordsCenter(x, y)
+        self.setCenter((orig_x, orig_y), tool_name)
+        self.deleteInfo(['avg_fold'])
+        self.newImgDimension = None
+        self.processImage()
 
     def setCentBtnClicked(self):
         if self.quadFold:

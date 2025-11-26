@@ -54,7 +54,7 @@ from ..csv_manager import PT_CSVManager
 from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from .pyqt_utils import *
-from .base_gui import BaseGUI
+from .processing_gui import ProcessingGUI
 
 class ProjectionParams:
     def __init__(self, dir_path, img_name, fileList, ext, settings):
@@ -276,7 +276,7 @@ class EditBoxDetails(QDialog):
         self.accept()
         
 
-class ProjectionTracesGUI(BaseGUI):
+class ProjectionTracesGUI(ProcessingGUI):
     """
     This class is for Projection Traces GUI Object
     """
@@ -358,6 +358,9 @@ class ProjectionTracesGUI(BaseGUI):
         # Add PT-specific display options (only the 3 unique checkboxes)
         self._add_display_options()
         
+        # Add processing widgets (center, rotation, etc.) - from ProcessingGUI
+        self._create_center_settings()
+        
         # Add PT-specific settings to right panel
         self._create_pattern_settings()
         self._create_box_settings()
@@ -369,25 +372,23 @@ class ProjectionTracesGUI(BaseGUI):
         self.right_panel.add_bottom_widget(self.bottomWidget)
     
     def _create_pattern_settings(self):
-        """Create pattern properties settings group"""
-        # Pattern Properties
+        """Create pattern properties settings group (PT-specific settings only)"""
+        # Note: Center and rotation settings are now handled by ProcessingGUI's CenterSettingsWidget
+        
+        # Pattern Properties - PT specific settings
         self.propGrp = QGroupBox("Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
 
-        self.calibrateButton = QPushButton("Calibration Settings")
-        self.calSettingsDialog = None
+        # PT-specific settings
         self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
         self.setRotAndCentB.setCheckable(True)
-        self.setCentByChords = QPushButton("Set Center by Chords")
-        self.setCentByChords.setCheckable(True)
-        self.checkableButtons.append(self.setCentByChords)
-        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
-        self.setCentByPerp.setCheckable(True)
-        self.checkableButtons.append(self.setCentByPerp)
+        self.checkableButtons.append(self.setRotAndCentB)
+        
         self.setRotationButton = QPushButton("Set Rotation Angle")
         self.setRotationButton.setCheckable(True)
         self.checkableButtons.append(self.setRotationButton)
+        
         self.qfChkBx = QCheckBox("Quadrant Folded?")
         self.qfChkBx.setChecked(True)
         self.doubleZoom = QCheckBox("Double Zoom")
@@ -397,15 +398,16 @@ class ProjectionTracesGUI(BaseGUI):
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
-        self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 4)
-        self.propLayout.addWidget(self.setCentByChords, 1, 0, 1, 4)
-        self.propLayout.addWidget(self.setCentByPerp, 2, 0, 1, 4)
-        self.propLayout.addWidget(self.setRotAndCentB, 3, 0, 1, 4)
-        self.propLayout.addWidget(self.setRotationButton, 4, 0, 1, 4)
-        self.propLayout.addWidget(self.qfChkBx, 5, 0, 1, 2)
-        self.propLayout.addWidget(self.doubleZoom, 5, 2, 1, 2)
-        self.propLayout.addWidget(QLabel('Mask Threshold:'), 6, 0, 1, 2)
-        self.propLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
+        row = 0
+        self.propLayout.addWidget(self.setRotAndCentB, row, 0, 1, 4)
+        row += 1
+        self.propLayout.addWidget(self.setRotationButton, row, 0, 1, 4)
+        row += 1
+        self.propLayout.addWidget(self.qfChkBx, row, 0, 1, 2)
+        self.propLayout.addWidget(self.doubleZoom, row, 2, 1, 2)
+        row += 1
+        self.propLayout.addWidget(QLabel('Mask Threshold:'), row, 0, 1, 2)
+        self.propLayout.addWidget(self.maskThresSpnBx, row, 2, 1, 2)
         
         # Add to right panel
         self.right_panel.add_widget(self.propGrp)
@@ -581,6 +583,9 @@ class ProjectionTracesGUI(BaseGUI):
     
     def _additional_setup(self):
         """Additional PT-specific setup"""
+        # Call parent to register processing tools
+        super()._additional_setup()
+        
         # Use BaseGUI's image_viewer canvas (already in layout with correct stretch)
         # Create aliases for backward compatibility with PT code
         self.displayImgCanvas = self.imageCanvas
@@ -607,11 +612,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.selectImageButton.clicked.connect(self.browseFile)
         self.selectFolder.clicked.connect(self.browseFile)
 
-        # # Pattern Properties
-        self.calibrateButton.clicked.connect(self.calibrationClicked)
+        # Note: Center button connections are handled by ProcessingGUI
+        # Pattern Properties (PT-specific)
         self.setRotationButton.clicked.connect(self.setRotation)
-        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
         self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
@@ -803,120 +806,37 @@ class ProjectionTracesGUI(BaseGUI):
                 return True
         return False
 
-    def setCenterByChordsClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting chords
-        """
-        if self.projProc is None:
-            return
-
-        if self.setCentByChords.isChecked():
-            self.rotated = False
-            self.updateImage()
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.chordpoints=[]
-            self.chordLines = []
-            self.function = ["chords_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            print("Finding Chords center ...")
-            centers = []
-            for i, line1 in enumerate(self.chordLines):
-                for line2 in self.chordLines[i + 1:]:
-                    if line1[0] == line2[0]:
-                        continue  # parallel lines
-                    if line1[0] == float('inf'):
-                        xcent = line1[1]
-                        ycent = line2[0] * xcent + line2[1]
-                    elif line2[0] == float('inf'):
-                        xcent = line2[1]
-                        ycent = line1[0] * xcent + line1[1]
-                    else:
-                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
-                        ycent = line1[0] * xcent + line1[1]
-                    center = [xcent, ycent]
-                    print("CenterCalc ", center)
-
-                    centers.append(center)
-
-            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
-            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            new_center = [cx, cy] #np.dot(invM, homo_coords)
-            print("New center ", new_center)
-            self.centerx = int(round(new_center[0]))
-            self.centery = int(round(new_center[1]))
-            self.projProc.info['centerx'] = self.centerx
-            self.projProc.info['centery'] = self.centery
-            self.projProc.info['orig_center'] = (self.centerx, self.centery)
-            self.setCentByChords.setChecked(False)
-            self.center_func = 'manual'
-            self.rotated = True
-            self.updateCenter()
-            self.removeAllTabs()
-            print("set center by chords")
-            self.processImage()
-            self.addBoxTabs()
-            self.updateImage()
-
-    def setCenterByPerpClicked(self):
-        """
-        Prepare for manual center selection using perpendicular peaks
-        :return:
-        """
-        if self.projProc is None:
-            return
-        if self.setCentByPerp.isChecked():
-            self.rotated = False
-            self.updateImage()
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["perp_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            func = self.function
-            horizontalLines = []
-            verticalLines = []
-            intersections = []
-            for i in range(1, len(func) - 1, 2):
-                slope = calcSlope(func[i], func[i + 1])
-                if abs(slope) > 1:
-                    verticalLines.append((func[i], func[i + 1]))
-                else:
-                    horizontalLines.append((func[i], func[i + 1]))
-            for line1 in verticalLines:
-                for line2 in horizontalLines:
-                    cx, cy = getIntersectionOfTwoLines(line2, line1)
-                    print("Intersection ", (cx, cy))
-                    intersections.append((cx, cy))
-            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
-            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
-
-            new_center = [cx, cy]  # np.dot(invM, homo_coords)
-            # Set new center and rotaion angle , re-calculate R-min
-            print("New Center ", new_center)
-            self.centerx = int(round(new_center[0]))
-            self.centery = int(round(new_center[1]))
-            self.projProc.info['centerx'] = int(round(new_center[0]))
-            self.projProc.info['centery'] = int(round(new_center[1]))
-            self.projProc.info['orig_center'] = (self.centerx, self.centery)
-            
-            self.setCentByPerp.setChecked(False)
-            self.center_func = 'manual'
-            self.rotated = True
-            self.updateCenter()
-            self.removeAllTabs()
-            self.processImage()
-            self.addBoxTabs()
-            self.updateImage()
+    # ========== ProcessingGUI Abstract Methods Implementation ==========
+    
+    def _get_image_processor(self):
+        """Return the ProjectionProcessor"""
+        return self.projProc
+    
+    def _apply_center_from_tool(self, center, tool_name):
+        """Apply center result from interactive tool (PT-specific)"""
+        self.centerx = int(center[0])
+        self.centery = int(center[1])
+        self.projProc.info['centerx'] = self.centerx
+        self.projProc.info['centery'] = self.centery
+        self.projProc.info['orig_center'] = (self.centerx, self.centery)
+        self.center_func = 'manual'
+        self.rotated = True
+        self.updateCenter()
+        self.removeAllTabs()
+        print(f"Set center by {tool_name}")
+        self.processImage()
+        self.addBoxTabs()
+        self.updateImage()
+    
+    def setCentBtnClicked(self):
+        """Handle manual center setting button (PT implementation)"""
+        # PT doesn't currently support manual center dialog
+        # Could be implemented in the future similar to QF's SetCentDialog
+        QMessageBox.information(self, "Manual Center", 
+            "Manual center setting via dialog is not yet implemented for Projection Traces.\n"
+            "Please use 'Set Center by Chords' or 'Set Center by Perpendiculars' instead.")
+    
+    # calibrationClicked is already implemented below
 
     def setRotation(self):
         """
