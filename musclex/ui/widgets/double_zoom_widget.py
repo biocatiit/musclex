@@ -28,6 +28,8 @@ authorization from Illinois Institute of Technology.
 
 import sys
 import cv2
+import numpy as np
+from matplotlib.colors import Normalize
 from PySide6.QtCore import Qt, Slot, Signal
 from PySide6.QtWidgets import (QApplication,
                                QWidget,
@@ -330,7 +332,7 @@ class DoubleZoomWidget(UIWidget):
         """
         Update zoom window content at position (x, y).
         Uses set_data() to update existing image instead of creating new ones.
-        Inherits intensity normalization from main image to match intensity display.
+        Uses local min/max intensity from cropped region for better detail visibility.
         """
         if x > 10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
             ax = self.doubleZoomAxes
@@ -340,15 +342,16 @@ class DoubleZoomWidget(UIWidget):
             if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
                 imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
                 
-                # Get norm from main image to ensure consistent intensity display
-                norm = None
-                if self.imageAxes and len(self.imageAxes.images) > 0:
-                    main_image = self.imageAxes.images[0]
-                    norm = main_image.norm
+                # Use local min/max from cropped region for intensity normalization
+                vmin = np.min(imgScaled)
+                vmax = np.max(imgScaled)
+                
+                # Create normalization based on local intensity range
+                norm = Normalize(vmin=vmin, vmax=vmax)
                 
                 # If image object doesn't exist, create it; otherwise update it
                 if self.doubleZoomImage is None:
-                    # Use viridis colormap with same norm as main image
+                    # Use viridis colormap with local norm
                     self.doubleZoomImage = self.doubleZoomAxes.imshow(
                         imgScaled, 
                         cmap='viridis',
