@@ -133,6 +133,9 @@ class ImageData:
         
         # Additional metadata
         self.metadata: Dict[str, Any] = kwargs
+        
+        # Load auto-calculated geometry from cache (if available)
+        self._load_auto_cache()
     
     # ==================== Properties ====================
     
@@ -142,23 +145,33 @@ class ImageData:
         return self._raw_img.shape
     
     @property
-    def center(self) -> Optional[Tuple[float, float]]:
+    def center(self) -> Tuple[float, float]:
         """
-        Get center: manual if set, otherwise computed.
-        Returns None if neither is available.
+        Get center: manual if set, otherwise auto-calculate (lazy).
+        Always returns a valid center.
         """
         if self._manual_center is not None:
             return self._manual_center
+        
+        # Auto-calculate if not cached
+        if self._computed_center is None:
+            self.ensure_center()
+        
         return self._computed_center
     
     @property
-    def rotation(self) -> Optional[float]:
+    def rotation(self) -> float:
         """
-        Get rotation: manual if set, otherwise computed.
-        Returns None if neither is available.
+        Get rotation: manual if set, otherwise auto-calculate (lazy).
+        Always returns a valid rotation.
         """
         if self._manual_rotation is not None:
             return self._manual_rotation
+        
+        # Auto-calculate if not cached
+        if self._computed_rotation is None:
+            self.ensure_rotation()
+        
         return self._computed_rotation
     
     @property
@@ -199,6 +212,88 @@ class ImageData:
         """Clear manual rotation (will use auto-calculation)"""
         self._manual_rotation = None
     
+    def update_manual_center(self, center: Optional[Tuple[float, float]]):
+        """
+        Update manual center at runtime (for GUI interactions).
+        
+        Note: This updates the runtime value only. GUI is responsible for
+        persisting to settings file if needed.
+        
+        :param center: New center (x, y) or None to use auto-calculation
+        """
+        self._manual_center = tuple(center) if center is not None else None
+        print(f"Manual center updated: {self._manual_center}")
+    
+    def update_manual_rotation(self, rotation: Optional[float]):
+        """
+        Update manual rotation at runtime (for GUI interactions).
+        
+        Note: This updates the runtime value only. GUI is responsible for
+        persisting to settings file if needed.
+        
+        :param rotation: New rotation angle in degrees or None to use auto-calculation
+        """
+        self._manual_rotation = rotation
+        print(f"Manual rotation updated: {self._manual_rotation}")
+    
+    # ==================== Cache Management ====================
+    
+    def _load_auto_cache(self):
+        """
+        Load auto-calculated geometry from cache.
+        Cache file: settings/auto_geometry_cache.json
+        """
+        cache_file = self.img_path / "settings" / "auto_geometry_cache.json"
+        if not cache_file.exists():
+            return
+        
+        try:
+            import json
+            with open(cache_file) as f:
+                cache = json.load(f)
+            
+            if self.img_name in cache:
+                data = cache[self.img_name]
+                if 'center' in data and data['center']:
+                    self._computed_center = tuple(data['center'])
+                if 'rotation' in data and data['rotation'] is not None:
+                    self._computed_rotation = data['rotation']
+                print(f"Loaded auto geometry from cache: center={self._computed_center}, rotation={self._computed_rotation}")
+        except Exception as e:
+            print(f"Error loading auto geometry cache: {e}")
+    
+    def _save_auto_cache(self):
+        """
+        Save auto-calculated geometry to cache.
+        Cache file: settings/auto_geometry_cache.json
+        """
+        import json
+        cache_file = self.img_path / "settings" / "auto_geometry_cache.json"
+        
+        # Load existing cache
+        cache = {}
+        if cache_file.exists():
+            try:
+                with open(cache_file) as f:
+                    cache = json.load(f)
+            except:
+                cache = {}
+        
+        # Update with current values
+        cache[self.img_name] = {
+            'center': list(self._computed_center) if self._computed_center else None,
+            'rotation': self._computed_rotation if self._computed_rotation is not None else None
+        }
+        
+        # Save
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(cache_file, 'w') as f:
+                json.dump(cache, f, indent=2)
+            print(f"Saved auto geometry to cache: {cache[self.img_name]}")
+        except Exception as e:
+            print(f"Error saving auto geometry cache: {e}")
+    
     # ==================== Auto Calculation ====================
     
     def ensure_center(self, force: bool = False) -> Tuple[float, float]:
@@ -231,6 +326,10 @@ class ImageData:
         
         self._computed_center = center
         print(f"Center calculated: {center}")
+        
+        # Save to cache
+        self._save_auto_cache()
+        
         return center
     
     def ensure_rotation(self, force: bool = False) -> float:
@@ -267,6 +366,10 @@ class ImageData:
         
         self._computed_rotation = rotation
         print(f"Rotation calculated: {rotation}°")
+        
+        # Save to cache
+        self._save_auto_cache()
+        
         return rotation
     
     # ==================== Preprocessing ====================

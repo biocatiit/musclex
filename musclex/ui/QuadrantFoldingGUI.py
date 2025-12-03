@@ -238,6 +238,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.extent = None
         self.img = None
         self.quadFold = None # QuadrantFolder object
+        self.current_image_data = None # Current ImageData object (holds image geometry and preprocessing)
         self.default_img_zoom = None # default zoom calculated after processing image
         self.default_result_img_zoom = None # default result image zoom calculated after processing image
         self.zoomOutClicked = False # to check whether zoom out is clicked for using default zoom value
@@ -1298,8 +1299,8 @@ class QuadrantFoldingGUI(BaseGUI):
             self.quadFold.delCache()
             fileName = self.file_manager.current_image_name
             img = self.file_manager.current_image
-            img_data = self._create_image_data(img, self.filePath, fileName)
-            self.quadFold = QuadrantFolder(img_data, self)
+            self.current_image_data = self._create_image_data(img, self.filePath, fileName)
+            self.quadFold = QuadrantFolder(self.current_image_data, self)
             self.processImage()
 
     def keyPressEvent(self, event):
@@ -1443,8 +1444,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Recreate object (will trigger config fingerprint check)
         # Manual center/rotation will be automatically loaded from settings
-        img_data = self._create_image_data(img, self.filePath, filename)
-        self.quadFold = QuadrantFolder(img_data, self)
+        self.current_image_data = self._create_image_data(img, self.filePath, filename)
+        self.quadFold = QuadrantFolder(self.current_image_data, self)
         
         # Reprocess
         self.processImage()
@@ -1478,8 +1479,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Recreate object (will trigger config fingerprint check)
         # Manual center/rotation will be automatically loaded from settings
-        img_data = self._create_image_data(img, self.filePath, filename)
-        self.quadFold = QuadrantFolder(img_data, self)
+        self.current_image_data = self._create_image_data(img, self.filePath, filename)
+        self.quadFold = QuadrantFolder(self.current_image_data, self)
         
         # Reprocess
         self.processImage()
@@ -1612,8 +1613,8 @@ class QuadrantFoldingGUI(BaseGUI):
                 print("Chords center calculation failed (need 3+ points)")
 
     def setCentBtnClicked(self):
-        if self.quadFold:
-            center = self.quadFold.base_center
+        if self.current_image_data:
+            center = self.current_image_data.center
 
             if center:
                 img = self.file_manager.current_image.copy()
@@ -1637,13 +1638,14 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def _handle_apply_center(self, scope):
         """Handle Apply Center request from widget (dialog already shown)"""
-        if not self.quadFold or not self.quadFold.base_center:
+        if not self.current_image_data:
             QMessageBox.warning(self, "No Center", "No center available to apply.")
             return
         
-        self._applyManualCenter(self.quadFold.base_center, scope)
+        center = self.current_image_data.center
+        self._applyManualCenter(center, scope)
         QMessageBox.information(self, "Center Applied", 
-            f"Center {self.quadFold.base_center} applied to {scope} images.")
+            f"Center {center} applied to {scope} images.")
     
     def _handle_restore_auto_center(self, scope):
         """Handle Restore Auto Center request from widget (dialog already shown)"""
@@ -1651,7 +1653,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Process current image immediately for 'current' or 'all' selections
         if scope == 'current' or scope == 'all':
-            self.quadFold.setBaseCenter(None)
+            # Clear manual center in ImageData (will use auto-calculation)
+            self.current_image_data.update_manual_center(None)
             self.processImage()
         
         QMessageBox.information(self, "Auto Center Restored", 
@@ -1673,7 +1676,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Process current image immediately for 'current' or 'all' selections
         if scope == 'current' or scope == 'all':
-            self.quadFold.setBaseRotation(None)
+            # Clear manual rotation in ImageData (will use auto-calculation)
+            self.current_image_data.update_manual_rotation(None)
             self.processImage()
         
         QMessageBox.information(self, "Auto Rotation Restored", 
@@ -1993,9 +1997,9 @@ class QuadrantFoldingGUI(BaseGUI):
             self.orientationModel = orientation_model
             # Update widget's internal state
             self.rotationSettings.set_orientation_model(orientation_model)
-            if self.quadFold:
+            if self.current_image_data:
                 # Reset rotation to force recalculation with new orientation model
-                self.quadFold.setBaseRotation(None)
+                self.current_image_data.update_manual_rotation(None)
                 self.processImage()
         
         # Update mode orientation
@@ -2020,7 +2024,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if success:
             # Reset rotation to force recalculation
-            self.quadFold.setBaseRotation(None)
+            self.current_image_data.update_manual_rotation(None)
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
 
@@ -2059,8 +2063,8 @@ class QuadrantFoldingGUI(BaseGUI):
                                 self.saveCenterSettings()
                                 self.updateApplyCenterMode()
                         # Reset center to None to allow auto calculation
-                        if self.quadFold is not None:
-                            self.quadFold.setBaseCenter(None)
+                        if self.current_image_data is not None:
+                            self.current_image_data.update_manual_center(None)
 
                 return True
         return False
@@ -2666,10 +2670,10 @@ class QuadrantFoldingGUI(BaseGUI):
         Triggered when the orientation model is changed
         NOTE: This is now handled by setAutoOrientationClicked dialog
         """
-        if self.quadFold is None:
+        if self.current_image_data is None:
             return
         # Reset rotation to force recalculation with new orientation model
-        self.quadFold.setBaseRotation(None)
+        self.current_image_data.update_manual_rotation(None)
         self.processImage()
 
     def getModeRotation(self):
@@ -2706,7 +2710,7 @@ class QuadrantFoldingGUI(BaseGUI):
         Remove center from QuadrantFolder to make it recalculate everything from finding center
         """
         # Reset center to force recalculation (use None to trigger auto mode)
-        self.quadFold.setBaseCenter(None)
+        self.current_image_data.update_manual_center(None)
         self.processImage()
 
     def addIgnoreQuadrant(self):
@@ -3131,10 +3135,14 @@ class QuadrantFoldingGUI(BaseGUI):
         return [0, 0], center
 
     def setCenter(self, center, source):
-        """Set center for current image and enable Apply Center button (user action - saves to settings)"""
-        if self.quadFold:
-            # Use QuadrantFolder's method to set base_center and center
-            self.quadFold.setBaseCenter(center)
+        """
+        Set center for current image (user action - saves to settings).
+        
+        Note: Caller should call processImage() after this to apply the change.
+        """
+        if self.current_image_data:
+            # Update ImageData's manual center
+            self.current_image_data.update_manual_center(center)
             
             # GUI responsibility: Save to settings
             if self.file_manager:
@@ -3157,33 +3165,35 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Set rotation angle for current image.
         
-        The angle parameter is treated as an increment (delta) to be added to the current base_rotation.
+        The angle parameter is treated as an increment (delta) to be added to the current rotation.
         This is because user rotations are performed on the already-transformed (displayed) image.
+        
+        Note: Caller should call processImage() after this to apply the change.
         
         Args:
             angle: Rotation angle increment in degrees (relative to current displayed image)
             source: String describing the source of the angle setting
         """
-        if self.quadFold:
-            # Get current rotation (may be None for first time)
-            current_base_rotation = self.quadFold.rotation
-            if current_base_rotation is None:
-                current_base_rotation = 0.0
+        if self.current_image_data:
+            # Get current rotation from ImageData (may be auto-calculated or manual)
+            current_rotation = self.current_image_data.rotation
+            if current_rotation is None:
+                current_rotation = 0.0
             
             # Calculate new absolute rotation relative to original image
             # User's angle is relative to the currently displayed (transformed) image,
             # so we accumulate it
-            new_base_rotation = current_base_rotation + angle
+            new_rotation = current_rotation + angle
             
-            # Set the accumulated rotation
-            self.quadFold.setBaseRotation(new_base_rotation)
+            # Update ImageData's manual rotation
+            self.current_image_data.update_manual_rotation(new_rotation)
             
             # Store in imageRotationSettings for current image
             # Presence in this dict means manual mode, absence means auto mode
             if self.file_manager:
                 filename = self.file_manager.current_image_name
                 self.imageRotationSettings[filename] = {
-                    'rotation': new_base_rotation,
+                    'rotation': new_rotation,
                     'source': source  # Track how this rotation was set
                 }
                 # Save to file immediately
@@ -3194,9 +3204,9 @@ class QuadrantFoldingGUI(BaseGUI):
             self.updateRotationModeIndicator()
             
             # Update rotation angle display immediately (preview)
-            self.rotationSettings.update_rotation_display(new_base_rotation)
+            self.rotationSettings.update_rotation_display(new_rotation)
             
-            print(f"Rotation increment: {angle:.2f}° from {source}, new base_rotation: {new_base_rotation:.2f}°")
+            print(f"Rotation increment: {angle:.2f}° from {source}, new rotation: {new_rotation:.2f}°")
 
     def updateResultTab(self):
         """
@@ -3757,14 +3767,14 @@ class QuadrantFoldingGUI(BaseGUI):
                     try:
                         # Load ndarray via spec and construct QuadrantFolder
                         img = self.file_manager.current_image
-                        img_data = self._create_image_data(img, self.filePath, fileName)
-                        self.quadFold = QuadrantFolder(img_data, self)
+                        self.current_image_data = self._create_image_data(img, self.filePath, fileName)
+                        self.quadFold = QuadrantFolder(self.current_image_data, self)
 
                         success = self.setCalibrationImage(force=True)
 
                         if success:
                             # Reset rotation to force recalculation
-                            self.quadFold.setBaseRotation(None)
+                            self.current_image_data.update_manual_rotation(None)
                             self.deleteImgCache(['BgSubFold'])
 
                     except Exception as e:
@@ -4208,8 +4218,8 @@ class QuadrantFoldingGUI(BaseGUI):
         img = self.file_manager.current_image
         
         # Create ImageData with manual center/rotation automatically loaded from settings
-        img_data = self._create_image_data(img, self.file_manager.dir_path, filename)
-        self.quadFold = QuadrantFolder(img_data, self)
+        self.current_image_data = self._create_image_data(img, self.file_manager.dir_path, filename)
+        self.quadFold = QuadrantFolder(self.current_image_data, self)
         
         # Don't clear info - let cache work!
         self.onImageChanged(reprocess=reprocess)
