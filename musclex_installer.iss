@@ -2,7 +2,7 @@
 ; Generated based on Advanced Installer configuration
 
 #define MyAppName "MuscleX"
-#define MyAppVersion "1.26.0"
+#define MyAppVersion "1.26.1"
 #define MyAppPublisher "BioCAT"
 #define MyAppURL "https://github.com/biocatiit/musclex"
 #define MyAppExeName "musclex-launcher.exe"

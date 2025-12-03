@@ -12,7 +12,7 @@
     <ROW Property="ProductCode" Value="1033:{3BE5A978-D956-408D-A58A-248DF7267AF6} " Type="16"/>
     <ROW Property="ProductLanguage" Value="1033"/>
     <ROW Property="ProductName" Value="MuscleX"/>
-    <ROW Property="ProductVersion" Value="1.26.0" Options="4"/>
+    <ROW Property="ProductVersion" Value="1.26.1" Options="4"/>
     <ROW Property="SecureCustomProperties" Value="OLDPRODUCTS;AI_NEWERPRODUCTFOUND"/>
     <ROW Property="UpgradeCode" Value="{D8F23B9E-AF5B-4A27-8D6D-C56172626614}"/>
     <ROW Property="WindowsType9X" MultiBuildValue="DefaultBuild:Windows 9x/ME" ValueLocId="-"/>

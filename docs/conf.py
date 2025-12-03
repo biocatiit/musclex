@@ -8,8 +8,8 @@ project = 'MuscleX'
 copyright = '2025, BioCAT'
 author = 'BioCAT'
 
-version = '1.25'
-release = '1.25.0'
+version = '1.26'
+release = '1.26.1'
 
 # -- General configuration ---------------------------------------------------
 
