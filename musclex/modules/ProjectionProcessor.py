@@ -39,39 +39,44 @@ try:
     from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
     from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
     from ..utils.image_processor import *
+    from ..utils.image_data import ImageData
 except: # for coverage
     from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
     from utils.histogram_processor import movePeaks, getPeakInformations, convexHull
     from utils.image_processor import *
+    from utils.image_data import ImageData
 
 class ProjectionProcessor:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, dir_path, file_name, file_list=None, extension=''):
-        self.dir_path = dir_path
-        self.filename = file_name
-        if extension in ('.hdf5', '.h5'):
-            index = next((i for i, item in enumerate(file_list[0]) if item == file_name), 0)
-            img = file_list[1][index]
-        else:
-            img = fabio.open(fullPath(dir_path, file_name)).data
-        # if img.shape[1] > img.shape[0]: # image is longer than it is wide
-        #     img = cv2.copyMakeBorder(img, top=int((img.shape[1]-img.shape[0])/2), bottom=int((img.shape[1]-img.shape[0])/2), left=0, right=0, borderType=cv2.BORDER_CONSTANT)
-        # else:
-        #     img = cv2.copyMakeBorder(img, top=0, bottom=0, left=int((img.shape[0]-img.shape[1])/2), right=int((img.shape[0]-img.shape[1])/2), borderType=cv2.BORDER_CONSTANT)
-        # img -= img.min()
-        self.orig_img = img
-        self.orig_img = ifHdfReadConvertless(self.filename, self.orig_img)
-        self.orig_img = self.orig_img.astype("float32")
+    def __init__(self, image_data: ImageData):
+        """
+        Initialize ProjectionProcessor with ImageData container.
+        
+        :param image_data: ImageData container with image data and preprocessing
+        """
+        self.dir_path = str(image_data.img_path)
+        self.filename = image_data.img_name
+        
+        # Get working image from ImageData (with blank/mask already applied)
+        self.orig_img = image_data.get_working_image()
+        
+        # Store reference to ImageData
+        self._image_data = image_data
+        
+        # Initialize state
         self.rotated_img = None
         self.rotated = False
         self.version = __version__
         self.masked = False
         self.fixed_sigma = {}
-        cache = self.loadCache()
         self.fixed_center = {}
-        self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
+        self.rotMat = None
+        
+        # Load cache
+        cache = self.loadCache()
+        
         if cache is None:
             # info dictionary will save all results
             self.info = {
@@ -97,6 +102,20 @@ class ProjectionProcessor:
             }
         else:
             self.info = cache
+        
+        # Configure from ImageData
+        if image_data.detector:
+            self.info['detector'] = image_data.detector
+        if image_data.orientation_model is not None:
+            self.info['orientation_model'] = image_data.orientation_model
+        
+        # Set manual geometry if provided
+        if image_data.has_manual_center:
+            self.info['centerx'] = image_data.center[0]
+            self.info['centery'] = image_data.center[1]
+        
+        if image_data.has_manual_rotation:
+            self.info['rotationAngle'] = image_data.rotation
 
     def addBox(self, name, box, typ, bgsub):
         """

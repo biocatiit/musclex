@@ -45,6 +45,7 @@ from queue import Queue
 import fabio
 from ..utils.file_manager import *
 from ..utils.image_processor import *
+from ..utils import ImageData
 from ..modules.QuadrantFolder import QuadrantFolder
 from ..csv_manager.QF_CSVManager import QF_CSVManager
 from .pyqt_utils import *
@@ -119,26 +120,34 @@ class Worker(QRunnable):
             img = self.params.file_manager.get_image_by_index(self.params.index)
             filename = self.params.file_manager.names[self.params.index]
 
-            self.quadFold = QuadrantFolder(img, self.params.file_manager.dir_path, filename, self.params.parent)
+            # Get manual center if exists
+            manual_center = None
+            if filename in self.imageCenterSettings:
+                settings = self.imageCenterSettings[filename]
+                if 'center' in settings:
+                    manual_center = tuple(settings['center'])
+            
+            # Get manual rotation if exists
+            manual_rotation = None
+            if filename in self.imageRotationSettings:
+                settings = self.imageRotationSettings[filename]
+                if 'rotation' in settings:
+                    manual_rotation = settings['rotation']
+            
+            # Create ImageData object (blank/mask are auto-detected)
+            img_data = ImageData(
+                img=img,
+                img_path=self.params.file_manager.dir_path,
+                img_name=filename,
+                center=manual_center,
+                rotation=manual_rotation
+            )
+
+            self.quadFold = QuadrantFolder(img_data, self.params.parent)
             
             # Don't clear info - let cache work!
             # Only set specific fields that need to be set
             self.quadFold.info['bgsub'] = self.bgsub
-
-            # Apply image-specific center settings if available
-            # Presence in imageCenterSettings means manual mode
-            if filename in self.imageCenterSettings:
-                settings = self.imageCenterSettings[filename]
-                center = tuple(settings['center'])
-                # Restore center from settings (no need to save again)
-                self.quadFold.setBaseCenter(center)
-
-            # Apply image-specific rotation settings if available
-            # Presence in imageRotationSettings means manual mode
-            if filename in self.imageRotationSettings:
-                settings = self.imageRotationSettings[filename]
-                # Set base_rotation before processing
-                self.quadFold.setBaseRotation(settings['rotation'])
 
             self.quadFold.process(self.flags)
             self.saveBackground()
@@ -1289,7 +1298,8 @@ class QuadrantFoldingGUI(BaseGUI):
             self.quadFold.delCache()
             fileName = self.file_manager.current_image_name
             img = self.file_manager.current_image
-            self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
+            img_data = self._create_image_data(img, self.filePath, fileName)
+            self.quadFold = QuadrantFolder(img_data, self)
             self.processImage()
 
     def keyPressEvent(self, event):
@@ -1428,21 +1438,13 @@ class QuadrantFoldingGUI(BaseGUI):
         filename = self.file_manager.current_image_name
         img = self.file_manager.current_image
         
-        # Preserve manual settings
-        saved_base_center = self.quadFold.base_center
-        saved_base_rotation = self.quadFold.rotation
-        
         # Delete file cache
         self.quadFold.delCache()
         
         # Recreate object (will trigger config fingerprint check)
-        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
-        
-        # Restore manual settings if they were set
-        if filename in self.imageCenterSettings:
-            self.quadFold.setBaseCenter(saved_base_center)
-        if filename in self.imageRotationSettings:
-            self.quadFold.setBaseRotation(saved_base_rotation)
+        # Manual center/rotation will be automatically loaded from settings
+        img_data = self._create_image_data(img, self.filePath, filename)
+        self.quadFold = QuadrantFolder(img_data, self)
         
         # Reprocess
         self.processImage()
@@ -1471,21 +1473,13 @@ class QuadrantFoldingGUI(BaseGUI):
         filename = self.file_manager.current_image_name
         img = self.file_manager.current_image
         
-        # Preserve manual settings
-        saved_base_center = self.quadFold.base_center
-        saved_base_rotation = self.quadFold.rotation
-        
         # Delete file cache
         self.quadFold.delCache()
         
         # Recreate object (will trigger config fingerprint check)
-        self.quadFold = QuadrantFolder(img, self.filePath, filename, self)
-        
-        # Restore manual settings if they were set
-        if filename in self.imageCenterSettings:
-            self.quadFold.setBaseCenter(saved_base_center)
-        if filename in self.imageRotationSettings:
-            self.quadFold.setBaseRotation(saved_base_rotation)
+        # Manual center/rotation will be automatically loaded from settings
+        img_data = self._create_image_data(img, self.filePath, filename)
+        self.quadFold = QuadrantFolder(img_data, self)
         
         # Reprocess
         self.processImage()
@@ -2690,7 +2684,8 @@ class QuadrantFoldingGUI(BaseGUI):
         angles = []
         for f in self.file_manager.names:
             img = self.file_manager.current_image
-            quadFold = QuadrantFolder(img, self.filePath, f, self)
+            img_data = self._create_image_data(img, self.filePath, f)
+            quadFold = QuadrantFolder(img_data, self)
             print(f'Getting angle {f}')
 
             if 'auto_rotation' not in quadFold.info:
@@ -3762,7 +3757,8 @@ class QuadrantFoldingGUI(BaseGUI):
                     try:
                         # Load ndarray via spec and construct QuadrantFolder
                         img = self.file_manager.current_image
-                        self.quadFold = QuadrantFolder(img, self.filePath, fileName, self)
+                        img_data = self._create_image_data(img, self.filePath, fileName)
+                        self.quadFold = QuadrantFolder(img_data, self)
 
                         success = self.setCalibrationImage(force=True)
 
@@ -3883,6 +3879,38 @@ class QuadrantFoldingGUI(BaseGUI):
             print(f"Saved rotation settings for {len(self.imageRotationSettings)} images")
         except Exception as e:
             print(f"Error saving rotation settings: {e}")
+
+    def _create_image_data(self, img, img_path, img_name):
+        """
+        Create ImageData object with manual center/rotation if available.
+        
+        :param img: Raw image array
+        :param img_path: Directory path containing the image
+        :param img_name: Image filename
+        :return: ImageData object
+        """
+        # Get manual center if exists
+        manual_center = None
+        if img_name in self.imageCenterSettings:
+            center_data = self.imageCenterSettings[img_name]
+            if 'center' in center_data:
+                manual_center = tuple(center_data['center'])
+        
+        # Get manual rotation if exists
+        manual_rotation = None
+        if img_name in self.imageRotationSettings:
+            rotation_data = self.imageRotationSettings[img_name]
+            if 'rotation' in rotation_data:
+                manual_rotation = rotation_data['rotation']
+        
+        # Create ImageData object (blank/mask are auto-detected)
+        return ImageData(
+            img=img,
+            img_path=img_path,
+            img_name=img_name,
+            center=manual_center,
+            rotation=manual_rotation
+        )
 
     def browseFolder(self):
         """
@@ -4177,24 +4205,13 @@ class QuadrantFoldingGUI(BaseGUI):
             Helper method for navigation: creates QuadrantFolder and applies settings
         """
         filename = self.file_manager.current_image_name
-        self.quadFold = QuadrantFolder(self.file_manager.current_image, self.file_manager.dir_path, filename, self)
+        img = self.file_manager.current_image
+        
+        # Create ImageData with manual center/rotation automatically loaded from settings
+        img_data = self._create_image_data(img, self.file_manager.dir_path, filename)
+        self.quadFold = QuadrantFolder(img_data, self)
         
         # Don't clear info - let cache work!
-        # Apply image-specific center settings if available
-        # Presence in imageCenterSettings means manual mode
-        if filename in self.imageCenterSettings:
-            settings = self.imageCenterSettings[filename]
-            center = tuple(settings['center'])
-            # Restore center from settings (no need to save again)
-            self.quadFold.setBaseCenter(center)
-        
-        # Apply image-specific rotation settings if available
-        # Presence in imageRotationSettings means manual mode
-        if filename in self.imageRotationSettings:
-            settings = self.imageRotationSettings[filename]
-            # Set base_rotation before processing
-            self.quadFold.setBaseRotation(settings['rotation'])
-        
         self.onImageChanged(reprocess=reprocess)
 
     def statusPrint(self, text):

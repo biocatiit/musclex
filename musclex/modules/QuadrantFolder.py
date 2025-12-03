@@ -41,11 +41,13 @@ try:
     from ..utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
+    from ..utils.image_data import ImageData
 except: # for coverage
     from modules import QF_utilities as qfu
     from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
     from utils.histogram_processor import *
     from utils.image_processor import *
+    from utils.image_data import ImageData
 
 # Make sure the cython part is compiled
 # from subprocess import call
@@ -60,20 +62,25 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, img, img_path, img_name, parent):
+    def __init__(self, image_data: ImageData, parent=None):
         """
-        Initialize QuadrantFolder with an already-loaded image array, plus metadata.
-        :param img: numpy ndarray image data
-        :param img_path: directory path for caches and outputs
-        :param img_name: display/file name used for caches and outputs
+        Initialize QuadrantFolder with ImageData container.
+        
+        :param image_data: ImageData container with image data and preprocessing
         :param parent: GUI/owner for status updates
         """
-        self.orig_img = np.asarray(img).astype("float32")
+        # Get working image from ImageData (with blank/mask already applied)
+        self.orig_img = image_data.get_working_image()
+        self.img_path = str(image_data.img_path)
+        self.img_name = image_data.img_name
+        
+        # Store reference to ImageData for fingerprint checking
+        self._image_data = image_data
+        
+        # Initialize state
         self.orig_image_center = None
         self.dl, self.db = 0, 0
         self.empty = False
-        self.img_path = img_path
-        self.img_name = img_name
         self.imgCache = {} # displayed images will be saved in this param
         self.ignoreFolds = set()
         self.version = __version__
@@ -98,10 +105,16 @@ class QuadrantFolder:
         else:
             self.info = {}
 
+        # Configure info from ImageData
+        if image_data.detector:
+            self.info['detector'] = image_data.detector
+        if image_data.orientation_model is not None:
+            self.info['orientation_model'] = image_data.orientation_model
+
         # Runtime variables for current processing run
-        # These will be set by GUI (manual mode) or by findCenter/getRotationAngle (auto mode)
-        self.base_center = None  # Base center in original image coordinates
-        self.rotation = None     # Rotation angle relative to original image
+        # Use manual center/rotation from ImageData if available
+        self.base_center = image_data.center if image_data.has_manual_center else None
+        self.rotation = image_data.rotation if image_data.has_manual_rotation else None
         
         # Working variables (set during processing)
         self.center = None       # Center of current (transformed) image
@@ -148,41 +161,15 @@ class QuadrantFolder:
         """
         Generate a fingerprint of ALL factors that affect processing results.
         
-        Includes:
-        - Config files (blank_image_settings, mask.tif, etc.) - affect original image processing
-        - Processing parameters (base_center, rotation) - affect transformation and folding
+        Uses ImageData's fingerprint (config files + preprocessing settings)
+        plus our processing parameters (base_center, rotation).
         
         Returns a dict with all factors that, if changed, require cache invalidation.
         """
-        from pathlib import Path
+        # Get base fingerprint from ImageData (config files + preprocessing)
+        fingerprint = self._image_data.get_fingerprint()
         
-        fingerprint = {}
-        settings_dir = Path(self.img_path) / "settings"
-        
-        # 1. Config files (affect original image processing)
-        config_files = [
-            'blank_image_settings.json',
-            'mask.tif',
-            'mask_config.json',
-            '.blank_image_disabled',
-            '.mask_disabled'
-        ]
-        
-        for config_file in config_files:
-            file_path = settings_dir / config_file
-            if file_path.exists():
-                # Use modification time + file size as fingerprint
-                # (faster than hashing large files like mask.tif)
-                stat = file_path.stat()
-                fingerprint[f'config:{config_file}'] = {
-                    'mtime': stat.st_mtime,
-                    'size': stat.st_size
-                }
-            else:
-                # Track that file doesn't exist (important for disabled flags)
-                fingerprint[f'config:{config_file}'] = None
-        
-        # 2. Processing parameters (affect transformation and subsequent processing)
+        # Add our processing parameters (affect transformation and subsequent processing)
         fingerprint['base_center'] = self.base_center
         fingerprint['base_rotation'] = self.rotation
         
@@ -430,34 +417,14 @@ class QuadrantFolder:
 
     def applyBlankImageAndMask(self):
         """
-        Apply the blank image and mask threshold on the orig_img
-        :return: -
-        """
-
-        # Check if we need to apply blank image or mask
-        should_apply_blank = 'blank_mask' in self.info and self.info['blank_mask']
-        should_apply_mask = 'apply_mask' in self.info and self.info['apply_mask']
+        Apply the blank image and mask threshold on the orig_img.
         
-        if should_apply_blank or should_apply_mask:
-            img = np.array(self.start_img, 'float32')
-            
-            # Apply blank image if enabled
-            if should_apply_blank:
-                blank, _, blank_weight = getBlankImageAndMask(self.img_path, return_weight=True)
-                if blank is not None:
-                    img = img - blank * blank_weight
-                    img = np.clip(img, 0, None)  # Ensure no negative values after subtraction
-                    print(f"Applied blank image subtraction with weight: {blank_weight}")
-            
-            # Apply mask if enabled
-            if should_apply_mask:
-                mask = getMaskOnly(self.img_path)
-                if mask is not None:
-                    print("Applying mask from mask.tif")
-                    # Set masked pixels to invalid threshold (excluded from averaging)
-                    img[mask == 0] = INVALID_PIXEL_THRESHOLD
-
-            self.orig_img = img
+        NOTE: With ImageData, blank/mask are already applied in __init__.
+        This method is now a no-op for compatibility.
+        """
+        # Blank and mask are already applied by ImageData.get_working_image()
+        # Nothing to do here
+        pass
 
 
     def findCenter(self):

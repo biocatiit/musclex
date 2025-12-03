@@ -25,3 +25,7 @@ of Technology shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
+
+from .image_data import ImageData
+
+__all__ = ['ImageData']
