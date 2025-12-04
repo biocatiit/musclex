@@ -340,6 +340,7 @@ class ImageViewerWidget(QWidget):
         self.axes.cla()
         
         # Draw image using current display settings
+        # Note: imshow() automatically sets Y-axis to image coordinates (0,0 at top-left)
         if self._current_log_scale:
             self.axes.imshow(img, cmap=self._current_colormap, 
                            norm=LogNorm(vmin=max(1, self._current_vmin), vmax=self._current_vmax))
@@ -349,19 +350,13 @@ class ImageViewerWidget(QWidget):
         
         self.axes.set_facecolor('black')
         
-        # Restore zoom or set to full image
+        # Restore zoom if there was a previous display
+        # imshow() already sets correct image coordinates, so we only override if there was a saved zoom
         if saved_zoom is not None:
             # Restore previous zoom (subsequent calls)
             self.axes.set_xlim(saved_zoom[0])
             self.axes.set_ylim(saved_zoom[1])
-        else:
-            # First time displaying: show full image
-            self.axes.set_xlim(0, img.shape[1])
-            self.axes.set_ylim(0, img.shape[0])
-        
-        # Invert Y-axis to match image coordinates: (0,0) at top-left
-        # This ensures Y increases downward, matching image array indexing
-        self.axes.invert_yaxis()
+        # else: First time displaying - use imshow's default (full image with correct Y-axis direction)
         
         # Update display panel intensity range (for slider bounds)
         if self.display_panel:
