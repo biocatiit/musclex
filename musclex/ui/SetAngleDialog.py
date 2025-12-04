@@ -29,9 +29,6 @@ authorization from Illinois Institute of Technology.
 import cv2
 import numpy as np
 import sys
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import LogNorm, Normalize, ListedColormap
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -70,35 +67,33 @@ class SetAngleDialog(QDialog):
         self.img = img
         self.center = center
         self.base_rotation = base_rotation
-        self.isLogScale = isLogScale
-        self.vmin = vmin
-        self.vmax = vmax
         x, y = self.center
 
-        self.imageFigure = plt.figure()
-        self.imageAxes = self.imageFigure.add_subplot(111)
-        self.imageAxes.set_aspect('equal', adjustable="box")
-        self.imageCanvas = FigureCanvas(self.imageFigure)
-
-        if isLogScale:
-            self.imageAxes.imshow(
-                self.img,
-                cmap="gray",
-                norm=LogNorm(vmin=max(1, vmin), vmax=vmax),
-            )
-        else:
-            self.imageAxes.imshow(
-                self.img,
-                cmap="gray",
-                norm=Normalize(vmin=vmin, vmax=vmax),
-            )
-
-        self.imageAxes.set_facecolor('black')
-
-        self.imageAxes.set_xlim((0, self.img.shape[1]))
-        self.imageAxes.set_ylim((0, self.img.shape[0]))
-        self.vline = self.imageAxes.axvline(x, color='y')
-        self.hline = self.imageAxes.axhline(y, color='y')
+        # Import ImageViewerWidget
+        from .widgets.image_viewer_widget import ImageViewerWidget
+        
+        # Create ImageViewerWidget with display panel
+        self.image_viewer = ImageViewerWidget(
+            parent=self,
+            show_display_panel=True,
+            show_double_zoom=False
+        )
+        
+        # Set initial display options
+        self.image_viewer.set_display_options(
+            vmin=vmin,
+            vmax=vmax,
+            log_scale=isLogScale,
+            colormap='gray'
+        )
+        
+        # Display the image
+        self.image_viewer.display_image(img)
+        
+        # Draw center crosshair
+        self.image_viewer.axes.axvline(x, color='y', linewidth=1)
+        self.image_viewer.axes.axhline(y, color='y', linewidth=1)
+        self.image_viewer.canvas.draw_idle()
 
         self.rotate30Btn = QPushButton("Rotate 30°")
         self.rotate45Btn = QPushButton("Rotate 45°")
@@ -174,7 +169,7 @@ class SetAngleDialog(QDialog):
         self.optionsLayout.addWidget(self.setAngleGroup)
         self.optionsLayout.addStretch()
 
-        self.imageLayout.addWidget(self.imageCanvas)
+        self.imageLayout.addWidget(self.image_viewer)
 
         self.scroll_areaImg = QScrollArea()
         self.imageLayout.addWidget(self.scroll_areaImg)
@@ -194,9 +189,6 @@ class SetAngleDialog(QDialog):
 
         self.setMinimumSize(700, 500)
         self.resize(1200, 1000 // 4 * 3)
-
-        self.imageFigure.tight_layout()
-        self.imageCanvas.draw()
 
         self.createConnections()
 
@@ -221,8 +213,10 @@ class SetAngleDialog(QDialog):
         super().keyPressEvent(event)
 
     def get_angle(self):
-        angle =  self.angleSpnBox.value() - self.base_rotation
-        return angle
+        angle = self.angleSpnBox.value() - self.base_rotation
+        # Negate for correct direction (OpenCV uses counter-clockwise for positive)
+        # This matches the negation in UpdateAngle() for consistent behavior
+        return -angle
 
     def increment_angle(self, step):
         full_angle = 360
@@ -238,6 +232,7 @@ class SetAngleDialog(QDialog):
 
         angle = self.get_angle()
 
+        # Note: get_angle() already negates the angle for correct direction
         M = cv2.getRotationMatrix2D(
             (x, y),
             angle,
@@ -250,25 +245,10 @@ class SetAngleDialog(QDialog):
             M,
             (width, height))
 
-        if self.isLogScale:
-            self.imageAxes.imshow(
-                transformed_img,
-                cmap="gray",
-                norm=LogNorm(vmin=max(1, self.vmin), vmax=self.vmax),
-            )
-        else:
-            self.imageAxes.imshow(
-                transformed_img,
-                cmap="gray",
-                norm=Normalize(vmin=self.vmin, vmax=self.vmax),
-            )
-
-        self.imageAxes.set_facecolor('black')
-
-        self.imageAxes.set_xlim((0, transformed_img.shape[1]))
-        self.imageAxes.set_ylim((0, transformed_img.shape[0]))
-
-        self.vline = self.imageAxes.axvline(x, color='y')
-        self.hline = self.imageAxes.axhline(y, color='y')
-        # self.imageFigure.tight_layout()
-        self.imageCanvas.draw_idle()
+        # Display rotated image using ImageViewerWidget
+        self.image_viewer.display_image(transformed_img)
+        
+        # Redraw center crosshair
+        self.image_viewer.axes.axvline(x, color='y', linewidth=1)
+        self.image_viewer.axes.axhline(y, color='y', linewidth=1)
+        self.image_viewer.canvas.draw_idle()
