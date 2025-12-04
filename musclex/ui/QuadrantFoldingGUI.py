@@ -54,7 +54,7 @@ from .ImageMaskTool import ImageMaskerWindow
 # from .DoubleZoomGUI import DoubleZoom
 # from .DoubleZoomViewer import DoubleZoom
 from .widgets.double_zoom_widget import DoubleZoomWidget
-from .SetCentDialog import SetCentDialog
+# NOTE: SetCentDialog moved to ImageSettingsPanel
 from .SetAngleDialog import SetAngleDialog
 from .ImageBlankDialog import ImageBlankDialog
 from .ImageMaskDialog import ImageMaskDialog
@@ -273,7 +273,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
 
-        self.setCentDialog = None
+        # NOTE: setCentDialog moved to ImageSettingsPanel
 
         self.setAngleDialog = None
 
@@ -417,19 +417,14 @@ class QuadrantFoldingGUI(BaseGUI):
         )
         self.right_panel.add_widget(self.image_settings_panel)
         
-        # Backward compatibility: Expose widgets for code that references them directly
-        self.centerSettings = self.image_settings_panel._center_widget
-        self.rotationSettings = self.image_settings_panel._rotation_widget
-        self.blankMaskSettings = self.image_settings_panel._blank_mask_widget
-        
-        # Add checkable buttons from widgets to checkableButtons list
+        # Add checkable buttons from ImageSettingsPanel widgets to checkableButtons list
         self.checkableButtons.extend([
-            self.centerSettings.setCenterRotationButton,
-            self.centerSettings.setCentByChords,
-            self.centerSettings.setCentByPerp,
-            self.centerSettings.setCentBtn,
-            self.rotationSettings.setRotationButton,
-            self.rotationSettings.setAngleBtn
+            self.image_settings_panel._center_widget.setCenterRotationButton,
+            self.image_settings_panel._center_widget.setCentByChords,
+            self.image_settings_panel._center_widget.setCentByPerp,
+            self.image_settings_panel._center_widget.setCentBtn,
+            self.image_settings_panel._rotation_widget.setRotationButton,
+            self.image_settings_panel._rotation_widget.setAngleBtn
         ])
         
         self._create_result_processing_settings()
@@ -1048,16 +1043,15 @@ class QuadrantFoldingGUI(BaseGUI):
         # NOTE: Apply/Restore are handled by ImageSettingsPanel
         
         # QF-specific center buttons (keep these)
-        self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
-        self.centerSettings.setCentBtn.clicked.connect(self.setCentBtnClicked)
-        # NOTE: setCenterRotation is now handled by ImageSettingsPanel
+        self.image_settings_panel._center_widget.calibrationButton.clicked.connect(self.calibrationClicked)
+        # NOTE: setCenterRotation and setCentBtn are now handled by ImageSettingsPanel
         
         # ===== Rotation Settings Widget Connections =====
         # NOTE: Rotation tool button is handled by ImageSettingsPanel
         # NOTE: Apply/Restore are handled by ImageSettingsPanel
         
         # QF-specific rotation buttons (keep these)
-        self.rotationSettings.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
+        self.image_settings_panel._rotation_widget.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
         # NOTE: autoOrientationRequested is now connected directly in ImageSettingsPanel
         
         ##### Image Viewer Signals #####
@@ -1078,11 +1072,11 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
         # Empty cell image and mask settings widget - direct connections
-        self.blankMaskSettings.blankSettingButton.clicked.connect(self.blankSettingClicked)
-        self.blankMaskSettings.maskSettingButton.clicked.connect(self.maskSettingClicked)
+        self.image_settings_panel._blank_mask_widget.blankSettingButton.clicked.connect(self.blankSettingClicked)
+        self.image_settings_panel._blank_mask_widget.maskSettingButton.clicked.connect(self.maskSettingClicked)
         # Connect checkbox state changes - direct connection like original
-        self.blankMaskSettings.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
-        self.blankMaskSettings.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
+        self.image_settings_panel._blank_mask_widget.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
+        self.image_settings_panel._blank_mask_widget.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
 
         # Background Subtraction
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -1300,10 +1294,10 @@ class QuadrantFoldingGUI(BaseGUI):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
-            self.centerSettings.setCenterRotationButton.setChecked(False)
-            self.centerSettings.setCentByChords.setChecked(False)
-            self.centerSettings.setCentByPerp.setChecked(False)
-            self.rotationSettings.setRotationButton.setChecked(False)
+            self.image_settings_panel._center_widget.setCenterRotationButton.setChecked(False)
+            self.image_settings_panel._center_widget.setCentByChords.setChecked(False)
+            self.image_settings_panel._center_widget.setCentByPerp.setChecked(False)
+            self.image_settings_panel._rotation_widget.setRotationButton.setChecked(False)
 
 
 
@@ -1398,7 +1392,7 @@ class QuadrantFoldingGUI(BaseGUI):
         settings_dir = Path(self.filePath) / "settings"
         
         # Widget handles all the checking and updating internally
-        self.blankMaskSettings.update_from_directory(settings_dir)
+        self.image_settings_panel._blank_mask_widget.update_from_directory(settings_dir)
 
     def applyBlankImageChanged(self):
         """
@@ -1411,7 +1405,7 @@ class QuadrantFoldingGUI(BaseGUI):
         settings_dir = Path(self.filePath) / "settings"
         blank_disabled_flag = settings_dir / ".blank_image_disabled"
         
-        if self.blankMaskSettings.applyBlankImageChkBx.isChecked():
+        if self.image_settings_panel._blank_mask_widget.applyBlankImageChkBx.isChecked():
             # Remove the disabled flag if it exists
             if blank_disabled_flag.exists():
                 blank_disabled_flag.unlink()
@@ -1446,7 +1440,7 @@ class QuadrantFoldingGUI(BaseGUI):
         settings_dir = Path(self.filePath) / "settings"
         mask_disabled_flag = settings_dir / ".mask_disabled"
         
-        if self.blankMaskSettings.applyMaskChkBx.isChecked():
+        if self.image_settings_panel._blank_mask_widget.applyMaskChkBx.isChecked():
             # Remove the disabled flag if it exists
             if mask_disabled_flag.exists():
                 mask_disabled_flag.unlink()
@@ -1543,37 +1537,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.default_result_img_zoom = None
             self.processImage()
 
-    # NOTE: setCenterByPerpClicked and setCenterByChordsClicked are now handled by ImageSettingsPanel
-
-    def setCentBtnClicked(self):
-        if self.current_image_data:
-            center = self.current_image_data.center
-
-            if center:
-                img = self.file_manager.current_image.copy()
-                self.setCentDialog = SetCentDialog(self,
-                    img,
-                    center,
-                    isLogScale=self.logScaleIntChkBx.isChecked(),
-                    vmin=self.spminInt.value(),
-                    vmax=self.spmaxInt.value()
-                )
-                dialogCode = self.setCentDialog.exec()
-
-                # print(f"SetCentDialog dialogCode: {dialogCode}")
-
-                if dialogCode == QDialog.Accepted:
-                    center = self.setCentDialog.center
-                    # Set center using Panel's public method
-                    self.image_settings_panel.set_center_from_source(
-                        self.file_manager.current_image_name,
-                        center,
-                        "SetCentDialog"
-                    )
-                    # NOTE: set_center_from_source already updates UI via update_display()
-                    self.processImage()
-                else:
-                    assert dialogCode == QDialog.Rejected, f"SetCentDialog closed with unexpected code:{dialogCode}"
+    # NOTE: setCenterByPerpClicked, setCenterByChordsClicked, and setCentBtnClicked are now handled by ImageSettingsPanel
 
     def _handle_apply_center(self, scope):
         """Handle Apply Center request from widget (dialog already shown)"""
