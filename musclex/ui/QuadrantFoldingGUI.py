@@ -134,13 +134,19 @@ class Worker(QRunnable):
                 if 'rotation' in settings:
                     manual_rotation = settings['rotation']
             
-            # Create ImageData object (blank/mask are auto-detected)
+            # Get blank/mask config from settings panel
+            blank_mask_config = self.params.gui.image_settings_panel.get_blank_mask_config()
+            
+            # Create ImageData object with all settings from Panel
             img_data = ImageData(
                 img=img,
                 img_path=self.params.file_manager.dir_path,
                 img_name=filename,
                 center=manual_center,
-                rotation=manual_rotation
+                rotation=manual_rotation,
+                apply_blank=blank_mask_config['apply_blank'],
+                apply_mask=blank_mask_config['apply_mask'],
+                blank_weight=blank_mask_config['blank_weight']
             )
 
             self.quadFold = QuadrantFolder(img_data, self.params.parent)
@@ -1067,11 +1073,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resultFigure.canvas.mpl_connect('scroll_event', self.resultScrolled)
 
         # Empty cell image and mask settings widget - direct connections
-        self.image_settings_panel._blank_mask_widget.blankSettingButton.clicked.connect(self.blankSettingClicked)
-        self.image_settings_panel._blank_mask_widget.maskSettingButton.clicked.connect(self.maskSettingClicked)
-        # Connect checkbox state changes - direct connection like original
-        self.image_settings_panel._blank_mask_widget.applyBlankImageChkBx.stateChanged.connect(self.applyBlankImageChanged)
-        self.image_settings_panel._blank_mask_widget.applyMaskChkBx.stateChanged.connect(self.applyMaskChanged)
+        # Blank/Mask settings now handled by ImageSettingsPanel internally
+        # Blank/Mask checkbox changes now handled by ImageSettingsPanel internally
 
         # Background Subtraction
         self.setFitRoi.clicked.connect(self.setFitRoiClicked)
@@ -1296,168 +1299,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
 
-    def blankSettingClicked(self):
-        """
-        Trigger when Set Empty Cell Image and Mask clicked
-        """
-        if self.quadFold is None or self.quadFold.start_img is None:
-            return
+    # Blank/Mask settings moved to ImageSettingsPanel
 
-        image = self.quadFold.start_img.copy()
-        settings_dir_path = Path(self.filePath) / "settings"
-        
-        try:
-            settings_dir_path.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print("Exception occurred:", e)
-            tb_str = traceback.format_exc()
-            print(f"Full traceback: {tb_str}\n")
-            return
-
-        # Pass image data directly (no file I/O needed)
-        imageBlankDialog = ImageBlankDialog(
-            image_data=image,
-            settings_dir_path=settings_dir_path,
-            vmin=self.spminInt.value(),
-            vmax=self.spmaxInt.value()
-        )
-
-        dialogCode = imageBlankDialog.exec()
-
-        if dialogCode == QDialog.Accepted:
-            # Update checkbox state based on settings
-            self.updateBlankMaskCheckboxStates()
-            # Clear cache because empty cell image settings changed
-            # This ensures the image will be reprocessed with new empty cell settings
-            if self.quadFold is not None:
-                self.quadFold.delCache()
-                print("Cleared cache due to empty cell image settings change")
-            self.processImage()
-        else:
-            assert dialogCode == QDialog.Rejected, f"ImageBlankDialog closed with unexpected code:{dialogCode}"
-            # Still update checkbox states in case settings were deleted
-            self.updateBlankMaskCheckboxStates()
-
-    def maskSettingClicked(self):
-        if self.quadFold is None or self.quadFold.start_img is None:
-            return
-
-        image = self.quadFold.start_img.copy()
-        settings_dir_path = Path(self.filePath) / "settings"
-        
-        try:
-            settings_dir_path.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print("Exception occurred:", e)
-            tb_str = traceback.format_exc()
-            print(f"Full traceback: {tb_str}\n")
-            return
-
-        # Pass image data directly (no file I/O needed)
-        imageMaskDialog = ImageMaskDialog(
-            image_data=image,
-            settings_dir_path=settings_dir_path,
-            vmin=self.spminInt.value(),
-            vmax=self.spmaxInt.value()
-        )
-
-        dialogCode = imageMaskDialog.exec()
-
-        if dialogCode == QDialog.Accepted:
-            # Update checkbox state based on settings
-            self.updateBlankMaskCheckboxStates()
-            # Clear cache because mask settings changed
-            if self.quadFold is not None:
-                self.quadFold.delCache()
-                print("Cleared cache due to mask settings change")
-            self.processImage()
-        else:
-            assert dialogCode == QDialog.Rejected, f"ImageMaskDialog closed with unexpected code:{dialogCode}"
-            # Still update checkbox states in case settings were deleted
-            self.updateBlankMaskCheckboxStates()
-
-    def updateBlankMaskCheckboxStates(self):
-        """
-        Update the state of empty cell image and mask checkboxes based on whether settings exist.
-        Delegates to the widget's update_from_directory method.
-        """
-        if not self.filePath:
-            return
-        
-        settings_dir = Path(self.filePath) / "settings"
-        
-        # Widget handles all the checking and updating internally
-        self.image_settings_panel._blank_mask_widget.update_from_directory(settings_dir)
-
-    def applyBlankImageChanged(self):
-        """
-        Handle when the apply empty cell image checkbox is toggled.
-        """
-        if self.quadFold is None or self.uiUpdating:
-            return
-        
-        # Create/delete a flag file to indicate whether to apply empty cell image
-        settings_dir = Path(self.filePath) / "settings"
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        
-        if self.image_settings_panel._blank_mask_widget.applyBlankImageChkBx.isChecked():
-            # Remove the disabled flag if it exists
-            if blank_disabled_flag.exists():
-                blank_disabled_flag.unlink()
-        else:
-            # Create the disabled flag
-            blank_disabled_flag.touch()
-        
-        # Recreate QuadrantFolder object to trigger config fingerprint validation
-        # This ensures transform matrices and all cached state are properly reset
-        filename = self.file_manager.current_image_name
-        img = self.file_manager.current_image
-        
-        # Delete file cache
-        self.quadFold.delCache()
-        
-        # Recreate object (will trigger config fingerprint check)
-        # Manual center/rotation will be automatically loaded from settings
-        self.current_image_data = self._create_image_data(img, self.filePath, filename)
-        self.quadFold = QuadrantFolder(self.current_image_data, self)
-        
-        # Reprocess
-        self.processImage()
-
-    def applyMaskChanged(self):
-        """
-        Handle when the apply mask checkbox is toggled.
-        """
-        if self.quadFold is None or self.uiUpdating:
-            return
-        
-        # Create/delete a flag file to indicate whether to apply mask
-        settings_dir = Path(self.filePath) / "settings"
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        
-        if self.image_settings_panel._blank_mask_widget.applyMaskChkBx.isChecked():
-            # Remove the disabled flag if it exists
-            if mask_disabled_flag.exists():
-                mask_disabled_flag.unlink()
-        else:
-            # Create the disabled flag
-            mask_disabled_flag.touch()
-        
-        # Recreate QuadrantFolder object to trigger config fingerprint validation
-        # This ensures transform matrices and all cached state are properly reset
-        filename = self.file_manager.current_image_name
-        img = self.file_manager.current_image
-        
-        # Delete file cache
-        self.quadFold.delCache()
-        
-        # Recreate object (will trigger config fingerprint check)
-        # Manual center/rotation will be automatically loaded from settings
-        self.current_image_data = self._create_image_data(img, self.filePath, filename)
-        self.quadFold = QuadrantFolder(self.current_image_data, self)
-        
-        # Reprocess
-        self.processImage()
+    # Blank/Mask checkbox changes moved to ImageSettingsPanel
 
     def getOrigCoordsCenter(self, x, y):
         """
@@ -2492,7 +2336,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
 
         # Update blank image and mask checkbox states
-        self.updateBlankMaskCheckboxStates()
+        self.image_settings_panel.update_blank_mask_states()
         
         # ✅ Update ImageSettingsPanel to show current image's settings
         # (This also updates mode indicators internally)
@@ -3374,14 +3218,20 @@ class QuadrantFoldingGUI(BaseGUI):
         # Get orientation_model from Panel (or use default)
         orientation_model = getattr(self.image_settings_panel, '_orientation_model', 0)
         
-        # Create ImageData object (blank/mask are auto-detected)
+        # ✅ Get blank/mask config from Panel (not auto-detected by ImageData)
+        blank_mask_config = self.image_settings_panel.get_blank_mask_config()
+        
+        # Create ImageData object with all settings from Panel
         return ImageData(
             img=img,
             img_path=img_path,
             img_name=img_name,
             center=manual_center,
             rotation=manual_rotation,
-            orientation_model=orientation_model
+            orientation_model=orientation_model,
+            apply_blank=blank_mask_config['apply_blank'],
+            apply_mask=blank_mask_config['apply_mask'],
+            blank_weight=blank_mask_config['blank_weight']
         )
 
     def browseFolder(self):

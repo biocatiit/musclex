@@ -29,7 +29,7 @@ authorization from Illinois Institute of Technology.
 import json
 from pathlib import Path
 from typing import Optional, Tuple
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QDialog
 from PySide6.QtCore import Signal
 
 from ...utils.image_data import ImageData
@@ -203,10 +203,17 @@ class ImageSettingsPanel(QWidget):
         # Auto orientation
         self._rotation_widget.autoOrientationRequested.connect(self.handle_auto_orientation_request)
         
-        # Blank/Mask checkboxes -> Reprocess
-        # TODO: Connect blank/mask signals when they are available
-        # self._blank_mask_widget.blankChanged.connect(self._on_blank_changed)
-        # self._blank_mask_widget.maskChanged.connect(self._on_mask_changed)
+        # Blank/Mask settings buttons
+        self._blank_mask_widget.blankSettingButton.clicked.connect(self._on_blank_setting_clicked)
+        self._blank_mask_widget.maskSettingButton.clicked.connect(self._on_mask_setting_clicked)
+        
+        # Blank/Mask checkboxes
+        self._blank_mask_widget.applyBlankImageChkBx.stateChanged.connect(
+            self._on_blank_checkbox_changed
+        )
+        self._blank_mask_widget.applyMaskChkBx.stateChanged.connect(
+            self._on_mask_checkbox_changed
+        )
     
     # ==================== Tool Button Handlers ====================
     
@@ -1185,4 +1192,206 @@ class ImageSettingsPanel(QWidget):
                 self._update_mode_statistics_internal()
         except Exception as e:
             print(f"Error saving rotation settings: {e}")
+    
+    # ==================== Public API for Blank/Mask Settings ====================
+    
+    def get_blank_mask_config(self):
+        """
+        Get current blank/mask configuration from settings directory.
+        
+        Returns:
+            dict: {'apply_blank': bool, 'apply_mask': bool, 'blank_weight': float}
+        """
+        if not self._settings_dir:
+            return {'apply_blank': False, 'apply_mask': False, 'blank_weight': 1.0}
+        
+        settings_dir = Path(self._settings_dir) / "settings"
+        
+        # Check blank image status
+        blank_config_path = settings_dir / "blank_image_settings.json"
+        blank_disabled_flag = settings_dir / ".blank_image_disabled"
+        apply_blank = blank_config_path.exists() and not blank_disabled_flag.exists()
+        
+        # Check mask status
+        mask_file_path = settings_dir / "mask.tif"
+        mask_disabled_flag = settings_dir / ".mask_disabled"
+        apply_mask = mask_file_path.exists() and not mask_disabled_flag.exists()
+        
+        # Get blank weight from config
+        blank_weight = 1.0
+        if apply_blank and blank_config_path.exists():
+            try:
+                import json
+                with open(blank_config_path) as f:
+                    config = json.load(f)
+                    blank_weight = config.get('weight', 1.0)
+            except Exception as e:
+                print(f"Error reading blank weight: {e}")
+        
+        return {
+            'apply_blank': apply_blank,
+            'apply_mask': apply_mask,
+            'blank_weight': blank_weight
+        }
+    
+    def update_blank_mask_states(self):
+        """
+        Update the state of blank/mask checkboxes based on settings directory.
+        Public method that can be called by GUI when folder changes.
+        """
+        if not self._settings_dir:
+            return
+        
+        settings_dir = Path(self._settings_dir) / "settings"
+        self._blank_mask_widget.update_from_directory(settings_dir)
+    
+    def _on_blank_setting_clicked(self):
+        """Handle blank image settings button click."""
+        if not self._file_manager or self._file_manager.current_image is None:
+            return
+        
+        image = self._file_manager.current_image.copy()
+        settings_dir_path = Path(self._settings_dir) / "settings"
+        
+        try:
+            settings_dir_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print("Exception occurred:", e)
+            import traceback
+            traceback.print_exc()
+            return
+        
+        # Get display options from viewer
+        display_opts = self._image_viewer.get_display_options()
+        
+        # Import and show dialog
+        from ..ImageBlankDialog import ImageBlankDialog
+        dialog = ImageBlankDialog(
+            image_data=image,
+            settings_dir_path=settings_dir_path,
+            vmin=display_opts['vmin'],
+            vmax=display_opts['vmax']
+        )
+        
+        dialog_code = dialog.exec()
+        
+        if dialog_code == QDialog.Accepted:
+            # Update checkbox states
+            self._blank_mask_widget.update_from_directory(settings_dir_path)
+            # Note: Cache clearing not needed - fingerprint will auto-detect changes
+            self.needsReprocess.emit()
+        else:
+            # Still update checkbox states in case settings were deleted
+            self._blank_mask_widget.update_from_directory(settings_dir_path)
+    
+    def _on_blank_checkbox_changed(self, state):
+        """
+        Handle blank checkbox change.
+        Creates/removes .blank_image_disabled flag file and updates ImageData.
+        """
+        if not self._settings_dir:
+            return
+        
+        settings_dir = Path(self._settings_dir) / "settings"
+        blank_disabled_flag = settings_dir / ".blank_image_disabled"
+        
+        # Qt.CheckState.Checked = 2, Qt.CheckState.Unchecked = 0
+        is_checked = (state == 2)
+        
+        if is_checked:
+            # Remove the disabled flag if it exists
+            if blank_disabled_flag.exists():
+                blank_disabled_flag.unlink()
+                print("Enabled blank image application")
+        else:
+            # Create the disabled flag
+            settings_dir.mkdir(exist_ok=True)
+            blank_disabled_flag.touch()
+            print("Disabled blank image application")
+        
+        # Update ImageData's apply_blank flag
+        if self._current_image_data:
+            self._current_image_data.apply_blank = is_checked
+            # Clear cached images so they'll be regenerated
+            self._current_image_data._processed_img = None
+            self._current_image_data._preprocessing_applied = False
+            print(f"Updated ImageData.apply_blank = {is_checked}")
+        
+        # QuadrantFolder.updateInfo() will get fresh image from ImageData on next process()
+        self.needsReprocess.emit()
+    
+    def _on_mask_checkbox_changed(self, state):
+        """
+        Handle mask checkbox change.
+        Creates/removes .mask_disabled flag file and updates ImageData.
+        """
+        if not self._settings_dir:
+            return
+        
+        settings_dir = Path(self._settings_dir) / "settings"
+        mask_disabled_flag = settings_dir / ".mask_disabled"
+        
+        # Qt.CheckState.Checked = 2, Qt.CheckState.Unchecked = 0
+        is_checked = (state == 2)
+        
+        if is_checked:
+            # Remove the disabled flag if it exists
+            if mask_disabled_flag.exists():
+                mask_disabled_flag.unlink()
+                print("Enabled mask application")
+        else:
+            # Create the disabled flag
+            settings_dir.mkdir(exist_ok=True)
+            mask_disabled_flag.touch()
+            print("Disabled mask application")
+        
+        # Update ImageData's apply_mask flag
+        if self._current_image_data:
+            self._current_image_data.apply_mask = is_checked
+            # Clear cached images so they'll be regenerated
+            self._current_image_data._processed_img = None
+            self._current_image_data._preprocessing_applied = False
+            print(f"Updated ImageData.apply_mask = {is_checked}")
+        
+        # QuadrantFolder.updateInfo() will get fresh image from ImageData on next process()
+        self.needsReprocess.emit()
+    
+    def _on_mask_setting_clicked(self):
+        """Handle mask settings button click."""
+        if not self._file_manager or self._file_manager.current_image is None:
+            return
+        
+        image = self._file_manager.current_image.copy()
+        settings_dir_path = Path(self._settings_dir) / "settings"
+        
+        try:
+            settings_dir_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print("Exception occurred:", e)
+            import traceback
+            traceback.print_exc()
+            return
+        
+        # Get display options from viewer
+        display_opts = self._image_viewer.get_display_options()
+        
+        # Import and show dialog
+        from ..ImageMaskDialog import ImageMaskDialog
+        dialog = ImageMaskDialog(
+            image_data=image,
+            settings_dir_path=settings_dir_path,
+            vmin=display_opts['vmin'],
+            vmax=display_opts['vmax']
+        )
+        
+        dialog_code = dialog.exec()
+        
+        if dialog_code == QDialog.Accepted:
+            # Update checkbox states
+            self._blank_mask_widget.update_from_directory(settings_dir_path)
+            # Note: Cache clearing not needed - fingerprint will auto-detect changes
+            self.needsReprocess.emit()
+        else:
+            # Still update checkbox states in case settings were deleted
+            self._blank_mask_widget.update_from_directory(settings_dir_path)
 
