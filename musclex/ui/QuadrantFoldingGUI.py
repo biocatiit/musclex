@@ -73,6 +73,7 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .widgets.center_settings_widget import CenterSettingsWidget
 from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
+from .widgets.image_settings_panel import ImageSettingsPanel
 from .base_gui import BaseGUI
 import time
 import random
@@ -279,16 +280,9 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.calSettingsDialog = None
         
-        # Store center settings for each image
-        # Presence in this dict = manual mode, absence = auto mode
-        # Format: {"filename": {"center": [x, y], "source": "calibration"|"user_click"|"propagated"}}
-        self.imageCenterSettings = {}
+        # NOTE: imageCenterSettings and imageRotationSettings are now managed by ImageSettingsPanel
+        # They are no longer stored here to avoid duplication
         
-        # Store rotation settings for each image
-        # Presence in this dict = manual mode, absence = auto mode
-        # Format: {"filename": {"rotation": angle, "source": "user_click"|"propagated"}}
-        self.imageRotationSettings = {}
-
         self.thresh_mask = None
 
         # Background directory scan support (must be ready before first browseFile call)
@@ -378,6 +372,9 @@ class QuadrantFoldingGUI(BaseGUI):
         # Setup background choice UI
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
+        
+        # ✅ Connect ImageSettingsPanel signal
+        self.image_settings_panel.needsReprocess.connect(self.processImage)
     
     def _position_floating_widgets(self):
         """Position floating toggle buttons after window is fully rendered"""
@@ -409,8 +406,30 @@ class QuadrantFoldingGUI(BaseGUI):
         """Add quadrant-specific settings to right panel"""
         # Add settings groups
         self._create_processing_settings()
-        self._create_center_rotation_settings()
-        self._create_blank_mask_settings()
+        
+        # ✅ Use ImageSettingsPanel (replaces center/rotation/blank/mask settings)
+        self.image_settings_panel = ImageSettingsPanel(
+            settings_dir=self.filePath,
+            image_viewer=self.image_viewer,
+            coord_transform_func=self.getOrigCoordsCenter  # Transform displayed coords to original
+        )
+        self.right_panel.add_widget(self.image_settings_panel)
+        
+        # Backward compatibility: Expose widgets for code that references them directly
+        self.centerSettings = self.image_settings_panel._center_widget
+        self.rotationSettings = self.image_settings_panel._rotation_widget
+        self.blankMaskSettings = self.image_settings_panel._blank_mask_widget
+        
+        # Add checkable buttons from widgets to checkableButtons list
+        self.checkableButtons.extend([
+            self.centerSettings.setCenterRotationButton,
+            self.centerSettings.setCentByChords,
+            self.centerSettings.setCentByPerp,
+            self.centerSettings.setCentBtn,
+            self.rotationSettings.setRotationButton,
+            self.rotationSettings.setAngleBtn
+        ])
+        
         self._create_result_processing_settings()
     
     def _create_processing_settings(self):
@@ -434,32 +453,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # Note: display_panel is automatically added by BaseGUI._create_standard_image_tab()
         self.right_panel.add_widget(self.settingsGroup)
     
-    def _create_center_rotation_settings(self):
-        """Create center and rotation settings widgets"""
-        self.centerSettings = CenterSettingsWidget(parent=self)
-        self.rotationSettings = RotationSettingsWidget(
-            parent=self, 
-            orientation_model=self.orientationModel,
-            mode_orientation_enabled=self.modeOrientation is not None
-        )
-        
-        # Add checkable buttons from widgets to checkableButtons list
-        self.checkableButtons.extend([
-            self.centerSettings.setCenterRotationButton,
-            self.centerSettings.setCentByChords,
-            self.centerSettings.setCentByPerp,
-            self.centerSettings.setCentBtn,
-            self.rotationSettings.setRotationButton,
-            self.rotationSettings.setAngleBtn
-        ])
-        
-        self.right_panel.add_widget(self.centerSettings)
-        self.right_panel.add_widget(self.rotationSettings)
-    
-    def _create_blank_mask_settings(self):
-        """Create empty cell image and mask settings widget"""
-        self.blankMaskSettings = BlankMaskSettingsWidget(parent=self)
-        self.right_panel.add_widget(self.blankMaskSettings)
+    # NOTE: _create_center_rotation_settings and _create_blank_mask_settings
+    # are now replaced by ImageSettingsPanel integration above
 
     def _create_result_processing_settings(self):
         """
@@ -1007,11 +1002,10 @@ class QuadrantFoldingGUI(BaseGUI):
         self.circle_patch_rmin = None
     
     def _register_tools(self):
-        """Register tools with the image viewer"""
-        self.image_viewer.tool_manager.register_tool('chords', ChordsCenterTool)
-        self.image_viewer.tool_manager.register_tool('perpendiculars', PerpendicularsCenterTool)
-        self.image_viewer.tool_manager.register_tool('rotation', 
-            lambda axes, canvas: RotationTool(axes, canvas, self._get_current_center))
+        """Register QuadrantFolding-specific tools with the image viewer"""
+        # NOTE: chords, perpendiculars, rotation tools are registered by ImageSettingsPanel
+        
+        # Register QuadrantFolding-specific tools
         self.image_viewer.tool_manager.register_tool('center_rotate', 
             lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
 
@@ -1055,30 +1049,29 @@ class QuadrantFoldingGUI(BaseGUI):
         self.selectImageButton.clicked.connect(self.browseFile)
         # Note: zoom buttons are handled internally by ImageViewerWidget
         
-        # Connect center settings widget - simple button connections
+        # ===== Center Settings Widget Connections =====
+        # NOTE: Tool buttons (chords, perpendiculars) are handled by ImageSettingsPanel
+        # NOTE: Apply/Restore are handled by ImageSettingsPanel
+        
+        # QF-specific center buttons (keep these)
         self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
         self.centerSettings.setCenterRotationButton.clicked.connect(self.setCenterRotation)
-        self.centerSettings.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.centerSettings.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
         self.centerSettings.setCentBtn.clicked.connect(self.setCentBtnClicked)
-        # Connect center settings widget - complex signal connections
-        self.centerSettings.applyCenterRequested.connect(self._handle_apply_center)
-        self.centerSettings.restoreAutoCenterRequested.connect(self._handle_restore_auto_center)
         
-        # Connect rotation settings widget - simple button connections
-        self.rotationSettings.setRotationButton.clicked.connect(self.setRotation)
+        # ===== Rotation Settings Widget Connections =====
+        # NOTE: Rotation tool button is handled by ImageSettingsPanel
+        # NOTE: Apply/Restore are handled by ImageSettingsPanel
+        
+        # QF-specific rotation buttons (keep these)
         self.rotationSettings.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
-        # Connect rotation settings widget - complex signal connections
         self.rotationSettings.autoOrientationRequested.connect(self._handle_auto_orientation)
-        self.rotationSettings.applyRotationRequested.connect(self._handle_apply_rotation)
-        self.rotationSettings.restoreAutoRotationRequested.connect(self._handle_restore_auto_rotation)
         
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
+        # NOTE: toolCompleted is handled by ImageSettingsPanel
         self.image_viewer.mouseMoved.connect(self.imageOnMotion)
         self.image_viewer.coordinatesChanged.connect(self._on_image_coordinates_changed)
         self.image_viewer.rightClickAt.connect(self._on_image_right_click)
-        self.image_viewer.toolCompleted.connect(self._on_tool_completed)
         self.image_viewer.preciseCoordinatesSelected.connect(self._on_precise_coordinates)
 
         ##### Result Tab #####
@@ -1558,59 +1551,7 @@ class QuadrantFoldingGUI(BaseGUI):
             self.default_result_img_zoom = None
             self.processImage()
 
-    def setCenterByPerpClicked(self):
-        """
-        Prepare for manual center selection using perpendicular peaks.
-        Now using the new tool system.
-        """
-        if self.quadFold is None:
-            return
-        
-        if self.centerSettings.setCentByPerp.isChecked():
-            # Activate the perpendiculars center tool
-            self.image_viewer.tool_manager.activate_tool('perpendiculars')
-        else:
-            # Deactivate the tool and get the result
-            result = self.image_viewer.tool_manager.deactivate_tool('perpendiculars')
-            
-            if result:
-                print("Perpendiculars center found:", result)
-                # Convert to original coordinates
-                x, y = result
-                orig_x, orig_y = self.getOrigCoordsCenter(x, y)
-                self.setCenter((orig_x, orig_y), "Perpendicular")
-                self.deleteInfo(['avg_fold'])
-                self.newImgDimension = None
-                self.processImage()
-            else:
-                print("Perpendiculars center calculation failed (need at least 2 line pairs)")
-
-    def setCenterByChordsClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting chords.
-        Now using the new tool system.
-        """
-        if self.quadFold is None:
-            return
-
-        if self.centerSettings.setCentByChords.isChecked():
-            # Activate the chords center tool
-            self.image_viewer.tool_manager.activate_tool('chords')
-        else:
-            # Deactivate the tool and get the result
-            result = self.image_viewer.tool_manager.deactivate_tool('chords')
-            
-            if result:
-                print("Chords center found:", result)
-                # Convert to original coordinates
-                x, y = result
-                orig_x, orig_y = self.getOrigCoordsCenter(x, y)
-                self.setCenter((orig_x, orig_y), "Chords")
-                self.deleteInfo(['avg_fold'])
-                self.newImgDimension = None
-                self.processImage()
-            else:
-                print("Chords center calculation failed (need 3+ points)")
+    # NOTE: setCenterByPerpClicked and setCenterByChordsClicked are now handled by ImageSettingsPanel
 
     def setCentBtnClicked(self):
         if self.current_image_data:
@@ -1703,13 +1644,13 @@ class QuadrantFoldingGUI(BaseGUI):
         # Apply manual center setting to selected images
         for idx in indices:
             filename = self.file_manager.names[idx]
-            self.imageCenterSettings[filename] = {
+            self.image_settings_panel._center_settings[filename] = {
                 'center': list(center),
                 'source': 'propagated'
             }
         
         # Save to file
-        self.saveCenterSettings()
+        self.image_settings_panel.save_settings()
         
         # Update mode display
         self.updateApplyCenterMode()
@@ -1736,12 +1677,12 @@ class QuadrantFoldingGUI(BaseGUI):
         # Restore auto center mode for selected images
         for idx in indices:
             filename = self.file_manager.names[idx]
-            if filename in self.imageCenterSettings:
+            if filename in self.image_settings_panel._center_settings:
                 # Remove the entry to use auto mode
-                del self.imageCenterSettings[filename]
+                del self.image_settings_panel._center_settings[filename]
         
         # Save to file
-        self.saveCenterSettings()
+        self.image_settings_panel.save_settings()
         
         # Update mode display
         self.updateApplyCenterMode()
@@ -1766,13 +1707,13 @@ class QuadrantFoldingGUI(BaseGUI):
         # Apply manual rotation setting to selected images
         for idx in indices:
             filename = self.file_manager.names[idx]
-            self.imageRotationSettings[filename] = {
+            self.image_settings_panel._rotation_settings[filename] = {
                 'rotation': rotation,
                 'source': 'propagated'
             }
         
         # Save to file
-        self.saveRotationSettings()
+        self.image_settings_panel.save_settings()
         
         # Update mode display
         self.updateApplyRotationMode()
@@ -1799,31 +1740,18 @@ class QuadrantFoldingGUI(BaseGUI):
         # Restore auto rotation mode for selected images
         for idx in indices:
             filename = self.file_manager.names[idx]
-            if filename in self.imageRotationSettings:
+            if filename in self.image_settings_panel._rotation_settings:
                 # Remove the entry to use auto mode
-                del self.imageRotationSettings[filename]
+                del self.image_settings_panel._rotation_settings[filename]
         
         # Save to file
-        self.saveRotationSettings()
+        self.image_settings_panel.save_settings()
         
         # Update mode display
         self.updateApplyRotationMode()
 
 
-    def setRotation(self):
-        """
-        Trigger when set rotation angle button is pressed.
-        Now using the new tool system with auto-completion.
-        """
-        if self.rotationSettings.setRotationButton.isChecked():
-            # Activate the rotation tool
-            self.imgPathOnStatusBar.setText(
-                "Rotate the line to the pattern equator (click to set angle)")
-            self.image_viewer.tool_manager.activate_tool('rotation')
-        else:
-            # User manually cancelled - just deactivate without applying
-            self.image_viewer.tool_manager.deactivate_tool('rotation')
-            self.resetStatusbar()
+    # NOTE: setRotation is now handled by ImageSettingsPanel
     
     def _get_current_center(self):
         """
@@ -1836,60 +1764,20 @@ class QuadrantFoldingGUI(BaseGUI):
     
     # ===== ImageViewerWidget Signal Handlers =====
     
-    def _on_tool_completed(self, tool_name, result):
-        """
-        Unified handler for tool completion events from ImageViewerWidget.
-        
-        This is called automatically when a tool completes its interaction.
-        The tool has already been deactivated by ImageViewerWidget.
-        
-        Args:
-            tool_name: String identifier of the completed tool
-            result: The tool's result (varies by tool type)
-        """
-        print(f"Tool '{tool_name}' completed with result: {result}")
-        
-        # Note: zoom_rectangle is handled entirely by ImageViewerWidget
-        # No external response needed - it's a pure view operation
-        
-        if tool_name == 'rotation':
-            # RotationTool: result is the rotation angle
-            angle = result
-            self.setAngle(angle, "RotationTool")
-            self.rotationSettings.setRotationButton.setChecked(False)
-            self.processImage()
-            self.resetStatusbar()
-        
-        elif tool_name == 'center_rotate':
-            # CenterRotateTool: result is {'center': (x, y), 'angle': angle}
-            center = result['center']
-            angle = result['angle']
-            self.setCenter(center, "CenterRotate")
-            self.setAngle(angle, "CenterRotate")
-            self.deleteInfo(['avg_fold'])
-            self.newImgDimension = None
-            self.centerSettings.setCenterRotationButton.setChecked(False)
-            self.processImage()
-            self.resetStatusbar()
-        
-        elif tool_name == 'chords':
-            # ChordsCenterTool: result is center (x, y)
-            center = result
-            self.setCenter(center, "ChordsCenter")
-            self.centerSettings.setCentByChords.setChecked(False)
-            self.processImage()
-            self.resetStatusbar()
-        
-        elif tool_name == 'perpendiculars':
-            # PerpendicularsCenterTool: result is center (x, y)
-            center = result
-            self.setCenter(center, "PerpendicularCenter")
-            self.centerSettings.setCentByPerp.setChecked(False)
-            self.processImage()
-            self.resetStatusbar()
-        
-        # Note: zoom_rectangle is handled by immediate callback (_apply_zoom_immediately)
-        # so it doesn't emit toolCompleted signal
+    # NOTE: _on_tool_completed removed - no longer needed
+    # 
+    # All tools (chords, perpendiculars, rotation, center_rotate) are handled by
+    # ImageSettingsPanel, which:
+    #   - Updates settings
+    #   - Updates ImageData
+    #   - Updates UI
+    #   - Emits needsReprocess signal → triggers processImage()
+    #
+    # Cache invalidation is handled automatically by:
+    #   - QuadrantFolder.process() detects ImageData fingerprint changes
+    #   - Automatically clears dependent caches (avg_fold, rmin, rmax)
+    #
+    # No manual cleanup needed in GUI!
     
     def _on_image_coordinates_changed(self, x, y, value):
         """
@@ -2058,9 +1946,9 @@ class QuadrantFoldingGUI(BaseGUI):
                         # Remove calibration center if unchecked
                         if self.file_manager:
                             filename = self.file_manager.current_image_name
-                            if filename in self.imageCenterSettings:
-                                del self.imageCenterSettings[filename]
-                                self.saveCenterSettings()
+                            if filename in self.image_settings_panel._center_settings:
+                                del self.image_settings_panel._center_settings[filename]
+                                self.image_settings_panel.save_settings()
                                 self.updateApplyCenterMode()
                         # Reset center to None to allow auto calculation
                         if self.current_image_data is not None:
@@ -2634,7 +2522,7 @@ class QuadrantFoldingGUI(BaseGUI):
         Update the apply center mode statistics display
         """
         if self.file_manager:
-            auto_count = len(self.file_manager.names) - len(self.imageCenterSettings)
+            auto_count = len(self.file_manager.names) - len(self.image_settings_panel._center_settings)
             total_count = len(self.file_manager.names)
             self.centerSettings.update_mode_display(auto_count, total_count)
 
@@ -2643,7 +2531,7 @@ class QuadrantFoldingGUI(BaseGUI):
         Update the apply rotation mode statistics display
         """
         if self.file_manager:
-            auto_count = len(self.file_manager.names) - len(self.imageRotationSettings)
+            auto_count = len(self.file_manager.names) - len(self.image_settings_panel._rotation_settings)
             total_count = len(self.file_manager.names)
             self.rotationSettings.update_mode_display(auto_count, total_count)
 
@@ -2896,9 +2784,9 @@ class QuadrantFoldingGUI(BaseGUI):
         # Update blank image and mask checkbox states
         self.updateBlankMaskCheckboxStates()
         
-        # Update center and rotation mode indicators
-        self.updateCenterModeIndicator()
-        self.updateRotationModeIndicator()
+        # ✅ Update ImageSettingsPanel to show current image's settings
+        # (This also updates mode indicators internally)
+        self.image_settings_panel.update_display(self.current_image_data)
 
         self.processImage()
 
@@ -2916,6 +2804,10 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         Close the event
         """
+        # ✅ Save settings before closing
+        if hasattr(self, 'image_settings_panel'):
+            self.image_settings_panel.save_settings()
+        
         self.close()
 
     def markFixedInfo(self, currentInfo, prevInfo):
@@ -3147,17 +3039,17 @@ class QuadrantFoldingGUI(BaseGUI):
             # GUI responsibility: Save to settings
             if self.file_manager:
                 filename = self.file_manager.current_image_name
-                self.imageCenterSettings[filename] = {
+                self.image_settings_panel._center_settings[filename] = {
                     'center': list(center),
                     'source': source  # Track how this center was set
                 }
                 # Save to file immediately
-                self.saveCenterSettings()
+                self.image_settings_panel.save_settings()
             
             # GUI responsibility: Update UI
             self.updateCurrentCenter(center)
             self.updateApplyCenterMode()
-            self.updateCenterModeIndicator()
+            # NOTE: updateCenterModeIndicator is now handled by ImageSettingsPanel.update_display()
             
             print(f"Center set to {center} from source: {source}")
 
@@ -3188,20 +3080,20 @@ class QuadrantFoldingGUI(BaseGUI):
             # Update ImageData's manual rotation
             self.current_image_data.update_manual_rotation(new_rotation)
             
-            # Store in imageRotationSettings for current image
+            # Store in rotation settings for current image
             # Presence in this dict means manual mode, absence means auto mode
             if self.file_manager:
                 filename = self.file_manager.current_image_name
-                self.imageRotationSettings[filename] = {
+                self.image_settings_panel._rotation_settings[filename] = {
                     'rotation': new_rotation,
                     'source': source  # Track how this rotation was set
                 }
                 # Save to file immediately
-                self.saveRotationSettings()
+                self.image_settings_panel.save_settings()
             
             # Update mode display
             self.updateApplyRotationMode()
-            self.updateRotationModeIndicator()
+            # NOTE: updateRotationModeIndicator is now handled by ImageSettingsPanel.update_display()
             
             # Update rotation angle display immediately (preview)
             self.rotationSettings.update_rotation_display(new_rotation)
@@ -3413,7 +3305,9 @@ class QuadrantFoldingGUI(BaseGUI):
         bg_csv_lock = Lock()
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
-            self.currentTask = Worker(params, self.imageCenterSettings, self.imageRotationSettings,
+            self.currentTask = Worker(params, 
+                                      self.image_settings_panel._center_settings, 
+                                      self.image_settings_panel._rotation_settings,
                                       self.bgChoiceIn.currentText(),
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
@@ -3727,9 +3621,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.file_manager.set_from_file(str(newFile))
         self.filePath = self.file_manager.dir_path
         
-        # Load center and rotation settings for this folder
-        self.loadCenterSettings()
-        self.loadRotationSettings()
+        # Update ImageSettingsPanel's settings directory and reload settings
+        if hasattr(self, 'image_settings_panel'):
+            self.image_settings_panel.set_settings_dir(self.filePath)
         
         if self.file_manager.dir_path and self.file_manager.names:
             try:
@@ -3816,79 +3710,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tranDeltaSpnBx.setValue(-1)
         self.uiUpdating = False
 
-    def loadCenterSettings(self):
-        """Load image center settings from settings/center_settings.json"""
-        if not self.filePath:
-            return
-        
-        settings_path = Path(self.filePath) / "settings" / "center_settings.json"
-        if settings_path.exists():
-            try:
-                with open(settings_path, 'r') as f:
-                    self.imageCenterSettings = json.load(f)
-                print(f"Loaded center settings for {len(self.imageCenterSettings)} images")
-            except Exception as e:
-                print(f"Error loading center settings: {e}")
-                self.imageCenterSettings = {}
-        else:
-            print("No center settings file found, starting fresh")
-        
-        # Update mode display
-        if self.file_manager and self.file_manager.names:
-            self.updateApplyCenterMode()
-
-    def saveCenterSettings(self):
-        """Save image center settings to settings/center_settings.json"""
-        if not self.filePath:
-            return
-        
-        settings_dir = Path(self.filePath) / "settings"
-        settings_dir.mkdir(exist_ok=True)
-        
-        settings_path = settings_dir / "center_settings.json"
-        try:
-            with open(settings_path, 'w') as f:
-                json.dump(self.imageCenterSettings, f, indent=2)
-            print(f"Saved center settings for {len(self.imageCenterSettings)} images")
-        except Exception as e:
-            print(f"Error saving center settings: {e}")
-
-    def loadRotationSettings(self):
-        """Load image rotation settings from settings/rotation_settings.json"""
-        if not self.filePath:
-            return
-        
-        settings_path = Path(self.filePath) / "settings" / "rotation_settings.json"
-        if settings_path.exists():
-            try:
-                with open(settings_path, 'r') as f:
-                    self.imageRotationSettings = json.load(f)
-                print(f"Loaded rotation settings for {len(self.imageRotationSettings)} images")
-            except Exception as e:
-                print(f"Error loading rotation settings: {e}")
-                self.imageRotationSettings = {}
-        else:
-            print("No rotation settings file found, starting fresh")
-        
-        # Update mode display
-        if self.file_manager and self.file_manager.names:
-            self.updateApplyRotationMode()
-
-    def saveRotationSettings(self):
-        """Save image rotation settings to settings/rotation_settings.json"""
-        if not self.filePath:
-            return
-        
-        settings_dir = Path(self.filePath) / "settings"
-        settings_dir.mkdir(exist_ok=True)
-        
-        settings_path = settings_dir / "rotation_settings.json"
-        try:
-            with open(settings_path, 'w') as f:
-                json.dump(self.imageRotationSettings, f, indent=2)
-            print(f"Saved rotation settings for {len(self.imageRotationSettings)} images")
-        except Exception as e:
-            print(f"Error saving rotation settings: {e}")
+    # NOTE: load/save CenterSettings and RotationSettings are now handled by ImageSettingsPanel
 
     def _create_image_data(self, img, img_path, img_name):
         """
@@ -3899,19 +3721,8 @@ class QuadrantFoldingGUI(BaseGUI):
         :param img_name: Image filename
         :return: ImageData object
         """
-        # Get manual center if exists
-        manual_center = None
-        if img_name in self.imageCenterSettings:
-            center_data = self.imageCenterSettings[img_name]
-            if 'center' in center_data:
-                manual_center = tuple(center_data['center'])
-        
-        # Get manual rotation if exists
-        manual_rotation = None
-        if img_name in self.imageRotationSettings:
-            rotation_data = self.imageRotationSettings[img_name]
-            if 'rotation' in rotation_data:
-                manual_rotation = rotation_data['rotation']
+        # ✅ Get manual settings from ImageSettingsPanel
+        manual_center, manual_rotation = self.image_settings_panel.get_manual_settings(img_name)
         
         # Create ImageData object (blank/mask are auto-detected)
         return ImageData(
@@ -3936,9 +3747,11 @@ class QuadrantFoldingGUI(BaseGUI):
             self.imageCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
             self.ignoreFolds = set()
-            # Load center and rotation settings for this folder
-            self.loadCenterSettings()
-            self.loadRotationSettings()
+            
+            # Update ImageSettingsPanel's settings directory and reload settings
+            if hasattr(self, 'image_settings_panel'):
+                self.image_settings_panel.set_settings_dir(self.filePath)
+            
             self.onImageChanged()
             self.processFolder()
 
