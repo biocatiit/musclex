@@ -181,6 +181,9 @@ class ImageSettingsPanel(QWidget):
         self._center_widget.setCenterRotationButton.clicked.connect(
             lambda checked: self._on_center_rotation_button_clicked(checked)
         )
+        self._center_widget.setCentBtn.clicked.connect(
+            self._on_set_center_manually_clicked
+        )
         self._rotation_widget.setRotationButton.clicked.connect(
             lambda checked: self._on_rotation_button_clicked(checked)
         )
@@ -256,6 +259,53 @@ class ImageSettingsPanel(QWidget):
                 self._handle_center_rotate_result(result)
             # Request GUI to reset status bar
             self.statusTextRequested.emit("")
+    
+    def _on_set_center_manually_clicked(self):
+        """
+        Handle 'Set Center Manually' button click.
+        
+        Opens SetCentDialog for user to manually input center coordinates.
+        """
+        if not self._current_image_data or not self._file_manager:
+            return
+        
+        center = self._current_image_data.center
+        if not center:
+            return
+        
+        img = self._file_manager.current_image.copy()
+        
+        # Get display settings from image_viewer
+        display_settings = self._image_viewer.get_display_options()
+        
+        # Import SetCentDialog
+        from ..SetCentDialog import SetCentDialog
+        
+        # Show dialog
+        dialog = SetCentDialog(
+            self,
+            img,
+            center,
+            isLogScale=display_settings['log_scale'],
+            vmin=display_settings['vmin'],
+            vmax=display_settings['vmax']
+        )
+        
+        if dialog.exec():
+            # User accepted - get the new center
+            new_center = dialog.center
+            
+            # Save using public method
+            self.set_center_from_source(
+                self._current_filename,
+                new_center,
+                "SetCentDialog"
+            )
+            
+            # Emit needsReprocess
+            self.needsReprocess.emit()
+            
+            print(f"Center manually set to {new_center} from SetCentDialog")
     
     # ==================== Tool Completion Handlers ====================
     
