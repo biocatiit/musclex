@@ -52,27 +52,26 @@ class CenterRotateTool(InteractionTool):
         result = tool.get_result()  # Returns {'center': (x, y), 'angle': float}
     """
     
-    def __init__(self, axes, canvas, coord_transform_func):
+    def __init__(self, axes, canvas):
         """
         Initialize the center-rotate tool.
         
         Args:
             axes: matplotlib axes object
             canvas: matplotlib canvas object
-            coord_transform_func: callable that converts display coords to original image coords
-                                 Should accept (x, y) and return (x_orig, y_orig)
+        
+        Note: This tool returns center in DISPLAY coordinates (same as ChordsCenterTool
+        and PerpendicularsCenterTool). Coordinate transformation to original image
+        coordinates should be done by the caller (e.g., ImageSettingsPanel).
         """
         super().__init__(axes, canvas)
-        self.coord_transform_func = coord_transform_func
-        self.points_orig = []  # Points in original image coordinates
-        self.points_display = []  # Points in display coordinates
+        self.points = []  # Points in display coordinates
         self.axis_size = 5  # Size of cross markers
         self.completed = False
     
     def _on_activate(self):
         """Reset state and clear axes when tool is activated."""
-        self.points_orig = []
-        self.points_display = []
+        self.points = []
         self.completed = False
         self.clear_axes()
     
@@ -101,9 +100,9 @@ class CenterRotateTool(InteractionTool):
             return False
         
         # Only draw preview if we have exactly one point
-        if len(self.points_display) == 1:
+        if len(self.points) == 1:
             x, y = event.xdata, event.ydata
-            start_pt = self.points_display[0]
+            start_pt = self.points[0]
             
             # Remove old preview items
             self.remove_labeled_items(['preview_cross', 'preview_line'])
@@ -145,12 +144,8 @@ class CenterRotateTool(InteractionTool):
         
         x, y = event.xdata, event.ydata
         
-        # Convert to original image coordinates
-        x_orig, y_orig = self.coord_transform_func(x, y)
-        
-        # Store both coordinate systems
-        self.points_orig.append((x_orig, y_orig))
-        self.points_display.append((x, y))
+        # Store display coordinates (caller will convert to original if needed)
+        self.points.append((x, y))
         
         # Remove preview items
         self.remove_labeled_items(['preview_cross', 'preview_line'])
@@ -159,9 +154,9 @@ class CenterRotateTool(InteractionTool):
         self._draw_cross(x, y)
         
         # If this is the second point, draw the final line
-        if len(self.points_display) == 2:
-            pt1 = self.points_display[0]
-            pt2 = self.points_display[1]
+        if len(self.points) == 2:
+            pt1 = self.points[0]
+            pt2 = self.points[1]
             self.axes.plot((pt1[0], pt2[0]), (pt1[1], pt2[1]), 
                           color='r', linewidth=2)
             
@@ -175,49 +170,43 @@ class CenterRotateTool(InteractionTool):
         """
         Calculate and return the center and angle.
         
-        Center: Calculated in original image coordinates (for precise positioning)
+        Returns center in DISPLAY coordinates (consistent with ChordsCenterTool
+        and PerpendicularsCenterTool). Caller should transform if needed.
+        
         Angle: Calculated in display coordinates (as an increment relative to current rotation)
         
         Returns:
             Dictionary with 'center' (tuple) and 'angle' (float), or None if incomplete
         """
-        if len(self.points_orig) < 2:
+        if len(self.points) < 2:
             return None
         
-        # Calculate center using original coordinates (for precise positioning)
-        pt1_orig = self.points_orig[0]
-        pt2_orig = self.points_orig[1]
+        # Calculate center using display coordinates
+        pt1 = self.points[0]
+        pt2 = self.points[1]
         
-        if pt1_orig[0] < pt2_orig[0]:
-            x1, y1 = pt1_orig
-            x2, y2 = pt2_orig
+        if pt1[0] < pt2[0]:
+            x1, y1 = pt1
+            x2, y2 = pt2
         else:
-            x1, y1 = pt2_orig
-            x2, y2 = pt1_orig
+            x1, y1 = pt2
+            x2, y2 = pt1
         
-        # Calculate center (midpoint in original coordinates)
-        cx = int(round((x1 + x2) / 2.0))
-        cy = int(round((y1 + y2) / 2.0))
+        # Calculate center (midpoint in display coordinates)
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
         
         # Calculate angle using display coordinates (as increment relative to current rotation)
+        # Note: We already have x1, y1, x2, y2 from above (in display coordinates)
         # This is because setAngle() accumulates: new_rotation = current_rotation + angle
-        pt1_disp = self.points_display[0]
-        pt2_disp = self.points_display[1]
         
-        if pt1_disp[0] < pt2_disp[0]:
-            dx1, dy1 = pt1_disp
-            dx2, dy2 = pt2_disp
-        else:
-            dx1, dy1 = pt2_disp
-            dx2, dy2 = pt1_disp
-        
-        # Calculate angle from horizontal (in display coordinates)
-        if abs(dx2 - dx1) == 0:
+        # Calculate angle from horizontal
+        if abs(x2 - x1) == 0:
             # Vertical line
             angle = -90.0
         else:
             # arctan gives angle from horizontal
-            angle = -180.0 * np.arctan((dy1 - dy2) / abs(dx1 - dx2)) / np.pi
+            angle = -180.0 * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
         
         return {
             'center': (cx, cy),

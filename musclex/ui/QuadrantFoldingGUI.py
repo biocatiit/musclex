@@ -238,6 +238,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.filePath = "" # current directory
         self.extent = None
         self.img = None
+        self.file_manager = FileManager()  # FileManager (initialized early for ImageSettingsPanel)
         self.quadFold = None # QuadrantFolder object
         self.current_image_data = None # Current ImageData object (holds image geometry and preprocessing)
         self.default_img_zoom = None # default zoom calculated after processing image
@@ -299,7 +300,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # self.setMinimumHeight(900)
         self.resize(1200, 900)
         self.newImgDimension = None
-        self.file_manager = None
+        # NOTE: file_manager is now initialized earlier in __init__
         self.browseFile()
 
         self.mask_min = None
@@ -366,15 +367,15 @@ class QuadrantFoldingGUI(BaseGUI):
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
         
         # Initialize patches and tools
-        self._initialize_patches()
-        self._register_tools()
-        
+        self._initialize_patches()        
         # Setup background choice UI
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
         
         # ✅ Connect ImageSettingsPanel signal
+        # Connect signals from ImageSettingsPanel
         self.image_settings_panel.needsReprocess.connect(self.processImage)
+        self.image_settings_panel.statusTextRequested.connect(self._on_status_text_requested)
     
     def _position_floating_widgets(self):
         """Position floating toggle buttons after window is fully rendered"""
@@ -1002,14 +1003,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.circle_patch3 = None
         self.circle_patch_rmin = None
     
-    def _register_tools(self):
-        """Register QuadrantFolding-specific tools with the image viewer"""
-        # NOTE: chords, perpendiculars, rotation tools are registered by ImageSettingsPanel
-        
-        # Register QuadrantFolding-specific tools
-        self.image_viewer.tool_manager.register_tool('center_rotate', 
-            lambda axes, canvas: CenterRotateTool(axes, canvas, self.getOrigCoordsCenter))
-
 
     def setConnections(self):
         """
@@ -1056,7 +1049,7 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # QF-specific center buttons (keep these)
         self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
-        self.centerSettings.setCenterRotationButton.clicked.connect(self.setCenterRotation)
+        # NOTE: setCenterRotation is now handled by ImageSettingsPanel
         self.centerSettings.setCentBtn.clicked.connect(self.setCentBtnClicked)
         
         # ===== Rotation Settings Widget Connections =====
@@ -1829,18 +1822,18 @@ class QuadrantFoldingGUI(BaseGUI):
                 return True
         return False
 
-    def setCenterRotation(self):
+    # NOTE: setCenterRotation moved to ImageSettingsPanel
+    
+    def _on_status_text_requested(self, text: str):
         """
-        Trigger when set center and rotation angle button is pressed.
-        Now using the new tool system with auto-completion.
+        Handle status text update request from ImageSettingsPanel.
+        
+        Args:
+            text: Status text to display (empty string means reset to default)
         """
-        if self.centerSettings.setCenterRotationButton.isChecked():
-            # Activate the center-rotate tool
-            self.imgPathOnStatusBar.setText("Click on 2 corresponding reflection peaks along the equator (click to set)")
-            self.image_viewer.tool_manager.activate_tool('center_rotate')
+        if text:
+            self.imgPathOnStatusBar.setText(text)
         else:
-            # User manually cancelled - just deactivate without applying
-            self.image_viewer.tool_manager.deactivate_tool('center_rotate')
             self.resetStatusbar()
 
     def resultZoomIn(self):
@@ -3454,8 +3447,7 @@ class QuadrantFoldingGUI(BaseGUI):
         :param newFile: full name of selected file
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        if not self.file_manager:
-            self.file_manager = FileManager()
+        # file_manager is now created in __init__, so just use it directly
         
         self.file_manager.set_from_file(str(newFile))
         self.filePath = self.file_manager.dir_path
