@@ -411,7 +411,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.image_settings_panel = ImageSettingsPanel(
             settings_dir=self.filePath,
             image_viewer=self.image_viewer,
-            coord_transform_func=self.getOrigCoordsCenter  # Transform displayed coords to original
+            coord_transform_func=self.getOrigCoordsCenter,  # Transform displayed coords to original
+            file_manager=self.file_manager  # For batch operations
         )
         self.right_panel.add_widget(self.image_settings_panel)
         
@@ -1584,173 +1585,44 @@ class QuadrantFoldingGUI(BaseGUI):
             return
         
         center = self.current_image_data.center
-        self._applyManualCenter(center, scope)
+        # Use ImageSettingsPanel's batch operation
+        self.image_settings_panel.apply_center_to_batch(center, scope)
         QMessageBox.information(self, "Center Applied", 
             f"Center {center} applied to {scope} images.")
     
     def _handle_restore_auto_center(self, scope):
         """Handle Restore Auto Center request from widget (dialog already shown)"""
-        self._restoreAutoCenter(scope)
-        
-        # Process current image immediately for 'current' or 'all' selections
-        if scope == 'current' or scope == 'all':
-            # Clear manual center in ImageData (will use auto-calculation)
-            self.current_image_data.update_manual_center(None)
-            self.processImage()
+        # Use ImageSettingsPanel's batch operation
+        # (It will handle ImageData update and needsReprocess signal if current image is affected)
+        self.image_settings_panel.restore_auto_center_for_batch(scope)
         
         QMessageBox.information(self, "Auto Center Restored", 
             f"Auto center restored for {scope} images.")
     
     def _handle_apply_rotation(self, scope):
         """Handle Apply Rotation request from widget (dialog already shown)"""
-        if not self.quadFold or self.quadFold.rotation is None:
+        if not self.current_image_data or self.current_image_data.rotation is None:
             QMessageBox.warning(self, "No Rotation", "No rotation available to apply.")
             return
         
-        self._applyManualRotation(self.quadFold.rotation, scope)
+        rotation = self.current_image_data.rotation
+        # Use ImageSettingsPanel's batch operation
+        self.image_settings_panel.apply_rotation_to_batch(rotation, scope)
         QMessageBox.information(self, "Rotation Applied", 
-            f"Rotation {self.quadFold.rotation:.2f}° applied to {scope} images.")
+            f"Rotation {rotation:.2f}° applied to {scope} images.")
     
     def _handle_restore_auto_rotation(self, scope):
         """Handle Restore Auto Rotation request from widget (dialog already shown)"""
-        self._restoreAutoRotation(scope)
-        
-        # Process current image immediately for 'current' or 'all' selections
-        if scope == 'current' or scope == 'all':
-            # Clear manual rotation in ImageData (will use auto-calculation)
-            self.current_image_data.update_manual_rotation(None)
-            self.processImage()
+        # Use ImageSettingsPanel's batch operation
+        # (It will handle ImageData update and needsReprocess signal if current image is affected)
+        self.image_settings_panel.restore_auto_rotation_for_batch(scope)
         
         QMessageBox.information(self, "Auto Rotation Restored", 
             f"Auto rotation restored for {scope} images.")
     
-    def _applyManualCenter(self, center, scope):
-        """Apply manual center to images based on scope"""
-        if not self.file_manager:
-            return
-        
-        current_index = self.file_manager.current
-        total_images = len(self.file_manager.names)
-        
-        if scope == 'all':
-            indices = range(total_images)
-        elif scope == 'subsequent':
-            indices = range(current_index, total_images)
-        elif scope == 'previous':
-            indices = range(0, current_index + 1)
-        else:
-            return
-        
-        # Apply manual center setting to selected images
-        for idx in indices:
-            filename = self.file_manager.names[idx]
-            self.image_settings_panel._center_settings[filename] = {
-                'center': list(center),
-                'source': 'propagated'
-            }
-        
-        # Save to file
-        self.image_settings_panel.save_settings()
-        
-        # Update mode display
-        self.updateApplyCenterMode()
+    # NOTE: _applyManualCenter, _restoreAutoCenter, _applyManualRotation, _restoreAutoRotation
+    # have been moved to ImageSettingsPanel for better encapsulation
     
-    def _restoreAutoCenter(self, scope):
-        """Restore auto center for images based on scope"""
-        if not self.file_manager:
-            return
-        
-        current_index = self.file_manager.current
-        total_images = len(self.file_manager.names)
-        
-        if scope == 'current':
-            indices = [current_index]
-        elif scope == 'all':
-            indices = range(total_images)
-        elif scope == 'subsequent':
-            indices = range(current_index, total_images)
-        elif scope == 'previous':
-            indices = range(0, current_index + 1)
-        else:
-            return
-        
-        # Restore auto center mode for selected images
-        for idx in indices:
-            filename = self.file_manager.names[idx]
-            if filename in self.image_settings_panel._center_settings:
-                # Remove the entry to use auto mode
-                del self.image_settings_panel._center_settings[filename]
-        
-        # Save to file
-        self.image_settings_panel.save_settings()
-        
-        # Update mode display
-        self.updateApplyCenterMode()
-
-    def _applyManualRotation(self, rotation, scope):
-        """Apply manual rotation to images based on scope"""
-        if not self.file_manager:
-            return
-        
-        current_index = self.file_manager.current
-        total_images = len(self.file_manager.names)
-        
-        if scope == 'all':
-            indices = range(total_images)
-        elif scope == 'subsequent':
-            indices = range(current_index, total_images)
-        elif scope == 'previous':
-            indices = range(0, current_index + 1)
-        else:
-            return
-        
-        # Apply manual rotation setting to selected images
-        for idx in indices:
-            filename = self.file_manager.names[idx]
-            self.image_settings_panel._rotation_settings[filename] = {
-                'rotation': rotation,
-                'source': 'propagated'
-            }
-        
-        # Save to file
-        self.image_settings_panel.save_settings()
-        
-        # Update mode display
-        self.updateApplyRotationMode()
-    
-    def _restoreAutoRotation(self, scope):
-        """Restore auto rotation for images based on scope"""
-        if not self.file_manager:
-            return
-        
-        current_index = self.file_manager.current
-        total_images = len(self.file_manager.names)
-        
-        if scope == 'current':
-            indices = [current_index]
-        elif scope == 'all':
-            indices = range(total_images)
-        elif scope == 'subsequent':
-            indices = range(current_index, total_images)
-        elif scope == 'previous':
-            indices = range(0, current_index + 1)
-        else:
-            return
-        
-        # Restore auto rotation mode for selected images
-        for idx in indices:
-            filename = self.file_manager.names[idx]
-            if filename in self.image_settings_panel._rotation_settings:
-                # Remove the entry to use auto mode
-                del self.image_settings_panel._rotation_settings[filename]
-        
-        # Save to file
-        self.image_settings_panel.save_settings()
-        
-        # Update mode display
-        self.updateApplyRotationMode()
-
-
     # NOTE: setRotation is now handled by ImageSettingsPanel
     
     def _get_current_center(self):
@@ -1949,7 +1821,7 @@ class QuadrantFoldingGUI(BaseGUI):
                             if filename in self.image_settings_panel._center_settings:
                                 del self.image_settings_panel._center_settings[filename]
                                 self.image_settings_panel.save_settings()
-                                self.updateApplyCenterMode()
+                                self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
                         # Reset center to None to allow auto calculation
                         if self.current_image_data is not None:
                             self.current_image_data.update_manual_center(None)
@@ -2517,41 +2389,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.highlightApplyUndo()
 
 
-    def updateApplyCenterMode(self):
-        """
-        Update the apply center mode statistics display
-        """
-        if self.file_manager:
-            auto_count = len(self.file_manager.names) - len(self.image_settings_panel._center_settings)
-            total_count = len(self.file_manager.names)
-            self.centerSettings.update_mode_display(auto_count, total_count)
 
-    def updateApplyRotationMode(self):
-        """
-        Update the apply rotation mode statistics display
-        """
-        if self.file_manager:
-            auto_count = len(self.file_manager.names) - len(self.image_settings_panel._rotation_settings)
-            total_count = len(self.file_manager.names)
-            self.rotationSettings.update_mode_display(auto_count, total_count)
-
-    def updateCenterModeIndicator(self):
-        """
-        Update the Set Center widget title to show (Auto) or (Manual) for current image
-        """
-        if self.file_manager:
-            filename = self.file_manager.current_image_name
-            is_manual = filename in self.imageCenterSettings
-            self.centerSettings.update_mode_indicator(is_manual)
-
-    def updateRotationModeIndicator(self):
-        """
-        Update the Set Rotation Angle widget title to show (Auto) or (Manual) for current image
-        """
-        if self.file_manager:
-            filename = self.file_manager.current_image_name
-            is_manual = filename in self.imageRotationSettings
-            self.rotationSettings.update_mode_indicator(is_manual)
+    # NOTE: updateCenterModeIndicator and updateRotationModeIndicator removed
+    # These are now handled by ImageSettingsPanel.update_display()
 
     def orientationModelChanged(self):
         """
@@ -3048,7 +2888,7 @@ class QuadrantFoldingGUI(BaseGUI):
             
             # GUI responsibility: Update UI
             self.updateCurrentCenter(center)
-            self.updateApplyCenterMode()
+            self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
             # NOTE: updateCenterModeIndicator is now handled by ImageSettingsPanel.update_display()
             
             print(f"Center set to {center} from source: {source}")
@@ -3092,7 +2932,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.image_settings_panel.save_settings()
             
             # Update mode display
-            self.updateApplyRotationMode()
+            self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
             # NOTE: updateRotationModeIndicator is now handled by ImageSettingsPanel.update_display()
             
             # Update rotation angle display immediately (preview)
@@ -3517,8 +3357,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self._provisionalCount = False
         self._scan_timer.stop()
         self.resetStatusbar()
-        self.updateApplyCenterMode()
-        self.updateApplyRotationMode()
+        self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
 
     def getFlags(self):
         """

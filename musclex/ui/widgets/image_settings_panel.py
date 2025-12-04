@@ -80,7 +80,8 @@ class ImageSettingsPanel(QWidget):
     # Single signal - GUI only needs to know when to reprocess
     needsReprocess = Signal()
     
-    def __init__(self, settings_dir: str, image_viewer, coord_transform_func=None):
+    def __init__(self, settings_dir: str, image_viewer, coord_transform_func=None,
+                 file_manager=None):
         """
         Initialize the Image Settings Panel.
         
@@ -91,12 +92,15 @@ class ImageSettingsPanel(QWidget):
                                  displayed (transformed) image to original image.
                                  Signature: (x, y) -> (orig_x, orig_y)
                                  This is needed when tools operate on transformed images.
+            file_manager: Optional FileManager instance for batch operations.
+                         Provides access to file list (names) and current index (current).
         """
         super().__init__()
         
         self._settings_dir = settings_dir
         self._image_viewer = image_viewer  # External viewer (not owned by this panel)
         self._coord_transform_func = coord_transform_func  # Coordinate transformation callback
+        self._file_manager = file_manager  # FileManager reference for batch operations
         self._current_filename = None
         self._current_image_data = None
         
@@ -378,55 +382,41 @@ class ImageSettingsPanel(QWidget):
     
     def _on_apply_center(self, scope: str):
         """Handle Apply Center to batch."""
-        # TODO: Implement batch apply logic
-        print(f"Apply center to {scope}")
-        pass
+        if not self._current_image_data:
+            print("Warning: No current image data for apply center")
+            return
+        
+        center = self._current_image_data.center
+        if not center:
+            print("Warning: No center available to apply")
+            return
+        
+        self.apply_center_to_batch(center, scope)
+        print(f"Applied center {center} to {scope} images")
     
     def _on_restore_auto_center(self, scope: str):
         """Handle Restore Auto Center."""
-        if scope == 'current' and self._current_filename:
-            # Remove from settings
-            if self._current_filename in self._center_settings:
-                del self._center_settings[self._current_filename]
-                self._save_center_settings()
-            
-            # Update ImageData
-            if self._current_image_data:
-                self._current_image_data.update_manual_center(None)
-            
-            # Update UI
-            self._center_widget.update_mode_indicator(is_manual=False)
-            
-            # Notify GUI
-            self.needsReprocess.emit()
-            
-            print("Auto center restored for current image")
+        self.restore_auto_center_for_batch(scope)
+        print(f"Restored auto center for {scope} images")
     
     def _on_apply_rotation(self, scope: str):
         """Handle Apply Rotation to batch."""
-        # TODO: Implement batch apply logic
-        print(f"Apply rotation to {scope}")
-        pass
+        if not self._current_image_data:
+            print("Warning: No current image data for apply rotation")
+            return
+        
+        rotation = self._current_image_data.rotation
+        if rotation is None:
+            print("Warning: No rotation available to apply")
+            return
+        
+        self.apply_rotation_to_batch(rotation, scope)
+        print(f"Applied rotation {rotation:.2f}° to {scope} images")
     
     def _on_restore_auto_rotation(self, scope: str):
         """Handle Restore Auto Rotation."""
-        if scope == 'current' and self._current_filename:
-            # Remove from settings
-            if self._current_filename in self._rotation_settings:
-                del self._rotation_settings[self._current_filename]
-                self._save_rotation_settings()
-            
-            # Update ImageData
-            if self._current_image_data:
-                self._current_image_data.update_manual_rotation(None)
-            
-            # Update UI
-            self._rotation_widget.update_mode_indicator(is_manual=False)
-            
-            # Notify GUI
-            self.needsReprocess.emit()
-            
-            print("Auto rotation restored for current image")
+        self.restore_auto_rotation_for_batch(scope)
+        print(f"Restored auto rotation for {scope} images")
     
     # ==================== Blank/Mask Handlers ====================
     
@@ -491,6 +481,195 @@ class ImageSettingsPanel(QWidget):
         """Save all settings to JSON files."""
         self._save_center_settings()
         self._save_rotation_settings()
+    
+    def update_mode_statistics(self, total_files: int):
+        """
+        Update mode display statistics for both center and rotation widgets.
+        
+        Args:
+            total_files: Total number of files in the current directory
+        """
+        auto_center_count = total_files - len(self._center_settings)
+        auto_rotation_count = total_files - len(self._rotation_settings)
+        
+        self._center_widget.update_mode_display(auto_center_count, total_files)
+        self._rotation_widget.update_mode_display(auto_rotation_count, total_files)
+    
+    # ==================== Batch Operations ====================
+    
+    def apply_center_to_batch(self, center: Tuple[float, float], scope: str):
+        """
+        Apply manual center to multiple images based on scope.
+        
+        Args:
+            center: Center coordinates to apply
+            scope: One of 'all', 'subsequent', 'previous'
+        """
+        if not self._file_manager:
+            print("Warning: FileManager not available for batch operations")
+            return
+        
+        file_list = self._file_manager.names
+        current_idx = self._file_manager.current
+        
+        # Calculate indices based on scope
+        if scope == 'all':
+            indices = range(len(file_list))
+        elif scope == 'subsequent':
+            indices = range(current_idx, len(file_list))
+        elif scope == 'previous':
+            indices = range(0, current_idx + 1)
+        else:
+            print(f"Warning: Unknown scope '{scope}'")
+            return
+        
+        # Apply manual center to selected images
+        for idx in indices:
+            filename = file_list[idx]
+            self._center_settings[filename] = {
+                'center': list(center),
+                'source': 'propagated'
+            }
+        
+        # Save settings
+        self._save_center_settings()
+        
+        # Update statistics display
+        self.update_mode_statistics(len(file_list))
+    
+    def restore_auto_center_for_batch(self, scope: str):
+        """
+        Restore auto center mode for multiple images based on scope.
+        
+        Args:
+            scope: One of 'current', 'all', 'subsequent', 'previous'
+        """
+        if not self._file_manager:
+            print("Warning: FileManager not available for batch operations")
+            return
+        
+        file_list = self._file_manager.names
+        current_idx = self._file_manager.current
+        
+        # Calculate indices based on scope
+        if scope == 'current':
+            indices = [current_idx]
+        elif scope == 'all':
+            indices = range(len(file_list))
+        elif scope == 'subsequent':
+            indices = range(current_idx, len(file_list))
+        elif scope == 'previous':
+            indices = range(0, current_idx + 1)
+        else:
+            print(f"Warning: Unknown scope '{scope}'")
+            return
+        
+        # Remove manual settings for selected images
+        for idx in indices:
+            filename = file_list[idx]
+            if filename in self._center_settings:
+                del self._center_settings[filename]
+        
+        # If current image is in scope, update ImageData and UI
+        if current_idx in indices:
+            if self._current_image_data:
+                self._current_image_data.update_manual_center(None)
+            self._center_widget.update_mode_indicator(is_manual=False)
+            # Notify GUI to reprocess
+            self.needsReprocess.emit()
+        
+        # Save settings
+        self._save_center_settings()
+        
+        # Update statistics display
+        self.update_mode_statistics(len(file_list))
+    
+    def apply_rotation_to_batch(self, rotation: float, scope: str):
+        """
+        Apply manual rotation to multiple images based on scope.
+        
+        Args:
+            rotation: Rotation angle to apply
+            scope: One of 'all', 'subsequent', 'previous'
+        """
+        if not self._file_manager:
+            print("Warning: FileManager not available for batch operations")
+            return
+        
+        file_list = self._file_manager.names
+        current_idx = self._file_manager.current
+        
+        # Calculate indices based on scope
+        if scope == 'all':
+            indices = range(len(file_list))
+        elif scope == 'subsequent':
+            indices = range(current_idx, len(file_list))
+        elif scope == 'previous':
+            indices = range(0, current_idx + 1)
+        else:
+            print(f"Warning: Unknown scope '{scope}'")
+            return
+        
+        # Apply manual rotation to selected images
+        for idx in indices:
+            filename = file_list[idx]
+            self._rotation_settings[filename] = {
+                'rotation': rotation,
+                'source': 'propagated'
+            }
+        
+        # Save settings
+        self._save_rotation_settings()
+        
+        # Update statistics display
+        self.update_mode_statistics(len(file_list))
+    
+    def restore_auto_rotation_for_batch(self, scope: str):
+        """
+        Restore auto rotation mode for multiple images based on scope.
+        
+        Args:
+            scope: One of 'current', 'all', 'subsequent', 'previous'
+        """
+        if not self._file_manager:
+            print("Warning: FileManager not available for batch operations")
+            return
+        
+        file_list = self._file_manager.names
+        current_idx = self._file_manager.current
+        
+        # Calculate indices based on scope
+        if scope == 'current':
+            indices = [current_idx]
+        elif scope == 'all':
+            indices = range(len(file_list))
+        elif scope == 'subsequent':
+            indices = range(current_idx, len(file_list))
+        elif scope == 'previous':
+            indices = range(0, current_idx + 1)
+        else:
+            print(f"Warning: Unknown scope '{scope}'")
+            return
+        
+        # Remove manual settings for selected images
+        for idx in indices:
+            filename = file_list[idx]
+            if filename in self._rotation_settings:
+                del self._rotation_settings[filename]
+        
+        # If current image is in scope, update ImageData and UI
+        if current_idx in indices:
+            if self._current_image_data:
+                self._current_image_data.update_manual_rotation(None)
+            self._rotation_widget.update_mode_indicator(is_manual=False)
+            # Notify GUI to reprocess
+            self.needsReprocess.emit()
+        
+        # Save settings
+        self._save_rotation_settings()
+        
+        # Update statistics display
+        self.update_mode_statistics(len(file_list))
     
     def set_settings_dir(self, new_settings_dir: str):
         """
