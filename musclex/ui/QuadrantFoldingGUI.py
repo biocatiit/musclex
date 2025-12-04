@@ -2861,6 +2861,13 @@ class QuadrantFoldingGUI(BaseGUI):
             # This is needed after processing to reflect auto-calculated values
             if self.current_image_data:
                 self.image_settings_panel.update_display(self.current_image_data)
+                
+                # Update center display with TRANSFORMED coordinates (from QuadrantFolder)
+                # After transformImage(), center moves to (w//2, h//2)
+                if self.quadFold:
+                    self.image_settings_panel._center_widget.update_current_center(
+                        self.quadFold.center  # Transformed coordinates
+                    )
 
             self.saveResults()
             QApplication.restoreOverrideCursor()

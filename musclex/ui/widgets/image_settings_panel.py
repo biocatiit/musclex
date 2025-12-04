@@ -268,18 +268,19 @@ class ImageSettingsPanel(QWidget):
         Handle 'Set Center Manually' button click.
         
         Opens SetCentDialog for user to manually input center coordinates.
+        NOTE: Uses ORIGINAL image (from file_manager), not transformed image,
+              because center is defined in original image coordinates.
         """
-        if not self._current_image_data or not self._image_viewer:
+        if not self._current_image_data or not self._file_manager:
             return
         
         center = self._current_image_data.center
         if not center:
             return
         
-        # Get current displayed image from image_viewer (may be transformed)
-        img = self._image_viewer.get_current_image_data()
-        if img is None:
-            return
+        # Use original image from file_manager (NOT transformed image from viewer)
+        # Center is defined in original image coordinates
+        img = self._file_manager.current_image.copy()
         
         # Get display settings from image_viewer
         display_settings = self._image_viewer.get_display_options()
@@ -414,7 +415,7 @@ class ImageSettingsPanel(QWidget):
             self._current_image_data.update_manual_center(center)
         
         # 3. Update UI
-        self._center_widget.update_current_center(center)
+        # NOTE: update_current_center removed - GUI will update after processImage() with transformed coords
         self._center_widget.update_mode_indicator(is_manual=True)
         
         # Uncheck button
@@ -519,7 +520,7 @@ class ImageSettingsPanel(QWidget):
             self._current_image_data.update_manual_center(center)
         
         # 3. Update center UI
-        self._center_widget.update_current_center(center)
+        # NOTE: update_current_center removed - GUI will update after processImage() with transformed coords
         self._center_widget.update_mode_indicator(is_manual=True)
         
         # Uncheck the center_rotate button
@@ -1090,15 +1091,11 @@ class ImageSettingsPanel(QWidget):
             return
         
         # Update center widget
+        # NOTE: update_current_center removed - GUI will update with transformed coords after processImage()
+        # Only update mode indicator here
         if self._current_filename in self._center_settings:
-            center = tuple(self._center_settings[self._current_filename]['center'])
-            self._center_widget.update_current_center(center)
             self._center_widget.update_mode_indicator(is_manual=True)
         else:
-            # Auto mode - show auto-calculated center if available
-            if self._current_image_data:
-                auto_center = self._current_image_data.center
-                self._center_widget.update_current_center(auto_center)
             self._center_widget.update_mode_indicator(is_manual=False)
         
         # Update rotation widget
