@@ -77,8 +77,9 @@ class ImageSettingsPanel(QWidget):
         panel.needsReprocess.connect(self.processImage)
     """
     
-    # Single signal - GUI only needs to know when to reprocess
+    # Signals
     needsReprocess = Signal()
+    statusTextRequested = Signal(str)  # Request GUI to update status bar text
     
     def __init__(self, settings_dir: str, image_viewer, coord_transform_func=None,
                  file_manager=None):
@@ -149,6 +150,7 @@ class ImageSettingsPanel(QWidget):
         from ..tools.chords_center_tool import ChordsCenterTool
         from ..tools.perpendiculars_center_tool import PerpendicularsCenterTool
         from ..tools.rotation_tool import RotationTool
+        from ..tools.center_rotate_tool import CenterRotateTool
         
         tool_mgr = self._image_viewer.tool_manager
         
@@ -158,6 +160,10 @@ class ImageSettingsPanel(QWidget):
         
         # Register rotation tool (needs current center as positional arg)
         tool_mgr.register_tool('rotation', RotationTool, self._get_current_center)
+        
+        # Register combined center+rotation tool
+        # Note: Returns center in display coordinates (consistent with other center tools)
+        tool_mgr.register_tool('center_rotate', CenterRotateTool)
     
     def _connect_signals(self):
         """Connect all internal signals."""
@@ -167,6 +173,9 @@ class ImageSettingsPanel(QWidget):
         )
         self._center_widget.setCentByPerp.clicked.connect(
             lambda checked: self._on_perp_button_clicked(checked)
+        )
+        self._center_widget.setCenterRotationButton.clicked.connect(
+            lambda checked: self._on_center_rotation_button_clicked(checked)
         )
         self._rotation_widget.setRotationButton.clicked.connect(
             lambda checked: self._on_rotation_button_clicked(checked)
@@ -219,6 +228,27 @@ class ImageSettingsPanel(QWidget):
             result = self._image_viewer.tool_manager.deactivate_tool('rotation')
             if result:
                 self._handle_rotation_result(result, 'rotation_tool')
+    
+    def _on_center_rotation_button_clicked(self, checked):
+        """
+        Handle Center+Rotation button click.
+        
+        This activates a tool that allows setting both center and rotation
+        in one interaction by clicking on two corresponding reflection peaks.
+        """
+        if checked:
+            # Request GUI to update status bar
+            self.statusTextRequested.emit(
+                "Click on 2 corresponding reflection peaks along the equator (click to set)"
+            )
+            self._image_viewer.tool_manager.activate_tool('center_rotate')
+        else:
+            # User manually unchecked - handle the result if present
+            result = self._image_viewer.tool_manager.deactivate_tool('center_rotate')
+            if result:
+                self._handle_center_rotate_result(result)
+            # Request GUI to reset status bar
+            self.statusTextRequested.emit("")
     
     # ==================== Tool Completion Handlers ====================
     
@@ -326,11 +356,14 @@ class ImageSettingsPanel(QWidget):
         
         This tool allows setting center and rotation together in one interaction.
         Result format: {'center': (x, y), 'angle': angle}
+        
+        Note: CenterRotateTool returns center in DISPLAY coordinates (consistent
+        with ChordsCenterTool and PerpendicularsCenterTool), so we transform here.
         """
         if not self._current_filename:
             return
         
-        center = tuple(result['center'])
+        center = tuple(result['center'])  # In display coordinates
         angle = result['angle']
         
         # Transform coordinates from displayed image to original image
