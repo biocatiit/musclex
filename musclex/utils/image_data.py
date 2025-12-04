@@ -68,6 +68,10 @@ class ImageData:
         # Manual geometry overrides
         center: Optional[Tuple[float, float]] = None,
         rotation: Optional[float] = None,
+        # Blank/Mask config (provided by caller, not auto-detected)
+        apply_blank: bool = False,
+        apply_mask: bool = False,
+        blank_weight: float = 1.0,
         # Other configs
         orientation_model: int = 0,
         detector: Optional[str] = None,
@@ -77,13 +81,17 @@ class ImageData:
         """
         Initialize processing image container.
         
-        Automatically detects and applies blank image and mask from settings directory.
+        Note: Blank/mask configuration should be provided by the caller (typically
+        from ImageSettingsPanel). ImageData no longer auto-detects these settings.
         
         :param img: Raw image array
         :param img_path: Directory path containing the image
         :param img_name: Image filename (for caching and display)
         :param center: Manual center (x, y) or None for auto-calculation
         :param rotation: Manual rotation angle or None for auto-calculation
+        :param apply_blank: Whether to apply blank image subtraction
+        :param apply_mask: Whether to apply mask
+        :param blank_weight: Weight for blank image subtraction
         :param orientation_model: Model index for rotation calculation
         :param detector: Detector type for pyFAI integration
         :param invalid_pixel_threshold: Value to set for masked pixels
@@ -102,21 +110,10 @@ class ImageData:
         self._computed_center: Optional[Tuple[float, float]] = None
         self._computed_rotation: Optional[float] = None
         
-        # Auto-detect preprocessing config from settings directory
-        settings_dir = self.img_path / "settings"
-        
-        # Check if blank image should be applied
-        blank_config_path = settings_dir / "blank_image_settings.json"
-        blank_disabled_flag = settings_dir / ".blank_image_disabled"
-        self.apply_blank = blank_config_path.exists() and not blank_disabled_flag.exists()
-        
-        # Check if mask should be applied
-        mask_file_path = settings_dir / "mask.tif"
-        mask_disabled_flag = settings_dir / ".mask_disabled"
-        self.apply_mask = mask_file_path.exists() and not mask_disabled_flag.exists()
-        
-        # Other preprocessing config
-        self.blank_weight = 1.0  # Will be loaded from blank_image_settings.json if needed
+        # Preprocessing config (provided by caller, not auto-detected)
+        self.apply_blank = apply_blank
+        self.apply_mask = apply_mask
+        self.blank_weight = blank_weight
         self.invalid_pixel_threshold = invalid_pixel_threshold
         self.orientation_model = orientation_model
         self.detector = detector

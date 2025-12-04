@@ -298,9 +298,12 @@ class QuadrantFolder:
         :param flags: flags
         :return: -
         """
-        self.orig_img = copy.copy(self.start_img)
+        # Get fresh image from ImageData (reflects latest blank/mask settings)
+        # This ensures checkbox changes take effect without recreating QuadrantFolder
+        self.orig_img = self._image_data.get_working_image()
+        self.start_img = copy.copy(self.orig_img)  # Keep start_img in sync
         
-        # Clear old transform matrices since we reset to start_img
+        # Clear old transform matrices since we reset to fresh image
         # Without this, transforms would accumulate incorrectly on each process()
         if 'transform' in self.info:
             del self.info['transform']
