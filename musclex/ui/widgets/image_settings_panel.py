@@ -105,6 +105,10 @@ class ImageSettingsPanel(QWidget):
         self._current_filename = None
         self._current_image_data = None
         
+        # Orientation model and mode rotation state
+        self._orientation_model = 0  # Default: Max Intensity
+        self._mode_rotation = None  # Cached mode rotation value
+        
         # Settings data (persisted to JSON)
         self._center_settings = {}     # {"filename": {"center": [x,y], "source": "..."}}
         self._rotation_settings = {}   # {"filename": {"rotation": angle, "source": "..."}}
@@ -189,6 +193,9 @@ class ImageSettingsPanel(QWidget):
         self._center_widget.restoreAutoCenterRequested.connect(self._on_restore_auto_center)
         self._rotation_widget.applyRotationRequested.connect(self._on_apply_rotation)
         self._rotation_widget.restoreAutoRotationRequested.connect(self._on_restore_auto_rotation)
+        
+        # Auto orientation
+        self._rotation_widget.autoOrientationRequested.connect(self.handle_auto_orientation_request)
         
         # Blank/Mask checkboxes -> Reprocess
         # TODO: Connect blank/mask signals when they are available
@@ -310,14 +317,20 @@ class ImageSettingsPanel(QWidget):
         
         print(f"Center set to {center} from {source}")
     
-    def _handle_rotation_result(self, angle: float, source: str):
+    def _apply_rotation_increment(self, angle: float, source: str, uncheck_button=None):
         """
-        Handle rotation result from tools.
+        Apply a rotation angle increment and update all related state.
         
-        Similar workflow as center handling.
+        Args:
+            angle: Rotation increment in degrees (relative to current rotation)
+            source: Source identifier ('rotation_tool', 'center_rotate', etc.)
+            uncheck_button: Optional button to uncheck after applying
+        
+        Returns:
+            The new absolute rotation angle
         """
         if not self._current_filename:
-            return
+            return None
         
         # Get current rotation from ImageData
         current_rotation = 0.0
@@ -342,13 +355,27 @@ class ImageSettingsPanel(QWidget):
         self._rotation_widget.update_rotation_display(new_rotation)
         self._rotation_widget.update_mode_indicator(is_manual=True)
         
-        # Uncheck button
-        self._rotation_widget.setRotationButton.setChecked(False)
+        # Uncheck button if specified
+        if uncheck_button:
+            uncheck_button.setChecked(False)
         
         # 4. Notify GUI
         self.needsReprocess.emit()
         
         print(f"Rotation set to {new_rotation}° from {source}")
+        return new_rotation
+    
+    def _handle_rotation_result(self, angle: float, source: str):
+        """
+        Handle rotation result from tools.
+        
+        Similar workflow as center handling.
+        """
+        self._apply_rotation_increment(
+            angle, 
+            source, 
+            uncheck_button=self._rotation_widget.setRotationButton
+        )
     
     def _handle_center_rotate_result(self, result: dict):
         """
@@ -371,43 +398,27 @@ class ImageSettingsPanel(QWidget):
             center = self._coord_transform_func(center[0], center[1])
             print(f"  Transformed center to original coordinates: {center}")
         
-        # Get current rotation from ImageData
-        current_rotation = 0.0
-        if self._current_image_data:
-            current_rotation = self._current_image_data.rotation or 0.0
-        
-        # Calculate new absolute rotation
-        new_rotation = current_rotation + angle
-        
-        # 1. Save both settings
+        # 1. Save center settings
         self._center_settings[self._current_filename] = {
             'center': list(center),
             'source': 'center_rotate'
         }
-        self._rotation_settings[self._current_filename] = {
-            'rotation': new_rotation,
-            'source': 'center_rotate'
-        }
         self._save_center_settings()
-        self._save_rotation_settings()
         
-        # 2. Update ImageData
+        # 2. Update center in ImageData
         if self._current_image_data:
             self._current_image_data.update_manual_center(center)
-            self._current_image_data.update_manual_rotation(new_rotation)
         
-        # 3. Update UI
+        # 3. Update center UI
         self._center_widget.update_current_center(center)
         self._center_widget.update_mode_indicator(is_manual=True)
-        self._rotation_widget.update_rotation_display(new_rotation)
-        self._rotation_widget.update_mode_indicator(is_manual=True)
         
-        # Uncheck the center_rotate button (if it exists in centerSettings)
+        # Uncheck the center_rotate button
         if hasattr(self._center_widget, 'setCenterRotationButton'):
             self._center_widget.setCenterRotationButton.setChecked(False)
         
-        # 4. Notify GUI
-        self.needsReprocess.emit()
+        # 4. Apply rotation increment (handles save, ImageData update, UI update, and needsReprocess signal)
+        new_rotation = self._apply_rotation_increment(angle, 'center_rotate')
         
         print(f"Center & Rotation set to {center}, {new_rotation}° from center_rotate tool")
     
@@ -483,6 +494,75 @@ class ImageSettingsPanel(QWidget):
         # Update widgets to show current settings
         self._update_widgets_display()
     
+    def set_center_from_source(self, filename: str, center: Optional[tuple], source: str):
+        """
+        Public method for GUI to set center programmatically (e.g., from calibration dialog).
+        
+        Args:
+            filename: Name of the file to set center for
+            center: (x, y) center coordinates, or None to remove manual center
+            source: Description of where this center came from (e.g., "calibration", "SetCentDialog")
+        """
+        if center is None:
+            # Remove manual center setting
+            if filename in self._center_settings:
+                del self._center_settings[filename]
+        else:
+            # Set manual center
+            self._center_settings[filename] = {
+                'center': list(center),
+                'source': source
+            }
+        self.save_settings()
+        
+        # Update ImageData if it's the current image
+        if self._current_image_data and self._current_filename == filename:
+            self._current_image_data.update_manual_center(center)
+            self.update_display(self._current_image_data)
+    
+    def set_rotation_from_source(self, filename: str, rotation_increment: Optional[float], source: str):
+        """
+        Public method for GUI to set rotation programmatically (e.g., from SetAngleDialog).
+        
+        Args:
+            filename: Name of the file to set rotation for
+            rotation_increment: Rotation angle increment in degrees (relative to current rotation),
+                               or None to remove manual rotation
+            source: Description of where this rotation came from (e.g., "SetAngleDialog", "ModeAngle")
+        
+        Note: rotation_increment is treated as a delta to add to the current rotation,
+              because rotations are performed on the already-transformed (displayed) image.
+        """
+        if rotation_increment is None:
+            # Remove manual rotation setting
+            if filename in self._rotation_settings:
+                del self._rotation_settings[filename]
+        else:
+            # Get current rotation from ImageData
+            current_rotation = 0.0
+            if self._current_image_data and self._current_filename == filename:
+                current_rotation = self._current_image_data.rotation or 0.0
+            
+            # Calculate new absolute rotation
+            new_rotation = current_rotation + rotation_increment
+            
+            # Set manual rotation
+            self._rotation_settings[filename] = {
+                'rotation': new_rotation,
+                'source': source
+            }
+        
+        self.save_settings()
+        
+        # Update ImageData if it's the current image
+        if self._current_image_data and self._current_filename == filename:
+            if rotation_increment is None:
+                self._current_image_data.update_manual_rotation(None)
+            else:
+                new_rotation = self._rotation_settings[filename]['rotation']
+                self._current_image_data.update_manual_rotation(new_rotation)
+            self.update_display(self._current_image_data)
+    
     def get_manual_settings(self, filename: str) -> Tuple[Optional[Tuple[float, float]], Optional[float]]:
         """
         Get manual center and rotation settings for a file.
@@ -515,18 +595,174 @@ class ImageSettingsPanel(QWidget):
         self._save_center_settings()
         self._save_rotation_settings()
     
-    def update_mode_statistics(self, total_files: int):
-        """
-        Update mode display statistics for both center and rotation widgets.
+    def _update_mode_statistics_internal(self):
+        """Internal method to update mode statistics using file_manager."""
+        if not self._file_manager or not self._file_manager.names:
+            return
         
-        Args:
-            total_files: Total number of files in the current directory
-        """
+        total_files = len(self._file_manager.names)
         auto_center_count = total_files - len(self._center_settings)
         auto_rotation_count = total_files - len(self._rotation_settings)
         
         self._center_widget.update_mode_display(auto_center_count, total_files)
         self._rotation_widget.update_mode_display(auto_rotation_count, total_files)
+    
+    def update_mode_statistics(self, total_files: int = None):
+        """
+        Update mode display statistics for both center and rotation widgets.
+        
+        Args:
+            total_files: Total number of files (optional, will use file_manager if not provided)
+        """
+        if total_files is None:
+            self._update_mode_statistics_internal()
+        else:
+            auto_center_count = total_files - len(self._center_settings)
+            auto_rotation_count = total_files - len(self._rotation_settings)
+            
+            self._center_widget.update_mode_display(auto_center_count, total_files)
+            self._rotation_widget.update_mode_display(auto_rotation_count, total_files)
+    
+    def set_orientation_model(self, orientation_model: int):
+        """
+        Update the orientation model used for auto-rotation calculation.
+        
+        This will:
+        1. Update the widget display
+        2. Clear current manual rotation (if exists) to trigger recalculation
+        3. Emit needsReprocess signal
+        
+        Args:
+            orientation_model: The orientation model index
+        """
+        # Update widget display
+        self._rotation_widget.set_orientation_model(orientation_model)
+        
+        # Clear manual rotation to force recalculation with new model
+        if self._current_filename and self._current_image_data:
+            # Clear from ImageData
+            self._current_image_data.update_manual_rotation(None)
+            
+            # Remove from settings
+            if self._current_filename in self._rotation_settings:
+                del self._rotation_settings[self._current_filename]
+                self._save_rotation_settings()
+            
+            # Update UI
+            self._rotation_widget.update_mode_indicator(is_manual=False)
+            
+            # Trigger reprocess
+            self.needsReprocess.emit()
+            
+            print(f"Orientation model changed, rotation will be recalculated")
+    
+    def calculate_mode_rotation(self):
+        """
+        Calculate the mode (most common) rotation angle across all images.
+        
+        Uses FileManager to load all images and ImageData to get rotation for each.
+        
+        Returns:
+            The most common rotation angle, or None if calculation fails
+        """
+        if not self._file_manager or not self._file_manager.names:
+            print("Warning: No files available for mode rotation calculation")
+            return None
+        
+        print("Calculating mode of rotation angles for all images in directory")
+        angles = []
+        
+        for idx, filename in enumerate(self._file_manager.names):
+            # Load image using FileManager
+            img = self._file_manager.get_image_by_index(idx)
+            
+            if img is None:
+                print(f"Error loading {filename}")
+                return None
+            
+            # Create ImageData (auto-calculates rotation if needed)
+            from ...utils.image_data import ImageData
+            img_data = ImageData(
+                img=img,
+                img_path=self._settings_dir,
+                img_name=filename
+            )
+            
+            # Get rotation from ImageData (triggers auto-calculation via lazy loading)
+            rotation = img_data.rotation
+            
+            print(f'  Getting angle for {filename}: {rotation}')
+            
+            if rotation is None:
+                print(f"Warning: Could not calculate rotation for {filename}")
+                return None
+            
+            angles.append(rotation)
+        
+        # Calculate mode (most common angle)
+        mode_rotation = max(set(angles), key=angles.count)
+        print(f"Mode rotation calculated: {mode_rotation}°")
+        return mode_rotation
+    
+    def set_mode_orientation_enabled(self, enabled: bool, mode_rotation=None):
+        """
+        Enable or disable mode orientation feature.
+        
+        Args:
+            enabled: Whether to enable mode orientation
+            mode_rotation: Pre-calculated mode rotation value (optional)
+                          If None and enabled=True, will calculate automatically
+        
+        Returns:
+            The mode rotation value if enabled, None otherwise
+        """
+        if enabled:
+            # Calculate mode rotation if not provided
+            if mode_rotation is None:
+                mode_rotation = self.calculate_mode_rotation()
+            
+            if mode_rotation is not None:
+                # Update widget display
+                self._rotation_widget.set_mode_orientation_enabled(True)
+                print(f"Mode orientation enabled: {mode_rotation}°")
+            else:
+                print("Failed to calculate mode rotation")
+                return None
+        else:
+            # Disable mode orientation
+            self._rotation_widget.set_mode_orientation_enabled(False)
+            mode_rotation = None
+            print("Mode orientation disabled")
+        
+        return mode_rotation
+    
+    def handle_auto_orientation_request(self, orientation_model: int, mode_enabled: bool):
+        """
+        Handle auto orientation request from widget.
+        
+        This combines orientation model update and mode orientation enable/disable.
+        Panel manages the state internally.
+        
+        Args:
+            orientation_model: The orientation model index
+            mode_enabled: Whether to enable mode orientation
+        
+        Returns:
+            The mode rotation value if enabled, None otherwise
+        """
+        # Store orientation model
+        self._orientation_model = orientation_model
+        
+        # Update orientation model
+        self.set_orientation_model(orientation_model)
+        
+        # Update mode orientation (with cached value)
+        self._mode_rotation = self.set_mode_orientation_enabled(
+            mode_enabled, 
+            self._mode_rotation if hasattr(self, '_mode_rotation') else None
+        )
+        
+        return self._mode_rotation
     
     # ==================== Batch Operations ====================
     
@@ -791,7 +1027,7 @@ class ImageSettingsPanel(QWidget):
             print("No center settings file found")
     
     def _save_center_settings(self):
-        """Save center settings to JSON."""
+        """Save center settings to JSON and update mode statistics."""
         if not self._settings_dir:
             return
         
@@ -803,6 +1039,10 @@ class ImageSettingsPanel(QWidget):
             with open(settings_path, 'w') as f:
                 json.dump(self._center_settings, f, indent=2)
             print(f"Saved center settings for {len(self._center_settings)} images")
+            
+            # Auto-update mode statistics after saving
+            if self._file_manager and self._file_manager.names:
+                self._update_mode_statistics_internal()
         except Exception as e:
             print(f"Error saving center settings: {e}")
     
@@ -821,7 +1061,7 @@ class ImageSettingsPanel(QWidget):
             print("No rotation settings file found")
     
     def _save_rotation_settings(self):
-        """Save rotation settings to JSON."""
+        """Save rotation settings to JSON and update mode statistics."""
         if not self._settings_dir:
             return
         
@@ -833,6 +1073,10 @@ class ImageSettingsPanel(QWidget):
             with open(settings_path, 'w') as f:
                 json.dump(self._rotation_settings, f, indent=2)
             print(f"Saved rotation settings for {len(self._rotation_settings)} images")
+            
+            # Auto-update mode statistics after saving
+            if self._file_manager and self._file_manager.names:
+                self._update_mode_statistics_internal()
         except Exception as e:
             print(f"Error saving rotation settings: {e}")
 

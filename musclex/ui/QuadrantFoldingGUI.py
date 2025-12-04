@@ -254,8 +254,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.calSettings = None
         self.ignoreFolds = set()
         self.csv_bg = None
-        self.orientationModel = None
-        self.modeOrientation = None
+        # NOTE: orientationModel and modeOrientation now managed by ImageSettingsPanel
+        # Access via: self.image_settings_panel._orientation_model, self.image_settings_panel._mode_rotation
         self.stop_process = False
         self.chordLines = []
         self.chordpoints = []
@@ -1049,8 +1049,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # QF-specific center buttons (keep these)
         self.centerSettings.calibrationButton.clicked.connect(self.calibrationClicked)
-        # NOTE: setCenterRotation is now handled by ImageSettingsPanel
         self.centerSettings.setCentBtn.clicked.connect(self.setCentBtnClicked)
+        # NOTE: setCenterRotation is now handled by ImageSettingsPanel
         
         # ===== Rotation Settings Widget Connections =====
         # NOTE: Rotation tool button is handled by ImageSettingsPanel
@@ -1058,7 +1058,7 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # QF-specific rotation buttons (keep these)
         self.rotationSettings.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
-        self.rotationSettings.autoOrientationRequested.connect(self._handle_auto_orientation)
+        # NOTE: autoOrientationRequested is now connected directly in ImageSettingsPanel
         
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
@@ -1140,9 +1140,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
 
-    def updateCurrentCenter(self, center):
-        """Update the displayed center in the center settings widget"""
-        self.centerSettings.update_current_center(center)
+    # NOTE: updateCurrentCenter removed - use image_settings_panel.update_display() instead
 
 
 
@@ -1566,7 +1564,13 @@ class QuadrantFoldingGUI(BaseGUI):
 
                 if dialogCode == QDialog.Accepted:
                     center = self.setCentDialog.center
-                    self.setCenter(center, "SetCentDialog")
+                    # Set center using Panel's public method
+                    self.image_settings_panel.set_center_from_source(
+                        self.file_manager.current_image_name,
+                        center,
+                        "SetCentDialog"
+                    )
+                    # NOTE: set_center_from_source already updates UI via update_display()
                     self.processImage()
                 else:
                     assert dialogCode == QDialog.Rejected, f"SetCentDialog closed with unexpected code:{dialogCode}"
@@ -1732,39 +1736,17 @@ class QuadrantFoldingGUI(BaseGUI):
 
                 if dialogCode == QDialog.Accepted:
                     angle = self.setAngleDialog.get_angle()
-                    self.setAngle(angle, "SetAngleDialog")
+                    # Set rotation using Panel's public method
+                    self.image_settings_panel.set_rotation_from_source(
+                        self.file_manager.current_image_name,
+                        angle,
+                        "SetAngleDialog"
+                    )
                     self.processImage()
                 else:
                     assert dialogCode == QDialog.Rejected, f"SetAngleDialog closed with unexpected code:{dialogCode}"
     
-    def _handle_auto_orientation(self, orientation_model, mode_enabled):
-        """
-        Handle Auto Orientation request from widget (dialog already shown).
-        
-        Args:
-            orientation_model: The selected orientation model index
-            mode_enabled: Whether mode orientation is enabled
-        """
-        # Update orientation model
-        if orientation_model != self.orientationModel:
-            self.orientationModel = orientation_model
-            # Update widget's internal state
-            self.rotationSettings.set_orientation_model(orientation_model)
-            if self.current_image_data:
-                # Reset rotation to force recalculation with new orientation model
-                self.current_image_data.update_manual_rotation(None)
-                self.processImage()
-        
-        # Update mode orientation
-        if mode_enabled:
-            # Calculate mode orientation if not already done
-            if self.modeOrientation is None:
-                self.modeOrientation = self.getModeRotation()
-        else:
-            self.modeOrientation = None
-        
-        # Update widget's internal state
-        self.rotationSettings.set_mode_orientation_enabled(mode_enabled)
+    # NOTE: _handle_auto_orientation removed - fully handled by ImageSettingsPanel now
 
 
     def calibrationClicked(self):
@@ -1805,19 +1787,21 @@ class QuadrantFoldingGUI(BaseGUI):
 
                 if self.calSettings is not None:
                     if 'center' in self.calSettings:
-                        # Use setCenter to handle everything (imageCenterSettings, quadFold.center, etc.)
-                        self.setCenter(self.calSettings['center'], "calibration")
+                        # Set center using Panel's public method
+                        self.image_settings_panel.set_center_from_source(
+                            self.file_manager.current_image_name,
+                            self.calSettings['center'],
+                            "calibration"
+                        )
+                        # NOTE: set_center_from_source already updates UI via update_display()
                     else:
                         # Remove calibration center if unchecked
-                        if self.file_manager:
-                            filename = self.file_manager.current_image_name
-                            if filename in self.image_settings_panel._center_settings:
-                                del self.image_settings_panel._center_settings[filename]
-                                self.image_settings_panel.save_settings()
-                                self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
-                        # Reset center to None to allow auto calculation
-                        if self.current_image_data is not None:
-                            self.current_image_data.update_manual_center(None)
+                        # Use Panel's public method to clear center
+                        self.image_settings_panel.set_center_from_source(
+                            self.file_manager.current_image_name,
+                            None,
+                            "calibration_cleared"
+                        )
 
                 return True
         return False
@@ -2386,39 +2370,9 @@ class QuadrantFoldingGUI(BaseGUI):
     # NOTE: updateCenterModeIndicator and updateRotationModeIndicator removed
     # These are now handled by ImageSettingsPanel.update_display()
 
-    def orientationModelChanged(self):
-        """
-        Triggered when the orientation model is changed
-        NOTE: This is now handled by setAutoOrientationClicked dialog
-        """
-        if self.current_image_data is None:
-            return
-        # Reset rotation to force recalculation with new orientation model
-        self.current_image_data.update_manual_rotation(None)
-        self.processImage()
+    # NOTE: orientationModelChanged removed - fully handled by ImageSettingsPanel.set_orientation_model() now
 
-    def getModeRotation(self):
-        """
-        open images and calculate the mode orientation
-        :param file_list: list of image path (str)
-        :return: mode of orientation of all images in the folder
-        """
-        if self.modeOrientation is not None:
-            return self.modeOrientation
-        print("Calculating mode of angles of images in directory")
-        angles = []
-        for f in self.file_manager.names:
-            img = self.file_manager.current_image
-            img_data = self._create_image_data(img, self.filePath, f)
-            quadFold = QuadrantFolder(img_data, self)
-            print(f'Getting angle {f}')
-
-            if 'auto_rotation' not in quadFold.info:
-                return None
-            angle = quadFold.info['auto_rotation']
-            angles.append(angle)
-        self.modeOrientation = max(set(angles), key=angles.count)
-        return self.modeOrientation
+    # NOTE: getModeRotation removed - use image_settings_panel.calculate_mode_rotation() directly
 
     def ableToProcess(self):
         """
@@ -2859,79 +2813,9 @@ class QuadrantFoldingGUI(BaseGUI):
         # Return zero extent and center
         return [0, 0], center
 
-    def setCenter(self, center, source):
-        """
-        Set center for current image (user action - saves to settings).
-        
-        Note: Caller should call processImage() after this to apply the change.
-        """
-        if self.current_image_data:
-            # Update ImageData's manual center
-            self.current_image_data.update_manual_center(center)
-            
-            # GUI responsibility: Save to settings
-            if self.file_manager:
-                filename = self.file_manager.current_image_name
-                self.image_settings_panel._center_settings[filename] = {
-                    'center': list(center),
-                    'source': source  # Track how this center was set
-                }
-                # Save to file immediately
-                self.image_settings_panel.save_settings()
-            
-            # GUI responsibility: Update UI
-            self.updateCurrentCenter(center)
-            self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
-            # NOTE: updateCenterModeIndicator is now handled by ImageSettingsPanel.update_display()
-            
-            print(f"Center set to {center} from source: {source}")
+    # NOTE: setCenter() removed - callers now directly use ImageSettingsPanel.set_center_from_source()
 
-    def setAngle(self, angle, source):
-        """
-        Set rotation angle for current image.
-        
-        The angle parameter is treated as an increment (delta) to be added to the current rotation.
-        This is because user rotations are performed on the already-transformed (displayed) image.
-        
-        Note: Caller should call processImage() after this to apply the change.
-        
-        Args:
-            angle: Rotation angle increment in degrees (relative to current displayed image)
-            source: String describing the source of the angle setting
-        """
-        if self.current_image_data:
-            # Get current rotation from ImageData (may be auto-calculated or manual)
-            current_rotation = self.current_image_data.rotation
-            if current_rotation is None:
-                current_rotation = 0.0
-            
-            # Calculate new absolute rotation relative to original image
-            # User's angle is relative to the currently displayed (transformed) image,
-            # so we accumulate it
-            new_rotation = current_rotation + angle
-            
-            # Update ImageData's manual rotation
-            self.current_image_data.update_manual_rotation(new_rotation)
-            
-            # Store in rotation settings for current image
-            # Presence in this dict means manual mode, absence means auto mode
-            if self.file_manager:
-                filename = self.file_manager.current_image_name
-                self.image_settings_panel._rotation_settings[filename] = {
-                    'rotation': new_rotation,
-                    'source': source  # Track how this rotation was set
-                }
-                # Save to file immediately
-                self.image_settings_panel.save_settings()
-            
-            # Update mode display
-            self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
-            # NOTE: updateRotationModeIndicator is now handled by ImageSettingsPanel.update_display()
-            
-            # Update rotation angle display immediately (preview)
-            self.rotationSettings.update_rotation_display(new_rotation)
-            
-            print(f"Rotation increment: {angle:.2f}° from {source}, new rotation: {new_rotation:.2f}°")
+    # NOTE: setAngle() removed - callers now directly use ImageSettingsPanel.set_rotation_from_source()
 
     def updateResultTab(self):
         """
@@ -3050,15 +2934,10 @@ class QuadrantFoldingGUI(BaseGUI):
             self.toggleCircleTransition()
             self.toggleCircleRmin()
             
-            # Update center display with transformed coordinates
-            self.updateCurrentCenter(self.quadFold.center)
-            
-            # Update rotation angle display (rotation is the angle relative to original image)
-            base_rotation = self.quadFold.rotation
-            if base_rotation is not None:
-                self.rotationSettings.update_rotation_display(base_rotation)
-            else:
-                self.rotationSettings.update_rotation_display(0.0)
+            # Update settings panel display (shows current center and rotation)
+            # This is needed after processing to reflect auto-calculated values
+            if self.current_image_data:
+                self.image_settings_panel.update_display(self.current_image_data)
 
             self.saveResults()
             QApplication.restoreOverrideCursor()
@@ -3285,7 +3164,8 @@ class QuadrantFoldingGUI(BaseGUI):
         try:
             info = self.quadFold.info
             if 'orientation_model' in info:
-                self.orientationModel = info['orientation_model']
+                # Update Panel's orientation model from cached info
+                self.image_settings_panel._orientation_model = info['orientation_model']
             if not self.zoomOutClicked and self.quadFold.initImg is not None:
                 _, center = self.getExtentAndCenter()
                 print(center)
@@ -3360,7 +3240,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags = {}
 
         # image
-        flags['orientation_model'] = self.orientationModel
+        flags['orientation_model'] = self.image_settings_panel._orientation_model
         flags["ignore_folds"] = self.ignoreFolds
 
         # Check if empty cell image settings exist and is enabled
@@ -3418,9 +3298,15 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
         # Apply mode orientation if enabled
-        if self.modeOrientation is not None:
-            self.setAngle(self.modeOrientation, "ModeAngle")
-            flags["mode_angle"] = self.modeOrientation
+        mode_rotation = self.image_settings_panel._mode_rotation
+        if mode_rotation is not None:
+            # Set rotation using Panel's public method
+            self.image_settings_panel.set_rotation_from_source(
+                self.file_manager.current_image_name,
+                mode_rotation,
+                "ModeAngle"
+            )
+            flags["mode_angle"] = mode_rotation
 
         if self.rminSpnBx.value() > 0:
             flags['fixed_rmin'] = self.rminSpnBx.value()
@@ -3555,13 +3441,17 @@ class QuadrantFoldingGUI(BaseGUI):
         # ✅ Get manual settings from ImageSettingsPanel
         manual_center, manual_rotation = self.image_settings_panel.get_manual_settings(img_name)
         
+        # Get orientation_model from Panel (or use default)
+        orientation_model = getattr(self.image_settings_panel, '_orientation_model', 0)
+        
         # Create ImageData object (blank/mask are auto-detected)
         return ImageData(
             img=img,
             img_path=img_path,
             img_name=img_name,
             center=manual_center,
-            rotation=manual_rotation
+            rotation=manual_rotation,
+            orientation_model=orientation_model
         )
 
     def browseFolder(self):
@@ -3675,10 +3565,12 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Show orientation finding method
         orientation_methods = ["Max Intensity", "GMM", "Herman Factor (Half Pi)", "Herman Factor (Pi)"]
-        orientation_text = orientation_methods[self.orientationModel] if self.orientationModel is not None else "Max Intensity"
+        orientation_model = self.image_settings_panel._orientation_model
+        orientation_text = orientation_methods[orientation_model] if orientation_model is not None else "Max Intensity"
         text += "\n  - Orientation Finding : " + orientation_text
         
-        if self.modeOrientation is not None:
+        mode_rotation = self.image_settings_panel._mode_rotation
+        if mode_rotation is not None:
             text += "\n  - Mode Orientation : Enabled"
         
         # Show empty cell image configuration if exists
