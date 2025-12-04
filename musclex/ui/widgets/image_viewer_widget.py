@@ -127,7 +127,7 @@ class ImageViewerWidget(QWidget):
         self.double_zoom = DoubleZoomWidget(
             self.axes, 
             parent=self,  # Parent is ImageViewerWidget for UI hierarchy
-            get_image_func=self._get_current_image_data  # Callback to get current image
+            get_image_func=self.get_current_image_data  # Callback to get current image
         )
         # DoubleZoomWidget is initialized in ready state (disabled) by default
         
@@ -173,16 +173,19 @@ class ImageViewerWidget(QWidget):
     
     # ===== Internal Helper Methods =====
     
-    def _get_current_image_data(self):
+    def get_current_image_data(self):
         """
-        Get current image data for DoubleZoom and other components.
+        Get current image data being displayed.
+        
+        This is the public API for accessing the currently displayed image.
+        Useful for dialogs, tools, and other components that need the current image.
         
         This method provides backward compatibility:
         1. First checks _current_image (set by display_image())
         2. Falls back to extracting from axes.images (for legacy code)
         
         Returns:
-            numpy.ndarray or None: Current image data
+            numpy.ndarray or None: Current image data, or None if no image is displayed
         """
         # Check if image was set through display_image()
         if self._current_image is not None:

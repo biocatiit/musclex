@@ -187,6 +187,9 @@ class ImageSettingsPanel(QWidget):
         self._rotation_widget.setRotationButton.clicked.connect(
             lambda checked: self._on_rotation_button_clicked(checked)
         )
+        self._rotation_widget.setAngleBtn.clicked.connect(
+            self._on_set_angle_manually_clicked
+        )
         
         # Tool completed -> Handle result
         self._image_viewer.toolCompleted.connect(self._on_tool_completed)
@@ -266,14 +269,17 @@ class ImageSettingsPanel(QWidget):
         
         Opens SetCentDialog for user to manually input center coordinates.
         """
-        if not self._current_image_data or not self._file_manager:
+        if not self._current_image_data or not self._image_viewer:
             return
         
         center = self._current_image_data.center
         if not center:
             return
         
-        img = self._file_manager.current_image.copy()
+        # Get current displayed image from image_viewer (may be transformed)
+        img = self._image_viewer.get_current_image_data()
+        if img is None:
+            return
         
         # Get display settings from image_viewer
         display_settings = self._image_viewer.get_display_options()
@@ -306,6 +312,59 @@ class ImageSettingsPanel(QWidget):
             self.needsReprocess.emit()
             
             print(f"Center manually set to {new_center} from SetCentDialog")
+    
+    def _on_set_angle_manually_clicked(self):
+        """
+        Handle 'Set Angle Manually' button click.
+        
+        Opens SetAngleDialog for user to manually adjust rotation angle.
+        """
+        if not self._current_image_data or not self._image_viewer:
+            return
+        
+        # Get current displayed image from image_viewer (transformed by processor)
+        img = self._image_viewer.get_current_image_data()
+        if img is None:
+            return
+        
+        rotation = self._current_image_data.rotation or 0.0
+        
+        # For transformed images, center is at image center
+        h, w = img.shape
+        display_center = (w // 2, h // 2)
+        
+        # Get display settings from image_viewer
+        display_settings = self._image_viewer.get_display_options()
+        
+        # Import SetAngleDialog
+        from ..SetAngleDialog import SetAngleDialog
+        
+        # Show dialog with transformed image and center
+        dialog = SetAngleDialog(
+            self,
+            img,
+            display_center,
+            rotation,
+            isLogScale=display_settings['log_scale'],
+            vmin=display_settings['vmin'],
+            vmax=display_settings['vmax']
+        )
+        
+        if dialog.exec():
+            # User accepted - get the angle increment
+            angle_increment = dialog.get_angle()
+            
+            # Save using public method
+            self.set_rotation_from_source(
+                self._current_filename,
+                angle_increment,
+                "SetAngleDialog"
+            )
+            
+            # Emit needsReprocess
+            self.needsReprocess.emit()
+            
+            print(f"Rotation manually set with increment {angle_increment:.2f}° from SetAngleDialog")
     
     # ==================== Tool Completion Handlers ====================
     
