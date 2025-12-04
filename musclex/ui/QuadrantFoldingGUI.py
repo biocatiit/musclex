@@ -54,8 +54,7 @@ from .ImageMaskTool import ImageMaskerWindow
 # from .DoubleZoomGUI import DoubleZoom
 # from .DoubleZoomViewer import DoubleZoom
 from .widgets.double_zoom_widget import DoubleZoomWidget
-# NOTE: SetCentDialog moved to ImageSettingsPanel
-from .SetAngleDialog import SetAngleDialog
+# NOTE: SetCentDialog and SetAngleDialog moved to ImageSettingsPanel
 from .ImageBlankDialog import ImageBlankDialog
 from .ImageMaskDialog import ImageMaskDialog
 from ..CalibrationSettings import CalibrationSettings
@@ -273,9 +272,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
 
-        # NOTE: setCentDialog moved to ImageSettingsPanel
-
-        self.setAngleDialog = None
+        # NOTE: setCentDialog and setAngleDialog moved to ImageSettingsPanel
 
         self.rotationAngle = None
 
@@ -1050,9 +1047,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # NOTE: Rotation tool button is handled by ImageSettingsPanel
         # NOTE: Apply/Restore are handled by ImageSettingsPanel
         
-        # QF-specific rotation buttons (keep these)
-        self.image_settings_panel._rotation_widget.setAngleBtn.clicked.connect(self.setAngleBtnClicked)
-        # NOTE: autoOrientationRequested is now connected directly in ImageSettingsPanel
+        # NOTE: setAngleBtn and autoOrientationRequested are now connected directly in ImageSettingsPanel
         
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
@@ -1674,43 +1669,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # The event has already been modified and passed to tools
         # This is just for logging or additional processing if needed
 
-    def setAngleBtnClicked(self):
-        if self.quadFold:
-            start_img = self.quadFold.start_img
-            curr_img = self.quadFold.orig_img
-            # Get current center and transform info
-            center = self.quadFold.center
-            base_rotation = self.quadFold.rotation if self.quadFold.rotation is not None else 0.0
-            transform = self.quadFold.info.get("transform")
-
-            if (start_img is not None) and (curr_img is not None) and center and (transform is not None):
-                self.setAngleDialog = SetAngleDialog(self,
-                    start_img.copy(),
-                    curr_img.copy(),
-                    center,
-                    base_rotation,
-                    transform,
-                    isLogScale=self.logScaleIntChkBx.isChecked(),
-                    vmin=self.spminInt.value(),
-                    vmax=self.spmaxInt.value()
-                )
-                dialogCode = self.setAngleDialog.exec()
-
-                # print(f"setAngleDialog dialogCode: {dialogCode}")
-
-                if dialogCode == QDialog.Accepted:
-                    angle = self.setAngleDialog.get_angle()
-                    # Set rotation using Panel's public method
-                    self.image_settings_panel.set_rotation_from_source(
-                        self.file_manager.current_image_name,
-                        angle,
-                        "SetAngleDialog"
-                    )
-                    self.processImage()
-                else:
-                    assert dialogCode == QDialog.Rejected, f"SetAngleDialog closed with unexpected code:{dialogCode}"
-    
-    # NOTE: _handle_auto_orientation removed - fully handled by ImageSettingsPanel now
+    # NOTE: setAngleBtnClicked removed - fully handled by ImageSettingsPanel now
 
 
     def calibrationClicked(self):

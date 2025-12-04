@@ -57,11 +57,9 @@ from PySide6.QtCore import Qt
 class SetAngleDialog(QDialog):
     def __init__(self,
                 parent,
-                start_img,
                 img,
                 center,
                 base_rotation,
-                transform,
                 isLogScale,
                 vmin,
                 vmax
@@ -69,11 +67,9 @@ class SetAngleDialog(QDialog):
         super().__init__()
         self.setModal(True)
         self.setWindowTitle("Set Angle")
-        self.start_img = start_img
         self.img = img
         self.center = center
         self.base_rotation = base_rotation
-        self.transform = transform
         self.isLogScale = isLogScale
         self.vmin = vmin
         self.vmax = vmax
@@ -237,8 +233,8 @@ class SetAngleDialog(QDialog):
 
     def UpdateAngle(self):
         x, y = self.center
-        height = self.start_img.shape[0]
-        width = self.start_img.shape[1]
+        height = self.img.shape[0]
+        width = self.img.shape[1]
 
         angle = self.get_angle()
 
@@ -248,10 +244,10 @@ class SetAngleDialog(QDialog):
             1
         )
 
-        transform = self.merge_warps((self.transform, M))
+        # Simplified: directly rotate the current image
         transformed_img = cv2.warpAffine(
-            self.start_img,
-            transform,
+            self.img,
+            M,
             (width, height))
 
         if self.isLogScale:
@@ -276,16 +272,3 @@ class SetAngleDialog(QDialog):
         self.hline = self.imageAxes.axhline(y, color='y')
         # self.imageFigure.tight_layout()
         self.imageCanvas.draw_idle()
-
-    def merge_warps(self, warps):
-        M_total = np.eye(3, dtype=np.float32)
-
-        for W in warps:
-            # Convert 2x3 -> 3x3
-            W_h = np.vstack([W, [0, 0, 1]])
-            # Multiply (note: last one in list applies last)
-            M_total = W_h @ M_total
-
-        # Convert back to 2x3
-        M = M_total[:2, :]
-        return M
