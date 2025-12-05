@@ -332,7 +332,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.hull_ranges = {}
         self.centerx = None
         self.centery = None
-        self.center_func = None
+        # Note: center_func removed - center state now managed by ImageData
         self.rotated = True
         self.rotationAngle = 0
         self.calSettingsDialog = None
@@ -727,8 +727,8 @@ class ProjectionTracesGUI(BaseGUI):
         center = None
         if self.projProc is not None:
             if quadrant_folded:
-                # For quadrant folded images, use geometric center directly
-                center = (self.projProc.orig_img.shape[1] / 2, self.projProc.orig_img.shape[0] / 2)
+                # For quadrant folded images, use geometric center from ImageData
+                center = self.projProc._image_data.geometric_center
                 print(f"Quadrant folded image - using geometric center: {center}")
             elif 'orig_center' in self.projProc.info:
                 # Use original center for normal images
@@ -806,17 +806,20 @@ class ProjectionTracesGUI(BaseGUI):
 
     def qfChkBxClicked(self):
         """
-        Triggered when the quandrant fold button is clicked
+        Triggered when the quadrant fold checkbox is clicked.
+        
+        Updates ImageData's quadrant_folded state to match user's selection.
         """
+        # Update ImageData's quadrant_folded state
+        if self.projProc and self.projProc._image_data:
+            self.projProc._image_data.quadrant_folded = self.qfChkBx.isChecked()
+        
+        # Update rotated flag
         if self.qfChkBx.isChecked():
-            self.center_func = 'quadrant_fold'
             self.rotated = False
-        elif self.center_func == 'init':
-            self.rotated = False
-            pass
         else:
-            self.center_func = 'automatic'
             self.rotated = True
+        
         self.updateCenter()
         print("qfbox")
         self.processImage()
@@ -1677,7 +1680,6 @@ class ProjectionTracesGUI(BaseGUI):
                 # Legacy variables kept for compatibility
                 self.rotationAngle = new_angle
                 # Note: setRotAndCentB button now managed by ImageSettingsPanel
-                self.center_func = 'manual'
                 self.rotated = True
                 self.updateCenter()
                 self.removeAllTabs()
@@ -2226,7 +2228,7 @@ class ProjectionTracesGUI(BaseGUI):
                 self.hull_ranges = cache['hull_ranges']
                 self.centerx = cache['centerx']
                 self.centery = cache['centery']
-                self.center_func = cache['center_func']
+                # Note: center_func removed - no longer needed with ImageData
                 for name, box in self.allboxes.items():
                     self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
             else:
@@ -2289,8 +2291,8 @@ class ProjectionTracesGUI(BaseGUI):
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
         
-        # Auto-detect quadrant folded images
-        self.autoDetectQuadrantFolded()
+        # Sync quadrant folded state from ImageData to checkbox
+        self.syncQuadrantFoldedState(current_image_data)
         
         # Launch calibration settings on first run
         if first_run:
@@ -2300,68 +2302,30 @@ class ProjectionTracesGUI(BaseGUI):
         self.initMinMaxIntensities(self.projProc)
         self.img_zoom = None
         self.refreshStatusbar()
-        if self.center_func is None:
-            self.center_func = 'init'
         self.updateCenter() # do not update fit results
         # Process new image
         self.processImage()
 
-    def autoDetectQuadrantFolded(self):
+    def syncQuadrantFoldedState(self, image_data):
         """
-        Auto-detect if the current image is quadrant folded based on:
-        1. Filename containing 'folded'
-        2. TIFF metadata
-        Updates the qfChkBx checkbox state accordingly.
+        Sync quadrant folded state from ImageData to GUI checkbox.
+        
+        ImageData auto-detects quadrant folded from filename/metadata,
+        this method just syncs the result to the UI.
+        
+        Args:
+            image_data: ImageData object with auto-detected quadrant_folded state
         """
         if self.projProc is None:
             return
         
-        quadrant_folded = False
-        filename = self.imgList[self.current_file]
-        
-        # Detection logic matching EquatorImage.py
-        if filename.endswith('.tif') or filename.endswith('.tiff'):
-            # Try to read metadata first (for both methods)
-            metadata = None
-            try:
-                filepath = fullPath(self.dir_path, filename)
-                with tifffile.TiffFile(filepath) as tif:
-                    if tif.pages and "ImageDescription" in tif.pages[0].tags:
-                        metadata = tif.pages[0].tags["ImageDescription"].value
-            except Exception as e:
-                print(f"Could not read metadata from {filename}: {e}")
-            
-            # Method 1: Check filename for 'folded'
-            if 'folded' in filename.lower():
-                quadrant_folded = True
-                print(f"Detected quadrant folded image from filename: {filename}")
-            # Method 2: Parse metadata (only if filename doesn't contain 'folded')
-            else:
-                if metadata:
-                    try:
-                        # Try to parse as JSON: [quadrant_folded, initialImgDim]
-                        parsed = json.loads(metadata)
-                        if isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
-                            quadrant_folded = bool(parsed[0])
-                            if quadrant_folded:
-                                print(f"Detected quadrant folded image from TIFF metadata: {filename}")
-                    except (json.JSONDecodeError, ValueError, TypeError):
-                        # Metadata is not in expected format, not quadrant folded
-                        pass
-        else:
-            # For non-TIFF files, only check filename
-            if 'folded' in filename.lower():
-                quadrant_folded = True
-                print(f"Detected quadrant folded image from filename: {filename}")
+        # Get auto-detected state from ImageData
+        quadrant_folded = image_data.is_quadrant_folded
         
         # Update checkbox state (disconnect signal to avoid triggering processImage again)
         self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
         self.qfChkBx.setChecked(quadrant_folded)
         self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-        
-        # Update center_func if quadrant folded
-        if quadrant_folded:
-            self.center_func = 'quadrant_fold'
 
     def initMinMaxIntensities(self, projProc):
         """
@@ -2403,35 +2367,19 @@ class ProjectionTracesGUI(BaseGUI):
 
     def updateCenter(self, refit=False):
         """
-        Update the image center
-        :return:
+        Update the image center (simplified - center is now managed by ImageData).
+        
+        This method now mainly syncs legacy variables (centerx/centery) from
+        the ImageData's dynamic center property and ensures checkbox state is correct.
         """
-        if self.center_func == 'automatic':
-            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
-            self.centerx, self.centery = center
-            if self.qfChkBx.isChecked():
-                self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked) # Avoid second runs at launch
-                self.qfChkBx.setChecked(False)
-                self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-        elif self.center_func == 'quadrant_fold': # default to quadrant folded
-            self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
-            self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
-        elif self.center_func == 'init': # loading from the cache if it exists
-            center = self.projProc.center
-            self.centerx = center[0]
-            self.centery = center[1]
-            if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
-                self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
-                self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
-                self.qfChkBx.setChecked(False)
-                self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-        elif self.center_func == 'manual':
-            self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
-            self.qfChkBx.setChecked(False)
-            self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-
-        # Note: center is now a dynamic property from ImageData
-
+        if self.projProc is None:
+            return
+        
+        # Get center from ImageData (handles quadrant_folded, manual, computed automatically)
+        center = self.projProc.center
+        self.centerx = center[0]
+        self.centery = center[1]
+        
         self.projProc.cache = None
         self.refit = refit
 
@@ -2572,7 +2520,7 @@ class ProjectionTracesGUI(BaseGUI):
             'hull_ranges' : self.hull_ranges,
             'centerx' : self.centerx,
             'centery' : self.centery,
-            'center_func' : self.center_func,
+            # Note: center_func removed - state now in ImageData
             'mask_thres' : self.maskThresSpnBx.value()
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
@@ -2628,9 +2576,8 @@ class ProjectionTracesGUI(BaseGUI):
             settings['refit'] = self.refit
             self.refit = False
 
-        if self.center_func == 'manual' or self.rotated:
+        if self.rotated:
             settings['rotated'] = True
-            self.rotated = True
             if self.rotationAngle != 0:
                 settings['rotationAngle'] = self.rotationAngle
 
@@ -2642,10 +2589,12 @@ class ProjectionTracesGUI(BaseGUI):
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
             
             # For quadrant folded images, never use calibrated center (always use geometric center)
+            # For manual center, also don't override with calibrated center
             quadrant_folded = self.qfChkBx.isChecked()
-            if "center" in self.calSettings and self.center_func != 'manual' and not quadrant_folded:
+            has_manual_center = (self.projProc and self.projProc._image_data and 
+                                self.projProc._image_data.has_manual_center)
+            if "center" in self.calSettings and not has_manual_center and not quadrant_folded:
                 settings["center"] = self.calSettings["center"]
-                # Note: center is now a dynamic property from ImageData
             
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]
