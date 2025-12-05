@@ -134,6 +134,54 @@ class ImageData:
         # Load auto-calculated geometry from cache (if available)
         self._load_auto_cache()
     
+    # ==================== Factory Methods ====================
+    
+    @classmethod
+    def from_settings_panel(cls, img, img_path, img_name, settings_panel):
+        """
+        Factory method: Create ImageData from ImageSettingsPanel.
+        
+        This centralizes the logic of extracting settings from the panel
+        and creating an ImageData object. GUI code becomes simpler and
+        consistent across QuadrantFoldingGUI and ProjectionTracesGUI.
+        
+        Args:
+            img: Image array (numpy.ndarray)
+            img_path: Directory path (str or Path)
+            img_name: Image filename (str)
+            settings_panel: ImageSettingsPanel instance
+        
+        Returns:
+            ImageData object configured with panel settings
+        
+        Usage:
+            # In GUI code
+            image_data = ImageData.from_settings_panel(
+                img, self.file_manager.dir_path, img_name, self.image_settings_panel
+            )
+        """
+        # Get manual center/rotation from panel
+        manual_center, manual_rotation = settings_panel.get_manual_settings(img_name)
+        
+        # Get blank/mask configuration
+        blank_mask_config = settings_panel.get_blank_mask_config()
+        
+        # Get orientation model (if available, default to 0)
+        orientation_model = getattr(settings_panel, '_orientation_model', 0)
+        
+        # Create and return ImageData
+        return cls(
+            img=img,
+            img_path=img_path,
+            img_name=img_name,
+            center=manual_center,
+            rotation=manual_rotation,
+            orientation_model=orientation_model,
+            apply_blank=blank_mask_config['apply_blank'],
+            apply_mask=blank_mask_config['apply_mask'],
+            blank_weight=blank_mask_config['blank_weight']
+        )
+    
     # ==================== Properties ====================
     
     @property

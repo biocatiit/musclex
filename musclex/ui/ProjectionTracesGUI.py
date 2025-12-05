@@ -47,6 +47,7 @@ from musclex import __version__
 from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
+from ..utils.image_data import ImageData
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
 from ..CalibrationSettings import CalibrationSettings
@@ -104,37 +105,13 @@ class Worker(QRunnable):
                 img = self.params.file_manager.get_image_by_index(self.params.index)
                 filename = self.params.file_manager.names[self.params.index]
                 
-                # Create ImageData
+                # Create ImageData using factory method
                 from ..utils.image_data import ImageData
-                
-                # Get settings from ImageSettingsPanel
-                gui = self.params.gui
-                if hasattr(gui, 'image_settings_panel'):
-                    # Get manual center/rotation from Panel
-                    manual_center, manual_rotation = gui.image_settings_panel.get_manual_settings(filename)
-                    
-                    # Get blank/mask config from Panel
-                    blank_mask_config = gui.image_settings_panel.get_blank_mask_config()
-                else:
-                    # Fallback
-                    manual_center = None
-                    manual_rotation = None
-                    blank_mask_config = {
-                        'apply_blank': False,
-                        'apply_mask': False,
-                        'blank_weight': 1.0
-                    }
-                
-                image_data = ImageData(
-                    img=img,
-                    img_path=self.params.file_manager.dir_path,
-                    img_name=filename,
-                    center=manual_center,
-                    rotation=manual_rotation,
-                    apply_blank=blank_mask_config['apply_blank'],
-                    apply_mask=blank_mask_config['apply_mask'],
-                    blank_weight=blank_mask_config['blank_weight'],
-                    orientation_model=0
+                image_data = ImageData.from_settings_panel(
+                    img, 
+                    self.params.file_manager.dir_path, 
+                    filename,
+                    self.params.gui.image_settings_panel
                 )
                 
                 # Create ProjectionProcessor with ImageData
@@ -2208,48 +2185,7 @@ class ProjectionTracesGUI(BaseGUI):
         ax.invert_yaxis()
         self.displayImgCanvas.draw_idle()
 
-    def _create_image_data(self, img, img_path, img_name):
-        """
-        Create ImageData object with current settings from ImageSettingsPanel.
-        
-        Args:
-            img: Image array
-            img_path: Directory path
-            img_name: Image filename
-        
-        Returns:
-            ImageData object
-        """
-        from ..utils.image_data import ImageData
-        
-        # Get settings from ImageSettingsPanel
-        if hasattr(self, 'image_settings_panel'):
-            # Get manual center/rotation
-            manual_center, manual_rotation = self.image_settings_panel.get_manual_settings(img_name)
-            
-            # Get blank/mask config
-            blank_mask_config = self.image_settings_panel.get_blank_mask_config()
-        else:
-            # Fallback for initialization phase
-            manual_center = None
-            manual_rotation = None
-            blank_mask_config = {
-                'apply_blank': False,
-                'apply_mask': False,
-                'blank_weight': 1.0
-            }
-        
-        return ImageData(
-            img=img,
-            img_path=img_path,
-            img_name=img_name,
-            center=manual_center,
-            rotation=manual_rotation,
-            apply_blank=blank_mask_config['apply_blank'],
-            apply_mask=blank_mask_config['apply_mask'],
-            blank_weight=blank_mask_config['blank_weight'],
-            orientation_model=0  # PT doesn't use orientation models
-        )
+    # NOTE: _create_image_data() moved to ImageData.from_settings_panel() factory method
     
     def browseFile(self):
         """
@@ -2334,7 +2270,9 @@ class ProjectionTracesGUI(BaseGUI):
             img_name = self.file_manager.current_image_name
             
             # Create ImageData
-            current_image_data = self._create_image_data(img, self.dir_path, img_name)
+            current_image_data = ImageData.from_settings_panel(
+                img, self.dir_path, img_name, self.image_settings_panel
+            )
             
             # Create ProjectionProcessor with ImageData
             self.projProc = ProjectionProcessor(current_image_data)
