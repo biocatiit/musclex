@@ -120,33 +120,12 @@ class Worker(QRunnable):
             img = self.params.file_manager.get_image_by_index(self.params.index)
             filename = self.params.file_manager.names[self.params.index]
 
-            # Get manual center if exists
-            manual_center = None
-            if filename in self.imageCenterSettings:
-                settings = self.imageCenterSettings[filename]
-                if 'center' in settings:
-                    manual_center = tuple(settings['center'])
-            
-            # Get manual rotation if exists
-            manual_rotation = None
-            if filename in self.imageRotationSettings:
-                settings = self.imageRotationSettings[filename]
-                if 'rotation' in settings:
-                    manual_rotation = settings['rotation']
-            
-            # Get blank/mask config from settings panel
-            blank_mask_config = self.params.gui.image_settings_panel.get_blank_mask_config()
-            
-            # Create ImageData object with all settings from Panel
-            img_data = ImageData(
-                img=img,
-                img_path=self.params.file_manager.dir_path,
-                img_name=filename,
-                center=manual_center,
-                rotation=manual_rotation,
-                apply_blank=blank_mask_config['apply_blank'],
-                apply_mask=blank_mask_config['apply_mask'],
-                blank_weight=blank_mask_config['blank_weight']
+            # Create ImageData using factory method (gets all settings from Panel)
+            img_data = ImageData.from_settings_panel(
+                img, 
+                self.params.file_manager.dir_path, 
+                filename, 
+                self.params.gui.image_settings_panel
             )
 
             self.quadFold = QuadrantFolder(img_data, self.params.parent)
@@ -1273,7 +1252,9 @@ class QuadrantFoldingGUI(BaseGUI):
             self.quadFold.delCache()
             fileName = self.file_manager.current_image_name
             img = self.file_manager.current_image
-            self.current_image_data = self._create_image_data(img, self.filePath, fileName)
+            self.current_image_data = ImageData.from_settings_panel(
+                img, self.filePath, fileName, self.image_settings_panel
+            )
             self.quadFold = QuadrantFolder(self.current_image_data, self)
             self.processImage()
 
@@ -3129,7 +3110,9 @@ class QuadrantFoldingGUI(BaseGUI):
                     try:
                         # Load ndarray via spec and construct QuadrantFolder
                         img = self.file_manager.current_image
-                        self.current_image_data = self._create_image_data(img, self.filePath, fileName)
+                        self.current_image_data = ImageData.from_settings_panel(
+                            img, self.filePath, fileName, self.image_settings_panel
+                        )
                         self.quadFold = QuadrantFolder(self.current_image_data, self)
 
                         success = self.setCalibrationImage(force=True)
@@ -3178,37 +3161,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.uiUpdating = False
 
     # NOTE: load/save CenterSettings and RotationSettings are now handled by ImageSettingsPanel
-
-    def _create_image_data(self, img, img_path, img_name):
-        """
-        Create ImageData object with manual center/rotation if available.
-        
-        :param img: Raw image array
-        :param img_path: Directory path containing the image
-        :param img_name: Image filename
-        :return: ImageData object
-        """
-        # ✅ Get manual settings from ImageSettingsPanel
-        manual_center, manual_rotation = self.image_settings_panel.get_manual_settings(img_name)
-        
-        # Get orientation_model from Panel (or use default)
-        orientation_model = getattr(self.image_settings_panel, '_orientation_model', 0)
-        
-        # ✅ Get blank/mask config from Panel (not auto-detected by ImageData)
-        blank_mask_config = self.image_settings_panel.get_blank_mask_config()
-        
-        # Create ImageData object with all settings from Panel
-        return ImageData(
-            img=img,
-            img_path=img_path,
-            img_name=img_name,
-            center=manual_center,
-            rotation=manual_rotation,
-            orientation_model=orientation_model,
-            apply_blank=blank_mask_config['apply_blank'],
-            apply_mask=blank_mask_config['apply_mask'],
-            blank_weight=blank_mask_config['blank_weight']
-        )
+    # NOTE: _create_image_data() moved to ImageData.from_settings_panel() factory method
 
     def browseFolder(self):
         """
@@ -3490,7 +3443,9 @@ class QuadrantFoldingGUI(BaseGUI):
         img = self.file_manager.current_image
         
         # Create ImageData with manual center/rotation automatically loaded from settings
-        self.current_image_data = self._create_image_data(img, self.file_manager.dir_path, filename)
+        self.current_image_data = ImageData.from_settings_panel(
+            img, self.file_manager.dir_path, filename, self.image_settings_panel
+        )
         self.quadFold = QuadrantFolder(self.current_image_data, self)
         
         # Don't clear info - let cache work!
