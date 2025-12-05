@@ -57,12 +57,20 @@ from .pyqt_utils import *
 from .base_gui import BaseGUI
 
 class ProjectionParams:
-    def __init__(self, dir_path, img_name, fileList, ext, settings):
+    def __init__(self, settings, index, file_manager, gui):
+        """
+        Parameters for Worker thread (batch processing).
+        
+        Args:
+            settings: Processing settings dict
+            index: Image index in file_manager.names
+            file_manager: FileManager instance
+            gui: Parent GUI instance (for accessing image_settings_panel)
+        """
         self.settings = settings
-        self.dir_path = dir_path
-        self.img_name = img_name
-        self.fileList = fileList
-        self.ext = ext
+        self.index = index
+        self.file_manager = file_manager
+        self.gui = gui
 
 class WorkerSignals(QObject):
     
@@ -92,13 +100,53 @@ class Worker(QRunnable):
     def run(self):
         try:
             if self.projProc is None and self.params:
-                self.projProc = ProjectionProcessor(self.params.dir_path, self.params.img_name, self.params.fileList, self.params.ext)
+                # Load image from FileManager
+                img = self.params.file_manager.get_image_by_index(self.params.index)
+                filename = self.params.file_manager.names[self.params.index]
+                
+                # Create ImageData
+                from ..utils.image_data import ImageData
+                
+                # Get settings from ImageSettingsPanel
+                gui = self.params.gui
+                if hasattr(gui, 'image_settings_panel'):
+                    # Get manual center/rotation from Panel
+                    manual_center, manual_rotation = gui.image_settings_panel.get_manual_settings(filename)
+                    
+                    # Get blank/mask config from Panel
+                    blank_mask_config = gui.image_settings_panel.get_blank_mask_config()
+                else:
+                    # Fallback
+                    manual_center = None
+                    manual_rotation = None
+                    blank_mask_config = {
+                        'apply_blank': False,
+                        'apply_mask': False,
+                        'blank_weight': 1.0
+                    }
+                
+                image_data = ImageData(
+                    img=img,
+                    img_path=self.params.file_manager.dir_path,
+                    img_name=filename,
+                    center=manual_center,
+                    rotation=manual_rotation,
+                    apply_blank=blank_mask_config['apply_blank'],
+                    apply_mask=blank_mask_config['apply_mask'],
+                    blank_weight=blank_mask_config['blank_weight'],
+                    orientation_model=0
+                )
+                
+                # Create ProjectionProcessor with ImageData
+                self.projProc = ProjectionProcessor(image_data)
+            
             self.projProc.process(self.settings)
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
             infMsg = QMessageBox()
-            infMsg.setText("Error trying to open " + str(self.params.img_name))
+            img_name = self.params.file_manager.names[self.params.index] if self.params else "unknown"
+            infMsg.setText("Error trying to open " + str(img_name))
             infMsg.setInformativeText("This usually means that the image is corrupted or missing.  Skipping this image")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
@@ -282,6 +330,8 @@ class ProjectionTracesGUI(BaseGUI):
     """
     def __init__(self):
         super().__init__()
+        # Note: self.file_manager is now initialized by BaseGUI
+        # PT keeps current_file/imgList/dir_path for backward compatibility with getImgFiles()
         self.current_file = 0
         self.dir_path = ""
         self.calSettings = None
@@ -362,7 +412,7 @@ class ProjectionTracesGUI(BaseGUI):
         self._create_pattern_settings()
         self._create_box_settings()
         self._create_peaks_settings()
-        self._create_blank_settings()
+        # Note: blank/mask settings now in ImageSettingsPanel (created in _create_pattern_settings)
         
         # Add navigation controls to bottom
         self._create_navigation()
@@ -370,24 +420,24 @@ class ProjectionTracesGUI(BaseGUI):
     
     def _create_pattern_settings(self):
         """Create pattern properties settings group"""
-        # Pattern Properties
+        # ===== ImageSettingsPanel (replaces center/rotation/blank buttons) =====
+        from .widgets.image_settings_panel import ImageSettingsPanel
+        
+        self.image_settings_panel = ImageSettingsPanel(
+            settings_dir=self.dir_path if hasattr(self, 'dir_path') else "",
+            image_viewer=self.image_viewer,
+            coord_transform_func=None,  # PT doesn't need coordinate transformation
+            file_manager=self.file_manager
+        )
+        
+        # Add ImageSettingsPanel to right panel
+        self.right_panel.add_widget(self.image_settings_panel)
+        
+        # ===== PT-specific settings (QF checkbox, mask threshold) =====
         self.propGrp = QGroupBox("Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
-
-        self.calibrateButton = QPushButton("Calibration Settings")
-        self.calSettingsDialog = None
-        self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
-        self.setRotAndCentB.setCheckable(True)
-        self.setCentByChords = QPushButton("Set Center by Chords")
-        self.setCentByChords.setCheckable(True)
-        self.checkableButtons.append(self.setCentByChords)
-        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
-        self.setCentByPerp.setCheckable(True)
-        self.checkableButtons.append(self.setCentByPerp)
-        self.setRotationButton = QPushButton("Set Rotation Angle")
-        self.setRotationButton.setCheckable(True)
-        self.checkableButtons.append(self.setRotationButton)
+        
         self.qfChkBx = QCheckBox("Quadrant Folded?")
         self.qfChkBx.setChecked(True)
         self.doubleZoom = QCheckBox("Double Zoom")
@@ -396,16 +446,11 @@ class ProjectionTracesGUI(BaseGUI):
         self.maskThresSpnBx.setMaximum(10000)
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
-
-        self.propLayout.addWidget(self.calibrateButton, 0, 0, 1, 4)
-        self.propLayout.addWidget(self.setCentByChords, 1, 0, 1, 4)
-        self.propLayout.addWidget(self.setCentByPerp, 2, 0, 1, 4)
-        self.propLayout.addWidget(self.setRotAndCentB, 3, 0, 1, 4)
-        self.propLayout.addWidget(self.setRotationButton, 4, 0, 1, 4)
-        self.propLayout.addWidget(self.qfChkBx, 5, 0, 1, 2)
-        self.propLayout.addWidget(self.doubleZoom, 5, 2, 1, 2)
-        self.propLayout.addWidget(QLabel('Mask Threshold:'), 6, 0, 1, 2)
-        self.propLayout.addWidget(self.maskThresSpnBx, 6, 2, 1, 2)
+        
+        self.propLayout.addWidget(self.qfChkBx, 0, 0, 1, 2)
+        self.propLayout.addWidget(self.doubleZoom, 0, 2, 1, 2)
+        self.propLayout.addWidget(QLabel('Mask Threshold:'), 1, 0, 1, 2)
+        self.propLayout.addWidget(self.maskThresSpnBx, 1, 2, 1, 2)
         
         # Add to right panel
         self.right_panel.add_widget(self.propGrp)
@@ -477,18 +522,7 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Note: imgZoomInB is already added to checkableButtons by display panel
     
-    def _create_blank_settings(self):
-        """Create blank image settings group"""
-        # Blank Image Settings
-        self.blankImageGrp = QGroupBox("Enable Blank Image and Mask")
-        self.blankImageGrp.setCheckable(True)
-        self.blankImageGrp.setChecked(False)
-        self.blankImageLayout = QVBoxLayout(self.blankImageGrp)
-        self.blankSettingButton = QPushButton("Set Blank Image and Mask")
-        self.blankImageLayout.addWidget(self.blankSettingButton)
-        
-        # Add to right panel
-        self.right_panel.add_widget(self.blankImageGrp)
+    # Note: _create_blank_settings() removed - blank/mask now handled by ImageSettingsPanel
     
     def _create_navigation(self):
         """Create navigation and process buttons"""
@@ -607,13 +641,13 @@ class ProjectionTracesGUI(BaseGUI):
         self.selectImageButton.clicked.connect(self.browseFile)
         self.selectFolder.clicked.connect(self.browseFile)
 
-        # # Pattern Properties
-        self.calibrateButton.clicked.connect(self.calibrationClicked)
-        self.setRotationButton.clicked.connect(self.setRotation)
-        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
+        # ImageSettingsPanel signals (replaces old center/rotation/blank connections)
+        if hasattr(self, 'image_settings_panel'):
+            self.image_settings_panel.needsReprocess.connect(self.processImage)
+            self.image_settings_panel.statusTextRequested.connect(self._on_status_text_requested)
+
+        # Pattern Properties (PT-specific)
         self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-        self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
 
         # Display options
@@ -626,9 +660,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
         self.logScaleIntChkBx.stateChanged.connect(self.updateImageTab)
 
-        # Blank Image
-        self.blankImageGrp.clicked.connect(self.blankChecked)
-        self.blankSettingButton.clicked.connect(self.blankSettingClicked)
+        # Note: Blank/Mask connections now handled by ImageSettingsPanel
 
         # Mask
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
@@ -661,6 +693,16 @@ class ProjectionTracesGUI(BaseGUI):
         self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
         self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
 
+    def _on_status_text_requested(self, text: str):
+        """
+        Handle status text update request from ImageSettingsPanel.
+        
+        Args:
+            text: Status text to display
+        """
+        if hasattr(self, 'statusReport'):
+            self.statusReport.setText(text)
+
     def saveSettings(self):
         """
         save settings to json
@@ -681,67 +723,7 @@ class ProjectionTracesGUI(BaseGUI):
                 with open(filename, 'w') as f:
                     json.dump(settings, f)
 
-    def blankChecked(self):
-        """
-        Handle when the Blank image and mask is checked or unchecked
-        """
-        if self.projProc is not None and not self.syncUI:
-            self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
-            self.projProc.info['hists'] = {}
-            self.masked = False
-            print("Blank checked")
-            self.processImage()
-            self.updateImage
-
-    def blankSettingClicked(self):
-        """
-        Trigger when Set Blank Image and Mask clicked
-        """
-
-        img = self.projProc.getRotatedImage()
-
-        try:
-            fabio.tifimage.tifimage(data=img).write(join(self.dir_path,'settings/tempMaskFile_pt.tif'))
-        except:
-            print("ERROR WITH SAVING THE IMAGE")
-
-        max_val = np.max(np.ravel(img))
-
-        ext = self.projProc.filename.split('.')[-1]
-
-        rot_ang = None if 'rotationAngle' not in self.projProc.info else self.projProc.info['rotationAngle']
-
-        trans_x = (img.shape[0] - self.projProc.orig_img.shape[0]) / 2
-        trans_y = (img.shape[1] - self.projProc.orig_img.shape[1]) / 2
-
-        trans_mat = np.float32([[1,0,trans_x],[0,1,trans_y]])
-
-        imageMaskingTool = ImageMaskerWindow(self.dir_path, 
-                                             os.path.join(self.dir_path, "settings/tempMaskFile_pt.tif"), 
-                                             self.minIntSpnBx.value(),
-                                             self.maxIntSpnBx.value(),
-                                             max_val,
-                                             orig_size=self.projProc.orig_img.shape,
-                                             trans_mat=trans_mat,                                            
-                                             rot_angle=rot_ang,
-                                             isHDF5= ext in ('hdf5', 'h5'),
-                                             )
-
-        if imageMaskingTool is not None and imageMaskingTool.exec_():
-            if os.path.exists(join(join(self.dir_path, 'settings'), 'blank_image_settings.json')):
-                with open(join(join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
-                    info = json.load(f)
-                    if 'path' in info:
-                        img = fabio.open(info['path']).data
-                        fabio.tifimage.tifimage(data=img).write(join(join(self.dir_path, 'settings'),'blank.tif'))    
-            else:
-                if os.path.exists(join(join(self.dir_path, 'settings'), 'mask.tif')):
-                    os.rename(join(join(self.dir_path, 'settings'), 'mask.tif'), join(join(self.dir_path, 'settings'), 'maskonly.tif'))
-
-        if self.projProc is not None:
-            self.masked = False
-            print("Blank setting clicked")
-            self.processImage()
+    # Note: blankChecked() and blankSettingClicked() removed - now handled by ImageSettingsPanel
 
     def maskThresChanged(self):
         """
@@ -752,20 +734,7 @@ class ProjectionTracesGUI(BaseGUI):
             print("Mask threshold changed")
             self.processImage()
 
-    def calibrationClicked(self):
-        """
-        Triggered when calibration settings button pressed
-        """
-        success = self.launchCalibrationSettings(force=True)
-        if self.projProc is not None and success:
-            # For quadrant folded images, don't change center_func
-            if not self.qfChkBx.isChecked():
-                self.center_func = 'automatic'
-            self.rotated = False
-            self.projProc.rotMat = None
-            self.updateImage()
-            print("calibration clicked")
-            self.processImage()
+    # Note: calibrationClicked() removed - calibration now handled by ImageSettingsPanel
 
     def launchCalibrationSettings(self, force=False):
         """
@@ -803,171 +772,13 @@ class ProjectionTracesGUI(BaseGUI):
                 return True
         return False
 
-    def setCenterByChordsClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting chords
-        """
-        if self.projProc is None:
-            return
+    # Note: setCenterByChordsClicked() removed - now handled by ImageSettingsPanel
 
-        if self.setCentByChords.isChecked():
-            self.rotated = False
-            self.updateImage()
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.chordpoints=[]
-            self.chordLines = []
-            self.function = ["chords_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            print("Finding Chords center ...")
-            centers = []
-            for i, line1 in enumerate(self.chordLines):
-                for line2 in self.chordLines[i + 1:]:
-                    if line1[0] == line2[0]:
-                        continue  # parallel lines
-                    if line1[0] == float('inf'):
-                        xcent = line1[1]
-                        ycent = line2[0] * xcent + line2[1]
-                    elif line2[0] == float('inf'):
-                        xcent = line2[1]
-                        ycent = line1[0] * xcent + line1[1]
-                    else:
-                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
-                        ycent = line1[0] * xcent + line1[1]
-                    center = [xcent, ycent]
-                    print("CenterCalc ", center)
+    # Note: setCenterByPerpClicked() removed - now handled by ImageSettingsPanel
 
-                    centers.append(center)
+    # Note: setRotation() removed - now handled by ImageSettingsPanel
 
-            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
-            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            new_center = [cx, cy] #np.dot(invM, homo_coords)
-            print("New center ", new_center)
-            self.centerx = int(round(new_center[0]))
-            self.centery = int(round(new_center[1]))
-            self.projProc.info['centerx'] = self.centerx
-            self.projProc.info['centery'] = self.centery
-            self.projProc.info['orig_center'] = (self.centerx, self.centery)
-            self.setCentByChords.setChecked(False)
-            self.center_func = 'manual'
-            self.rotated = True
-            self.updateCenter()
-            self.removeAllTabs()
-            print("set center by chords")
-            self.processImage()
-            self.addBoxTabs()
-            self.updateImage()
-
-    def setCenterByPerpClicked(self):
-        """
-        Prepare for manual center selection using perpendicular peaks
-        :return:
-        """
-        if self.projProc is None:
-            return
-        if self.setCentByPerp.isChecked():
-            self.rotated = False
-            self.updateImage()
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["perp_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            func = self.function
-            horizontalLines = []
-            verticalLines = []
-            intersections = []
-            for i in range(1, len(func) - 1, 2):
-                slope = calcSlope(func[i], func[i + 1])
-                if abs(slope) > 1:
-                    verticalLines.append((func[i], func[i + 1]))
-                else:
-                    horizontalLines.append((func[i], func[i + 1]))
-            for line1 in verticalLines:
-                for line2 in horizontalLines:
-                    cx, cy = getIntersectionOfTwoLines(line2, line1)
-                    print("Intersection ", (cx, cy))
-                    intersections.append((cx, cy))
-            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
-            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
-
-            new_center = [cx, cy]  # np.dot(invM, homo_coords)
-            # Set new center and rotaion angle , re-calculate R-min
-            print("New Center ", new_center)
-            self.centerx = int(round(new_center[0]))
-            self.centery = int(round(new_center[1]))
-            self.projProc.info['centerx'] = int(round(new_center[0]))
-            self.projProc.info['centery'] = int(round(new_center[1]))
-            self.projProc.info['orig_center'] = (self.centerx, self.centery)
-            
-            self.setCentByPerp.setChecked(False)
-            self.center_func = 'manual'
-            self.rotated = True
-            self.updateCenter()
-            self.removeAllTabs()
-            self.processImage()
-            self.addBoxTabs()
-            self.updateImage()
-
-    def setRotation(self):
-        """
-        Trigger when set center and rotation angle button is pressed
-        """
-        if self.setRotationButton.isChecked():
-            # clear plot
-            self.left_status.setText(
-                "Rotate the line to the pattern equator (ESC to cancel)")
-            self.rotated = False
-            self.updateImage()
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["im_rotate"]
-        else:
-            self.function = None
-            self.rotated = True
-            self.removeAllTabs()
-            self.addBoxTabs()
-            self.updateImage()
-            self.refreshStatusbar()
-
-    def setAngleAndCenterClicked(self):
-        """
-        Triggered when the Set angle and center button is clicked
-        """
-        if len(self.imgList) == 0:
-            return
-
-        if self.setRotAndCentB.isChecked():
-            self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            self.rotated = False
-            self.updateImage()
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["angle_center"]
-        else:
-            self.function = None
-            self.rotated = True
-            self.removeAllTabs()
-            self.addBoxTabs()
-            self.updateImage()
-            self.refreshStatusbar()
+    # Note: setAngleAndCenterClicked() removed - now handled by ImageSettingsPanel
 
     def doubleZoomChecked(self):
         """
@@ -1302,7 +1113,7 @@ class ProjectionTracesGUI(BaseGUI):
                 self.addCenterOrientedBoxButton.setText("Done")
                 self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
                 self.function = ['center_oriented_box']
-                self.function.append((self.projProc.info['centerx'], self.projProc.info['centery']))
+                self.function.append(self.projProc.center)
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -1518,29 +1329,30 @@ class ProjectionTracesGUI(BaseGUI):
         if focused_widget is not None:
             focused_widget.clearFocus()
 
+    # Note: PT navigation methods now use FileManager (from BaseGUI)
+    # These are kept for backward compatibility but delegate to FileManager
+    
     def prevClicked(self):
         """
         Going to the previous image
         """
-        self.current_file = (self.current_file - 1) % len(self.imgList)
-        self.onImageChanged()
+        if self.file_manager.prev():
+            self._on_file_manager_changed()
 
     def nextClicked(self):
         """
         Going to the next image
         """
-        self.current_file = (self.current_file + 1) % len(self.imgList)
-        self.onImageChanged()
+        if self.file_manager.next():
+            self._on_file_manager_changed()
 
     def prevFileClicked(self):
         """
         Going to the previous h5 file
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index - 1) % len(self.h5List)
-            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(join(self.dir_path, self.h5List[self.h5index]))
-            self.onImageChanged()
+        if self.file_manager.prev_file():
+            self._on_file_manager_changed()
         QApplication.restoreOverrideCursor()
 
     def nextFileClicked(self):
@@ -1548,10 +1360,8 @@ class ProjectionTracesGUI(BaseGUI):
         Going to the next h5 file
         """
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        if len(self.h5List) > 1:
-            self.h5index = (self.h5index + 1) % len(self.h5List)
-            self.dir_path, self.imgList, self.currentImg, self.fileList, self.ext = getImgFiles(join(self.dir_path, self.h5List[self.h5index]))
-            self.onImageChanged()
+        if self.file_manager.next_file():
+            self._on_file_manager_changed()
         QApplication.restoreOverrideCursor()
 
     def setH5Mode(self, file_name):
@@ -1886,12 +1696,10 @@ class ProjectionTracesGUI(BaseGUI):
                 new_center = [cx, cy]
                 self.centerx = int(round(new_center[0]))
                 self.centery = int(round(new_center[1]))
-                self.projProc.info['centerx'] = self.centerx
-                self.projProc.info['centery'] = self.centery
-                self.projProc.info['orig_center'] = (self.centerx, self.centery)
+                # Note: center/rotation are now dynamic properties from ImageData
+                # Legacy variables kept for compatibility
                 self.rotationAngle = new_angle
-                self.projProc.info['rotationAngle'] = new_angle
-                self.setRotAndCentB.setChecked(False)
+                # Note: setRotAndCentB button now managed by ImageSettingsPanel
                 self.center_func = 'manual'
                 self.rotated = True
                 self.updateCenter()
@@ -1940,8 +1748,8 @@ class ProjectionTracesGUI(BaseGUI):
                 new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
 
             self.rotationAngle = new_angle
-            self.projProc.info['rotationAngle'] = new_angle
-            self.setRotationButton.setChecked(False)
+            # Note: rotation is now a dynamic property from ImageData
+            # Note: setRotationButton now managed by ImageSettingsPanel
             self.rotated = True
             self.removeAllTabs()
             self.processImage()
@@ -2011,7 +1819,7 @@ class ProjectionTracesGUI(BaseGUI):
                 if 'center' in self.calSettings and self.calSettings['center'] is not None:
                     center = self.calSettings['center']
                 else:
-                    center = (self.projProc.info['centerx'], self.projProc.info['centery'])
+                    center = self.projProc.center
                 q, unit = inverseNmFromCenter([x, y], center, self.calSettings['scale'])
                 # constant = self.calSettings["silverB"] * self.calSettings["radius"]
                 # calib_distance = mouse_distance * 1.0/constant
@@ -2020,7 +1828,8 @@ class ProjectionTracesGUI(BaseGUI):
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
-                    mouse_distance = np.sqrt((self.projProc.info['centerx'] - x) ** 2 + (self.projProc.info['centery'] - y) ** 2)
+                    center = self.projProc.center
+                    mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
 
@@ -2399,6 +2208,49 @@ class ProjectionTracesGUI(BaseGUI):
         ax.invert_yaxis()
         self.displayImgCanvas.draw_idle()
 
+    def _create_image_data(self, img, img_path, img_name):
+        """
+        Create ImageData object with current settings from ImageSettingsPanel.
+        
+        Args:
+            img: Image array
+            img_path: Directory path
+            img_name: Image filename
+        
+        Returns:
+            ImageData object
+        """
+        from ..utils.image_data import ImageData
+        
+        # Get settings from ImageSettingsPanel
+        if hasattr(self, 'image_settings_panel'):
+            # Get manual center/rotation
+            manual_center, manual_rotation = self.image_settings_panel.get_manual_settings(img_name)
+            
+            # Get blank/mask config
+            blank_mask_config = self.image_settings_panel.get_blank_mask_config()
+        else:
+            # Fallback for initialization phase
+            manual_center = None
+            manual_rotation = None
+            blank_mask_config = {
+                'apply_blank': False,
+                'apply_mask': False,
+                'blank_weight': 1.0
+            }
+        
+        return ImageData(
+            img=img,
+            img_path=img_path,
+            img_name=img_name,
+            center=manual_center,
+            rotation=manual_rotation,
+            apply_blank=blank_mask_config['apply_blank'],
+            apply_mask=blank_mask_config['apply_mask'],
+            blank_weight=blank_mask_config['blank_weight'],
+            orientation_model=0  # PT doesn't use orientation models
+        )
+    
     def browseFile(self):
         """
         Popup an input file dialog. Users can select an image or .txt for failed cases list
@@ -2413,7 +2265,12 @@ class ProjectionTracesGUI(BaseGUI):
         :param fullfilename: path for the image selected
         :return:
         """
+        # Use FileManager to load the directory
+        self.file_manager.set_from_file(fullfilename)
+        
+        # Sync legacy variables (PT still uses getImgFiles for fileList/ext)
         self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
+        
         if self.dir_path is not None and self.imgList is not None and self.imgList:
             # Hide left panel buttons and show canvas (like QuadrantFoldingGUI)
             self.selectImageButton.setHidden(True)
@@ -2445,6 +2302,24 @@ class ProjectionTracesGUI(BaseGUI):
             self.setH5Mode(fullfilename)
             self.onImageChanged(first_run=True)
 
+    def _on_file_manager_changed(self):
+        """
+        Hook method called when FileManager navigates to a new image.
+        
+        This is the BaseGUI hook implementation for ProjectionTracesGUI.
+        For PT, this is a simple wrapper that syncs legacy variables and calls onImageChanged().
+        
+        Future refactoring: Migrate PT to fully use FileManager instead of current_file/imgList.
+        """
+        # Sync legacy variables from FileManager
+        if self.file_manager.names:
+            self.imgList = self.file_manager.names
+            self.current_file = self.file_manager.current
+            self.dir_path = self.file_manager.dir_path
+        
+        # Call existing onImageChanged logic
+        self.onImageChanged(first_run=False)
+    
     def onImageChanged(self, first_run=False):
         """
         Need to be called when image is change i.e. to the next image.
@@ -2454,7 +2329,20 @@ class ProjectionTracesGUI(BaseGUI):
         :param first_run: True if this is the initial image load (from onImageSelect)
         """
         try:
-            self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
+            # Load image from FileManager
+            img = self.file_manager.current_image
+            img_name = self.file_manager.current_image_name
+            
+            # Create ImageData
+            current_image_data = self._create_image_data(img, self.dir_path, img_name)
+            
+            # Create ProjectionProcessor with ImageData
+            self.projProc = ProjectionProcessor(current_image_data)
+            
+            # Update ImageSettingsPanel display
+            if hasattr(self, 'image_settings_panel'):
+                self.image_settings_panel.update_display(current_image_data)
+            
         except Exception as e:
             infMsg = QMessageBox()
             infMsg.setText("Error")
@@ -2572,8 +2460,7 @@ class ProjectionTracesGUI(BaseGUI):
             self.maskThresSpnBx.setValue(getMaskThreshold(img))
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
         # self.maskThresSpnBx.setRange(img.min(), img.max())
-        if 'blank_mask' in self.projProc.info:
-            self.blankImageGrp.setChecked(self.projProc.info['blank_mask'])
+        # Note: blank_mask state now managed by ImageSettingsPanel
         self.syncUI = False
 
     def updateCenter(self, refit=False):
@@ -2592,8 +2479,9 @@ class ProjectionTracesGUI(BaseGUI):
             self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
             self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
         elif self.center_func == 'init': # loading from the cache if it exists
-            self.centerx = self.projProc.info['centerx']
-            self.centery = self.projProc.info['centery']
+            center = self.projProc.center
+            self.centerx = center[0]
+            self.centery = center[1]
             if self.centerx != self.projProc.orig_img.shape[1] / 2. - 0.5 and \
                 self.centery != self.projProc.orig_img.shape[0] / 2. - 0.5:
                 self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
@@ -2604,8 +2492,7 @@ class ProjectionTracesGUI(BaseGUI):
             self.qfChkBx.setChecked(False)
             self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
 
-        self.projProc.info['centerx'] = self.centerx
-        self.projProc.info['centery'] = self.centery
+        # Note: center is now a dynamic property from ImageData
 
         self.projProc.cache = None
         self.refit = refit
@@ -2640,7 +2527,7 @@ class ProjectionTracesGUI(BaseGUI):
             raise
         
         print("after")
-        print(self.projProc.info['centerx'], self.projProc.info['centery'])
+        print("Center:", self.projProc.center)
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
@@ -2676,7 +2563,13 @@ class ProjectionTracesGUI(BaseGUI):
                 self.csvManager.sortCSV()
     
     def addTask(self, i):
-        params = ProjectionParams(self.dir_path, self.imgList[i], self.fileList, self.ext, self.getSettings())
+        """Add a processing task to the queue (for batch processing)."""
+        params = ProjectionParams(
+            settings=self.getSettings(),
+            index=i,
+            file_manager=self.file_manager,
+            gui=self
+        )
         self.tasksQueue.put(params)
         
         self.startNextTask()
@@ -2784,8 +2677,12 @@ class ProjectionTracesGUI(BaseGUI):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
-        # add blank image and mask
-        settings['blank_mask'] = self.blankImageGrp.isChecked()
+        # add blank image and mask (from ImageSettingsPanel)
+        if hasattr(self, 'image_settings_panel'):
+            blank_mask_config = self.image_settings_panel.get_blank_mask_config()
+            settings['blank_mask'] = blank_mask_config['apply_blank']
+        else:
+            settings['blank_mask'] = False
 
         settings['mask_thres'] = self.maskThresSpnBx.value()
 
@@ -2810,14 +2707,7 @@ class ProjectionTracesGUI(BaseGUI):
             quadrant_folded = self.qfChkBx.isChecked()
             if "center" in self.calSettings and self.center_func != 'manual' and not quadrant_folded:
                 settings["center"] = self.calSettings["center"]
-                self.projProc.info['orig_center'] = self.calSettings["center"]
-                self.projProc.info['centery'] = self.calSettings["center"][1]
-                self.projProc.info['centerx'] = self.calSettings["center"][0]
-            else:
-                if 'centerx' in self.projProc.info and self.center_func not in ['manual', 'quadrant_fold']:
-                    del self.projProc.info['centerx']
-                if 'centery' in self.projProc.info and self.center_func not in ['manual', 'quadrant_fold']:
-                    del self.projProc.info['centery']
+                # Note: center is now a dynamic property from ImageData
             
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]
@@ -2915,8 +2805,9 @@ class ProjectionTracesGUI(BaseGUI):
 
             if self.peaksChkBx.isChecked():
                 for name in self.peaks.keys():
-                    centerx = self.projProc.info['centerx']
-                    centery = self.projProc.info['centery']
+                    center = self.projProc.center
+                    centerx = center[0]
+                    centery = center[1]
                     for p in self.peaks[name]:
                         if self.boxtypes[name] == 'h':
                             ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
@@ -2934,9 +2825,8 @@ class ProjectionTracesGUI(BaseGUI):
                             ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
 
         if self.centerChkBx.isChecked():
-            centerx = self.projProc.info['centerx']
-            centery = self.projProc.info['centery']
-            circle = plt.Circle((centerx, centery), 10, color='g')
+            center = self.projProc.center
+            circle = plt.Circle(center, 10, color='g')
             ax.add_patch(circle)
 
         # Zoom
@@ -2947,8 +2837,9 @@ class ProjectionTracesGUI(BaseGUI):
             ax.set_xlim((0, img.shape[1]))
             ax.set_ylim((0, img.shape[0]))
 
-        self.calSettingsDialog.centerX.setValue(self.projProc.info['centerx'])
-        self.calSettingsDialog.centerY.setValue(self.projProc.info['centery'])
+        center = self.projProc.center
+        self.calSettingsDialog.centerX.setValue(center[0])
+        self.calSettingsDialog.centerY.setValue(center[1])
 
         self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
         ax.invert_yaxis()

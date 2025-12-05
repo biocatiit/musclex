@@ -24,6 +24,7 @@ class BaseGUI(QMainWindow):
     behavior while maintaining a consistent structure.
     
     Initialization Flow:
+        0. __init__()               - Initialize FileManager and core components
         1. _setup_window()          - Set window title and properties
         2. _setup_main_layout()     - Create scroll area and tab widget
         3. _create_tabs()           - Create application-specific tabs
@@ -36,6 +37,7 @@ class BaseGUI(QMainWindow):
         - _setup_window()
         - _create_tabs()
         - _create_menu_bar()
+        - _on_file_manager_changed() - Handle image changes from navigation
     
     Subclasses may override:
         - _tabs_closable()
@@ -43,6 +45,29 @@ class BaseGUI(QMainWindow):
         - _additional_setup()
         - _create_status_bars() (if custom status bars needed)
     """
+    
+    def __init__(self):
+        """
+        Initialize BaseGUI with core components.
+        
+        Initializes FileManager early so it's available for:
+        - ImageSettingsPanel (needs file_manager for batch operations)
+        - Navigation controls
+        - Image loading
+        
+        Subclasses should call super().__init__() first in their __init__.
+        """
+        super().__init__()
+        
+        # Initialize FileManager early (before UI creation)
+        from ..utils.file_manager import FileManager
+        self.file_manager = FileManager()
+        
+        # Background directory scan support
+        self._scan_timer = QTimer(self)
+        self._scan_timer.setInterval(250)
+        self._scan_timer.timeout.connect(self._check_scan_done)
+        self._provisionalCount = False
     
     def initUI(self):
         """
@@ -430,4 +455,185 @@ class BaseGUI(QMainWindow):
         self.verImgLayout.addWidget(self.selectFolder)
         
         self.imageTabLayout.addWidget(self.leftWidget, 0)  # No stretch
+    
+    # ===== FileManager Integration =====
+    
+    def _connect_standard_navigation(self):
+        """
+        Connect NavigationControls to FileManager for standard navigation behavior.
+        
+        This provides automatic navigation through images using FileManager.
+        Call this method after creating self.navControls in your _create_tabs().
+        
+        Connected buttons:
+            - prevButton/nextButton: Navigate frames within current file
+            - prevFileButton/nextFileButton: Navigate between files (H5)
+        
+        Example usage in subclass:
+            def _create_tabs(self):
+                self._create_standard_image_tab()
+                # ... add widgets to right_panel ...
+                self.right_panel.add_bottom_widget(self.navControls)
+                self._connect_standard_navigation()  # Connect after creating navControls
+        """
+        if not hasattr(self, 'navControls'):
+            print("Warning: navControls not found, cannot connect navigation")
+            return
+        
+        # Frame navigation
+        self.navControls.prevButton.clicked.connect(self._navigate_prev)
+        self.navControls.nextButton.clicked.connect(self._navigate_next)
+        
+        # File navigation (H5)
+        self.navControls.prevFileButton.clicked.connect(self._navigate_prev_file)
+        self.navControls.nextFileButton.clicked.connect(self._navigate_next_file)
+    
+    def _navigate_next(self):
+        """Navigate to next image/frame using FileManager."""
+        if self.file_manager.next():
+            self._on_file_manager_changed()
+    
+    def _navigate_prev(self):
+        """Navigate to previous image/frame using FileManager."""
+        if self.file_manager.prev():
+            self._on_file_manager_changed()
+    
+    def _navigate_next_file(self):
+        """Navigate to next file (H5 navigation)."""
+        if self.file_manager.next_file():
+            self._on_file_manager_changed()
+    
+    def _navigate_prev_file(self):
+        """Navigate to previous file (H5 navigation)."""
+        if self.file_manager.prev_file():
+            self._on_file_manager_changed()
+    
+    def _on_file_manager_changed(self):
+        """
+        Hook method called when FileManager navigates to a new image.
+        
+        This is called after:
+        - next() / prev() navigation
+        - next_file() / prev_file() navigation
+        - set_from_file() (initial load)
+        
+        Subclasses MUST implement this to:
+        1. Load the current image from file_manager.current_image
+        2. Get filename from file_manager.current_image_name (or names[current])
+        3. Create ImageData object
+        4. Process the image
+        5. Update UI
+        
+        Example implementation:
+            def _on_file_manager_changed(self):
+                # 1. Get image from FileManager
+                img = self.file_manager.current_image
+                filename = self.file_manager.current_image_name
+                
+                # 2. Create ImageData
+                self.current_image_data = self._create_image_data(
+                    img, self.file_manager.dir_path, filename
+                )
+                
+                # 3. Process
+                self.processImage()
+                
+                # 4. Update UI
+                self.image_settings_panel.update_display(self.current_image_data)
+                self.navControls.setNavMode(self.file_manager.current_file_type)
+        
+        Raises:
+            NotImplementedError: If subclass doesn't implement this method
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement _on_file_manager_changed() "
+            "to handle image loading and processing when FileManager navigates to a new image."
+        )
+    
+    def browseFile(self):
+        """
+        Standard file browsing using FileManager.
+        
+        Opens a file dialog and loads the selected file into FileManager.
+        Subclasses can override this if they need custom file selection behavior,
+        but most should use this default implementation.
+        """
+        from .pyqt_utils import getAFile
+        
+        file_name = getAFile()
+        if file_name and file_name != "":
+            self.file_manager.set_from_file(file_name)
+            self._on_file_manager_changed()
+    
+    # ===== Background Directory Scan Support =====
+    
+    def _start_background_scan(self):
+        """
+        Start background scan timer to monitor FileManager's async directory scan.
+        
+        FileManager scans directories asynchronously to avoid blocking the UI,
+        especially when processing HDF5 files which need to be opened to count frames.
+        
+        This timer periodically checks if the scan is complete and updates the UI.
+        Call this after file_manager.set_from_file() if you want to show progress.
+        """
+        self._provisionalCount = True
+        self._scan_timer.start()
+    
+    def _check_scan_done(self):
+        """
+        Check if background directory scan is complete.
+        
+        This is called periodically by the scan timer. When the scan completes:
+        1. Updates the image layer with full HDF5 frame expansion
+        2. Hides the progress bar
+        3. Calls _on_scan_complete() hook for subclass-specific updates
+        """
+        if not self.file_manager:
+            return
+        
+        # Show HDF5 processing progress (if applicable)
+        h5_done, h5_total = self.file_manager.get_h5_progress()
+        if h5_total > 0 and hasattr(self, 'progressBar'):
+            if not self.progressBar.isVisible():
+                self.progressBar.setVisible(True)
+                self.progressBar.setRange(0, h5_total)
+            self.progressBar.setValue(h5_done)
+            self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
+        
+        # Check if scan is complete
+        if not self.file_manager.is_scan_done():
+            return
+        
+        # Scan complete - hide progress bar
+        if hasattr(self, 'progressBar'):
+            self.progressBar.setVisible(False)
+            self.progressBar.setFormat("%p%")  # Reset format to default
+        
+        self._provisionalCount = False
+        self._scan_timer.stop()
+        
+        # Call hook for subclass-specific updates
+        self._on_scan_complete()
+    
+    def _on_scan_complete(self):
+        """
+        Hook method called when background directory scan completes.
+        
+        Subclasses can override this to perform actions after scan completion:
+        - Update status bar with final count
+        - Update mode statistics in ImageSettingsPanel
+        - Refresh UI elements that depend on full file list
+        
+        Default implementation does nothing.
+        
+        Example:
+            def _on_scan_complete(self):
+                self.resetStatusbar()
+                if hasattr(self, 'image_settings_panel'):
+                    self.image_settings_panel.update_mode_statistics(
+                        len(self.file_manager.names)
+                    )
+        """
+        pass
 

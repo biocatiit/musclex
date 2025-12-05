@@ -239,11 +239,11 @@ class QuadrantFoldingGUI(BaseGUI):
         """
 
         super().__init__()
+        # Note: self.file_manager is now initialized by BaseGUI
         self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.filePath = "" # current directory
         self.extent = None
         self.img = None
-        self.file_manager = FileManager()  # FileManager (initialized early for ImageSettingsPanel)
         self.quadFold = None # QuadrantFolder object
         self.current_image_data = None # Current ImageData object (holds image geometry and preprocessing)
         self.default_img_zoom = None # default zoom calculated after processing image
@@ -289,11 +289,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         self.thresh_mask = None
 
-        # Background directory scan support (must be ready before first browseFile call)
-        self._scan_result = None
-        self._scan_timer = QTimer(self)
-        self._scan_timer.setInterval(250)
-        self._scan_timer.timeout.connect(self._checkScanDone)
+        # Note: Background directory scan support is now in BaseGUI
+        # (_scan_timer, _provisionalCount, _check_scan_done)
 
         self.eventEmitter = EventEmitter()
 
@@ -334,6 +331,9 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Add navigation controls to right panel bottom
         self.right_panel.add_bottom_widget(self.navControls)
+        
+        # Connect standard navigation from BaseGUI
+        self._connect_standard_navigation()
         
         # Create result tab
         self._create_result_tab()
@@ -1015,12 +1015,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         
         ##### Navigation Controls (shared between tabs) #####
+        # Note: Basic navigation (next/prev/nextFile/prevFile) is now connected by BaseGUI's _connect_standard_navigation()
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
-        self.navControls.nextButton.clicked.connect(self.nextClicked)
-        self.navControls.prevButton.clicked.connect(self.prevClicked)
-        self.navControls.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.navControls.prevFileButton.clicked.connect(self.prevFileClicked)
         self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
@@ -2678,7 +2675,7 @@ class QuadrantFoldingGUI(BaseGUI):
             # quadFold_copy = copy.copy(self.quadFold)
             try:
                 # Center is already set in quadFold.center (if manual mode)
-                # by setCenter() or _navigate_and_update()
+                # by _on_file_manager_changed()
                 self.quadFold.process(flags)
             except Exception:
                 QApplication.restoreOverrideCursor()
@@ -2976,35 +2973,15 @@ class QuadrantFoldingGUI(BaseGUI):
             'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
         self.navControls.filenameLineEdit.setText(self.quadFold.img_name)
 
-    def _checkScanDone(self):
+    def _on_scan_complete(self):
         """
-        Check if background directory scan is complete.
-        Updates the image layer with full HDF5 frame expansion for accurate count.
+        Hook: Called when background directory scan completes.
+        
+        Updates status bar and mode statistics after full directory scan.
         """
-        if not self.file_manager:
-            return
-        
-        # Show HDF5 processing progress
-        h5_done, h5_total = self.file_manager.get_h5_progress()
-        if h5_total > 0:
-            if not self.progressBar.isVisible():
-                self.progressBar.setVisible(True)
-                self.progressBar.setRange(0, h5_total)
-            self.progressBar.setValue(h5_done)
-            self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
-        
-        # When FileManager finishes, it has already updated names/specs
-        if not self.file_manager.is_scan_done():
-            return
-        
-        # Hide progress bar when done
-        self.progressBar.setVisible(False)
-        self.progressBar.setFormat("%p%")  # Reset format to default
-        
-        self._provisionalCount = False
-        self._scan_timer.stop()
         self.resetStatusbar()
-        self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
+        if hasattr(self, 'image_settings_panel'):
+            self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
 
     def getFlags(self):
         """
@@ -3178,8 +3155,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.onImageChanged()
 
                 # Start background scan to populate full directory list using FileManager
-                self._scan_result = None
-                self._scan_timer.start()
+                self._start_background_scan()
                 self.file_manager.start_async_scan(self.filePath)
             else:
                 QApplication.restoreOverrideCursor()
@@ -3495,40 +3471,20 @@ class QuadrantFoldingGUI(BaseGUI):
             with open(filename, 'w') as f:
                 json.dump(settings, f)
 
-    def prevClicked(self, reprocess=False):
-        """
-        Going to the previous image
-        """
-        self.file_manager.prev_frame()
-        self._navigate_and_update(reprocess=reprocess)
-
-    def nextClicked(self, reprocess=False):
-        """
-        Going to the next image
-        """
-        self.file_manager.next_frame()
-        self._navigate_and_update(reprocess=reprocess)
+    # Note: prevClicked, nextClicked, prevFileClicked, nextFileClicked are now
+    # handled by BaseGUI's _navigate_prev(), _navigate_next(), etc.
+    # which call _on_file_manager_changed()
 
 
-    def prevFileClicked(self, reprocess=False):
+    def _on_file_manager_changed(self, reprocess=False):
         """
-        Going to the previous h5 file
-        """
-        self.file_manager.prev_file()
-        self._navigate_and_update(reprocess=reprocess)
-
-
-    def nextFileClicked(self, reprocess=False):
-        """
-        Going to the next h5 file
-        """
-        self.file_manager.next_file()
-        self._navigate_and_update(reprocess=reprocess)
-
-
-    def _navigate_and_update(self, reprocess=False):
-        """
-            Helper method for navigation: creates QuadrantFolder and applies settings
+        Hook method called when FileManager navigates to a new image.
+        
+        This is the BaseGUI hook implementation for QuadrantFoldingGUI.
+        Creates QuadrantFolder and applies settings for the new image.
+        
+        Args:
+            reprocess: If True, forces reprocessing even if cached data exists
         """
         filename = self.file_manager.current_image_name
         img = self.file_manager.current_image
@@ -3558,7 +3514,7 @@ class QuadrantFoldingGUI(BaseGUI):
         if fileName not in self.file_manager.names:
             return
         self.file_manager.switch_image_by_name(fileName)
-        self._navigate_and_update()
+        self._on_file_manager_changed()
 
     def showAbout(self):
         """

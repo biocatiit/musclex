@@ -109,13 +109,28 @@ class ProjectionProcessor:
         if image_data.orientation_model is not None:
             self.info['orientation_model'] = image_data.orientation_model
         
-        # Set manual geometry if provided
-        if image_data.has_manual_center:
-            self.info['centerx'] = image_data.center[0]
-            self.info['centery'] = image_data.center[1]
-        
-        if image_data.has_manual_rotation:
-            self.info['rotationAngle'] = image_data.rotation
+        # Note: center and rotation are now dynamic properties from ImageData
+    
+    @property
+    def center(self):
+        """
+        Get center from ImageData dynamically.
+        Returns (x, y) tuple. Falls back to geometric center if not set.
+        """
+        if self._image_data.center:
+            return self._image_data.center
+        # Default: geometric center of image
+        return (self.orig_img.shape[1] / 2 - 0.5, self.orig_img.shape[0] / 2 - 0.5)
+    
+    @property
+    def rotation(self):
+        """
+        Get rotation angle from ImageData dynamically.
+        Returns float (degrees). Falls back to 0 if not set.
+        """
+        if self._image_data.rotation is not None:
+            return self._image_data.rotation
+        return 0.0
 
     def addBox(self, name, box, typ, bgsub):
         """
@@ -256,9 +271,7 @@ class ProjectionProcessor:
 
         self.info.update(settings)
 
-        if 'centerx' not in self.info or 'centery' not in self.info:
-            self.info['centerx'] = self.orig_img.shape[0] / 2 - 0.5
-            self.info['centery'] = self.orig_img.shape[1] / 2 - 0.5
+        # Note: center is now a dynamic property from ImageData
         
         if 'mask_thres' not in self.info:
             if 'mask_thres' in settings:
@@ -338,11 +351,11 @@ class ProjectionProcessor:
                     start_x = box[0][0]
                     start_y = box[1][0]
                     if types[name] == 'h':
-                        centerX = self.info['centerx'] - start_x
+                        centerX = self.center[0] - start_x
                     elif types[name] == 'oriented':
                         centerX = box[6][0] - start_x
                     else:
-                        centerX = self.info['centery'] - start_y
+                        centerX = self.center[1] - start_y
                     centerX = int(round(centerX))
                     right_hist = hist[centerX:]
                     left_hist = hist[:centerX][::-1]
@@ -376,15 +389,11 @@ class ProjectionProcessor:
     def updateRotationAngle(self):
         """
         Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal.
-        The angle will be kept in self.info["rotationAngle"]
+        The angle is obtained dynamically from ImageData property.
         """
-        if 'rotationAngle' not in self.info:
-            center = (self.info['centerx'], self.info['centery'])
-            img = copy.copy(self.orig_img)
-            if 'detector' in self.info:
-                self.info['rotationAngle'] = getRotationAngle(img, center, man_det=self.info['detector'])
-            else:
-                self.info['rotationAngle'] = getRotationAngle(img, center)
+        # Rotation is now a dynamic property from ImageData
+        # Just access it to trigger calculation if needed
+        _ = self.rotation
 
     def fitModel(self):
         """
@@ -421,12 +430,12 @@ class ProjectionProcessor:
             # Init Center X
             if self.info['types'][name] == 'h':
                 # init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
-                init_center = self.info['centerx'] - start_x
+                init_center = self.center[0] - start_x
             elif self.info['types'][name] == 'oriented':
                 init_center = box[6][0] - start_x
             else:
                 # init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
-                init_center = self.info['centery'] - start_y
+                init_center = self.center[1] - start_y
 
             init_center = int(round(init_center))
             params.add('centerX', init_center, min=init_center - 1., max=init_center + 1.)
@@ -656,17 +665,13 @@ class ProjectionProcessor:
         if img is None:
             img = copy.copy(self.orig_img)
         if angle is None:
-            angle = self.info['rotationAngle']
+            angle = self.rotation
         if '90rotation' in self.info and self.info['90rotation'] is True:
             angle = angle - 90 if angle > 90 else angle + 90
 
-        if self.rotated_img is None or self.rotated_img[0] != (self.info["centerx"], self.info["centery"]) or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
+        if self.rotated_img is None or self.rotated_img[0] != self.center or self.rotated_img[1] != self.rotation or (self.rotated_img[2] != img).any():
             # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-            center = (self.info["centerx"], self.info["centery"])
-            if "orig_center" in self.info:
-                center = self.info["orig_center"]
-            else:
-                self.info["orig_center"] = center
+            center = self.center
 
             rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle)
             self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
