@@ -76,6 +76,7 @@ class ImageData:
         orientation_model: int = 0,
         detector: Optional[str] = None,
         invalid_pixel_threshold: float = -1.0,
+        quadrant_folded: bool = False,
         **kwargs
     ):
         """
@@ -95,6 +96,7 @@ class ImageData:
         :param orientation_model: Model index for rotation calculation
         :param detector: Detector type for pyFAI integration
         :param invalid_pixel_threshold: Value to set for masked pixels
+        :param quadrant_folded: Whether this is a quadrant folded image (PT specific)
         :param kwargs: Additional metadata
         """
         # Raw data (immutable)
@@ -117,6 +119,7 @@ class ImageData:
         self.invalid_pixel_threshold = invalid_pixel_threshold
         self.orientation_model = orientation_model
         self.detector = detector
+        self.quadrant_folded = quadrant_folded
         
         # Lazy-loaded preprocessing data
         self._processed_img: Optional[np.ndarray] = None
@@ -145,6 +148,9 @@ class ImageData:
         and creating an ImageData object. GUI code becomes simpler and
         consistent across QuadrantFoldingGUI and ProjectionTracesGUI.
         
+        For ProjectionTraces, this also auto-detects quadrant folded images
+        from filename or TIFF metadata.
+        
         Args:
             img: Image array (numpy.ndarray)
             img_path: Directory path (str or Path)
@@ -160,6 +166,9 @@ class ImageData:
                 img, self.file_manager.dir_path, img_name, self.image_settings_panel
             )
         """
+        import json
+        import tifffile
+        
         # Get manual center/rotation from panel
         manual_center, manual_rotation = settings_panel.get_manual_settings(img_name)
         
@@ -168,6 +177,35 @@ class ImageData:
         
         # Get orientation model (if available, default to 0)
         orientation_model = getattr(settings_panel, '_orientation_model', 0)
+        
+        # Auto-detect quadrant folded (PT specific, QF won't use this)
+        quadrant_folded = False
+        
+        # Method 1: Check filename for 'folded'
+        if 'folded' in img_name.lower():
+            quadrant_folded = True
+            print(f"Detected quadrant folded image from filename: {img_name}")
+        # Method 2: Parse TIFF metadata (only if filename doesn't contain 'folded')
+        elif img_name.endswith(('.tif', '.tiff')):
+            try:
+                img_path_obj = Path(img_path) if not isinstance(img_path, Path) else img_path
+                full_path = img_path_obj / img_name
+                with tifffile.TiffFile(str(full_path)) as tif:
+                    if tif.pages and "ImageDescription" in tif.pages[0].tags:
+                        metadata = tif.pages[0].tags["ImageDescription"].value
+                        try:
+                            # Try to parse as JSON: [quadrant_folded, initialImgDim]
+                            parsed = json.loads(metadata)
+                            if isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
+                                quadrant_folded = bool(parsed[0])
+                                if quadrant_folded:
+                                    print(f"Detected quadrant folded image from TIFF metadata: {img_name}")
+                        except (json.JSONDecodeError, ValueError, TypeError):
+                            # Metadata is not in expected format, not quadrant folded
+                            pass
+            except Exception as e:
+                # If can't read metadata, assume not quadrant folded
+                print(f"Could not read TIFF metadata from {img_name}: {e}")
         
         # Create and return ImageData
         return cls(
@@ -179,7 +217,8 @@ class ImageData:
             orientation_model=orientation_model,
             apply_blank=blank_mask_config['apply_blank'],
             apply_mask=blank_mask_config['apply_mask'],
-            blank_weight=blank_mask_config['blank_weight']
+            blank_weight=blank_mask_config['blank_weight'],
+            quadrant_folded=quadrant_folded
         )
     
     # ==================== Properties ====================
@@ -192,9 +231,20 @@ class ImageData:
     @property
     def center(self) -> Tuple[float, float]:
         """
-        Get center: manual if set, otherwise auto-calculate (lazy).
+        Get center: quadrant_folded geometric center > manual > auto-calculated.
         Always returns a valid center.
+        
+        Priority:
+        1. If quadrant_folded: geometric center (shape/2 - 0.5)
+        2. Else if manual center set: return manual center
+        3. Else: auto-calculate and cache
         """
+        # For quadrant folded images, always use geometric center
+        if self.quadrant_folded:
+            return (self._raw_img.shape[1] / 2.0 - 0.5, 
+                    self._raw_img.shape[0] / 2.0 - 0.5)
+        
+        # Manual center takes precedence
         if self._manual_center is not None:
             return self._manual_center
         
@@ -218,6 +268,17 @@ class ImageData:
             self.ensure_rotation()
         
         return self._computed_rotation
+    
+    @property
+    def geometric_center(self) -> Tuple[float, float]:
+        """Get geometric center (shape/2 - 0.5)"""
+        return (self._raw_img.shape[1] / 2.0 - 0.5, 
+                self._raw_img.shape[0] / 2.0 - 0.5)
+    
+    @property
+    def is_quadrant_folded(self) -> bool:
+        """Check if this is a quadrant folded image"""
+        return self.quadrant_folded
     
     @property
     def has_manual_center(self) -> bool:
