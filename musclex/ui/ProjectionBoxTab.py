@@ -338,14 +338,14 @@ class ProjectionBoxTab(QWidget):
         self.settingLayout.addWidget(self.clearPeakButton, 2, 0, 1, 2)
         self.settingLayout.addWidget(self.paramEditorButton, 3, 0, 1, 2)
         self.settingLayout.addWidget(self.hullRangeButton, 4, 0, 1, 2)
-        self.settingLayout.addWidget(self.meridBckGrndChkBx, 5, 0, 1, 2)
         if self.parent.bgsubs[self.name]== 1:
             self.settingLayout.addWidget(QLabel("Start"), 5, 0, 1, 1, Qt.AlignCenter)
             self.settingLayout.addWidget(QLabel("End"), 5, 1, 1, 1, Qt.AlignCenter)
         self.settingLayout.addWidget(self.startHull, 6, 0, 1, 1)
         self.settingLayout.addWidget(self.endHull, 6, 1, 1, 1)
-        self.settingLayout.addWidget(self.editMainPeakButton, 7, 0, 1, 2)
-        self.settingLayout.addWidget(self.refitButton, 8, 0, 1, 2)
+        self.settingLayout.addWidget(self.meridBckGrndChkBx, 7, 0, 1, 2)
+        self.settingLayout.addWidget(self.editMainPeakButton, 8, 0, 1, 2)
+        self.settingLayout.addWidget(self.refitButton, 9, 0, 1, 2)
 
         self.results_text = QLabel()
 
