@@ -679,7 +679,7 @@ class ProjectionProcessor:
 
             if name not in all_centroids:
                 results = getPeakInformations(hist, peaks, baselines)
-                all_centroids[name] = results['centroids'] - model['centerX']
+                all_centroids[name] = np.array(results['centroids']) - model['centerX']
                 all_widths[name] = results['widths']
                 all_areas[name] = results['areas']
                 print("Box : "+ str(name))
