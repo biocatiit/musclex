@@ -480,19 +480,61 @@ class ProjectionProcessor:
                     params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
 
             # Init peaks params
-            for j,p in enumerate(peaks):
-                # if j in self.fixed_center:
-                #     params.add('p_' + str(j), self.fixed_center[j])
-                # else:
-                params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
-                if j in self.fixed_sigma:
-                    params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
-                else:
-                    params.add('sigma' + str(j), 10, min=1, max=50.)
-                # if j in self.fixed_center:
-                #     params.add('fix' + str(j), self.fixed_center[j])
-                params.add('amplitude' + str(j), sum(hist)/10., min=-1)
-                # params.add('gamma' + str(j), 0. , min=0., max=30)
+            # Check if GMM mode (shared sigma) is enabled for this box
+            use_gmm = self.info.get('gmm_mode', {}).get(name, False)
+            
+            # Check if hull_ranges exist to constrain peak search range
+            default_search_dist = 10.
+            if name in self.info['hull_ranges']:
+                hull_start, hull_end = self.info['hull_ranges'][name]
+                # hull_end is the maximum distance from center
+                # Peak position p is relative to centerX, so valid range is [-hull_end, hull_end]
+                max_peak_dist = hull_end
+            else:
+                max_peak_dist = None  # No constraint
+            
+            if use_gmm:
+                # GMM mode: all peaks share one sigma
+                params.add('shared_sigma', 10, min=1, max=50.)
+                
+                for j, p in enumerate(peaks):
+                    # Constrain peak position search range
+                    if max_peak_dist is not None:
+                        # Limit search to stay within hull range
+                        p_min = max(p - default_search_dist, -max_peak_dist)
+                        p_max = min(p + default_search_dist, max_peak_dist)
+                    else:
+                        p_min = p - default_search_dist
+                        p_max = p + default_search_dist
+                    
+                    params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    # Key: use expression to bind all sigmas to shared_sigma
+                    params.add('sigma' + str(j), expr='shared_sigma')
+                    params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+            else:
+                # Original mode: each peak has independent sigma
+                for j,p in enumerate(peaks):
+                    # if j in self.fixed_center:
+                    #     params.add('p_' + str(j), self.fixed_center[j])
+                    # else:
+                    # Constrain peak position search range
+                    if max_peak_dist is not None:
+                        # Limit search to stay within hull range
+                        p_min = max(p - default_search_dist, -max_peak_dist)
+                        p_max = min(p + default_search_dist, max_peak_dist)
+                    else:
+                        p_min = p - default_search_dist
+                        p_max = p + default_search_dist
+                    
+                    params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    if j in self.fixed_sigma:
+                        params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
+                    else:
+                        params.add('sigma' + str(j), 10, min=1, max=50.)
+                    # if j in self.fixed_center:
+                    #     params.add('fix' + str(j), self.fixed_center[j])
+                    params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+                    # params.add('gamma' + str(j), 0. , min=0., max=30)
 
             # Fit model
             model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
@@ -522,7 +564,12 @@ class ProjectionProcessor:
                 for i in self.fixed_center:
                     if 'p_'+str(i) in self.info['fit_results'][name]:
                         self.info['fit_results'][name]['p_'+str(i)] = self.fixed_center[i]
+                
+                # Print fitting results
                 print("Box : "+ str(name))
+                if use_gmm:
+                    shared_sigma_val = self.info['fit_results'][name].get('shared_sigma', 'N/A')
+                    print(f"GMM Mode (Shared Sigma = {shared_sigma_val})")
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
                 print("---")
@@ -584,7 +631,38 @@ class ProjectionProcessor:
                     # else:
                     #     moved.append(int(round(model['centerX']-p)))
 
-                moved = movePeaks(hist, moved, 10)
+                # Constrain movePeaks search range by hull_ranges if available
+                if name in self.info['hull_ranges']:
+                    # Get hull range (start, end are distances from center)
+                    hull_start, hull_end = self.info['hull_ranges'][name]
+                    centerX = int(round(model['centerX']))
+                    
+                    # Calculate valid boundaries in absolute coordinates
+                    # hull_ranges are symmetric: [centerX - end, centerX + end]
+                    valid_min = max(0, centerX - hull_end)
+                    valid_max = min(len(hist), centerX + hull_end)
+                    
+                    # Move each peak with constrained search distance
+                    default_dist = 10
+                    constrained_moved = []
+                    for pk in moved:
+                        # Calculate distance to valid boundaries
+                        dist_to_min = pk - valid_min
+                        dist_to_max = valid_max - pk
+                        
+                        # Use the smaller of: default dist, distance to boundaries
+                        max_search_dist = min(default_dist, dist_to_min, dist_to_max)
+                        max_search_dist = max(3, max_search_dist)  # At least 3 pixels
+                        
+                        # Move this peak with constrained distance
+                        moved_single = movePeaks(hist, [pk], max_search_dist)
+                        constrained_moved.append(moved_single[0])
+                    
+                    moved = constrained_moved
+                else:
+                    # No hull range constraint, use default
+                    moved = movePeaks(hist, moved, 10)
+                
                 moved_peaks[name] = moved
                 self.removeInfo(name, 'baselines')
 
