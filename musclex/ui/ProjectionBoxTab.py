@@ -282,10 +282,31 @@ class ProjectionBoxTab(QWidget):
 
         self.settingGroup = QGroupBox("Settings")
         self.settingLayout = QGridLayout(self.settingGroup)
-        self.peaksButton = QPushButton("Select Peaks")
+        
+        # Modified: change name to "Select Single Peak"
+        self.peaksButton = QPushButton("Select Single Peak")
         self.peaksButton.setCheckable(True)
+        self.checkableButtons.append(self.peaksButton)
+        
+        # New: Peak Cluster button for GMM
+        self.peakClusterButton = QPushButton("Select Peak Cluster (GMM)")
+        self.peakClusterButton.setCheckable(True)
+        self.checkableButtons.append(self.peakClusterButton)
+        
+        # New: GMM number of Gaussians spinner
+        self.gmmNumGaussSpinBox = QSpinBox()
+        self.gmmNumGaussSpinBox.setRange(1, 10)
+        self.gmmNumGaussSpinBox.setValue(3)
+        self.gmmNumGaussSpinBox.setPrefix("N: ")
+        self.gmmNumGaussSpinBox.setToolTip("Number of Gaussian peaks to fit (will be mirrored)")
+        
         self.clearPeakButton = QPushButton("Clear Peaks")
         self.clearPeakButton.setVisible(True)
+        
+        # New: Parameter Editor button
+        self.paramEditorButton = QPushButton("Open Parameter Editor")
+        self.paramEditorButton.setEnabled(False)
+        
         self.meridBckGrndChkBx = QCheckBox("Meridional Peak")
         self.meridBckGrndChkBx.setChecked(True)
         self.meridBckGrndChkBx.setHidden(self.parent.bgsubs[self.name]!=0)
@@ -293,7 +314,7 @@ class ProjectionBoxTab(QWidget):
         self.editMainPeakButton.setEnabled(False)
         self.refitButton = QPushButton("Refit")
         self.refitButton.setEnabled(False)
-        self.checkableButtons.append(self.peaksButton)
+        
         self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
         self.hullRangeButton.setHidden(self.parent.bgsubs[self.name]!=1)
@@ -309,17 +330,22 @@ class ProjectionBoxTab(QWidget):
         self.endHull.setKeyboardTracking(False)
         self.endHull.setHidden(self.parent.bgsubs[self.name] != 1)
         self.checkableButtons.append(self.hullRangeButton)
+        
+        # Layout for new buttons
         self.settingLayout.addWidget(self.peaksButton, 0, 0, 1, 2)
-        self.settingLayout.addWidget(self.clearPeakButton, 1, 0, 1, 2)
-        self.settingLayout.addWidget(self.meridBckGrndChkBx, 3, 0, 1, 2)
-        self.settingLayout.addWidget(self.hullRangeButton, 2, 0, 1, 2)
+        self.settingLayout.addWidget(self.peakClusterButton, 1, 0, 1, 1)
+        self.settingLayout.addWidget(self.gmmNumGaussSpinBox, 1, 1, 1, 1)
+        self.settingLayout.addWidget(self.clearPeakButton, 2, 0, 1, 2)
+        self.settingLayout.addWidget(self.paramEditorButton, 3, 0, 1, 2)
+        self.settingLayout.addWidget(self.hullRangeButton, 4, 0, 1, 2)
+        self.settingLayout.addWidget(self.meridBckGrndChkBx, 5, 0, 1, 2)
         if self.parent.bgsubs[self.name]== 1:
-            self.settingLayout.addWidget(QLabel("Start"), 3, 0, 1, 1, Qt.AlignCenter)
-            self.settingLayout.addWidget(QLabel("End"), 3, 1, 1, 1, Qt.AlignCenter)
-        self.settingLayout.addWidget(self.startHull, 4, 0, 1, 1)
-        self.settingLayout.addWidget(self.endHull, 4, 1, 1, 1)
-        self.settingLayout.addWidget(self.editMainPeakButton, 5, 0, 1, 2)
-        self.settingLayout.addWidget(self.refitButton, 6, 0, 1, 2)
+            self.settingLayout.addWidget(QLabel("Start"), 5, 0, 1, 1, Qt.AlignCenter)
+            self.settingLayout.addWidget(QLabel("End"), 5, 1, 1, 1, Qt.AlignCenter)
+        self.settingLayout.addWidget(self.startHull, 6, 0, 1, 1)
+        self.settingLayout.addWidget(self.endHull, 6, 1, 1, 1)
+        self.settingLayout.addWidget(self.editMainPeakButton, 7, 0, 1, 2)
+        self.settingLayout.addWidget(self.refitButton, 8, 0, 1, 2)
 
         self.results_text = QLabel()
 
@@ -411,7 +437,9 @@ class ProjectionBoxTab(QWidget):
         self.zoomOutButton.clicked.connect(self.zoomOutclicked)
         self.fullButton.clicked.connect(self.fullClicked)
 
-        self.peaksButton.clicked.connect(self.addPeaks)
+        self.peaksButton.clicked.connect(self.addSinglePeak)
+        self.peakClusterButton.clicked.connect(self.addPeakCluster)
+        self.paramEditorButton.clicked.connect(self.openParameterEditor)
         self.clearPeakButton.clicked.connect(self.clearPeaks)
         self.meridBckGrndChkBx.stateChanged.connect(self.meridBckGrndChanged)
         self.hullRangeButton.clicked.connect(self.setManualHullRange)
@@ -665,20 +693,57 @@ class ProjectionBoxTab(QWidget):
 
         distance = int(round(abs(center - x)))
 
-        if func[0] == 'peaks':
+        if func[0] == 'single_peak':
             peaks = func[1]
+            
+            # Limit: only one peak allowed
+            if len(peaks) >= 1:
+                QMessageBox.warning(self, "Peak Already Selected", 
+                                  "Only one peak allowed. Click Accept or Clear first.")
+                return
+            
             peaks.append(distance)
-
+            
+            # Draw lines (same as original logic, both positive and negative)
             ax = self.graphAxes1
             ax.axvline(center + distance, color='#ff630a', linewidth=2)
             ax.axvline(center - distance, color='#ff630a', linewidth=2)
-
             ax = self.graphAxes2
             ax.axvline(center + distance, color='#ff630a', linewidth=2)
             ax.axvline(center - distance, color='#ff630a', linewidth=2)
-
             self.graphCanvas1.draw_idle()
             self.graphCanvas2.draw_idle()
+        
+        elif func[0] == 'peak_cluster':
+            peaks = func[1]
+            n_gauss = func[2]
+            
+            # Check if enough peaks selected
+            if len(peaks) >= n_gauss:
+                QMessageBox.warning(self, "Enough Peaks", 
+                                  f"You already selected {n_gauss} peaks. Click Accept button.")
+                return
+            
+            peaks.append(distance)
+            
+            # Draw with different color/style to indicate GMM cluster
+            ax = self.graphAxes1
+            ax.axvline(center + distance, color='#00ff00', linewidth=2, linestyle='--')
+            ax.axvline(center - distance, color='#00ff00', linewidth=2, linestyle='--')
+            ax.text(center + distance, ax.get_ylim()[1]*0.9, 
+                   f'G{len(peaks)}', color='#00ff00', fontsize=10, ha='center')
+            ax.text(center - distance, ax.get_ylim()[1]*0.9, 
+                   f'G{len(peaks)}', color='#00ff00', fontsize=10, ha='center')
+            
+            ax = self.graphAxes2
+            ax.axvline(center + distance, color='#00ff00', linewidth=2, linestyle='--')
+            ax.axvline(center - distance, color='#00ff00', linewidth=2, linestyle='--')
+            
+            self.graphCanvas1.draw_idle()
+            self.graphCanvas2.draw_idle()
+            
+            # Update button text to show progress
+            self.peakClusterButton.setText(f"Accept {len(peaks)}/{n_gauss} Peaks")
 
         elif func[0] == 'hull':
             hull_range = func[1]
@@ -799,23 +864,156 @@ class ProjectionBoxTab(QWidget):
         else:
             self.resetUI()
 
-    def addPeaks(self):
+    def addSinglePeak(self):
         """
-        Trigger when "Select Peaks" is pressed
-        :return:
+        Select single peak (limited to one, auto-mirrored)
         """
         if self.peaksButton.isChecked():
-            self.peaksButton.setText("Accept Peaks")
-            #self.clearPeakButton.setVisible(True)
-            self.function = ['peaks', []]
+            self.peaksButton.setText("Accept Single Peak")
+            self.function = ['single_peak', []]
         else:
-            self.peaksButton.setText("Select Peaks")
-            #self.clearPeakButton.setVisible(False)
+            self.peaksButton.setText("Select Single Peak")
             peaks = self.function[1]
-            op_peaks = [-x for x in self.function[1]]
-            peaks += op_peaks
+            
+            # Limit to one peak
+            if len(peaks) == 0:
+                QMessageBox.warning(self, "No Peak Selected", "Please select one peak.")
+                self.peaksButton.setChecked(True)
+                return
+            elif len(peaks) > 1:
+                QMessageBox.warning(self, "Too Many Peaks", 
+                                  f"Only one peak allowed. Using the first one.")
+                peaks = [peaks[0]]
+            
+            # Auto-mirror (keep original logic)
+            op_peaks = [-x for x in peaks]
+            all_peaks = peaks + op_peaks  # [+dist, -dist]
+            
             self.function = None
-            self.parent.addPeakstoBox(self.name, peaks)
+            self.parent.addPeakstoBox(self.name, all_peaks)
+    
+    def addPeakCluster(self):
+        """
+        Select multiple peaks for GMM fitting (shared sigma, auto-mirrored)
+        """
+        if self.peakClusterButton.isChecked():
+            n_gauss = self.gmmNumGaussSpinBox.value()
+            self.peakClusterButton.setText(f"Accept {n_gauss} Peaks")
+            self.function = ['peak_cluster', [], n_gauss]
+            
+            # Show status hint
+            self.parent.setLeftStatus(
+                f"Click to select {n_gauss} approximate peak positions "
+                f"(will be mirrored, total {n_gauss*2} peaks for GMM fitting)")
+        else:
+            self.peakClusterButton.setText("Select Peak Cluster (GMM)")
+            peaks = self.function[1]
+            n_gauss = self.function[2]
+            
+            # Check count
+            if len(peaks) != n_gauss:
+                QMessageBox.warning(self, "Incorrect Peak Count", 
+                                  f"Please select exactly {n_gauss} peaks. You selected {len(peaks)}.")
+                self.peakClusterButton.setChecked(True)
+                return
+            
+            # Auto-mirror (keep original logic)
+            op_peaks = [-x for x in peaks]
+            all_peaks = peaks + op_peaks  # positive and negative distances
+            
+            # Enable GMM mode and fit
+            self.fitGaussianMixture(all_peaks, n_gauss * 2)
+            self.function = None
+    
+    def fitGaussianMixture(self, all_peaks, total_n_gaussians):
+        """
+        Fit peak cluster using GMM (shared sigma)
+        :param all_peaks: All peaks (including mirrored ones)
+        :param total_n_gaussians: Total number of Gaussians
+        """
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        
+        try:
+            # Enable GMM mode BEFORE processing
+            # Store in parent's gmm_boxes dict so it persists
+            if not hasattr(self.parent, 'gmm_boxes'):
+                self.parent.gmm_boxes = {}
+            self.parent.gmm_boxes[self.name] = True
+            
+            # Also set in projProc.info (will be used during fitting)
+            if 'gmm_mode' not in self.parent.projProc.info:
+                self.parent.projProc.info['gmm_mode'] = {}
+            self.parent.projProc.info['gmm_mode'][self.name] = True
+            
+            # Add peaks and process
+            self.parent.addPeakstoBox(self.name, all_peaks)
+            
+            # Re-ensure GMM mode is set after processing
+            if 'gmm_mode' not in self.parent.projProc.info:
+                self.parent.projProc.info['gmm_mode'] = {}
+            self.parent.projProc.info['gmm_mode'][self.name] = True
+            
+            # Check results after processing
+            if 'fit_results' in self.parent.projProc.info and \
+               self.name in self.parent.projProc.info['fit_results']:
+                
+                result = self.parent.projProc.info['fit_results'][self.name]
+                
+                # Enable parameter editor
+                self.paramEditorButton.setEnabled(True)
+                
+                # Show results
+                error = result.get('error', 0)
+                shared_sigma = result.get('shared_sigma', 0)
+                
+                msg = f"GMM Fitting Complete!\n\n"
+                msg += f"Total Gaussians: {total_n_gaussians}\n"
+                msg += f"Shared Sigma: {shared_sigma:.4f}\n"
+                msg += f"Fitting Error (1-R²): {error:.6f}"
+                
+                QMessageBox.information(self, "GMM Fit Complete", msg)
+            
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(self, "GMM Fitting Error", 
+                               f"Error: {str(e)}\n\n{traceback.format_exc()}")
+        finally:
+            QApplication.restoreOverrideCursor()
+    
+    def openParameterEditor(self):
+        """
+        Open parameter editor dialog
+        """
+        if 'fit_results' not in self.parent.projProc.info or \
+           self.name not in self.parent.projProc.info['fit_results']:
+            QMessageBox.warning(self, "No Fit Results", 
+                              "Please fit peaks first before opening parameter editor.")
+            return
+        
+        # Check if GMM mode (check both parent.gmm_boxes and projProc.info)
+        is_gmm = False
+        if hasattr(self.parent, 'gmm_boxes') and self.name in self.parent.gmm_boxes:
+            is_gmm = self.parent.gmm_boxes[self.name]
+        elif 'gmm_mode' in self.parent.projProc.info and self.name in self.parent.projProc.info['gmm_mode']:
+            is_gmm = self.parent.projProc.info['gmm_mode'][self.name]
+        
+        # Also check if shared_sigma exists in fit_results (definitive proof of GMM mode)
+        if 'shared_sigma' in self.parent.projProc.info['fit_results'][self.name]:
+            is_gmm = True
+        
+        if not is_gmm:
+            QMessageBox.information(self, "Not GMM Mode", 
+                                  "Parameter editor is currently only available for GMM fitting mode.")
+            return
+        
+        # Open parameter editor dialog
+        try:
+            from .GMMParameterEditorDialog import GMMParameterEditorDialog
+            dialog = GMMParameterEditorDialog(self, self.name)
+            dialog.exec_()
+        except ImportError as e:
+            QMessageBox.critical(self, "Import Error", 
+                               f"Cannot import GMMParameterEditorDialog: {str(e)}")
 
     def refreshUI(self):
         #clear the axes
@@ -850,13 +1048,13 @@ class ProjectionBoxTab(QWidget):
 
         if self.function is None:
             self.parent.addPeakstoBox(self.name, [])
-            self.function = ['peaks', curr_peaks]
+            self.function = ['single_peak', curr_peaks]
             self.refreshUI()
-            self.peaksButton.setText("Accept Peaks")
+            self.peaksButton.setText("Accept Single Peak")
             self.peaksButton.setChecked(True)
             return
 
-        if self.function[0] == 'peaks' and curr_peaks != []:
+        if self.function[0] in ('peaks', 'single_peak', 'peak_cluster') and curr_peaks != []:
             #Remove the most recent peak
             self.function[1].pop()
             self.refreshUI()
@@ -880,7 +1078,8 @@ class ProjectionBoxTab(QWidget):
         """
         self.need_update = True
         self.function = None
-        self.peaksButton.setText("Select Peaks")
+        self.peaksButton.setText("Select Single Peak")
+        self.peakClusterButton.setText("Select Peak Cluster (GMM)")
         #self.clearPeakButton.setVisible(False)
         for b in self.checkableButtons:
             self.syncUI = True
