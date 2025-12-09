@@ -2767,6 +2767,10 @@ class ProjectionTracesGUI(QMainWindow):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
+        # add GMM mode settings
+        if hasattr(self, 'gmm_boxes'):
+            settings['gmm_mode'] = self.gmm_boxes
+
         # add blank image and mask
         settings['blank_mask'] = self.blankImageGrp.isChecked()
 
