@@ -37,6 +37,16 @@ class GMMParameterEditorDialog(QDialog):
         titleLabel = QLabel(f"<h2>Parameters for {self.box_name}</h2>")
         mainLayout.addWidget(titleLabel)
         
+        # Equal Variance checkbox
+        self.equalVarianceChkBx = QCheckBox("Equal Variance (Shared Sigma)")
+        # Note: Initial state will be set in populateParameters() based on fit results
+        self.equalVarianceChkBx.setToolTip(
+            "When checked: All peaks share one sigma (GMM mode)\n"
+            "When unchecked: Each peak has independent sigma"
+        )
+        self.equalVarianceChkBx.stateChanged.connect(self.onEqualVarianceChanged)
+        mainLayout.addWidget(self.equalVarianceChkBx)
+        
         # Parameter table (same as Equator)
         self.paramTable = QTableWidget()
         self.paramTable.setColumnCount(5)
@@ -78,6 +88,13 @@ class GMMParameterEditorDialog(QDialog):
         """
         fit_result = self.projProc.info['fit_results'][self.box_name]
         
+        # Detect if current fit is GMM mode and set checkbox state
+        is_gmm = 'shared_sigma' in fit_result
+        # Block signals temporarily to avoid triggering stateChanged before table is populated
+        self.equalVarianceChkBx.blockSignals(True)
+        self.equalVarianceChkBx.setChecked(is_gmm)
+        self.equalVarianceChkBx.blockSignals(False)
+        
         # Extract all parameters
         params_to_show = {}
         
@@ -109,13 +126,13 @@ class GMMParameterEditorDialog(QDialog):
                 'fixed': False
             }
             
-            # Sigma (display only, not editable because shared)
+            # Sigma
             if f'sigma{i}' in fit_result:
                 params_to_show[f'sigma{i}'] = {
                     'val': fit_result[f'sigma{i}'],
                     'min': 1.0,
                     'max': 100.0,
-                    'fixed': True  # Fixed because depends on shared_sigma
+                    'fixed': is_gmm  # Fixed in GMM mode, editable otherwise
                 }
             
             i += 1
@@ -131,10 +148,6 @@ class GMMParameterEditorDialog(QDialog):
             chkItem = QTableWidgetItem()
             chkItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             chkItem.setCheckState(Qt.Checked if pdict['fixed'] else Qt.Unchecked)
-            # If individual sigma, disable checkbox
-            if param_name.startswith('sigma') and param_name != 'shared_sigma':
-                chkItem.setFlags(Qt.ItemIsEnabled)
-                chkItem.setCheckState(Qt.Checked)
             self.paramTable.setItem(row, 0, chkItem)
             
             # Parameter name
@@ -145,9 +158,6 @@ class GMMParameterEditorDialog(QDialog):
             valueSpin.setDecimals(6)
             valueSpin.setRange(-1e10, 1e10)
             valueSpin.setValue(pdict['val'])
-            # Individual sigma not editable
-            if param_name.startswith('sigma') and param_name != 'shared_sigma':
-                valueSpin.setEnabled(False)
             self.paramTable.setCellWidget(row, 2, valueSpin)
             
             # Min spinbox
@@ -167,6 +177,46 @@ class GMMParameterEditorDialog(QDialog):
             self.paramTable.setCellWidget(row, 4, maxSpin)
             
             row += 1
+        
+        # Apply initial editability based on checkbox state
+        self.onEqualVarianceChanged(self.equalVarianceChkBx.checkState())
+    
+    def onEqualVarianceChanged(self, state):
+        """
+        Handle Equal Variance checkbox state change
+        Update sigma parameters editability
+        """
+        is_equal_variance = (state == Qt.Checked)
+        
+        # Update sigma parameters editability
+        for row in range(self.paramTable.rowCount()):
+            param_name = self.paramTable.item(row, 1).text()
+            
+            if param_name.startswith('sigma') and param_name != 'shared_sigma':
+                # Individual sigma parameters
+                fixedItem = self.paramTable.item(row, 0)
+                valueSpin = self.paramTable.cellWidget(row, 2)
+                minSpin = self.paramTable.cellWidget(row, 3)
+                maxSpin = self.paramTable.cellWidget(row, 4)
+                
+                if is_equal_variance:
+                    # GMM mode: sigma fixed and bound to shared_sigma
+                    fixedItem.setFlags(Qt.ItemIsEnabled)
+                    fixedItem.setCheckState(Qt.Checked)
+                    valueSpin.setEnabled(False)
+                    minSpin.setEnabled(False)
+                    maxSpin.setEnabled(False)
+                else:
+                    # Non-GMM mode: sigma independent and editable
+                    fixedItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                    fixedItem.setCheckState(Qt.Unchecked)
+                    valueSpin.setEnabled(True)
+                    minSpin.setEnabled(True)
+                    maxSpin.setEnabled(True)
+            
+            elif param_name == 'shared_sigma':
+                # shared_sigma only visible in GMM mode
+                self.paramTable.setRowHidden(row, not is_equal_variance)
     
     def onFixedToggled(self, item):
         """
@@ -220,10 +270,28 @@ class GMMParameterEditorDialog(QDialog):
                 # Update table with new values
                 self.populateParameters()
                 
+                # Force canvas redraw
+                self.parent_tab.graphCanvas1.draw()
+                self.parent_tab.graphCanvas2.draw()
+                
                 # Refresh parent BoxTab to show updated fit
                 self.parent_tab.updateUI()
                 
+                # Display mode in message
+                mode = "GMM (Equal Variance)" if self.equalVarianceChkBx.isChecked() \
+                       else "Independent Sigma"
+                
+                # Show sigma values for comparison
+                sigma_info = ""
+                if self.equalVarianceChkBx.isChecked():
+                    sigma_info = f"Shared Sigma: {result.get('shared_sigma', 0):.4f}"
+                else:
+                    sigmas = [result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result]
+                    sigma_info = f"Sigmas (first 5): {[f'{s:.2f}' for s in sigmas if s]}"
+                
                 QMessageBox.information(self, "Refit Complete", 
+                                      f"Mode: {mode}\n"
+                                      f"{sigma_info}\n"
                                       f"New error: {result.get('error', 0):.6f}")
         except Exception as e:
             QMessageBox.critical(self, "Refit Error", str(e))
@@ -259,28 +327,49 @@ class GMMParameterEditorDialog(QDialog):
             if bg_param in fit_result:
                 int_vars[bg_param] = fit_result[bg_param]
         
-        # GMM parameters
-        # shared_sigma
-        if 'shared_sigma' in paramInfo:
-            pinfo = paramInfo['shared_sigma']
-            if pinfo['fixed']:
-                int_vars['shared_sigma'] = pinfo['val']
-            else:
-                params.add('shared_sigma', pinfo['val'], min=pinfo['min'], max=pinfo['max'])
+        # Check Equal Variance checkbox state
+        use_equal_variance = self.equalVarianceChkBx.isChecked()
         
-        # Parameters for each peak
-        for param_name, pinfo in paramInfo.items():
-            if param_name.startswith('p_') or param_name.startswith('amplitude'):
+        print(f"\n=== DEBUG refitGMM ===")
+        print(f"Box: {self.box_name}")
+        print(f"use_equal_variance: {use_equal_variance}")
+        print(f"Number of parameters: {len(paramInfo)}")
+        
+        if use_equal_variance:
+            # GMM mode: shared sigma
+            if 'shared_sigma' in paramInfo:
+                pinfo = paramInfo['shared_sigma']
                 if pinfo['fixed']:
-                    int_vars[param_name] = pinfo['val']
+                    int_vars['shared_sigma'] = pinfo['val']
                 else:
-                    params.add(param_name, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
-            elif param_name.startswith('sigma') and param_name != 'shared_sigma':
-                # Individual sigma bound with expression
-                if 'shared_sigma' in params:
-                    params.add(param_name, expr='shared_sigma')
-                elif 'shared_sigma' in int_vars:
-                    int_vars[param_name] = int_vars['shared_sigma']
+                    params.add('shared_sigma', pinfo['val'], min=pinfo['min'], max=pinfo['max'])
+            
+            # Parameters for each peak
+            for param_name, pinfo in paramInfo.items():
+                if param_name.startswith('p_') or param_name.startswith('amplitude'):
+                    if pinfo['fixed']:
+                        int_vars[param_name] = pinfo['val']
+                    else:
+                        params.add(param_name, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
+                elif param_name.startswith('sigma') and param_name != 'shared_sigma':
+                    # Individual sigma bound to shared_sigma
+                    if 'shared_sigma' in params:
+                        params.add(param_name, expr='shared_sigma')
+                    elif 'shared_sigma' in int_vars:
+                        int_vars[param_name] = int_vars['shared_sigma']
+        else:
+            # Non-GMM mode: independent sigmas
+            for param_name, pinfo in paramInfo.items():
+                if param_name == 'shared_sigma':
+                    continue  # Skip shared_sigma in non-GMM mode
+                
+                if param_name.startswith('p_') or \
+                   param_name.startswith('amplitude') or \
+                   param_name.startswith('sigma'):
+                    if pinfo['fixed']:
+                        int_vars[param_name] = pinfo['val']
+                    else:
+                        params.add(param_name, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
         
         # Fit
         from ..modules.ProjectionProcessor import layerlineModel
@@ -296,8 +385,30 @@ class GMMParameterEditorDialog(QDialog):
             fitted_curve = layerlineModel(x, **result_dict)
             result_dict['error'] = 1.0 - r2_score(hist, fitted_curve)
             
+            # Debug: print sigma values after fit
+            print(f"Fit complete. Error: {result_dict['error']:.6f}")
+            if use_equal_variance:
+                print(f"  shared_sigma: {result_dict.get('shared_sigma', 'N/A')}")
+            sigma_values = [result_dict.get(f'sigma{i}', None) for i in range(20) if f'sigma{i}' in result_dict]
+            print(f"  Individual sigmas: {sigma_values[:5]}...")  # Show first 5
+            
             # Update stored results
             self.projProc.info['fit_results'][self.box_name] = result_dict
+            
+            # Update gmm_mode flag to match current fitting mode
+            if 'gmm_mode' not in self.projProc.info:
+                self.projProc.info['gmm_mode'] = {}
+            self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
+            
+            # Also update parent's gmm_boxes for persistence
+            if hasattr(self.parent_tab.parent, 'gmm_boxes'):
+                self.parent_tab.parent.gmm_boxes[self.box_name] = use_equal_variance
+            
+            # Clear cached hists2 to force UI update
+            if 'hists2' in self.projProc.info and self.box_name in self.projProc.info['hists2']:
+                del self.projProc.info['hists2'][self.box_name]
+            
+            print(f"=== Refit completed, gmm_mode set to: {use_equal_variance} ===\n")
             
             return result_dict
         
