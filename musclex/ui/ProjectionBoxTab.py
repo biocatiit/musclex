@@ -889,6 +889,17 @@ class ProjectionBoxTab(QWidget):
             op_peaks = [-x for x in peaks]
             all_peaks = peaks + op_peaks  # [+dist, -dist]
             
+            # Disable GMM mode for single peak selection
+            if hasattr(self.parent, 'gmm_boxes'):
+                self.parent.gmm_boxes[self.name] = False
+            if 'gmm_mode' in self.parent.projProc.info:
+                self.parent.projProc.info['gmm_mode'][self.name] = False
+            
+            # Clear old fit_results to force re-fitting without GMM
+            if 'fit_results' in self.parent.projProc.info and \
+               self.name in self.parent.projProc.info['fit_results']:
+                del self.parent.projProc.info['fit_results'][self.name]
+            
             self.function = None
             self.parent.addPeakstoBox(self.name, all_peaks)
     
@@ -945,6 +956,11 @@ class ProjectionBoxTab(QWidget):
                 self.parent.projProc.info['gmm_mode'] = {}
             self.parent.projProc.info['gmm_mode'][self.name] = True
             
+            # Clear old fit_results to force re-fitting with new GMM mode
+            if 'fit_results' in self.parent.projProc.info and \
+               self.name in self.parent.projProc.info['fit_results']:
+                del self.parent.projProc.info['fit_results'][self.name]
+            
             # Add peaks and process
             self.parent.addPeakstoBox(self.name, all_peaks)
             
@@ -964,7 +980,16 @@ class ProjectionBoxTab(QWidget):
                 
                 # Show results
                 error = result.get('error', 0)
-                shared_sigma = result.get('shared_sigma', 0)
+                shared_sigma = result.get('shared_sigma', None)
+                
+                # Debug: print actual result to verify
+                print(f"DEBUG fitGaussianMixture: box={self.name}")
+                print(f"  shared_sigma in result: {shared_sigma}")
+                print(f"  Full result keys: {list(result.keys())}")
+                
+                if shared_sigma is None:
+                    shared_sigma = 0
+                    print("  WARNING: shared_sigma not found in result!")
                 
                 msg = f"GMM Fitting Complete!\n\n"
                 msg += f"Total Gaussians: {total_n_gaussians}\n"
@@ -1310,7 +1335,7 @@ class ProjectionBoxTab(QWidget):
             areas = all_areas[name]
             nPeaks = len(centroids)
             fit_result = fit_results[name]
-            peaks = all_peaks[name] - fit_result['centerX']
+            peaks = np.array(all_peaks[name]) - fit_result['centerX']
             self.resultTable1.setRowCount(nPeaks)
             self.resultTable2.setRowCount(nPeaks)
 

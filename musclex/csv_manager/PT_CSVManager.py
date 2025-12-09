@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 from os.path import exists
 import pandas as pd
+import numpy as np
 try:
     from ..utils.file_manager import fullPath, createFolder
 except: # for coverage
@@ -115,7 +116,7 @@ class PT_CSVManager:
                 new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
                 if 'centroids' in info and bn in info['centroids']:
                     centroids = info['centroids'][bn]
-                    moved_peaks = info['moved_peaks'][bn] - model['centerX']
+                    moved_peaks = np.array(info['moved_peaks'][bn]) - model['centerX']
                     for i,c in enumerate(centroids):
                         side = " right" if i%2 == 0 else " left"
                         new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (Pixel)"] = moved_peaks[i]
