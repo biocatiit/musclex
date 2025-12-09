@@ -21,6 +21,9 @@ class GMMParameterEditorDialog(QDialog):
         self.setWindowTitle(f"GMM Parameter Editor - {box_name}")
         self.resize(600, 500)  # Simpler, smaller window
         
+        # Make dialog independent of parent window movement
+        self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint)
+        
         self.initUI()
         self.populateParameters()
     
