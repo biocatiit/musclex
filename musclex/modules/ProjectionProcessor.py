@@ -485,13 +485,12 @@ class ProjectionProcessor:
             
             # Check if hull_ranges exist to constrain peak search range
             default_search_dist = 10.
+            hull_constraint = None
             if name in self.info['hull_ranges']:
                 hull_start, hull_end = self.info['hull_ranges'][name]
-                # hull_end is the maximum distance from center
-                # Peak position p is relative to centerX, so valid range is [-hull_end, hull_end]
-                max_peak_dist = hull_end
-            else:
-                max_peak_dist = None  # No constraint
+                # hull_ranges: (start, end) are both positive numbers
+                # Valid ranges: [start, end] for positive peaks, [-end, -start] for negative peaks
+                hull_constraint = (hull_start, hull_end)
             
             if use_gmm:
                 # GMM mode: all peaks share one sigma
@@ -499,10 +498,16 @@ class ProjectionProcessor:
                 
                 for j, p in enumerate(peaks):
                     # Constrain peak position search range
-                    if max_peak_dist is not None:
-                        # Limit search to stay within hull range
-                        p_min = max(p - default_search_dist, -max_peak_dist)
-                        p_max = min(p + default_search_dist, max_peak_dist)
+                    if hull_constraint is not None:
+                        hull_start, hull_end = hull_constraint
+                        if p > 0:
+                            # Positive peak: constrain to [hull_start, hull_end]
+                            p_min = max(p - default_search_dist, hull_start)
+                            p_max = min(p + default_search_dist, hull_end)
+                        else:
+                            # Negative peak: constrain to [-hull_end, -hull_start]
+                            p_min = max(p - default_search_dist, -hull_end)
+                            p_max = min(p + default_search_dist, -hull_start)
                     else:
                         p_min = p - default_search_dist
                         p_max = p + default_search_dist
@@ -518,10 +523,16 @@ class ProjectionProcessor:
                     #     params.add('p_' + str(j), self.fixed_center[j])
                     # else:
                     # Constrain peak position search range
-                    if max_peak_dist is not None:
-                        # Limit search to stay within hull range
-                        p_min = max(p - default_search_dist, -max_peak_dist)
-                        p_max = min(p + default_search_dist, max_peak_dist)
+                    if hull_constraint is not None:
+                        hull_start, hull_end = hull_constraint
+                        if p > 0:
+                            # Positive peak: constrain to [hull_start, hull_end]
+                            p_min = max(p - default_search_dist, hull_start)
+                            p_max = min(p + default_search_dist, hull_end)
+                        else:
+                            # Negative peak: constrain to [-hull_end, -hull_start]
+                            p_min = max(p - default_search_dist, -hull_end)
+                            p_max = min(p + default_search_dist, -hull_start)
                     else:
                         p_min = p - default_search_dist
                         p_max = p + default_search_dist
@@ -637,15 +648,20 @@ class ProjectionProcessor:
                     hull_start, hull_end = self.info['hull_ranges'][name]
                     centerX = int(round(model['centerX']))
                     
-                    # Calculate valid boundaries in absolute coordinates
-                    # hull_ranges are symmetric: [centerX - end, centerX + end]
-                    valid_min = max(0, centerX - hull_end)
-                    valid_max = min(len(hist), centerX + hull_end)
-                    
                     # Move each peak with constrained search distance
                     default_dist = 10
                     constrained_moved = []
                     for pk in moved:
+                        # Determine valid boundaries based on peak position
+                        if pk > centerX:
+                            # Positive direction: [centerX + hull_start, centerX + hull_end]
+                            valid_min = max(0, centerX + hull_start)
+                            valid_max = min(len(hist), centerX + hull_end)
+                        else:
+                            # Negative direction: [centerX - hull_end, centerX - hull_start]
+                            valid_min = max(0, centerX - hull_end)
+                            valid_max = min(len(hist), centerX - hull_start)
+                        
                         # Calculate distance to valid boundaries
                         dist_to_min = pk - valid_min
                         dist_to_max = valid_max - pk
