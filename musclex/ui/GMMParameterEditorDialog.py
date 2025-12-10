@@ -43,10 +43,10 @@ class GMMParameterEditorDialog(QDialog):
         mainLayout.addWidget(titleLabel)
         
         # Equal Variance checkbox
-        self.equalVarianceChkBx = QCheckBox("Equal Variance (Shared Sigma)")
+        self.equalVarianceChkBx = QCheckBox("Equal Variance (Common Sigma)")
         # Note: Initial state will be set in populateParameters() based on fit results
         self.equalVarianceChkBx.setToolTip(
-            "When checked: All peaks share one sigma (GMM mode)\n"
+            "When checked: All peaks share one common sigma (GMM mode)\n"
             "When unchecked: Each peak has independent sigma"
         )
         self.equalVarianceChkBx.stateChanged.connect(self.onEqualVarianceChanged)
@@ -94,7 +94,7 @@ class GMMParameterEditorDialog(QDialog):
         fit_result = self.projProc.info['fit_results'][self.box_name]
         
         # Detect if current fit is GMM mode and set checkbox state
-        is_gmm = 'shared_sigma' in fit_result
+        is_gmm = 'common_sigma' in fit_result
         # Block signals temporarily to avoid triggering stateChanged before table is populated
         self.equalVarianceChkBx.blockSignals(True)
         self.equalVarianceChkBx.setChecked(is_gmm)
@@ -103,10 +103,10 @@ class GMMParameterEditorDialog(QDialog):
         # Extract all parameters
         params_to_show = {}
         
-        # Shared sigma (key GMM parameter)
-        if 'shared_sigma' in fit_result:
-            params_to_show['shared_sigma'] = {
-                'val': fit_result['shared_sigma'],
+        # Common sigma (key GMM parameter)
+        if 'common_sigma' in fit_result:
+            params_to_show['common_sigma'] = {
+                'val': fit_result['common_sigma'],
                 'min': 1.0,
                 'max': 100.0,
                 'fixed': False
@@ -198,7 +198,7 @@ class GMMParameterEditorDialog(QDialog):
         for row in range(self.paramTable.rowCount()):
             param_name = self.paramTable.item(row, 1).text()
             
-            if param_name.startswith('sigma') and param_name != 'shared_sigma':
+            if param_name.startswith('sigma') and param_name != 'common_sigma':
                 # Individual sigma parameters
                 fixedItem = self.paramTable.item(row, 0)
                 valueSpin = self.paramTable.cellWidget(row, 2)
@@ -206,7 +206,7 @@ class GMMParameterEditorDialog(QDialog):
                 maxSpin = self.paramTable.cellWidget(row, 4)
                 
                 if is_equal_variance:
-                    # GMM mode: sigma fixed and bound to shared_sigma
+                    # GMM mode: sigma fixed and bound to common sigma
                     fixedItem.setFlags(Qt.ItemIsEnabled)
                     fixedItem.setCheckState(Qt.Checked)
                     valueSpin.setEnabled(False)
@@ -220,8 +220,8 @@ class GMMParameterEditorDialog(QDialog):
                     minSpin.setEnabled(True)
                     maxSpin.setEnabled(True)
             
-            elif param_name == 'shared_sigma':
-                # shared_sigma only visible in GMM mode
+            elif param_name == 'common_sigma':
+                # common_sigma only visible in GMM mode
                 self.paramTable.setRowHidden(row, not is_equal_variance)
     
     def onFixedToggled(self, item):
@@ -306,7 +306,7 @@ class GMMParameterEditorDialog(QDialog):
                 # Show sigma values for comparison
                 sigma_info = ""
                 if self.equalVarianceChkBx.isChecked():
-                    sigma_info = f"Shared Sigma: {result.get('shared_sigma', 0):.4f}"
+                    sigma_info = f"Common Sigma: {result.get('common_sigma', 0):.4f}"
                 else:
                     sigmas = [result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result]
                     sigma_info = f"Sigmas (first 5): {[f'{s:.2f}' for s in sigmas if s]}"
@@ -365,7 +365,7 @@ class GMMParameterEditorDialog(QDialog):
         if not use_equal_variance:
             self.projProc.fixed_sigma = {}
             for param_name, pinfo in paramInfo.items():
-                if param_name.startswith('sigma') and param_name != 'shared_sigma':
+                if param_name.startswith('sigma') and param_name != 'common_sigma':
                     if pinfo['fixed']:
                         sigma_idx = int(param_name.replace('sigma', ''))
                         self.projProc.fixed_sigma[sigma_idx] = pinfo['val']
@@ -399,7 +399,7 @@ class GMMParameterEditorDialog(QDialog):
                 # Debug: print sigma values after fit
                 print(f"Fit complete. Error: {result_dict.get('error', 0):.6f}")
                 if use_equal_variance:
-                    print(f"  shared_sigma: {result_dict.get('shared_sigma', 'N/A')}")
+                    print(f"  common_sigma: {result_dict.get('common_sigma', 'N/A')}")
                 else:
                     sigma_values = [result_dict.get(f'sigma{i}', None) for i in range(20) if f'sigma{i}' in result_dict]
                     print(f"  Individual sigmas: {sigma_values[:5]}...")
