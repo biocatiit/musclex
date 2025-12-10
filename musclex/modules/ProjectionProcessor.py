@@ -408,6 +408,10 @@ class ProjectionProcessor:
         fit_results = self.info['fit_results']
 
         for name in box_names:
+            # Skip if histogram data not available for this box
+            if name not in all_hists:
+                continue
+                
             hist = np.array(all_hists[name])
 
             if name not in all_peaks or len(all_peaks[name]) == 0 or name in fit_results:

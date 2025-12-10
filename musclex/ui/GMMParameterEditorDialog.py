@@ -302,117 +302,98 @@ class GMMParameterEditorDialog(QDialog):
     
     def refitGMM(self, paramInfo):
         """
-        Refit GMM using updated parameters
+        Refit using updated parameters by calling ProjectionProcessor.fitModel()
+        This ensures consistency with initial fitting logic including hull constraints
         """
-        hist = np.array(self.projProc.info['subtracted_hists'][self.box_name])
-        x = np.arange(0, len(hist))
-        
-        # Build lmfit parameters
-        params = Parameters()
-        int_vars = {}
-        
-        # centerX fixed
-        box = self.projProc.info['boxes'][self.box_name]
-        if self.projProc.info['types'][self.box_name] == 'h':
-            centerX = self.projProc.info['centerx'] - box[0][0]
-        else:
-            centerX = self.projProc.info['centery'] - box[1][0]
-        params.add('centerX', int(round(centerX)), vary=False)
-        
-        # Background parameters (from original fit_results)
-        fit_result = self.projProc.info['fit_results'][self.box_name]
-        for bg_param in ['bg_line', 'bg_sigma', 'bg_amplitude',
-                        'center_sigma1', 'center_amplitude1',
-                        'center_sigma2', 'center_amplitude2']:
-            if bg_param in fit_result:
-                int_vars[bg_param] = fit_result[bg_param]
-        
         # Check Equal Variance checkbox state
         use_equal_variance = self.equalVarianceChkBx.isChecked()
         
-        print(f"\n=== DEBUG refitGMM ===")
+        print(f"\n=== DEBUG refitGMM (Unified Logic) ===")
         print(f"Box: {self.box_name}")
         print(f"use_equal_variance: {use_equal_variance}")
         print(f"Number of parameters: {len(paramInfo)}")
         
-        if use_equal_variance:
-            # GMM mode: shared sigma
-            if 'shared_sigma' in paramInfo:
-                pinfo = paramInfo['shared_sigma']
-                if pinfo['fixed']:
-                    int_vars['shared_sigma'] = pinfo['val']
-                else:
-                    params.add('shared_sigma', pinfo['val'], min=pinfo['min'], max=pinfo['max'])
-            
-            # Parameters for each peak
+        # Update gmm_mode flag BEFORE calling fitModel
+        if 'gmm_mode' not in self.projProc.info:
+            self.projProc.info['gmm_mode'] = {}
+        self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
+        
+        # Also update parent's gmm_boxes for persistence
+        if hasattr(self.parent_tab.parent, 'gmm_boxes'):
+            self.parent_tab.parent.gmm_boxes[self.box_name] = use_equal_variance
+        
+        # Extract peak positions from paramInfo (p_0, p_1, p_2, ...)
+        # These are relative positions (distance from centerX)
+        peak_positions = []
+        i = 0
+        while f'p_{i}' in paramInfo:
+            peak_positions.append(paramInfo[f'p_{i}']['val'])
+            i += 1
+        
+        if not peak_positions:
+            print("ERROR: No peak positions found in paramInfo!")
+            return None
+        
+        print(f"Extracted {len(peak_positions)} peak positions: {peak_positions[:5]}...")
+        
+        # Update moved_peaks with new positions
+        self.projProc.info['moved_peaks'][self.box_name] = peak_positions
+        
+        # Update fixed_sigma if any sigma is marked as fixed in non-GMM mode
+        if not use_equal_variance:
+            self.projProc.fixed_sigma = {}
             for param_name, pinfo in paramInfo.items():
-                if param_name.startswith('p_') or param_name.startswith('amplitude'):
+                if param_name.startswith('sigma') and param_name != 'shared_sigma':
                     if pinfo['fixed']:
-                        int_vars[param_name] = pinfo['val']
-                    else:
-                        params.add(param_name, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
-                elif param_name.startswith('sigma') and param_name != 'shared_sigma':
-                    # Individual sigma bound to shared_sigma
-                    if 'shared_sigma' in params:
-                        params.add(param_name, expr='shared_sigma')
-                    elif 'shared_sigma' in int_vars:
-                        int_vars[param_name] = int_vars['shared_sigma']
+                        sigma_idx = int(param_name.replace('sigma', ''))
+                        self.projProc.fixed_sigma[sigma_idx] = pinfo['val']
         else:
-            # Non-GMM mode: independent sigmas
-            for param_name, pinfo in paramInfo.items():
-                if param_name == 'shared_sigma':
-                    continue  # Skip shared_sigma in non-GMM mode
+            self.projProc.fixed_sigma = {}
+        
+        # Ensure hists2 has data for this box (fitModel requires it)
+        if 'hists2' not in self.projProc.info:
+            self.projProc.info['hists2'] = {}
+        if self.box_name not in self.projProc.info['hists2']:
+            # Restore from subtracted_hists if available
+            if 'subtracted_hists' in self.projProc.info and self.box_name in self.projProc.info['subtracted_hists']:
+                self.projProc.info['hists2'][self.box_name] = self.projProc.info['subtracted_hists'][self.box_name]
+            else:
+                print(f"ERROR: No histogram data found for box {self.box_name}!")
+                return None
+        
+        # Clear cached fit results to force re-fitting
+        if self.box_name in self.projProc.info.get('fit_results', {}):
+            del self.projProc.info['fit_results'][self.box_name]
+        
+        # Call the unified fitModel method
+        # Note: fitModel processes all boxes, but will only refit boxes that don't have fit_results
+        try:
+            self.projProc.fitModel()
+            
+            # Retrieve the fit result
+            if self.box_name in self.projProc.info.get('fit_results', {}):
+                result_dict = self.projProc.info['fit_results'][self.box_name]
                 
-                if param_name.startswith('p_') or \
-                   param_name.startswith('amplitude') or \
-                   param_name.startswith('sigma'):
-                    if pinfo['fixed']:
-                        int_vars[param_name] = pinfo['val']
-                    else:
-                        params.add(param_name, pinfo['val'], min=pinfo['min'], max=pinfo['max'])
-        
-        # Fit
-        from ..modules.ProjectionProcessor import layerlineModel
-        int_vars['x'] = x
-        model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
-        result = model.fit(hist, params=params, **int_vars)
-        
-        if result:
-            result_dict = result.values
-            int_vars.pop('x')
-            result_dict.update(int_vars)
-            
-            fitted_curve = layerlineModel(x, **result_dict)
-            result_dict['error'] = 1.0 - r2_score(hist, fitted_curve)
-            
-            # Debug: print sigma values after fit
-            print(f"Fit complete. Error: {result_dict['error']:.6f}")
-            if use_equal_variance:
-                print(f"  shared_sigma: {result_dict.get('shared_sigma', 'N/A')}")
-            sigma_values = [result_dict.get(f'sigma{i}', None) for i in range(20) if f'sigma{i}' in result_dict]
-            print(f"  Individual sigmas: {sigma_values[:5]}...")  # Show first 5
-            
-            # Update stored results
-            self.projProc.info['fit_results'][self.box_name] = result_dict
-            
-            # Update gmm_mode flag to match current fitting mode
-            if 'gmm_mode' not in self.projProc.info:
-                self.projProc.info['gmm_mode'] = {}
-            self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
-            
-            # Also update parent's gmm_boxes for persistence
-            if hasattr(self.parent_tab.parent, 'gmm_boxes'):
-                self.parent_tab.parent.gmm_boxes[self.box_name] = use_equal_variance
-            
-            # Clear cached hists2 to force UI update
-            if 'hists2' in self.projProc.info and self.box_name in self.projProc.info['hists2']:
-                del self.projProc.info['hists2'][self.box_name]
-            
-            print(f"=== Refit completed, gmm_mode set to: {use_equal_variance} ===\n")
-            
-            return result_dict
-        
-        return None
+                # Debug: print sigma values after fit
+                print(f"Fit complete. Error: {result_dict.get('error', 0):.6f}")
+                if use_equal_variance:
+                    print(f"  shared_sigma: {result_dict.get('shared_sigma', 'N/A')}")
+                else:
+                    sigma_values = [result_dict.get(f'sigma{i}', None) for i in range(20) if f'sigma{i}' in result_dict]
+                    print(f"  Individual sigmas: {sigma_values[:5]}...")
+                
+                print(f"=== Refit completed using unified logic, gmm_mode = {use_equal_variance} ===\n")
+                
+                return result_dict
+            else:
+                print("ERROR: fitModel did not produce results for this box!")
+                return None
+                
+        except Exception as e:
+            print(f"ERROR in fitModel: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def onApply(self):
         """
