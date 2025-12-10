@@ -305,7 +305,7 @@ class ProjectionBoxTab(QWidget):
         
         # New: Parameter Editor button
         self.paramEditorButton = QPushButton("Open Parameter Editor")
-        self.paramEditorButton.setEnabled(False)
+        self.paramEditorButton.setEnabled(True)
         
         self.meridBckGrndChkBx = QCheckBox("Meridional Peak")
         self.meridBckGrndChkBx.setChecked(True)
@@ -1015,21 +1015,6 @@ class ProjectionBoxTab(QWidget):
                               "Please fit peaks first before opening parameter editor.")
             return
         
-        # Check if GMM mode (check both parent.gmm_boxes and projProc.info)
-        is_gmm = False
-        if hasattr(self.parent, 'gmm_boxes') and self.name in self.parent.gmm_boxes:
-            is_gmm = self.parent.gmm_boxes[self.name]
-        elif 'gmm_mode' in self.parent.projProc.info and self.name in self.parent.projProc.info['gmm_mode']:
-            is_gmm = self.parent.projProc.info['gmm_mode'][self.name]
-        
-        # Also check if shared_sigma exists in fit_results (definitive proof of GMM mode)
-        if 'shared_sigma' in self.parent.projProc.info['fit_results'][self.name]:
-            is_gmm = True
-        
-        if not is_gmm:
-            QMessageBox.information(self, "Not GMM Mode", 
-                                  "Parameter editor is currently only available for GMM fitting mode.")
-            return
         
         # Open parameter editor dialog
         try:
