@@ -18,6 +18,11 @@ class GMMParameterEditorDialog(QDialog):
         self.box_name = box_name
         self.projProc = parent_tab.parent.projProc
         
+        # Backup original fit_results for Cancel operation
+        self.original_fit_result = dict(
+            self.projProc.info['fit_results'][self.box_name]
+        )
+        
         self.setWindowTitle(f"GMM Parameter Editor - {box_name}")
         self.resize(600, 500)  # Simpler, smaller window
         
@@ -158,6 +163,7 @@ class GMMParameterEditorDialog(QDialog):
             valueSpin.setDecimals(6)
             valueSpin.setRange(-1e10, 1e10)
             valueSpin.setValue(pdict['val'])
+            valueSpin.valueChanged.connect(self.onParameterChanged)
             self.paramTable.setCellWidget(row, 2, valueSpin)
             
             # Min spinbox
@@ -234,6 +240,22 @@ class GMMParameterEditorDialog(QDialog):
                 minSpin.setEnabled(True)
                 maxSpin.setEnabled(True)
     
+    def onParameterChanged(self):
+        """
+        Real-time parameter update: when user changes value in table,
+        update info['fit_results'] and redraw immediately
+        """
+        # Get current parameters from table
+        edited_params = self.getParametersFromTable()
+        
+        # Update info['fit_results'] directly (unified data layer)
+        for param_name, pinfo in edited_params.items():
+            self.projProc.info['fit_results'][self.box_name][param_name] = pinfo['val']
+        
+        self.parent_tab.need_update = True
+        # Redraw with updated parameters (uses info['fit_results'])
+        self.parent_tab.updateUI()
+        
     def getParametersFromTable(self):
         """
         Extract parameters from table
@@ -397,9 +419,33 @@ class GMMParameterEditorDialog(QDialog):
     
     def onApply(self):
         """
-        Apply changes and close - refresh parent BoxTab
+        Apply changes and close - info is already updated by onParameterChanged
         """
-        # Refresh parent window to show any manual edits
+        # Update gmm_mode flag to persist the equal variance setting
+        use_equal_variance = self.equalVarianceChkBx.isChecked()
+        if 'gmm_mode' not in self.projProc.info:
+            self.projProc.info['gmm_mode'] = {}
+        self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
+        
+        # Also update parent's gmm_boxes for persistence
+        if hasattr(self.parent_tab.parent, 'gmm_boxes'):
+            self.parent_tab.parent.gmm_boxes[self.box_name] = use_equal_variance
+        
+        # Final refresh to ensure UI is in sync
         self.parent_tab.updateUI()
         
         self.accept()
+    
+    def reject(self):
+        """
+        Cancel: restore original fit_results and close
+        """
+        # Restore backup to undo all changes
+        self.projProc.info['fit_results'][self.box_name] = self.original_fit_result
+        
+        # Redraw to show original values
+        self.parent_tab.updateUI()
+        self.parent_tab.graphCanvas1.draw()
+        self.parent_tab.graphCanvas2.draw()
+        
+        super().reject()
