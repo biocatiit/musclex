@@ -980,20 +980,20 @@ class ProjectionBoxTab(QWidget):
                 
                 # Show results
                 error = result.get('error', 0)
-                shared_sigma = result.get('shared_sigma', None)
+                common_sigma = result.get('common_sigma', None)
                 
                 # Debug: print actual result to verify
                 print(f"DEBUG fitGaussianMixture: box={self.name}")
-                print(f"  shared_sigma in result: {shared_sigma}")
+                print(f"  common_sigma in result: {common_sigma}")
                 print(f"  Full result keys: {list(result.keys())}")
                 
-                if shared_sigma is None:
-                    shared_sigma = 0
-                    print("  WARNING: shared_sigma not found in result!")
+                if common_sigma is None:
+                    common_sigma = 0
+                    print("  WARNING: common_sigma not found in result!")
                 
                 msg = f"GMM Fitting Complete!\n\n"
                 msg += f"Total Gaussians: {total_n_gaussians}\n"
-                msg += f"Shared Sigma: {shared_sigma:.4f}\n"
+                msg += f"Common Sigma: {common_sigma:.4f}\n"
                 msg += f"Fitting Error (1-R²): {error:.6f}"
                 
                 QMessageBox.information(self, "GMM Fit Complete", msg)

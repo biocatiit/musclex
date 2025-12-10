@@ -498,7 +498,7 @@ class ProjectionProcessor:
             
             if use_gmm:
                 # GMM mode: all peaks share one sigma
-                params.add('shared_sigma', 10, min=1, max=50.)
+                params.add('common_sigma', 10, min=1, max=50.)
                 
                 for j, p in enumerate(peaks):
                     # Constrain peak position search range
@@ -517,8 +517,8 @@ class ProjectionProcessor:
                         p_max = p + default_search_dist
                     
                     params.add('p_' + str(j), p, min=p_min, max=p_max)
-                    # Key: use expression to bind all sigmas to shared_sigma
-                    params.add('sigma' + str(j), expr='shared_sigma')
+                    # Key: use expression to bind all sigmas to common_sigma
+                    params.add('sigma' + str(j), expr='common_sigma')
                     params.add('amplitude' + str(j), sum(hist)/10., min=-1)
             else:
                 # Original mode: each peak has independent sigma
@@ -583,8 +583,8 @@ class ProjectionProcessor:
                 # Print fitting results
                 print("Box : "+ str(name))
                 if use_gmm:
-                    shared_sigma_val = self.info['fit_results'][name].get('shared_sigma', 'N/A')
-                    print(f"GMM Mode (Shared Sigma = {shared_sigma_val})")
+                    common_sigma_val = self.info['fit_results'][name].get('common_sigma', 'N/A')
+                    print(f"GMM Mode (Common Sigma = {common_sigma_val})")
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
                 print("---")
