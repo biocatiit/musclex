@@ -55,6 +55,7 @@ class ImageNavigatorWidget(QWidget):
         navigationError(str): Error during navigation (e.g., failed to load image)
         fileManagerReady(): FileManager has loaded a directory
         scanComplete(): Background directory scan complete (HDF5 expansion done)
+        scanProgressChanged(done, total): HDF5 file scan progress
     
     Public Interface:
         load_from_file(filepath): Load a file/folder into FileManager
@@ -91,6 +92,7 @@ class ImageNavigatorWidget(QWidget):
     navigationError = Signal(str)  # Error message
     fileManagerReady = Signal()  # FileManager initialized with directory
     scanComplete = Signal()  # Background directory scan complete
+    scanProgressChanged = Signal(int, int)  # (h5_done, h5_total) - HDF5 scan progress
     
     def __init__(
         self, 
@@ -365,10 +367,16 @@ class ImageNavigatorWidget(QWidget):
         """
         Check background directory scan progress.
         
-        Called periodically by timer. Emits scanComplete when done.
+        Called periodically by timer. Emits scanProgressChanged for HDF5 progress
+        and scanComplete when done.
         """
         if not self.file_manager:
             return
+        
+        # Emit HDF5 processing progress
+        h5_done, h5_total = self.file_manager.get_h5_progress()
+        if h5_total > 0:
+            self.scanProgressChanged.emit(h5_done, h5_total)
         
         # Check if scan is complete
         if self.file_manager.is_scan_done():

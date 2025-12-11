@@ -4,27 +4,29 @@ Base GUI class for MuscleX image applications.
 Provides common initialization flow and UI components for all MuscleX GUI applications.
 Uses Template Method pattern to allow subclasses to customize specific steps.
 
+This is a minimal framework class. For image processing GUIs, use ProcessingWorkspace.
+For image viewing GUIs, use ImageNavigatorWidget.
+
 Copyright 1999 Illinois Institute of Technology
 """
 
 from PySide6.QtWidgets import (
     QMainWindow, QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
-    QStatusBar, QProgressBar, QLabel, QPushButton
+    QStatusBar, QProgressBar, QLabel
 )
-from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QTimer
 
 
 class BaseGUI(QMainWindow):
     """
     Base class for all MuscleX GUI applications.
     
-    This class defines the standard initialization sequence for GUI applications
-    that work with images. Subclasses override specific methods to customize
-    behavior while maintaining a consistent structure.
+    This class defines the standard initialization sequence for GUI applications.
+    It provides only the framework - subclasses use ProcessingWorkspace or 
+    ImageNavigatorWidget for actual image handling.
     
     Initialization Flow:
-        0. __init__()               - Initialize FileManager and core components
+        0. __init__()               - Initialize core components
         1. _setup_window()          - Set window title and properties
         2. _setup_main_layout()     - Create scroll area and tab widget
         3. _create_tabs()           - Create application-specific tabs
@@ -37,7 +39,6 @@ class BaseGUI(QMainWindow):
         - _setup_window()
         - _create_tabs()
         - _create_menu_bar()
-        - _on_file_manager_changed() - Handle image changes from navigation
     
     Subclasses may override:
         - _tabs_closable()
@@ -48,26 +49,11 @@ class BaseGUI(QMainWindow):
     
     def __init__(self):
         """
-        Initialize BaseGUI with core components.
-        
-        Initializes FileManager early so it's available for:
-        - ImageSettingsPanel (needs file_manager for batch operations)
-        - Navigation controls
-        - Image loading
+        Initialize BaseGUI.
         
         Subclasses should call super().__init__() first in their __init__.
         """
         super().__init__()
-        
-        # Initialize FileManager early (before UI creation)
-        from ..utils.file_manager import FileManager
-        self.file_manager = FileManager()
-        
-        # Background directory scan support
-        self._scan_timer = QTimer(self)
-        self._scan_timer.setInterval(250)
-        self._scan_timer.timeout.connect(self._check_scan_done)
-        self._provisionalCount = False
     
     def initUI(self):
         """
@@ -149,15 +135,30 @@ class BaseGUI(QMainWindow):
         Step 3: Create all tabs for this GUI.
         
         Subclasses must implement this to create their specific tabs.
-        Each GUI creates different tabs:
-        - QuadrantFolding: image tab + result tab
-        - ProjectionTraces: image tab (+ dynamic box tabs)
-        - XRayViewer: image tab + graph tab
+        Each GUI creates different tabs and uses appropriate components:
+        - Use ProcessingWorkspace for image processing modules (QF, PT, EQ)
+        - Use ImageNavigatorWidget for image viewing modules (XV)
         
-        Example:
+        Example with ProcessingWorkspace:
             def _create_tabs(self):
-                self._create_image_tab()
-                self._create_result_tab()
+                self.imageTab = QWidget()
+                self.imageTabLayout = QHBoxLayout(self.imageTab)
+                self.tabWidget.addTab(self.imageTab, "Image")
+                
+                self.workspace = ProcessingWorkspace(settings_dir=self.filePath)
+                self.imageTabLayout.addWidget(self.workspace, 1)
+                
+                # Add custom settings
+                self.workspace.right_panel.add_widget(my_settings)
+        
+        Example with ImageNavigatorWidget:
+            def _create_tabs(self):
+                self.imageTab = QWidget()
+                self.imageTabLayout = QVBoxLayout(self.imageTab)
+                self.tabWidget.addTab(self.imageTab, "Image")
+                
+                self.navigator = ImageNavigatorWidget(auto_display=True)
+                self.imageTabLayout.addWidget(self.navigator, 1)
         """
         raise NotImplementedError("Subclasses must implement _create_tabs()")
     
@@ -287,14 +288,17 @@ class BaseGUI(QMainWindow):
             - Set up connections
             - Load settings
         
-        Default implementation does nothing.
+        Default implementation connects to workspace/navigator scan signals
+        if they exist.
         
         Example:
             def _additional_setup(self):
+                super()._additional_setup()  # Keep default connections
                 self._initialize_patches()
                 self._register_tools()
         """
-        pass
+        # Auto-connect to workspace/navigator scan signals if available
+        self._setup_scan_monitoring()
     
     def _position_floating_widgets(self):
         """
@@ -311,329 +315,66 @@ class BaseGUI(QMainWindow):
         """
         pass
     
-    # ===== Standard Image Tab Creation =====
+    # ===== Background Scan Monitoring =====
     
-    def _create_standard_image_tab(
-        self,
-        tab_title: str = "Image",
-        show_left_select_buttons: bool = True,
-        show_display_panel: bool = True,
-        show_double_zoom: bool = True
-    ):
+    def _setup_scan_monitoring(self):
         """
-        Create a standardized image tab with the QuadrantFolding layout.
+        Setup automatic monitoring of background directory scans.
         
-        This is the standard layout for all MuscleX GUIs:
-        [Left: Select Buttons] [Center: ImageViewerWidget] [Right: CollapsibleRightPanel]
+        If the GUI uses ProcessingWorkspace or ImageNavigatorWidget,
+        automatically connects to their scan signals to display progress
+        in the status bar.
         
-        After calling this, GUIs can:
-        - Add custom display options: self.image_viewer.display_panel.add_to_top_slot(widget)
-        - Add settings to right panel: self.right_panel.add_widget(widget)
-        - Add bottom widgets: self.right_panel.add_bottom_widget(widget)
-        - Replace left panel if needed (e.g., ProjectionTraces)
+        This provides default handling that most GUIs want:
+        - Show progress bar during HDF5 file scanning
+        - Hide progress bar when scan completes
+        - Update status bar when scan completes
+        """
+        # Check if workspace exists (ProcessingWorkspace)
+        if hasattr(self, 'workspace') and hasattr(self.workspace, 'navigator'):
+            navigator = self.workspace.navigator
+            navigator.scanProgressChanged.connect(self._on_scan_progress)
+            navigator.scanComplete.connect(self._on_scan_complete)
+        # Check if navigator exists directly (for pure viewer GUIs)
+        elif hasattr(self, 'navigator'):
+            self.navigator.scanProgressChanged.connect(self._on_scan_progress)
+            self.navigator.scanComplete.connect(self._on_scan_complete)
+    
+    def _on_scan_progress(self, h5_done: int, h5_total: int):
+        """
+        Handle scan progress update.
+        
+        Default implementation shows a progress bar with HDF5 file count.
+        Override this if you need custom progress display.
         
         Args:
-            tab_title: Title for the tab (default: "Image")
-            show_left_select_buttons: Show standard left panel with select buttons
-            show_display_panel: Show ImageViewerWidget's display panel
-            show_double_zoom: Show double zoom feature
-        
-        Sets up these attributes:
-            - self.imageTab
-            - self.imageTabLayout
-            - self.image_viewer
-            - self.imageAxes, self.imageCanvas, self.imageFigure (backward compat)
-            - self.right_panel
-            - self.navControls
-            - self.spminInt, self.spmaxInt, etc. (if show_display_panel=True)
-        
-        Example:
-            def _create_tabs(self):
-                # Create standard image tab
-                self._create_standard_image_tab(tab_title="Original Image")
-                
-                # Add GUI-specific settings
-                self.right_panel.add_widget(self.my_settings_widget)
-                self.right_panel.add_bottom_widget(self.navControls)
+            h5_done: Number of HDF5 files processed
+            h5_total: Total number of HDF5 files to process
         """
-        from .widgets.image_viewer_widget import ImageViewerWidget
-        from .widgets.collapsible_right_panel import CollapsibleRightPanel
-        from .widgets.navigation_controls import NavigationControls
-        from PySide6.QtCore import Qt
-        
-        # Create tab
-        self.imageTab = QWidget()
-        self.imageTab.setContentsMargins(0, 0, 0, 0)
-        self.imageTabLayout = QHBoxLayout(self.imageTab)
-        self.tabWidget.addTab(self.imageTab, tab_title)
-        
-        # ===== Left Panel: Select Buttons =====
-        if show_left_select_buttons:
-            self._create_standard_left_panel()
-        
-        # ===== Center: ImageViewerWidget =====
-        self.image_viewer = ImageViewerWidget(
-            parent=self,
-            show_display_panel=show_display_panel,
-            show_double_zoom=show_double_zoom
-        )
-        
-        # Backward compatibility: expose axes, canvas, figure
-        self.imageAxes = self.image_viewer.axes
-        self.imageCanvas = self.image_viewer.canvas
-        self.imageFigure = self.image_viewer.figure
-        self.imageCanvas.setHidden(True)
-        
-        # Expose display panel controls (if display panel is shown)
-        if show_display_panel:
-            self.spminInt = self.image_viewer.display_panel.minIntSpnBx
-            self.spmaxInt = self.image_viewer.display_panel.maxIntSpnBx
-            self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
-            self.persistIntensity = self.image_viewer.display_panel.persistChkBx
-            self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
-            self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
-            self.minIntLabel = self.image_viewer.display_panel.minIntLabel
-            self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
-        
-        self.imageTabLayout.addWidget(self.image_viewer, 1)  # Stretch to fill
-        
-        # ===== Right Panel: CollapsibleRightPanel =====
-        self.right_panel = CollapsibleRightPanel(
-            parent=self,
-            title="Options",
-            settings_key=f"{self.__class__.__name__.lower()}/right_panel",
-            start_visible=True,
-            show_toggle_internally=False
-        )
-        self.right_panel.setFixedWidth(500)
-        self.right_panel.setContentsMargins(0, 35, 0, 0)
-        
-        # Add display panel to right panel (if display panel is shown)
-        if show_display_panel:
-            self.right_panel.add_widget(self.image_viewer.display_panel)
-        
-        self.imageTabLayout.addWidget(self.right_panel, 0)  # No stretch
-        
-        # Setup floating toggle button
-        self.right_panel.toggle_btn.setParent(self.imageTab)
-        self.right_panel.toggle_btn.raise_()
-        self.right_panel.toggle_btn.show()
-        
-        # Create navigation controls (GUIs will add this to right_panel bottom)
-        self.navControls = NavigationControls(
-            process_folder_text="Process Current Folder",
-            process_h5_text="Process Current H5 File"
-        )
-    
-    def _create_standard_left_panel(self):
-        """
-        Create standard left panel with select buttons.
-        
-        This is the default left panel used by most GUIs.
-        Some GUIs (like ProjectionTraces) may replace this with custom content.
-        """
-        from PySide6.QtCore import Qt
-        
-        self.verImgLayout = QVBoxLayout()
-        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
-        self.verImgLayout.setAlignment(Qt.AlignCenter)
-        
-        self.leftWidget = QWidget()
-        self.leftWidget.setLayout(self.verImgLayout)
-        
-        self.selectImageButton = QPushButton('Click Here to Select an Image...')
-        self.selectImageButton.setFixedHeight(100)
-        self.selectImageButton.setFixedWidth(300)
-        
-        self.selectFolder = QPushButton('Click Here to Select a Folder...')
-        self.selectFolder.setFixedHeight(100)
-        self.selectFolder.setFixedWidth(300)
-        
-        self.bgWd = QWidget()  # Background widget (for compatibility)
-        
-        self.verImgLayout.addWidget(self.selectImageButton)
-        self.verImgLayout.addWidget(self.selectFolder)
-        
-        self.imageTabLayout.addWidget(self.leftWidget, 0)  # No stretch
-    
-    # ===== FileManager Integration =====
-    
-    def _connect_standard_navigation(self):
-        """
-        Connect NavigationControls to FileManager for standard navigation behavior.
-        
-        This provides automatic navigation through images using FileManager.
-        Call this method after creating self.navControls in your _create_tabs().
-        
-        Connected buttons:
-            - prevButton/nextButton: Navigate frames within current file
-            - prevFileButton/nextFileButton: Navigate between files (H5)
-        
-        Example usage in subclass:
-            def _create_tabs(self):
-                self._create_standard_image_tab()
-                # ... add widgets to right_panel ...
-                self.right_panel.add_bottom_widget(self.navControls)
-                self._connect_standard_navigation()  # Connect after creating navControls
-        """
-        if not hasattr(self, 'navControls'):
-            print("Warning: navControls not found, cannot connect navigation")
+        if not hasattr(self, 'progressBar'):
             return
         
-        # Frame navigation
-        self.navControls.prevButton.clicked.connect(self._navigate_prev)
-        self.navControls.nextButton.clicked.connect(self._navigate_next)
+        if not self.progressBar.isVisible():
+            self.progressBar.setVisible(True)
         
-        # File navigation (H5)
-        self.navControls.prevFileButton.clicked.connect(self._navigate_prev_file)
-        self.navControls.nextFileButton.clicked.connect(self._navigate_next_file)
-    
-    def _navigate_next(self):
-        """Navigate to next image/frame using FileManager."""
-        if self.file_manager.next():
-            self._on_file_manager_changed()
-    
-    def _navigate_prev(self):
-        """Navigate to previous image/frame using FileManager."""
-        if self.file_manager.prev():
-            self._on_file_manager_changed()
-    
-    def _navigate_next_file(self):
-        """Navigate to next file (H5 navigation)."""
-        if self.file_manager.next_file():
-            self._on_file_manager_changed()
-    
-    def _navigate_prev_file(self):
-        """Navigate to previous file (H5 navigation)."""
-        if self.file_manager.prev_file():
-            self._on_file_manager_changed()
-    
-    def _on_file_manager_changed(self):
-        """
-        Hook method called when FileManager navigates to a new image.
-        
-        This is called after:
-        - next() / prev() navigation
-        - next_file() / prev_file() navigation
-        - set_from_file() (initial load)
-        
-        Subclasses MUST implement this to:
-        1. Load the current image from file_manager.current_image
-        2. Get filename from file_manager.current_image_name (or names[current])
-        3. Create ImageData object
-        4. Process the image
-        5. Update UI
-        
-        Example implementation:
-            def _on_file_manager_changed(self):
-                # 1. Get image from FileManager
-                img = self.file_manager.current_image
-                filename = self.file_manager.current_image_name
-                
-                # 2. Create ImageData
-                self.current_image_data = self._create_image_data(
-                    img, self.file_manager.dir_path, filename
-                )
-                
-                # 3. Process
-                self.processImage()
-                
-                # 4. Update UI
-                self.image_settings_panel.update_display(self.current_image_data)
-                self.navControls.setNavMode(self.file_manager.current_file_type)
-        
-        Raises:
-            NotImplementedError: If subclass doesn't implement this method
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} must implement _on_file_manager_changed() "
-            "to handle image loading and processing when FileManager navigates to a new image."
-        )
-    
-    def browseFile(self):
-        """
-        Standard file browsing using FileManager.
-        
-        Opens a file dialog and loads the selected file into FileManager.
-        Subclasses can override this if they need custom file selection behavior,
-        but most should use this default implementation.
-        """
-        from .pyqt_utils import getAFile
-        
-        file_name = getAFile()
-        if file_name and file_name != "":
-            self.file_manager.set_from_file(file_name)
-            self._on_file_manager_changed()
-    
-    # ===== Background Directory Scan Support =====
-    
-    def _start_background_scan(self):
-        """
-        Start background scan timer to monitor FileManager's async directory scan.
-        
-        FileManager scans directories asynchronously to avoid blocking the UI,
-        especially when processing HDF5 files which need to be opened to count frames.
-        
-        This timer periodically checks if the scan is complete and updates the UI.
-        Call this after file_manager.set_from_file() if you want to show progress.
-        """
-        self._provisionalCount = True
-        self._scan_timer.start()
-    
-    def _check_scan_done(self):
-        """
-        Check if background directory scan is complete.
-        
-        This is called periodically by the scan timer. When the scan completes:
-        1. Updates the image layer with full HDF5 frame expansion
-        2. Hides the progress bar
-        3. Calls _on_scan_complete() hook for subclass-specific updates
-        """
-        if not self.file_manager:
-            return
-        
-        # Show HDF5 processing progress (if applicable)
-        h5_done, h5_total = self.file_manager.get_h5_progress()
-        if h5_total > 0 and hasattr(self, 'progressBar'):
-            if not self.progressBar.isVisible():
-                self.progressBar.setVisible(True)
-                self.progressBar.setRange(0, h5_total)
-            self.progressBar.setValue(h5_done)
-            self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
-        
-        # Check if scan is complete
-        if not self.file_manager.is_scan_done():
-            return
-        
-        # Scan complete - hide progress bar
-        if hasattr(self, 'progressBar'):
-            self.progressBar.setVisible(False)
-            self.progressBar.setFormat("%p%")  # Reset format to default
-        
-        self._provisionalCount = False
-        self._scan_timer.stop()
-        
-        # Call hook for subclass-specific updates
-        self._on_scan_complete()
+        self.progressBar.setRange(0, h5_total)
+        self.progressBar.setValue(h5_done)
+        self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
     
     def _on_scan_complete(self):
         """
-        Hook method called when background directory scan completes.
+        Handle scan completion.
         
-        Subclasses can override this to perform actions after scan completion:
-        - Update status bar with final count
-        - Update mode statistics in ImageSettingsPanel
-        - Refresh UI elements that depend on full file list
+        Default implementation hides progress bar and updates status bar.
+        Override this if you need custom completion handling.
         
-        Default implementation does nothing.
-        
-        Example:
-            def _on_scan_complete(self):
-                self.resetStatusbar()
-                if hasattr(self, 'image_settings_panel'):
-                    self.image_settings_panel.update_mode_statistics(
-                        len(self.file_manager.names)
-                    )
+        Subclasses can call super()._on_scan_complete() and add their own logic.
         """
-        pass
-
+        # Hide progress bar
+        if hasattr(self, 'progressBar'):
+            self.progressBar.setVisible(False)
+            self.progressBar.setFormat("%p%")  # Reset to default format
+        
+        # Update status bar if method exists
+        if hasattr(self, 'resetStatusbar'):
+            self.resetStatusbar()
