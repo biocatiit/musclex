@@ -279,8 +279,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.resize(1200, 900)
         self.newImgDimension = None
         # NOTE: file_manager is now initialized earlier in __init__
-        self.browseFile()
-
+        self._on_browse_file()
         self.mask_min = None
         self.mask_max = None
 
@@ -305,13 +304,12 @@ class QuadrantFoldingGUI(BaseGUI):
         self.imageTabLayout.setContentsMargins(0, 0, 0, 0)
         self.tabWidget.addTab(self.imageTab, "Original Image")
         
-        # Create left panel with select buttons (from BaseGUI)
-        self._create_left_panel()
-        
-        # Create ProcessingWorkspace (replaces BaseGUI's standard image tab)
+        # Create ProcessingWorkspace with select buttons
+        # Navigator will show select buttons initially, then hide them after loading
         self.workspace = ProcessingWorkspace(
             settings_dir=self.filePath,
-            coord_transform_func=self.getOrigCoordsCenter
+            coord_transform_func=self.getOrigCoordsCenter,
+            show_select_buttons=True  # Show select buttons in Navigator
         )
         self.imageTabLayout.addWidget(self.workspace, 1)
         
@@ -320,6 +318,13 @@ class QuadrantFoldingGUI(BaseGUI):
         self.file_manager = self.workspace.file_manager
         self.navControls = self.workspace.navigator.nav_controls
         self.right_panel = self.workspace.right_panel
+        
+        # Expose select buttons from navigator
+        self.selectImageButton = self.workspace.navigator.select_image_btn
+        self.selectFolder = self.workspace.navigator.select_folder_btn
+        
+        # Reference to leftWidget for compatibility
+        self.leftWidget = self.workspace.navigator.select_panel
         
         # Backward compatibility for display panel controls
         if self.image_viewer.display_panel:
@@ -356,11 +361,12 @@ class QuadrantFoldingGUI(BaseGUI):
         """Create menu bar with File and Help menus"""
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
-        selectImageAction.triggered.connect(self.browseFile)
+        selectImageAction.triggered.connect(self._on_browse_file)
         
         selectFolderAction = QAction('Select a Folder...', self)
         selectFolderAction.setShortcut('Ctrl+F')
-        selectFolderAction.triggered.connect(self.browseFolder)
+        # NOTE: Folder selection removed - not currently used
+        # selectFolderAction.triggered.connect(self._on_browse_folder)
         
         saveSettingsAction = QAction('Save Current Settings', self)
         saveSettingsAction.setShortcut('Ctrl+S')
@@ -392,42 +398,34 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
         
-        # Connect workspace signals
+        # Connect workspace/navigator signals
+        # fileLoaded: Folder-level initialization (csvManager, etc.) - happens BEFORE first image
+        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
+        
+        # imageChanged: Single image processing - happens AFTER folder is initialized
         self.workspace.imageChanged.connect(self._on_image_changed)
+        
+        # needsReprocess: Settings changed, reprocess current image
         self.workspace.needsReprocess.connect(self.processImage)
+        
+        # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
     
     def _position_floating_widgets(self):
         """Position floating toggle buttons after window is fully rendered"""
         self._position_toggle_button()
     
+    def _finalize_ui(self):
+        """Final UI setup - set window constraints"""
+        # Set minimum size for central widget to ensure usable UI
+        self.centralWidget.setMinimumSize(700, 500)
+        
+        # Call parent to handle window resize and show
+        super()._finalize_ui()
+    
     # ===== UI setup methods =====
     
-    def _create_left_panel(self):
-        """Create left panel with select buttons (similar to BaseGUI)"""
-        from PySide6.QtCore import Qt
-        
-        self.verImgLayout = QVBoxLayout()
-        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
-        self.verImgLayout.setAlignment(Qt.AlignCenter)
-        
-        self.leftWidget = QWidget()
-        self.leftWidget.setLayout(self.verImgLayout)
-        
-        self.selectImageButton = QPushButton('Click Here to Select an Image...')
-        self.selectImageButton.setFixedHeight(100)
-        self.selectImageButton.setFixedWidth(300)
-        
-        self.selectFolder = QPushButton('Click Here to Select a Folder...')
-        self.selectFolder.setFixedHeight(100)
-        self.selectFolder.setFixedWidth(300)
-        
-        self.bgWd = QWidget()  # Background widget (for compatibility)
-        
-        self.verImgLayout.addWidget(self.selectImageButton)
-        self.verImgLayout.addWidget(self.selectFolder)
-        
-        self.imageTabLayout.addWidget(self.leftWidget, 0)  # No stretch
+    # NOTE: _create_left_panel removed - left panel now managed by ImageNavigatorWidget
     
     def _add_display_options(self):
         """Add quadrant-specific display options to display panel"""
@@ -1046,7 +1044,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tabWidget.currentChanged.connect(self.onTabChanged)
 
         ##### Image Tab #####
-        self.selectFolder.clicked.connect(self.browseFolder)
+        # NOTE: selectFolder.clicked connection removed - folder selection not currently used
+        # self.selectFolder.clicked.connect(self._on_browse_folder)
         # Note: intensity/log_scale/colormap changes are handled automatically by ImageViewerWidget
         # via update_display_settings() which preserves overlays - no need to call refreshImageTab()
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
@@ -1055,7 +1054,9 @@ class QuadrantFoldingGUI(BaseGUI):
         # Note: Basic navigation (next/prev/nextFile/prevFile) is now connected by BaseGUI's _connect_standard_navigation()
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
-        self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
+        # NOTE: Filename editing is handled internally by ImageNavigatorWidget._on_filename_changed()
+        # which emits imageChanged signal that triggers _on_image_changed()
+        # self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
@@ -1072,7 +1073,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
-        self.selectImageButton.clicked.connect(self.browseFile)
+        self.selectImageButton.clicked.connect(self._on_browse_file)
         # Note: zoom buttons are handled internally by ImageViewerWidget
         
         # ===== Center Settings Widget Connections =====
@@ -1171,11 +1172,13 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
     def updateLeftWidgetWidth(self):
-        if self.imageCanvas.isVisible():
-            # Remove the minimum width constraint
+        """Update left panel width based on image viewer visibility."""
+        # leftWidget is now navigator's select_panel
+        if self.leftWidget and self.imageCanvas.isVisible():
+            # Remove the minimum width constraint when image is showing
             self.leftWidget.setMinimumWidth(0)
-        else:
-            # Set the minimum width for when the canvas is hidden
+        elif self.leftWidget:
+            # Set the minimum width when only buttons are showing
             self.leftWidget.setMinimumWidth(650)
 
 
@@ -2339,46 +2342,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
         self.uiUpdating = False
 
-    def onImageChanged(self, reprocess=False):
-        """
-        Need to be called when image is change i.e. to the next image.
-        This will create a new QuadrantFolder object for the new image and syncUI if cache is available
-        Process the new image if there's no cache.
-        """
-        previnfo = None if self.quadFold is None else self.quadFold.info
-        fileName = self.file_manager.current_image_name
-        self.navControls.filenameLineEdit.setText(fileName)
-        self.navControls.setNavMode(self.file_manager.current_file_type)
-        if reprocess:
-            # Don't clear info - instead mark for reprocess
-            # This allows cache to work while forcing recalculation
-            self.quadFold.info['reprocess'] = True
-            # Remove cached center to force recalculation
-            if 'auto_center' in self.quadFold.info:
-                del self.quadFold.info['auto_center']
-        if 'saveCroppedImage' not in self.quadFold.info:
-            self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
-        self.markFixedInfo(self.quadFold.info, previnfo)
-        original_image = self.quadFold.orig_img
-
-        self.imgDetailOnStatusBar.setText(str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
-        self.initialWidgets(original_image, previnfo)
-        if 'ignore_folds' in self.quadFold.info:
-            self.ignoreFolds = self.quadFold.info['ignore_folds']
-        if 'folded' in self.quadFold.info:
-            # print(self.quadFold.info['folded'])
-            if self.quadFold.info['folded'] != self.toggleFoldImage.isChecked():
-                self.quadFold.deleteFromDict(self.quadFold.info, 'avg_fold')
-                self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
-
-        # Update blank image and mask checkbox states
-        self.workspace.update_blank_mask_states()
-        
-        # ✅ Update ImageSettingsPanel to show current image's settings
-        # (This also updates mode indicators internally)
-        self.workspace.update_display(self.current_image_data)
-
-        self.processImage()
 
 
     def onFoldChkBoxToggled(self):
@@ -3005,6 +2968,9 @@ class QuadrantFoldingGUI(BaseGUI):
     def resetStatusbar2(self):
         """
         Reset the status bar, but search using self.quadFold.info
+        
+        Note: filenameLineEdit is automatically updated by ImageNavigatorWidget,
+        no need to update it here.
         """
         
         index = self.file_manager.names.index(self.quadFold.img_name)
@@ -3012,7 +2978,6 @@ class QuadrantFoldingGUI(BaseGUI):
         fileFullPath = fullPath(self.filePath, self.file_manager.names[index])
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
-        self.navControls.filenameLineEdit.setText(self.quadFold.img_name)
 
     # NOTE: _on_scan_complete is no longer needed
     # Background scanning is now handled internally by ImageNavigatorWidget
@@ -3112,100 +3077,11 @@ class QuadrantFoldingGUI(BaseGUI):
 
         return flags
 
-    def onNewFileSelected(self, newFile):
-        """
-        Preprocess folder of the file and process current image
-        :param newFile: full name of selected file
-        """
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        # file_manager is now created in __init__, so just use it directly
-        
-        self.file_manager.set_from_file(str(newFile))
-        self.filePath = self.file_manager.dir_path
-        
-        # Start background scan for HDF5 expansion
-        if self.file_manager.dir_path:
-            self.file_manager.start_async_scan(self.file_manager.dir_path)
-            # Start navigator's scan timer to monitor progress
-            if hasattr(self, 'workspace') and hasattr(self.workspace, 'navigator'):
-                self.workspace.navigator._scan_timer.start()
-
-        # Update workspace's settings directory and reload settings
-        if hasattr(self, 'workspace'):
-            self.workspace.set_settings_dir(self.filePath)
-        
-        if self.file_manager.dir_path and self.file_manager.names:
-            try:
-                self.csvManager = QF_CSVManager(self.filePath)
-            except Exception as e:
-                print("Exception occurred:", e)
-                tb_str = traceback.format_exc()
-                print(f"Full traceback: {tb_str}\n")
-
-                msg = QMessageBox()
-                msg.setInformativeText(
-                    "Permission denied when creating a folder at " + self.filePath + ". Please check the folder permissions.")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Error Creating CSVManager")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.exec_()
-                return "Retry"
-            if self.csvManager is not None:
-                self.ignoreFolds = set()
-                self.selectImageButton.setHidden(True)
-                self.selectFolder.setHidden(True)
-                self.imageCanvas.setHidden(False)
-                self.updateLeftWidgetWidth()
-
-                # Buttons in widgets are already created with correct checkable state
-                # No need to set them here anymore
-                
-                self.resetWidgets()
-                QApplication.restoreOverrideCursor()
-
-                imageProcessed = False
-
-                if self.h5List == []:
-                    fileName = self.file_manager.current_image_name
-                    try:
-                        # Load ndarray via spec and construct QuadrantFolder
-                        img = self.file_manager.current_image
-                        self.current_image_data = ImageData.from_settings_panel(
-                            img, self.filePath, fileName, self.workspace
-                        )
-                        self.quadFold = QuadrantFolder(self.current_image_data, self)
-
-                        success = self.setCalibrationImage(force=True)
-
-                        if success:
-                            # Reset rotation to force recalculation
-                            self.current_image_data.update_manual_rotation(None)
-                            self.deleteImgCache(['BgSubFold'])
-
-                    except Exception as e:
-                        print("Exception occurred:", e)
-                        tb_str = traceback.format_exc()
-                        print(f"Full traceback: {tb_str}\n")
-
-                        infMsg = QMessageBox()
-                        infMsg.setText("Error trying to open " + str(fileName))
-                        infMsg.setInformativeText("This usually means that the image is corrupted or missing.")
-                        infMsg.setStandardButtons(QMessageBox.Ok)
-                        infMsg.setIcon(QMessageBox.Information)
-                        infMsg.exec_()
-                        return "Retry"
-                self.h5List = []
-                self.onImageChanged()
-
-                # Background scan is now handled by workspace/navigator automatically
-            else:
-                QApplication.restoreOverrideCursor()
-                return "Retry"
-        else:
-            QApplication.restoreOverrideCursor()
-            return "Retry"
-
-        return "Success"
+    # NOTE: onNewFileSelected removed - replaced by _on_folder_loaded and _on_image_changed
+    # The new flow:
+    #   1. Navigator emits fileLoaded -> _on_folder_loaded (initializes csvManager)
+    #   2. Navigator emits imageChanged -> _on_image_changed (processes image)
+    # This ensures proper initialization order and separation of concerns.
 
 
     def resetWidgets(self):
@@ -3221,27 +3097,21 @@ class QuadrantFoldingGUI(BaseGUI):
     # NOTE: load/save CenterSettings and RotationSettings are now handled by ImageSettingsPanel
     # NOTE: _create_image_data() moved to ImageData.from_settings_panel() factory method
 
-    def browseFolder(self):
+    def _on_browse_file(self):
         """
-        Process all images in current folder
-        Basically, it just process the first image, and push next button automatically until it comes back to the first image
+        Handle file browse button click.
+        
+        Delegates to Navigator which will:
+        1. Open file dialog
+        2. Load file
+        3. Emit fileLoaded signal -> _on_folder_loaded (init csvManager)
+        4. Emit imageChanged signal -> _on_image_changed (process image)
         """
-        # popup folder selection dialog
-        dir_path = getAFolder()
-        if dir_path != "":
-            self.filePath = str(dir_path)
-            self.selectImageButton.setHidden(True)
-            self.selectFolder.setHidden(True)
-            self.imageCanvas.setHidden(False)
-            self.updateLeftWidgetWidth()
-            self.ignoreFolds = set()
-            
-            # Update ImageSettingsPanel's settings directory and reload settings
-            if hasattr(self, 'image_settings_panel'):
-                self.workspace.set_settings_dir(self.filePath)
-            
-            self.onImageChanged()
-            self.processFolder()
+        if self.workspace.navigator.browse_file():
+            pass
+
+    # NOTE: _on_browse_folder() removed - folder selection not currently used
+    # When needed, should properly handle folder paths vs file paths in FileManager
 
     def batchProcBtnToggled(self):
         """
@@ -3443,26 +3313,6 @@ class QuadrantFoldingGUI(BaseGUI):
         start_idx, end_idx = self.file_manager.get_current_h5_range()
         self._process_image_list(range(start_idx, end_idx + 1), text="Process Current H5 File")
 
-    def browseFile(self):
-        """
-        Popup input dialog and set file selection
-        """
-        self.newProcess = True
-
-        success = False
-
-        while not success:
-            file_name = getAFile()
-            if file_name != "":
-                result = self.onNewFileSelected(str(file_name))
-
-                success = result != "Retry"
-
-                if success:
-                    self.centralWidget.setMinimumSize(700, 500)
-            else:
-                # If the user presses Cancel, it returns a null string "".
-                break
 
     def saveSettings(self):
         """
@@ -3484,35 +3334,120 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
     
-    def _on_image_changed(self, img, filename, dir_path):
+    def _on_folder_loaded(self, dir_path: str):
         """
-        Called when workspace.imageChanged signal is emitted.
+        Called when a new folder/file is loaded (BEFORE first image loads).
         
-        This happens when a new image is loaded from FileManager.
-        We delegate to _on_file_manager_changed for processing.
-        """
-        self._on_file_manager_changed()
-
-    def _on_file_manager_changed(self, reprocess=False):
-        """
-        Hook method called when FileManager navigates to a new image.
-        
-        Creates QuadrantFolder and applies settings for the new image.
+        Initializes QF-specific folder-level data structures.
+        This ensures csvManager is ready before any image processing begins.
         
         Args:
-            reprocess: If True, forces reprocessing even if cached data exists
+            dir_path: Directory path of the loaded file/folder
         """
-        filename = self.file_manager.current_image_name
-        img = self.file_manager.current_image
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         
-        # Create ImageData with manual center/rotation automatically loaded from workspace
-        self.current_image_data = ImageData.from_settings_panel(
-            img, self.file_manager.dir_path, filename, self.workspace
-        )
+        try:
+            # Update file path
+            self.filePath = dir_path
+            
+            # Initialize CSV Manager (QF-specific, folder-level)
+            if self.file_manager.dir_path and self.file_manager.names:
+                try:
+                    self.csvManager = QF_CSVManager(self.filePath)
+                    self.ignoreFolds = set()
+                    self.resetWidgets()
+                    
+                    # Update left widget width
+                    self.updateLeftWidgetWidth()
+                    
+                except Exception as e:
+                    print("Exception occurred while creating CSVManager:", e)
+                    tb_str = traceback.format_exc()
+                    print(f"Full traceback: {tb_str}\n")
+                    
+                    msg = QMessageBox()
+                    msg.setInformativeText(
+                        f"Permission denied when creating a folder at {self.filePath}. "
+                        "Please check the folder permissions."
+                    )
+                    msg.setStandardButtons(QMessageBox.Ok)
+                    msg.setWindowTitle("Error Creating CSVManager")
+                    msg.setStyleSheet("QLabel{min-width: 500px;}")
+                    msg.exec_()
+                    
+                    self.csvManager = None
+                    QApplication.restoreOverrideCursor()
+                    return
+            
+            QApplication.restoreOverrideCursor()
+            
+        except Exception as e:
+            print(f"Error in _on_folder_loaded: {e}")
+            traceback.print_exc()
+            QApplication.restoreOverrideCursor()
+    
+    def _on_image_changed(self, img, filename, dir_path):
+        """
+        Called when a single image is loaded/changed.
+        
+        Creates ImageData and QuadrantFolder, then processes the image.
+        By this point, csvManager has already been initialized by _on_folder_loaded.
+        
+        Args:
+            img: Image array
+            filename: Name of the image file
+            dir_path: Directory path
+        """
+        # Check if csvManager is initialized
+        if self.csvManager is None:
+            print("Warning: csvManager not initialized. Skipping image processing.")
+            return
+        
+        # Create ImageData using workspace (includes manual settings)
+        self.current_image_data = self.workspace.create_image_data(img, filename)
+        
+        # Create QuadrantFolder processor
         self.quadFold = QuadrantFolder(self.current_image_data, self)
         
-        # Don't clear info - let cache work!
-        self.onImageChanged(reprocess=reprocess)
+        # Update UI for new image
+        self._update_ui_for_image()
+        
+        # Process the image
+        self.processImage()
+    
+    def _update_ui_for_image(self):
+        """
+        Update UI elements when a new image is loaded.
+        
+        Separated from onImageChanged for clarity.
+        
+        Note: filename and nav mode are automatically updated by ImageNavigatorWidget,
+        no need to update them here.
+        """
+        # Update image info display
+        original_image = self.quadFold.orig_img
+        self.imgDetailOnStatusBar.setText(
+            f"{original_image.shape[0]}x{original_image.shape[1]} : {original_image.dtype}"
+        )
+        
+        # Restore cache state if available
+        if hasattr(self.quadFold, 'info'):
+            previnfo = self.quadFold.info
+            
+            # Restore ignore folds
+            if 'ignore_folds' in self.quadFold.info:
+                self.ignoreFolds = self.quadFold.info['ignore_folds']
+            
+            # Initialize widgets with previous info
+            self.initialWidgets(original_image, previnfo)
+            self.markFixedInfo(self.quadFold.info, previnfo)
+            
+            # Handle crop checkbox
+            if 'saveCroppedImage' not in self.quadFold.info:
+                self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
+        
+        # Update workspace display (includes blank/mask states)
+        self.workspace.update_display(self.current_image_data)
 
     def statusPrint(self, text):
         """
@@ -3524,15 +3459,8 @@ class QuadrantFoldingGUI(BaseGUI):
         print(text)
         QApplication.processEvents()
 
-    def fileNameChanged(self):
-        """
-        Triggered when the name of the current file is changed
-        """
-        fileName = self.navControls.filenameLineEdit.text().strip()
-        if fileName not in self.file_manager.names:
-            return
-        self.file_manager.switch_image_by_name(fileName)
-        self._on_file_manager_changed()
+    # NOTE: fileNameChanged() removed - handled by ImageNavigatorWidget._on_filename_changed()
+    # The widget automatically emits imageChanged signal which triggers _on_image_changed()
 
     def showAbout(self):
         """

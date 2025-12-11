@@ -99,7 +99,7 @@ class ProcessingWorkspace(QWidget):
     needsReprocess = Signal()  # Settings changed, need to reprocess
     statusTextRequested = Signal(str)  # Request GUI to update status bar text
     
-    def __init__(self, settings_dir: str, coord_transform_func=None):
+    def __init__(self, settings_dir: str, coord_transform_func=None, show_select_buttons=False):
         """
         Initialize the ProcessingWorkspace.
         
@@ -109,6 +109,7 @@ class ProcessingWorkspace(QWidget):
                                  displayed (transformed) image to original image.
                                  Signature: (x, y) -> (orig_x, orig_y)
                                  This is needed when tools operate on transformed images.
+            show_select_buttons: If True, show select image/folder buttons in navigator
         
         Note:
             ImageNavigatorWidget and all other components are created internally.
@@ -130,11 +131,15 @@ class ProcessingWorkspace(QWidget):
         self._center_settings = {}     # {"filename": {"center": [x,y], "source": "..."}}
         self._rotation_settings = {}   # {"filename": {"rotation": angle, "source": "..."}}
         
+        # Store show_select_buttons for later use
+        self._show_select_buttons = show_select_buttons
+        
         # Create ImageNavigatorWidget (internal, owned by workspace)
         self.navigator = ImageNavigatorWidget(
             auto_display=False,  # Processor mode: manual display control
             show_display_panel=True,
-            show_double_zoom=True
+            show_double_zoom=True,
+            show_select_buttons=show_select_buttons
         )
         
         # Internal references (for backward compatibility with existing code)
@@ -241,7 +246,8 @@ class ProcessingWorkspace(QWidget):
     
     def _connect_signals(self):
         """Connect all internal signals."""
-        # Navigator signals -> Forward to workspace
+        # Navigator signals
+        self.navigator.fileLoaded.connect(self.on_file_loaded)
         self.navigator.imageChanged.connect(self.imageChanged.emit)
         
         # Tool buttons -> Activate/deactivate tools
@@ -1310,7 +1316,9 @@ class ProcessingWorkspace(QWidget):
     def update_blank_mask_states(self):
         """
         Update the state of blank/mask checkboxes based on settings directory.
-        Public method that can be called by GUI when folder changes.
+        
+        Called automatically when folder changes (in on_file_loaded).
+        No need for GUI to call this manually.
         """
         if not self._settings_dir:
             return
@@ -1470,6 +1478,45 @@ class ProcessingWorkspace(QWidget):
 
     
     # ===== Public Convenience Methods =====
+    
+    def on_file_loaded(self, dir_path: str):
+        """
+        Called when a new file/folder is loaded (BEFORE first image loads).
+        
+        Updates settings directory and reloads persistent settings.
+        This is the right place for folder-level initialization.
+        
+        Args:
+            dir_path: Directory path of the loaded file/folder
+        """
+        # Update settings directory
+        self.set_settings_dir(dir_path)
+        
+        # Reload center and rotation settings from new directory
+        self._load_settings()
+        
+        # Update blank/mask checkbox states based on new directory
+        self.update_blank_mask_states()
+    
+    def create_image_data(self, img, filename):
+        """
+        Create ImageData for the current image with settings from workspace.
+        
+        This encapsulates the logic of pulling center/rotation/blank/mask settings
+        from the workspace and creating a properly configured ImageData instance.
+        
+        Args:
+            img: Image array (numpy ndarray)
+            filename: Name of the image file
+            
+        Returns:
+            ImageData: Configured ImageData instance
+        """
+        from ...utils.image_data import ImageData
+        
+        return ImageData.from_settings_panel(
+            img, self._settings_dir, filename, self
+        )
     
     def load_from_file(self, filepath: str, start_background_scan: bool = True):
         """

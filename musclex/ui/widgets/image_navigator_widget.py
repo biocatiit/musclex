@@ -88,9 +88,10 @@ class ImageNavigatorWidget(QWidget):
     """
     
     # Signals
+    fileLoaded = Signal(str)  # (dir_path) - New file/folder loaded (BEFORE first image loads)
+    fileManagerReady = Signal()  # FileManager initialized with directory
     imageChanged = Signal(object, str, str)  # (image_array, filename, dir_path)
     navigationError = Signal(str)  # Error message
-    fileManagerReady = Signal()  # FileManager initialized with directory
     scanComplete = Signal()  # Background directory scan complete
     scanProgressChanged = Signal(int, int)  # (h5_done, h5_total) - HDF5 scan progress
     
@@ -100,6 +101,7 @@ class ImageNavigatorWidget(QWidget):
         show_display_panel=False,
         show_double_zoom=False,
         auto_display=True,
+        show_select_buttons=False,
         navigation_process_folder_text="Process Current Folder",
         navigation_process_h5_text="Process Current H5 File"
     ):
@@ -144,6 +146,13 @@ class ImageNavigatorWidget(QWidget):
             parent=self
         )
         
+        # Create select buttons panel if requested
+        self.select_panel = None
+        self.select_image_btn = None
+        self.select_folder_btn = None
+        if show_select_buttons:
+            self._create_select_panel()
+        
         # Background scan support
         self._scan_timer = QTimer(self)
         self._scan_timer.setInterval(250)
@@ -155,16 +164,47 @@ class ImageNavigatorWidget(QWidget):
         # Connect internal signals
         self._connect_signals()
     
+    def _create_select_panel(self):
+        """Create left panel with select image/folder buttons."""
+        from PySide6.QtWidgets import QPushButton
+        from PySide6.QtCore import Qt
+        
+        self.select_panel = QWidget()
+        select_layout = QVBoxLayout(self.select_panel)
+        select_layout.setContentsMargins(0, 0, 0, 0)
+        select_layout.setAlignment(Qt.AlignCenter)
+        
+        self.select_image_btn = QPushButton('Click Here to Select an Image...')
+        self.select_image_btn.setFixedHeight(100)
+        self.select_image_btn.setFixedWidth(300)
+        self.select_image_btn.clicked.connect(self.browse_file)
+        
+        self.select_folder_btn = QPushButton('Click Here to Select a Folder...')
+        self.select_folder_btn.setFixedHeight(100)
+        self.select_folder_btn.setFixedWidth(300)
+        # NOTE: browse_folder() removed - button kept for future implementation
+        
+        select_layout.addWidget(self.select_image_btn)
+        select_layout.addWidget(self.select_folder_btn)
+        
+        # Initially hide image viewer, show buttons
+        self.image_viewer.setHidden(True)
+    
     def _setup_ui(self):
         """
         Setup the widget layout.
         
-        Note: Only includes image_viewer. NavigationControls (self.nav_controls)
-        is created but NOT added here - parent GUI controls its placement.
+        Note: Only includes image_viewer (and optional select_panel).
+        NavigationControls (self.nav_controls) is created but NOT added here
+        - parent GUI controls its placement.
         """
-        layout = QVBoxLayout(self)
+        layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        
+        # Add select panel if it exists
+        if self.select_panel:
+            layout.addWidget(self.select_panel, 0)
         
         # Add image viewer (takes all space)
         layout.addWidget(self.image_viewer, 1)
@@ -189,6 +229,7 @@ class ImageNavigatorWidget(QWidget):
             start_background_scan: Whether to start background scan for HDF5 expansion
         
         Emits:
+            fileLoaded: Immediately after folder/file is loaded (before image loads)
             fileManagerReady: After initial load
             imageChanged: After first image is loaded
         """
@@ -198,6 +239,16 @@ class ImageNavigatorWidget(QWidget):
             
             # Update navigation mode
             self.nav_controls.setNavMode(self.file_manager.current_file_type)
+            
+            # Hide select buttons, show image viewer
+            if self.select_panel:
+                self.select_panel.setHidden(True)
+                self.image_viewer.setHidden(False)
+            
+            # Emit fileLoaded signal FIRST (for folder-level initialization like csvManager)
+            # This happens BEFORE loading the first image
+            if self.file_manager.dir_path:
+                self.fileLoaded.emit(self.file_manager.dir_path)
             
             # Emit ready signal
             self.fileManagerReady.emit()
@@ -214,6 +265,40 @@ class ImageNavigatorWidget(QWidget):
             error_msg = f"Failed to load file: {str(e)}"
             self.navigationError.emit(error_msg)
             print(f"ImageNavigatorWidget: {error_msg}")
+    
+    def browse_file(self):
+        """
+        Open file dialog and load selected file.
+        
+        Opens a file selection dialog for the user to choose an image file.
+        Supports TIF, TIFF, H5, HDF5, and other common image formats.
+        
+        Emits:
+            fileManagerReady: After file is loaded into FileManager
+            imageChanged: After image is displayed
+            navigationError: If user cancels or error occurs
+        
+        Returns:
+            bool: True if file was loaded, False if cancelled or error
+        """
+        from PySide6.QtWidgets import QFileDialog
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Image File",
+            "",
+            "Image Files (*.tif *.tiff *.h5 *.hdf5 *.png *.jpg *.jpeg);;All Files (*)"
+        )
+        
+        if file_path:
+            self.load_from_file(file_path)
+            return True
+        else:
+            self.navigationError.emit("File selection cancelled")
+            return False
+    
+    # NOTE: browse_folder() removed - not currently used and needs proper implementation
+    # When needed, should handle folder paths differently from file paths in load_from_file()
     
     def navigate_next(self):
         """Navigate to next image/frame."""
