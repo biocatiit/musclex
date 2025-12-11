@@ -203,6 +203,10 @@ class ProcessingWorkspace(QWidget):
         main_layout.addWidget(self.navigator, 1)
         
         # Right side: CollapsibleRightPanel with settings
+        # Add display panel first (if available)
+        if self._image_viewer.display_panel:
+            self.right_panel.add_widget(self._image_viewer.display_panel)
+        
         # Add built-in settings widgets to right panel
         self.right_panel.add_widget(self._center_widget)
         self.right_panel.add_widget(self._rotation_widget)
