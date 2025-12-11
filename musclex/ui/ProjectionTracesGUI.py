@@ -2563,6 +2563,10 @@ class ProjectionTracesGUI(BaseGUI):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
+        # add GMM mode settings
+        if hasattr(self, 'gmm_boxes'):
+            settings['gmm_mode'] = self.gmm_boxes
+
         # add blank image and mask (from ImageSettingsPanel)
         if hasattr(self, 'image_settings_panel'):
             blank_mask_config = self.image_settings_panel.get_blank_mask_config()

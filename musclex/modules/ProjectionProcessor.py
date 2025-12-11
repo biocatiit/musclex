@@ -408,6 +408,10 @@ class ProjectionProcessor:
         fit_results = self.info['fit_results']
 
         for name in box_names:
+            # Skip if histogram data not available for this box
+            if name not in all_hists:
+                continue
+                
             hist = np.array(all_hists[name])
 
             if name not in all_peaks or len(all_peaks[name]) == 0 or name in fit_results:
@@ -480,19 +484,72 @@ class ProjectionProcessor:
                     params.add('center_amplitude2', sum(hist) / 20., min=-1, max=sum(hist)+1.)
 
             # Init peaks params
-            for j,p in enumerate(peaks):
-                # if j in self.fixed_center:
-                #     params.add('p_' + str(j), self.fixed_center[j])
-                # else:
-                params.add('p_' + str(j), p, min=p - 10., max=p + 10.)
-                if j in self.fixed_sigma:
-                    params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
-                else:
-                    params.add('sigma' + str(j), 10, min=1, max=50.)
-                # if j in self.fixed_center:
-                #     params.add('fix' + str(j), self.fixed_center[j])
-                params.add('amplitude' + str(j), sum(hist)/10., min=-1)
-                # params.add('gamma' + str(j), 0. , min=0., max=30)
+            # Check if GMM mode (shared sigma) is enabled for this box
+            use_gmm = self.info.get('gmm_mode', {}).get(name, False)
+            
+            # Check if hull_ranges exist to constrain peak search range
+            default_search_dist = 10.
+            hull_constraint = None
+            if name in self.info['hull_ranges']:
+                hull_start, hull_end = self.info['hull_ranges'][name]
+                # hull_ranges: (start, end) are both positive numbers
+                # Valid ranges: [start, end] for positive peaks, [-end, -start] for negative peaks
+                hull_constraint = (hull_start, hull_end)
+            
+            if use_gmm:
+                # GMM mode: all peaks share one sigma
+                params.add('common_sigma', 10, min=1, max=50.)
+                
+                for j, p in enumerate(peaks):
+                    # Constrain peak position search range
+                    if hull_constraint is not None:
+                        hull_start, hull_end = hull_constraint
+                        if p > 0:
+                            # Positive peak: constrain to [hull_start, hull_end]
+                            p_min = max(p - default_search_dist, hull_start)
+                            p_max = min(p + default_search_dist, hull_end)
+                        else:
+                            # Negative peak: constrain to [-hull_end, -hull_start]
+                            p_min = max(p - default_search_dist, -hull_end)
+                            p_max = min(p + default_search_dist, -hull_start)
+                    else:
+                        p_min = p - default_search_dist
+                        p_max = p + default_search_dist
+                    
+                    params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    # Key: use expression to bind all sigmas to common_sigma
+                    params.add('sigma' + str(j), expr='common_sigma')
+                    params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+            else:
+                # Original mode: each peak has independent sigma
+                for j,p in enumerate(peaks):
+                    # if j in self.fixed_center:
+                    #     params.add('p_' + str(j), self.fixed_center[j])
+                    # else:
+                    # Constrain peak position search range
+                    if hull_constraint is not None:
+                        hull_start, hull_end = hull_constraint
+                        if p > 0:
+                            # Positive peak: constrain to [hull_start, hull_end]
+                            p_min = max(p - default_search_dist, hull_start)
+                            p_max = min(p + default_search_dist, hull_end)
+                        else:
+                            # Negative peak: constrain to [-hull_end, -hull_start]
+                            p_min = max(p - default_search_dist, -hull_end)
+                            p_max = min(p + default_search_dist, -hull_start)
+                    else:
+                        p_min = p - default_search_dist
+                        p_max = p + default_search_dist
+                    
+                    params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    if j in self.fixed_sigma:
+                        params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
+                    else:
+                        params.add('sigma' + str(j), 10, min=1, max=50.)
+                    # if j in self.fixed_center:
+                    #     params.add('fix' + str(j), self.fixed_center[j])
+                    params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+                    # params.add('gamma' + str(j), 0. , min=0., max=30)
 
             # Fit model
             model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
@@ -502,6 +559,20 @@ class ProjectionProcessor:
                 int_vars.pop('x')
                 result_dict.update(int_vars)
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
+                
+                # Add explicit flag for GMM mode
+                result_dict['use_common_sigma'] = use_gmm
+                
+                # Ensure complete data regardless of mode
+                if use_gmm:
+                    # GMM mode: common_sigma exists, copy to all individual sigmas
+                    common_sigma_value = result_dict.get('common_sigma', 10.0)
+                    for j in range(len(peaks)):
+                        result_dict[f'sigma{j}'] = common_sigma_value
+                else:
+                    # Non-GMM mode: calculate common_sigma as mean of individual sigmas
+                    sigmas = [result_dict.get(f'sigma{j}', 10.0) for j in range(len(peaks))]
+                    result_dict['common_sigma'] = np.mean(sigmas) if sigmas else 10.0
                 
                 if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
                     if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
@@ -522,7 +593,16 @@ class ProjectionProcessor:
                 for i in self.fixed_center:
                     if 'p_'+str(i) in self.info['fit_results'][name]:
                         self.info['fit_results'][name]['p_'+str(i)] = self.fixed_center[i]
+                
+                # Print fitting results
                 print("Box : "+ str(name))
+                print(f"Mode: {'GMM (Common Sigma)' if use_gmm else 'Independent Sigma'}")
+                if use_gmm:
+                    common_sigma_val = self.info['fit_results'][name].get('common_sigma', 'N/A')
+                    print(f"  Common Sigma = {common_sigma_val}")
+                else:
+                    sigmas = [self.info['fit_results'][name].get(f'sigma{i}', 'N/A') for i in range(min(3, len(peaks)))]
+                    print(f"  Individual Sigmas (first 3): {sigmas}")
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
                 print("---")
@@ -584,7 +664,43 @@ class ProjectionProcessor:
                     # else:
                     #     moved.append(int(round(model['centerX']-p)))
 
-                moved = movePeaks(hist, moved, 10)
+                # Constrain movePeaks search range by hull_ranges if available
+                if name in self.info['hull_ranges']:
+                    # Get hull range (start, end are distances from center)
+                    hull_start, hull_end = self.info['hull_ranges'][name]
+                    centerX = int(round(model['centerX']))
+                    
+                    # Move each peak with constrained search distance
+                    default_dist = 10
+                    constrained_moved = []
+                    for pk in moved:
+                        # Determine valid boundaries based on peak position
+                        if pk > centerX:
+                            # Positive direction: [centerX + hull_start, centerX + hull_end]
+                            valid_min = max(0, centerX + hull_start)
+                            valid_max = min(len(hist), centerX + hull_end)
+                        else:
+                            # Negative direction: [centerX - hull_end, centerX - hull_start]
+                            valid_min = max(0, centerX - hull_end)
+                            valid_max = min(len(hist), centerX - hull_start)
+                        
+                        # Calculate distance to valid boundaries
+                        dist_to_min = pk - valid_min
+                        dist_to_max = valid_max - pk
+                        
+                        # Use the smaller of: default dist, distance to boundaries
+                        max_search_dist = min(default_dist, dist_to_min, dist_to_max)
+                        max_search_dist = max(3, max_search_dist)  # At least 3 pixels
+                        
+                        # Move this peak with constrained distance
+                        moved_single = movePeaks(hist, [pk], max_search_dist)
+                        constrained_moved.append(moved_single[0])
+                    
+                    moved = constrained_moved
+                else:
+                    # No hull range constraint, use default
+                    moved = movePeaks(hist, moved, 10)
+                
                 moved_peaks[name] = moved
                 self.removeInfo(name, 'baselines')
 
@@ -601,7 +717,7 @@ class ProjectionProcessor:
 
             if name not in all_centroids:
                 results = getPeakInformations(hist, peaks, baselines)
-                all_centroids[name] = results['centroids'] - model['centerX']
+                all_centroids[name] = np.array(results['centroids']) - model['centerX']
                 all_widths[name] = results['widths']
                 all_areas[name] = results['areas']
                 print("Box : "+ str(name))
