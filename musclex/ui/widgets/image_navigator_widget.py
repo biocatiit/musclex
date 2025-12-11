@@ -97,7 +97,6 @@ class ImageNavigatorWidget(QWidget):
         parent=None,
         show_display_panel=False,
         show_double_zoom=False,
-        show_navigation_controls=True,
         auto_display=True,
         navigation_process_folder_text="Process Current Folder",
         navigation_process_h5_text="Process Current H5 File"
@@ -109,13 +108,18 @@ class ImageNavigatorWidget(QWidget):
             parent: Parent widget
             show_display_panel: Show DisplayOptionsPanel in ImageViewerWidget
             show_double_zoom: Show DoubleZoom in display panel
-            show_navigation_controls: Show NavigationControls widget in layout
             auto_display: If True, automatically display images when loaded.
                          If False, only emit imageChanged signal without displaying.
                          Set to False for processor modules that need to process
                          images before displaying. Set to True for simple viewers.
             navigation_process_folder_text: Text for process folder button
             navigation_process_h5_text: Text for process H5 button
+        
+        Note:
+            NavigationControls (self.nav_controls) is always created but NOT added
+            to the layout. The parent GUI is responsible for positioning it.
+            This allows flexible placement (e.g., in right panel, bottom, or moved
+            between tabs as in QuadrantFolding).
         """
         super().__init__(parent)
         
@@ -131,6 +135,7 @@ class ImageNavigatorWidget(QWidget):
         
         self.file_manager = FileManager()
         
+        # Always create nav_controls, but don't add to layout (GUI controls position)
         self.nav_controls = NavigationControls(
             process_folder_text=navigation_process_folder_text,
             process_h5_text=navigation_process_h5_text,
@@ -141,7 +146,6 @@ class ImageNavigatorWidget(QWidget):
         self._scan_timer = QTimer(self)
         self._scan_timer.setInterval(250)
         self._scan_timer.timeout.connect(self._check_scan_progress)
-        self._show_navigation_controls = show_navigation_controls
         
         # Setup UI
         self._setup_ui()
@@ -150,17 +154,18 @@ class ImageNavigatorWidget(QWidget):
         self._connect_signals()
     
     def _setup_ui(self):
-        """Setup the widget layout."""
+        """
+        Setup the widget layout.
+        
+        Note: Only includes image_viewer. NavigationControls (self.nav_controls)
+        is created but NOT added here - parent GUI controls its placement.
+        """
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Add image viewer (takes most space)
+        # Add image viewer (takes all space)
         layout.addWidget(self.image_viewer, 1)
-        
-        # Add navigation controls at bottom (if enabled)
-        if self._show_navigation_controls:
-            layout.addWidget(self.nav_controls, 0)
     
     def _connect_signals(self):
         """Connect internal component signals."""
