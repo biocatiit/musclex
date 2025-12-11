@@ -72,7 +72,7 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .widgets.center_settings_widget import CenterSettingsWidget
 from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
-from .widgets.image_settings_panel import ImageSettingsPanel
+from .widgets import ProcessingWorkspace
 from .base_gui import BaseGUI
 import time
 import random
@@ -239,12 +239,11 @@ class QuadrantFoldingGUI(BaseGUI):
         self.ignoreFolds = set()
         self.csv_bg = None
         # NOTE: orientationModel and modeOrientation now managed by ImageSettingsPanel
-        # Access via: self.image_settings_panel._orientation_model, self.image_settings_panel._mode_rotation
+        # Access via: self.workspace._orientation_model, self.workspace._mode_rotation
         self.stop_process = False
         self.chordLines = []
         self.chordpoints = []
         self.csvManager = None
-        self._provisionalCount = False
         
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
@@ -268,8 +267,8 @@ class QuadrantFoldingGUI(BaseGUI):
         
         self.thresh_mask = None
 
-        # Note: Background directory scan support is now in BaseGUI
-        # (_scan_timer, _provisionalCount, _check_scan_done)
+        # Note: Background directory scan is now handled by ImageNavigatorWidget
+        # Note: _provisionalCount removed - use self.file_manager.is_scan_done() instead
 
         self.eventEmitter = EventEmitter()
 
@@ -299,8 +298,44 @@ class QuadrantFoldingGUI(BaseGUI):
     
     def _create_tabs(self):
         """Create image tab and result tab"""
-        # Use the standard image tab from BaseGUI
-        self._create_standard_image_tab(tab_title="Original Image")
+        # Create image tab with ProcessingWorkspace
+        self.imageTab = QWidget()
+        self.imageTab.setContentsMargins(0, 0, 0, 0)
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
+        self.imageTabLayout.setContentsMargins(0, 0, 0, 0)
+        self.tabWidget.addTab(self.imageTab, "Original Image")
+        
+        # Create left panel with select buttons (from BaseGUI)
+        self._create_left_panel()
+        
+        # Create ProcessingWorkspace (replaces BaseGUI's standard image tab)
+        self.workspace = ProcessingWorkspace(
+            settings_dir=self.filePath,
+            coord_transform_func=self.getOrigCoordsCenter
+        )
+        self.imageTabLayout.addWidget(self.workspace, 1)
+        
+        # Expose components for backward compatibility
+        self.image_viewer = self.workspace.navigator.image_viewer
+        self.file_manager = self.workspace.file_manager
+        self.navControls = self.workspace.navigator.nav_controls
+        self.right_panel = self.workspace.right_panel
+        
+        # Backward compatibility for display panel controls
+        if self.image_viewer.display_panel:
+            self.spminInt = self.image_viewer.display_panel.minIntSpnBx
+            self.spmaxInt = self.image_viewer.display_panel.maxIntSpnBx
+            self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
+            self.persistIntensity = self.image_viewer.display_panel.persistChkBx
+            self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
+            self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
+            self.minIntLabel = self.image_viewer.display_panel.minIntLabel
+            self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
+        
+        # Backward compatibility for axes/canvas/figure
+        self.imageAxes = self.image_viewer.axes
+        self.imageCanvas = self.image_viewer.canvas
+        self.imageFigure = self.image_viewer.figure
         
         # Add quadrant-specific display options
         self._add_display_options()
@@ -311,8 +346,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # Add navigation controls to right panel bottom
         self.right_panel.add_bottom_widget(self.navControls)
         
-        # Connect standard navigation from BaseGUI
-        self._connect_standard_navigation()
+        # Note: Navigation is handled internally by ImageNavigatorWidget
+        # QF only listens to imageChanged signal (connected in _additional_setup)
         
         # Create result tab
         self._create_result_tab()
@@ -345,6 +380,9 @@ class QuadrantFoldingGUI(BaseGUI):
     
     def _additional_setup(self):
         """Initialize patches, register tools, and setup background choice"""
+        # Call parent to setup scan monitoring
+        super()._additional_setup()
+        
         # Set initial status bar text
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
         
@@ -354,16 +392,42 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgChoiceInChanged()
         self.bgChoiceOutChanged()
         
-        # ✅ Connect ImageSettingsPanel signal
-        # Connect signals from ImageSettingsPanel
-        self.image_settings_panel.needsReprocess.connect(self.processImage)
-        self.image_settings_panel.statusTextRequested.connect(self._on_status_text_requested)
+        # Connect workspace signals
+        self.workspace.imageChanged.connect(self._on_image_changed)
+        self.workspace.needsReprocess.connect(self.processImage)
+        self.workspace.statusTextRequested.connect(self._on_status_text_requested)
     
     def _position_floating_widgets(self):
         """Position floating toggle buttons after window is fully rendered"""
         self._position_toggle_button()
     
     # ===== UI setup methods =====
+    
+    def _create_left_panel(self):
+        """Create left panel with select buttons (similar to BaseGUI)"""
+        from PySide6.QtCore import Qt
+        
+        self.verImgLayout = QVBoxLayout()
+        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
+        self.verImgLayout.setAlignment(Qt.AlignCenter)
+        
+        self.leftWidget = QWidget()
+        self.leftWidget.setLayout(self.verImgLayout)
+        
+        self.selectImageButton = QPushButton('Click Here to Select an Image...')
+        self.selectImageButton.setFixedHeight(100)
+        self.selectImageButton.setFixedWidth(300)
+        
+        self.selectFolder = QPushButton('Click Here to Select a Folder...')
+        self.selectFolder.setFixedHeight(100)
+        self.selectFolder.setFixedWidth(300)
+        
+        self.bgWd = QWidget()  # Background widget (for compatibility)
+        
+        self.verImgLayout.addWidget(self.selectImageButton)
+        self.verImgLayout.addWidget(self.selectFolder)
+        
+        self.imageTabLayout.addWidget(self.leftWidget, 0)  # No stretch
     
     def _add_display_options(self):
         """Add quadrant-specific display options to display panel"""
@@ -389,27 +453,21 @@ class QuadrantFoldingGUI(BaseGUI):
         """Add quadrant-specific settings to right panel"""
         # Add settings groups
         self._create_processing_settings()
+        self.right_panel.add_widget(self.settingsGroup)
         
-        # ✅ Use ImageSettingsPanel (replaces center/rotation/blank/mask settings)
-        self.image_settings_panel = ImageSettingsPanel(
-            settings_dir=self.filePath,
-            image_viewer=self.image_viewer,
-            coord_transform_func=self.getOrigCoordsCenter,  # Transform displayed coords to original
-            file_manager=self.file_manager  # For batch operations
-        )
-        self.right_panel.add_widget(self.image_settings_panel)
-        
-        # Add checkable buttons from ImageSettingsPanel widgets to checkableButtons list
+        # Add checkable buttons from workspace settings widgets to checkableButtons list
+        # Note: center/rotation/blank/mask settings are now in workspace (ProcessingWorkspace)
         self.checkableButtons.extend([
-            self.image_settings_panel._center_widget.setCenterRotationButton,
-            self.image_settings_panel._center_widget.setCentByChords,
-            self.image_settings_panel._center_widget.setCentByPerp,
-            self.image_settings_panel._center_widget.setCentBtn,
-            self.image_settings_panel._rotation_widget.setRotationButton,
-            self.image_settings_panel._rotation_widget.setAngleBtn
+            self.workspace._center_widget.setCenterRotationButton,
+            self.workspace._center_widget.setCentByChords,
+            self.workspace._center_widget.setCentByPerp,
+            self.workspace._center_widget.setCentBtn,
+            self.workspace._rotation_widget.setRotationButton,
+            self.workspace._rotation_widget.setAngleBtn
         ])
         
         self._create_result_processing_settings()
+        self.right_panel.add_widget(self.resProcGrpBx)
     
     def _create_processing_settings(self):
         """Create image processing settings group"""
@@ -1022,7 +1080,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # NOTE: Apply/Restore are handled by ImageSettingsPanel
         
         # QF-specific center buttons (keep these)
-        self.image_settings_panel._center_widget.calibrationButton.clicked.connect(self.calibrationClicked)
+        self.workspace._center_widget.calibrationButton.clicked.connect(self.calibrationClicked)
         # NOTE: setCenterRotation and setCentBtn are now handled by ImageSettingsPanel
         
         # ===== Rotation Settings Widget Connections =====
@@ -1253,7 +1311,7 @@ class QuadrantFoldingGUI(BaseGUI):
             fileName = self.file_manager.current_image_name
             img = self.file_manager.current_image
             self.current_image_data = ImageData.from_settings_panel(
-                img, self.filePath, fileName, self.image_settings_panel
+                img, self.filePath, fileName, self.workspace
             )
             self.quadFold = QuadrantFolder(self.current_image_data, self)
             self.processImage()
@@ -1270,10 +1328,10 @@ class QuadrantFoldingGUI(BaseGUI):
             self.prevClicked()
         elif key == Qt.Key_Escape:
             self.refreshAllTabs()
-            self.image_settings_panel._center_widget.setCenterRotationButton.setChecked(False)
-            self.image_settings_panel._center_widget.setCentByChords.setChecked(False)
-            self.image_settings_panel._center_widget.setCentByPerp.setChecked(False)
-            self.image_settings_panel._rotation_widget.setRotationButton.setChecked(False)
+            self.workspace._center_widget.setCenterRotationButton.setChecked(False)
+            self.workspace._center_widget.setCentByChords.setChecked(False)
+            self.workspace._center_widget.setCentByPerp.setChecked(False)
+            self.workspace._rotation_widget.setRotationButton.setChecked(False)
 
 
 
@@ -1364,7 +1422,7 @@ class QuadrantFoldingGUI(BaseGUI):
         
         center = self.current_image_data.center
         # Use ImageSettingsPanel's batch operation
-        self.image_settings_panel.apply_center_to_batch(center, scope)
+        self.workspace.apply_center_to_batch(center, scope)
         QMessageBox.information(self, "Center Applied", 
             f"Center {center} applied to {scope} images.")
     
@@ -1372,7 +1430,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """Handle Restore Auto Center request from widget (dialog already shown)"""
         # Use ImageSettingsPanel's batch operation
         # (It will handle ImageData update and needsReprocess signal if current image is affected)
-        self.image_settings_panel.restore_auto_center_for_batch(scope)
+        self.workspace.restore_auto_center_for_batch(scope)
         
         QMessageBox.information(self, "Auto Center Restored", 
             f"Auto center restored for {scope} images.")
@@ -1385,7 +1443,7 @@ class QuadrantFoldingGUI(BaseGUI):
         
         rotation = self.current_image_data.rotation
         # Use ImageSettingsPanel's batch operation
-        self.image_settings_panel.apply_rotation_to_batch(rotation, scope)
+        self.workspace.apply_rotation_to_batch(rotation, scope)
         QMessageBox.information(self, "Rotation Applied", 
             f"Rotation {rotation:.2f}° applied to {scope} images.")
     
@@ -1393,7 +1451,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """Handle Restore Auto Rotation request from widget (dialog already shown)"""
         # Use ImageSettingsPanel's batch operation
         # (It will handle ImageData update and needsReprocess signal if current image is affected)
-        self.image_settings_panel.restore_auto_rotation_for_batch(scope)
+        self.workspace.restore_auto_rotation_for_batch(scope)
         
         QMessageBox.information(self, "Auto Rotation Restored", 
             f"Auto rotation restored for {scope} images.")
@@ -1533,7 +1591,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 if self.calSettings is not None:
                     if 'center' in self.calSettings:
                         # Set center using Panel's public method
-                        self.image_settings_panel.set_center_from_source(
+                        self.workspace.set_center_from_source(
                             self.file_manager.current_image_name,
                             self.calSettings['center'],
                             "calibration"
@@ -1542,7 +1600,7 @@ class QuadrantFoldingGUI(BaseGUI):
                     else:
                         # Remove calibration center if unchecked
                         # Use Panel's public method to clear center
-                        self.image_settings_panel.set_center_from_source(
+                        self.workspace.set_center_from_source(
                             self.file_manager.current_image_name,
                             None,
                             "calibration_cleared"
@@ -2314,11 +2372,11 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.quadFold.deleteFromDict(self.quadFold.imgCache, 'BgSubFold')
 
         # Update blank image and mask checkbox states
-        self.image_settings_panel.update_blank_mask_states()
+        self.workspace.update_blank_mask_states()
         
         # ✅ Update ImageSettingsPanel to show current image's settings
         # (This also updates mode indicators internally)
-        self.image_settings_panel.update_display(self.current_image_data)
+        self.workspace.update_display(self.current_image_data)
 
         self.processImage()
 
@@ -2338,7 +2396,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         # ✅ Save settings before closing
         if hasattr(self, 'image_settings_panel'):
-            self.image_settings_panel.save_settings()
+            self.workspace.save_settings()
         
         self.close()
 
@@ -2682,12 +2740,12 @@ class QuadrantFoldingGUI(BaseGUI):
             # Update settings panel display (shows current center and rotation)
             # This is needed after processing to reflect auto-calculated values
             if self.current_image_data:
-                self.image_settings_panel.update_display(self.current_image_data)
+                self.workspace.update_display(self.current_image_data)
                 
                 # Update center display with TRANSFORMED coordinates (from QuadrantFolder)
                 # After transformImage(), center moves to (w//2, h//2)
                 if self.quadFold:
-                    self.image_settings_panel._center_widget.update_current_center(
+                    self.workspace._center_widget.update_current_center(
                         self.quadFold.center  # Transformed coordinates
                     )
 
@@ -2770,8 +2828,8 @@ class QuadrantFoldingGUI(BaseGUI):
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
             params = self.tasksQueue.get()
             self.currentTask = Worker(params, 
-                                      self.image_settings_panel._center_settings, 
-                                      self.image_settings_panel._rotation_settings,
+                                      self.workspace._center_settings, 
+                                      self.workspace._rotation_settings,
                                       self.bgChoiceIn.currentText(),
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
@@ -2917,7 +2975,7 @@ class QuadrantFoldingGUI(BaseGUI):
             info = self.quadFold.info
             if 'orientation_model' in info:
                 # Update Panel's orientation model from cached info
-                self.image_settings_panel._orientation_model = info['orientation_model']
+                self.workspace._orientation_model = info['orientation_model']
             if not self.zoomOutClicked and self.quadFold.initImg is not None:
                 _, center = self.getExtentAndCenter()
                 print(center)
@@ -2938,7 +2996,9 @@ class QuadrantFoldingGUI(BaseGUI):
         Reset the status bar
         """
         fileFullPath = fullPath(self.filePath, self.file_manager.current_image_name)
-        total = str(len(self.file_manager.names)) + ('*' if self._provisionalCount else '')
+        # Use FileManager's scan status instead of _provisionalCount
+        scanning = not self.file_manager.is_scan_done()
+        total = str(len(self.file_manager.names)) + ('*' if scanning else '')
         self.imgPathOnStatusBar.setText(
             'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath)
         
@@ -2954,15 +3014,8 @@ class QuadrantFoldingGUI(BaseGUI):
             'Current File (' + str(index + 1) + '/' + str(len(self.file_manager.names)) + ') : ' + fileFullPath)
         self.navControls.filenameLineEdit.setText(self.quadFold.img_name)
 
-    def _on_scan_complete(self):
-        """
-        Hook: Called when background directory scan completes.
-        
-        Updates status bar and mode statistics after full directory scan.
-        """
-        self.resetStatusbar()
-        if hasattr(self, 'image_settings_panel'):
-            self.image_settings_panel.update_mode_statistics(len(self.file_manager.names))
+    # NOTE: _on_scan_complete is no longer needed
+    # Background scanning is now handled internally by ImageNavigatorWidget
 
     def getFlags(self):
         """
@@ -2972,7 +3025,7 @@ class QuadrantFoldingGUI(BaseGUI):
         flags = {}
 
         # image
-        flags['orientation_model'] = self.image_settings_panel._orientation_model
+        flags['orientation_model'] = self.workspace._orientation_model
         flags["ignore_folds"] = self.ignoreFolds
 
         # Check if empty cell image settings exist and is enabled
@@ -3030,10 +3083,10 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
         # Apply mode orientation if enabled
-        mode_rotation = self.image_settings_panel._mode_rotation
+        mode_rotation = self.workspace._mode_rotation
         if mode_rotation is not None:
             # Set rotation using Panel's public method
-            self.image_settings_panel.set_rotation_from_source(
+            self.workspace.set_rotation_from_source(
                 self.file_manager.current_image_name,
                 mode_rotation,
                 "ModeAngle"
@@ -3070,9 +3123,16 @@ class QuadrantFoldingGUI(BaseGUI):
         self.file_manager.set_from_file(str(newFile))
         self.filePath = self.file_manager.dir_path
         
-        # Update ImageSettingsPanel's settings directory and reload settings
-        if hasattr(self, 'image_settings_panel'):
-            self.image_settings_panel.set_settings_dir(self.filePath)
+        # Start background scan for HDF5 expansion
+        if self.file_manager.dir_path:
+            self.file_manager.start_async_scan(self.file_manager.dir_path)
+            # Start navigator's scan timer to monitor progress
+            if hasattr(self, 'workspace') and hasattr(self.workspace, 'navigator'):
+                self.workspace.navigator._scan_timer.start()
+
+        # Update workspace's settings directory and reload settings
+        if hasattr(self, 'workspace'):
+            self.workspace.set_settings_dir(self.filePath)
         
         if self.file_manager.dir_path and self.file_manager.names:
             try:
@@ -3111,7 +3171,7 @@ class QuadrantFoldingGUI(BaseGUI):
                         # Load ndarray via spec and construct QuadrantFolder
                         img = self.file_manager.current_image
                         self.current_image_data = ImageData.from_settings_panel(
-                            img, self.filePath, fileName, self.image_settings_panel
+                            img, self.filePath, fileName, self.workspace
                         )
                         self.quadFold = QuadrantFolder(self.current_image_data, self)
 
@@ -3137,9 +3197,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 self.h5List = []
                 self.onImageChanged()
 
-                # Start background scan to populate full directory list using FileManager
-                self._start_background_scan()
-                self.file_manager.start_async_scan(self.filePath)
+                # Background scan is now handled by workspace/navigator automatically
             else:
                 QApplication.restoreOverrideCursor()
                 return "Retry"
@@ -3180,7 +3238,7 @@ class QuadrantFoldingGUI(BaseGUI):
             
             # Update ImageSettingsPanel's settings directory and reload settings
             if hasattr(self, 'image_settings_panel'):
-                self.image_settings_panel.set_settings_dir(self.filePath)
+                self.workspace.set_settings_dir(self.filePath)
             
             self.onImageChanged()
             self.processFolder()
@@ -3274,11 +3332,11 @@ class QuadrantFoldingGUI(BaseGUI):
         
         # Show orientation finding method
         orientation_methods = ["Max Intensity", "GMM", "Herman Factor (Half Pi)", "Herman Factor (Pi)"]
-        orientation_model = self.image_settings_panel._orientation_model
+        orientation_model = self.workspace._orientation_model
         orientation_text = orientation_methods[orientation_model] if orientation_model is not None else "Max Intensity"
         text += "\n  - Orientation Finding : " + orientation_text
         
-        mode_rotation = self.image_settings_panel._mode_rotation
+        mode_rotation = self.workspace._mode_rotation
         if mode_rotation is not None:
             text += "\n  - Mode Orientation : Enabled"
         
@@ -3424,16 +3482,21 @@ class QuadrantFoldingGUI(BaseGUI):
             with open(filename, 'w') as f:
                 json.dump(settings, f)
 
-    # Note: prevClicked, nextClicked, prevFileClicked, nextFileClicked are now
-    # handled by BaseGUI's _navigate_prev(), _navigate_next(), etc.
-    # which call _on_file_manager_changed()
 
+    
+    def _on_image_changed(self, img, filename, dir_path):
+        """
+        Called when workspace.imageChanged signal is emitted.
+        
+        This happens when a new image is loaded from FileManager.
+        We delegate to _on_file_manager_changed for processing.
+        """
+        self._on_file_manager_changed()
 
     def _on_file_manager_changed(self, reprocess=False):
         """
         Hook method called when FileManager navigates to a new image.
         
-        This is the BaseGUI hook implementation for QuadrantFoldingGUI.
         Creates QuadrantFolder and applies settings for the new image.
         
         Args:
@@ -3442,9 +3505,9 @@ class QuadrantFoldingGUI(BaseGUI):
         filename = self.file_manager.current_image_name
         img = self.file_manager.current_image
         
-        # Create ImageData with manual center/rotation automatically loaded from settings
+        # Create ImageData with manual center/rotation automatically loaded from workspace
         self.current_image_data = ImageData.from_settings_panel(
-            img, self.file_manager.dir_path, filename, self.image_settings_panel
+            img, self.file_manager.dir_path, filename, self.workspace
         )
         self.quadFold = QuadrantFolder(self.current_image_data, self)
         
