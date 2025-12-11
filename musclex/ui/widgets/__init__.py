@@ -9,6 +9,8 @@ from .display_options_panel import DisplayOptionsPanel
 from .collapsible_right_panel import CollapsibleRightPanel
 from .collapsible_groupbox import CollapsibleGroupBox
 from .image_viewer_widget import ImageViewerWidget
+from .image_navigator_widget import ImageNavigatorWidget
+from .processing_workspace import ProcessingWorkspace
 
 __all__ = [
     'NavigationControls',
@@ -23,4 +25,6 @@ __all__ = [
     'CollapsibleRightPanel',
     'CollapsibleGroupBox',
     'ImageViewerWidget',
+    'ImageNavigatorWidget',
+    'ProcessingWorkspace',
 ]
