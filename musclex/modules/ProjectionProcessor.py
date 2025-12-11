@@ -560,6 +560,20 @@ class ProjectionProcessor:
                 result_dict.update(int_vars)
                 result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
                 
+                # Add explicit flag for GMM mode
+                result_dict['use_common_sigma'] = use_gmm
+                
+                # Ensure complete data regardless of mode
+                if use_gmm:
+                    # GMM mode: common_sigma exists, copy to all individual sigmas
+                    common_sigma_value = result_dict.get('common_sigma', 10.0)
+                    for j in range(len(peaks)):
+                        result_dict[f'sigma{j}'] = common_sigma_value
+                else:
+                    # Non-GMM mode: calculate common_sigma as mean of individual sigmas
+                    sigmas = [result_dict.get(f'sigma{j}', 10.0) for j in range(len(peaks))]
+                    result_dict['common_sigma'] = np.mean(sigmas) if sigmas else 10.0
+                
                 if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
                     if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
                         result_dict['bg_sigma'] = self.info['main_peak_info'][name]['bg_sigma']
@@ -582,9 +596,13 @@ class ProjectionProcessor:
                 
                 # Print fitting results
                 print("Box : "+ str(name))
+                print(f"Mode: {'GMM (Common Sigma)' if use_gmm else 'Independent Sigma'}")
                 if use_gmm:
                     common_sigma_val = self.info['fit_results'][name].get('common_sigma', 'N/A')
-                    print(f"GMM Mode (Common Sigma = {common_sigma_val})")
+                    print(f"  Common Sigma = {common_sigma_val}")
+                else:
+                    sigmas = [self.info['fit_results'][name].get(f'sigma{i}', 'N/A') for i in range(min(3, len(peaks)))]
+                    print(f"  Individual Sigmas (first 3): {sigmas}")
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
                 print("---")

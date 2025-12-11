@@ -93,8 +93,9 @@ class GMMParameterEditorDialog(QDialog):
         """
         fit_result = self.projProc.info['fit_results'][self.box_name]
         
-        # Detect if current fit is GMM mode and set checkbox state
-        is_gmm = 'common_sigma' in fit_result
+        # Use explicit flag to determine GMM mode (fallback to checking common_sigma)
+        is_gmm = fit_result.get('use_common_sigma', 'common_sigma' in fit_result)
+        
         # Block signals temporarily to avoid triggering stateChanged before table is populated
         self.equalVarianceChkBx.blockSignals(True)
         self.equalVarianceChkBx.setChecked(is_gmm)
@@ -103,14 +104,14 @@ class GMMParameterEditorDialog(QDialog):
         # Extract all parameters
         params_to_show = {}
         
-        # Common sigma (key GMM parameter)
-        if 'common_sigma' in fit_result:
-            params_to_show['common_sigma'] = {
-                'val': fit_result['common_sigma'],
-                'min': 1.0,
-                'max': 100.0,
-                'fixed': False
-            }
+        # Common sigma - ALWAYS show it (will be enabled/disabled based on mode)
+        params_to_show['common_sigma'] = {
+            'val': fit_result.get('common_sigma', 10.0),
+            'min': 1.0,
+            'max': 100.0,
+            'fixed': False,
+            'enabled': is_gmm  # Only enabled in GMM mode
+        }
         
         # Parameters for each peak
         i = 0
@@ -120,7 +121,8 @@ class GMMParameterEditorDialog(QDialog):
                 'val': fit_result[f'p_{i}'],
                 'min': fit_result[f'p_{i}'] - 20,
                 'max': fit_result[f'p_{i}'] + 20,
-                'fixed': False
+                'fixed': False,
+                'enabled': True
             }
             
             # Amplitude
@@ -128,17 +130,18 @@ class GMMParameterEditorDialog(QDialog):
                 'val': fit_result[f'amplitude{i}'],
                 'min': 0,
                 'max': fit_result[f'amplitude{i}'] * 5,
-                'fixed': False
+                'fixed': False,
+                'enabled': True
             }
             
-            # Sigma
-            if f'sigma{i}' in fit_result:
-                params_to_show[f'sigma{i}'] = {
-                    'val': fit_result[f'sigma{i}'],
-                    'min': 1.0,
-                    'max': 100.0,
-                    'fixed': is_gmm  # Fixed in GMM mode, editable otherwise
-                }
+            # Sigma - ALWAYS show it (will be enabled/disabled based on mode)
+            params_to_show[f'sigma{i}'] = {
+                'val': fit_result.get(f'sigma{i}', fit_result.get('common_sigma', 10.0)),
+                'min': 1.0,
+                'max': 100.0,
+                'fixed': False,
+                'enabled': not is_gmm  # Only enabled in non-GMM mode
+            }
             
             i += 1
         
@@ -163,7 +166,14 @@ class GMMParameterEditorDialog(QDialog):
             valueSpin.setDecimals(6)
             valueSpin.setRange(-1e10, 1e10)
             valueSpin.setValue(pdict['val'])
-            valueSpin.valueChanged.connect(self.onParameterChanged)
+            valueSpin.setEnabled(pdict['enabled'])
+            
+            # Connect signal for real-time updates
+            if param_name == 'common_sigma':
+                valueSpin.valueChanged.connect(self.onCommonSigmaChanged)
+            else:
+                valueSpin.valueChanged.connect(self.onParameterChanged)
+            
             self.paramTable.setCellWidget(row, 2, valueSpin)
             
             # Min spinbox
@@ -171,7 +181,7 @@ class GMMParameterEditorDialog(QDialog):
             minSpin.setDecimals(6)
             minSpin.setRange(-1e10, 1e10)
             minSpin.setValue(pdict['min'])
-            minSpin.setEnabled(not pdict['fixed'])
+            minSpin.setEnabled(pdict['enabled'] and not pdict['fixed'])
             self.paramTable.setCellWidget(row, 3, minSpin)
             
             # Max spinbox
@@ -179,50 +189,65 @@ class GMMParameterEditorDialog(QDialog):
             maxSpin.setDecimals(6)
             maxSpin.setRange(-1e10, 1e10)
             maxSpin.setValue(pdict['max'])
-            maxSpin.setEnabled(not pdict['fixed'])
+            maxSpin.setEnabled(pdict['enabled'] and not pdict['fixed'])
             self.paramTable.setCellWidget(row, 4, maxSpin)
             
             row += 1
         
-        # Apply initial editability based on checkbox state
-        self.onEqualVarianceChanged(self.equalVarianceChkBx.checkState())
+        # Don't call onEqualVarianceChanged here, state is already set correctly
     
     def onEqualVarianceChanged(self, state):
         """
         Handle Equal Variance checkbox state change
-        Update sigma parameters editability
+        - GMM mode (checked): common_sigma enabled, individual sigmas disabled and sync to common_sigma
+        - Non-GMM mode (unchecked): common_sigma disabled, individual sigmas enabled
         """
-        is_equal_variance = (state == Qt.Checked)
+        # Use isChecked() instead of comparing state, more reliable
+        is_gmm = self.equalVarianceChkBx.isChecked()
         
-        # Update sigma parameters editability
+        # Get common_sigma value for syncing
+        common_sigma_value = None
+        for row in range(self.paramTable.rowCount()):
+            if self.paramTable.item(row, 1).text() == 'common_sigma':
+                common_sigma_value = self.paramTable.cellWidget(row, 2).value()
+                break
+        
+        # Update all parameters
         for row in range(self.paramTable.rowCount()):
             param_name = self.paramTable.item(row, 1).text()
+            valueSpin = self.paramTable.cellWidget(row, 2)
+            minSpin = self.paramTable.cellWidget(row, 3)
+            maxSpin = self.paramTable.cellWidget(row, 4)
+            fixedItem = self.paramTable.item(row, 0)
             
-            if param_name.startswith('sigma') and param_name != 'common_sigma':
-                # Individual sigma parameters
-                fixedItem = self.paramTable.item(row, 0)
-                valueSpin = self.paramTable.cellWidget(row, 2)
-                minSpin = self.paramTable.cellWidget(row, 3)
-                maxSpin = self.paramTable.cellWidget(row, 4)
+            if param_name == 'common_sigma':
+                # Common sigma: enabled in GMM mode, disabled otherwise
+                valueSpin.setEnabled(is_gmm)
+                minSpin.setEnabled(is_gmm)
+                maxSpin.setEnabled(is_gmm)
                 
-                if is_equal_variance:
-                    # GMM mode: sigma fixed and bound to common sigma
-                    fixedItem.setFlags(Qt.ItemIsEnabled)
-                    fixedItem.setCheckState(Qt.Checked)
+            elif param_name.startswith('sigma') and param_name != 'common_sigma':
+                # Individual sigmas
+                if is_gmm:
+                    # GMM mode: disable and sync to common_sigma
                     valueSpin.setEnabled(False)
                     minSpin.setEnabled(False)
                     maxSpin.setEnabled(False)
+                    if common_sigma_value is not None:
+                        valueSpin.blockSignals(True)
+                        valueSpin.setValue(common_sigma_value)
+                        valueSpin.blockSignals(False)
                 else:
-                    # Non-GMM mode: sigma independent and editable
-                    fixedItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-                    fixedItem.setCheckState(Qt.Unchecked)
+                    # Non-GMM mode: enable for independent editing
                     valueSpin.setEnabled(True)
                     minSpin.setEnabled(True)
                     maxSpin.setEnabled(True)
-            
-            elif param_name == 'common_sigma':
-                # common_sigma only visible in GMM mode
-                self.paramTable.setRowHidden(row, not is_equal_variance)
+        
+        # Update use_common_sigma flag in fit_results and trigger redraw
+        self.projProc.info['fit_results'][self.box_name]['use_common_sigma'] = is_gmm
+        
+        # Update parameter values and redraw
+        self.onParameterChanged()
     
     def onFixedToggled(self, item):
         """
@@ -255,7 +280,30 @@ class GMMParameterEditorDialog(QDialog):
         self.parent_tab.need_update = True
         # Redraw with updated parameters (uses info['fit_results'])
         self.parent_tab.updateUI()
+    
+    def onCommonSigmaChanged(self, value):
+        """
+        When common_sigma changes in GMM mode, sync all individual sigmas
+        """
+        if self.equalVarianceChkBx.isChecked():
+            # GMM mode: sync all individual sigmas to common_sigma
+            for row in range(self.paramTable.rowCount()):
+                param_name = self.paramTable.item(row, 1).text()
+                if param_name.startswith('sigma') and param_name != 'common_sigma':
+                    valueSpin = self.paramTable.cellWidget(row, 2)
+                    valueSpin.blockSignals(True)  # Avoid triggering cascade
+                    valueSpin.setValue(value)
+                    valueSpin.blockSignals(False)
+                    # Update in fit_results
+                    self.projProc.info['fit_results'][self.box_name][param_name] = value
         
+        # Update common_sigma in fit_results
+        self.projProc.info['fit_results'][self.box_name]['common_sigma'] = value
+        
+        # Trigger redraw
+        self.parent_tab.need_update = True
+        self.parent_tab.updateUI()
+    
     def getParametersFromTable(self):
         """
         Extract parameters from table
@@ -421,8 +469,11 @@ class GMMParameterEditorDialog(QDialog):
         """
         Apply changes and close - info is already updated by onParameterChanged
         """
-        # Update gmm_mode flag to persist the equal variance setting
+        # Update use_common_sigma flag to persist the equal variance setting
         use_equal_variance = self.equalVarianceChkBx.isChecked()
+        self.projProc.info['fit_results'][self.box_name]['use_common_sigma'] = use_equal_variance
+        
+        # Update gmm_mode for backward compatibility
         if 'gmm_mode' not in self.projProc.info:
             self.projProc.info['gmm_mode'] = {}
         self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
@@ -440,12 +491,11 @@ class GMMParameterEditorDialog(QDialog):
         """
         Cancel: restore original fit_results and close
         """
-        # Restore backup to undo all changes
+        # Restore backup to undo all changes (including use_common_sigma flag)
         self.projProc.info['fit_results'][self.box_name] = self.original_fit_result
         
         # Redraw to show original values
+        self.parent_tab.need_update = True
         self.parent_tab.updateUI()
-        self.parent_tab.graphCanvas1.draw()
-        self.parent_tab.graphCanvas2.draw()
         
         super().reject()
