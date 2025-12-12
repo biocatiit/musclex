@@ -1546,10 +1546,6 @@ class ProcessingWorkspace(QWidget):
         # Create ImageData with workspace settings (center, rotation, blank, mask)
         image_data = self.create_image_data(img, filename)
         
-        # Try to auto-show calibration dialog on first image load
-        # (only shows once per folder, only if cache exists)
-        self.try_auto_show_calibration(image_data)
-        
         # Emit high-level signal with ImageData
         # GUIs should listen to this instead of imageChanged
         self.imageDataReady.emit(image_data)
@@ -1684,23 +1680,6 @@ class ProcessingWorkspace(QWidget):
                 return True
         
         return False
-    
-    def try_auto_show_calibration(self, image_data):
-        """
-        Try to automatically show calibration dialog on first image load.
-        
-        Called when the first image is loaded in a new folder.
-        Only shows once per folder, and only if cached calibration settings exist.
-        CalibrationSettings will check for cache internally.
-        
-        Args:
-            image_data: ImageData instance for first loaded image
-        """
-        # Only auto-show once per folder
-        if not getattr(self, '_calibration_auto_shown', False):
-            self._calibration_auto_shown = True
-            # force=False means only show if cache exists (CalibrationSettings decides)
-            self.show_calibration_dialog(image_data, force=False)
     
     
     @property
