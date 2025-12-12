@@ -1526,8 +1526,6 @@ class ProcessingWorkspace(QWidget):
         # Update blank/mask checkbox states based on new directory
         self.update_blank_mask_states()
         
-        # Reset auto-show flag for new folder
-        self._calibration_auto_shown = False
     
     def on_image_changed(self, img, filename: str, dir_path: str):
         """
