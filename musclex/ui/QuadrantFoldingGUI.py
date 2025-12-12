@@ -402,8 +402,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # fileLoaded: Folder-level initialization (csvManager, etc.) - happens BEFORE first image
         self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
         
-        # imageChanged: Single image processing - happens AFTER folder is initialized
-        self.workspace.imageChanged.connect(self._on_image_changed)
+        # imageDataReady: Receives ImageData ready for processing (replaces imageChanged)
+        self.workspace.imageDataReady.connect(self._on_image_data_ready)
         
         # needsReprocess: Settings changed, reprocess current image
         self.workspace.needsReprocess.connect(self.processImage)
@@ -1557,12 +1557,16 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def calibrationClicked(self):
         """
-        Handle when Calibration Settings button is clicked
-        :return:
+        Handle when Calibration Settings button is clicked.
+        
+        Delegates to workspace to show calibration dialog.
         """
-
-        success = self.setCalibrationImage(force=True)
-
+        # Show calibration dialog (force=True to always show)
+        success = self.workspace.show_calibration_dialog(
+            self.current_image_data,
+            force=True
+        )
+        
         if success:
             # Reset rotation to force recalculation
             self.current_image_data.update_manual_rotation(None)
@@ -1570,49 +1574,8 @@ class QuadrantFoldingGUI(BaseGUI):
             self.processImage()
 
 
-    def setCalibrationImage(self, force=False):
-        """
-        Popup Calibration Settings window, if there's calibration settings in cache or force to open
-        :param force: force to popup the window
-        :return: True if calibration set, False otherwise
-        """
-        if self.calSettingsDialog is None:
-            if self.quadFold is None or self.quadFold.orig_image_center is None:
-                self.calSettingsDialog = CalibrationSettings(self.filePath)
-            else:
-                self.calSettingsDialog =  CalibrationSettings(self.filePath, center=self.quadFold.orig_image_center)
-        self.calSettings = None
-
-        self.calSettingsDialog.recalculate = False
-
-        cal_setting = self.calSettingsDialog.calSettings
-        if cal_setting is not None or force:
-            result = self.calSettingsDialog.exec_()
-            if result == 1:
-                self.calSettings = self.calSettingsDialog.getValues()
-
-                if self.calSettings is not None:
-                    if 'center' in self.calSettings:
-                        # Set center using Panel's public method
-                        self.workspace.set_center_from_source(
-                            self.file_manager.current_image_name,
-                            self.calSettings['center'],
-                            "calibration"
-                        )
-                        # NOTE: set_center_from_source already updates UI via update_display()
-                    else:
-                        # Remove calibration center if unchecked
-                        # Use Panel's public method to clear center
-                        self.workspace.set_center_from_source(
-                            self.file_manager.current_image_name,
-                            None,
-                            "calibration_cleared"
-                        )
-
-                return True
-        return False
-
-    # NOTE: setCenterRotation moved to ImageSettingsPanel
+    # NOTE: setCalibrationImage() removed - now handled by ProcessingWorkspace.show_calibration_dialog()
+    # Calibration is managed by workspace, not GUI
     
     def _on_status_text_requested(self, text: str):
         """
@@ -3386,25 +3349,24 @@ class QuadrantFoldingGUI(BaseGUI):
             traceback.print_exc()
             QApplication.restoreOverrideCursor()
     
-    def _on_image_changed(self, img, filename, dir_path):
+    def _on_image_data_ready(self, image_data):
         """
-        Called when a single image is loaded/changed.
+        Called when ImageData is ready for processing.
         
-        Creates ImageData and QuadrantFolder, then processes the image.
-        By this point, csvManager has already been initialized by _on_folder_loaded.
+        This is the simplified version - workspace has already:
+        - Created ImageData with all settings
+        - Tried to auto-show calibration dialog
         
         Args:
-            img: Image array
-            filename: Name of the image file
-            dir_path: Directory path
+            image_data: ImageData instance ready to process
         """
         # Check if csvManager is initialized
         if self.csvManager is None:
             print("Warning: csvManager not initialized. Skipping image processing.")
             return
         
-        # Create ImageData using workspace (includes manual settings)
-        self.current_image_data = self.workspace.create_image_data(img, filename)
+        # Store ImageData
+        self.current_image_data = image_data
         
         # Create QuadrantFolder processor
         self.quadFold = QuadrantFolder(self.current_image_data, self)

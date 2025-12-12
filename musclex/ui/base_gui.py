@@ -325,20 +325,20 @@ class BaseGUI(QMainWindow):
         automatically connects to their scan signals to display progress
         in the status bar.
         
+        For GUIs using ProcessingWorkspace, connects to workspace's forwarded signals
+        (better encapsulation - no need to know about internal navigator).
+        For GUIs using ImageNavigatorWidget directly, connects to navigator's signals.
+        
         This provides default handling that most GUIs want:
         - Show progress bar during HDF5 file scanning
         - Hide progress bar when scan completes
         - Update status bar when scan completes
         """
         # Check if workspace exists (ProcessingWorkspace)
-        if hasattr(self, 'workspace') and hasattr(self.workspace, 'navigator'):
-            navigator = self.workspace.navigator
-            navigator.scanProgressChanged.connect(self._on_scan_progress)
-            navigator.scanComplete.connect(self._on_scan_complete)
-        # Check if navigator exists directly (for pure viewer GUIs)
-        elif hasattr(self, 'navigator'):
-            self.navigator.scanProgressChanged.connect(self._on_scan_progress)
-            self.navigator.scanComplete.connect(self._on_scan_complete)
+        # Use workspace's forwarded signals for better encapsulation
+        if hasattr(self, 'workspace'):
+            self.workspace.scanProgressChanged.connect(self._on_scan_progress)
+            self.workspace.scanComplete.connect(self._on_scan_complete)
     
     def _on_scan_progress(self, h5_done: int, h5_total: int):
         """
