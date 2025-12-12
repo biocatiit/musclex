@@ -95,7 +95,9 @@ class ProcessingWorkspace(QWidget):
     """
     
     # Signals
-    imageChanged = Signal(object, str, str)  # (img, filename, dir_path) - from navigator
+    imageDataReady = Signal(object)  # ImageData instance - main signal for GUIs
+    scanComplete = Signal()  # Forwarded from navigator
+    scanProgressChanged = Signal(int, int)  # Forwarded from navigator
     needsReprocess = Signal()  # Settings changed, need to reprocess
     statusTextRequested = Signal(str)  # Request GUI to update status bar text
     
@@ -248,7 +250,11 @@ class ProcessingWorkspace(QWidget):
         """Connect all internal signals."""
         # Navigator signals
         self.navigator.fileLoaded.connect(self.on_file_loaded)
-        self.navigator.imageChanged.connect(self.imageChanged.emit)
+        self.navigator.imageChanged.connect(self.on_image_changed) 
+        
+        # Forward scan signals
+        self.navigator.scanComplete.connect(self.scanComplete.emit)
+        self.navigator.scanProgressChanged.connect(self.scanProgressChanged.emit)
         
         # Tool buttons -> Activate/deactivate tools
         self._center_widget.setCentByChords.clicked.connect(
@@ -1497,6 +1503,34 @@ class ProcessingWorkspace(QWidget):
         
         # Update blank/mask checkbox states based on new directory
         self.update_blank_mask_states()
+        
+        # Reset auto-show flag for new folder
+        self._calibration_auto_shown = False
+    
+    def on_image_changed(self, img, filename: str, dir_path: str):
+        """
+        Called when a new image is loaded.
+        
+        This is the main processing pipeline entry point:
+        1. Creates ImageData with workspace settings
+        2. Tries to auto-show calibration dialog (first image only)
+        3. Emits imageDataReady signal for GUI to process
+        
+        Args:
+            img: Image array (numpy ndarray)
+            filename: Name of the image file
+            dir_path: Directory path
+        """
+        # Create ImageData with workspace settings (center, rotation, blank, mask)
+        image_data = self.create_image_data(img, filename)
+        
+        # Try to auto-show calibration dialog on first image load
+        # (only shows once per folder, only if cache exists)
+        self.try_auto_show_calibration(image_data)
+        
+        # Emit high-level signal with ImageData
+        # GUIs should listen to this instead of imageChanged
+        self.imageDataReady.emit(image_data)
     
     def create_image_data(self, img, filename):
         """
@@ -1533,6 +1567,80 @@ class ProcessingWorkspace(QWidget):
             workspace.load_from_file("/path/to/image.tif")
         """
         self.navigator.load_from_file(filepath, start_background_scan)
+    
+    # ===== Calibration Dialog Management =====
+    
+    def show_calibration_dialog(self, image_data, force=False):
+        """
+        Show calibration settings dialog for current image.
+        
+        This method manages the CalibrationSettings dialog, which allows users to:
+        - Set detector parameters
+        - Define calibration center
+        - Configure beam properties
+        
+        Args:
+            image_data: ImageData instance for current image
+            force: If True, show dialog even if no cached settings exist
+        
+        Returns:
+            bool: True if calibration was set and accepted, False otherwise
+        """
+        from ...CalibrationSettings import CalibrationSettings
+        
+        # Create dialog (it will auto-load cache if exists)
+        cal_dialog = CalibrationSettings(
+            str(self._settings_dir),
+            center=image_data.center,
+            quadrant_folded=image_data.is_quadrant_folded
+        )
+        
+        cal_dialog.recalculate = False
+        
+        # Check if should show dialog (CalibrationSettings loaded cache into calSettings)
+        cal_setting = cal_dialog.calSettings
+        if cal_setting is not None or force:
+            result = cal_dialog.exec_()
+            if result == 1:  # Dialog accepted
+                cal_settings = cal_dialog.getValues()
+                
+                if cal_settings is not None:
+                    if 'center' in cal_settings:
+                        # Update center using workspace method
+                        self.set_center_from_source(
+                            image_data.img_name,
+                            cal_settings['center'],
+                            "calibration"
+                        )
+                    else:
+                        # Clear calibration center if unchecked
+                        self.set_center_from_source(
+                            image_data.img_name,
+                            None,
+                            "calibration_cleared"
+                        )
+                    
+                    return True
+        
+        return False
+    
+    def try_auto_show_calibration(self, image_data):
+        """
+        Try to automatically show calibration dialog on first image load.
+        
+        Called when the first image is loaded in a new folder.
+        Only shows once per folder, and only if cached calibration settings exist.
+        CalibrationSettings will check for cache internally.
+        
+        Args:
+            image_data: ImageData instance for first loaded image
+        """
+        # Only auto-show once per folder
+        if not getattr(self, '_calibration_auto_shown', False):
+            self._calibration_auto_shown = True
+            # force=False means only show if cache exists (CalibrationSettings decides)
+            self.show_calibration_dialog(image_data, force=False)
+    
     
     @property
     def current_image(self):
