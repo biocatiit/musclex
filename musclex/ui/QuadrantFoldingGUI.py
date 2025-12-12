@@ -1417,47 +1417,8 @@ class QuadrantFoldingGUI(BaseGUI):
 
     # NOTE: setCenterByPerpClicked, setCenterByChordsClicked, and setCentBtnClicked are now handled by ImageSettingsPanel
 
-    def _handle_apply_center(self, scope):
-        """Handle Apply Center request from widget (dialog already shown)"""
-        if not self.current_image_data:
-            QMessageBox.warning(self, "No Center", "No center available to apply.")
-            return
-        
-        center = self.current_image_data.center
-        # Use ImageSettingsPanel's batch operation
-        self.workspace.apply_center_to_batch(center, scope)
-        QMessageBox.information(self, "Center Applied", 
-            f"Center {center} applied to {scope} images.")
-    
-    def _handle_restore_auto_center(self, scope):
-        """Handle Restore Auto Center request from widget (dialog already shown)"""
-        # Use ImageSettingsPanel's batch operation
-        # (It will handle ImageData update and needsReprocess signal if current image is affected)
-        self.workspace.restore_auto_center_for_batch(scope)
-        
-        QMessageBox.information(self, "Auto Center Restored", 
-            f"Auto center restored for {scope} images.")
-    
-    def _handle_apply_rotation(self, scope):
-        """Handle Apply Rotation request from widget (dialog already shown)"""
-        if not self.current_image_data or self.current_image_data.rotation is None:
-            QMessageBox.warning(self, "No Rotation", "No rotation available to apply.")
-            return
-        
-        rotation = self.current_image_data.rotation
-        # Use ImageSettingsPanel's batch operation
-        self.workspace.apply_rotation_to_batch(rotation, scope)
-        QMessageBox.information(self, "Rotation Applied", 
-            f"Rotation {rotation:.2f}° applied to {scope} images.")
-    
-    def _handle_restore_auto_rotation(self, scope):
-        """Handle Restore Auto Rotation request from widget (dialog already shown)"""
-        # Use ImageSettingsPanel's batch operation
-        # (It will handle ImageData update and needsReprocess signal if current image is affected)
-        self.workspace.restore_auto_rotation_for_batch(scope)
-        
-        QMessageBox.information(self, "Auto Rotation Restored", 
-            f"Auto rotation restored for {scope} images.")
+    # NOTE: _handle_apply_center, _handle_restore_auto_center, _handle_apply_rotation, 
+    # _handle_restore_auto_rotation removed - now handled by ProcessingWorkspace with notifications
     
     # NOTE: _applyManualCenter, _restoreAutoCenter, _applyManualRotation, _restoreAutoRotation
     # have been moved to ImageSettingsPanel for better encapsulation
