@@ -41,7 +41,21 @@ class CalibrationSettings(QDialog):
     """
     The CalibrationSettings object is a window and functions helping the software to calibrate the images processed and improve the results found.
     """
-    def __init__(self, dir_path,center=None, quadrant_folded=False):
+    def __init__(self, dir_path, center=None, quadrant_folded=False, initial_settings=None):
+        """
+        Initialize CalibrationSettings dialog.
+        
+        Args:
+            dir_path: Directory path for calibration files
+            center: Optional center coordinates [x, y]
+            quadrant_folded: Whether the image is quadrant folded
+            initial_settings: Calibration cache dict with 'path' and 'settings' keys.
+                            If None, initializes with empty settings.
+        
+        Note:
+            This is a pure UI class. Cache loading should be done externally
+            (e.g., by ProcessingWorkspace._load_calibration_cache()).
+        """
         super().__init__(None)
         self.setWindowTitle("Calibration Settings")
         self.editableVars = {}
@@ -59,23 +73,22 @@ class CalibrationSettings(QDialog):
         self.version = musclex.__version__
         self.uiUpdating = False
         self.quadrant_folded = quadrant_folded
-        cache = self.loadSettings()
-
-        self.recalculate = False #This is so that if only the center coords are changed, QF
-        #Does not recalculate the image.
-
-        if cache is not None:
-            self.calFile = cache["path"]
-            self.calSettings = cache["settings"]
-
-            print('cache',cache)
-            print('calsettings:',self.calSettings)
+        
+        # Initialize with provided settings or defaults
+        if initial_settings is not None:
+            self.calFile = initial_settings.get("path", fullPath(dir_path, "calibration.tif"))
+            self.calSettings = initial_settings.get("settings", {})
         else:
             self.calFile = fullPath(dir_path, "calibration.tif")
             self.calSettings = {}
 
+        # Flag to indicate if calibration needs recalculation
+        # Used internally when manual calibration points are changed
+        self.recalculate = False
+
+        # Override center if explicitly provided
         if center is not None:
-            self.calSettings["center"]=center
+            self.calSettings["center"] = center
 
         # self.setStyleSheet(getStyleSheet())
         self.initUI()
@@ -83,7 +96,7 @@ class CalibrationSettings(QDialog):
         self.setAllToolTips()
 
         if exists(self.calFile) and self.calImageGrpChkBox.isChecked():
-            if self.calSettings is None:
+            if self.calSettings is None or not self.calSettings:
                 self.calibrate()
             else:
                 self.updateImage()

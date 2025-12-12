@@ -1080,8 +1080,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # NOTE: Tool buttons (chords, perpendiculars) are handled by ImageSettingsPanel
         # NOTE: Apply/Restore are handled by ImageSettingsPanel
         
-        # QF-specific center buttons (keep these)
-        self.workspace._center_widget.calibrationButton.clicked.connect(self.calibrationClicked)
+        # QF-specific center buttons - now handled by workspace
+        # NOTE: calibrationButton is now connected in ProcessingWorkspace._connect_signals()
         # NOTE: setCenterRotation and setCentBtn are now handled by ImageSettingsPanel
         
         # ===== Rotation Settings Widget Connections =====
@@ -1555,24 +1555,8 @@ class QuadrantFoldingGUI(BaseGUI):
     # NOTE: setAngleBtnClicked removed - fully handled by ImageSettingsPanel now
 
 
-    def calibrationClicked(self):
-        """
-        Handle when Calibration Settings button is clicked.
-        
-        Delegates to workspace to show calibration dialog.
-        """
-        # Show calibration dialog (force=True to always show)
-        success = self.workspace.show_calibration_dialog(
-            self.current_image_data,
-            force=True
-        )
-        
-        if success:
-            # Reset rotation to force recalculation
-            self.current_image_data.update_manual_rotation(None)
-            self.deleteImgCache(['BgSubFold'])
-            self.processImage()
-
+    # NOTE: calibrationClicked() removed - now handled by ProcessingWorkspace._on_calibration_button_clicked()
+    # Calibration button is connected internally in ProcessingWorkspace._connect_signals()
 
     # NOTE: setCalibrationImage() removed - now handled by ProcessingWorkspace.show_calibration_dialog()
     # Calibration is managed by workspace, not GUI
@@ -3296,7 +3280,7 @@ class QuadrantFoldingGUI(BaseGUI):
                 json.dump(settings, f)
 
 
-    
+
     def _on_folder_loaded(self, dir_path: str):
         """
         Called when a new folder/file is loaded (BEFORE first image loads).
