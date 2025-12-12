@@ -269,6 +269,9 @@ class ProcessingWorkspace(QWidget):
         self._center_widget.setCentBtn.clicked.connect(
             self._on_set_center_manually_clicked
         )
+        self._center_widget.calibrationButton.clicked.connect(
+            self._on_calibration_button_clicked
+        )
         self._rotation_widget.setRotationButton.clicked.connect(
             lambda checked: self._on_rotation_button_clicked(checked)
         )
@@ -354,6 +357,25 @@ class ProcessingWorkspace(QWidget):
                 self._handle_center_rotate_result(result)
             # Request GUI to reset status bar
             self.statusTextRequested.emit("")
+    
+    
+    def _on_calibration_button_clicked(self):
+        """
+        Handle calibration button click.
+        
+        Opens calibration settings dialog and triggers reprocessing if settings changed.
+        """
+        if self._current_image_data is None:
+            print("Warning: No image loaded, cannot open calibration settings")
+            return
+        
+        # Show calibration dialog (force=True to always show)
+        success = self.show_calibration_dialog(self._current_image_data, force=True)
+        
+        if success:
+            # Trigger reprocessing via signal
+            # ImageData fingerprint change will automatically invalidate dependent caches
+            self.needsReprocess.emit()
     
     def _on_set_center_manually_clicked(self):
         """
@@ -1570,6 +1592,35 @@ class ProcessingWorkspace(QWidget):
     
     # ===== Calibration Dialog Management =====
     
+    def _load_calibration_cache(self):
+        """
+        Load calibration cache from settings directory.
+        
+        This is a separate method to check for cached calibration settings
+        without creating the CalibrationSettings dialog.
+        
+        Returns:
+            dict or None: Cache dictionary with 'path', 'settings', 'version' if exists,
+                         None otherwise
+        """
+        import pickle
+        from pathlib import Path
+        from ...utils.file_manager import fullPath
+        from os.path import exists, isfile
+        
+        cache_path = fullPath(self._settings_dir, "settings")
+        cache_file = fullPath(cache_path, "calibration.info")
+        
+        if exists(cache_path) and isfile(cache_file):
+            try:
+                cache = pickle.load(open(cache_file, "rb"))
+                if cache is not None and "version" in cache:
+                    return cache
+            except Exception as e:
+                print(f"Warning: Failed to load calibration cache: {e}")
+        
+        return None
+    
     def show_calibration_dialog(self, image_data, force=False):
         """
         Show calibration settings dialog for current image.
@@ -1578,6 +1629,10 @@ class ProcessingWorkspace(QWidget):
         - Set detector parameters
         - Define calibration center
         - Configure beam properties
+        
+        The dialog is only shown if:
+        - force=True, OR
+        - Cached calibration settings exist
         
         Args:
             image_data: ImageData instance for current image
@@ -1588,39 +1643,45 @@ class ProcessingWorkspace(QWidget):
         """
         from ...CalibrationSettings import CalibrationSettings
         
-        # Create dialog (it will auto-load cache if exists)
+        # Check for cached settings (without creating dialog)
+        cache = self._load_calibration_cache()
+        
+        # Decide whether to show dialog
+        if cache is None and not force:
+            return False  # No cache and not forced, don't show
+        
+        # Create dialog with cached settings (only when needed)
         cal_dialog = CalibrationSettings(
             str(self._settings_dir),
             center=image_data.center,
-            quadrant_folded=image_data.is_quadrant_folded
+            quadrant_folded=image_data.is_quadrant_folded,
+            initial_settings=cache  # Pass entire cache dict
         )
         
         cal_dialog.recalculate = False
         
-        # Check if should show dialog (CalibrationSettings loaded cache into calSettings)
-        cal_setting = cal_dialog.calSettings
-        if cal_setting is not None or force:
-            result = cal_dialog.exec_()
-            if result == 1:  # Dialog accepted
-                cal_settings = cal_dialog.getValues()
+        # Show dialog
+        result = cal_dialog.exec_()
+        if result == 1:  # Dialog accepted
+            cal_settings = cal_dialog.getValues()
+            
+            if cal_settings is not None:
+                if 'center' in cal_settings:
+                    # Update center using workspace method
+                    self.set_center_from_source(
+                        image_data.img_name,
+                        cal_settings['center'],
+                        "calibration"
+                    )
+                else:
+                    # Clear calibration center if unchecked
+                    self.set_center_from_source(
+                        image_data.img_name,
+                        None,
+                        "calibration_cleared"
+                    )
                 
-                if cal_settings is not None:
-                    if 'center' in cal_settings:
-                        # Update center using workspace method
-                        self.set_center_from_source(
-                            image_data.img_name,
-                            cal_settings['center'],
-                            "calibration"
-                        )
-                    else:
-                        # Clear calibration center if unchecked
-                        self.set_center_from_source(
-                            image_data.img_name,
-                            None,
-                            "calibration_cleared"
-                        )
-                    
-                    return True
+                return True
         
         return False
     
