@@ -100,8 +100,6 @@ class ImageViewerWidget(QWidget):
     # Tool-related signals
     toolCompleted = Signal(str, object)  # (tool_name, result) when a tool completes
     
-    # DoubleZoom signals
-    preciseCoordinatesSelected = Signal(float, float)  # Precise coordinates from DoubleZoom
     
     # Display options signals
     displayOptionsChanged = Signal(dict)  # Display options (vmin, vmax, log_scale, colormap) changed
@@ -559,9 +557,7 @@ class ImageViewerWidget(QWidget):
             # If so, precise coordinates were already calculated in _on_button_press
             if event.inaxes == self.double_zoom.doubleZoomAxes:
                 # Get the precise coordinates and emit them
-                precise_x, precise_y = self.double_zoom.get_precise_coords()
-                self.preciseCoordinatesSelected.emit(precise_x, precise_y)
-                
+                precise_x, precise_y = self.double_zoom.get_precise_coords()                
                 # Modify event for downstream handlers (tools, etc.)
                 event.xdata = precise_x
                 event.ydata = precise_y

@@ -283,9 +283,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.mask_min = None
         self.mask_max = None
 
-        self.last_executed = time.time() #Records when the handler was last executed
-        self.min_interval = 0.2 #Minimum miliseconds between handler function call
-
         self.bgAsyncDict = {}
 
     # ===== BaseGUI abstract methods implementation =====
@@ -1093,10 +1090,8 @@ class QuadrantFoldingGUI(BaseGUI):
         ##### Image Viewer Signals #####
         # Connect ImageViewerWidget signals instead of direct matplotlib events
         # NOTE: toolCompleted is handled by ImageSettingsPanel
-        self.image_viewer.mouseMoved.connect(self.imageOnMotion)
         self.image_viewer.coordinatesChanged.connect(self._on_image_coordinates_changed)
         self.image_viewer.rightClickAt.connect(self._on_image_right_click)
-        self.image_viewer.preciseCoordinatesSelected.connect(self._on_precise_coordinates)
 
         ##### Result Tab #####
         self.rotate90Chkbx.stateChanged.connect(self.processImage)
@@ -1454,13 +1449,48 @@ class QuadrantFoldingGUI(BaseGUI):
     def _on_image_coordinates_changed(self, x, y, value):
         """
         Handler for coordinate changes (mouse movement over image).
-        Updates the status bar with current mouse position and pixel value.
+        Updates the status bar with QuadrantFolding-specific information:
+        - Current coordinates with calibrated distance/q-value
+        - Original (pre-transform) coordinates
         
         Args:
             x, y: Coordinates in image space
             value: Pixel value at that position
         """
-        self.imgCoordOnStatusBar.setText(f"  X: {x:.1f}, Y: {y:.1f}, Intensity: {value:.2f}")
+        
+        # Get extent and center for coordinate transformations
+        if self.quadFold is not None:
+            center = self.quadFold.center
+        else:
+            center = self.current_image_data.center
+        
+        # Calculate distance from center
+        mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
+        
+        # Business logic: Apply calibration if available
+        unit = "px"
+        distance_value = mouse_distance
+        
+        if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+            scale = self.calSettings['scale']
+            d = mouse_distance / scale
+            
+            if d > 0.01:
+                # Convert to reciprocal space (q value)
+                distance_value = 1.0 / d
+                unit = "nm^-1"
+            else:
+                distance_value = mouse_distance
+        
+        # Update current coordinates status bar
+        self.imgCoordOnStatusBar.setText(
+            f"Cursor (Current coords): x={x:.2f}, y={y:.2f}, "
+            f"value={value:.2f}, distance={distance_value:.2f} {unit}"
+        )
+        
+        # Business logic: Transform to original coordinates and display
+        o_x, o_y = self.getOrigCoordsCenter(x, y)
+        self.left_status.setText(f"Cursor (Original coords): x={o_x:.2f}, y={o_y:.2f}")
     
     def _on_image_right_click(self, x, y):
         """
@@ -1502,25 +1532,6 @@ class QuadrantFoldingGUI(BaseGUI):
             self.function = None
             self.display_points = None
     
-    def _on_precise_coordinates(self, x, y):
-        """
-        Handler for precise coordinates from DoubleZoom.
-        
-        Args:
-            x, y: Precise coordinates selected through DoubleZoom
-        """
-        print(f"Precise coordinates selected: ({x:.2f}, {y:.2f})")
-        # The event has already been modified and passed to tools
-        # This is just for logging or additional processing if needed
-
-    # NOTE: setAngleBtnClicked removed - fully handled by ImageSettingsPanel now
-
-
-    # NOTE: calibrationClicked() removed - now handled by ProcessingWorkspace._on_calibration_button_clicked()
-    # Calibration button is connected internally in ProcessingWorkspace._connect_signals()
-
-    # NOTE: setCalibrationImage() removed - now handled by ProcessingWorkspace.show_calibration_dialog()
-    # Calibration is managed by workspace, not GUI
     
     def _on_status_text_requested(self, text: str):
         """
@@ -1564,110 +1575,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.default_img_zoom = None
         self.default_result_img_zoom = None
         self.refreshResultTab()
-
-
-    def imageOnMotion(self, event):
-        """
-        Triggered when mouse hovers on image in image tab.
-        
-        NOTE: This receives events from ImageViewerWidget after:
-        - DoubleZoom processing (handled in ImageViewerWidget)
-        - ToolManager motion handling (handled in ImageViewerWidget)
-        
-        This updates the status bar with detailed information about mouse position.
-        """
-        current_time = time.time()
-
-        #Wrapped in try block becasue this throws an error for missing last_executed,
-        #even though it's set in constructor.  Investigate this further.
-        try:
-            if not current_time - self.last_executed >= self.min_interval:
-                return
-            else:
-                self.last_executed = current_time
-        except:
-            pass
-
-        if not self.ableToProcess():
-            return
-
-        x = event.xdata
-        y = event.ydata
-
-        if self.quadFold is None or self.quadFold.orig_img is None:
-            return
-
-        img = self.quadFold.orig_img
-
-        # If mouse is not moving inside main image, do nothing.
-        if event.inaxes != self.imageAxes:
-            return
-
-        # Display pixel information if the cursor is on image
-        if x is not None and y is not None:
-
-            x = int(round(x))
-            y = int(round(y))
-            unit = "px"
-
-            extent, center = self.getExtentAndCenter()
-
-            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
-                scale = self.calSettings['scale']
-                d = mouse_distance / scale
-                if (d > 0.01):
-                    q = 1.0/d
-                    unit = "nm^-1"
-                else:
-                    q = mouse_distance
-                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
-                # calib_distance = mouse_distance * 1.0/constant
-                # calib_distance = f"{calib_distance:.4f}"
-            if x < img.shape[1] and y < img.shape[0]:
-                #extent = self.extent
-                sx = x + extent[0]
-                sy = y + extent[1]
-
-                image_height = img.shape[0]
-                image_wdith = img.shape[1]
-                int_x = min(max(int(round(x)), 0), image_wdith - 1)
-                int_y = min(max(int(round(y)), 0), image_height - 1)
-                pixel_value = img[int_x, int_y]
-
-                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                    self.imgCoordOnStatusBar.setText("Cursor (Current coords): x={x:.2f}, y={y:.2f}, value={pixel_value:.2f}, distance={q:.2f} {unit}")
-                else:
-                    mouse_distance = np.sqrt((self.quadFold.center[0] - x) ** 2 + (self.quadFold.center[1] - y) ** 2)
-                    self.imgCoordOnStatusBar.setText(f"Cursor (Current coords): x={x:.2f}, y={y:.2f}, value={pixel_value:.2f}, distance={mouse_distance:.2f} {unit}")
-
-                o_x, o_y = self.getOrigCoordsCenter(x, y)
-                self.left_status.setText(f"Cursor (Original coords): x={o_x:.2f}, y={o_y:.2f}")
-
-        ax = self.imageAxes
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            self.imgCoordOnStatusBar.setText("")
-            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-            x = int(round(x))
-            y = int(round(y))
-
-
-        # Pan/drag is now handled internally by ImageViewerWidget
-        # All tool interactions are handled by ToolManager in ImageViewerWidget
-        # This function is kept for potential future use but no longer processes mouse motion
 
     def RminChanged(self):
         """
