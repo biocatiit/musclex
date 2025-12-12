@@ -133,6 +133,9 @@ class ProcessingWorkspace(QWidget):
         self._center_settings = {}     # {"filename": {"center": [x,y], "source": "..."}}
         self._rotation_settings = {}   # {"filename": {"rotation": angle, "source": "..."}}
         
+        # Track first image in folder for notification
+        self._first_image_in_folder = True
+        
         # Store show_select_buttons for later use
         self._show_select_buttons = show_select_buttons
         
@@ -650,41 +653,61 @@ class ProcessingWorkspace(QWidget):
     
     def _on_apply_center(self, scope: str):
         """Handle Apply Center to batch."""
+        from PySide6.QtWidgets import QMessageBox
+        
         if not self._current_image_data:
-            print("Warning: No current image data for apply center")
+            QMessageBox.warning(self.window(), "No Center", 
+                "No center available to apply.")
             return
         
         center = self._current_image_data.center
         if not center:
-            print("Warning: No center available to apply")
+            QMessageBox.warning(self.window(), "No Center", 
+                "No center available to apply.")
             return
         
         self.apply_center_to_batch(center, scope)
-        print(f"Applied center {center} to {scope} images")
+        
+        QMessageBox.information(self.window(), "Center Applied", 
+            f"Center {center} applied to {scope} images.")
     
     def _on_restore_auto_center(self, scope: str):
         """Handle Restore Auto Center."""
+        from PySide6.QtWidgets import QMessageBox
+        
         self.restore_auto_center_for_batch(scope)
-        print(f"Restored auto center for {scope} images")
+        
+        QMessageBox.information(self.window(), "Auto Center Restored", 
+            f"Auto center restored for {scope} images.")
     
     def _on_apply_rotation(self, scope: str):
         """Handle Apply Rotation to batch."""
+        from PySide6.QtWidgets import QMessageBox
+        
         if not self._current_image_data:
-            print("Warning: No current image data for apply rotation")
+            QMessageBox.warning(self.window(), "No Rotation", 
+                "No rotation available to apply.")
             return
         
         rotation = self._current_image_data.rotation
         if rotation is None:
-            print("Warning: No rotation available to apply")
+            QMessageBox.warning(self.window(), "No Rotation", 
+                "No rotation available to apply.")
             return
         
         self.apply_rotation_to_batch(rotation, scope)
-        print(f"Applied rotation {rotation:.2f}° to {scope} images")
+        
+        QMessageBox.information(self.window(), "Rotation Applied", 
+            f"Rotation {rotation:.2f}° applied to {scope} images.")
     
     def _on_restore_auto_rotation(self, scope: str):
         """Handle Restore Auto Rotation."""
+        from PySide6.QtWidgets import QMessageBox
+        
         self.restore_auto_rotation_for_batch(scope)
-        print(f"Restored auto rotation for {scope} images")
+        
+        QMessageBox.information(self.window(), "Auto Rotation Restored", 
+            f"Auto rotation restored for {scope} images.")
     
     # ==================== Blank/Mask Handlers ====================
     
@@ -1526,6 +1549,9 @@ class ProcessingWorkspace(QWidget):
         # Update blank/mask checkbox states based on new directory
         self.update_blank_mask_states()
         
+        # Mark that next image will be the first in this folder
+        self._first_image_in_folder = True
+        
     
     def on_image_changed(self, img, filename: str, dir_path: str):
         """
@@ -1533,7 +1559,7 @@ class ProcessingWorkspace(QWidget):
         
         This is the main processing pipeline entry point:
         1. Creates ImageData with workspace settings
-        2. Tries to auto-show calibration dialog (first image only)
+        2. Shows center and rotation status notification on first image load
         3. Emits imageDataReady signal for GUI to process
         
         Args:
@@ -1544,9 +1570,105 @@ class ProcessingWorkspace(QWidget):
         # Create ImageData with workspace settings (center, rotation, blank, mask)
         image_data = self.create_image_data(img, filename)
         
+        # Show settings status notification on first image in folder
+        if self._first_image_in_folder:
+            self._first_image_in_folder = False
+            self._show_first_image_settings_notification(filename)
+        
         # Emit high-level signal with ImageData
         # GUIs should listen to this instead of imageChanged
         self.imageDataReady.emit(image_data)
+    
+    def _show_first_image_settings_notification(self, filename: str):
+        """
+        Show auto-dismissing notification about center and rotation status when first image is loaded.
+        
+        Checks if current image has manual center/rotation settings and shows popup with:
+        - Center status: manual (with coordinates and source) or auto-detected
+        - Rotation status: manual (with angle and source) or auto-detected
+        
+        The notification automatically disappears after 4 seconds.
+        
+        Args:
+            filename: Name of the current image file
+        """
+        from PySide6.QtWidgets import QMessageBox
+        from PySide6.QtCore import QTimer, Qt
+        
+        # Check center status
+        has_manual_center = filename in self._center_settings
+        if has_manual_center:
+            center_data = self._center_settings[filename]
+            center = center_data.get('center', None)
+            center_source = center_data.get('source', 'unknown')
+            if center:
+                center_text = f"Using previously set manual center: ({center[0]:.1f}, {center[1]:.1f}) [{center_source}]"
+            else:
+                center_text = f"Using previously set manual center [{center_source}]"
+        else:
+            center_text = "No manual center set, will use auto-detected center"
+        
+        # Check rotation status
+        has_manual_rotation = filename in self._rotation_settings
+        if has_manual_rotation:
+            rotation_data = self._rotation_settings[filename]
+            rotation = rotation_data.get('rotation', None)
+            rotation_source = rotation_data.get('source', 'unknown')
+            if rotation is not None:
+                rotation_text = f"Using previously set manual rotation: {rotation:.2f}° [{rotation_source}]"
+            else:
+                rotation_text = f"Using previously set manual rotation [{rotation_source}]"
+        else:
+            rotation_text = "No manual rotation set, will use auto-detected rotation"
+        
+        # Determine title and icon
+        if has_manual_center or has_manual_rotation:
+            title = "Settings Loaded"
+        else:
+            title = "Auto-Detection Mode"
+        
+        # Build message - just concatenate the two lines
+        message = f"{center_text}\n{rotation_text}"
+        
+        # Use top-level window (QMainWindow) as parent for proper display
+        parent = self.window()
+        
+        # Create non-modal message box with OK button
+        msg_box = QMessageBox(parent)
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.setWindowModality(Qt.NonModal)
+        msg_box.setWindowFlags(Qt.Tool | Qt.WindowStaysOnTopHint)
+        
+        # Get OK button and set initial text with countdown
+        ok_button = msg_box.button(QMessageBox.Ok)
+        
+        # Store reference to prevent garbage collection
+        self._notification_box = msg_box
+        self._notification_countdown = 7  # seconds
+        
+        # Update button text with countdown
+        def update_countdown():
+            if hasattr(self, '_notification_box') and self._notification_box:
+                if hasattr(self, '_notification_countdown') and self._notification_countdown > 0:
+                    ok_button.setText(f"OK ({self._notification_countdown}s)")
+                    self._notification_countdown -= 1
+                    # Schedule next update in 1 second
+                    QTimer.singleShot(1000, update_countdown)
+                else:
+                    # Time's up, close the dialog
+                    self._notification_box.close()
+                    self._notification_box.deleteLater()
+                    self._notification_box = None
+        
+        # Show the message box non-modally
+        msg_box.show()
+        msg_box.raise_()
+        msg_box.activateWindow()
+        
+        # Start countdown
+        update_countdown()
     
     def create_image_data(self, img, filename):
         """
