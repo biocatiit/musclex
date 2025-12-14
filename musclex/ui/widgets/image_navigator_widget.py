@@ -101,7 +101,6 @@ class ImageNavigatorWidget(QWidget):
         show_display_panel=False,
         show_double_zoom=False,
         auto_display=True,
-        show_select_buttons=False,
         navigation_process_folder_text="Process Current Folder",
         navigation_process_h5_text="Process Current H5 File"
     ):
@@ -150,8 +149,8 @@ class ImageNavigatorWidget(QWidget):
         self.select_panel = None
         self.select_image_btn = None
         self.select_folder_btn = None
-        if show_select_buttons:
-            self._create_select_panel()
+
+        self._create_select_panel()
         
         # Background scan support
         self._scan_timer = QTimer(self)
