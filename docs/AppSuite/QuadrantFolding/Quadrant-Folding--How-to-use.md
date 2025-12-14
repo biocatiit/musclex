@@ -112,12 +112,12 @@ For the background subtraction section, by default, the program will not apply a
 
 For each method, users can select R-min manually by pressing the button `Set Manual R-min` and select R-min in the image as shown below
 
-![-](../../images/QF/rmin_rmax.png) # TODO: Add image & Test this 
+![-](../../images/QF/rmin_rmax.png)
 
 
 
 ###### Circularly Symmetric
-![-](../../images/QF/csym_set.png) ## TODO update images
+![-](../../images/QF/csym_set.png)
 ###### 2D convex hull
 ![-](../../images/QF/2dcon_set.png)
 ###### Roving Window
