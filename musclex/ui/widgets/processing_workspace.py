@@ -101,7 +101,7 @@ class ProcessingWorkspace(QWidget):
     needsReprocess = Signal()  # Settings changed, need to reprocess
     statusTextRequested = Signal(str)  # Request GUI to update status bar text
     
-    def __init__(self, settings_dir: str, coord_transform_func=None, show_select_buttons=False):
+    def __init__(self, settings_dir: str, coord_transform_func=None):
         """
         Initialize the ProcessingWorkspace.
         
@@ -111,7 +111,6 @@ class ProcessingWorkspace(QWidget):
                                  displayed (transformed) image to original image.
                                  Signature: (x, y) -> (orig_x, orig_y)
                                  This is needed when tools operate on transformed images.
-            show_select_buttons: If True, show select image/folder buttons in navigator
         
         Note:
             ImageNavigatorWidget and all other components are created internally.
@@ -136,15 +135,11 @@ class ProcessingWorkspace(QWidget):
         # Track first image in folder for notification
         self._first_image_in_folder = True
         
-        # Store show_select_buttons for later use
-        self._show_select_buttons = show_select_buttons
-        
         # Create ImageNavigatorWidget (internal, owned by workspace)
         self.navigator = ImageNavigatorWidget(
             auto_display=False,  # Processor mode: manual display control
             show_display_panel=True,
-            show_double_zoom=True,
-            show_select_buttons=show_select_buttons
+            show_double_zoom=True
         )
         
         # Internal references (for backward compatibility with existing code)

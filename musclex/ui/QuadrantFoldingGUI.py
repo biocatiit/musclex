@@ -305,8 +305,7 @@ class QuadrantFoldingGUI(BaseGUI):
         # Navigator will show select buttons initially, then hide them after loading
         self.workspace = ProcessingWorkspace(
             settings_dir=self.filePath,
-            coord_transform_func=self.getOrigCoordsCenter,
-            show_select_buttons=True  # Show select buttons in Navigator
+            coord_transform_func=self.getOrigCoordsCenter
         )
         self.imageTabLayout.addWidget(self.workspace, 1)
         
@@ -1300,19 +1299,6 @@ class QuadrantFoldingGUI(BaseGUI):
             self.result_zoom = None
             self.processImage()
 
-    def blankChecked(self):
-        """
-        Handle when the Empty Cell image and mask is checked or unchecked
-        """
-        if self.quadFold is not None and not self.uiUpdating:
-            self.quadFold.delCache()
-            fileName = self.file_manager.current_image_name
-            img = self.file_manager.current_image
-            self.current_image_data = ImageData.from_settings_panel(
-                img, self.filePath, fileName, self.workspace
-            )
-            self.quadFold = QuadrantFolder(self.current_image_data, self)
-            self.processImage()
 
     def keyPressEvent(self, event):
         """
@@ -1420,14 +1406,6 @@ class QuadrantFoldingGUI(BaseGUI):
     
     # NOTE: setRotation is now handled by ImageSettingsPanel
     
-    def _get_current_center(self):
-        """
-        Helper method to get current center for tools that need it.
-        Returns None if no center is set.
-        """
-        if self.quadFold is None:
-            return None
-        return self.quadFold.center
     
     # ===== ImageViewerWidget Signal Handlers =====
     
