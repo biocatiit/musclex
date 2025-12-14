@@ -56,6 +56,7 @@ from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from .pyqt_utils import *
 from .base_gui import BaseGUI
+from .widgets import ProcessingWorkspace
 
 class ProjectionParams:
     def __init__(self, settings, index, file_manager, gui):
@@ -66,7 +67,7 @@ class ProjectionParams:
             settings: Processing settings dict
             index: Image index in file_manager.names
             file_manager: FileManager instance
-            gui: Parent GUI instance (for accessing image_settings_panel)
+            gui: Parent GUI instance (for accessing ProcessingWorkspace)
         """
         self.settings = settings
         self.index = index
@@ -111,7 +112,7 @@ class Worker(QRunnable):
                     img, 
                     self.params.file_manager.dir_path, 
                     filename,
-                    self.params.gui.image_settings_panel
+                    self.params.gui.workspace
                 )
                 
                 # Create ProjectionProcessor with ImageData
@@ -307,10 +308,15 @@ class ProjectionTracesGUI(BaseGUI):
     """
     def __init__(self):
         super().__init__()
-        # Note: self.file_manager is now initialized by BaseGUI
+        
+        # Initialize FileManager (BaseGUI no longer creates it)
+        from ..utils.file_manager import FileManager
+        self.file_manager = FileManager()
+        
         # PT keeps current_file/imgList/dir_path for backward compatibility with getImgFiles()
         self.current_file = 0
         self.dir_path = ""
+        self.filePath = ""  # current directory (required by ProcessingWorkspace)
         self.calSettings = None
         self.update_plot = {'img':True}
         self.imgList = []
@@ -335,7 +341,6 @@ class ProjectionTracesGUI(BaseGUI):
         # Note: center_func removed - center state now managed by ImageData
         self.rotated = True
         self.rotationAngle = 0
-        self.calSettingsDialog = None
         self.numberOfFiles = 0
         self.refit = False
 
@@ -358,7 +363,7 @@ class ProjectionTracesGUI(BaseGUI):
 
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
 
-        self.browseFile()
+        # NOTE: browseFile() removed - file browsing now handled by workspace.navigator
 
     def _setup_window(self):
         """Set window title"""
@@ -375,12 +380,40 @@ class ProjectionTracesGUI(BaseGUI):
     
     def _create_tabs(self):
         """Create image tab and box tabs"""
-        # Use standard image tab (same as QuadrantFolding)
-        self._create_standard_image_tab(tab_title="Image")
-        
+
+        self.imageTab = QWidget()
+        self.imageTabLayout = QHBoxLayout(self.imageTab)
+        self.tabWidget.addTab(self.imageTab, "Image")
         # Make first tab not closable
         self.tabWidget.tabBar().setTabButton(0, QTabBar.LeftSide, None)
         self.tabWidget.tabBar().setTabButton(0, QTabBar.RightSide, None)
+
+        self.workspace = ProcessingWorkspace(
+            settings_dir=self.filePath
+        )
+        self.imageTabLayout.addWidget(self.workspace)
+
+        # Expose components for backward compatibility (following QF pattern)
+        self.image_viewer = self.workspace.navigator.image_viewer
+        self.file_manager = self.workspace.file_manager
+        self.navControls = self.workspace.navigator.nav_controls
+        self.right_panel = self.workspace.right_panel
+        
+        # Expose select buttons from navigator
+        self.selectImageButton = self.workspace.navigator.select_image_btn
+        self.selectFolder = self.workspace.navigator.select_folder_btn
+        
+        # Reference to leftWidget for compatibility
+        self.leftWidget = self.workspace.navigator.select_panel
+        
+        # Backward compatibility for display panel controls
+        if self.image_viewer.display_panel:
+            self.minIntSpnBx = self.image_viewer.display_panel.minIntSpnBx
+            self.maxIntSpnBx = self.image_viewer.display_panel.maxIntSpnBx
+            self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
+            self.persistIntensity = self.image_viewer.display_panel.persistChkBx
+            self.minIntLabel = self.image_viewer.display_panel.minIntLabel
+            self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
         
         # Add PT-specific display options (only the 3 unique checkboxes)
         self._add_display_options()
@@ -389,48 +422,33 @@ class ProjectionTracesGUI(BaseGUI):
         self._create_pattern_settings()
         self._create_box_settings()
         self._create_peaks_settings()
-        # Note: blank/mask settings now in ImageSettingsPanel (created in _create_pattern_settings)
+        self._create_export_settings()
         
-        # Add navigation controls to bottom
-        self._create_navigation()
-        self.right_panel.add_bottom_widget(self.bottomWidget)
-    
+        # Add navigation controls to right panel bottom (following QF pattern)
+        self.right_panel.add_bottom_widget(self.navControls)
+        
     def _create_pattern_settings(self):
         """Create pattern properties settings group"""
-        # ===== ImageSettingsPanel (replaces center/rotation/blank buttons) =====
-        from .widgets.image_settings_panel import ImageSettingsPanel
-        
-        self.image_settings_panel = ImageSettingsPanel(
-            settings_dir=self.dir_path if hasattr(self, 'dir_path') else "",
-            image_viewer=self.image_viewer,
-            coord_transform_func=None,  # PT doesn't need coordinate transformation
-            file_manager=self.file_manager
-        )
-        
-        # Add ImageSettingsPanel to right panel
-        self.right_panel.add_widget(self.image_settings_panel)
-        
+
         # ===== PT-specific settings (QF checkbox, mask threshold) =====
         self.propGrp = QGroupBox("Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
-        
+
         self.qfChkBx = QCheckBox("Quadrant Folded?")
         self.qfChkBx.setChecked(True)
-        self.doubleZoom = QCheckBox("Double Zoom")
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-10000)
         self.maskThresSpnBx.setMaximum(10000)
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
-        
+
         self.propLayout.addWidget(self.qfChkBx, 0, 0, 1, 2)
-        self.propLayout.addWidget(self.doubleZoom, 0, 2, 1, 2)
         self.propLayout.addWidget(QLabel('Mask Threshold:'), 1, 0, 1, 2)
         self.propLayout.addWidget(self.maskThresSpnBx, 1, 2, 1, 2)
         
         # Add to right panel
-        self.right_panel.add_widget(self.propGrp)
+        self.workspace.right_panel.add_widget(self.propGrp)
     
     def _create_box_settings(self):
         """Create box selection settings group"""
@@ -456,7 +474,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.boxesLayout.addWidget(self.clearBoxButton)
         
         # Add to right panel
-        self.right_panel.add_widget(self.boxGrp)
+        self.workspace.right_panel.add_widget(self.boxGrp)
     
     def _create_peaks_settings(self):
         """Create peaks selection settings group"""
@@ -470,7 +488,20 @@ class ProjectionTracesGUI(BaseGUI):
         self.selectPeaksLayout.addWidget(self.selectPeaksButton)
         
         # Add to right panel
-        self.right_panel.add_widget(self.selectPeaksGrp)
+        self.workspace.right_panel.add_widget(self.selectPeaksGrp)
+        
+    def _create_export_settings(self):
+        """Create export settings group"""
+        # Export Settings
+        self.exportGrp = QGroupBox("Export Options")
+        self.exportLayout = QVBoxLayout(self.exportGrp)
+        self.exportChkBx = QCheckBox("Export All 1-D Projections")
+        self.exportChkBx.setChecked(False)
+        self.exportChkBx.setToolTip("Export original and background-subtracted histograms to text files")
+        self.exportLayout.addWidget(self.exportChkBx)
+        
+        # Add to right panel
+        self.workspace.right_panel.add_widget(self.exportGrp)
     
     def _add_display_options(self):
         """Add PT-specific display options (only the 3 unique checkboxes)"""
@@ -485,59 +516,12 @@ class ProjectionTracesGUI(BaseGUI):
         self.peaksChkBx.setChecked(True)
         
         # Add to display panel's top slot
-        self.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
-        self.image_viewer.display_panel.add_to_top_slot(self.boxesChkBx)
-        self.image_viewer.display_panel.add_to_top_slot(self.peaksChkBx)
+        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
+        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.boxesChkBx)
+        self.workspace.navigator.image_viewer.display_panel.add_to_top_slot(self.peaksChkBx)
         
-        # Expose built-in controls with PT's naming convention for backward compatibility
-        self.minIntSpnBx = self.spminInt
-        self.maxIntSpnBx = self.spmaxInt
-        self.minIntLabel = self.image_viewer.display_panel.minIntLabel
-        self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
-        self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
-        self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
-        
-        # Note: imgZoomInB is already added to checkableButtons by display panel
     
-    # Note: _create_blank_settings() removed - blank/mask now handled by ImageSettingsPanel
-    
-    def _create_navigation(self):
-        """Create navigation and process buttons"""
-        # Process Folder Button
-        pfss = "QPushButton { color: #ededed; background-color: #af6207}"
-        self.processFolderButton = QPushButton("Process Current Folder")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-        self.processH5FolderButton = QPushButton("Process All H5 Files")
-        self.processH5FolderButton.setStyleSheet(pfss)
-        self.processH5FolderButton.setCheckable(True)
-
-        # Export 1-D Projections
-        self.exportChkBx = QCheckBox("Export all 1-D Projections")
-        self.exportChkBx.setChecked(False)
-
-        # next previos buttons
-        self.nextButton = QPushButton(">")
-        self.prevButton = QPushButton("<")
-        self.nextFileButton = QPushButton(">>>")
-        self.prevFileButton = QPushButton("<<<")
-        self.nextButton.setToolTip('Next Frame')
-        self.prevButton.setToolTip('Previous Frame')
-        self.nextFileButton.setToolTip('Next H5 File in this Folder')
-        self.prevFileButton.setToolTip('Previous H5 File in this Folder')
-        self.bottomLayout = QGridLayout()
-        self.bottomLayout.addWidget(self.exportChkBx, 0, 0, 1, 4)
-        self.bottomLayout.addWidget(self.processFolderButton, 1, 0, 1, 4)
-        self.bottomLayout.addWidget(self.processH5FolderButton, 2, 0, 1, 4)
-        self.bottomLayout.addWidget(self.prevButton, 3, 0, 1, 2)
-        self.bottomLayout.addWidget(self.nextButton, 3, 2, 1, 2)
-        self.bottomLayout.addWidget(self.prevFileButton, 4, 0, 1, 2)
-        self.bottomLayout.addWidget(self.nextFileButton, 4, 2, 1, 2)
-        
-        # Wrap bottom layout in a widget
-        self.bottomWidget = QWidget()
-        self.bottomWidget.setLayout(self.bottomLayout)
-    
+ 
     def _create_menu_bar(self):
         """Create menu bar"""
         saveSettingsAction = QAction('Save Current Settings', self)
@@ -554,36 +538,11 @@ class ProjectionTracesGUI(BaseGUI):
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
     
-    def _create_status_bars(self):
-        """Create custom status bars with pixel detail and progress bar"""
-        # Upper status bar with pixel detail, right status, and progress bar
-        self.statusBar = QStatusBar()
-        
-        self.right_status = QLabel()
-        self.pixel_detail = QLabel()
-        self.progressBar = QProgressBar()
-        self.progressBar.setFixedWidth(300)
-        self.progressBar.setTextVisible(True)
-        self.progressBar.setVisible(False)
-        
-        self.statusBar.addPermanentWidget(self.pixel_detail)
-        self.statusBar.addPermanentWidget(self.right_status)
-        self.statusBar.addPermanentWidget(self.progressBar)
-        
-        # Lower status bar with left status
-        self.lowerStatusBar = QStatusBar()
-        self.left_status = QLabel()
-        self.lowerStatusBar.addWidget(self.left_status)
-        
-        # Add both status bars to main layout
-        self.mainVLayout.addWidget(self.statusBar)
-        self.mainVLayout.addWidget(self.lowerStatusBar)
-        
-        # Aliases for compatibility
-        self.imgPathOnStatusBar = self.left_status
-        self.imgDetailOnStatusBar = self.right_status
-        self.imgCoordOnStatusBar = self.pixel_detail
-        self.statusReport = self.right_status
+    # NOTE: _create_status_bars() removed - using BaseGUI's default implementation
+    # BaseGUI provides all necessary status bar widgets:
+    # - self.statusReport, self.imgCoordOnStatusBar, self.imgDetailOnStatusBar
+    # - self.imgPathOnStatusBar, self.progressBar
+    # - self.left_status (in lowerStatusBar)
     
     def _finalize_ui(self):
         """Custom finalization for PT"""
@@ -592,11 +551,30 @@ class ProjectionTracesGUI(BaseGUI):
     
     def _additional_setup(self):
         """Additional PT-specific setup"""
-        # Use BaseGUI's image_viewer canvas (already in layout with correct stretch)
+        # Call parent to setup scan monitoring
+        super()._additional_setup()
+        
         # Create aliases for backward compatibility with PT code
-        self.displayImgCanvas = self.imageCanvas
-        self.displayImgAxes = self.imageAxes
-        self.displayImgFigure = self.imageFigure
+        self.displayImgCanvas = self.workspace.navigator.image_viewer.canvas
+        self.displayImgAxes = self.workspace.navigator.image_viewer.axes
+        self.displayImgFigure = self.workspace.navigator.image_viewer.figure
+        
+        # Backward compatibility: ProjectionBoxTab uses pixel_detail
+        # This is an alias for imgDetailOnStatusBar from BaseGUI (created in _create_status_bars)
+        self.pixel_detail = self.imgDetailOnStatusBar
+        
+        # Connect workspace/navigator signals (following QF pattern)
+        # fileLoaded: Folder-level initialization (csvManager, boxes, etc.) - happens BEFORE first image
+        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
+        
+        # imageDataReady: Receives ImageData ready for processing (replaces imageChanged)
+        self.workspace.imageDataReady.connect(self._on_image_data_ready)
+        
+        # needsReprocess: Settings changed, reprocess current image
+        self.workspace.needsReprocess.connect(self.processImage)
+        
+        # statusTextRequested: Update status bar
+        self.workspace.statusTextRequested.connect(self._on_status_text_requested)
     
     def updateLeftWidgetWidth(self):
         """Update left widget width based on canvas visibility"""
@@ -614,30 +592,18 @@ class ProjectionTracesGUI(BaseGUI):
         self.tabWidget.currentChanged.connect(self.updateUI)
         self.tabWidget.tabCloseRequested.connect(self.removeTab)
 
-        # Image selection (standard left panel buttons)
-        self.selectImageButton.clicked.connect(self.browseFile)
-        self.selectFolder.clicked.connect(self.browseFile)
-
-        # ImageSettingsPanel signals (replaces old center/rotation/blank connections)
-        if hasattr(self, 'image_settings_panel'):
-            self.image_settings_panel.needsReprocess.connect(self.processImage)
-            self.image_settings_panel.statusTextRequested.connect(self._on_status_text_requested)
+        # NOTE: ProcessingWorkspace signals are now connected in _additional_setup()
+        # This follows the QF pattern where workspace signals are connected after initialization
 
         # Pattern Properties (PT-specific)
         self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
 
-        # Display options
-        self.maxIntSpnBx.valueChanged.connect(self.updateImage)
-        self.minIntSpnBx.valueChanged.connect(self.updateImage)
+
         self.boxesChkBx.stateChanged.connect(self.updateImage)
         self.peaksChkBx.stateChanged.connect(self.updateImage)
         self.centerChkBx.stateChanged.connect(self.updateImage)
-        self.imgZoomInB.clicked.connect(self.imgZoomIn)
-        self.imgZoomOutB.clicked.connect(self.imgZoomOut)
-        self.logScaleIntChkBx.stateChanged.connect(self.updateImageTab)
 
-        # Note: Blank/Mask connections now handled by ImageSettingsPanel
+        # Note: Blank/Mask connections now handled by ProcessingWorkspace
 
         # Mask
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
@@ -655,14 +621,9 @@ class ProjectionTracesGUI(BaseGUI):
         # Export 1-D Projections checkbox
         self.exportChkBx.stateChanged.connect(self.exportHistograms)
 
-        # Process Folder button
-        self.processFolderButton.clicked.connect(self.batchProcBtnToggled)
-        self.processH5FolderButton.clicked.connect(self.h5batchProcBtnToggled)
-
-        self.prevButton.clicked.connect(self.prevClicked)
-        self.nextButton.clicked.connect(self.nextClicked)
-        self.prevFileButton.clicked.connect(self.prevFileClicked)
-        self.nextFileButton.clicked.connect(self.nextFileClicked)
+        # Process Folder buttons (access via navControls)
+        self.navControls.processFolderButton.clicked.connect(self.batchProcBtnToggled)
+        self.navControls.processH5Button.clicked.connect(self.h5batchProcBtnToggled)
 
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
@@ -672,7 +633,7 @@ class ProjectionTracesGUI(BaseGUI):
 
     def _on_status_text_requested(self, text: str):
         """
-        Handle status text update request from ImageSettingsPanel.
+        Handle status text update request from ProcessingWorkspace.
         
         Args:
             text: Status text to display
@@ -700,7 +661,7 @@ class ProjectionTracesGUI(BaseGUI):
                 with open(filename, 'w') as f:
                     json.dump(settings, f)
 
-    # Note: blankChecked() and blankSettingClicked() removed - now handled by ImageSettingsPanel
+    # Note: blankChecked() and blankSettingClicked() removed - now handled by ProcessingWorkspace
 
     def maskThresChanged(self):
         """
@@ -711,60 +672,9 @@ class ProjectionTracesGUI(BaseGUI):
             print("Mask threshold changed")
             self.processImage()
 
-    # Note: calibrationClicked() removed - calibration now handled by ImageSettingsPanel
+    # Note: calibrationClicked() removed - calibration now handled by ProcessingWorkspace
 
-    def launchCalibrationSettings(self, force=False):
-        """
-        Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
-        :param force: force to popup the window
-        :return: True if calibration set, False otherwise
-        """
-        # Always recreate dialog to ensure all states (quadrant_folded, center, etc.) are current
-        # This ensures consistency whether user switches images or just reopens the dialog
-        quadrant_folded = self.qfChkBx.isChecked()
-        
-        # For quadrant folded images, use the geometric center; otherwise use orig_center if available
-        center = None
-        if self.projProc is not None:
-            if quadrant_folded:
-                # For quadrant folded images, use geometric center from ImageData
-                center = self.projProc._image_data.geometric_center
-                print(f"Quadrant folded image - using geometric center: {center}")
-            elif 'orig_center' in self.projProc.info:
-                # Use original center for normal images
-                center = self.projProc.info['orig_center']
-                print(f"Normal image - using original center: {center}")
-        
-        if center is None:
-            self.calSettingsDialog = CalibrationSettings(self.dir_path, quadrant_folded=quadrant_folded)
-        else:
-            self.calSettingsDialog = CalibrationSettings(self.dir_path, center=center, quadrant_folded=quadrant_folded)
-        
-        self.calSettings = None
-        cal_setting = self.calSettingsDialog.calSettings
-        if cal_setting is not None or force:
-            result = self.calSettingsDialog.exec_()
-            if result == 1:
-                self.calSettings = self.calSettingsDialog.getValues()
-                return True
-        return False
 
-    # Note: setCenterByChordsClicked() removed - now handled by ImageSettingsPanel
-
-    # Note: setCenterByPerpClicked() removed - now handled by ImageSettingsPanel
-
-    # Note: setRotation() removed - now handled by ImageSettingsPanel
-
-    # Note: setAngleAndCenterClicked() removed - now handled by ImageSettingsPanel
-
-    def doubleZoomChecked(self):
-        """
-        Triggered when double zoom is checked
-        """
-        
-        self.doubleZoomGUI.doubleZoomChecked(img=self.projProc.getRotatedImage(),
-                                             canv=self.displayImgCanvas,
-                                             is_checked=self.doubleZoom.isChecked())
 
     def clearImage(self):
         """
@@ -778,24 +688,6 @@ class ProjectionTracesGUI(BaseGUI):
             box['text'].remove()
         self.displayImgCanvas.draw_idle()
 
-    def imgZoomIn(self):
-        """
-        Triggered when Zoom in image is pressed
-        """
-        if self.imgZoomInB.isChecked():
-            self.setLeftStatus("Please select zoom-in area by clicking 2 points to make a rectangle (ESC to cancel)")
-            self.clearImage()
-            self.function = ["im_zoomin"]
-        else:
-            self.function = None
-
-    def imgZoomOut(self):
-        """
-        Triggered when Zoom out image is pressed
-        """
-        self.imgZoomInB.setChecked(False)
-        self.img_zoom = None
-        self.updateImage()
 
     def updateImage(self):
         """
@@ -887,9 +779,9 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processFolderButton.isChecked():
+        if self.navControls.processFolderButton.isChecked():
             if not self.progressBar.isVisible():
-                self.processFolderButton.setText("Stop")
+                self.navControls.processFolderButton.setText("Stop")
                 self.processFolder()
         else:
             self.stop_process = True
@@ -898,9 +790,9 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Triggered when the batch process button is toggled
         """
-        if self.processH5FolderButton.isChecked():
+        if self.navControls.processH5Button.isChecked():
             if not self.progressBar.isVisible():
-                self.processH5FolderButton.setText("Stop")
+                self.navControls.processH5Button.setText("Stop")
                 self.processH5Folder()
         else:
             self.stop_process = True
@@ -959,11 +851,11 @@ class ProjectionTracesGUI(BaseGUI):
             # self.startNextTask()
             # self.progressBar.setVisible(False)
         
-        self.processFolderButton.setChecked(False)
+        self.navControls.processFolderButton.setChecked(False)
         if self.ext in ['.h5', '.hdf5']:
-            self.processFolderButton.setText("Process Current H5 File")
+            self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
-            self.processFolderButton.setText("Process Current Folder")
+            self.navControls.processFolderButton.setText("Process Current Folder")
 
     def processH5Folder(self):
         """
@@ -1021,8 +913,8 @@ class ProjectionTracesGUI(BaseGUI):
                 self.nextFileClicked()
             self.progressBar.setVisible(False)
 
-        self.processH5FolderButton.setChecked(False)
-        self.processH5FolderButton.setText("Process All H5 Files")
+        self.navControls.processH5Button.setChecked(False)
+        self.navControls.processH5Button.setText("Process All H5 Files")
 
     def clearBoxes(self):
         """
@@ -1283,21 +1175,12 @@ class ProjectionTracesGUI(BaseGUI):
         """
         key = event.key()
 
-        if key == Qt.Key_Right:
-            self.nextClicked()
-        elif key == Qt.Key_Left:
-            self.prevClicked()
-        elif key == Qt.Key_Escape:
-            
+        if key == Qt.Key_Escape:
             self.resetUI()
         elif key == Qt.Key_D:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())
         elif key == Qt.Key_A:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() - 1) % self.tabWidget.count())
-        elif key == Qt.Key_S:
-            self.maxIntSpnBx.stepDown()
-        elif key == Qt.Key_W:
-            self.maxIntSpnBx.stepUp()
         elif key == Qt.Key_Q:
             self.close()
 
@@ -1311,38 +1194,8 @@ class ProjectionTracesGUI(BaseGUI):
 
     # Note: PT navigation methods now use FileManager (from BaseGUI)
     # These are kept for backward compatibility but delegate to FileManager
-    
-    def prevClicked(self):
-        """
-        Going to the previous image
-        """
-        if self.file_manager.prev():
-            self._on_file_manager_changed()
 
-    def nextClicked(self):
-        """
-        Going to the next image
-        """
-        if self.file_manager.next():
-            self._on_file_manager_changed()
 
-    def prevFileClicked(self):
-        """
-        Going to the previous h5 file
-        """
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        if self.file_manager.prev_file():
-            self._on_file_manager_changed()
-        QApplication.restoreOverrideCursor()
-
-    def nextFileClicked(self):
-        """
-        Going to the next h5 file
-        """
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        if self.file_manager.next_file():
-            self._on_file_manager_changed()
-        QApplication.restoreOverrideCursor()
 
     def setH5Mode(self, file_name):
         """
@@ -1353,15 +1206,15 @@ class ProjectionTracesGUI(BaseGUI):
                 if file.endswith(".h5") or file.endswith(".hdf5"):
                     self.h5List.append(file)
             self.h5index = self.h5List.index(os.path.split(file_name)[1])
-            self.nextFileButton.show()
-            self.prevFileButton.show()
-            self.processH5FolderButton.show()
-            self.processFolderButton.setText("Process Current H5 File")
+            self.navControls.nextFileButton.show()
+            self.navControls.prevFileButton.show()
+            self.navControls.processH5Button.show()
+            self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
-            self.nextFileButton.hide()
-            self.prevFileButton.hide()
-            self.processH5FolderButton.hide()
-            self.processFolderButton.setText("Process Current Folder")
+            self.navControls.nextFileButton.hide()
+            self.navControls.prevFileButton.hide()
+            self.navControls.processH5Button.hide()
+            self.navControls.processFolderButton.setText("Process Current Folder")
 
     def removeTab(self, index):
         """
@@ -1417,7 +1270,7 @@ class ProjectionTracesGUI(BaseGUI):
         ax = self.displayImgAxes
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            self.pixel_detail.setText("")
+            self.imgCoordOnStatusBar.setText("")
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1431,13 +1284,6 @@ class ProjectionTracesGUI(BaseGUI):
             x = min(x, xlim[1])
             y = max(y, 0)
             y = min(y, ylim[0])
-        elif self.doubleZoomGUI.doubleZoomMode:
-            self.doubleZoomGUI.mouseClickBehavior(x, y)
-            return
-
-        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
-            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomGUI.doubleZoomMode = True
 
         func = self.function
 
@@ -1642,109 +1488,7 @@ class ProjectionTracesGUI(BaseGUI):
                         break
                 self.displayImgCanvas.draw_idle()
 
-        elif func[0] == "angle_center":
-            axis_size = 5
-            if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
-                x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-                self.doubleZoomGUI.doubleZoomMode = True
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.displayImgCanvas.draw_idle()
-            func.append((x, y))
-            if len(func) == 3:
-                QApplication.restoreOverrideCursor()
 
-                if func[1][0] < func[2][0]:
-                    x1, y1 = func[1]
-                    x2, y2 = func[2]
-                else:
-                    x1, y1 = func[2]
-                    x2, y2 = func[1]
-
-                if abs(x2 - x1) == 0:
-                    new_angle = -90
-                else:
-                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-
-                cx = int(round((x1 + x2) / 2.))
-                cy = int(round((y1 + y2) / 2.))
-                # self.projProc.info['rotationAngle'] = 0
-                # M = cv2.getRotationMatrix2D((self.projProc.info['centerx'], self.projProc.info['centery']), self.projProc.info['rotationAngle'], 1)
-                # invM = cv2.invertAffineTransform(M)
-                # homo_coords = [cx, cy, 1.]
-                # new_center = np.dot(invM, homo_coords)
-                new_center = [cx, cy]
-                self.centerx = int(round(new_center[0]))
-                self.centery = int(round(new_center[1]))
-                # Note: center/rotation are now dynamic properties from ImageData
-                # Legacy variables kept for compatibility
-                self.rotationAngle = new_angle
-                # Note: setRotAndCentB button now managed by ImageSettingsPanel
-                self.rotated = True
-                self.updateCenter()
-                self.removeAllTabs()
-                self.processImage()
-                self.addBoxTabs()
-                self.updateImage()
-
-        elif func[0] == "perp_center":
-            axis_size = 5
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
-                start_pt = func[len(func) - 1]
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-            self.displayImgCanvas.draw_idle()
-            func.append((x, y))
-
-        elif func[0] == "chords_center":
-            axis_size = 5
-            self.chordpoints.append([x, y])
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            if len(self.chordpoints) >= 3:
-                self.drawPerpendiculars()
-            self.displayImgCanvas.draw_idle()
-
-        elif func[0] == "im_rotate":
-            # set rotation angle
-            center = self.projProc.info['orig_center']
-
-            if center[0] < x:
-                x1 = center[0]
-                y1 = center[1]
-                x2 = x
-                y2 = y
-            else:
-                x1 = x
-                y1 = y
-                x2 = center[0]
-                y2 = center[1]
-
-            if abs(x2 - x1) == 0:
-                new_angle = -90
-            else:
-                new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-
-            self.rotationAngle = new_angle
-            # Note: rotation is now a dynamic property from ImageData
-            # Note: setRotationButton now managed by ImageSettingsPanel
-            self.rotated = True
-            self.removeAllTabs()
-            self.processImage()
-            self.addBoxTabs()
-            self.updateImage()
-
-        elif func[0] == "im_zoomin":
-                func.append((x, y))
-                if len(func) == 3:
-                    p1 = func[1]
-                    p2 = func[2]
-                    # Set zoom-in location ( x,y, ranges) and update image tab
-                    self.img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-                    self.function = None
-                    self.imgZoomInB.setChecked(False)
-                    self.updateImage()
 
     def genBoxArtists(self, name, box, btype):
         """
@@ -1788,9 +1532,6 @@ class ProjectionTracesGUI(BaseGUI):
         ax = self.displayImgAxes
         # Display pixel information if the cursor is on image
         if x is not None and y is not None:
-            if self.doubleZoomGUI.doubleZoomMode:
-                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), (0,0), ax)
-
             x = int(round(x))
             y = int(round(y))
             unit = "px"
@@ -1805,18 +1546,16 @@ class ProjectionTracesGUI(BaseGUI):
                 # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
+                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
                     center = self.projProc.center
                     mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
-                    self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
-
-                self.doubleZoomGUI.mouseHoverBehavior(x, y, img, self.displayImgCanvas, self.doubleZoom.isChecked())
+                    self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:
-            self.pixel_detail.setText("")
+            self.imgCoordOnStatusBar.setText("")
             bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
@@ -1836,56 +1575,32 @@ class ProjectionTracesGUI(BaseGUI):
         func = self.function
         if func is None:
             return
-        if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
-            if not self.doubleZoomGUI.doubleZoomMode:
-                self.doubleZoomGUI.updateAxes(x, y)
+
+        if func[0] == 'box':
+            if len(func) == 1:
+                # cross lines
+                for line in list(ax.lines):
+                    if line.get_label() != "Blue Dot":
+                        line.remove()
+                ax.axhline(y, color='y', linestyle='dotted')
+                ax.axvline(x, color='y', linestyle='dotted')
                 self.displayImgCanvas.draw_idle()
-        if func[0] == "im_zoomin" and len(self.function) == 2:
-            # draw rectangle            
-            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
+            elif len(func) == 2:
+                # draw rectangle
                 if len(ax.patches) > 0:
-                    ax.patches[0].remove()
-                start_pt = func[1]    
+                    for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
+                        ax.patches[i].remove()
+                    # ax.patches = ax.patches[:len(self.allboxes.keys())]
+                for line in list(ax.lines):
+                    if line.get_label() != "Blue Dot":
+                        line.remove()
+                start_pt = func[-1]
                 w = abs(start_pt[0] - x)
                 h = abs(start_pt[1] - y)
                 x = min(start_pt[0], x)
                 y = min(start_pt[1], y)
                 ax.add_patch(patches.Rectangle((x, y), w, h,
                                             linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-            else:
-                self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-        elif func[0] == 'box':
-            if len(func) == 1:
-                # cross lines
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    for line in list(ax.lines):
-                        if line.get_label() != "Blue Dot":
-                            line.remove()
-                    ax.axhline(y, color='y', linestyle='dotted')
-                    ax.axvline(x, color='y', linestyle='dotted')
-                else:
-                    self.doubleZoomGUI.updateAxes(x,y)
-                self.displayImgCanvas.draw_idle()
-            elif len(func) == 2:
-                # draw rectangle
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.patches) > 0:
-                        for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
-                            ax.patches[i].remove()
-                        # ax.patches = ax.patches[:len(self.allboxes.keys())]
-                    for line in list(ax.lines):
-                        if line.get_label() != "Blue Dot":
-                            line.remove()
-                    start_pt = func[-1]
-                    w = abs(start_pt[0] - x)
-                    h = abs(start_pt[1] - y)
-                    x = min(start_pt[0], x)
-                    y = min(start_pt[1], y)
-                    ax.add_patch(patches.Rectangle((x, y), w, h,
-                                                linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-                else:
-                    self.doubleZoomGUI.updateAxes(x,y)
                 self.displayImgCanvas.draw_idle()
 
         elif func[0] == 'oriented_box' or func[0] == 'center_oriented_box':
@@ -1894,19 +1609,9 @@ class ProjectionTracesGUI(BaseGUI):
                 for line in list(ax.lines):
                     if line.get_label() != "Blue Dot":
                         line.remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-                    """
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        if len(ax.lines) > 0:
-                            for i in range(len(ax.lines)-1,-1,-1):
-                                ax.lines[i].remove()
-                        ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                        """
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+
                 self.displayImgCanvas.draw_idle()
             if len(func) == 2:
                 # draw line as angle
@@ -1915,13 +1620,10 @@ class ProjectionTracesGUI(BaseGUI):
                 deltay = y - pivot[1]
                 x2 = pivot[0] - deltax
                 y2 = pivot[1] - deltay
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    for line in list(ax.lines):
-                        if line.get_label() != "Blue Dot":
-                            line.remove()
-                    ax.plot([x, x2], [y, y2], color="r")
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
+                for line in list(ax.lines):
+                    if line.get_label() != "Blue Dot":
+                        line.remove()
+                ax.plot([x, x2], [y, y2], color="r")
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 3: # get the width of the box
                 if len(ax.patches) > 0:
@@ -1957,22 +1659,20 @@ class ProjectionTracesGUI(BaseGUI):
                     x2_right= p_right[0] + height*np.cos(angle)
                     y2_right= p_right[1] + height*np.sin(angle)
 
-                    if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode: 
-                        for line in list(ax.lines):
-                            if line.get_label() != "Blue Dot":
-                                line.remove()
-                        ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
+                    for line in list(ax.lines):
+                        if line.get_label() != "Blue Dot":
+                            line.remove()
+                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
 
-                        ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
-                        ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
 
-                        ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
-                        ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
 
-                        ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
-                        ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
-                    else:
-                        self.doubleZoomGUI.updateAxes(x, y)
+                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+
                     self.displayImgCanvas.draw_idle()
 
         elif func[0] == "im_move":
@@ -1995,113 +1695,6 @@ class ProjectionTracesGUI(BaseGUI):
             self.displayImgCanvas.draw_idle()
             func[2] = (x, y)
 
-        elif func[0] == "perp_center":
-            # draw X on points and a line between points
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines) - 1, 0, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    for i in range(len(ax.lines) - 1, 2, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-
-            elif len(func) % 2 != 0:
-                if len(ax.lines) > 0:
-                    n = (len(func)-1)*5//2 + 2
-                    for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) % 2 == 0:
-                start_pt = func[-1]
-                if len(ax.lines) > 3:
-                    n = len(func) * 5 // 2 - 1
-                    for i in range(len(ax.lines) - 1, n - 1, -1):
-                        ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-
-        elif func[0] == "chords_center":
-            if self.doubleZoom.isChecked():
-                self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-
-        elif func[0] == "angle_center":
-            # draw X on points and a line between points
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    # ax.lines = first_cross
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-        
-        elif func[0] == "im_rotate":
-            # draw line as angle
-            center = self.projProc.info['orig_center']
-            deltax = x - center[0]
-            deltay = y - center[1]
-            x2 = center[0] - deltax
-            y2 = center[1] - deltay
-            if not self.doubleZoom.isChecked():
-                for i in range(len(ax.lines)-1,-1,-1):
-                    if ax.lines[i].get_label() != "Blue Dot":
-                        ax.lines[i].remove()
-                ax.plot([x, x2], [y, y2], color="g")
-            else:
-                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                    self.doubleZoomGUI.updateAxesInner(x, y)
-                elif self.doubleZoomGUI.doubleZoomMode:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    ax.plot([x, x2], [y, y2], color="g")
-            self.displayImgCanvas.draw_idle()
 
     def imgReleased(self, event):
         """
@@ -2124,7 +1717,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Set pixel information is empty if mouse leaves figure
         """
-        self.pixel_detail.setText("")
+        self.imgCoordOnStatusBar.setText("")
 
     def imgScrolled(self, event):
         """
@@ -2188,84 +1781,214 @@ class ProjectionTracesGUI(BaseGUI):
         self.displayImgCanvas.draw_idle()
 
     # NOTE: _create_image_data() moved to ImageData.from_settings_panel() factory method
+
+    # ==================== ProcessingWorkspace Integration (New Pattern) ====================
     
-    def browseFile(self):
+    def _on_folder_loaded(self, dir_path: str):
         """
-        Popup an input file dialog. Users can select an image or .txt for failed cases list
+        Called when a new file/folder is loaded (BEFORE first image loads).
+        
+        This is the folder-level initialization hook, following the QF pattern.
+        Handles:
+        - Loading cached boxes and peaks
+        - Creating CSV manager
+        - Updating UI state
+        - Setting H5 mode
+        
+        Args:
+            dir_path: Directory path of the loaded file/folder
         """
-        file_name = getAFile()
-        if file_name != "":
-            self.onImageSelect(file_name)
+        # Update directory path
+        self.dir_path = dir_path
+        
+        # Enable PT-specific settings groups
+        self.propGrp.setEnabled(True)
+        self.boxGrp.setEnabled(True)
+        
+        # Load cached boxes and peaks from previous session
+        cache = self.loadBoxesAndPeaks()
+        if cache is not None:
+            self.allboxes = cache['boxes']
+            self.peaks = cache['peaks']
+            self.boxtypes = cache['types']
+            self.bgsubs = cache['bgsubs']
+            self.merid_bg = cache['merid_bg']
+            self.hull_ranges = cache['hull_ranges']
+            self.centerx = cache['centerx']
+            self.centery = cache['centery']
+            # Note: center_func removed - no longer needed with ImageData
+            for name, box in self.allboxes.items():
+                self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
+        else:
+            self.allboxes = {}
+            self.peaks = {}
+        
+        # Create CSV manager for this folder
+        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
+        
+        # Add box tabs for loaded boxes
+        self.addBoxTabs()
+        self.selectPeaksGrp.setEnabled(False)
+        
+        print(f"Folder loaded: {dir_path}")
+        print(f"  - Boxes loaded: {len(self.allboxes)}")
+        print(f"  - Peaks loaded: {len(self.peaks)}")
+    
+    def _on_image_data_ready(self, image_data):
+        """
+        Called when ImageData is ready for processing (main processing entry point).
+        
+        This replaces the old onImageChanged() method, following the QF pattern.
+        The ProcessingWorkspace has already:
+        - Loaded the image
+        - Created ImageData with center/rotation/blank/mask settings
+        - Applied manual settings if they exist
+        
+        Args:
+            image_data: ImageData instance ready for processing
+        """
+        try:
+            # Create ProjectionProcessor with the ready ImageData
+            self.projProc = ProjectionProcessor(image_data)
+            
+            # Update ProcessingWorkspace display (settings panel, etc.)
+            self.workspace.update_display(image_data)
+            
+            # Sync quadrant folded state from ImageData to checkbox
+            self.syncQuadrantFoldedState(image_data)
+            
+
+            
+            # Initialize UI for new image
+            self.initMinMaxIntensities(self.projProc)
+            self.refreshStatusbar()
+            self.updateCenter()
+            
+            # Process the new image
+            self.processImage()
+            
+        except Exception as e:
+            import traceback
+            QMessageBox.critical(
+                self, 
+                "Error Processing Image", 
+                f"Failed to process image: {str(e)}\n\n{traceback.format_exc()}"
+            )
+            print(f"Error in _on_image_data_ready: {e}")
+            traceback.print_exc()
+
+    # ==================== Navigation Interface (For Child Components) ====================
+    
+    def prevClicked(self):
+        """
+        Navigate to previous image.
+        
+        Public interface method for child components (e.g., ProjectionBoxTab).
+        ProjectionBoxTab has prev/next buttons in each box tab that allow users to
+        navigate between images without switching back to the main image tab.
+        
+        This method provides a stable interface that child components can depend on,
+        while hiding the internal implementation details (workspace/navigator structure).
+        """
+        if hasattr(self, 'workspace') and self.workspace.navigator:
+            self.workspace.navigator.navigate_prev()
+    
+    def nextClicked(self):
+        """
+        Navigate to next image.
+        
+        Public interface method for child components (e.g., ProjectionBoxTab).
+        ProjectionBoxTab has prev/next buttons in each box tab that allow users to
+        navigate between images without switching back to the main image tab.
+        
+        This method provides a stable interface that child components can depend on,
+        while hiding the internal implementation details (workspace/navigator structure).
+        """
+        if hasattr(self, 'workspace') and self.workspace.navigator:
+            self.workspace.navigator.navigate_next()
+    
+    def prevFileClicked(self):
+        """
+        Navigate to previous H5 file.
+        
+        Public interface method for child components that need H5 file navigation.
+        Used when working with HDF5 files that contain multiple images.
+        """
+        if hasattr(self, 'workspace') and self.workspace.navigator:
+            self.workspace.navigator.navigate_prev_file()
+    
+    def nextFileClicked(self):
+        """
+        Navigate to next H5 file.
+        
+        Public interface method for child components that need H5 file navigation.
+        Used when working with HDF5 files that contain multiple images.
+        """
+        if hasattr(self, 'workspace') and self.workspace.navigator:
+            self.workspace.navigator.navigate_next_file()
+
+    # ==================== Legacy Methods (Deprecated) ====================
 
     def onImageSelect(self, fullfilename):
         """
-        Triggered when a new image is selected
-        :param fullfilename: path for the image selected
-        :return:
+        [LEGACY] Triggered when a new image is selected via old browseFile() method.
+        
+        NOTE: This method is deprecated and will be removed in future versions.
+        New code should use workspace.load_from_file() which triggers the proper
+        signal chain: fileLoaded -> imageDataReady
+        
+        For now, we delegate to workspace to maintain compatibility.
         """
-        # Use FileManager to load the directory
-        self.file_manager.set_from_file(fullfilename)
+        # Delegate to workspace's load_from_file for proper signal flow
+        self.workspace.load_from_file(fullfilename)
         
         # Sync legacy variables (PT still uses getImgFiles for fileList/ext)
         self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
         
         if self.dir_path is not None and self.imgList is not None and self.imgList:
-            # Hide left panel buttons and show canvas (like QuadrantFoldingGUI)
+            # Hide left panel buttons and show canvas
             self.selectImageButton.setHidden(True)
             self.selectFolder.setHidden(True)
             self.displayImgCanvas.setHidden(False)
             self.updateLeftWidgetWidth()
             
-            self.propGrp.setEnabled(True)
-            self.boxGrp.setEnabled(True)
-            cache = self.loadBoxesAndPeaks()
-            if cache is not None:
-                self.allboxes = cache['boxes']
-                self.peaks = cache['peaks']
-                self.boxtypes = cache['types']
-                self.bgsubs = cache['bgsubs']
-                self.merid_bg = cache['merid_bg']
-                self.hull_ranges = cache['hull_ranges']
-                self.centerx = cache['centerx']
-                self.centery = cache['centery']
-                # Note: center_func removed - no longer needed with ImageData
-                for name, box in self.allboxes.items():
-                    self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
-            else:
-                self.allboxes = {}
-                self.peaks = {}
-            self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
-            self.addBoxTabs()
-            self.selectPeaksGrp.setEnabled(False)
+            # Set H5 mode if needed
             self.setH5Mode(fullfilename)
-            self.onImageChanged(first_run=True)
+            
+            # NOTE: Image processing now happens via _on_image_data_ready() signal
 
     def _on_file_manager_changed(self):
         """
-        Hook method called when FileManager navigates to a new image.
+        [DEPRECATED] Hook method called when FileManager navigates to a new image.
         
-        This is the BaseGUI hook implementation for ProjectionTracesGUI.
-        For PT, this is a simple wrapper that syncs legacy variables and calls onImageChanged().
+        This method is no longer needed with ProcessingWorkspace integration.
+        Navigation is now handled by ImageNavigatorWidget which emits imageDataReady.
         
-        Future refactoring: Migrate PT to fully use FileManager instead of current_file/imgList.
+        Keeping this as a no-op for now to avoid breaking any remaining references.
         """
-        # Sync legacy variables from FileManager
+        # Legacy sync for compatibility
         if self.file_manager.names:
             self.imgList = self.file_manager.names
             self.current_file = self.file_manager.current
             self.dir_path = self.file_manager.dir_path
         
-        # Call existing onImageChanged logic
-        self.onImageChanged(first_run=False)
-    
+        # NOTE: Image processing now happens via _on_image_data_ready() signal
+        # This old path should not be used anymore
+
     def onImageChanged(self, first_run=False):
         """
-        Need to be called when image is change i.e. to the next image.
-        This will create a new ProjectionProcessor object for the new image and syncUI if cache is available
-        Process the new image if there's no cache.
+        [DEPRECATED] Need to be called when image is changed.
         
-        :param first_run: True if this is the initial image load (from onImageSelect)
+        This method is deprecated in favor of _on_image_data_ready().
+        The new signal-based approach (ProcessingWorkspace.imageDataReady) handles
+        all image changes automatically.
+        
+        Keeping this for backward compatibility but it should not be called
+        in the new flow.
         """
+        # If this gets called, it means there's still old code using it
+        print("WARNING: onImageChanged() is deprecated. Use _on_image_data_ready() via signals.")
+        
         try:
             # Load image from FileManager
             img = self.file_manager.current_image
@@ -2273,38 +1996,37 @@ class ProjectionTracesGUI(BaseGUI):
             
             # Create ImageData
             current_image_data = ImageData.from_settings_panel(
-                img, self.dir_path, img_name, self.image_settings_panel
+                img, self.dir_path, img_name, self.workspace
             )
             
             # Create ProjectionProcessor with ImageData
             self.projProc = ProjectionProcessor(current_image_data)
             
-            # Update ImageSettingsPanel display
-            if hasattr(self, 'image_settings_panel'):
-                self.image_settings_panel.update_display(current_image_data)
+            # Update ProcessingWorkspace display
+            if hasattr(self, 'workspace'):
+                self.workspace.update_display(current_image_data)
+            
+            # Sync quadrant folded state from ImageData to checkbox
+            self.syncQuadrantFoldedState(current_image_data)
+            
+            
+            # Initialize UI
+            self.initMinMaxIntensities(self.projProc)
+            self.refreshStatusbar()
+            self.updateCenter()
+            
+            # Process new image
+            self.processImage()
             
         except Exception as e:
+            import traceback
             infMsg = QMessageBox()
             infMsg.setText("Error")
-            infMsg.setInformativeText(str(e))
+            infMsg.setInformativeText(f"{str(e)}\n\n{traceback.format_exc()}")
             infMsg.setStandardButtons(QMessageBox.Ok)
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
-        
-        # Sync quadrant folded state from ImageData to checkbox
-        self.syncQuadrantFoldedState(current_image_data)
-        
-        # Launch calibration settings on first run
-        if first_run:
-            self.launchCalibrationSettings()
-        
-        # self.initSpinBoxes(self.projProc.info)
-        self.initMinMaxIntensities(self.projProc)
-        self.img_zoom = None
-        self.refreshStatusbar()
-        self.updateCenter() # do not update fit results
-        # Process new image
-        self.processImage()
+            traceback.print_exc()
 
     def syncQuadrantFoldedState(self, image_data):
         """
@@ -2362,7 +2084,7 @@ class ProjectionTracesGUI(BaseGUI):
             self.maskThresSpnBx.setValue(getMaskThreshold(img))
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
         # self.maskThresSpnBx.setRange(img.min(), img.max())
-        # Note: blank_mask state now managed by ImageSettingsPanel
+        # Note: blank_mask state now managed by ProcessingWorkspace
         self.syncUI = False
 
     def updateCenter(self, refit=False):
@@ -2379,7 +2101,7 @@ class ProjectionTracesGUI(BaseGUI):
         center = self.projProc.center
         self.centerx = center[0]
         self.centery = center[1]
-        
+
         self.projProc.cache = None
         self.refit = refit
 
@@ -2567,9 +2289,9 @@ class ProjectionTracesGUI(BaseGUI):
         if hasattr(self, 'gmm_boxes'):
             settings['gmm_mode'] = self.gmm_boxes
 
-        # add blank image and mask (from ImageSettingsPanel)
-        if hasattr(self, 'image_settings_panel'):
-            blank_mask_config = self.image_settings_panel.get_blank_mask_config()
+        # add blank image and mask (from ProcessingWorkspace)
+        if hasattr(self, 'workspace'):
+            blank_mask_config = self.workspace.get_blank_mask_config()
             settings['blank_mask'] = blank_mask_config['apply_blank']
         else:
             settings['blank_mask'] = False
@@ -2617,10 +2339,10 @@ class ProjectionTracesGUI(BaseGUI):
                                                                                             self.projProc.filename))
         img = self.projProc.orig_img
         if self.calSettings is not None and not self.calSettings:
-            self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
+            self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
         elif self.calSettings is not None and self.calSettings:
-            self.right_status.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype) + " " + "(Image Calibrated)")
-        self.pixel_detail.setText("")
+            self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype) + " " + "(Image Calibrated)")
+        self.imgCoordOnStatusBar.setText("")
         # QApplication.processEvents()
 
     def setLeftStatus(self, s):
@@ -2669,24 +2391,33 @@ class ProjectionTracesGUI(BaseGUI):
 
     def updateImageTab(self):
         """
-        Draw all UI in image tab
+        Draw all UI in image tab using ImageViewerWidget API.
+        
+        This method now uses self.image_viewer.display_image() instead of directly
+        manipulating matplotlib axes, which enables automatic intensity UI updates
+        and proper integration with the display panel.
         """
 
         if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
+        
+        # Get the image to display
         if self.rotated:
             img = self.projProc.getRotatedImage()
         else:
             img = self.projProc.orig_img
         img = np.flipud(img)
-        img = get8bitImage(copy.copy(img), min=self.minIntSpnBx.value(), max=self.maxIntSpnBx.value())
-        ax = self.displayImgAxes
-        ax.cla()
-        if self.logScaleIntChkBx.isChecked():
-            ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minIntSpnBx.value()), vmax=self.maxIntSpnBx.value()))
-        else:
-            ax.imshow(getBGR(img))
         
+        # Use ImageViewerWidget's API to display image
+        # - Automatically uses vmin/vmax/log_scale/colormap from display_panel
+        # - Automatically preserves zoom (if not first time)
+        # - Sets _current_image so intensity changes work
+        self.image_viewer.display_image(img)
+        
+        # Get axes for drawing overlays (boxes, peaks, center)
+        ax = self.displayImgAxes
+        
+        # Draw boxes
         if len(self.allboxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
@@ -2694,6 +2425,7 @@ class ProjectionTracesGUI(BaseGUI):
                     ax.add_patch(aritists['rect'])
                     ax.add_artist(aritists['text'])
 
+            # Draw peaks
             if self.peaksChkBx.isChecked():
                 for name in self.peaks.keys():
                     center = self.projProc.center
@@ -2715,25 +2447,18 @@ class ProjectionTracesGUI(BaseGUI):
                             ax.plot(self.allboxes[name][0], (centery - p, centery - p), color='r')
                             ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
 
+        # Draw center circle
         if self.centerChkBx.isChecked():
             center = self.projProc.center
             circle = plt.Circle(center, 10, color='g')
             ax.add_patch(circle)
 
-        # Zoom
-        if self.img_zoom is not None and len(self.img_zoom) == 2:
-            ax.set_xlim(self.img_zoom[0])
-            ax.set_ylim(self.img_zoom[1])
-        else:
-            ax.set_xlim((0, img.shape[1]))
-            ax.set_ylim((0, img.shape[0]))
-
+        # Update calibration dialog center values
         center = self.projProc.center
-        self.calSettingsDialog.centerX.setValue(center[0])
-        self.calSettingsDialog.centerY.setValue(center[1])
 
-        self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
-        ax.invert_yaxis()
+        
+        # Apply layout and redraw to show overlays
+        # Note: Zoom is automatically managed by ImageViewerWidget.display_image()
         self.displayImgFigure.tight_layout()
         self.displayImgCanvas.draw()
 
