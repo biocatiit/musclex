@@ -307,20 +307,19 @@ class ProjectionTracesGUI(BaseGUI):
     This class is for Projection Traces GUI Object
     """
     def __init__(self):
+        """
+        Initial window
+        """
+        
         super().__init__()
-        
-        # Initialize FileManager (BaseGUI no longer creates it)
-        from ..utils.file_manager import FileManager
-        self.file_manager = FileManager()
-        
-        # PT keeps current_file/imgList/dir_path for backward compatibility with getImgFiles()
+        # Note: self.file_manager is now initialized by workspace.file_manager in _create_tabs()
+        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
+        self.filePath = "" # current directory
         self.current_file = 0
         self.dir_path = ""
-        self.filePath = ""  # current directory (required by ProcessingWorkspace)
         self.calSettings = None
         self.update_plot = {'img':True}
         self.imgList = []
-        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.h5index = 0
         self.stop_process = False
         self.projProc = None
@@ -328,7 +327,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.csvManager = None
         self.masked = False
         self.img_zoom = None
-        self.function = None
+        self.function = None # current active function
         self.allboxes = {}
         self.boxes_on_img = {}
         self.boxtypes = {}
@@ -343,11 +342,10 @@ class ProjectionTracesGUI(BaseGUI):
         self.rotationAngle = 0
         self.numberOfFiles = 0
         self.refit = False
-
+        self.checkableButtons = [] # list of checkable buttons
+        
         self.chordLines = []
         self.chordpoints = []
-        # self.setStyleSheet(getStyleSheet())
-        self.checkableButtons = []
         
         self.threadPool = QThreadPool()
         self.tasksQueue = Queue()
@@ -358,13 +356,15 @@ class ProjectionTracesGUI(BaseGUI):
         self.totalFiles = 1
         self.lock = Lock()
         
-        self.initUI()
-        self.setConnections()
-
+        self.initUI() # initial all GUI
+        
+        self.setConnections() # set triggered function for widgets
+        self.resize(1200, 900)
+        
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
 
-        # NOTE: browseFile() removed - file browsing now handled by workspace.navigator
-
+    # ===== BaseGUI abstract methods implementation =====
+    
     def _setup_window(self):
         """Set window title"""
         from musclex import __version__
@@ -391,7 +391,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.workspace = ProcessingWorkspace(
             settings_dir=self.filePath
         )
-        self.imageTabLayout.addWidget(self.workspace)
+        self.imageTabLayout.addWidget(self.workspace, 1)
 
         # Expose components for backward compatibility (following QF pattern)
         self.image_viewer = self.workspace.navigator.image_viewer
@@ -545,9 +545,12 @@ class ProjectionTracesGUI(BaseGUI):
     # - self.left_status (in lowerStatusBar)
     
     def _finalize_ui(self):
-        """Custom finalization for PT"""
-        self.resize(1300, 700)
-        self.show()
+        """Final UI setup - set window constraints"""
+        # Set minimum size for central widget to ensure usable UI
+        self.centralWidget.setMinimumSize(700, 500)
+        
+        # Call parent to handle window resize and show
+        super()._finalize_ui()
     
     def _additional_setup(self):
         """Additional PT-specific setup"""
