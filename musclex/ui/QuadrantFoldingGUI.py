@@ -445,12 +445,16 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def _create_quadrant_settings(self):
         """Add quadrant-specific settings to right panel"""
-        # Add settings groups
+        # Add built-in settings widgets from workspace (workspace no longer adds these automatically)
+        self.right_panel.add_widget(self.workspace._center_widget)
+        self.right_panel.add_widget(self.workspace._rotation_widget)
+        self.right_panel.add_widget(self.workspace._blank_mask_widget)
+        
+        # Add quadrant-specific settings groups
         self._create_processing_settings()
         self.right_panel.add_widget(self.settingsGroup)
         
         # Add checkable buttons from workspace settings widgets to checkableButtons list
-        # Note: center/rotation/blank/mask settings are now in workspace (ProcessingWorkspace)
         self.checkableButtons.extend([
             self.workspace._center_widget.setCenterRotationButton,
             self.workspace._center_widget.setCentByChords,
@@ -481,8 +485,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.settingsLayout.addWidget(self.compressFoldedImageChkBx, 1, 2, 1, 2)
         
         self.settingsGroup.setLayout(self.settingsLayout)
-        # Note: display_panel is automatically added by BaseGUI._create_standard_image_tab()
-        self.right_panel.add_widget(self.settingsGroup)
+        # Note: settingsGroup is added in _create_quadrant_settings(), not here
     
     # NOTE: _create_center_rotation_settings and _create_blank_mask_settings
     # are now replaced by ImageSettingsPanel integration above
