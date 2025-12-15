@@ -62,6 +62,10 @@ class ProjectionProcessor:
         # Get working image from ImageData (with blank/mask already applied)
         self.orig_img = image_data.get_working_image()
         
+        # Cache the raw image (before any rotation)
+        # This allows process() to be called multiple times without cumulative rotation
+        self._raw_img = self.orig_img.copy()
+        
         # Store reference to ImageData
         self._image_data = image_data
         
@@ -188,8 +192,25 @@ class ProjectionProcessor:
     def process(self, settings={}):
         """
         All processing steps - all settings are provided by Projection Traces app as a dictionary
+        
+        Note: Rotation is now performed in process() instead of getRotatedImage().
+        This ensures GUI displays the rotated image directly without additional rotation.
         """
+        # Reset to raw image to avoid cumulative rotation on repeated process() calls
+        self.orig_img = self._raw_img.copy()
+        
         self.updateSettings(settings)
+        
+        # ==================== Unified Rotation Logic ====================
+        # Rotate the image once at the beginning if needed
+        # This replaces the old pattern of rotating on-demand in getHistograms()
+        if self.rotated and self.rotation != 0:
+            # Rotate around diffraction center (center position remains unchanged)
+            self.orig_img = rotateImageAboutPoint(self.orig_img, self.center, self.rotation)
+            self.rotMat = cv2.getRotationMatrix2D(tuple(self.center), self.rotation, 1)
+            print(f"Image rotated by {self.rotation}° around center {self.center}")
+        # ================================================================
+        
         self.applyBlankImageAndMask()
         self.getHistograms()
         self.applyConvexhull()
@@ -283,7 +304,10 @@ class ProjectionProcessor:
 
     def getHistograms(self):
         """
-        Obtain projected intensity for each box
+        Obtain projected intensity for each box.
+        
+        Note: Image rotation is now done in process(), so we directly use self.orig_img
+        which is already rotated if needed.
         """
         box_names = self.info['box_names']
         if len(box_names) > 0:
@@ -294,11 +318,9 @@ class ProjectionProcessor:
                 if name in hists:
                     continue
                 t = types[name]
-                if self.rotated:
-                    img = self.getRotatedImage()
-                    #print("Using rotated image: ", img.shape)
-                else:
-                    img = copy.copy(self.orig_img)
+                
+                # Use the current image (already rotated in process() if needed)
+                img = copy.copy(self.orig_img)
 
                 if name not in hists:
                     b = boxes[name]
@@ -773,26 +795,20 @@ class ProjectionProcessor:
 
     def getRotatedImage(self, img=None, angle=None):
         """
-        Get rotated image by angle. If the input params are not specified. image = original input image, angle = self.info["rotationAngle"]
-        :param img: input image
-        :param angle: rotation angle
-        :return: rotated image
+        [DEPRECATED] Get rotated image by angle.
+        
+        This method is deprecated as rotation is now performed in process().
+        The image in self.orig_img is already rotated if needed.
+        
+        This method is kept for backward compatibility and now simply returns
+        the current orig_img (which is already rotated in process()).
+        
+        :param img: input image (ignored, kept for compatibility)
+        :param angle: rotation angle (ignored, kept for compatibility)
+        :return: rotated image (actually self.orig_img which is already rotated)
         """
-        if img is None:
-            img = copy.copy(self.orig_img)
-        if angle is None:
-            angle = self.rotation
-        if '90rotation' in self.info and self.info['90rotation'] is True:
-            angle = angle - 90 if angle > 90 else angle + 90
-
-        if self.rotated_img is None or self.rotated_img[0] != self.center or self.rotated_img[1] != self.rotation or (self.rotated_img[2] != img).any():
-            # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-            center = self.center
-
-            rotImg, (self.info["centerx"], self.info["centery"]), self.rotMat = rotateImage(img, center, angle)
-            self.rotated_img = [(self.info["centerx"], self.info["centery"]), angle, img, rotImg]
-
-        return self.rotated_img[3]
+        # Return the current image which is already rotated in process()
+        return self.orig_img
 
     def removeInfo(self, name, k=None):
         """

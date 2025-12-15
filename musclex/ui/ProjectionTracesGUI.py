@@ -1415,11 +1415,8 @@ class ProjectionTracesGUI(BaseGUI):
                     boxDialog = BoxDetails(self.allboxes.keys(), oriented=True)
                     result = boxDialog.exec_()
                     if result == 1:
-                        # get the image the box was selected on
-                        if self.rotated:
-                            img = self.projProc.getRotatedImage()
-                        else:
-                            img = copy.copy(self.projProc.orig_img)
+                        # get the image (already rotated in process() if needed)
+                        img = copy.copy(self.projProc.orig_img)
 
                         blx, bly = int(bottom_left[0]), int(bottom_left[1])
                         pivot = func[1]
@@ -2401,20 +2398,16 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Draw all UI in image tab using ImageViewerWidget API.
         
-        This method now uses self.image_viewer.display_image() instead of directly
-        manipulating matplotlib axes, which enables automatic intensity UI updates
-        and proper integration with the display panel.
+        Note: Image rotation is now performed in ProjectionProcessor.process(),
+        so we directly display self.projProc.orig_img which is already rotated if needed.
+        This simplifies the display logic and ensures GUI shows the processed image.
         """
 
         if self.projProc is None or self.syncUI or not self.update_plot['img']:
             return
         
-        # Get the image to display
-        if self.rotated:
-            img = self.projProc.getRotatedImage()
-        else:
-            img = self.projProc.orig_img
-        img = np.flipud(img)
+        # Get the image to display (already rotated in process() if needed)
+        img = self.projProc.orig_img
         
         # Use ImageViewerWidget's API to display image
         # - Automatically uses vmin/vmax/log_scale/colormap from display_panel
