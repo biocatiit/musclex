@@ -71,7 +71,7 @@ class ProjectionProcessor:
         
         # Initialize state
         self.rotated_img = None
-        self.rotated = False
+        # Note: self.rotated removed - use (not self._image_data.quadrant_folded) instead
         self.version = __version__
         self.masked = False
         self.fixed_sigma = {}
@@ -203,8 +203,11 @@ class ProjectionProcessor:
         
         # ==================== Unified Rotation Logic ====================
         # Rotate the image once at the beginning if needed
-        # This replaces the old pattern of rotating on-demand in getHistograms()
-        if self.rotated and self.rotation != 0:
+        # Quadrant folded images should NOT be rotated (they are already aligned)
+        # Normal images should be rotated if rotation angle is set
+        should_rotate = not self._image_data.quadrant_folded and self.rotation != 0
+        
+        if should_rotate:
             # Rotate around diffraction center (center position remains unchanged)
             self.orig_img = rotateImageAboutPoint(self.orig_img, self.center, self.rotation)
             self.rotMat = cv2.getRotationMatrix2D(tuple(self.center), self.rotation, 1)
@@ -285,10 +288,8 @@ class ProjectionProcessor:
             current.update(new)
             del settings['hull_ranges']
 
-        if 'rotated' in settings:
-            self.rotated = settings['rotated']
-        else:
-            self.rotated = False
+        # Note: 'rotated' and 'rotationAngle' settings removed - rotation state is now
+        # determined by ImageData.quadrant_folded and ImageData.rotation properties
 
         self.info.update(settings)
 
