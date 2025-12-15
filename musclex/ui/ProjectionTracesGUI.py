@@ -2139,6 +2139,11 @@ class ProjectionTracesGUI(BaseGUI):
         
         print("after")
         print("Center:", self.projProc.center)
+        if hasattr(self, 'projProc') and self.projProc:
+            # Update center display with coordinates from ProjectionProcessor
+            self.workspace._center_widget.update_current_center(
+                self.projProc.center  # Current center coordinates
+            )
         self.resetUI()
         self.refreshStatusbar()
         self.cacheBoxesAndPeaks()
