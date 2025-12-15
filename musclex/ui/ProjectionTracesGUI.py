@@ -337,9 +337,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.hull_ranges = {}
         self.centerx = None
         self.centery = None
-        # Note: center_func removed - center state now managed by ImageData
-        self.rotated = True
-        self.rotationAngle = 0
+        # Note: center_func, rotated, rotationAngle removed - rotation state now managed by ImageData
         self.numberOfFiles = 0
         self.refit = False
         self.checkableButtons = [] # list of checkable buttons
@@ -709,11 +707,8 @@ class ProjectionTracesGUI(BaseGUI):
         if self.projProc and self.projProc._image_data:
             self.projProc._image_data.quadrant_folded = self.qfChkBx.isChecked()
         
-        # Update rotated flag
-        if self.qfChkBx.isChecked():
-            self.rotated = False
-        else:
-            self.rotated = True
+        # Note: No need to update self.rotated - rotation state is now determined by
+        # ImageData.quadrant_folded property (quadrant folded images don't rotate)
         
         self.updateCenter()
         print("qfbox")
@@ -2307,10 +2302,9 @@ class ProjectionTracesGUI(BaseGUI):
             settings['refit'] = self.refit
             self.refit = False
 
-        if self.rotated:
-            settings['rotated'] = True
-            if self.rotationAngle != 0:
-                settings['rotationAngle'] = self.rotationAngle
+        # Note: 'rotated' and 'rotationAngle' settings removed - rotation state is now
+        # determined by ImageData.quadrant_folded and ImageData.rotation properties
+        # ProjectionProcessor reads these directly from ImageData
 
         if self.calSettings is not None:
             if 'type' in self.calSettings:
@@ -2319,14 +2313,7 @@ class ProjectionTracesGUI(BaseGUI):
                 elif self.calSettings["type"] == "cont":
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
             
-            # For quadrant folded images, never use calibrated center (always use geometric center)
-            # For manual center, also don't override with calibrated center
-            quadrant_folded = self.qfChkBx.isChecked()
-            has_manual_center = (self.projProc and self.projProc._image_data and 
-                                self.projProc._image_data.has_manual_center)
-            if "center" in self.calSettings and not has_manual_center and not quadrant_folded:
-                settings["center"] = self.calSettings["center"]
-            
+
             if "detector" in self.calSettings:
                 self.projProc.info["detector"] = self.calSettings["detector"]
 
