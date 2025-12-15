@@ -57,6 +57,7 @@ from .DoubleZoomGUI import DoubleZoom
 from .pyqt_utils import *
 from .base_gui import BaseGUI
 from .widgets import ProcessingWorkspace
+from .widgets.collapsible_groupbox import CollapsibleGroupBox
 
 class ProjectionParams:
     def __init__(self, settings, index, file_manager, gui):
@@ -416,34 +417,64 @@ class ProjectionTracesGUI(BaseGUI):
         # Add PT-specific display options (only the 3 unique checkboxes)
         self._add_display_options()
         
-        # Add PT-specific settings to right panel
-        self._create_pattern_settings()
-        self._create_box_settings()
-        self._create_peaks_settings()
-        self._create_export_settings()
+        # Setup right panel widgets in desired order
+        self._setup_right_panel_widgets()
         
         # Add navigation controls to right panel bottom (following QF pattern)
         self.right_panel.add_bottom_widget(self.navControls)
+    
+    def _setup_right_panel_widgets(self):
+        """
+        Setup right panel widgets in desired order.
+        
+        This method controls the layout of all settings widgets in the right panel.
+        Order:
+        1. Display Panel (already added by workspace)
+        2. Quadrant Folded checkbox (PT-specific)
+        3. Box Settings (add boxes before center settings)
+        4. Center Settings
+        5. Rotation Settings
+        6. Blank/Mask Settings
+        7. Pattern Settings (mask threshold)
+        8. Peaks Settings
+        9. Export Settings
+        """
+        # 2. Quadrant Folded checkbox (PT-specific)
+        qf_checkbox = self.workspace.create_qf_checkbox()
+        self.workspace.right_panel.add_widget(qf_checkbox)
+        
+        # 3. Box Settings (placed after QF checkbox, before center settings)
+        self._create_box_settings()
+        
+        # 4-6. Add built-in settings widgets
+        self.workspace.right_panel.add_widget(self.workspace._center_widget)
+        self.workspace.right_panel.add_widget(self.workspace._rotation_widget)
+        self.workspace.right_panel.add_widget(self.workspace._blank_mask_widget)
+        
+        # 7-9. Add remaining PT-specific settings
+        self._create_pattern_settings()
+        self._create_peaks_settings()
+        self._create_export_settings()
         
     def _create_pattern_settings(self):
-        """Create pattern properties settings group"""
+        """Create pattern properties settings group (mask threshold only)"""
 
-        # ===== PT-specific settings (QF checkbox, mask threshold) =====
+        # ===== PT-specific settings (mask threshold) =====
+        # Note: QF checkbox is now added separately above center settings
         self.propGrp = QGroupBox("Pattern Settings (Optional)")
         self.propGrp.setEnabled(False)
         self.propLayout = QGridLayout(self.propGrp)
-
-        self.qfChkBx = QCheckBox("Quadrant Folded?")
-        self.qfChkBx.setChecked(True)
+        
+        # Mask threshold spinbox (PT-specific)
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setMinimum(-10000)
         self.maskThresSpnBx.setMaximum(10000)
         self.maskThresSpnBx.setValue(-999)
         self.maskThresSpnBx.setKeyboardTracking(False)
 
-        self.propLayout.addWidget(self.qfChkBx, 0, 0, 1, 2)
-        self.propLayout.addWidget(QLabel('Mask Threshold:'), 1, 0, 1, 2)
-        self.propLayout.addWidget(self.maskThresSpnBx, 1, 2, 1, 2)
+        # Layout - only mask threshold now
+        self.propLayout.addWidget(QLabel('Mask Threshold:'), 0, 0, 1, 2)
+        self.propLayout.addWidget(self.maskThresSpnBx, 0, 2, 1, 2)
         
         # Add to right panel
         self.workspace.right_panel.add_widget(self.propGrp)
@@ -451,9 +482,9 @@ class ProjectionTracesGUI(BaseGUI):
     def _create_box_settings(self):
         """Create box selection settings group"""
         # Box selection
-        self.boxGrp = QGroupBox("Add Boxes")
+        self.boxGrp = CollapsibleGroupBox("Add Boxes", start_expanded=True)
         self.boxGrp.setEnabled(False)
-        self.boxesLayout = QVBoxLayout(self.boxGrp)
+        self.boxesLayout = QVBoxLayout()
         self.addBoxButton = QPushButton("Add Axis Aligned Box")
         self.addBoxButton.setCheckable(True)
         self.addOrientedBoxButton = QPushButton("Add Oriented Box")
@@ -470,6 +501,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.boxesLayout.addWidget(self.addCenterOrientedBoxButton)
         self.boxesLayout.addWidget(self.editBoxButton)
         self.boxesLayout.addWidget(self.clearBoxButton)
+        self.boxGrp.setLayout(self.boxesLayout)
         
         # Add to right panel
         self.workspace.right_panel.add_widget(self.boxGrp)
@@ -572,7 +604,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
         
         # needsReprocess: Settings changed, reprocess current image
-        self.workspace.needsReprocess.connect(self.processImage)
+        self.workspace.needsReprocess.connect(self._on_needs_reprocess)
         
         # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
@@ -596,9 +628,8 @@ class ProjectionTracesGUI(BaseGUI):
         # NOTE: ProcessingWorkspace signals are now connected in _additional_setup()
         # This follows the QF pattern where workspace signals are connected after initialization
 
-        # Pattern Properties (PT-specific)
-        self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
-
+        # Note: QF checkbox signal is now handled internally by workspace
+        # workspace.needsReprocess will trigger processImage() automatically
 
         self.boxesChkBx.stateChanged.connect(self.updateImage)
         self.peaksChkBx.stateChanged.connect(self.updateImage)
@@ -697,24 +728,6 @@ class ProjectionTracesGUI(BaseGUI):
         self.update_plot['img'] = True
         self.updateUI()
 
-    def qfChkBxClicked(self):
-        """
-        Triggered when the quadrant fold checkbox is clicked.
-        
-        Updates ImageData's quadrant_folded state to match user's selection.
-        """
-        # Update ImageData's quadrant_folded state
-        if self.projProc and self.projProc._image_data:
-            self.projProc._image_data.quadrant_folded = self.qfChkBx.isChecked()
-        
-        # Note: No need to update self.rotated - rotation state is now determined by
-        # ImageData.quadrant_folded property (quadrant folded images don't rotate)
-        
-        self.updateCenter()
-        print("qfbox")
-        self.processImage()
-        self.addBoxTabs()
-        self.updateImage()
 
     def updatePeaks(self, name, peaks):
         """
@@ -1849,10 +1862,7 @@ class ProjectionTracesGUI(BaseGUI):
             # Update ProcessingWorkspace display (settings panel, etc.)
             self.workspace.update_display(image_data)
             
-            # Sync quadrant folded state from ImageData to checkbox
-            self.syncQuadrantFoldedState(image_data)
-            
-
+            # Note: Quadrant folded state is now synced automatically by workspace
             
             # Initialize UI for new image
             self.initMinMaxIntensities(self.projProc)
@@ -1871,6 +1881,28 @@ class ProjectionTracesGUI(BaseGUI):
             )
             print(f"Error in _on_image_data_ready: {e}")
             traceback.print_exc()
+    
+    def _on_needs_reprocess(self):
+        """
+        Handle workspace needsReprocess signal.
+        
+        Called when settings change (e.g., quadrant folded checkbox, center, rotation).
+        Performs PT-specific UI updates before reprocessing.
+        """
+        if self.projProc is None:
+            return
+        
+        # Update center display
+        self.updateCenter()
+        
+        # Refresh box tabs (needed when quadrant folded state changes)
+        self.addBoxTabs()
+        
+        # Reprocess image with new settings
+        self.processImage()
+        
+        # Update image display
+        self.updateImage()
 
     # ==================== Navigation Interface (For Child Components) ====================
     
@@ -2022,27 +2054,6 @@ class ProjectionTracesGUI(BaseGUI):
             infMsg.setIcon(QMessageBox.Information)
             infMsg.exec_()
             traceback.print_exc()
-
-    def syncQuadrantFoldedState(self, image_data):
-        """
-        Sync quadrant folded state from ImageData to GUI checkbox.
-        
-        ImageData auto-detects quadrant folded from filename/metadata,
-        this method just syncs the result to the UI.
-        
-        Args:
-            image_data: ImageData object with auto-detected quadrant_folded state
-        """
-        if self.projProc is None:
-            return
-        
-        # Get auto-detected state from ImageData
-        quadrant_folded = image_data.is_quadrant_folded
-        
-        # Update checkbox state (disconnect signal to avoid triggering processImage again)
-        self.qfChkBx.stateChanged.disconnect(self.qfChkBxClicked)
-        self.qfChkBx.setChecked(quadrant_folded)
-        self.qfChkBx.stateChanged.connect(self.qfChkBxClicked)
 
     def initMinMaxIntensities(self, projProc):
         """

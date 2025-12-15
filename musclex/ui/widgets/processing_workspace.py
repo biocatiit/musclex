@@ -135,6 +135,9 @@ class ProcessingWorkspace(QWidget):
         # Track first image in folder for notification
         self._first_image_in_folder = True
         
+        # PT-specific: Quadrant Folded checkbox (created on demand)
+        self.qf_checkbox = None
+        
         # Create ImageNavigatorWidget (internal, owned by workspace)
         self.navigator = ImageNavigatorWidget(
             auto_display=False,  # Processor mode: manual display control
@@ -188,16 +191,14 @@ class ProcessingWorkspace(QWidget):
         │ ┌──────────────────────┬─────────────────────────┐ │
         │ │ ImageNavigatorWidget │ CollapsibleRightPanel   │ │
         │ │                      │ ┌─────────────────────┐ │ │
-        │ │  [Image Display]     │ │ Center Settings     │ │ │
-        │ │                      │ │ Rotation Settings   │ │ │
-        │ │                      │ │ Blank/Mask Settings │ │ │
-        │ │                      │ │ [+ GUI can add more]│ │ │
+        │ │  [Image Display]     │ │ Display Panel       │ │ │
+        │ │                      │ │ [GUI adds widgets]  │ │ │
         │ │                      │ └─────────────────────┘ │ │
         │ └──────────────────────┴─────────────────────────┘ │
         └────────────────────────────────────────────────────┘
         
-        Note: NavigationControls is NOT included in this layout.
-              GUI is responsible for placing nav_controls where needed.
+        Note: GUI is responsible for adding settings widgets and nav controls.
+              Workspace only adds display panel (if available).
         """
         # Main layout: horizontal
         main_layout = QHBoxLayout(self)
@@ -207,15 +208,10 @@ class ProcessingWorkspace(QWidget):
         # Left side: ImageNavigatorWidget (takes most space)
         main_layout.addWidget(self.navigator, 1)
         
-        # Right side: CollapsibleRightPanel with settings
-        # Add display panel first (if available)
+        # Right side: CollapsibleRightPanel
+        # Only add display panel - GUI will add other widgets in desired order
         if self._image_viewer.display_panel:
             self.right_panel.add_widget(self._image_viewer.display_panel)
-        
-        # Add built-in settings widgets to right panel
-        self.right_panel.add_widget(self._center_widget)
-        self.right_panel.add_widget(self._rotation_widget)
-        self.right_panel.add_widget(self._blank_mask_widget)
         
         main_layout.addWidget(self.right_panel, 0)
         
@@ -1372,6 +1368,85 @@ class ProcessingWorkspace(QWidget):
         settings_dir = Path(self._settings_dir) / "settings"
         self._blank_mask_widget.update_from_directory(settings_dir)
     
+    # ==================== Public API for Quadrant Folded (PT-specific) ====================
+    
+    def create_qf_checkbox(self):
+        """
+        Create Quadrant Folded checkbox for ProjectionTraces.
+        This is PT-specific and optional - only called by ProjectionTracesGUI.
+        
+        The checkbox is created once and reused. Workspace handles all state
+        management internally - GUI only needs the widget for layout placement.
+        
+        Returns:
+            QCheckBox: The quadrant folded checkbox widget for GUI to place in layout
+        
+        Example:
+            # In ProjectionTracesGUI
+            qf_checkbox = self.workspace.create_qf_checkbox()
+            self.propLayout.addWidget(qf_checkbox, 0, 0, 1, 2)
+        """
+        if self.qf_checkbox is not None:
+            return self.qf_checkbox
+        
+        from PySide6.QtWidgets import QCheckBox
+        
+        self.qf_checkbox = QCheckBox("Quadrant Folded?")
+        self.qf_checkbox.setChecked(False)  # Default: not quadrant folded
+        
+        # Connect to internal handler - workspace manages all logic
+        self.qf_checkbox.stateChanged.connect(self._on_qf_changed)
+        
+        print("Created Quadrant Folded checkbox for ProjectionTraces")
+        
+        return self.qf_checkbox
+    
+    def _on_qf_changed(self):
+        """
+        Internal: Handle quadrant folded checkbox state change.
+        
+        Updates ImageData's quadrant_folded state and triggers reprocess.
+        GUI doesn't need to know about this - it happens automatically.
+        """
+        if self._current_image_data is None:
+            return
+        
+        is_checked = self.qf_checkbox.isChecked()
+        self._current_image_data.quadrant_folded = is_checked
+        
+        print(f"Quadrant folded state changed to: {is_checked}")
+        
+        # Notify GUI to reprocess image
+        self.needsReprocess.emit()
+    
+    def _sync_qf_from_image_data(self, image_data):
+        """
+        Internal: Sync checkbox state from ImageData.
+        
+        Called automatically when image changes. ImageData auto-detects
+        quadrant folded state from filename/metadata, this syncs it to UI.
+        
+        Args:
+            image_data: ImageData object with quadrant_folded state
+        """
+        if self.qf_checkbox is None:
+            return  # Checkbox not created (not PT), skip
+        
+        quadrant_folded = image_data.is_quadrant_folded
+        
+        # Temporarily disconnect signal to avoid triggering reprocess
+        try:
+            self.qf_checkbox.stateChanged.disconnect(self._on_qf_changed)
+        except RuntimeError:
+            pass  # Signal not connected, that's fine
+        
+        self.qf_checkbox.setChecked(quadrant_folded)
+        
+        # Reconnect signal
+        self.qf_checkbox.stateChanged.connect(self._on_qf_changed)
+        
+        print(f"Synced quadrant folded state from ImageData: {quadrant_folded}")
+    
     def _on_blank_setting_clicked(self):
         """Handle blank image settings button click."""
         if not self._file_manager or self._file_manager.current_image is None:
@@ -1554,8 +1629,9 @@ class ProcessingWorkspace(QWidget):
         
         This is the main processing pipeline entry point:
         1. Creates ImageData with workspace settings
-        2. Shows center and rotation status notification on first image load
-        3. Emits imageDataReady signal for GUI to process
+        2. Syncs PT-specific quadrant folded state to checkbox
+        3. Shows center and rotation status notification on first image load
+        4. Emits imageDataReady signal for GUI to process
         
         Args:
             img: Image array (numpy ndarray)
@@ -1564,6 +1640,9 @@ class ProcessingWorkspace(QWidget):
         """
         # Create ImageData with workspace settings (center, rotation, blank, mask)
         image_data = self.create_image_data(img, filename)
+        
+        # Sync quadrant folded state (PT-specific, no-op if checkbox doesn't exist)
+        self._sync_qf_from_image_data(image_data)
         
         # Show settings status notification on first image in folder
         if self._first_image_in_folder:
