@@ -2032,34 +2032,29 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def initialWidgets(self, img, previnfo):
         """
-        Initial some widgets values which depends on current image
+        Restore processing parameter widgets for current image.
+        
+        Note: Display panel intensity controls (spmaxInt, spminInt, labels) are now 
+        automatically updated by ImageViewerWidget.display_image(), so we don't need 
+        to handle them here. We only handle QuadrantFolding-specific widgets.
+        
         :param img: selected image
         :param previnfo: info of the last image
         """
         self.uiUpdating = True
+        
+        # Get image statistics for Result panel (still needed)
         min_val = img.min()
         max_val = img.max()
         
-        if not self.persistIntensity.isChecked():
-            # Only update values when NOT persisting (range is already set to allow any value)
-            self.spmaxInt.setValue(max_val * .5)
-            self.spminInt.setValue(min_val)
-        # When persist is checked: don't touch range or values at all
+        # Display panel (spmaxInt, spminInt, etc.) is automatically updated by ImageViewerWidget!
+        # We only need to handle QuadrantFolding-specific widgets here.
         
-        self.spmaxInt.setSingleStep(max_val * .05)
-        self.spminInt.setSingleStep(max_val * .05)
-
-        self.minIntLabel.setText(f"Min Intensity ({min_val:.2f})")
-        self.maxIntLabel.setText(f"Max Intensity ({max_val:.2f})")
-
+        # Update Result panel decimals (these are QF-specific, not part of display panel)
         if 'float' in str(img.dtype):
-            self.spmaxInt.setDecimals(2)
-            self.spminInt.setDecimals(2)
             self.spResultmaxInt.setDecimals(2)
             self.spResultminInt.setDecimals(2)
         else:
-            self.spmaxInt.setDecimals(2)
-            self.spminInt.setDecimals(2)
             self.spResultmaxInt.setDecimals(2)
             self.spResultminInt.setDecimals(2)
 

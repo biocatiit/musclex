@@ -43,8 +43,8 @@ from ..CalibrationSettings import CalibrationSettings
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
 from .DoubleZoomGUI import DoubleZoom
-from PySide6.QtCore import QTimer
 from .widgets.navigation_controls import NavigationControls
+from .widgets.image_navigator_widget import ImageNavigatorWidget
 
 
 class XRayViewerGUI(QMainWindow):
@@ -58,13 +58,10 @@ class XRayViewerGUI(QMainWindow):
         Initial window
         """
         super().__init__()
-        # H5 list/index no longer needed; GUI uses FileManager state directly
+        # State variables
         self.windowList = []
         self.counter = 0
-        # filePath is derived from FileManager.dir_path when needed
         self.calSettings = None
-        # numberOfFiles is derived from FileManager (names/file_list) and scan status
-        self._provisionalCount = False
         self.img_zoom = None # zoom location of original image (x,y range)
         self.checkableButtons = []
         self.line_coords = []
@@ -80,19 +77,37 @@ class XRayViewerGUI(QMainWindow):
         self.saved_slice = None
         self.stop_process = False
         self.calSettingsDialog = None
-        # Scan thread/result handled by FileManager
-        self._scan_timer = QTimer(self)
-        self._scan_timer.setInterval(200)
-        self._scan_timer.timeout.connect(self._checkScanDone)
+        
+        # Create ImageNavigatorWidget (handles file management, display, navigation)
+        self.navigator = ImageNavigatorWidget(
+            parent=self,
+            show_display_panel=True,
+            show_double_zoom=True,
+            auto_display=True,  # Navigator displays images automatically
+            navigation_process_folder_text="Play Current Folder",
+            navigation_process_h5_text="Play Current H5 File"
+        )
+        
+        # Expose components for compatibility
+        self.file_manager = self.navigator.file_manager
+        self.imageAxes = self.navigator.image_viewer.axes
+        self.imageCanvas = self.navigator.image_viewer.canvas
+        self.imageFigure = self.navigator.image_viewer.figure
+        self.navControls = self.navigator.nav_controls
+        
+        # Connect navigator's signals
+        self.navigator.imageChanged.connect(self._on_image_changed)
+        
+        # Connect ImageViewer's interaction signals (high-level, cleaner than matplotlib events)
+        self.navigator.image_viewer.coordinatesChanged.connect(self._on_coordinates_changed)
+        self.navigator.image_viewer.canvasClicked.connect(self._on_canvas_clicked)
 
         self.initUI() # initial all GUI
-        self.setConnections() # set triggered function for widgetsF
+        self.setConnections() # set triggered function for widgets
         #self.setMinimumHeight(800)
         #self.setMinimumWidth(1000)
 
         self.doubleZoomGUI = DoubleZoom(self.imageFigure)
-        self.file_manager = None
-        self.browseFile()
 
     def initUI(self):
         """
@@ -119,91 +134,19 @@ class XRayViewerGUI(QMainWindow):
         self.tabWidget.setStyleSheet("QTabBar::tab { height: 40px; width: 200px; }")
         self.mainLayout.addWidget(self.tabWidget)
 
-        ##### Image Tab #####
+        ##### Image Tab - Use Navigator #####
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
-        #self.imageTabLayout.addStretch()
         self.tabWidget.addTab(self.imageTab, "Image")
-
-        self.verImgLayout = QVBoxLayout()
-        self.verImgLayout.setContentsMargins(0, 0, 0, 0)
-        self.verImgLayout.setAlignment(Qt.AlignCenter)
-
-        self.leftWidget = QWidget()
-        self.leftWidget.setLayout(self.verImgLayout)
-        self.leftWidget.setMinimumWidth(650)
-
-        self.selectImageButton = QPushButton('Click Here to Select an Image...')
-        self.selectImageButton.setFixedHeight(100)
-        self.selectImageButton.setFixedWidth(300)
-
-        self.verImgLayout.addWidget(self.selectImageButton)
-        self.imageFigure = plt.figure()
-        self.imageAxes = self.imageFigure.add_subplot(111)
-        self.imageCanvas = FigureCanvas(self.imageFigure)
-
-        self.imageCanvas.setHidden(True)
-        self.imageTabLayout.addWidget(self.leftWidget)
-        self.imageTabLayout.addWidget(self.imageCanvas)
-
-        self.displayOptGrpBx = QGroupBox()
-        self.displayOptGrpBx.setTitle("Display Options")
-        self.displayOptGrpBx.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        self.dispOptLayout = QGridLayout()
-        #self.dispOptLayout.setRowStretch()
-
-        self.spminInt = QDoubleSpinBox()
-        self.spminInt.setRange(-1e10, 1e10)  # Allow any value
-        self.spminInt.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image.")
-        self.spminInt.setKeyboardTracking(False)
-        self.spminInt.setSingleStep(5)
-        self.spminInt.setDecimals(0)
-        self.spmaxInt = QDoubleSpinBox()
-        self.spmaxInt.setRange(-1e10, 1e10)  # Allow any value
-        self.spmaxInt.setToolTip("Increase in the minimal intensity shown to allow for more details in the image.")
-        self.spmaxInt.setKeyboardTracking(False)
-        self.spmaxInt.setSingleStep(5)
-        self.spmaxInt.setDecimals(0)
-
-        self.colorMapChoice = QComboBox()
-        self.colorMapChoice.setCurrentIndex(0)
-        self.allColorChoices = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
-        for c in self.allColorChoices:
-            self.colorMapChoice.addItem(c)
         
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistIntensity = QCheckBox("Persist intensities")
-
-        self.imgZoomInB = QPushButton("Zoom in")
-        self.imgZoomInB.setCheckable(True)
-        self.imgZoomOutB = QPushButton("Full")
-        self.checkableButtons.append(self.imgZoomInB)
+        # Add navigator (includes image viewer + right panel with display options + nav controls)
+        self.imageTabLayout.addWidget(self.navigator, 1)
         
-        self.doubleZoom = QCheckBox("Double Zoom")
-
-        self.minIntLabel = QLabel('Min Intensity')
-        self.maxIntLabel = QLabel('Max Intensity')
-        self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.spminInt, 1, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 2, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(QLabel("Color Map:"), 4, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.colorMapChoice, 4, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 5, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistIntensity, 6, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.doubleZoom, 7, 0, 1, 2)
-        self.displayOptGrpBx.setLayout(self.dispOptLayout)
-
-        self.optionsLayout = QVBoxLayout()
-        self.optionsLayout.setAlignment(Qt.AlignCenter)
+        # Create custom settings group for XRayViewer features
         self.settingsGroup = QGroupBox("Image Processing")
         self.settingsGroup.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.settingsLayout = QGridLayout()
-        #self.settingsLayout.setRowStretch()
         self.settingsGroup.setLayout(self.settingsLayout)
 
         self.calibrationButton = QPushButton("Calibration Settings")
@@ -218,9 +161,7 @@ class XRayViewerGUI(QMainWindow):
         self.saveGraphSlice.setEnabled(False)
         self.inpaintChkBx = QCheckBox("Inpainting")
         
-        self.checkableButtons.append(self.measureDist)
-        self.checkableButtons.append(self.setSlice)
-        self.checkableButtons.append(self.setSliceBox)
+        self.checkableButtons.extend([self.measureDist, self.setSlice, self.setSliceBox])
         
         self.settingsLayout.addWidget(self.calibrationButton, 0, 0, 1, 2)
         self.settingsLayout.addWidget(self.openTrace, 1, 0, 1, 2)
@@ -229,26 +170,9 @@ class XRayViewerGUI(QMainWindow):
         self.settingsLayout.addWidget(self.setSliceBox, 4, 0, 1, 2)
         self.settingsLayout.addWidget(self.saveGraphSlice, 5, 0, 1, 2)
         self.settingsLayout.addWidget(self.inpaintChkBx, 6, 0, 1, 2)
-
-        # Single reusable navigation widget (shared between tabs)
-        self.navControls = NavigationControls(process_folder_text="Play Current Folder", process_h5_text="Play Current H5 File")
-
-        self.displayOptGrpBx.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.optionsLayout.addWidget(self.displayOptGrpBx)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.settingsGroup)
-        self.optionsLayout.addStretch()
-        self.optionsLayout.addWidget(self.navControls)
-        self.frameOfKeys = QFrame()
-        self.frameOfKeys.setFixedWidth(400)
-        #self.frameOfKeys.addStretch() 
-        self.frameOfKeys.setLayout(self.optionsLayout)
-
-        self.scroll_areaImg = QScrollArea()
-        self.scroll_areaImg.setWidgetResizable(True)
-        self.scroll_areaImg.setWidget(self.frameOfKeys)
-
-        self.imageTabLayout.addWidget(self.scroll_areaImg)
+        
+        # Add settings to navigator's right panel
+        self.navigator.right_panel.add_widget(self.settingsGroup)
         
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
@@ -318,7 +242,7 @@ class XRayViewerGUI(QMainWindow):
         #### Menu Bar #####
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
-        selectImageAction.triggered.connect(self.browseFile)
+        selectImageAction.triggered.connect(self.navigator.browse_file)
 
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
@@ -338,38 +262,28 @@ class XRayViewerGUI(QMainWindow):
         """
         self.tabWidget.currentChanged.connect(self.onTabChanged)
 
-        ##### Image Tab #####
-        self.spminInt.valueChanged.connect(self.refreshImageTab)
-        self.spmaxInt.valueChanged.connect(self.refreshImageTab)
-        self.colorMapChoice.currentIndexChanged.connect(self.refreshImageTab)
-        self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
+        ##### Navigation & Display - Handled by Navigator #####
+        # Image interaction signals already connected in __init__:
+        # - navigator.imageChanged -> _on_image_changed
+        # - navigator.image_viewer.coordinatesChanged -> _on_coordinates_changed  
+        # - navigator.image_viewer.canvasClicked -> _on_canvas_clicked
+        # Display options (zoom, intensity, etc.) handled internally by ImageViewer
+        # Navigation buttons handled internally by Navigator
         
-        ##### Navigation Controls (shared between tabs) #####
+        ##### Batch processing #####
         self.navControls.processFolderButton.toggled.connect(self.batchProcBtnToggled)
-        self.navControls.nextButton.clicked.connect(self.nextClicked)
-        self.navControls.prevButton.clicked.connect(self.prevClicked)
-        self.navControls.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.navControls.prevFileButton.clicked.connect(self.prevFileClicked)
-        self.navControls.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.navControls.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
+        
+        ##### Custom XRayViewer features #####
         self.calibrationButton.clicked.connect(self.launchCalibrationSettings)
         self.openTrace.clicked.connect(self.openTraceClicked)
         self.measureDist.clicked.connect(self.measureDistChecked)
         self.setSlice.clicked.connect(self.setSliceChecked)
         self.setSliceBox.clicked.connect(self.setSliceBoxChecked)
         self.saveGraphSlice.stateChanged.connect(self.saveGraphSliceChecked)
-        self.inpaintChkBx.stateChanged.connect(self.onImageChanged)
+        self.inpaintChkBx.stateChanged.connect(self._reprocess_with_inpaint)
 
-        self.selectImageButton.clicked.connect(self.browseFile)
-        self.imgZoomInB.clicked.connect(self.imageZoomIn)
-        self.imgZoomOutB.clicked.connect(self.imageZoomOut)
-        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
-        self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
-        self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
-        self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
-        self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
-
-        ##### Graph tab #####
+        ##### Graph tab - Keep matplotlib events (different canvas) #####
         self.fittingFigure.canvas.mpl_connect('button_press_event', self.plotClicked)
         self.fittingFigure.canvas.mpl_connect('motion_notify_event', self.plotOnMotion)
         self.fittingFigure.canvas.mpl_connect('button_release_event', self.plotReleased)
@@ -380,14 +294,211 @@ class XRayViewerGUI(QMainWindow):
         self.zoomInGraphButton.clicked.connect(self.zoomInGraphClicked)
         self.checkableButtons.append(self.measureDist2)
 
-
-    def updateLeftWidgetWidth(self):
-        if self.imageCanvas.isVisible():
-            # Remove the minimum width constraint
-            self.leftWidget.setMinimumWidth(0)
+    # ========== Navigator Signal Handlers ==========
+    
+    def _on_image_changed(self, img, filename, dir_path):
+        """
+        Called when navigator loads a new image.
+        This is the ONLY entry point for image changes.
+        """
+        # Initialize CSV manager if needed
+        if not hasattr(self, 'csv_manager'):
+            self.csv_manager = XV_CSVManager(dir_path)
+        
+        # Create XRayViewer
+        try:
+            self.xrayViewer = XRayViewer(img)
+        except Exception as e:
+            infMsg = QMessageBox()
+            infMsg.setText("Error Opening File: " + str(filename))
+            infMsg.setInformativeText(f"The file is likely corrupted or missing.\nError: {str(e)}")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+            return
+        
+        # Apply inpainting if enabled
+        if self.inpaintChkBx.isChecked():
+            self.statusPrint("Inpainting...")
+            self.xrayViewer.orig_img = inpaint_img(self.xrayViewer.orig_img)
+            self.statusPrint("")
+            # Redisplay the inpainted image
+            self.navigator.image_viewer.display_image(self.xrayViewer.orig_img)
+        
+        # Update status bar with image info
+        original_image = self.xrayViewer.orig_img
+        self.imgDetailOnStatusBar.setText(
+            f"{original_image.shape[0]}x{original_image.shape[1]} : {original_image.dtype}")
+        
+        # Handle tab-specific updates
+        if self.tabWidget.currentIndex() == 1 or self.saveGraphSlice.isChecked():
+            if self.first_slice:
+                self.setSliceChecked()
+            elif self.first_box:
+                self.setSliceBoxChecked()
+            if self.saveGraphSlice.isChecked():
+                self.csv_manager.writeNewData(self.xrayViewer)
         else:
-            # Set the minimum width for when the canvas is hidden
-            self.leftWidget.setMinimumWidth(650)
+            self.refreshAllTabs()
+        
+        self.send_signal()
+        self.resetStatusbar()
+    
+    def _on_coordinates_changed(self, x, y, value):
+        """
+        Handle coordinate changes (mouse motion over image).
+        Replaces imageOnMotion for basic coordinate display.
+        Only called when no ImageViewer tool is active.
+        """
+        if not self.ableToProcess() or not self.xrayViewer:
+            return
+        
+        # Display coordinates with calibrated q-value
+        if 'center' not in self.xrayViewer.info:
+            q, units = [-1, ""]
+        elif self.calSettings and 'scale' in self.calSettings:
+            q, units = inverseNmFromCenter([x, y], 
+                                          self.xrayViewer.info['center'], 
+                                          self.calSettings['scale'])
+        else:
+            q, units = [-1, ""]
+        
+        self.imgCoordOnStatusBar.setText(
+            f"x={x}, y={y}, value={value}, distance={q}{units}")
+        
+        # Custom tool drawing (only if function is active)
+        if self.function is None:
+            return
+        
+        func = self.function
+        ax = self.imageAxes
+        axis_size = 5
+        
+        if func[0] == "slice":
+            # Draw slice markers as mouse moves
+            if len(func) == 1:
+                # Clear old markers
+                for i in range(len(ax.lines)-1,-1,-1):
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
+                # Draw crosshair
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            elif len(func) == 2:
+                # Draw line from first point to cursor
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    for i in range(len(ax.lines)-1,1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.imageCanvas.draw_idle()
+        
+        elif func[0] == "dist":
+            # Draw distance measurement markers
+            if len(func) == 1:
+                for i in range(len(ax.lines)-1,-1,-1):
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            elif len(func) == 2:
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    for i in range(len(ax.lines)-1,1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.imageCanvas.draw_idle()
+    
+    def _on_canvas_clicked(self, event):
+        """
+        Handle canvas clicks for custom tools.
+        Replaces imageClicked for custom tool handling.
+        Only called when no ImageViewer tool is active.
+        """
+        if not self.ableToProcess():
+            return
+        
+        x = event.xdata
+        y = event.ydata
+        
+        if x is None or y is None:
+            return
+        
+        # Handle custom tools
+        if self.function is None:
+            return
+        
+        func = self.function
+        ax = self.imageAxes
+        axis_size = 5
+        
+        if func[0] == "slice":
+            # Record click point for slice
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.imageCanvas.draw_idle()
+            func.append((x, y))
+        
+        elif func[0] == "dist":
+            # Record click point for distance measurement
+            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            self.imageCanvas.draw_idle()
+            func.append((x, y))
+            self.updateMeasureDistBox()
+            if len(func) > 2 and len(func) % 2 != 0:
+                ax.add_artist(self.makeText(func[-1], func[-2], str(int((len(func) - 1) / 2))))
+        
+        elif func[0] == "slice_box":
+            # Handle slice box clicks (3-click process: point 1, point 2 with angle, point 3 for width)
+            if len(func) == 1:
+                # First click: just record the point
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                func.append((x, y))
+            elif len(func) == 2:
+                # Second click: calculate line and angle
+                pivot = ((x + func[1][0])//2, (y + func[1][1])//2)
+                deltax = x - pivot[0]
+                deltay = y - pivot[1]
+                x2 = pivot[0] - deltax
+                y2 = pivot[1] - deltay
+                ax.plot([x, x2], [y, y2], color="r")
+
+                if abs(x - pivot[0]) == 0:
+                    new_angle = -90
+                else:
+                    new_angle = -180. * np.arctan((pivot[1] - y) / (pivot[0] - x)) / np.pi
+
+                func.append((x, x2, y, y2, new_angle))
+            elif len(func) == 3:
+                # Third click: calculate width and length
+                p1 = np.asarray(func[1])
+                p2 = np.asarray((func[2][0], func[2][2]))
+                p3 = np.asarray((x, y))
+                width = np.linalg.norm(np.cross(p2 - p1, p1 - p3))/np.linalg.norm(p2 - p1)
+                length = math.dist(p2, p1)
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                func.append((x, y, int(width), int(length)))
+            self.imageCanvas.draw_idle()
+    
+    def _reprocess_with_inpaint(self):
+        """Reprocess current image with inpainting toggled."""
+        if self.file_manager.current_image is not None:
+            self._on_image_changed(
+                self.file_manager.current_image,
+                self.file_manager.current_image_name,
+                self.file_manager.dir_path
+            )
+
+    # ========== End Navigator Signal Handlers ==========
 
     def launchCalibrationSettings(self, force=False):
         """
@@ -706,41 +817,6 @@ class XRayViewerGUI(QMainWindow):
         self.graph_zoom = None
         self.updateFittingTab(self.xrayViewer.hist)
 
-    def imageZoomIn(self):
-        """
-        Trigger when set zoom in button is pressed (image tab)
-        """
-        if self.imgZoomInB.isChecked():
-            self.imgPathOnStatusBar.setText(
-                "Draw a rectangle on the image to zoom in (ESC to cancel)")
-            ax = self.imageAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.imageCanvas.draw_idle()
-            self.function = ["im_zoomin"]
-        else:
-            self.function = None
-            self.resetStatusbar()
-
-    def imageZoomOut(self):
-        """
-        Trigger when set zoom out button is pressed (image tab)
-        """
-        self.imgZoomInB.setChecked(False)
-        self.default_img_zoom = None
-        self.img_zoom = None
-        self.refreshImageTab()
-        
-    def doubleZoomChecked(self):
-        """
-        Triggered when double zoom is checked
-        """
-
-        self.doubleZoomGUI.doubleZoomChecked(img=self.xrayViewer.orig_img,
-                                             canv=self.imageCanvas,
-                                             is_checked=self.doubleZoom.isChecked())
         
 
     def measureDistChecked(self):
@@ -894,122 +970,6 @@ class XRayViewerGUI(QMainWindow):
                 self.saveGraphSlice.setEnabled(True)
             self.refreshAllTabs()
             
-    def doubleZoomToOrigCoord(self, x, y):
-        """
-        Compute the new x and y for double zoom to orig coord
-        """
-        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
-        dzx, dzy = self.doubleZoomPt
-        x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx -10 + x
-        newY = dzy - 10 + y
-        return (newX, newY)
-
-    def imageClicked(self, event):
-        """
-        Triggered when mouse presses on image in image tab
-        """
-        if not self.ableToProcess():
-            return
-        x = event.xdata
-        y = event.ydata
-        
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            self.imgCoordOnStatusBar.setText("")
-            ax = self.imageAxes
-            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-            x = int(round(x))
-            y = int(round(y))
-        elif self.doubleZoomGUI.doubleZoomMode:
-            self.doubleZoomGUI.mouseClickBehavior(x, y)
-            return
-            
-        if self.doubleZoom.isChecked() and not self.doubleZoomGUI.doubleZoomMode:
-            x, y = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomGUI.doubleZoomMode = True
-
-        if self.function is not None and self.function[0] == 'ignorefold':
-            self.function = None
-
-        # Provide different behavior depending on current active function
-        if self.function is None:
-            self.function = ["im_move", (x, y)]
-        else:
-            func = self.function
-            if func[0] == "im_zoomin":
-                # zoom in image
-                func.append((x, y))
-                if len(func) == 3:
-                    p1 = func[1]
-                    p2 = func[2]
-                    self.img_zoom = [(min(p1[0], p2[0]), max(p1[0], p2[0])), (min(p1[1], p2[1]), max(p1[1], p2[1]))]
-                    self.function = None
-                    self.imgZoomInB.setChecked(False)
-                    self.refreshAllTabs()
-            elif func[0] in ["slice"]:
-                ax = self.imageAxes
-                axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                self.imageCanvas.draw_idle()
-                func.append((x, y))
-            elif func[0] in ["dist"]:
-                ax = self.imageAxes
-                axis_size = 5
-                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                self.imageCanvas.draw_idle()       
-                func.append((x, y))
-                self.updateMeasureDistBox()
-                if len(func) > 2 and len(func) % 2 != 0:
-                    ax.add_artist(self.makeText(func[-1], func[-2], str(int((len(func) - 1) / 2))))
-            elif func[0] == "slice_box":
-                ax = self.imageAxes
-                axis_size = 5
-                if len(func) == 2:
-                    pivot = ((x + func[1][0])//2, (y + func[1][1])//2)
-                    deltax = x - pivot[0]
-                    deltay = y - pivot[1]
-                    x2 = pivot[0] - deltax
-                    y2 = pivot[1] - deltay
-                    ax.plot([x, x2], [y, y2], color="r")
-
-                    if abs(x - pivot[0]) == 0:
-                        new_angle = -90
-                    else:
-                        new_angle = -180. * np.arctan((pivot[1] - y) / (pivot[0] - x)) / np.pi
-
-                    func.append((x, x2, y, y2, new_angle))
-                    #self.doubleZoom.setChecked(False)
-                elif len(func) == 3:
-                    p1 = np.asarray(func[1])
-                    p2 = np.asarray((func[2][0],func[2][2]))
-                    p3 = np.asarray((x, y))
-                    width = np.linalg.norm(np.cross(p2 - p1, p1 - p3))/np.linalg.norm(p2 - p1)
-                    length = math.dist(p2, p1)
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    func.append((x, y, int(width), int(length)))
-                else:
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    func.append((x, y))
-                self.imageCanvas.draw_idle()
-
-
     def makeText(self, p1, p2, txt, dist=100):
         middle = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
         if (p1[0] > p2[0] and p1[1] > p2[1]) or (p1[0] < p2[0] and p1[1] < p2[1]):
@@ -1033,490 +993,12 @@ class XRayViewerGUI(QMainWindow):
 
         return Text(x=x, y=y, text=txt, color='red', ha='center', va='center')
 
-    def imageOnMotion(self, event):
-        """
-        Triggered when mouse hovers on image in image tab
-        """
-        if not self.ableToProcess():
-            return
-        x = event.xdata
-        y = event.ydata
-        img = self.xrayViewer.orig_img
-
-        # Display pixel information if the cursor is on image
-        if x is not None and y is not None:
-
-            if self.doubleZoomGUI.doubleZoomMode:
-                self.doubleZoomGUI.beginImgMotion(x, y, len(img[0]), len(img), (0,0), self.imageAxes)
-
-
-            x = int(round(x))
-            y = int(round(y))
-            
-            if x < img.shape[1] and y < img.shape[0]:
-                
-                if 'center' not in self.xrayViewer.info:
-                    q, units = [-1, ""]
-                elif self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                    q, units = inverseNmFromCenter([x, y], self.xrayViewer.info['center'], self.calSettings['scale'])
-                else:
-                    q, units = [-1,""]
-                
-                self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(q) + units)
-                if self.doubleZoom.isChecked() and self.doubleZoomGUI.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
-                    ax1 = self.doubleZoomGUI.axes
-                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
-                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                        self.doubleZoomGUI.doubleZoomPoint = (x,y)
-                        ax1.imshow(imgScaled)
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches[i].remove()
-                        self.imageCanvas.draw_idle()
-
-        ax = self.imageAxes
-        # Calculate new x,y if cursor is outside figure
-        if x is None or y is None:
-            self.imgCoordOnStatusBar.setText("")
-            bounds = ax.get_window_extent().get_points()  ## return [[x1,y1],[x2,y2]]
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            mx = (xlim[1] - xlim[0]) / (bounds[1][0] - bounds[0][0])
-            cx = xlim[0] - bounds[0][0] * mx
-            my = (ylim[0] - ylim[1]) / (bounds[0][1] - bounds[1][1])  ### todo
-            cy = ylim[1] - bounds[1][1] * my
-            x = event.x * mx + cx
-            y = event.y * my + cy
-            x = max(x, 0)
-            x = min(x, xlim[1])
-            y = max(y, 0)
-            y = min(y, ylim[0])
-            x = int(round(x))
-            y = int(round(y))
-
-        if self.function is None:
-            return
-
-        func = self.function
-        if func[0] == "im_zoomin" and len(self.function) == 1 and self.doubleZoom.isChecked():
-            if not self.doubleZoomGUI.doubleZoomMode:
-                self.doubleZoomGUI.updateAxes(x, y)
-                self.imageCanvas.draw_idle()
-        if func[0] == "im_zoomin" and len(self.function) == 2:
-            # draw rectangle
-            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                if len(ax.patches) > 0:
-                    ax.patches[0].remove()
-                start_pt = func[1]
-                w = abs(start_pt[0] - x)
-                h = abs(start_pt[1] - y)
-                x = min(start_pt[0], x)
-                y = min(start_pt[1], y)
-                ax.add_patch(patches.Rectangle((x, y), w, h,
-                                            linewidth=1, edgecolor='r', facecolor='none', linestyle='dotted'))
-            else:
-                self.doubleZoomGUI.updateAxes(x, y)
-            self.imageCanvas.draw_idle()
-        elif func[0] == "im_move":
-            # change zoom-in location (x,y ranges) to move around image
-            if self.img_zoom is not None:
-                move = (func[1][0] - x, func[1][1] - y)
-                self.img_zoom = getNewZoom(self.img_zoom, move, img.shape[1], img.shape[0])
-                ax.set_xlim(self.img_zoom[0])
-                ax.set_ylim(self.img_zoom[1])
-                ax.invert_yaxis()
-                self.imageCanvas.draw_idle()
-        elif func[0] in ["slice"]:
-            # draw X on points and a line between points
-            ax = self.imageAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-            if len(func) == 1:
-
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.lines) > 0:
-                        for i in range(len(ax.lines)-1,-1,-1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            elif len(func) == 2:
-                start_pt = func[1]
-                    # ax.lines = first_cross
-                # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                # ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-
-                    if len(ax.lines) > 2:
-                        # first_cross = ax.lines[:2]
-                        for i in range(len(ax.lines)-1,1,-1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                        newX, newY = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-                        ax.plot((start_pt[0], newX), (start_pt[1], newY), color='r')
-            elif len(func) >= 2:
-                ax = self.imageAxes
-                for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
-                for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches[i].remove()
-                self.imageCanvas.draw_idle()
-                if func[0] == "slice":
-                    self.setSlice.setChecked(False)
-                    self.setSliceChecked()
-
-            self.imageCanvas.draw_idle()
-        elif func[0] in ["dist"]:
-            # draw X on points and a line between points
-            ax = self.imageAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    # ax.lines = first_cross
-                # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                # ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                        newX, newY = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-                        ax.plot((start_pt[0], newX), (start_pt[1], newY), color='r')
-            elif len(func) % 2 != 0:
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.lines) > 0:
-                        n = (len(func)-1)*5//2 + 2
-                    
-                        for i in range(len(ax.lines)-1, n-3, -1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            elif len(func) % 2 == 0:
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    start_pt = func[-1]
-                    if len(ax.lines) > 3:
-                        n = len(func) * 5 // 2 - 1
-
-                        for i in range(len(ax.lines) - 1, n-3, -1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                        #ax1.plot((start_pt[0], x), (start_pt[1], y), color='r')
-            self.imageCanvas.draw_idle()
-        elif func[0] == "slice_box":
-            # draw X on points and a line between points
-            ax = self.imageAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                        axis_size = 1
-                        ax1 = self.doubleZoomGUI.axes
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        ax1.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                        ax1.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    # ax.lines = first_cross
-                # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                # ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-                    newX, newY = self.doubleZoomGUI.doubleZoomToOrigCoord(x, y)
-                    ax.plot((start_pt[0], newX), (start_pt[1], newY), color='r')
-            elif len(func) == 3:
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    for i in range(len(ax.lines)-1,1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    angle = np.radians(90 - func[2][4])
-                    p_mouse = np.array([x,y])
-                    if func[2][0] < func[2][1]: # p1 is to the left
-                        p_left = np.array((func[2][0], func[2][2]))
-                        p_right = np.array((func[2][1], func[2][3]))
-                    else:
-                        p_left = np.array((func[2][1], func[2][3]))
-                        p_right = np.array((func[2][0], func[2][2]))
-
-                    v1 = p_left - p_right
-                    v2 = p_mouse - p_right
-                    u = v1/np.linalg.norm(v1)
-                    n = (-u[1], u[0])
-
-                    height = np.abs(np.dot(v2, n))
-                    width = np.linalg.norm(p_left - p_right)
-
-                    # if height*2 < width:
-
-                    x1_left = p_left[0] - height*np.cos(angle)
-                    y1_left = p_left[1] - height*np.sin(angle)
-                    x2_left = p_left[0] + height*np.cos(angle)
-                    y2_left = p_left[1] + height*np.sin(angle)
-                    x1_right = p_right[0] - height*np.cos(angle)
-                    y1_right = p_right[1] - height*np.sin(angle)
-                    x2_right= p_right[0] + height*np.cos(angle)
-                    y2_right= p_right[1] + height*np.sin(angle)
-
-                    ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
-
-                    ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
-                    ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
-
-                    ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
-                    ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
-
-                    ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
-                    ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) >= 4:
-                ax = self.imageAxes
-                for i in range(len(ax.lines)-1,-1,-1):
-                    ax.lines[i].remove()
-                for i in range(len(ax.patches)-1,-1,-1):
-                    ax.patches[i].remove()
-                self.imageCanvas.draw_idle()
-                self.setSliceBox.setChecked(False)
-                self.setSliceBoxChecked()
-            self.imageCanvas.draw_idle()
-
-    def imageReleased(self, event):
-        """
-        Triggered when mouse released from image
-        """
-        if self.function is not None and self.function[0] == "im_move":
-            self.function = None
-
-    def imgScrolled(self, event):
-        """
-        This function is called when a mouse scrolled on the image in image tab. This will affect zoom-in and zoom-out
-        """
-        if self.xrayViewer is None or event.xdata is None or event.ydata is None:
-            return
-
-        direction = event.button
-        x = event.xdata
-        y = event.ydata
-        img_size = self.xrayViewer.orig_img.shape
-
-        if self.img_zoom is None:
-            self.img_zoom = [(0, img_size[1]), (0, img_size[0])]
-
-        zoom_height = self.img_zoom[1][1] - self.img_zoom[1][0]
-        zoom_width = self.img_zoom[0][1] - self.img_zoom[0][0]
-        clicked_x_percentage = 1. * (x - self.img_zoom[0][0]) / zoom_width
-        clicked_y_percentage = 1. * (y - self.img_zoom[1][0]) / zoom_height
-        step_x = .1 * zoom_width
-        step_y = .1 * zoom_height
-        if direction == 'up':  # zoom in
-            step_x *= -1
-            step_y *= -1
-        zoom_width = min(img_size[1], max(zoom_width + step_x, 50))
-        zoom_height = min(img_size[0], max(zoom_height + step_y, 50))
-
-        x1 = x - clicked_x_percentage * zoom_width
-        x2 = x1 + zoom_width
-        y1 = y - clicked_y_percentage * zoom_height
-        y2 = y1 + zoom_height
-
-        if x1 < 0:
-            x1 = 0
-            x2 = zoom_width
-        if y1 < 0:
-            y1 = 0
-            y2 = zoom_height
-        if x2 > img_size[1]:
-            x2 = img_size[1]
-            x1 = img_size[1] - zoom_width
-        if y2 > img_size[0]:
-            y2 = img_size[0]
-            y1 = img_size[0] - zoom_height
-
-        # Set new x, y ranges
-        self.img_zoom = [(x1, x2), (y1, y2)]
-
-        # To zoom-in or zoom-out is setting x and y limit of figure
-        ax = self.imageAxes
-        ax.set_xlim(self.img_zoom[0])
-        ax.set_ylim(self.img_zoom[1])
-        ax.invert_yaxis()
-        self.imageCanvas.draw_idle()
 
     def ableToProcess(self):
         """
         Check if image can be processed
         """
         return not self.uiUpdating
-
-    def initialWidgets(self, img):
-        """
-        Initial some widgets values which depends on current image
-        :param img: selected image
-        :param previnfo: info of the last image
-        """
-        self.uiUpdating = True
-        min_val = img.min()
-        max_val = img.max()
-        
-        if not self.persistIntensity.isChecked():
-            # Only update values when NOT persisting (range is already set to allow any value)
-            self.spmaxInt.setValue(max_val * .5)
-            self.spminInt.setValue(min_val)
-        # When persist is checked: don't touch range or values at all
-        
-        self.spmaxInt.setSingleStep(max_val * .05)
-        self.spminInt.setSingleStep(max_val * .05)
-        self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
-        self.maxIntLabel.setText("Max Intensity (" + str(max_val) + ")")
-
-        if 'float' in str(img.dtype):
-            self.spmaxInt.setDecimals(2)
-            self.spminInt.setDecimals(2)
-        else:
-            self.spmaxInt.setDecimals(2)
-            self.spminInt.setDecimals(2)
-
-        self.uiUpdating = False
-
-    def onImageChanged(self):
-        """
-        Need to be called when image is change i.e. to the next image.
-        This will create a new viewer object for the new image and syncUI if cache is available
-        Process the new image if there's no cache.
-        """
-        fileName = self.file_manager.current_image_name
-        self.navControls.filenameLineEdit.setText(fileName)
-        self.navControls.setNavMode(self.file_manager.current_file_type)
-
-        try:
-            img = self.file_manager.load_current()
-            self.xrayViewer = XRayViewer(img)
-        except Exception as e:
-            infMsg = QMessageBox()
-            infMsg.setText("Error Opening File: " + str(fileName))
-            infMsg.setInformativeText("The file is likely corrupted or missing.\nError: " + str(e))
-            infMsg.setStandardButtons(QMessageBox.Ok)
-            infMsg.setIcon(QMessageBox.Information)
-            infMsg.exec_()
-
-        if self.inpaintChkBx.isChecked():
-            self.statusPrint("Inpainting...")
-            self.xrayViewer.orig_img = inpaint_img(self.xrayViewer.orig_img)
-            self.statusPrint("")
-
-        original_image = self.xrayViewer.orig_img
-        self.imgDetailOnStatusBar.setText(
-            str(original_image.shape[0]) + 'x' + str(original_image.shape[1]) + ' : ' + str(original_image.dtype))
-        self.initialWidgets(original_image)
-        if self.tabWidget.currentIndex() == 1 or self.saveGraphSlice.isChecked():
-            if self.first_slice:
-                self.setSliceChecked()
-            elif self.first_box:
-                self.setSliceBoxChecked()
-            if self.saveGraphSlice.isChecked():
-                self.csv_manager.writeNewData(self.xrayViewer)
-        else:
-            self.refreshAllTabs()
-        self.send_signal()
 
     def closeEvent(self, ev):
         """
@@ -1542,22 +1024,9 @@ class XRayViewerGUI(QMainWindow):
 
     def onTabChanged(self, index):
         """
-        Handle tab switching by moving the navigation controls to the current tab
+        Handle tab switching (simplified - navControls now stay in navigator)
         """
-        # Remove navControls from its current parent layout
-        current_parent = self.navControls.parent()
-        if current_parent:
-            current_layout = current_parent.layout()
-            if current_layout:
-                current_layout.removeWidget(self.navControls)
-        
-        # Add navControls to the appropriate layout based on tab index
-        if index == 0:  # Image tab
-            self.optionsLayout.addWidget(self.navControls)
-        elif index == 1:  # Graph tab
-            self.bottomLayout2.addWidget(self.navControls, 4, 0, 4, 2)
-        
-        # Trigger UI update
+        # Trigger UI update for the new tab
         self.updateUI()
 
     def updateUI(self):
@@ -1574,35 +1043,15 @@ class XRayViewerGUI(QMainWindow):
 
     def updateImageTab(self):
         """
-        Display image in image tab, and draw lines
+        Update image tab (image display is handled by ImageNavigatorWidget)
         """
-        if not self.updated['img']:
+        if not self.updated['img'] and self.xrayViewer:
             self.uiUpdating = True
-
+            
+            # ImageNavigatorWidget handles display, we just track the zoom state
             ax = self.imageAxes
-            ax.cla()
-            img = self.xrayViewer.orig_img
-            if self.logScaleIntChkBx.isChecked():
-                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=LogNorm(vmin=max(1, self.spminInt.value()), vmax=self.spmaxInt.value()))
-            else:
-                ax.imshow(img, cmap=self.colorMapChoice.currentText(), norm=Normalize(vmin=self.spminInt.value(), vmax=self.spmaxInt.value()))
-            ax.set_facecolor('black')
-
-            # Set Zoom in location
-            if self.img_zoom is not None and len(self.img_zoom) == 2:
-                ax.set_xlim(self.img_zoom[0])
-                ax.set_ylim(self.img_zoom[1])
-            elif self.default_img_zoom is not None and len(self.default_img_zoom) == 2:
-                ax.set_xlim(self.default_img_zoom[0])
-                ax.set_ylim(self.default_img_zoom[1])
-            else:
-                ax.set_xlim((0, img.shape[1]))
-                ax.set_ylim((0, img.shape[0]))
-
             self.img_zoom = [ax.get_xlim(), ax.get_ylim()]
-            ax.invert_yaxis()
-            self.imageFigure.tight_layout()
-            self.imageCanvas.draw()
+            
             self.updated['img'] = True
             self.uiUpdating = False
 
@@ -1640,79 +1089,20 @@ class XRayViewerGUI(QMainWindow):
         """
         Reset the status bar
         """
-        dir_path = getattr(self.file_manager, 'dir_path', '')
+        if not self.file_manager or not self.file_manager.current_image_name:
+            return
+        
+        dir_path = self.file_manager.dir_path or ''
         fileFullPath = fullPath(dir_path, self.file_manager.current_image_name)
-        # Use names (final) if available, else fallback to file_list length
-        total_count = len(self.file_manager.names) if getattr(self.file_manager, 'names', None) else len(self.file_manager.file_list)
-        total = str(total_count) + ('*' if self._provisionalCount else '')
-        self.imgPathOnStatusBar.setText(
-            'Current Image (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath + \
-            (' (' + str(self.file_manager.current_frame_idx + 1) + '/' + str(self.file_manager.current_h5_nframes) + ')' if self.file_manager.current_h5_nframes else ''))
+        total_count = len(self.file_manager.names) if self.file_manager.names else len(self.file_manager.file_list)
+        
+        # Build status message
+        status_msg = f'Current Image ({self.file_manager.current + 1}/{total_count}) : {fileFullPath}'
+        if self.file_manager.current_h5_nframes:
+            status_msg += f' ({self.file_manager.current_frame_idx + 1}/{self.file_manager.current_h5_nframes})'
+        
+        self.imgPathOnStatusBar.setText(status_msg)
 
-    def onNewFileSelected(self, newFile):
-        """
-        Load selected file and setup for navigation
-        Two-phase loading:
-        1. Sync: FileManager scans directory and displays selected file
-        2. Async: background scan to expand all HDF5 frames for accurate count
-        :param newFile: full name of selected file
-        """
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        
-        # Create or get FileManager
-        if not self.file_manager:
-            self.file_manager = FileManager()
-        
-        # Phase 1: Initialize FileManager with selected file (includes fast directory scan)
-        self.file_manager.set_from_file(str(newFile))
-        
-        # Mark counts provisional until async scan completes
-        self._provisionalCount = True
-
-        if self.file_manager.dir_path and self.file_manager.file_list:
-            self.csv_manager = XV_CSVManager(self.file_manager.dir_path)
-            self.selectImageButton.setHidden(True)
-            self.imageCanvas.setHidden(False)
-            self.updateLeftWidgetWidth()
-            self.tabWidget.setTabEnabled(1, True)
-            self.onImageChanged()
-            
-            # Phase 2: Background async scan to expand all HDF5 frames
-            self._scan_timer.start()
-            # Let FileManager scan and update its own listing; GUI just polls and updates counts
-            self.file_manager.start_async_scan(self.file_manager.dir_path)
-        
-        QApplication.restoreOverrideCursor()
-            
-
-
-    def _checkScanDone(self):
-        """
-        Check if background directory scan is complete.
-        Updates the image layer with full HDF5 frame expansion for accurate count.
-        """
-        if not self.file_manager:
-            return
-        
-        # Show HDF5 processing progress
-        h5_done, h5_total = self.file_manager.get_h5_progress()
-        if h5_total > 0:
-            if not self.progressBar.isVisible():
-                self.progressBar.setVisible(True)
-                self.progressBar.setRange(0, h5_total)
-            self.progressBar.setValue(h5_done)
-            self.progressBar.setFormat(f"Processing HDF5 files: {h5_done}/{h5_total}")
-        
-        # When FileManager finishes, it has already updated names/specs
-        if not self.file_manager.is_scan_done():
-            return
-        
-        # Hide progress bar when done
-        self.progressBar.setVisible(False)
-        
-        self._provisionalCount = False
-        self._scan_timer.stop()
-        self.resetStatusbar()
 
     def batchProcBtnToggled(self):
         """
@@ -1773,67 +1163,16 @@ class XRayViewerGUI(QMainWindow):
             self.progressBar.setValue(progress)
             QApplication.processEvents()
             
-            # Switch to image by index (updates both file_idx and frame_idx correctly)
+            # Switch to image by index and load it
             self.file_manager.switch_image_by_index(img_idx)
-            self.onImageChanged()
+            img = self.file_manager.current_image
+            if img is not None:
+                # Manually trigger image processing for batch mode
+                self._on_image_changed(img, self.file_manager.current_image_name, self.file_manager.dir_path)
         
         self.progressBar.setVisible(False)
 
 
-    def browseFile(self):
-        """
-        Popup input dialog and set file selection
-        """
-        file_name = getAFile()
-        if file_name != "":
-            try:
-                self.onNewFileSelected(str(file_name))
-                self.centralWidget.setMinimumSize(700, 500)
-            except:
-                infMsg = QMessageBox()
-                infMsg.setText("Error Opening File: " + str(file_name))
-                infMsg.setInformativeText("The file is likely corrupted or missing.")
-                infMsg.setStandardButtons(QMessageBox.Ok)
-                infMsg.setIcon(QMessageBox.Information)
-                infMsg.exec_()
-
-    def prevClicked(self):
-        """
-        Going to the previous image
-        """
-        self.file_manager.prev_frame()
-        self.onImageChanged()
-
-    def nextClicked(self):
-        """
-        Going to the next image
-        """
-        self.file_manager.next_frame()
-        self.onImageChanged()
-    
-    def prevFileClicked(self):
-        """
-        Jump to first frame of previous file (typically for HDF5 navigation)
-        """
-        self.file_manager.prev_file()
-        self.onImageChanged()
-
-    def nextFileClicked(self):
-        """
-        Jump to first frame of next file (typically for HDF5 navigation)
-        """
-        self.file_manager.next_file()
-        self.onImageChanged()
-
-    def fileNameChanged(self):
-        """
-        Triggered when the name of the current file is changed
-        """
-        fileName = self.navControls.filenameLineEdit.text().strip()
-        if fileName not in self.file_manager.names:
-            return
-        self.file_manager.switch_image_by_name(fileName)
-        self.onImageChanged()
 
     def showAbout(self):
         """
