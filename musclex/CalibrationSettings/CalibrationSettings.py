@@ -399,31 +399,50 @@ class CalibrationSettings(QDialog):
                 self,
                 imgcopy,
                 vmin=self.minInt.value() if self.minInt.value() != 0 else None,
-                vmax=self.maxInt.value() if self.maxInt.value() != 0 else None
+                vmax=self.maxInt.value() if self.maxInt.value() != 0 else None,
+                silver_behenate=self.silverBehenate.value()
             )
             
             result = dialog.exec()
             
             if result == QDialog.Accepted:
-                # Get selected points from dialog
-                self.manualCalPoints = dialog.getSelectedPoints()
+                # Get calibration results from dialog
+                cal_results = dialog.getCalibrationResults()
                 
-                if len(self.manualCalPoints) >= 5:
-                    # Store original user points before calibration
-                    self._last_user_points = list(self.manualCalPoints)
+                if len(cal_results['selected_points']) >= 5:
+                    # Store user points and refined points
+                    self._last_user_points = list(cal_results['selected_points'])
+                    self.refined_points = cal_results['refined_points']
                     
-                    # Perform calibration
-                    self.recalculate = True
-                    self.calibrate()
-                    
-                    # Store refined points for visualization
-                    if hasattr(self, 'calSettings') and self.calSettings is not None:
-                        self.refined_points = getattr(self, '_last_refined_points', None)
+                    # Update calibration settings with results from dialog
+                    if cal_results['center'] is not None and cal_results['radius'] is not None:
+                        # Use results directly from dialog (already refined)
+                        self.calSettings = {
+                            "center": [round(cal_results['center'][0], 4), round(cal_results['center'][1], 4)],
+                            "radius": round(cal_results['radius'], 4),
+                            "scale": round(cal_results['scale'], 4),
+                            "silverB": cal_results['silver_behenate'],
+                            "type": "img"
+                        }
+                        
+                        # Update silver behenate value
+                        self.silverBehenate.setValue(cal_results['silver_behenate'])
+                        
+                        print(f"Manual calibration completed with {len(cal_results['selected_points'])} points")
+                        print(f"Center: {self.calSettings['center']}, Radius: {self.calSettings['radius']}, Scale: {self.calSettings['scale']}")
+                    else:
+                        # Fallback: User didn't click Apply, do calibration here
+                        self.manualCalPoints = cal_results['selected_points']
+                        self._last_user_points = list(self.manualCalPoints)
+                        
+                        self.recalculate = True
+                        self.calibrate()
+                        
+                        if hasattr(self, 'calSettings') and self.calSettings is not None:
+                            self.refined_points = getattr(self, '_last_refined_points', None)
                     
                     # Update the image display
                     self.updateImage()
-                    
-                    print(f"Manual calibration completed with {len(self.manualCalPoints)} points")
                 else:
                     QMessageBox.warning(
                         self,
