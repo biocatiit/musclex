@@ -163,7 +163,7 @@ class ManualCalibrationDialog(QDialog):
         self.silverBehenateSpinBox.setSingleStep(0.1)
         calibrationLayout.addWidget(self.silverBehenateSpinBox, 0, 1)
         
-        self.optionsLayout.addWidget(self.calibrationGroup)
+        # self.optionsLayout.addWidget(self.calibrationGroup)
         
         # Points list group
         self.pointsGroup = QGroupBox("Selected Points")
