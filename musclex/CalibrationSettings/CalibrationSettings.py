@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import fabio
 import musclex
+import numpy as np
 from pyFAI.detectors import Detector
 from ..ui.pyqt_utils import *
 from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless
@@ -418,7 +419,16 @@ class CalibrationSettings(QDialog):
             else:
                 self.recalculate = True
                 self.manualCal.setText("Set calibration by points selections")
+                
+                # Store original user points before calibration
+                self._last_user_points = list(self.manualCalPoints)
+                
                 self.calibrate()
+                
+                # Store refined points for visualization
+                if hasattr(self, 'calSettings') and self.calSettings is not None:
+                    self.refined_points = getattr(self, '_last_refined_points', None)
+                
                 self.manualCalPoints = None
                 # self.fixedCenter.setChecked(False)
 
@@ -562,6 +572,96 @@ class CalibrationSettings(QDialog):
         }
         pickle.dump(cache, open(cache_file, "wb"))
 
+    def refine_point_on_ring(self, img, center, user_point, search_radius=20):
+        """
+        Refine a user-clicked point by finding the local intensity maximum along the radial direction.
+        
+        Args:
+            img: calibration image (numpy array)
+            center: fitted center coordinates [x, y]
+            user_point: user-clicked point [x, y]
+            search_radius: search range around the user point (pixels)
+        
+        Returns:
+            refined_point: [x, y] coordinates of the intensity maximum
+        """
+        # Calculate radial direction from center to user point
+        dx = user_point[0] - center[0]
+        dy = user_point[1] - center[1]
+        distance = np.sqrt(dx**2 + dy**2)
+        
+        if distance == 0:
+            return user_point
+        
+        # Normalize direction vector
+        dir_x = dx / distance
+        dir_y = dy / distance
+        
+        # Sample along the radial direction
+        start_dist = distance - search_radius
+        end_dist = distance + search_radius
+        num_samples = 2 * search_radius + 1
+        
+        radial_distances = np.linspace(start_dist, end_dist, num_samples)
+        intensities = []
+        sample_points = []
+        
+        for dist in radial_distances:
+            # Calculate point coordinates along the radial direction
+            x = center[0] + dir_x * dist
+            y = center[1] + dir_y * dist
+            
+            # Check bounds
+            if 0 <= x < img.shape[1] and 0 <= y < img.shape[0]:
+                # Bilinear interpolation for sub-pixel accuracy
+                x0, y0 = int(np.floor(x)), int(np.floor(y))
+                x1, y1 = min(x0 + 1, img.shape[1] - 1), min(y0 + 1, img.shape[0] - 1)
+                
+                fx, fy = x - x0, y - y0
+                
+                intensity = (img[y0, x0] * (1 - fx) * (1 - fy) +
+                            img[y0, x1] * fx * (1 - fy) +
+                            img[y1, x0] * (1 - fx) * fy +
+                            img[y1, x1] * fx * fy)
+                
+                intensities.append(intensity)
+                sample_points.append([x, y])
+            else:
+                intensities.append(0)
+                sample_points.append([x, y])
+        
+        # Find the maximum intensity point
+        if len(intensities) > 0:
+            max_idx = np.argmax(intensities)
+            refined_point = sample_points[max_idx]
+            return refined_point
+        else:
+            return user_point
+
+    def refine_calibration_points(self, img, initial_center, user_points, search_radius=20):
+        """
+        Refine all user-clicked points by finding intensity maxima along radial directions.
+        
+        Args:
+            img: calibration image
+            initial_center: initial fitted center
+            user_points: list of user-clicked points
+            search_radius: search range for each point
+        
+        Returns:
+            refined_points: list of refined points with maximum intensity
+        """
+        refined_points = []
+        
+        for pt in user_points:
+            refined_pt = self.refine_point_on_ring(img, initial_center, pt, search_radius)
+            refined_points.append(refined_pt)
+        
+        # Store for visualization
+        self._last_refined_points = refined_points
+        
+        return refined_points
+
     def getImage(self):
         """
         Get the image and returns a copy of the calibration image and the image displayed.
@@ -592,12 +692,41 @@ class CalibrationSettings(QDialog):
         but will not be saved or used (geometric center is always used instead).
         """
         if self.manualCalPoints is not None:
-            center, radius, _ = cv2.fitEllipse(np.array(self.manualCalPoints))
+            # Step 1: Initial fit using user-clicked points
+            user_points_array = np.array(self.manualCalPoints, dtype=np.float32)
+            initial_center, initial_radius, _ = cv2.fitEllipse(user_points_array)
+            initial_center = [initial_center[0], initial_center[1]]
+            
+            print(f"Initial fit - Center: {initial_center}, Radius: {initial_radius}")
+            
+            # Step 2: Refine each point by finding intensity maximum along radial direction
+            imgcopy, _ = self.getImage()
+            refined_points = self.refine_calibration_points(
+                imgcopy, 
+                initial_center, 
+                self.manualCalPoints, 
+                search_radius=30  # Search ±30 pixels along radial direction
+            )
+            
+            print(f"Refined {len(refined_points)} points")
+            
+            # Step 3: Refit circle using refined points
+            refined_points_array = np.array(refined_points, dtype=np.float32)
+            final_center, final_radius, _ = cv2.fitEllipse(refined_points_array)
+            
+            print(f"Final fit - Center: {final_center}, Radius: {final_radius}")
+            
             self.calSettings = {
-                "center": [round(center[0], 4), round(center[1],4)],
-                "radius": round((radius[0] + radius[1]) / 4.),
-                "scale": round((radius[0] + radius[1]) / 4.) * self.silverBehenate.value()
+                "center": [round(final_center[0], 4), round(final_center[1], 4)],
+                "radius": round((final_radius[0] + final_radius[1]) / 4.),
+                "scale": round((final_radius[0] + final_radius[1]) / 4.) * self.silverBehenate.value()
             }
+            
+            # Optional: Visualize refined points on the image
+            if hasattr(self, 'ax') and self.ax is not None:
+                # Plot refined points in blue
+                for rpt in refined_points:
+                    self.ax.plot(rpt[0], rpt[1], 'bo', markersize=8)
         else:
             imgcopy, _ = self.getImage()
             imgcopy[imgcopy <= 0.0] = 0
@@ -692,6 +821,27 @@ class CalibrationSettings(QDialog):
                     patches.Circle(center, radius, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
                 ax.set_xlim((0, disp_img.shape[1]))
                 ax.set_ylim((0, disp_img.shape[0]))
+                
+                # If we have refined calibration points from manual calibration, show them
+                if hasattr(self, 'refined_points') and self.refined_points is not None:
+                    # Get the original user points if we still have them stored
+                    if hasattr(self, '_last_user_points') and self._last_user_points is not None:
+                        # Show user-clicked points in red with 'x' markers
+                        user_pts_x = [pt[0] for pt in self._last_user_points]
+                        user_pts_y = [pt[1] for pt in self._last_user_points]
+                        ax.plot(user_pts_x, user_pts_y, 'rx', markersize=8, markeredgewidth=2, label='User points')
+                    
+                    # Show refined points in blue
+                    refined_pts_x = [pt[0] for pt in self.refined_points]
+                    refined_pts_y = [pt[1] for pt in self.refined_points]
+                    ax.plot(refined_pts_x, refined_pts_y, 'bo', markersize=8, label='Refined points')
+                    
+                    # Draw lines from center to refined points
+                    for pt in self.refined_points:
+                        ax.plot([center[0], pt[0]], [center[1], pt[1]], 'g--', linewidth=0.5, alpha=0.5)
+                    
+                    # Add legend
+                    ax.legend(loc='upper right', fontsize=8)
 
                 ax.set_title("center:" + str(center) + " radius:" + str(radius))
                 #ax.invert_yaxis()
