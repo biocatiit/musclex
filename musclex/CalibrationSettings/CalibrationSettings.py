@@ -385,56 +385,58 @@ class CalibrationSettings(QDialog):
 
     def manualCalClicked(self):
         """
-        Run the manual calibration option, allowing the user to drop points on the image to calibrate.
+        Run the manual calibration option using a dedicated dialog.
         """
         if self.manualCal.isChecked():
-            self.manualCal.setText("Done")
-            self.maxInt.setEnabled(False) #Stop the user from breaking the application
-            self.minInt.setEnabled(False) #Stop the user from breaking the application
-            self.manualCalPoints = []
-            self.doubleZoomMode = True
-            self.ax = self.calImgFigure.add_subplot(111)
-            self.ax.cla()
-            _, img = self.getImage()
-            self.ax.imshow(img)
-            self.ax.set_xlim((0, img.shape[1]))
-            self.ax.set_ylim((0, img.shape[0]))
-            # self.ax.invert_yaxis()
-            self.ax2 = self.calImgFigure.add_subplot(337)
-            self.ax2.cla()
-            self.ax2.imshow(img)
-            self.ax2.set_yticklabels([])
-            self.ax2.set_xticklabels([])
-            self.ax2.invert_yaxis()
-            self.calImgCanvas.draw_idle()
+            # Launch manual calibration dialog
+            from ..ui.ManualCalibrationDialog import ManualCalibrationDialog
+            
+            # Get current image for display
+            imgcopy, _ = self.getImage()
+            
+            # Create and show dialog
+            dialog = ManualCalibrationDialog(
+                self,
+                imgcopy,
+                vmin=self.minInt.value() if self.minInt.value() != 0 else None,
+                vmax=self.maxInt.value() if self.maxInt.value() != 0 else None
+            )
+            
+            result = dialog.exec()
+            
+            if result == QDialog.Accepted:
+                # Get selected points from dialog
+                self.manualCalPoints = dialog.getSelectedPoints()
+                
+                if len(self.manualCalPoints) >= 5:
+                    # Store original user points before calibration
+                    self._last_user_points = list(self.manualCalPoints)
+                    
+                    # Perform calibration
+                    self.recalculate = True
+                    self.calibrate()
+                    
+                    # Store refined points for visualization
+                    if hasattr(self, 'calSettings') and self.calSettings is not None:
+                        self.refined_points = getattr(self, '_last_refined_points', None)
+                    
+                    # Update the image display
+                    self.updateImage()
+                    
+                    print(f"Manual calibration completed with {len(self.manualCalPoints)} points")
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Manual Calibration Error",
+                        "Please select at least 5 points"
+                    )
+            
+            # Reset button state
+            self.manualCalPoints = None
+            self.manualCal.setChecked(False)
         else:
-            if len(self.manualCalPoints) < 5:
-                errMsg = QMessageBox()
-                errMsg.setText('Manual Calibration Error')
-                errMsg.setInformativeText('Please select at least 5 points')
-                errMsg.setStandardButtons(QMessageBox.Ok)
-                errMsg.setIcon(QMessageBox.Warning)
-                errMsg.exec_()
-                self.manualCal.setChecked(True)
-            else:
-                self.recalculate = True
-                self.manualCal.setText("Set calibration by points selections")
-                
-                # Store original user points before calibration
-                self._last_user_points = list(self.manualCalPoints)
-                
-                self.calibrate()
-                
-                # Store refined points for visualization
-                if hasattr(self, 'calSettings') and self.calSettings is not None:
-                    self.refined_points = getattr(self, '_last_refined_points', None)
-                
-                self.manualCalPoints = None
-                # self.fixedCenter.setChecked(False)
-
-                #Let them change this again:
-                self.maxInt.setEnabled(True)
-                self.minInt.setEnabled(True)
+            # If unchecked, just reset
+            self.manualCal.setChecked(False)
 
     def imgClicked(self, event):
         """
