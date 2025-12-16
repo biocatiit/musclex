@@ -77,13 +77,13 @@ class ProcessingWorkspace(QWidget):
         workspace.imageChanged.connect(self.process_and_display)
         workspace.needsReprocess.connect(self.reprocess)
         
-        # Position navigation controls (GUI controls placement)
-        workspace.right_panel.add_bottom_widget(workspace.navigator.nav_controls)
+        # Note: Navigation controls are automatically added to right_panel bottom
+        # by ImageNavigatorWidget. Display panel is also added automatically.
         
         # Add GUI-specific settings to right panel
         workspace.right_panel.add_widget(my_custom_settings)
         
-        # Add display options
+        # Add display options to display panel
         workspace.navigator.image_viewer.display_panel.add_to_top_slot(my_options)
         
         # Load images
@@ -150,15 +150,7 @@ class ProcessingWorkspace(QWidget):
         self._file_manager = self.navigator.file_manager
         
         # Create collapsible right panel for settings
-        self.right_panel = CollapsibleRightPanel(
-            parent=self,
-            title="Settings",
-            settings_key="processing_workspace/right_panel",
-            start_visible=True,
-            show_toggle_internally=False
-        )
-        self.right_panel.setFixedWidth(500)
-        
+        self.right_panel = self.navigator.right_panel
         # Create settings widgets
         self._setup_components()
         
@@ -183,22 +175,27 @@ class ProcessingWorkspace(QWidget):
     
     def _setup_ui(self):
         """
-        Setup UI layout - horizontal layout with navigator and collapsible right panel.
+        Setup UI layout - ImageNavigatorWidget includes right panel.
         
         Layout:
         ┌────────────────────────────────────────────────────┐
         │  ProcessingWorkspace                               │
-        │ ┌──────────────────────┬─────────────────────────┐ │
-        │ │ ImageNavigatorWidget │ CollapsibleRightPanel   │ │
-        │ │                      │ ┌─────────────────────┐ │ │
-        │ │  [Image Display]     │ │ Display Panel       │ │ │
-        │ │                      │ │ [GUI adds widgets]  │ │ │
-        │ │                      │ └─────────────────────┘ │ │
-        │ └──────────────────────┴─────────────────────────┘ │
+        │ ┌────────────────────────────────────────────────┐ │
+        │ │ ImageNavigatorWidget                           │ │
+        │ │ ┌──────────────────┬─────────────────────────┐ │ │
+        │ │ │  [Image Display] │ CollapsibleRightPanel   │ │ │
+        │ │ │                  │ ┌─────────────────────┐ │ │ │
+        │ │ │                  │ │ Display Panel       │ │ │ │
+        │ │ │                  │ │ Nav Controls        │ │ │ │
+        │ │ │                  │ │ [GUI adds widgets]  │ │ │ │
+        │ │ │                  │ └─────────────────────┘ │ │ │
+        │ │ └──────────────────┴─────────────────────────┘ │ │
+        │ └────────────────────────────────────────────────┘ │
         └────────────────────────────────────────────────────┘
         
-        Note: GUI is responsible for adding settings widgets and nav controls.
-              Workspace only adds display panel (if available).
+        Note: Right panel is created by ImageNavigatorWidget and includes
+              display panel and nav controls automatically. GUI adds its
+              own settings widgets as needed.
         """
         # Main layout: horizontal
         main_layout = QHBoxLayout(self)
@@ -208,17 +205,7 @@ class ProcessingWorkspace(QWidget):
         # Left side: ImageNavigatorWidget (takes most space)
         main_layout.addWidget(self.navigator, 1)
         
-        # Right side: CollapsibleRightPanel
-        # Only add display panel - GUI will add other widgets in desired order
-        if self._image_viewer.display_panel:
-            self.right_panel.add_widget(self._image_viewer.display_panel)
-        
-        main_layout.addWidget(self.right_panel, 0)
-        
-        # Setup floating toggle button for right panel
-        self.right_panel.toggle_btn.setParent(self)
-        self.right_panel.toggle_btn.raise_()
-        self.right_panel.toggle_btn.show()
+
     
     def _register_tools(self):
         """Register interactive tools to the ToolManager."""
