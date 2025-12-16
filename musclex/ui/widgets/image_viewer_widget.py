@@ -359,9 +359,11 @@ class ImageViewerWidget(QWidget):
             self.axes.set_ylim(saved_zoom[1])
         # else: First time displaying - use imshow's default (full image with correct Y-axis direction)
         
-        # Update display panel intensity range (for slider bounds)
+        # Update display panel with new image data
         if self.display_panel:
-            self.display_panel.set_intensity_range(img.min(), img.max())
+            # This automatically updates intensity values, step sizes, labels, and decimals
+            # It respects the persist checkbox - only updates values if persist is unchecked
+            self.display_panel.update_from_image(img, respect_persist=True)
         
         self.canvas.draw()
         

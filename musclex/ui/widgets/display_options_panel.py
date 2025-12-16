@@ -430,4 +430,60 @@ class DisplayOptionsPanel(CollapsibleGroupBox):
             widget = child.widget()
             if widget and widget != self.double_zoom_widget:
                 widget.deleteLater()
+    
+    def update_from_image(self, img, respect_persist=True):
+        """
+        Update intensity controls based on image data.
+        
+        This method automatically adjusts:
+        - Intensity values (min/max) based on image data range
+        - Step sizes for spin boxes
+        - Labels to show actual image range
+        - Decimal places based on image dtype
+        
+        Args:
+            img: numpy array image
+            respect_persist: If True, only update values when persist is unchecked.
+                           If False, always update values regardless of persist state.
+        
+        Usage:
+            # Typical usage - respect persist checkbox
+            display_panel.update_from_image(img, respect_persist=True)
+            
+            # Force update even if persist is checked
+            display_panel.update_from_image(img, respect_persist=False)
+        """
+        if img is None:
+            return
+        
+        import numpy as np
+        
+        min_val = float(np.min(img))
+        max_val = float(np.max(img))
+        
+        # Update values only if not persisting (when respect_persist is True)
+        if not respect_persist or not self.is_persist_enabled():
+            # Block signals during batch update to avoid multiple redraws
+            self.minIntSpnBx.blockSignals(True)
+            self.maxIntSpnBx.blockSignals(True)
+            
+            self.minIntSpnBx.setValue(min_val)
+            self.maxIntSpnBx.setValue(max_val * 0.5)
+            
+            self.minIntSpnBx.blockSignals(False)
+            self.maxIntSpnBx.blockSignals(False)
+        
+        # Always update step sizes
+        step = max_val * 0.05 if max_val > 0 else 1.0
+        self.minIntSpnBx.setSingleStep(step)
+        self.maxIntSpnBx.setSingleStep(step)
+        
+        # Always update labels to show image range
+        self.minIntLabel.setText(f"Min Intensity ({min_val:.2f})")
+        self.maxIntLabel.setText(f"Max Intensity ({max_val:.2f})")
+        
+        # Adjust decimals based on dtype
+        decimals = 2 if 'float' in str(img.dtype) else 2
+        self.minIntSpnBx.setDecimals(decimals)
+        self.maxIntSpnBx.setDecimals(decimals)
 
