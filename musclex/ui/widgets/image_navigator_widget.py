@@ -29,6 +29,8 @@ authorization from Illinois Institute of Technology.
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import Signal, QTimer
 
+from musclex.ui.widgets.collapsible_right_panel import CollapsibleRightPanel
+
 from .image_viewer_widget import ImageViewerWidget
 from .navigation_controls import NavigationControls
 from ...utils.file_manager import FileManager
@@ -42,6 +44,7 @@ class ImageNavigatorWidget(QWidget):
     - ImageViewerWidget: Image display with tools and interactions
     - FileManager: File/folder management and image loading
     - NavigationControls: UI controls for navigation
+    - CollapsibleRightPanel: Settings panel with display options and navigation
     
     The widget handles all internal connections between these components,
     providing a unified interface for image browsing and navigation.
@@ -69,6 +72,7 @@ class ImageNavigatorWidget(QWidget):
         image_viewer: ImageViewerWidget instance
         file_manager: FileManager instance
         nav_controls: NavigationControls instance
+        right_panel: CollapsibleRightPanel instance
     
     Example:
         # Basic usage
@@ -76,15 +80,16 @@ class ImageNavigatorWidget(QWidget):
         navigator.imageChanged.connect(my_process_function)
         navigator.load_from_file("/path/to/image.tif")
         
-        # With display panel and navigation controls visible
+        # With display panel visible in right panel
         navigator = ImageNavigatorWidget(
             show_display_panel=True,
-            show_navigation_controls=True
+            show_double_zoom=True
         )
         
         # Advanced: Access internal components
         navigator.image_viewer.tool_manager.activate_tool('zoom')
         total_files = len(navigator.file_manager.names)
+        navigator.right_panel.add_widget(my_custom_widget)
     """
     
     # Signals
@@ -119,10 +124,9 @@ class ImageNavigatorWidget(QWidget):
             navigation_process_h5_text: Text for process H5 button
         
         Note:
-            NavigationControls (self.nav_controls) is always created but NOT added
-            to the layout. The parent GUI is responsible for positioning it.
-            This allows flexible placement (e.g., in right panel, bottom, or moved
-            between tabs as in QuadrantFolding).
+            NavigationControls (self.nav_controls) is automatically added to 
+            the right_panel bottom area. Display panel (if exists) is added
+            to right_panel top area.
         """
         super().__init__(parent)
         
@@ -145,6 +149,27 @@ class ImageNavigatorWidget(QWidget):
             parent=self
         )
         
+        # Create collapsible right panel
+        self.right_panel = CollapsibleRightPanel(
+            parent=self,
+            settings_key="image_navigator/right_panel",
+            start_visible=True,
+            show_toggle_internally=False
+        )
+        self.right_panel.setFixedWidth(500)
+        
+        # Add display panel to right panel if it exists
+        if self.image_viewer.display_panel:
+            self.right_panel.add_widget(self.image_viewer.display_panel)
+        
+        # Add navigation controls to right panel bottom
+        self.right_panel.add_bottom_widget(self.nav_controls)
+
+        # Setup floating toggle button for right panel
+        self.right_panel.toggle_btn.setParent(self)
+        self.right_panel.toggle_btn.raise_()
+        self.right_panel.toggle_btn.show()
+
         # Create select buttons panel if requested
         self.select_panel = None
         self.select_image_btn = None
@@ -193,9 +218,9 @@ class ImageNavigatorWidget(QWidget):
         """
         Setup the widget layout.
         
-        Note: Only includes image_viewer (and optional select_panel).
-        NavigationControls (self.nav_controls) is created but NOT added here
-        - parent GUI controls its placement.
+        Layout: [select_panel (optional)] - [image_viewer] - [right_panel]
+        
+        Note: NavigationControls are added to right_panel bottom by default.
         """
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -207,6 +232,9 @@ class ImageNavigatorWidget(QWidget):
         
         # Add image viewer (takes all space)
         layout.addWidget(self.image_viewer, 1)
+        
+        # Add right panel
+        layout.addWidget(self.right_panel, 0)
     
     def _connect_signals(self):
         """Connect internal component signals."""

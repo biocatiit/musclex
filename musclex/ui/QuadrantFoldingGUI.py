@@ -344,8 +344,6 @@ class QuadrantFoldingGUI(BaseGUI):
         # Add quadrant-specific settings to right panel
         self._create_quadrant_settings()
         
-        # Add navigation controls to right panel bottom
-        self.right_panel.add_bottom_widget(self.navControls)
         
         # Note: Navigation is handled internally by ImageNavigatorWidget
         # QF only listens to imageChanged signal (connected in _additional_setup)
