@@ -383,14 +383,10 @@ class GMMParameterEditorDialog(QDialog):
         print(f"use_equal_variance: {use_equal_variance}")
         print(f"Number of parameters: {len(paramInfo)}")
         
-        # Update gmm_mode flag BEFORE calling fitModel
-        if 'gmm_mode' not in self.projProc.info:
-            self.projProc.info['gmm_mode'] = {}
-        self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
-        
-        # Also update parent's gmm_boxes for persistence
-        if hasattr(self.parent_tab.parent, 'gmm_boxes'):
-            self.parent_tab.parent.gmm_boxes[self.box_name] = use_equal_variance
+        # Update use_common_sigma flag BEFORE calling fitModel
+        if 'use_common_sigma' not in self.projProc.info:
+            self.projProc.info['use_common_sigma'] = {}
+        self.projProc.info['use_common_sigma'][self.box_name] = use_equal_variance
         
         # Extract peak positions from paramInfo (p_0, p_1, p_2, ...)
         # These are relative positions (distance from centerX)
@@ -452,7 +448,7 @@ class GMMParameterEditorDialog(QDialog):
                     sigma_values = [result_dict.get(f'sigma{i}', None) for i in range(20) if f'sigma{i}' in result_dict]
                     print(f"  Individual sigmas: {sigma_values[:5]}...")
                 
-                print(f"=== Refit completed using unified logic, gmm_mode = {use_equal_variance} ===\n")
+                print(f"=== Refit completed using unified logic, use_common_sigma = {use_equal_variance} ===\n")
                 
                 return result_dict
             else:
@@ -473,14 +469,10 @@ class GMMParameterEditorDialog(QDialog):
         use_equal_variance = self.equalVarianceChkBx.isChecked()
         self.projProc.info['fit_results'][self.box_name]['use_common_sigma'] = use_equal_variance
         
-        # Update gmm_mode for backward compatibility
-        if 'gmm_mode' not in self.projProc.info:
-            self.projProc.info['gmm_mode'] = {}
-        self.projProc.info['gmm_mode'][self.box_name] = use_equal_variance
-        
-        # Also update parent's gmm_boxes for persistence
-        if hasattr(self.parent_tab.parent, 'gmm_boxes'):
-            self.parent_tab.parent.gmm_boxes[self.box_name] = use_equal_variance
+        # Also update in projProc.info for future fitting
+        if 'use_common_sigma' not in self.projProc.info:
+            self.projProc.info['use_common_sigma'] = {}
+        self.projProc.info['use_common_sigma'][self.box_name] = use_equal_variance
         
         # Final refresh to ensure UI is in sync
         self.parent_tab.updateUI()

@@ -171,7 +171,7 @@ class ProjectionProcessor:
             if name in all_peaks and all_peaks[name] == peaks:
                 return
             all_peaks[name] = peaks
-            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg']
+            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg', 'use_common_sigma']
             for k in self.info.keys():
                 if k not in skip_list:
                     self.removeInfo(name, k)
@@ -508,7 +508,7 @@ class ProjectionProcessor:
 
             # Init peaks params
             # Check if GMM mode (shared sigma) is enabled for this box
-            use_gmm = self.info.get('gmm_mode', {}).get(name, False)
+            use_gmm = self.info.get('use_common_sigma', {}).get(name, False)
             
             # Check if hull_ranges exist to constrain peak search range
             default_search_dist = 10.
