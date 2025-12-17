@@ -890,10 +890,8 @@ class ProjectionBoxTab(QWidget):
             all_peaks = peaks + op_peaks  # [+dist, -dist]
             
             # Disable GMM mode for single peak selection
-            if hasattr(self.parent, 'gmm_boxes'):
-                self.parent.gmm_boxes[self.name] = False
-            if 'gmm_mode' in self.parent.projProc.info:
-                self.parent.projProc.info['gmm_mode'][self.name] = False
+            if 'use_common_sigma' in self.parent.projProc.info:
+                self.parent.projProc.info['use_common_sigma'][self.name] = False
             
             # Clear old fit_results to force re-fitting without GMM
             if 'fit_results' in self.parent.projProc.info and \
@@ -946,15 +944,10 @@ class ProjectionBoxTab(QWidget):
         
         try:
             # Enable GMM mode BEFORE processing
-            # Store in parent's gmm_boxes dict so it persists
-            if not hasattr(self.parent, 'gmm_boxes'):
-                self.parent.gmm_boxes = {}
-            self.parent.gmm_boxes[self.name] = True
-            
-            # Also set in projProc.info (will be used during fitting)
-            if 'gmm_mode' not in self.parent.projProc.info:
-                self.parent.projProc.info['gmm_mode'] = {}
-            self.parent.projProc.info['gmm_mode'][self.name] = True
+            # Store in projProc.info (will be used during fitting)
+            if 'use_common_sigma' not in self.parent.projProc.info:
+                self.parent.projProc.info['use_common_sigma'] = {}
+            self.parent.projProc.info['use_common_sigma'][self.name] = True
             
             # Clear old fit_results to force re-fitting with new GMM mode
             if 'fit_results' in self.parent.projProc.info and \
@@ -965,9 +958,9 @@ class ProjectionBoxTab(QWidget):
             self.parent.addPeakstoBox(self.name, all_peaks)
             
             # Re-ensure GMM mode is set after processing
-            if 'gmm_mode' not in self.parent.projProc.info:
-                self.parent.projProc.info['gmm_mode'] = {}
-            self.parent.projProc.info['gmm_mode'][self.name] = True
+            if 'use_common_sigma' not in self.parent.projProc.info:
+                self.parent.projProc.info['use_common_sigma'] = {}
+            self.parent.projProc.info['use_common_sigma'][self.name] = True
             
             # Check results after processing
             if 'fit_results' in self.parent.projProc.info and \

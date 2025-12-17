@@ -2296,9 +2296,9 @@ class ProjectionTracesGUI(BaseGUI):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
-        # add GMM mode settings
-        if hasattr(self, 'gmm_boxes'):
-            settings['gmm_mode'] = self.gmm_boxes
+        # add GMM mode settings (from projProc.info if available)
+        if self.projProc and 'use_common_sigma' in self.projProc.info:
+            settings['use_common_sigma'] = self.projProc.info['use_common_sigma']
 
         # add blank image and mask (from ProcessingWorkspace)
         if hasattr(self, 'workspace'):
