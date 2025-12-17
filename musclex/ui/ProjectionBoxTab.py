@@ -405,12 +405,20 @@ class ProjectionBoxTab(QWidget):
         self.optionsLayout.addStretch()
         self.optionsLayout.addLayout(self.pnButtons)
 
+        # Create scroll area for the options panel
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidget(self.optionsFrame)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scrollArea.setFixedWidth(370)  # Slightly wider to accommodate scrollbar
+
         self.graphLayout = QVBoxLayout()
         self.graphLayout.addWidget(self.graphCanvas1)
         self.graphLayout.addWidget(self.graphCanvas2)
         self.graphLayout.addWidget(QLabel("<h5>HINT: Use the 'Zoom in' and 'Zoom out' buttons in the top right to zoom in and out of either canvas.</h5>"))
         self.tabLayout.addLayout(self.graphLayout)
-        self.tabLayout.addWidget(self.optionsFrame)
+        self.tabLayout.addWidget(self.scrollArea)
 
     def setAllToolTips(self):
         """
