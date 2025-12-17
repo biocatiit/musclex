@@ -1049,26 +1049,18 @@ class ProjectionBoxTab(QWidget):
     def clearPeaks(self):
         """
         Trigger when "Clear Peaks" is pressed
+        Clears all peaks without changing button state
         :return:
         """
         if self.function is None:
-            temp = self.parent.peaks[self.name]
-            curr_peaks = [temp[i] for i in range(int(len(temp) / 2) - 1)]
-        else:
-            curr_peaks = self.function[1]
-
-        if self.function is None:
+            # Clear all peaks from parent
             self.parent.addPeakstoBox(self.name, [])
-            self.function = ['single_peak', curr_peaks]
-            self.refreshUI()
-            self.peaksButton.setText("Accept Single Peak")
-            self.peaksButton.setChecked(True)
-            return
-
-        if self.function[0] in ('peaks', 'single_peak', 'peak_cluster') and curr_peaks != []:
-            #Remove the most recent peak
-            self.function[1].pop()
-            self.refreshUI()
+        else:
+            # Clear all peaks from function
+            if self.function[0] in ('peaks', 'single_peak', 'peak_cluster'):
+                self.function[1].clear()
+        
+        self.refreshUI()
 
 
     def keyPressEvent(self, event):
