@@ -18,11 +18,6 @@ class GMMParameterEditorDialog(QDialog):
         self.box_name = box_name
         self.projProc = parent_tab.parent.projProc
         
-        # Backup original fit_results for Cancel operation
-        self.original_fit_result = dict(
-            self.projProc.info['fit_results'][self.box_name]
-        )
-        
         self.setWindowTitle(f"GMM Parameter Editor - {box_name}")
         self.resize(600, 500)  # Simpler, smaller window
         
@@ -550,10 +545,8 @@ class GMMParameterEditorDialog(QDialog):
     
     def reject(self):
         """
-        Cancel: restore original fit_results and close
+        Cancel: Just close the dialog without saving or restoring
         """
-        # Restore backup to undo all changes (including use_common_sigma flag)
-        self.projProc.info['fit_results'][self.box_name] = self.original_fit_result
         
         # Redraw to show original values
         self.parent_tab.need_update = True
