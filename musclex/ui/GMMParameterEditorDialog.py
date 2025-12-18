@@ -74,15 +74,15 @@ class GMMParameterEditorDialog(QDialog):
         
         self.refitBtn = QPushButton("Re-fit")
         self.refitBtn.clicked.connect(self.onRefit)
-        
-        self.applyBtn = QPushButton("Apply & Close")
-        self.applyBtn.clicked.connect(self.onApply)
+        self.refitBtn.setAutoDefault(False)
+        self.refitBtn.setDefault(False)
         
         self.cancelBtn = QPushButton("Cancel")
         self.cancelBtn.clicked.connect(self.reject)
+        self.cancelBtn.setAutoDefault(False)
+        self.cancelBtn.setDefault(False)
         
         buttonLayout.addWidget(self.refitBtn)
-        buttonLayout.addWidget(self.applyBtn)
         buttonLayout.addWidget(self.cancelBtn)
         
         mainLayout.addLayout(buttonLayout)
