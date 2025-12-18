@@ -340,12 +340,15 @@ class GMMParameterEditorDialog(QDialog):
                 # Update table with new values
                 self.populateParameters()
                 
-                # Force canvas redraw
-                self.parent_tab.graphCanvas1.draw()
-                self.parent_tab.graphCanvas2.draw()
+                # Set need_update flag to ensure UI refresh
+                self.parent_tab.need_update = True
                 
                 # Refresh parent BoxTab to show updated fit
                 self.parent_tab.updateUI()
+                
+                # Force canvas redraw after updateUI
+                self.parent_tab.graphCanvas1.draw()
+                self.parent_tab.graphCanvas2.draw()
                 
                 # Display mode in message
                 mode = "GMM (Equal Variance)" if self.equalVarianceChkBx.isChecked() \
@@ -382,6 +385,19 @@ class GMMParameterEditorDialog(QDialog):
         print(f"Box: {self.box_name}")
         print(f"use_equal_variance: {use_equal_variance}")
         print(f"Number of parameters: {len(paramInfo)}")
+        
+        # Save old result for comparison
+        old_result = None
+        if self.box_name in self.projProc.info.get('fit_results', {}):
+            old_result = dict(self.projProc.info['fit_results'][self.box_name])
+            print(f"\n--- OLD VALUES (before refit) ---")
+            print(f"  common_sigma: {old_result.get('common_sigma', 'N/A')}")
+            print(f"  error: {old_result.get('error', 'N/A')}")
+            if use_equal_variance:
+                print(f"  (GMM mode - all sigmas share common_sigma)")
+            else:
+                sigmas = [old_result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in old_result]
+                print(f"  individual sigmas (first 5): {sigmas}")
         
         # Update use_common_sigma flag BEFORE calling fitModel
         if 'use_common_sigma' not in self.projProc.info:
@@ -463,8 +479,38 @@ class GMMParameterEditorDialog(QDialog):
                     if pinfo.get('fixed', False):
                         result_dict[f'{param_name}_fixed'] = True
                 
+                # Print comparison if we have old result
+                if old_result:
+                    print(f"\n--- NEW VALUES (after refit) ---")
+                    print(f"  common_sigma: {result_dict.get('common_sigma', 'N/A')}")
+                    print(f"  error: {result_dict.get('error', 'N/A')}")
+                    if use_equal_variance:
+                        print(f"  (GMM mode - all sigmas share common_sigma)")
+                    else:
+                        sigmas = [result_dict.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result_dict]
+                        print(f"  individual sigmas (first 5): {sigmas}")
+                    
+                    print(f"\n--- CHANGES ---")
+                    # Compare key parameters
+                    params_to_compare = ['common_sigma', 'error']
+                    # Add individual sigmas if not GMM
+                    if not use_equal_variance:
+                        params_to_compare.extend([f'sigma{i}' for i in range(min(5, len([k for k in result_dict.keys() if k.startswith('sigma') and k != 'common_sigma'])))])
+                    # Add first 3 positions and amplitudes
+                    for i in range(min(3, len([k for k in result_dict.keys() if k.startswith('p_')]))):
+                        params_to_compare.append(f'p_{i}')
+                        params_to_compare.append(f'amplitude{i}')
+                    
+                    for key in params_to_compare:
+                        if key in result_dict and key in old_result:
+                            old_val = old_result[key]
+                            new_val = result_dict[key]
+                            diff = new_val - old_val
+                            percent = (diff / old_val * 100) if old_val != 0 else 0
+                            print(f"  {key:15s}: {old_val:10.4f} → {new_val:10.4f}  (Δ={diff:+10.6f}, {percent:+6.2f}%)")
+                
                 # Debug: print sigma values after fit
-                print(f"Fit complete. Error: {result_dict.get('error', 0):.6f}")
+                print(f"\nFit complete. Error: {result_dict.get('error', 0):.6f}")
                 if use_equal_variance:
                     print(f"  common_sigma: {result_dict.get('common_sigma', 'N/A')}")
                 else:
