@@ -109,7 +109,7 @@ class GMMParameterEditorDialog(QDialog):
             'val': fit_result.get('common_sigma', 10.0),
             'min': 1.0,
             'max': 100.0,
-            'fixed': False,
+            'fixed': fit_result.get('common_sigma_fixed', False),  # Read fixed state
             'enabled': is_gmm  # Only enabled in GMM mode
         }
         
@@ -121,7 +121,7 @@ class GMMParameterEditorDialog(QDialog):
                 'val': fit_result[f'p_{i}'],
                 'min': fit_result[f'p_{i}'] - 20,
                 'max': fit_result[f'p_{i}'] + 20,
-                'fixed': False,
+                'fixed': fit_result.get(f'p_{i}_fixed', False),  # Read fixed state
                 'enabled': True
             }
             
@@ -130,7 +130,7 @@ class GMMParameterEditorDialog(QDialog):
                 'val': fit_result[f'amplitude{i}'],
                 'min': 0,
                 'max': fit_result[f'amplitude{i}'] * 5,
-                'fixed': False,
+                'fixed': fit_result.get(f'amplitude{i}_fixed', False),  # Read fixed state
                 'enabled': True
             }
             
@@ -139,7 +139,7 @@ class GMMParameterEditorDialog(QDialog):
                 'val': fit_result.get(f'sigma{i}', fit_result.get('common_sigma', 10.0)),
                 'min': 1.0,
                 'max': 100.0,
-                'fixed': False,
+                'fixed': fit_result.get(f'sigma{i}_fixed', False),  # Read fixed state
                 'enabled': not is_gmm  # Only enabled in non-GMM mode
             }
             
@@ -439,6 +439,11 @@ class GMMParameterEditorDialog(QDialog):
             # Retrieve the fit result
             if self.box_name in self.projProc.info.get('fit_results', {}):
                 result_dict = self.projProc.info['fit_results'][self.box_name]
+                
+                # Save fixed states from paramInfo to fit_results
+                for param_name, pinfo in paramInfo.items():
+                    if pinfo.get('fixed', False):
+                        result_dict[f'{param_name}_fixed'] = True
                 
                 # Debug: print sigma values after fit
                 print(f"Fit complete. Error: {result_dict.get('error', 0):.6f}")
