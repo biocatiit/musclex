@@ -445,25 +445,28 @@ class GMMParameterEditorDialog(QDialog):
                 amp_idx = int(param_name.replace('amplitude', ''))
                 self.projProc.fixed_amplitude[amp_idx] = pinfo['val']
         
-        # Ensure hists2 has data for this box (fitModel requires it)
-        if 'hists2' not in self.projProc.info:
-            self.projProc.info['hists2'] = {}
-        if self.box_name not in self.projProc.info['hists2']:
-            # Restore from subtracted_hists if available
-            if 'subtracted_hists' in self.projProc.info and self.box_name in self.projProc.info['subtracted_hists']:
-                self.projProc.info['hists2'][self.box_name] = self.projProc.info['subtracted_hists'][self.box_name]
-            else:
-                print(f"ERROR: No histogram data found for box {self.box_name}!")
-                return None
-        
-        # Clear cached fit results to force re-fitting
+        # Clear cached results to force re-fitting and recalculation
+        # Note: We delete fit_results and subtracted_hists to trigger recalculation
+        # hists2 is kept as it contains the correct convex-hull-subtracted data
+        # Other data (moved_peaks, baselines, centroids, etc.) will be automatically
+        # deleted by getPeakInfos() through its internal removeInfo() calls
         if self.box_name in self.projProc.info.get('fit_results', {}):
             del self.projProc.info['fit_results'][self.box_name]
         
-        # Call the unified fitModel method
-        # Note: fitModel processes all boxes, but will only refit boxes that don't have fit_results
+        if self.box_name in self.projProc.info.get('subtracted_hists', {}):
+            del self.projProc.info['subtracted_hists'][self.box_name]
+        
+        # Delete moved_peaks to trigger recalculation in getPeakInfos()
+        # (getPeakInfos will then automatically cascade delete baselines, centroids, etc.)
+        if self.box_name in self.projProc.info.get('moved_peaks', {}):
+            del self.projProc.info['moved_peaks'][self.box_name]
+        
+        # Call fitModel, getBackgroundSubtractedHistograms, and getPeakInfos (same flow as process())
+        # Note: These methods process all boxes but only refit/recalculate missing data
         try:
             self.projProc.fitModel()
+            self.projProc.getBackgroundSubtractedHistograms()
+            self.projProc.getPeakInfos()
             
             # Retrieve the fit result
             if self.box_name in self.projProc.info.get('fit_results', {}):
