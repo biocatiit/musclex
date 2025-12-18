@@ -405,16 +405,34 @@ class GMMParameterEditorDialog(QDialog):
         # Update moved_peaks with new positions
         self.projProc.info['moved_peaks'][self.box_name] = peak_positions
         
-        # Update fixed_sigma if any sigma is marked as fixed in non-GMM mode
-        if not use_equal_variance:
-            self.projProc.fixed_sigma = {}
-            for param_name, pinfo in paramInfo.items():
-                if param_name.startswith('sigma') and param_name != 'common_sigma':
-                    if pinfo['fixed']:
-                        sigma_idx = int(param_name.replace('sigma', ''))
-                        self.projProc.fixed_sigma[sigma_idx] = pinfo['val']
-        else:
-            self.projProc.fixed_sigma = {}
+        # Update fixed parameters for all types (position, sigma, amplitude, common_sigma)
+        self.projProc.fixed_sigma = {}
+        self.projProc.fixed_center = {}
+        self.projProc.fixed_amplitude = {}
+        self.projProc.fixed_common_sigma = None
+        
+        for param_name, pinfo in paramInfo.items():
+            if not pinfo.get('fixed', False):
+                continue
+            
+            # Fixed common_sigma (GMM mode)
+            if param_name == 'common_sigma':
+                self.projProc.fixed_common_sigma = pinfo['val']
+            
+            # Fixed sigma (independent mode)
+            elif param_name.startswith('sigma') and param_name != 'common_sigma':
+                sigma_idx = int(param_name.replace('sigma', ''))
+                self.projProc.fixed_sigma[sigma_idx] = pinfo['val']
+            
+            # Fixed position (p_0, p_1, ...)
+            elif param_name.startswith('p_'):
+                pos_idx = int(param_name.replace('p_', ''))
+                self.projProc.fixed_center[pos_idx] = pinfo['val']
+            
+            # Fixed amplitude
+            elif param_name.startswith('amplitude'):
+                amp_idx = int(param_name.replace('amplitude', ''))
+                self.projProc.fixed_amplitude[amp_idx] = pinfo['val']
         
         # Ensure hists2 has data for this box (fitModel requires it)
         if 'hists2' not in self.projProc.info:
