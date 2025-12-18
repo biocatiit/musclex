@@ -1102,9 +1102,13 @@ class ProjectionBoxTab(QWidget):
         Draw plots and display results in text
         :return:
         """
+        print(f"[updateUI] Called for box '{self.name}', need_update={self.need_update}")
+        
         if self.parent.projProc is None or not self.need_update:
+            print(f"[updateUI] Skipped - projProc exists: {self.parent.projProc is not None}, need_update: {self.need_update}")
             return
 
+        print(f"[updateUI] Proceeding with UI update...")
         self.syncUI = True
         
         self.lines = []
@@ -1147,6 +1151,12 @@ class ProjectionBoxTab(QWidget):
             xs = np.arange(0, len(hist))
             model = info['fit_results'][name]
             convex_hull = hist - info['hists2'][name]
+            
+            print(f"[updateUI] Drawing fit for '{name}'")
+            print(f"  Fit model checkbox: {self.fitmodelChkBx.isChecked()}")
+            print(f"  Model sigma0: {model.get('sigma0', 'N/A')}")
+            print(f"  Model amplitude0: {model.get('amplitude0', 'N/A')}")
+            print(f"  Model common_sigma: {model.get('common_sigma', 'N/A')}")
 
             if self.subHistChkBx.isChecked() and name in subtracted_hists:
                 ax2.plot(subtracted_hists[name], color='k')
@@ -1160,10 +1170,13 @@ class ProjectionBoxTab(QWidget):
                     model_hist = model_hist + convex_hull
 
                 ax.plot(model_hist, color='g')
+                print(f"  Drew fit curve on ax1, model_hist range: [{model_hist.min():.2f}, {model_hist.max():.2f}]")
+                
                 if bgsubs[name] == 2: # if no background subtraction, use the fit from the original model
                     ax2.plot(model_hist, color='g')
                 else:
                     ax2.plot(subtracted_model, color='g')
+                print(f"  Drew fit curve on ax2")
 
             if self.bgChkBx.isChecked():
                 if bgsubs[name] == 1:
