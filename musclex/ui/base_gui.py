@@ -299,6 +299,9 @@ class BaseGUI(QMainWindow):
         """
         # Auto-connect to workspace/navigator scan signals if available
         self._setup_scan_monitoring()
+        
+        # Auto-connect to workspace/navigator file path updates
+        self._setup_file_path_updates()
     
     def _position_floating_widgets(self):
         """
@@ -339,6 +342,24 @@ class BaseGUI(QMainWindow):
         if hasattr(self, 'workspace'):
             self.workspace.scanProgressChanged.connect(self._on_scan_progress)
             self.workspace.scanComplete.connect(self._on_scan_complete)
+    
+    def _setup_file_path_updates(self):
+        """
+        Setup automatic file path status bar updates.
+        
+        Connects ImageNavigatorWidget's filePathTextReady signal to
+        imgPathOnStatusBar for automatic updates when images change.
+        
+        This provides automatic status bar updates for file path display
+        without requiring manual updates in each GUI.
+        """
+        # Check if workspace with navigator exists
+        if hasattr(self, 'workspace') and hasattr(self.workspace, 'navigator'):
+            if hasattr(self, 'imgPathOnStatusBar'):
+                # Direct connection: Navigator provides text, statusBar displays it
+                self.workspace.navigator.filePathTextReady.connect(
+                    self.imgPathOnStatusBar.setText
+                )
     
     def _on_scan_progress(self, h5_done: int, h5_total: int):
         """
