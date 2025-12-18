@@ -76,6 +76,8 @@ class ProjectionProcessor:
         self.masked = False
         self.fixed_sigma = {}
         self.fixed_center = {}
+        self.fixed_amplitude = {}
+        self.fixed_common_sigma = None
         self.rotMat = None
         
         # Load cache
@@ -521,7 +523,11 @@ class ProjectionProcessor:
             
             if use_gmm:
                 # GMM mode: all peaks share one sigma
-                params.add('common_sigma', 10, min=1, max=50.)
+                # Check if common_sigma is fixed
+                if self.fixed_common_sigma is not None:
+                    params.add('common_sigma', self.fixed_common_sigma, vary=False)
+                else:
+                    params.add('common_sigma', 10, min=1, max=50.)
                 
                 for j, p in enumerate(peaks):
                     # Constrain peak position search range
@@ -539,16 +545,23 @@ class ProjectionProcessor:
                         p_min = p - default_search_dist
                         p_max = p + default_search_dist
                     
-                    params.add('p_' + str(j), p, min=p_min, max=p_max)
-                    # Key: use expression to bind all sigmas to common_sigma
+                    # Position: check if fixed
+                    if j in self.fixed_center:
+                        params.add('p_' + str(j), self.fixed_center[j], vary=False)
+                    else:
+                        params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    
+                    # Sigma: use expression to bind all sigmas to common_sigma
                     params.add('sigma' + str(j), expr='common_sigma')
-                    params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+                    
+                    # Amplitude: check if fixed
+                    if j in self.fixed_amplitude:
+                        params.add('amplitude' + str(j), self.fixed_amplitude[j], vary=False, min=-1)
+                    else:
+                        params.add('amplitude' + str(j), sum(hist)/10., min=-1)
             else:
                 # Original mode: each peak has independent sigma
                 for j,p in enumerate(peaks):
-                    # if j in self.fixed_center:
-                    #     params.add('p_' + str(j), self.fixed_center[j])
-                    # else:
                     # Constrain peak position search range
                     if hull_constraint is not None:
                         hull_start, hull_end = hull_constraint
@@ -564,15 +577,23 @@ class ProjectionProcessor:
                         p_min = p - default_search_dist
                         p_max = p + default_search_dist
                     
-                    params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    # Position: check if fixed
+                    if j in self.fixed_center:
+                        params.add('p_' + str(j), self.fixed_center[j], vary=False)
+                    else:
+                        params.add('p_' + str(j), p, min=p_min, max=p_max)
+                    
+                    # Sigma: check if fixed
                     if j in self.fixed_sigma:
                         params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
                     else:
                         params.add('sigma' + str(j), 10, min=1, max=50.)
-                    # if j in self.fixed_center:
-                    #     params.add('fix' + str(j), self.fixed_center[j])
-                    params.add('amplitude' + str(j), sum(hist)/10., min=-1)
-                    # params.add('gamma' + str(j), 0. , min=0., max=30)
+                    
+                    # Amplitude: check if fixed
+                    if j in self.fixed_amplitude:
+                        params.add('amplitude' + str(j), self.fixed_amplitude[j], vary=False, min=-1)
+                    else:
+                        params.add('amplitude' + str(j), sum(hist)/10., min=-1)
 
             # Fit model
             model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
