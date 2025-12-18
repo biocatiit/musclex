@@ -99,6 +99,7 @@ class ImageNavigatorWidget(QWidget):
     navigationError = Signal(str)  # Error message
     scanComplete = Signal()  # Background directory scan complete
     scanProgressChanged = Signal(int, int)  # (h5_done, h5_total) - HDF5 scan progress
+    filePathTextReady = Signal(str)  # Formatted file path status text
     
     def __init__(
         self, 
@@ -459,6 +460,9 @@ class ImageNavigatorWidget(QWidget):
             # Emit signal for external processing (always)
             self.imageChanged.emit(img, filename, dir_path)
             
+            # Emit formatted file path text for statusBar
+            self._emit_file_path_text(filename, dir_path)
+            
         except Exception as e:
             error_msg = f"Error loading image: {str(e)}"
             self.navigationError.emit(error_msg)
@@ -474,6 +478,35 @@ class ImageNavigatorWidget(QWidget):
             self.nav_controls.filenameLineEdit.setText(
                 self.file_manager.current_image_name
             )
+    
+    def _emit_file_path_text(self, filename: str, dir_path: str):
+        """
+        Prepare formatted file path text and emit signal.
+        
+        Args:
+            filename: Current filename
+            dir_path: Directory path
+        
+        Emits:
+            filePathTextReady: Formatted text for statusBar display
+        """
+        from os.path import join
+        
+        current_idx = self.file_manager.current + 1
+        total = len(self.file_manager.names)
+        
+        # Add '*' if still scanning HDF5 files
+        scanning = not self.file_manager.is_scan_done()
+        total_str = f"{total}{'*' if scanning else ''}"
+        
+        # Full path
+        full_path = join(dir_path, filename)
+        
+        # Format text
+        text = f"Current File ({current_idx}/{total_str}) : {full_path}"
+        
+        # Emit signal
+        self.filePathTextReady.emit(text)
     
     def _check_scan_progress(self):
         """

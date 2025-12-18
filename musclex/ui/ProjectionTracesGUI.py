@@ -2231,14 +2231,18 @@ class ProjectionTracesGUI(BaseGUI):
 
     def refreshStatusbar(self):
         """
-        Set Left status bar to be image detail
-        Set Right status bar to by image shape and type
-        Clear pixel detail
+        Update status bar with image information.
+        
+        Note: File path display is now automatically handled by BaseGUI
+        through ImageNavigatorWidget.filePathTextReady signal.
         """
         if self.projProc is None:
             return
-        self.setLeftStatus( "(" + str(self.current_file + 1) + "/" + str(len(self.imgList)) + ") " + fullPath(self.dir_path,
-                                                                                            self.projProc.filename))
+        
+        # File path update moved to BaseGUI._setup_file_path_updates()
+        # The navigator automatically emits filePathTextReady when images change
+        
+        # Update image details
         img = self.projProc.orig_img
         if self.calSettings is not None and not self.calSettings:
             self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))

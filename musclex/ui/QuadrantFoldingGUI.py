@@ -2746,13 +2746,13 @@ class QuadrantFoldingGUI(BaseGUI):
     def resetStatusbar(self):
         """
         Reset the status bar
+        
+        Note: File path display is now automatically handled by BaseGUI
+        through ImageNavigatorWidget.filePathTextReady signal.
         """
-        fileFullPath = fullPath(self.filePath, self.file_manager.current_image_name)
-        # Use FileManager's scan status instead of _provisionalCount
-        scanning = not self.file_manager.is_scan_done()
-        total = str(len(self.file_manager.names)) + ('*' if scanning else '')
-        self.imgPathOnStatusBar.setText(
-            'Current File (' + str(self.file_manager.current + 1) + '/' + total + ') : ' + fileFullPath)
+        # File path update moved to BaseGUI._setup_file_path_updates()
+        # The navigator automatically emits filePathTextReady when images change
+        pass
         
     def resetStatusbar2(self):
         """
