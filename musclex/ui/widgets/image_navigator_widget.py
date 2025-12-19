@@ -527,6 +527,13 @@ class ImageNavigatorWidget(QWidget):
         if self.file_manager.is_scan_done():
             self._scan_timer.stop()
             self.scanComplete.emit()
+            
+            # Update file path text to remove scanning indicator (*)
+            if self.file_manager.current_image_name and self.file_manager.dir_path:
+                self._emit_file_path_text(
+                    self.file_manager.current_image_name,
+                    self.file_manager.dir_path
+                )
     
     # ===== Property Accessors (for convenience) =====
     
