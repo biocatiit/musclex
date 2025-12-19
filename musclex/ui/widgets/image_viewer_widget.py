@@ -591,12 +591,20 @@ class ImageViewerWidget(QWidget):
         
         Processing order:
         1. Emit signal to external handlers
-        2. Internal wheel zoom handling
+        2. DoubleZoom scroll handling (if enabled)
+        3. Internal wheel zoom handling
         """
         # 0. Emit raw event signal
         self.mouseScrolled.emit(event)
         
-        # 1. Handle wheel zoom (built-in feature)
+        # 1. DoubleZoom scroll handling (for zoom window crop radius adjustment)
+        if self.double_zoom.is_enabled():
+            self.double_zoom.handle_mouse_scroll_event(event)
+            # If DoubleZoom handled the scroll (mouse over zoom window), don't do wheel zoom
+            if event.inaxes == self.double_zoom.doubleZoomAxes:
+                return
+        
+        # 2. Handle wheel zoom (built-in feature)
         if event.inaxes != self.axes or event.xdata is None:
             return
         
