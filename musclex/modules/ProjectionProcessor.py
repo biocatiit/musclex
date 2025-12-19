@@ -513,7 +513,8 @@ class ProjectionProcessor:
             use_gmm = self.info.get('use_common_sigma', {}).get(name, False)
             
             # Check if hull_ranges exist to constrain peak search range
-            default_search_dist = 10.
+            # Get peak tolerance from settings (default 10.0 for backward compatibility)
+            default_search_dist = self.info.get('peak_tolerances', {}).get(name, 2.0)
             hull_constraint = None
             if name in self.info['hull_ranges']:
                 hull_start, hull_end = self.info['hull_ranges'][name]
