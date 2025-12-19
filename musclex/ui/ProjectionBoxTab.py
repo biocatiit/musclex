@@ -293,12 +293,14 @@ class ProjectionBoxTab(QWidget):
         self.peakClusterButton.setCheckable(True)
         self.checkableButtons.append(self.peakClusterButton)
         
-        # New: GMM number of Gaussians spinner
-        self.gmmNumGaussSpinBox = QSpinBox()
-        self.gmmNumGaussSpinBox.setRange(1, 10)
-        self.gmmNumGaussSpinBox.setValue(3)
-        self.gmmNumGaussSpinBox.setPrefix("N: ")
-        self.gmmNumGaussSpinBox.setToolTip("Number of Gaussian peaks to fit (will be mirrored)")
+        # New: Peak Tolerance label and spinner for search distance
+        self.peakToleranceLabel = QLabel("Peak Tolerance")
+        self.peakToleranceSpinBox = QDoubleSpinBox()
+        self.peakToleranceSpinBox.setRange(0.1, 50.0)
+        self.peakToleranceSpinBox.setValue(2.0)
+        self.peakToleranceSpinBox.setSingleStep(0.5)
+        self.peakToleranceSpinBox.setDecimals(1)
+        self.peakToleranceSpinBox.setToolTip("Peak tolerance - search distance for peak fitting")
         
         self.clearPeakButton = QPushButton("Clear Peaks")
         self.clearPeakButton.setVisible(True)
@@ -333,19 +335,20 @@ class ProjectionBoxTab(QWidget):
         
         # Layout for new buttons
         self.settingLayout.addWidget(self.peaksButton, 0, 0, 1, 2)
-        self.settingLayout.addWidget(self.peakClusterButton, 1, 0, 1, 1)
-        self.settingLayout.addWidget(self.gmmNumGaussSpinBox, 1, 1, 1, 1)
-        self.settingLayout.addWidget(self.clearPeakButton, 2, 0, 1, 2)
-        self.settingLayout.addWidget(self.paramEditorButton, 3, 0, 1, 2)
-        self.settingLayout.addWidget(self.hullRangeButton, 4, 0, 1, 2)
+        self.settingLayout.addWidget(self.peakClusterButton, 1, 0, 1, 2)
+        self.settingLayout.addWidget(self.peakToleranceLabel, 2, 0, 1, 1)
+        self.settingLayout.addWidget(self.peakToleranceSpinBox, 2, 1, 1, 1)
+        self.settingLayout.addWidget(self.clearPeakButton, 3, 0, 1, 2)
+        self.settingLayout.addWidget(self.paramEditorButton, 4, 0, 1, 2)
+        self.settingLayout.addWidget(self.hullRangeButton, 5, 0, 1, 2)
         if self.parent.bgsubs[self.name]== 1:
-            self.settingLayout.addWidget(QLabel("Start"), 5, 0, 1, 1, Qt.AlignCenter)
-            self.settingLayout.addWidget(QLabel("End"), 5, 1, 1, 1, Qt.AlignCenter)
-        self.settingLayout.addWidget(self.startHull, 6, 0, 1, 1)
-        self.settingLayout.addWidget(self.endHull, 6, 1, 1, 1)
-        self.settingLayout.addWidget(self.meridBckGrndChkBx, 7, 0, 1, 2)
-        self.settingLayout.addWidget(self.editMainPeakButton, 8, 0, 1, 2)
-        self.settingLayout.addWidget(self.refitButton, 9, 0, 1, 2)
+            self.settingLayout.addWidget(QLabel("Start"), 6, 0, 1, 1, Qt.AlignCenter)
+            self.settingLayout.addWidget(QLabel("End"), 6, 1, 1, 1, Qt.AlignCenter)
+        self.settingLayout.addWidget(self.startHull, 7, 0, 1, 1)
+        self.settingLayout.addWidget(self.endHull, 7, 1, 1, 1)
+        self.settingLayout.addWidget(self.meridBckGrndChkBx, 8, 0, 1, 2)
+        self.settingLayout.addWidget(self.editMainPeakButton, 9, 0, 1, 2)
+        self.settingLayout.addWidget(self.refitButton, 10, 0, 1, 2)
 
         self.results_text = QLabel()
 
@@ -724,14 +727,8 @@ class ProjectionBoxTab(QWidget):
         
         elif func[0] == 'peak_cluster':
             peaks = func[1]
-            n_gauss = func[2]
             
-            # Check if enough peaks selected
-            if len(peaks) >= n_gauss:
-                QMessageBox.warning(self, "Enough Peaks", 
-                                  f"You already selected {n_gauss} peaks. Click Accept button.")
-                return
-            
+            # Add the selected peak
             peaks.append(distance)
             
             # Draw with different color/style to indicate GMM cluster
@@ -751,7 +748,7 @@ class ProjectionBoxTab(QWidget):
             self.graphCanvas2.draw_idle()
             
             # Update button text to show progress
-            self.peakClusterButton.setText(f"Accept {len(peaks)}/{n_gauss} Peaks")
+            self.peakClusterButton.setText(f"Accept {len(peaks)} Peaks")
 
         elif func[0] == 'hull':
             hull_range = func[1]
@@ -914,23 +911,21 @@ class ProjectionBoxTab(QWidget):
         Select multiple peaks for GMM fitting (shared sigma, auto-mirrored)
         """
         if self.peakClusterButton.isChecked():
-            n_gauss = self.gmmNumGaussSpinBox.value()
-            self.peakClusterButton.setText(f"Accept {n_gauss} Peaks")
-            self.function = ['peak_cluster', [], n_gauss]
+            # User will select peaks dynamically (no preset count)
+            self.peakClusterButton.setText("Accept Peaks")
+            self.function = ['peak_cluster', []]  # No preset count
             
             # Show status hint
             self.parent.setLeftStatus(
-                f"Click to select {n_gauss} approximate peak positions "
-                f"(will be mirrored, total {n_gauss*2} peaks for GMM fitting)")
+                "Click to select peak positions (minimum 2, will be mirrored)")
         else:
             self.peakClusterButton.setText("Select Peak Cluster (GMM)")
             peaks = self.function[1]
-            n_gauss = self.function[2]
             
-            # Check count
-            if len(peaks) != n_gauss:
-                QMessageBox.warning(self, "Incorrect Peak Count", 
-                                  f"Please select exactly {n_gauss} peaks. You selected {len(peaks)}.")
+            # Check count - at least 2 peaks required
+            if len(peaks) < 2:
+                QMessageBox.warning(self, "Insufficient Peaks", 
+                                  f"Please select at least 2 peaks. You selected {len(peaks)}.")
                 self.peakClusterButton.setChecked(True)
                 return
             
@@ -939,6 +934,7 @@ class ProjectionBoxTab(QWidget):
             all_peaks = peaks + op_peaks  # positive and negative distances
             
             # Enable GMM mode and fit
+            n_gauss = len(peaks)  # Use actual number of peaks selected
             self.fitGaussianMixture(all_peaks, n_gauss * 2)
             self.function = None
     
