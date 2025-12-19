@@ -309,6 +309,9 @@ class QuadrantFoldingGUI(BaseGUI):
         )
         self.imageTabLayout.addWidget(self.workspace, 1)
         
+        # Expose navigator as standard attribute for BaseGUI
+        self.navigator = self.workspace.navigator
+        
         # Expose components for backward compatibility
         self.image_viewer = self.workspace.navigator.image_viewer
         self.file_manager = self.workspace.file_manager

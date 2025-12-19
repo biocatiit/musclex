@@ -350,16 +350,13 @@ class BaseGUI(QMainWindow):
         Connects ImageNavigatorWidget's filePathTextReady signal to
         imgPathOnStatusBar for automatic updates when images change.
         
-        This provides automatic status bar updates for file path display
-        without requiring manual updates in each GUI.
+        Requires: Subclasses should set self.navigator in _create_tabs()
         """
-        # Check if workspace with navigator exists
-        if hasattr(self, 'workspace') and hasattr(self.workspace, 'navigator'):
-            if hasattr(self, 'imgPathOnStatusBar'):
-                # Direct connection: Navigator provides text, statusBar displays it
-                self.workspace.navigator.filePathTextReady.connect(
-                    self.imgPathOnStatusBar.setText
-                )
+        # Simple check: if GUI has navigator, connect it
+        if hasattr(self, 'navigator') and self.navigator:
+            self.navigator.filePathTextReady.connect(
+                self.imgPathOnStatusBar.setText
+            )
     
     def _on_scan_progress(self, h5_done: int, h5_total: int):
         """
