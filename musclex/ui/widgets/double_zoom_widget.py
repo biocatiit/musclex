@@ -90,6 +90,12 @@ class DoubleZoomWidget(UIWidget):
         self.doubleZoomPoint = (0, 0)
         self.dontShowAgainDoubleZoomMessageResult = dontShowMessage
 
+        # Crop radius control for scroll zoom (default 10 pixels, min 5, max 50)
+        self.crop_radius = 10
+        self.min_crop_radius = 5
+        self.max_crop_radius = 50
+        self.crop_radius_step = 2  # Change 2 pixels per scroll
+
         self.set_ready()
 
     def _get_current_image(self):
@@ -153,6 +159,9 @@ class DoubleZoomWidget(UIWidget):
         
         # Reset image object reference
         self.doubleZoomImage = None
+        
+        # Reset crop radius to default
+        self.crop_radius = 10
         
         self.imageCanvas.draw_idle()
 
@@ -282,7 +291,39 @@ class DoubleZoomWidget(UIWidget):
             self.precise_coords_ready.emit(precise_x, precise_y)
 
     def handle_mouse_scroll_event(self, mouse_event):
-        pass
+        """
+        Handle mouse scroll event to zoom in/out the crop area.
+        Scroll up: decrease crop radius (zoom in, see fewer pixels but larger)
+        Scroll down: increase crop radius (zoom out, see more pixels but smaller)
+        """
+        if not self.is_running():
+            return
+        
+        # Only handle scroll when mouse is over the zoom window
+        if mouse_event.inaxes != self.doubleZoomAxes:
+            return
+        
+        # Get current image
+        img = self._get_current_image()
+        if img is None:
+            return
+        
+        # Adjust crop radius based on scroll direction
+        if mouse_event.button == 'up':
+            # Scroll up: zoom in (smaller crop area)
+            self.crop_radius = max(self.min_crop_radius, self.crop_radius - self.crop_radius_step)
+        elif mouse_event.button == 'down':
+            # Scroll down: zoom out (larger crop area)
+            self.crop_radius = min(self.max_crop_radius, self.crop_radius + self.crop_radius_step)
+        else:
+            return
+        
+        # Update the zoom window with new crop radius
+        # Use the last main image point or current mouse position
+        if hasattr(self, 'last_zoom_position'):
+            x, y = self.last_zoom_position
+            self.drawDoubleZoomImage(x, y, img)
+            self.imageCanvas.draw_idle()
 
     def is_no_action_state(self, mouse_event):
         """
@@ -324,11 +365,18 @@ class DoubleZoomWidget(UIWidget):
         """
         Calculate precise coordinates from zoom window click.
         Internal method called automatically when zoom window is clicked.
+        Now accounts for dynamic crop radius.
         """
         dzx, dzy = self.mainImagePoint
         x, y = self.doubleZoomPoint
-        newX = dzx - 10 + x / 10
-        newY = dzy - 10 + y / 10
+        
+        # Calculate scale factor: zoom window shows (radius*2) pixels in range [0, radius*2]
+        # Original formula assumed radius=10, now we use actual crop_radius
+        scale_factor = (self.crop_radius * 2) / 200  # 200 is the fixed display size
+        
+        newX = dzx - self.crop_radius + x * scale_factor
+        newY = dzy - self.crop_radius + y * scale_factor
+        
         return (newX, newY)
     
     # Deprecated methods - kept for backward compatibility
@@ -382,14 +430,26 @@ class DoubleZoomWidget(UIWidget):
         Update zoom window content at position (x, y).
         Uses set_data() to update existing image instead of creating new ones.
         Uses local min/max intensity from cropped region for better detail visibility.
+        Now supports dynamic crop radius controlled by mouse scroll.
         """
-        if x > 10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
+        # Store last position for scroll zoom
+        self.last_zoom_position = (x, y)
+        
+        # Use dynamic crop_radius instead of hardcoded 10
+        radius = self.crop_radius
+        
+        if x > radius and x < img.shape[1] - radius and y > radius and y < img.shape[0] - radius:
             ax = self.doubleZoomAxes
             cx = round(x)
             cy = round(y)
-            imgCropped = img[cy - 10:cy + 10, cx - 10:cx + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
+            
+            # Crop using dynamic radius
+            imgCropped = img[cy - radius:cy + radius, cx - radius:cx + radius]
+            
+            if len(imgCropped) != 0 and imgCropped.shape[0] != 0 and imgCropped.shape[1] != 0:
+                # Always scale to 200x200 for consistent zoom window size
+                target_size = 200
+                imgScaled = cv2.resize(imgCropped.astype("float32"), (target_size, target_size))
                 
                 # Use local min/max from cropped region for intensity normalization
                 vmin = np.min(imgScaled)
