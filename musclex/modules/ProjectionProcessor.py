@@ -551,8 +551,9 @@ class ProjectionProcessor:
                     else:
                         params.add('p_' + str(j), p, min=p_min, max=p_max)
                     
-                    # Sigma: use expression to bind all sigmas to common_sigma
-                    params.add('sigma' + str(j), expr='common_sigma')
+                    # NOTE: In GMM mode, we do NOT add individual sigma parameters
+                    # The layerlineModelGMM function will use common_sigma directly
+                    # No sigma{j} parameters needed!
                     
                     # Amplitude: check if fixed
                     if j in self.fixed_amplitude:
@@ -595,14 +596,19 @@ class ProjectionProcessor:
                     else:
                         params.add('amplitude' + str(j), sum(hist)/10., min=-1)
 
-            # Fit model
-            model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
+            # Fit model - choose model based on mode
+            if use_gmm:
+                # Use GMM model that accepts common_sigma directly
+                model = Model(layerlineModelGMM, nan_policy='propagate', independent_vars=int_vars.keys())
+            else:
+                # Use standard model with independent sigmas
+                model = Model(layerlineModel, nan_policy='propagate', independent_vars=int_vars.keys())
+            
             result = model.fit(hist, verbose=False, params=params, **int_vars)
             if result is not None:
                 result_dict = result.values
                 int_vars.pop('x')
                 result_dict.update(int_vars)
-                result_dict['error'] = 1. - r2_score(hist, layerlineModel(x, **result_dict))
                 
                 # Add explicit flag for GMM mode
                 result_dict['use_common_sigma'] = use_gmm
@@ -617,6 +623,15 @@ class ProjectionProcessor:
                     # Non-GMM mode: calculate common_sigma as mean of individual sigmas
                     sigmas = [result_dict.get(f'sigma{j}', 10.0) for j in range(len(peaks))]
                     result_dict['common_sigma'] = np.mean(sigmas) if sigmas else 10.0
+                
+                # Calculate error using the appropriate model function
+                if use_gmm:
+                    # For GMM mode, use layerlineModelGMM
+                    predicted = layerlineModelGMM(x, **result_dict)
+                else:
+                    # For non-GMM mode, use layerlineModel
+                    predicted = layerlineModel(x, **result_dict)
+                result_dict['error'] = 1. - r2_score(hist, predicted)
                 
                 if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
                     if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
@@ -641,6 +656,9 @@ class ProjectionProcessor:
                 # Print fitting results
                 print("Box : "+ str(name))
                 print(f"Mode: {'GMM (Common Sigma)' if use_gmm else 'Independent Sigma'}")
+                print(f"Number of free parameters: {result.nvarys}")
+                print(f"Chi-square: {result.chisqr:.6f}")
+                print(f"Reduced chi-square: {result.redchi:.6f}")
                 if use_gmm:
                     common_sigma_val = self.info['fit_results'][name].get('common_sigma', 'N/A')
                     print(f"  Common Sigma = {common_sigma_val}")
@@ -649,6 +667,8 @@ class ProjectionProcessor:
                     print(f"  Individual Sigmas (first 3): {sigmas}")
                 print("Fitting Result : " + str(self.info['fit_results'][name]))
                 print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
+                if hasattr(result, 'aic') and hasattr(result, 'bic'):
+                    print(f"AIC: {result.aic:.2f}, BIC: {result.bic:.2f}")
                 print("---")
 
 
@@ -918,6 +938,47 @@ def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, c
             # result += mod.eval(x=x, amplitude=amplitude, center=centerX - p, sigma=sigma)
 
         i += 1
+    return result
+
+def layerlineModelGMM(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
+                      center_sigma2, center_amplitude2, common_sigma, **kwargs):
+    """
+    GMM version: Model for fitting layer line pattern with common sigma for all peaks
+    :param x: x axis
+    :param centerX: center of x axis
+    :param bg_line: linear background
+    :param bg_sigma: background sigma
+    :param bg_amplitude: background amplitude
+    :param center_sigma1: meridian background sigma
+    :param center_amplitude1: meridian background amplitude
+    :param center_sigma2: meridian sigma
+    :param center_amplitude2: meridian amplitude
+    :param common_sigma: shared sigma for all peaks (GMM constraint)
+    :param kwargs: other peaks properties (p_i, amplitude_i, optionally gamma_i)
+    :return:
+    """
+    #### Background and Meridian
+    result = layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, 
+                                     center_sigma1, center_amplitude1, 
+                                     center_sigma2, center_amplitude2, **kwargs)
+    
+    #### Other peaks - all using common_sigma
+    i = 0
+    while 'p_'+str(i) in kwargs:
+        p = kwargs['p_'+str(i)]
+        amplitude = kwargs['amplitude' + str(i)]
+        
+        if 'gamma' + str(i) in kwargs:
+            gamma = kwargs['gamma' + str(i)]
+            mod = VoigtModel()
+            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, 
+                             sigma=common_sigma, gamma=gamma)
+        else:
+            mod = GaussianModel()
+            result += mod.eval(x=x, amplitude=amplitude, center=centerX + p, 
+                             sigma=common_sigma)  # All peaks use common_sigma
+        i += 1
+    
     return result
 
 def layerlineModelBackground(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
