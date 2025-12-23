@@ -64,7 +64,18 @@ class ManualCalibrationDialog(QDialog):
     which are then used to fit a circle and refine the calibration.
     """
     
-    def __init__(self, parent, img, vmin=None, vmax=None, silver_behenate=5.83803):
+    def __init__(
+        self,
+        parent,
+        img,
+        vmin=None,
+        vmax=None,
+        silver_behenate=5.83803,
+        objective_Q=1.0,
+        objective_nphi=720,
+        objective_alpha=0.5,
+        objective_bg_k=3.0,
+    ):
         """
         Initialize the manual calibration dialog.
         
@@ -93,6 +104,13 @@ class ManualCalibrationDialog(QDialog):
         self.radius = None
         self.scale = None
         self.silver_behenate = silver_behenate
+
+        # Objective-based center/radius refinement (pixel-space)
+        self.objective_Q = float(objective_Q)  # band half-width (pixels)
+        self.objective_nphi = int(objective_nphi)  # angular samples
+        self.objective_alpha = float(objective_alpha)  # background penalty weight
+        self.objective_bg_k = float(objective_bg_k)  # background offsets multiplier (k*Q)
+        self.optimization_history = []  # record objective process (list of dicts)
         
         # Auto-calculate vmin/vmax if not provided
         if vmin is None:
@@ -481,6 +499,237 @@ class ManualCalibrationDialog(QDialog):
             return refined_point
         else:
             return user_point
+
+    # ===================== Objective-based refinement (NEW) =====================
+
+    def _bilinear_sample(self, img: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """
+        Vectorized bilinear sampling.
+        x, y: float arrays in image coordinates (x=col, y=row).
+        Returns sampled intensities; out-of-bounds -> 0.
+        """
+        h, w = img.shape[:2]
+        x = np.asarray(x, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+
+        x0 = np.floor(x).astype(np.int64)
+        y0 = np.floor(y).astype(np.int64)
+        x1 = x0 + 1
+        y1 = y0 + 1
+
+        m = (x0 >= 0) & (y0 >= 0) & (x1 < w) & (y1 < h)
+        out = np.zeros_like(x, dtype=np.float64)
+        if not np.any(m):
+            return out
+
+        xm = x[m]
+        ym = y[m]
+        x0m = x0[m]
+        y0m = y0[m]
+        x1m = x1[m]
+        y1m = y1[m]
+
+        fx = xm - x0m
+        fy = ym - y0m
+
+        Ia = img[y0m, x0m].astype(np.float64)
+        Ib = img[y0m, x1m].astype(np.float64)
+        Ic = img[y1m, x0m].astype(np.float64)
+        Id = img[y1m, x1m].astype(np.float64)
+
+        out[m] = (
+            Ia * (1 - fx) * (1 - fy)
+            + Ib * fx * (1 - fy)
+            + Ic * (1 - fx) * fy
+            + Id * fx * fy
+        )
+        return out
+
+    def _circle_band_objective(self, center, radius, Q: float) -> float:
+        """
+        Contrast objective (maximize):
+            mean(signal_band) - alpha * mean(background_bands)
+
+        This reduces bias from strong radial background gradients compared to
+        using absolute intensity sum alone.
+        """
+        cx, cy = float(center[0]), float(center[1])
+        r = float(radius)
+        if not np.isfinite(cx + cy + r):
+            return -np.inf
+        if Q <= 0:
+            return -np.inf
+        # Need room for background sampling at +/- (bg_k * Q)
+        if r <= max(1e-6, float(self.objective_bg_k) * Q + 1.0):
+            return -np.inf
+
+        nphi = max(90, int(self.objective_nphi))
+        phi = np.linspace(0.0, 2.0 * np.pi, nphi, endpoint=False)
+        c = np.cos(phi)
+        s = np.sin(phi)
+
+        offsets_signal = np.array([-1.0, -0.5, 0.0, 0.5, 1.0], dtype=np.float64) * float(Q)
+        offsets_bg = (
+            np.array([-float(self.objective_bg_k), +float(self.objective_bg_k)], dtype=np.float64) * float(Q)
+        )
+
+        def sample_offsets(offsets: np.ndarray) -> np.ndarray:
+            rr = r + offsets[:, None]  # (nrad, nphi)
+            x = cx + rr * c[None, :]
+            y = cy + rr * s[None, :]
+            return self._bilinear_sample(self.img, x.ravel(), y.ravel())
+
+        sig = sample_offsets(offsets_signal)
+        bg = sample_offsets(offsets_bg)
+        if sig.size == 0 or bg.size == 0:
+            return -np.inf
+
+        sig_mean = float(np.mean(sig))
+        bg_mean = float(np.mean(bg))
+        return sig_mean - float(self.objective_alpha) * bg_mean
+
+    def _record_eval(self, phase: str, center, radius, delta: float, obj: float, accepted: bool, best_obj: float):
+        self.optimization_history.append(
+            {
+                "phase": phase,  # "center" or "radius"
+                "center": [float(center[0]), float(center[1])],
+                "radius": float(radius),
+                "delta": float(delta),
+                "objective": float(obj),
+                "accepted": bool(accepted),
+                "best_objective": float(best_obj),
+            }
+        )
+
+    def _refine_center(self, center, radius, Q: float, delta0=0.1, shrink=2.0, delta_min=1e-3):
+        """
+        Center refinement:
+        - Search 8 neighbors of +/- delta (delta starts at delta0).
+        - If improvement found, move to best neighbor and continue with same delta.
+        - Otherwise, delta /= shrink and repeat.
+        - Stop when no improvement and delta < delta_min.
+        """
+        best_center = [float(center[0]), float(center[1])]
+        r = float(radius)
+        best_obj = self._circle_band_objective(best_center, r, Q)
+
+        delta = float(delta0)
+        dirs = np.array(
+            [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+                [1, 1],
+                [1, -1],
+                [-1, 1],
+                [-1, -1],
+            ],
+            dtype=np.float64,
+        )
+
+        improved_any = False
+        while True:
+            moved = False
+            # Evaluate all 8 neighbors; take best if any improves.
+            cand_best_center = None
+            cand_best_obj = best_obj
+
+            for dxy in dirs:
+                cand_center = [best_center[0] + float(dxy[0]) * delta, best_center[1] + float(dxy[1]) * delta]
+                obj = self._circle_band_objective(cand_center, r, Q)
+                accepted = obj > cand_best_obj
+                if accepted:
+                    cand_best_obj = obj
+                    cand_best_center = cand_center
+                self._record_eval("center", cand_center, r, delta, obj, accepted, cand_best_obj)
+
+            if cand_best_center is not None:
+                best_center = cand_best_center
+                best_obj = cand_best_obj
+                moved = True
+                improved_any = True
+
+            if moved:
+                continue
+
+            # No improvement at this delta
+            if delta <= float(delta_min):
+                break
+            delta = delta / float(shrink)
+
+        return best_center, best_obj, improved_any
+
+    def _refine_radius(self, center, radius, Q: float, delta0=0.01, shrink=2.0, delta_min=1e-4):
+        """
+        Radius refinement:
+        - Search 2 neighbors (+/- delta).
+        - If improvement found, move and continue with same delta.
+        - Otherwise, delta /= shrink and repeat.
+        - Stop when no improvement and delta < delta_min.
+        """
+        c = [float(center[0]), float(center[1])]
+        best_r = float(radius)
+        best_obj = self._circle_band_objective(c, best_r, Q)
+
+        delta = float(delta0)
+        improved_any = False
+        while True:
+            moved = False
+            cand_best_r = None
+            cand_best_obj = best_obj
+
+            for dr in (-delta, +delta):
+                cand_r = best_r + float(dr)
+                obj = self._circle_band_objective(c, cand_r, Q)
+                accepted = obj > cand_best_obj
+                if accepted:
+                    cand_best_obj = obj
+                    cand_best_r = cand_r
+                self._record_eval("radius", c, cand_r, delta, obj, accepted, cand_best_obj)
+
+            if cand_best_r is not None:
+                best_r = cand_best_r
+                best_obj = cand_best_obj
+                moved = True
+                improved_any = True
+
+            if moved:
+                continue
+
+            if delta <= float(delta_min):
+                break
+            delta = delta / float(shrink)
+
+        return best_r, best_obj, improved_any
+
+    def _optimize_center_radius(self, center, radius, Q: float, max_cycles=25):
+        """
+        Alternate optimization: center then radius, repeat until both don't improve.
+        Records objective process in self.optimization_history.
+        """
+        self.optimization_history = []
+        c = [float(center[0]), float(center[1])]
+        r = float(radius)
+
+        best_obj = self._circle_band_objective(c, r, Q)
+        self._record_eval("init", c, r, 0.0, best_obj, True, best_obj)
+
+        for _ in range(int(max_cycles)):
+            c, obj_c, imp_c = self._refine_center(c, r, Q, delta0=0.1)
+            if obj_c > best_obj:
+                best_obj = obj_c
+
+            r, obj_r, imp_r = self._refine_radius(c, r, Q, delta0=0.01)
+            if obj_r > best_obj:
+                best_obj = obj_r
+
+            if (not imp_c) and (not imp_r):
+                break
+
+        return c, r, best_obj
+
+    # ===================== end objective-based refinement =====================
     
     def applyCalibration(self):
         """Apply calibration and show preview"""
@@ -515,9 +764,20 @@ class ManualCalibrationDialog(QDialog):
         
         self.center = [final_center[0], final_center[1]]
         self.radius = (final_radius[0] + final_radius[1]) / 4.0
+
+        # Step 4 (NEW): Objective-based refinement of center & radius in pixel-space
+        opt_center, opt_radius, opt_obj = self._optimize_center_radius(
+            self.center, self.radius, Q=float(self.objective_Q), max_cycles=25
+        )
+        self.center = opt_center
+        self.radius = opt_radius
+
         self.scale = self.radius * self.silverBehenateSpinBox.value()
         
-        print_log(f"Final fit - Center: {self.center}, Radius: {self.radius}, Scale: {self.scale}")
+        print_log(
+            f"Final fit (after objective opt) - Center: {self.center}, Radius: {self.radius}, "
+            f"Scale: {self.scale}, Obj: {opt_obj:.6g}, Evals: {len(self.optimization_history)}"
+        )
         
         # Update display
         self.displayCalibrationResults()
@@ -613,6 +873,11 @@ class ManualCalibrationDialog(QDialog):
             'center': self.center,
             'radius': self.radius,
             'scale': self.scale,
-            'silver_behenate': self.silverBehenateSpinBox.value()
+            'silver_behenate': self.silverBehenateSpinBox.value(),
+            'optimization_history': self.optimization_history,
+            'objective_Q': self.objective_Q,
+            'objective_nphi': self.objective_nphi,
+            'objective_alpha': self.objective_alpha,
+            'objective_bg_k': self.objective_bg_k,
         }
 
