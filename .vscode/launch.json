@@ -86,6 +86,90 @@
             }
         },
         {
+            "name": "MuscleX - Scanning Diffraction GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["di"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Projection Traces GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["pt"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - DDF Processor",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["ddf"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Add Intensities",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["aisme"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Total Display Intensity",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["tdi"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - QF Center Examine",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["qfce"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Diffraction Centroids (Deprecated)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["dc"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "MuscleX - X-Ray Viewer",
             "type": "python",
             "request": "launch",
@@ -103,6 +187,42 @@
             "request": "launch",
             "program": "${workspaceFolder}/musclex/main.py",
             "args": ["test_global"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Test Implementation",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["test_impl"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Test Environment",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["test_env"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "MuscleX - Test GPU",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["test_gpu"],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "env": {
