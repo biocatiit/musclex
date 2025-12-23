@@ -44,10 +44,12 @@ try:
     from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
+    from ..utils.eq_bg_models import eval_backgrounds, add_bg_parameters
 except: # for coverage
     from utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from utils.histogram_processor import *
     from utils.image_processor import *
+    from utils.eq_bg_models import eval_backgrounds, add_bg_parameters
 from collections import deque
 
 import matplotlib.pyplot as plt
@@ -161,9 +163,16 @@ class EquatorImage:
             else:
                 del settings['orientation_model']
         self.info.update(settings)
+
         if 'fixed_rmax' in self.info:
             self.info['rmax'] = self.info['fixed_rmax']
             print("R-max is fixed as " + str(self.info['rmax']))
+
+        if 'background_model' in self.info:
+            print(f"Background model is {self.info['background_model']}")
+            if self.info['background_model'] is None or self.info['background_model'] == '' \
+            or self.info['background_model'] == 'ConvexHull':
+                del self.info['background_model']
             
     def fill_sensor_gaps_propagate(self, image, threshold):
         if isinstance(image, str):
@@ -849,11 +858,54 @@ class EquatorImage:
             left_areas = [left_height[i] * left_widths[i] * np.sqrt(2 * np.pi) for i in range(len(left_peaks))]
             right_areas = [right_height[i] * right_widths[i] * np.sqrt(2 * np.pi) for i in range(len(right_peaks))]
 
-            hull_hist = self.info['hulls']['all']
+            ### record background model names
+            bg_names = []
+            if "background_model" in self.info:
+                print("Fitting with background model: " + str(self.info["background_model"]))
+                hull_hist = self.info['hists']['all'] # fit background
+                if 'Exp' in self.info["background_model"]:
+                    bg_names.append(1)
+                if self.info["background_model"].count('Exp') == 2:
+                    bg_names.append(2)
+                if 'Poly' in self.info["background_model"]:
+                    bg_names.append(5)
+                if 'ModLorentz' in self.info["background_model"]:
+                    bg_names.append(3)
+                self.info['bg_names'] = bg_names  
+                print("Background model indices: " + str(bg_names)) 
+            else:
+                hull_hist = self.info['hulls']['all'] # convex hull
+
             x = np.arange(0, len(hull_hist))
             histNdarray = np.array(hull_hist)
             # total_area = sum(histNdarray)
             centerX = self.info['center'][0]
+
+            #### masking 
+            image_mask = np.zeros_like(x, dtype=bool)
+            weights = np.ones_like(histNdarray, dtype=float)
+            rmin_fit = self.info.get('rmin_fit', None)
+            rmax_fit = self.info.get('rmax_fit', None)
+            print(f"Using center mask with rmin = {rmin_fit} and rmax = {rmax_fit}")
+            
+            if rmin_fit is not None:
+                rmin_fit = int(rmin_fit)
+                image_mask[max(0, int(centerX - rmin_fit)):min(len(x), int(centerX + rmin_fit) + 1)] = True
+            if rmax_fit is not None:
+                rmax_fit = int(rmax_fit)
+                image_mask[:max(0, int(centerX - rmax_fit))] = True
+                image_mask[min(len(x), int(centerX + rmax_fit)):] = True
+
+            histNdarray = histNdarray.copy()
+            print(f"The max value of histogram before masking is {np.max(histNdarray)}")
+            if image_mask is not None:
+                histNdarray[image_mask] = 0
+            if image_mask is not None:
+                weights[image_mask] = 0.0
+            print(f"The max value of histogram after masking is {np.max(histNdarray)}")
+            self.info['fit_weights'] = weights
+            self.info['image_mask'] = image_mask
+            ####
 
             margin = 10.
             S0=0
@@ -881,6 +933,8 @@ class EquatorImage:
                 'extraGaussCenter': None,
                 'extraGaussSig': None,
                 'extraGaussArea': None,
+                'image_mask': image_mask,
+                'bg_names': bg_names,
             }
 
             # Set initial parameters or independent parameters on each side
@@ -975,6 +1029,9 @@ class EquatorImage:
                     int_vars[side+'_intz_EP'] = 0
                     int_vars[side+'_gammaz_EP'] = 0
 
+            add_bg_parameters(params, histNdarray, bg_names)
+
+
             # Bias K
             if 'fix_k' in self.info:
                 int_vars['k'] = self.info['fix_k']
@@ -982,27 +1039,26 @@ class EquatorImage:
                 params.add('k', 0., min=-1, max=max(histNdarray.max(),1.))
 
             # Fit model
-            model = Model(cardiacFit, nan_policy='propagate', independent_vars=int_vars.keys())
-            min_err = 999999999
-            final_result = None
+            # methods = ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']
+            model = Model(cardiacFitGeneric, nan_policy='propagate', independent_vars=int_vars.keys())
+            max_nfev = self.info.get('max_nfev', 5000)
+            result = model.fit(histNdarray, verbose=True, method='leastsq', params=params, weights=weights, **int_vars, max_nfev=max_nfev)
 
-            # for method in ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']:
-            for method in ['leastsq']:
-                # WARNING this fit function might give different results depending on the operating system
-                result = model.fit(histNdarray, verbose = False, method=method, params=params, **int_vars)
-                if result is not None:
-                    res = result.values
-                    res.update(int_vars)
-                    err = mean_squared_error(histNdarray, cardiacFit(**res))
-                    if err < min_err:
-                        min_err = err
-                        final_result = result
+            if result is not None :
 
-            if final_result is not None :
-                fit_result = final_result.values
+                # fit_result = final_result.values
+                # fit_result.update(int_vars)
+                fit_result = result.params.valuesdict()
                 fit_result.update(int_vars)
-                fit_result["fiterror"] = 1. - r2_score(cardiacFit(**fit_result), histNdarray)
-                del fit_result['x']
+                pred_full = cardiacFitGeneric(**{**fit_result, 'x': x})
+
+                # fit_result["fiterror"] = 1. - r2_score(cardiacFitGeneric(**fit_result), histNdarray)
+                fit_result["fiterror"] = 1. - r2_score(histNdarray[~image_mask], pred_full[~image_mask])
+                fit_result["r2"] = r2_score(pred_full[~image_mask], histNdarray[~image_mask])
+                fit_result["mse"] = mean_squared_error(pred_full[~image_mask], histNdarray[~image_mask])
+                fit_result["rmse"] = np.sqrt(fit_result["mse"])
+                
+                # del fit_result['x']
                 left_areas = [fit_result['left_area' + str(i + 1)] for i in range(len(left_peaks))]
                 right_areas = [fit_result['right_area' + str(i + 1)] for i in range(len(right_peaks))]
 
@@ -1021,10 +1077,13 @@ class EquatorImage:
                 S0 = fit_result["S0"]
                 model_peaks = [centerX + S0 - S10 * theta(i) for i in range(len(left_peaks))]
                 model_peaks.extend([centerX + S0 + S10 * theta(i) for i in range(len(right_peaks))])
-
+                all_S = [S10 * theta(i) for i in range(len(left_peaks))]    
                 fit_result['model_peaks'] = sorted(model_peaks)
-                all_S = [S10 * theta(i) for i in range(len(left_peaks))]
                 fit_result['all_S'] = all_S
+                fit_result['histNdarray'] = histNdarray
+                fit_result['fittedCurve'] = pred_full
+                fit_result['bg_names'] = bg_names
+                fit_result['nfev'] = result.nfev
 
                 if "lambda_sdd" in self.info.keys():
                     fit_result['d10'] = self.info["lambda_sdd"] / fit_result['S10']
@@ -1365,6 +1424,40 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
         return result + k
     return 0
 
+
+def cardiacFitGeneric(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
+                      left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
+                      left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
+                      right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
+                      right_zline_EP, right_sigmaz_EP, right_intz_EP, right_gammaz_EP,
+                      extraGaussCenter, extraGaussSig, extraGaussArea,
+                      image_mask=None, bg_names=None, **kwargs):
+    # reuse your base peaks/z-lines (k=0), then add backgrounds, apply mask, then add k
+    base = cardiacFit(
+        x, centerX, S0, S10, model, isSkeletal, isExtraPeak, 0.0,
+        left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
+        left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
+        right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
+        right_zline_EP, right_sigmaz_EP, right_intz_EP, right_gammaz_EP,
+        extraGaussCenter, extraGaussSig, extraGaussArea, **kwargs
+    )
+    # print("bg_names:", bg_names)
+    # print("background params:", {k: kwargs[k] for k in kwargs if 'exp' in k or 'mod_lor' in k or 'b_' in k or 'p' in k})
+    # bg_params = {k: v for k, v in kwargs.items() if any(bg in k for bg in ['exp', 'b_', 'A', 'q0', 'w', 'm', 'd', 'p', 'pl', 'cheb', 'ml'])}
+    # print(f"Background parameters received: {bg_params}")
+    
+    # Evaluate backgrounds
+    bg = eval_backgrounds(bg_names, x=np.asarray(x), centerX=float(centerX), kwargs=kwargs)
+    # print(f"Background contribution: min={np.min(bg):.3f}, max={np.max(bg):.3f}, sum={np.sum(bg):.3f}")
+  
+
+    # bg = eval_backgrounds(bg_names or [], x=np.asarray(x), centerX=float(centerX), kwargs=kwargs)
+    result = base + bg
+    if image_mask is not None:
+        result = np.where(image_mask, 0.0, result)
+    return result + k
+
+
 def cardiacSide(model, side, x, centerX, S0, S10, sigmac, sigmad, sigmas,
                 gamma, areas, Speak, extraGaussCenter, extraGaussSig, extraGaussArea):
     """
@@ -1472,11 +1565,8 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
         return result
     return 0
 
+
 def getCardiacGraph(x, fit_results):
-    """
-    Give the cardiac graph based on the fit results.
-    :param fit_results: fit results
-    """
     plot_params = {
         'centerX': fit_results['centerX'],
         'S0': fit_results["S0"],
@@ -1486,7 +1576,6 @@ def getCardiacGraph(x, fit_results):
         'isExtraPeak': fit_results['isExtraPeak'],
         'left_areas': fit_results['left_areas'],
         'right_areas': fit_results['right_areas'],
-
         'left_sigmac': fit_results['left_sigmac'],
         'left_sigmad': fit_results['left_sigmad'],
         'left_sigmas': fit_results['left_sigmas'],
@@ -1499,7 +1588,6 @@ def getCardiacGraph(x, fit_results):
         'left_sigmaz_EP': fit_results['left_sigmaz_EP'],
         'left_intz_EP': fit_results['left_intz_EP'],
         'left_gammaz_EP': fit_results['left_gammaz_EP'],
-
         'right_sigmac': fit_results['right_sigmac'],
         'right_sigmad': fit_results['right_sigmad'],
         'right_sigmas': fit_results['right_sigmas'],
@@ -1512,15 +1600,18 @@ def getCardiacGraph(x, fit_results):
         'right_sigmaz_EP': fit_results['right_sigmaz_EP'],
         'right_intz_EP': fit_results['right_intz_EP'],
         'right_gammaz_EP': fit_results['right_gammaz_EP'],
-
         'k': fit_results['k'],
         'extraGaussCenter': fit_results['extraGaussCenter'],
         'extraGaussSig': fit_results['extraGaussSig'],
         'extraGaussArea': fit_results['extraGaussArea'],
+        'image_mask': fit_results.get('image_mask'),
+        'bg_names': fit_results.get('bg_names', []),
     }
-    if 'Speaks' in fit_results:
-        plot_params['Speaks'] = fit_results['Speaks']
-    return cardiacFit(x=x, **plot_params)
+    # include all left_*/right_* background params that were stored
+    for k in list(fit_results.keys()):
+        if k.startswith('left_') or k.startswith('right_'):
+            plot_params.setdefault(k, fit_results[k])
+    return cardiacFitGeneric(x=x, **plot_params)
 
 def theta(h, k=-1):
     """
