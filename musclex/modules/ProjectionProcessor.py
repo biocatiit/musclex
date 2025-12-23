@@ -102,12 +102,19 @@ class ProjectionProcessor:
                 'centroids':{},
                 'widths': {},
                 'areas': {},
+                # Optional per-parameter bounds that survive re-fitting.
+                # Structure: info['param_bounds'][box_name][param_name] = {'min': float, 'max': float}
+                # Primary use: per-peak search ranges for p_i, initialized from Peak Tolerance and editable in UI.
+                'param_bounds': {},
                 'centerx': self.orig_img.shape[0] / 2 - 0.5,
                 'centery': self.orig_img.shape[1] / 2 - 0.5,
                 'rotationAngle' : 0
             }
         else:
             self.info = cache
+            # Backward compatibility: older caches won't have param_bounds
+            if 'param_bounds' not in self.info:
+                self.info['param_bounds'] = {}
         
         # Configure from ImageData
         if image_data.detector:
@@ -173,12 +180,42 @@ class ProjectionProcessor:
             if name in all_peaks and all_peaks[name] == peaks:
                 return
             all_peaks[name] = peaks
-            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg', 'use_common_sigma']
+            # If peaks changed, previously stored per-parameter bounds are no longer trustworthy.
+            if 'param_bounds' in self.info and name in self.info['param_bounds']:
+                del self.info['param_bounds'][name]
+
+            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg', 'use_common_sigma', 'param_bounds']
             for k in self.info.keys():
                 if k not in skip_list:
                     self.removeInfo(name, k)
         else:
             print("Warning : box name is invalid.")
+
+    def _get_param_bounds(self, box_name: str, param_name: str):
+        """
+        Helper to read stored per-parameter bounds if available.
+        Returns (min, max) or (None, None).
+        """
+        pb = self.info.get('param_bounds', {})
+        if not isinstance(pb, dict):
+            return (None, None)
+        box_bounds = pb.get(box_name, {})
+        if not isinstance(box_bounds, dict):
+            return (None, None)
+        b = box_bounds.get(param_name)
+        if not isinstance(b, dict):
+            return (None, None)
+        return (b.get('min', None), b.get('max', None))
+
+    def _set_param_bounds(self, box_name: str, param_name: str, bmin: float, bmax: float):
+        """
+        Helper to persist per-parameter bounds.
+        """
+        if 'param_bounds' not in self.info or not isinstance(self.info['param_bounds'], dict):
+            self.info['param_bounds'] = {}
+        if box_name not in self.info['param_bounds'] or not isinstance(self.info['param_bounds'].get(box_name), dict):
+            self.info['param_bounds'][box_name] = {}
+        self.info['param_bounds'][box_name][param_name] = {'min': float(bmin), 'max': float(bmax)}
 
     def removePeaks(self, name):
         """
@@ -531,20 +568,34 @@ class ProjectionProcessor:
                     params.add('common_sigma', 10, min=1, max=50.)
                 
                 for j, p in enumerate(peaks):
-                    # Constrain peak position search range
+                    # Per-peak bounds (scheme B):
+                    # Prefer persisted bounds for p_j; otherwise initialize from Peak Tolerance.
+                    stored_min, stored_max = self._get_param_bounds(name, f'p_{j}')
+                    base_min = (p - default_search_dist) if stored_min is None else stored_min
+                    base_max = (p + default_search_dist) if stored_max is None else stored_max
+
+                    # Apply hull constraint by clamping bounds (not recomputing from p)
                     if hull_constraint is not None:
                         hull_start, hull_end = hull_constraint
                         if p > 0:
-                            # Positive peak: constrain to [hull_start, hull_end]
-                            p_min = max(p - default_search_dist, hull_start)
-                            p_max = min(p + default_search_dist, hull_end)
+                            clamp_min, clamp_max = hull_start, hull_end
                         else:
-                            # Negative peak: constrain to [-hull_end, -hull_start]
-                            p_min = max(p - default_search_dist, -hull_end)
-                            p_max = min(p + default_search_dist, -hull_start)
+                            clamp_min, clamp_max = -hull_end, -hull_start
+                        p_min = max(base_min, clamp_min)
+                        p_max = min(base_max, clamp_max)
                     else:
-                        p_min = p - default_search_dist
-                        p_max = p + default_search_dist
+                        p_min, p_max = base_min, base_max
+
+                    # Safety: ensure valid min/max
+                    if p_min > p_max:
+                        p_min, p_max = p_max, p_min
+                    if p_min == p_max:
+                        p_min -= 0.5
+                        p_max += 0.5
+
+                    # Persist bounds if they didn't exist yet (initialization step)
+                    if stored_min is None or stored_max is None:
+                        self._set_param_bounds(name, f'p_{j}', p_min, p_max)
                     
                     # Position: check if fixed
                     if j in self.fixed_center:
@@ -564,20 +615,30 @@ class ProjectionProcessor:
             else:
                 # Original mode: each peak has independent sigma
                 for j,p in enumerate(peaks):
-                    # Constrain peak position search range
+                    # Per-peak bounds (scheme B): same as GMM branch.
+                    stored_min, stored_max = self._get_param_bounds(name, f'p_{j}')
+                    base_min = (p - default_search_dist) if stored_min is None else stored_min
+                    base_max = (p + default_search_dist) if stored_max is None else stored_max
+
                     if hull_constraint is not None:
                         hull_start, hull_end = hull_constraint
                         if p > 0:
-                            # Positive peak: constrain to [hull_start, hull_end]
-                            p_min = max(p - default_search_dist, hull_start)
-                            p_max = min(p + default_search_dist, hull_end)
+                            clamp_min, clamp_max = hull_start, hull_end
                         else:
-                            # Negative peak: constrain to [-hull_end, -hull_start]
-                            p_min = max(p - default_search_dist, -hull_end)
-                            p_max = min(p + default_search_dist, -hull_start)
+                            clamp_min, clamp_max = -hull_end, -hull_start
+                        p_min = max(base_min, clamp_min)
+                        p_max = min(base_max, clamp_max)
                     else:
-                        p_min = p - default_search_dist
-                        p_max = p + default_search_dist
+                        p_min, p_max = base_min, base_max
+
+                    if p_min > p_max:
+                        p_min, p_max = p_max, p_min
+                    if p_min == p_max:
+                        p_min -= 0.5
+                        p_max += 0.5
+
+                    if stored_min is None or stored_max is None:
+                        self._set_param_bounds(name, f'p_{j}', p_min, p_max)
                     
                     # Position: check if fixed
                     if j in self.fixed_center:

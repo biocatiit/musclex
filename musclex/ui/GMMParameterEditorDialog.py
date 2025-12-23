@@ -99,6 +99,14 @@ class GMMParameterEditorDialog(QDialog):
         # Extract all parameters
         params_to_show = {}
         
+        # Per-parameter bounds (scheme B): persisted in projProc.info['param_bounds']
+        box_bounds = self.projProc.info.get('param_bounds', {}).get(self.box_name, {})
+        if not isinstance(box_bounds, dict):
+            box_bounds = {}
+        
+        # Peak tolerance (fallback for initial bounds if none are stored)
+        peak_tol = self.projProc.info.get('peak_tolerances', {}).get(self.box_name, 2.0)
+        
         # Common sigma - ALWAYS show it (will be enabled/disabled based on mode)
         params_to_show['common_sigma'] = {
             'val': fit_result.get('common_sigma', 10.0),
@@ -112,10 +120,17 @@ class GMMParameterEditorDialog(QDialog):
         i = 0
         while f'p_{i}' in fit_result:
             # Position
+            p_name = f'p_{i}'
+            stored_p_bounds = box_bounds.get(p_name, {})
+            if not isinstance(stored_p_bounds, dict):
+                stored_p_bounds = {}
+            p_min = stored_p_bounds.get('min', fit_result[p_name] - peak_tol)
+            p_max = stored_p_bounds.get('max', fit_result[p_name] + peak_tol)
+
             params_to_show[f'p_{i}'] = {
                 'val': fit_result[f'p_{i}'],
-                'min': fit_result[f'p_{i}'] - 20,
-                'max': fit_result[f'p_{i}'] + 20,
+                'min': p_min,
+                'max': p_max,
                 'fixed': fit_result.get(f'p_{i}_fixed', False),  # Read fixed state
                 'enabled': True
             }
@@ -271,6 +286,17 @@ class GMMParameterEditorDialog(QDialog):
         # Update info['fit_results'] directly (unified data layer)
         for param_name, pinfo in edited_params.items():
             self.projProc.info['fit_results'][self.box_name][param_name] = pinfo['val']
+        
+        # Persist per-parameter bounds (scheme B) for later fitting/refitting
+        if 'param_bounds' not in self.projProc.info or not isinstance(self.projProc.info.get('param_bounds'), dict):
+            self.projProc.info['param_bounds'] = {}
+        if self.box_name not in self.projProc.info['param_bounds'] or not isinstance(self.projProc.info['param_bounds'].get(self.box_name), dict):
+            self.projProc.info['param_bounds'][self.box_name] = {}
+        for param_name, pinfo in edited_params.items():
+            self.projProc.info['param_bounds'][self.box_name][param_name] = {
+                'min': float(pinfo['min']),
+                'max': float(pinfo['max'])
+            }
         
         self.parent_tab.need_update = True
         # Redraw with updated parameters (uses info['fit_results'])
