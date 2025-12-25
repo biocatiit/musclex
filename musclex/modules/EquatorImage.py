@@ -172,8 +172,8 @@ class EquatorImage:
             print(f"Background model is {self.info['background_model']}")
             if self.info['background_model'] is None or self.info['background_model'] == '' \
             or self.info['background_model'] == 'ConvexHull':
-                del self.info['background_model']
-            
+                del self.info['background_model']  
+
     def fill_sensor_gaps_propagate(self, image, threshold):
         if isinstance(image, str):
             image = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
@@ -869,6 +869,8 @@ class EquatorImage:
                     bg_names.append(2)
                 if 'Poly' in self.info["background_model"]:
                     bg_names.append(5)
+                if 'Chebyshev' in self.info["background_model"]:
+                    bg_names.append(7)
                 if 'ModLorentz' in self.info["background_model"]:
                     bg_names.append(3)
                 self.info['bg_names'] = bg_names  
@@ -1041,7 +1043,7 @@ class EquatorImage:
             # Fit model
             # methods = ['leastsq', 'lbfgsb', 'powell', 'cg', 'slsqp', 'nelder', 'cobyla', 'tnc']
             model = Model(cardiacFitGeneric, nan_policy='propagate', independent_vars=int_vars.keys())
-            max_nfev = self.info.get('max_nfev', 5000)
+            max_nfev = self.info.get('max_nfev', 15_000)
             result = model.fit(histNdarray, verbose=True, method='leastsq', params=params, weights=weights, **int_vars, max_nfev=max_nfev)
 
             if result is not None :
@@ -1080,8 +1082,10 @@ class EquatorImage:
                 all_S = [S10 * theta(i) for i in range(len(left_peaks))]    
                 fit_result['model_peaks'] = sorted(model_peaks)
                 fit_result['all_S'] = all_S
+
                 fit_result['histNdarray'] = histNdarray
                 fit_result['fittedCurve'] = pred_full
+
                 fit_result['bg_names'] = bg_names
                 fit_result['nfev'] = result.nfev
 
@@ -1565,8 +1569,53 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
         return result
     return 0
 
-
 def getCardiacGraph(x, fit_results):
+    plot_params = {
+        'centerX': fit_results['centerX'],
+        'S0': fit_results["S0"],
+        'S10': fit_results['S10'],
+        'model': fit_results['model'],
+        'isSkeletal': fit_results['isSkeletal'],
+        'isExtraPeak': fit_results['isExtraPeak'],
+        'left_areas': fit_results['left_areas'],
+        'right_areas': fit_results['right_areas'],
+        'left_sigmac': fit_results['left_sigmac'],
+        'left_sigmad': fit_results['left_sigmad'],
+        'left_sigmas': fit_results['left_sigmas'],
+        'left_gamma': fit_results['left_gamma'],
+        'left_zline': fit_results['left_zline'],
+        'left_sigmaz': fit_results['left_sigmaz'],
+        'left_intz': fit_results['left_intz'],
+        'left_gammaz': fit_results['left_gammaz'],
+        'left_zline_EP': fit_results['left_zline_EP'],
+        'left_sigmaz_EP': fit_results['left_sigmaz_EP'],
+        'left_intz_EP': fit_results['left_intz_EP'],
+        'left_gammaz_EP': fit_results['left_gammaz_EP'],
+        'right_sigmac': fit_results['right_sigmac'],
+        'right_sigmad': fit_results['right_sigmad'],
+        'right_sigmas': fit_results['right_sigmas'],
+        'right_gamma': fit_results['right_gamma'],
+        'right_zline': fit_results['right_zline'],
+        'right_sigmaz': fit_results['right_sigmaz'],
+        'right_intz': fit_results['right_intz'],
+        'right_gammaz': fit_results['right_gammaz'],
+        'right_zline_EP': fit_results['right_zline_EP'],
+        'right_sigmaz_EP': fit_results['right_sigmaz_EP'],
+        'right_intz_EP': fit_results['right_intz_EP'],
+        'right_gammaz_EP': fit_results['right_gammaz_EP'],
+        'k': fit_results['k'],
+        'extraGaussCenter': fit_results['extraGaussCenter'],
+        'extraGaussSig': fit_results['extraGaussSig'],
+        'extraGaussArea': fit_results['extraGaussArea']
+    }
+    # include all left_*/right_* background params that were stored
+    for k in list(fit_results.keys()):
+        if k.startswith('left_') or k.startswith('right_'):
+            plot_params.setdefault(k, fit_results[k])
+    return cardiacFit(x=x, **plot_params)
+
+
+def getCardiacGraphBG(x, fit_results):
     plot_params = {
         'centerX': fit_results['centerX'],
         'S0': fit_results["S0"],

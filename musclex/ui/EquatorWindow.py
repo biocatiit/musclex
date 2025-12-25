@@ -44,7 +44,7 @@ from ..CalibrationSettings import CalibrationSettings
 from ..utils.file_manager import FileManager, fullPath, getImgFiles
 from ..utils import logger
 from ..utils.image_processor import *
-from ..modules.EquatorImage import EquatorImage, getCardiacGraph
+from ..modules.EquatorImage import EquatorImage, getCardiacGraph, getCardiacGraphBG
 # from ..modules.QuadrantFolder import QuadrantFolder
 from ..csv_manager import EQ_CSVManager
 from ..ui.EQ_FittingTab import EQ_FittingTab
@@ -554,10 +554,12 @@ class EquatorWindow(QMainWindow):
         self.fitDispOptionGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.fitDispOptLayout = QGridLayout()
         self.origHistChkBx = QCheckBox('Original\nHistogram')
-        self.hullChkBx = QCheckBox('After\nConvexhull')
+        self.hullChkBx = QCheckBox('After\nConvex Hull')
         self.hullChkBx.setChecked(True)
-        self.fitChkBx = QCheckBox('Fitting Graph')
+        self.fitChkBx = QCheckBox('Fitted Curve')
         self.fitChkBx.setChecked(True)
+        self.fitChkBxBG = QCheckBox('Fitted Curve\nwith BG')
+        self.fitChkBxBG.setChecked(False)
         self.peakChkBx = QCheckBox('Peaks')
         self.peakChkBx.setChecked(True)
         self.dispZlineChkBx = QCheckBox("Z line")
@@ -573,10 +575,11 @@ class EquatorWindow(QMainWindow):
         self.fitDispOptLayout.addWidget(self.hullChkBx, 0, 1, 1, 1)
         self.fitDispOptLayout.addWidget(self.peakChkBx, 1, 0, 1, 1)
         self.fitDispOptLayout.addWidget(self.fitChkBx, 1, 1, 1, 1)
+        self.fitDispOptLayout.addWidget(self.fitChkBxBG, 2, 1, 1, 1)
         self.fitDispOptLayout.addWidget(self.dispZlineChkBx, 2, 0, 1, 1)
-        self.fitDispOptLayout.addWidget(self.centerXChkBx, 2, 1, 1, 1)
-        self.fitDispOptLayout.addWidget(self.graphZoomInB, 3, 0, 1, 1)
-        self.fitDispOptLayout.addWidget(self.graphZoomOutB, 3, 1, 1, 1)
+        self.fitDispOptLayout.addWidget(self.centerXChkBx, 3, 0, 1, 1)
+        self.fitDispOptLayout.addWidget(self.graphZoomInB, 4, 0, 1, 1)
+        self.fitDispOptLayout.addWidget(self.graphZoomOutB, 4, 1, 1, 1)
         self.fitDispOptionGrp.setLayout(self.fitDispOptLayout)
 
         self.fittingTabWidget = QTabWidget()
@@ -591,8 +594,36 @@ class EquatorWindow(QMainWindow):
         self.fittingTabWidget.addTab(self.right_fitting_tab, "Right")
         self.fittingTabWidget.setStyleSheet("QTabBar::tab { width: 100px; }")
 
+        self.backgroundFittingGrp = QGroupBox("Background Fitting Options")
+        self.backgroundFittingGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
+
+        # self.backgroundFittingOuterLayout = QVBoxLayout(self.backgroundFittingGrp)
+        self.backgroundFittingNote = QLabel("Note: choose either Convex Hull or parametric background fitting.")
+        self.backgroundFittingNote.setStyleSheet("color: #c45500; font-style: italic;")
+        self.backgroundFittingNote.setWordWrap(True)
+        # self.backgroundFittingOuterLayout.addWidget(self.backgroundFittingNote)
+
+        self.backgroundFittingLayout = QGridLayout(self.backgroundFittingGrp)
+
         self.k_chkbx = QCheckBox("Fixed Background K : ")
-        self.k_chkbx.setChecked(True)
+        self.k_chkbx.setChecked(False)
+
+        self.ch_chkbx = QCheckBox("Convex Hull")
+        self.ch_chkbx.setChecked(True)
+        self.de1_chkbx = QCheckBox("Double Exponential; Chebyshev Polynomial (1-3)")
+        self.de1_chkbx.setChecked(False)
+        self.el1_chkbx = QCheckBox("Exponential; Modified Lorentzian; Chebyshev Polynomial (1-3)")
+        self.el1_chkbx.setChecked(False)
+        self.de2_chkbx = QCheckBox("Double Exponential")
+        self.de2_chkbx.setChecked(False)
+        self.el2_chkbx = QCheckBox("Exponential & Modified Lorentzian")
+        self.el2_chkbx.setChecked(False)
+
+        self.rmin_chkbx = QCheckBox("Set Rmin : ")
+        self.rmin_chkbx.setChecked(True)
+        self.rmax_chkbx = QCheckBox("Set Rmax : ")
+        self.rmax_chkbx.setChecked(True)
+
         self.k_spnbx = QDoubleSpinBox()
         self.k_spnbx.setObjectName('k_spnbx')
         self.editableVars[self.k_spnbx.objectName()] = None
@@ -600,12 +631,55 @@ class EquatorWindow(QMainWindow):
         self.k_spnbx.setRange(0, 99999999)
         # self.k_spnbx.setEnabled(False)
         self.k_spnbx.setValue(0)
+
+        self.rmin_spnbx = QDoubleSpinBox()
+        self.rmin_spnbx.setObjectName('rmin_spnbx')
+        self.editableVars[self.rmin_spnbx.objectName()] = None
+        self.rmin_spnbx.setDecimals(0)
+        self.rmin_spnbx.setRange(0, 500)
+        self.rmin_spnbx.setValue(70)
+        self.rmax_spnbx = QDoubleSpinBox()
+        self.rmax_spnbx.setObjectName('rmax_spnbx')
+        self.editableVars[self.rmax_spnbx.objectName()] = None
+        self.rmax_spnbx.setDecimals(0)
+        self.rmax_spnbx.setRange(0, 6000)
+        self.rmax_spnbx.setValue(1000)
+
+        self.nfev_spnbx = QDoubleSpinBox()
+        self.nfev_spnbx.setObjectName('nfev_spnbx')
+        self.editableVars[self.nfev_spnbx.objectName()] = None
+        self.nfev_spnbx.setDecimals(0)
+        self.nfev_spnbx.setRange(0, 50_000)
+        self.nfev_spnbx.setValue(10_000)
+
+        # Add checkboxes to the background fitting layout
+        self.backgroundFittingLayout.addWidget(self.backgroundFittingNote, 0, 0, 1, 4)
+        self.backgroundFittingLayout.addWidget(self.k_chkbx, 1, 0, 1, 1)
+        self.backgroundFittingLayout.addWidget(self.k_spnbx, 1, 1, 1, 1)
+        self.backgroundFittingLayout.addWidget(QLabel("Max nfev: "), 1, 2, 1, 1)
+        self.backgroundFittingLayout.addWidget(self.nfev_spnbx, 1, 3, 1, 1)
+        self.backgroundFittingLayout.addWidget(self.ch_chkbx, 2, 0, 1, 4)
+        self.backgroundFittingLayout.addWidget(self.de1_chkbx, 3, 0, 1, 4)
+        self.backgroundFittingLayout.addWidget(self.el1_chkbx, 4, 0, 1, 4)
+            # self.backgroundFittingLayout.addWidget(self.de2_chkbx, 4, 0, 1, 4)
+            # self.backgroundFittingLayout.addWidget(self.el2_chkbx, 5, 0, 1, 4)
+        self.backgroundFittingLayout.addWidget(self.rmin_chkbx, 5, 0, 1, 1)
+        self.backgroundFittingLayout.addWidget(self.rmin_spnbx, 5, 1, 1, 1)
+        self.backgroundFittingLayout.addWidget(self.rmax_chkbx, 5, 2, 1, 1)
+        self.backgroundFittingLayout.addWidget(self.rmax_spnbx, 5, 3, 1, 1) 
+        self.backgroundFittingGrp.setLayout(self.backgroundFittingLayout)
+
         self.k_layout = QHBoxLayout()
         self.use_previous_fit_chkbx = QCheckBox("Use Previous Fit")
-        self.k_layout.addWidget(self.k_chkbx)
-        self.k_layout.addWidget(self.k_spnbx)
-        
-        
+        # self.k_layout.addWidget(self.k_chkbx)
+        # self.k_layout.addWidget(self.k_spnbx)
+
+        # self.k_layout.addWidget(self.exp_chkbx)
+        # self.k_layout.addWidget(self.exp2_chkbx)
+        # self.k_layout.addWidget(self.modlor_chkbx)
+        # self.k_layout.addWidget(self.chebyshev_chkbx)
+        # self.k_layout.addWidget(self.polynomial_chkbx)
+
         self.use_smooth_alg = QCheckBox("Interpolate Gaps")
         self.use_smooth_spnbx = QSpinBox()
         self.use_smooth_spnbx.setValue(3)
@@ -671,8 +745,11 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
         self.fittingOptionsLayout2.addLayout(self.k_layout)
+        self.fittingOptionsLayout2.addWidget(self.backgroundFittingGrp)  # Add the new group box here
         self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
         self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
+
+
         # self.fittingOptionsLayout2.addLayout(self.marginLayout)
         # self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
         # self.fittingOptionsLayout2.addWidget(self.addGapsButton)
@@ -840,6 +917,7 @@ class EquatorWindow(QMainWindow):
         self.dispZlineChkBx.setToolTip("Show the detected skeletal peaks (Skeletal Muscle needs to be checked)")
         self.centerXChkBx.setToolTip("Show the fitting model center X")
         self.fitChkBx.setToolTip("Show the fitting graph")
+        self.fitChkBxBG.setToolTip("Show the fitting graph with background")
         self.graphZoomInB.setToolTip("Activate zoom-in operation, click on the graph to select zoom-in area")
         self.graphZoomOutB.setToolTip("Activate zoom-in operation")
         self.navFit.processFolderButton.setToolTip("Process all images in the same directory as the current file with current fitting parameters and image settings")
@@ -921,6 +999,7 @@ class EquatorWindow(QMainWindow):
         self.dispZlineChkBx.stateChanged.connect(self.refreshGraph)
         self.centerXChkBx.stateChanged.connect(self.refreshGraph)
         self.fitChkBx.stateChanged.connect(self.refreshGraph)
+        self.fitChkBxBG.stateChanged.connect(self.refreshGraph)
         self.graphZoomInB.clicked.connect(self.graphZoomIn)
         self.graphZoomOutB.clicked.connect(self.graphZoomOut)
 
@@ -947,6 +1026,8 @@ class EquatorWindow(QMainWindow):
         self.smoothing_window.editingFinished.connect(self.smoothingWindowChanged)
         self.addGapsButton.clicked.connect(self.addGaps)
         self.clearGapsButton.clicked.connect(self.clearGaps)
+        self.rmin_spnbx.editingFinished.connect(self.rminChanged)
+        self.rmax_spnbx.editingFinished.connect(self.rmaxChanged)
 
         #### Parameter Editor Tab
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
@@ -1026,6 +1107,14 @@ class EquatorWindow(QMainWindow):
         Handle when bias k is changed
         """
         self.log_changes('backgroudK', obj=self.k_spnbx)
+
+    def rminChanged(self):
+        self.log_changes('rmin_fit', obj=self.rmin_spnbx)
+        self.bioImg.info['rmin_fit'] = self.rmin_spnbx.value()
+
+    def rmaxChanged(self):
+        self.log_changes('rmax_fit', obj=self.rmax_spnbx)
+        self.bioImg.info['rmax_fit'] = self.rmax_spnbx.value()
 
     def refitting(self):
         """
@@ -3431,6 +3520,13 @@ class EquatorWindow(QMainWindow):
             if 'paramInfo' in info:
                 self.k_spnbx.setValue(info['paramInfo']['k']['val'])
 
+        if 'rmin_fit' in info:
+            self.rmin_spnbx.setValue(info['rmin_fit'])
+        
+        if 'rmax_fit' in info:
+            self.rmax_spnbx.setValue(info['rmax_fit'])
+
+
         if 'nPeaks' in info:
             self.nPeakSpnBx.setValue(info['nPeaks'])
 
@@ -3985,6 +4081,7 @@ class EquatorWindow(QMainWindow):
         settings['isExtraPeak'] = self.extraPeakChkBx.isChecked()
         settings['mask_thres'] = self.maskThresSpnBx.value()
         settings['90rotation'] = self.rotation90ChkBx.isChecked()
+        settings['max_nfev'] = int(self.nfev_spnbx.value())
 
         if self.calSettings is not None:
             if 'type' in self.calSettings:
@@ -4033,6 +4130,30 @@ class EquatorWindow(QMainWindow):
 
         if self.k_chkbx.isChecked():
             settings['fix_k'] = self.k_spnbx.value()
+
+        if self.rmin_chkbx.isChecked():
+            settings['rmin_fit'] = self.rmin_spnbx.value()
+        
+        if self.rmax_chkbx.isChecked():
+            settings['rmax_fit'] = self.rmax_spnbx.value()
+
+        if self.ch_chkbx.isChecked():
+            settings['background_model'] = 'ConvexHull'
+
+        if self.de1_chkbx.isChecked():
+            settings['background_model'] = ['Exp', 'Exp', 'Poly']
+            if self.ch_chkbx.isChecked():
+                self.ch_chkbx.setChecked(False)
+
+        if self.el1_chkbx.isChecked():
+            settings['background_model'] = ['Exp', 'ModLor', 'Poly']
+            if self.ch_chkbx.isChecked():
+                self.ch_chkbx.setChecked(False)
+
+        if self.de2_chkbx.isChecked():
+            settings['background_model'] = ['Exp', 'Exp']
+            if self.ch_chkbx.isChecked():
+                self.ch_chkbx.setChecked(False)
 
         return settings
 
@@ -4224,6 +4345,7 @@ class EquatorWindow(QMainWindow):
                 cardiac = (np.array(getCardiacGraph(xs, info['fit_results'])) * norm - img.shape[0]) * -1
                 ax.plot(cardiac, color='r')
 
+
         # Zoom
         if self.img_zoom is not None and len(self.img_zoom) == 2:
             ax.set_xlim(self.img_zoom[0])
@@ -4299,6 +4421,11 @@ class EquatorWindow(QMainWindow):
             if self.fitChkBx.isChecked():
                 x = np.linspace(0, len(hull), len(hull))
                 ax.plot(getCardiacGraph(x, fit_result), color = 'b')
+
+            # draw fitting model
+            if self.fitChkBxBG.isChecked():
+                x = np.linspace(0, len(hull), len(hull))
+                ax.plot(getCardiacGraphBG(x, fit_result), color = 'orange')
 
             if 'model_peaks' in fit_result and self.peakChkBx.isChecked():
                 # Draw peak lines
