@@ -2198,13 +2198,17 @@ class ProjectionTracesGUI(BaseGUI):
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
 
-        # add peak tolerance from each box tab
+        # add peak tolerance / sigma tolerance from each box tab
         peak_tolerances = {}
+        sigma_tolerances = {}
         for i in range(1, self.tabWidget.count()):
             tab = self.tabWidget.widget(i)
             if tab is not None and hasattr(tab, 'peakToleranceSpinBox'):
                 peak_tolerances[tab.name] = tab.peakToleranceSpinBox.value()
+            if tab is not None and hasattr(tab, 'sigmaToleranceSpinBox'):
+                sigma_tolerances[tab.name] = tab.sigmaToleranceSpinBox.value()
         settings['peak_tolerances'] = peak_tolerances
+        settings['sigma_tolerances'] = sigma_tolerances
 
         # add GMM mode settings (from projProc.info if available)
         if self.projProc and 'use_common_sigma' in self.projProc.info:
