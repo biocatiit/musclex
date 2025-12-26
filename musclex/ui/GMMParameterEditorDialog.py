@@ -3,6 +3,7 @@ GMM Parameter Editor Dialog - Simple parameter editor for GMM fitting
 """
 
 from .pyqt_utils import *
+import copy
 import numpy as np
 from sklearn.metrics import r2_score
 from lmfit import Model, Parameters
@@ -17,6 +18,17 @@ class GMMParameterEditorDialog(QDialog):
         self.parent_tab = parent_tab
         self.box_name = box_name
         self.projProc = parent_tab.parent.projProc
+        
+        # Snapshot state for Cancel rollback (dialog should be transactional)
+        self._snapshot_fit_result = copy.deepcopy(
+            self.projProc.info.get('fit_results', {}).get(self.box_name, {})
+        )
+        self._snapshot_param_bounds = copy.deepcopy(
+            self.projProc.info.get('param_bounds', {}).get(self.box_name, {})
+        )
+        self._snapshot_use_common_sigma = copy.deepcopy(
+            self.projProc.info.get('use_common_sigma', {}).get(self.box_name, None)
+        )
         
         self.setWindowTitle(f"GMM Parameter Editor - {box_name}")
         self.resize(600, 500)  # Simpler, smaller window
@@ -301,20 +313,26 @@ class GMMParameterEditorDialog(QDialog):
         for param_name, pinfo in edited_params.items():
             self.projProc.info['fit_results'][self.box_name][param_name] = pinfo['val']
         
-        # Persist per-parameter bounds (scheme B) for later fitting/refitting
+        self.parent_tab.need_update = True
+        # Redraw with updated parameters (uses info['fit_results'])
+        self.parent_tab.updateUI()
+    
+    def _commit_bounds_from_table(self, params_info):
+        """
+        Commit Min/Max bounds from table to projProc.info['param_bounds'].
+        This is used right before refit so fitModel uses the user's edited bounds.
+        """
         if 'param_bounds' not in self.projProc.info or not isinstance(self.projProc.info.get('param_bounds'), dict):
             self.projProc.info['param_bounds'] = {}
         if self.box_name not in self.projProc.info['param_bounds'] or not isinstance(self.projProc.info['param_bounds'].get(self.box_name), dict):
             self.projProc.info['param_bounds'][self.box_name] = {}
-        for param_name, pinfo in edited_params.items():
-            self.projProc.info['param_bounds'][self.box_name][param_name] = {
-                'min': float(pinfo['min']),
-                'max': float(pinfo['max'])
-            }
         
-        self.parent_tab.need_update = True
-        # Redraw with updated parameters (uses info['fit_results'])
-        self.parent_tab.updateUI()
+        for param_name, pinfo in params_info.items():
+            # Only commit if min/max exist in the table structure
+            self.projProc.info['param_bounds'][self.box_name][param_name] = {
+                'min': float(pinfo.get('min', 0.0)),
+                'max': float(pinfo.get('max', 0.0)),
+            }
     
     def onCommonSigmaChanged(self, value):
         """
@@ -367,6 +385,9 @@ class GMMParameterEditorDialog(QDialog):
         try:
             # Get parameters from table
             params_info = self.getParametersFromTable()
+            
+            # Commit bounds BEFORE refit so ProjectionProcessor.fitModel uses them
+            self._commit_bounds_from_table(params_info)
             
             # Call refit
             result = self.refitGMM(params_info)
@@ -588,8 +609,32 @@ class GMMParameterEditorDialog(QDialog):
     
     def reject(self):
         """
-        Cancel: Just close the dialog without saving or restoring
+        Cancel: rollback to the snapshot captured when dialog opened
         """
+        
+        # Restore fit_results snapshot
+        if 'fit_results' not in self.projProc.info or not isinstance(self.projProc.info.get('fit_results'), dict):
+            self.projProc.info['fit_results'] = {}
+        self.projProc.info['fit_results'][self.box_name] = copy.deepcopy(self._snapshot_fit_result)
+        
+        # Restore param_bounds snapshot (or remove if none existed)
+        if 'param_bounds' not in self.projProc.info or not isinstance(self.projProc.info.get('param_bounds'), dict):
+            self.projProc.info['param_bounds'] = {}
+        if self._snapshot_param_bounds:
+            self.projProc.info['param_bounds'][self.box_name] = copy.deepcopy(self._snapshot_param_bounds)
+        else:
+            if self.box_name in self.projProc.info['param_bounds']:
+                del self.projProc.info['param_bounds'][self.box_name]
+        
+        # Restore use_common_sigma snapshot
+        if self._snapshot_use_common_sigma is not None:
+            if 'use_common_sigma' not in self.projProc.info or not isinstance(self.projProc.info.get('use_common_sigma'), dict):
+                self.projProc.info['use_common_sigma'] = {}
+            self.projProc.info['use_common_sigma'][self.box_name] = self._snapshot_use_common_sigma
+        else:
+            if 'use_common_sigma' in self.projProc.info and isinstance(self.projProc.info.get('use_common_sigma'), dict):
+                if self.box_name in self.projProc.info['use_common_sigma']:
+                    del self.projProc.info['use_common_sigma'][self.box_name]
         
         # Redraw to show original values
         self.parent_tab.need_update = True
