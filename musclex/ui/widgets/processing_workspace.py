@@ -1631,14 +1631,28 @@ class ProcessingWorkspace(QWidget):
         # Sync quadrant folded state (PT-specific, no-op if checkbox doesn't exist)
         self._sync_qf_from_image_data(image_data)
         
+        # IMPORTANT (UI responsiveness):
+        # - Showing the first-image notification and immediately emitting imageDataReady can cause
+        #   the popup to appear slowly or briefly render black, because downstream slots often do
+        #   heavy synchronous processing (e.g., processImage()) on the UI thread.
+        # - To ensure Qt gets a chance to paint the popup, we schedule the notification for the
+        #   next event loop turn, and delay the imageDataReady emission slightly.
+        from PySide6.QtCore import QTimer
+
         # Show settings status notification on first image in folder
         if self._first_image_in_folder:
             self._first_image_in_folder = False
-            self._show_first_image_settings_notification(filename)
-        
-        # Emit high-level signal with ImageData
+            QTimer.singleShot(
+                0,
+                lambda fn=filename: self._show_first_image_settings_notification(fn),
+            )
+
+        # Emit high-level signal with ImageData (delayed to allow UI paint)
         # GUIs should listen to this instead of imageChanged
-        self.imageDataReady.emit(image_data)
+        QTimer.singleShot(
+            30,
+            lambda d=image_data: self.imageDataReady.emit(d),
+        )
     
     def _show_first_image_settings_notification(self, filename: str):
         """
