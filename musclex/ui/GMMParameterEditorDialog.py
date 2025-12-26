@@ -285,6 +285,80 @@ class GMMParameterEditorDialog(QDialog):
         # Update parameter values and redraw
         self.onParameterChanged()
     
+    def _get_peak_tolerance(self) -> float:
+        """
+        Get current peak tolerance (used for p_i bounds reset).
+        Prefer the live value from the parent tab if available.
+        """
+        try:
+            if hasattr(self.parent_tab, 'peakToleranceSpinBox'):
+                return float(self.parent_tab.peakToleranceSpinBox.value())
+        except Exception:
+            pass
+        return float(self.projProc.info.get('peak_tolerances', {}).get(self.box_name, 2.0))
+    
+    def _get_sigma_tolerance(self) -> float:
+        """
+        Get current sigma tolerance (used for sigma/common_sigma bounds reset).
+        Prefer the live value from the parent tab if available.
+        """
+        try:
+            if hasattr(self.parent_tab, 'sigmaToleranceSpinBox'):
+                return float(self.parent_tab.sigmaToleranceSpinBox.value())
+        except Exception:
+            pass
+        return float(self.projProc.info.get('sigma_tolerances', {}).get(self.box_name, 5.0))
+    
+    def _find_row_for_value_widget(self, widget):
+        """
+        Find row index in paramTable whose Value cell widget equals the given widget.
+        Returns row index or None.
+        """
+        for row in range(self.paramTable.rowCount()):
+            if self.paramTable.cellWidget(row, 2) is widget:
+                return row
+        return None
+    
+    def _reset_bounds_for_row_by_tolerance(self, row: int, param_name: str, value: float):
+        """
+        Reset Min/Max in a given row based on current tolerance:
+        - p_i: value ± peak_tolerance
+        - sigma{i}, common_sigma: value ± sigma_tolerance (clamped at 0 for min)
+        """
+        if row is None or row < 0 or row >= self.paramTable.rowCount():
+            return
+        minSpin = self.paramTable.cellWidget(row, 3)
+        maxSpin = self.paramTable.cellWidget(row, 4)
+        if minSpin is None or maxSpin is None:
+            return
+        
+        if param_name.startswith('p_'):
+            tol = self._get_peak_tolerance()
+            bmin = float(value) - tol
+            bmax = float(value) + tol
+        elif param_name == 'common_sigma' or (param_name.startswith('sigma') and param_name != 'common_sigma'):
+            tol = self._get_sigma_tolerance()
+            bmin = max(0.0, float(value) - tol)
+            bmax = float(value) + tol
+        else:
+            return
+        
+        if bmin > bmax:
+            bmin, bmax = bmax, bmin
+        if bmin == bmax:
+            bmin = max(0.0, bmin - 0.5)
+            bmax = bmax + 0.5
+        
+        # Update UI without triggering extra cascades
+        try:
+            minSpin.blockSignals(True)
+            maxSpin.blockSignals(True)
+            minSpin.setValue(bmin)
+            maxSpin.setValue(bmax)
+        finally:
+            minSpin.blockSignals(False)
+            maxSpin.blockSignals(False)
+    
     def onFixedToggled(self, item):
         """
         Toggle Fixed checkbox - enable/disable Min/Max
@@ -306,6 +380,18 @@ class GMMParameterEditorDialog(QDialog):
         Real-time parameter update: when user changes value in table,
         update info['fit_results'] and redraw immediately
         """
+        # If a value spinner changed for p_i / sigma_i, auto-reset that row's bounds to value ± tolerance
+        sender = self.sender()
+        if isinstance(sender, QDoubleSpinBox):
+            row = self._find_row_for_value_widget(sender)
+            if row is not None:
+                try:
+                    param_name = self.paramTable.item(row, 1).text()
+                    if param_name.startswith('p_') or param_name.startswith('sigma'):
+                        self._reset_bounds_for_row_by_tolerance(row, param_name, sender.value())
+                except Exception:
+                    pass
+        
         # Get current parameters from table
         edited_params = self.getParametersFromTable()
         
@@ -352,6 +438,14 @@ class GMMParameterEditorDialog(QDialog):
         """
         When common_sigma changes in GMM mode, sync all individual sigmas
         """
+        # Auto-reset common_sigma bounds to value ± sigma tolerance
+        try:
+            row = self._find_row_for_value_widget(self.sender())
+            if row is not None:
+                self._reset_bounds_for_row_by_tolerance(row, 'common_sigma', value)
+        except Exception:
+            pass
+        
         if self.equalVarianceChkBx.isChecked():
             # GMM mode: sync all individual sigmas to common_sigma
             for row in range(self.paramTable.rowCount()):
@@ -361,6 +455,8 @@ class GMMParameterEditorDialog(QDialog):
                     valueSpin.blockSignals(True)  # Avoid triggering cascade
                     valueSpin.setValue(value)
                     valueSpin.blockSignals(False)
+                    # Keep sigma bounds visually in sync as well
+                    self._reset_bounds_for_row_by_tolerance(row, param_name, value)
                     # Update in fit_results
                     self.projProc.info['fit_results'][self.box_name][param_name] = value
         
