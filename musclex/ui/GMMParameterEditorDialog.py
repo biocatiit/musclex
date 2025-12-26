@@ -108,10 +108,14 @@ class GMMParameterEditorDialog(QDialog):
         peak_tol = self.projProc.info.get('peak_tolerances', {}).get(self.box_name, 2.0)
         
         # Common sigma - ALWAYS show it (will be enabled/disabled based on mode)
+        cs_bounds = box_bounds.get('common_sigma', {})
+        if not isinstance(cs_bounds, dict):
+            cs_bounds = {}
         params_to_show['common_sigma'] = {
             'val': fit_result.get('common_sigma', 10.0),
-            'min': 1.0,
-            'max': 100.0,
+            # Prefer persisted bounds; fallback to legacy UI range
+            'min': cs_bounds.get('min', 1.0),
+            'max': cs_bounds.get('max', 100.0),
             'fixed': fit_result.get('common_sigma_fixed', False),  # Read fixed state
             'enabled': is_gmm  # Only enabled in GMM mode
         }
@@ -136,19 +140,29 @@ class GMMParameterEditorDialog(QDialog):
             }
             
             # Amplitude
+            a_name = f'amplitude{i}'
+            a_bounds = box_bounds.get(a_name, {})
+            if not isinstance(a_bounds, dict):
+                a_bounds = {}
             params_to_show[f'amplitude{i}'] = {
                 'val': fit_result[f'amplitude{i}'],
-                'min': 0,
-                'max': fit_result[f'amplitude{i}'] * 5,
+                # Prefer persisted bounds; fallback to legacy UI heuristic
+                'min': a_bounds.get('min', 0),
+                'max': a_bounds.get('max', fit_result[f'amplitude{i}'] * 5),
                 'fixed': fit_result.get(f'amplitude{i}_fixed', False),  # Read fixed state
                 'enabled': True
             }
             
             # Sigma - ALWAYS show it (will be enabled/disabled based on mode)
+            s_name = f'sigma{i}'
+            s_bounds = box_bounds.get(s_name, {})
+            if not isinstance(s_bounds, dict):
+                s_bounds = {}
             params_to_show[f'sigma{i}'] = {
-                'val': fit_result.get(f'sigma{i}', fit_result.get('common_sigma', 10.0)),
-                'min': 1.0,
-                'max': 100.0,
+                'val': fit_result.get(s_name, fit_result.get('common_sigma', 10.0)),
+                # Prefer persisted bounds; fallback to legacy UI range
+                'min': s_bounds.get('min', 1.0),
+                'max': s_bounds.get('max', 100.0),
                 'fixed': fit_result.get(f'sigma{i}_fixed', False),  # Read fixed state
                 'enabled': not is_gmm  # Only enabled in non-GMM mode
             }
