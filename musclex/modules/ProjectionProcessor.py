@@ -552,6 +552,9 @@ class ProjectionProcessor:
             # Check if hull_ranges exist to constrain peak search range
             # Get peak tolerance from settings (default 10.0 for backward compatibility)
             default_search_dist = self.info.get('peak_tolerances', {}).get(name, 2.0)
+            # Sigma tolerance for initializing sigma/common_sigma bounds when none are stored
+            # (used as ± tolerance around the default initial value 5)
+            sigma_tol = self.info.get('sigma_tolerances', {}).get(name, 5.0)
             hull_constraint = None
             if name in self.info['hull_ranges']:
                 hull_start, hull_end = self.info['hull_ranges'][name]
@@ -566,20 +569,21 @@ class ProjectionProcessor:
                     params.add('common_sigma', self.fixed_common_sigma, vary=False)
                 else:
                     # Bounds-driven common_sigma: prefer persisted bounds; otherwise default [1, 50]
-                    cs_min, cs_max = self._get_param_bounds(name, 'common_sigma')
+                    orig_cs_min, orig_cs_max = self._get_param_bounds(name, 'common_sigma')
+                    cs_min, cs_max = orig_cs_min, orig_cs_max
                     if cs_min is None:
-                        cs_min = 1.0
+                        cs_min = max(0.0, 5.0 - float(sigma_tol))
                     if cs_max is None:
-                        cs_max = 50.0
+                        cs_max = 5.0 + float(sigma_tol)
                     if cs_min > cs_max:
                         cs_min, cs_max = cs_max, cs_min
                     if cs_min == cs_max:
                         cs_min = max(0.0, cs_min - 0.5)
                         cs_max = cs_max + 0.5
                     # Persist defaults if missing
-                    if self._get_param_bounds(name, 'common_sigma') == (None, None):
+                    if orig_cs_min is None and orig_cs_max is None:
                         self._set_param_bounds(name, 'common_sigma', cs_min, cs_max)
-                    params.add('common_sigma', 10, min=cs_min, max=cs_max)
+                    params.add('common_sigma', 5, min=cs_min, max=cs_max)
                 
                 for j, p in enumerate(peaks):
                     # Per-peak bounds (scheme B):
@@ -681,19 +685,20 @@ class ProjectionProcessor:
                     else:
                         # Bounds-driven sigma: prefer persisted bounds; otherwise default [1, 50]
                         s_name = f'sigma{j}'
-                        s_min, s_max = self._get_param_bounds(name, s_name)
+                        orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
+                        s_min, s_max = orig_s_min, orig_s_max
                         if s_min is None:
-                            s_min = 1.0
+                            s_min = max(0.0, 5.0 - float(sigma_tol))
                         if s_max is None:
-                            s_max = 50.0
+                            s_max = 5.0 + float(sigma_tol)
                         if s_min > s_max:
                             s_min, s_max = s_max, s_min
                         if s_min == s_max:
                             s_min = max(0.0, s_min - 0.5)
                             s_max = s_max + 0.5
-                        if self._get_param_bounds(name, s_name) == (None, None):
+                        if orig_s_min is None and orig_s_max is None:
                             self._set_param_bounds(name, s_name, s_min, s_max)
-                        params.add(s_name, 10, min=s_min, max=s_max)
+                        params.add(s_name, 5, min=s_min, max=s_max)
                     
                     # Amplitude: check if fixed
                     if j in self.fixed_amplitude:
