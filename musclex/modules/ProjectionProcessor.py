@@ -565,7 +565,21 @@ class ProjectionProcessor:
                 if self.fixed_common_sigma is not None:
                     params.add('common_sigma', self.fixed_common_sigma, vary=False)
                 else:
-                    params.add('common_sigma', 10, min=1, max=50.)
+                    # Bounds-driven common_sigma: prefer persisted bounds; otherwise default [1, 50]
+                    cs_min, cs_max = self._get_param_bounds(name, 'common_sigma')
+                    if cs_min is None:
+                        cs_min = 1.0
+                    if cs_max is None:
+                        cs_max = 50.0
+                    if cs_min > cs_max:
+                        cs_min, cs_max = cs_max, cs_min
+                    if cs_min == cs_max:
+                        cs_min = max(0.0, cs_min - 0.5)
+                        cs_max = cs_max + 0.5
+                    # Persist defaults if missing
+                    if self._get_param_bounds(name, 'common_sigma') == (None, None):
+                        self._set_param_bounds(name, 'common_sigma', cs_min, cs_max)
+                    params.add('common_sigma', 10, min=cs_min, max=cs_max)
                 
                 for j, p in enumerate(peaks):
                     # Per-peak bounds (scheme B):
@@ -611,7 +625,22 @@ class ProjectionProcessor:
                     if j in self.fixed_amplitude:
                         params.add('amplitude' + str(j), self.fixed_amplitude[j], vary=False, min=-1)
                     else:
-                        params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+                        # Bounds-driven amplitude: prefer persisted bounds; otherwise default [-1, sum(hist)+1]
+                        a_name = f'amplitude{j}'
+                        a_min, a_max = self._get_param_bounds(name, a_name)
+                        if a_min is None:
+                            a_min = -1.0
+                        if a_max is None:
+                            total = float(np.sum(hist))
+                            a_max = max(1.0, total + 1.0)
+                        if a_min > a_max:
+                            a_min, a_max = a_max, a_min
+                        if a_min == a_max:
+                            a_min -= 0.5
+                            a_max += 0.5
+                        if self._get_param_bounds(name, a_name) == (None, None):
+                            self._set_param_bounds(name, a_name, a_min, a_max)
+                        params.add(a_name, sum(hist)/10., min=a_min, max=a_max)
             else:
                 # Original mode: each peak has independent sigma
                 for j,p in enumerate(peaks):
@@ -650,13 +679,42 @@ class ProjectionProcessor:
                     if j in self.fixed_sigma:
                         params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
                     else:
-                        params.add('sigma' + str(j), 10, min=1, max=50.)
+                        # Bounds-driven sigma: prefer persisted bounds; otherwise default [1, 50]
+                        s_name = f'sigma{j}'
+                        s_min, s_max = self._get_param_bounds(name, s_name)
+                        if s_min is None:
+                            s_min = 1.0
+                        if s_max is None:
+                            s_max = 50.0
+                        if s_min > s_max:
+                            s_min, s_max = s_max, s_min
+                        if s_min == s_max:
+                            s_min = max(0.0, s_min - 0.5)
+                            s_max = s_max + 0.5
+                        if self._get_param_bounds(name, s_name) == (None, None):
+                            self._set_param_bounds(name, s_name, s_min, s_max)
+                        params.add(s_name, 10, min=s_min, max=s_max)
                     
                     # Amplitude: check if fixed
                     if j in self.fixed_amplitude:
                         params.add('amplitude' + str(j), self.fixed_amplitude[j], vary=False, min=-1)
                     else:
-                        params.add('amplitude' + str(j), sum(hist)/10., min=-1)
+                        # Bounds-driven amplitude: prefer persisted bounds; otherwise default [-1, sum(hist)+1]
+                        a_name = f'amplitude{j}'
+                        a_min, a_max = self._get_param_bounds(name, a_name)
+                        if a_min is None:
+                            a_min = -1.0
+                        if a_max is None:
+                            total = float(np.sum(hist))
+                            a_max = max(1.0, total + 1.0)
+                        if a_min > a_max:
+                            a_min, a_max = a_max, a_min
+                        if a_min == a_max:
+                            a_min -= 0.5
+                            a_max += 0.5
+                        if self._get_param_bounds(name, a_name) == (None, None):
+                            self._set_param_bounds(name, a_name, a_min, a_max)
+                        params.add(a_name, sum(hist)/10., min=a_min, max=a_max)
 
             # Fit model - choose model based on mode
             if use_gmm:
