@@ -610,9 +610,9 @@ class EquatorWindow(QMainWindow):
 
         self.ch_chkbx = QCheckBox("Convex Hull")
         self.ch_chkbx.setChecked(True)
-        self.de1_chkbx = QCheckBox("Double Exponential; Chebyshev Polynomial (1-3)")
+        self.de1_chkbx = QCheckBox("Double Exponential; Chebyshev Polynomial (Order: 1-3)")
         self.de1_chkbx.setChecked(False)
-        self.el1_chkbx = QCheckBox("Exponential; Modified Lorentzian; Chebyshev Polynomial (1-3)")
+        self.el1_chkbx = QCheckBox("Exponential; Modified Lorentzian; Chebyshev Polynomial (Order: 1-3)")
         self.el1_chkbx.setChecked(False)
         self.de2_chkbx = QCheckBox("Double Exponential")
         self.de2_chkbx.setChecked(False)
@@ -744,11 +744,15 @@ class EquatorWindow(QMainWindow):
         self.fittingOptionsFrame2.setFixedWidth(505)
         self.fittingOptionsLayout2 = QVBoxLayout(self.fittingOptionsFrame2)
         self.fittingOptionsLayout2.addWidget(self.fittingTabWidget)
-        self.fittingOptionsLayout2.addLayout(self.k_layout)
+        # self.fittingOptionsLayout2.addLayout(self.k_layout)
         self.fittingOptionsLayout2.addWidget(self.backgroundFittingGrp)  # Add the new group box here
-        self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
-        self.fittingOptionsLayout2.addWidget(self.use_smooth_alg)
-
+        # self.fittingOptionsLayout2.addWidget(self.use_previous_fit_chkbx)
+        # self.fittingOptionsLayout2.addWidget(self.use_smooth_alg, )
+        row = QHBoxLayout()
+        row.addWidget(self.use_previous_fit_chkbx)
+        row.addWidget(self.use_smooth_alg)
+        row.addStretch()
+        self.fittingOptionsLayout2.addLayout(row)
 
         # self.fittingOptionsLayout2.addLayout(self.marginLayout)
         # self.fittingOptionsLayout2.addLayout(self.smoothingWindowLayout)
@@ -4141,12 +4145,12 @@ class EquatorWindow(QMainWindow):
             settings['background_model'] = 'ConvexHull'
 
         if self.de1_chkbx.isChecked():
-            settings['background_model'] = ['Exp', 'Exp', 'Poly']
+            settings['background_model'] = ['Exp', 'Exp', 'Chebyshev']
             if self.ch_chkbx.isChecked():
                 self.ch_chkbx.setChecked(False)
 
         if self.el1_chkbx.isChecked():
-            settings['background_model'] = ['Exp', 'ModLor', 'Poly']
+            settings['background_model'] = ['Exp', 'ModLor', 'Chebyshev']
             if self.ch_chkbx.isChecked():
                 self.ch_chkbx.setChecked(False)
 
@@ -4380,10 +4384,10 @@ class EquatorWindow(QMainWindow):
 
         if self.origHistChkBx.isChecked():
             # Draw original histogram
-            ax.plot(hist, color = 'k')
+            ax.plot(hist, color = 'k', label='Original Histogram')
         if self.hullChkBx.isChecked():
             # Draw background subtracted histogram
-            ax.plot(hull, color = 'g')
+            ax.plot(hull, color = 'g', label='Convex Hull')
         if self.gap_lines is not None:
             for line in self.gap_lines:
                 line.remove()
@@ -4420,18 +4424,28 @@ class EquatorWindow(QMainWindow):
             # draw fitting model
             if self.fitChkBx.isChecked():
                 x = np.linspace(0, len(hull), len(hull))
-                ax.plot(getCardiacGraph(x, fit_result), color = 'b')
+                graph = getCardiacGraph(x, fit_result)
+                mask = fit_result['image_mask']
+                graph[mask] = np.nan
+                ax.plot(graph, color = 'b', label=f'Fit. RMSE: {round(fit_result["rmse"], 0)}')
 
             # draw fitting model
             if self.fitChkBxBG.isChecked():
                 x = np.linspace(0, len(hull), len(hull))
-                ax.plot(getCardiacGraphBG(x, fit_result), color = 'orange')
+                graph = getCardiacGraphBG(x, fit_result)
+                mask = fit_result['image_mask']
+                if self.ch_chkbx.isChecked():
+                    graph += (hist - hull)
+                graph[mask] = np.nan
+                ax.plot(graph, color = 'orange', label=f'Fit with Background.\nRMSE: {round(fit_result["rmse"], 0)}')
 
             if 'model_peaks' in fit_result and self.peakChkBx.isChecked():
                 # Draw peak lines
                 peaks = fit_result['model_peaks']
                 for p in peaks:
                     ax.axvline(p, color='r', alpha=0.3)
+            
+            ax.legend()
 
         # Zoom
         self.plot_min = -50
@@ -4444,7 +4458,8 @@ class EquatorWindow(QMainWindow):
         else:
             self.plot_min = ax.get_ylim()[0]
             ax.set_xlim(0, len(hull))
-
+        
+        
         self.fittingFigure.tight_layout()
         self.fittingCanvas.draw()
         self.update_plot['fit'] = False

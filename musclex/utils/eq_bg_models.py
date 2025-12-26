@@ -159,7 +159,7 @@ class ChebyshevBackground(BackgroundSpec):
             return out
         
         # Get Chebyshev coefficients
-        c0 = float(values[self.side_param_name(side, 'c0')])
+        # c0 = float(values[self.side_param_name(side, 'c0')])
         c1 = float(values[self.side_param_name(side, 'c1')])
         c2 = float(values[self.side_param_name(side, 'c2')])
         c3 = float(values[self.side_param_name(side, 'c3')])
@@ -169,7 +169,7 @@ class ChebyshevBackground(BackgroundSpec):
         x_cheb = 2 * ndist - 1
         
         # Evaluate Chebyshev polynomial: c0*T0(x) + c1*T1(x) + c2*T2(x) + c3*T3(x)
-        coeffs = [c0, c1, c2, c3]
+        coeffs = [0.0, c1, c2, c3]
         out[mask] = chebval(x_cheb, coeffs)
         
         return out
@@ -250,7 +250,7 @@ BACKGROUND_REGISTRY: Dict[int, BackgroundSpec] = {
         name='Chebyshev',
         prefix='cheb',
         param_defs={
-            'c0': (lambda mx: 0.05 * mx, None, None),  # T0(x) = 1
+            # 'c0': (lambda mx: 0.05 * mx, None, None),  # T0(x) = 1
             'c1': (lambda mx: -0.1 * mx, None, None),       # T1(x) = x
             'c2': (lambda mx: 0.0 * mx, None, None),       # T2(x) = 2x^2 - 1
             'c3': (lambda mx: 0.0 * mx, None, None),       # T3(x) = 4x^3 - 3x

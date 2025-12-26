@@ -871,7 +871,7 @@ class EquatorImage:
                     bg_names.append(5)
                 if 'Chebyshev' in self.info["background_model"]:
                     bg_names.append(7)
-                if 'ModLorentz' in self.info["background_model"]:
+                if 'ModLor' in self.info["background_model"]:
                     bg_names.append(3)
                 self.info['bg_names'] = bg_names  
                 print("Background model indices: " + str(bg_names)) 
