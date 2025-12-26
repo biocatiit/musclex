@@ -317,6 +317,20 @@ class GMMParameterEditorDialog(QDialog):
         # Redraw with updated parameters (uses info['fit_results'])
         self.parent_tab.updateUI()
     
+    def _refresh_snapshot(self):
+        """
+        Refresh snapshot to current state (used after a successful refit).
+        """
+        self._snapshot_fit_result = copy.deepcopy(
+            self.projProc.info.get('fit_results', {}).get(self.box_name, {})
+        )
+        self._snapshot_param_bounds = copy.deepcopy(
+            self.projProc.info.get('param_bounds', {}).get(self.box_name, {})
+        )
+        self._snapshot_use_common_sigma = copy.deepcopy(
+            self.projProc.info.get('use_common_sigma', {}).get(self.box_name, None)
+        )
+    
     def _commit_bounds_from_table(self, params_info):
         """
         Commit Min/Max bounds from table to projProc.info['param_bounds'].
@@ -405,6 +419,9 @@ class GMMParameterEditorDialog(QDialog):
                 # Force canvas redraw after updateUI
                 self.parent_tab.graphCanvas1.draw()
                 self.parent_tab.graphCanvas2.draw()
+
+                # After successful refit, refresh snapshot so Cancel rolls back to latest state
+                self._refresh_snapshot()
                 
                 # Display mode in message
                 mode = "GMM (Equal Variance)" if self.equalVarianceChkBx.isChecked() \
