@@ -624,6 +624,20 @@ class ProjectionProcessor:
                     # NOTE: In GMM mode, we do NOT add individual sigma parameters
                     # The layerlineModelGMM function will use common_sigma directly
                     # No sigma{j} parameters needed!
+                    #
+                    # However, for UI consistency (Parameter Editor), we still initialize
+                    # per-peak sigma{i} bounds if missing so they can be displayed/edited.
+                    s_name = f'sigma{j}'
+                    orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
+                    if orig_s_min is None and orig_s_max is None:
+                        s_min = max(0.0, 5.0 - float(sigma_tol))
+                        s_max = 5.0 + float(sigma_tol)
+                        if s_min > s_max:
+                            s_min, s_max = s_max, s_min
+                        if s_min == s_max:
+                            s_min = max(0.0, s_min - 0.5)
+                            s_max = s_max + 0.5
+                        self._set_param_bounds(name, s_name, s_min, s_max)
                     
                     # Amplitude: check if fixed
                     if j in self.fixed_amplitude:
