@@ -1867,8 +1867,8 @@ class ProjectionTracesGUI(BaseGUI):
             
             # Note: Quadrant folded state is now synced automatically by workspace
             
-            # Initialize UI for new image
-            self.initMinMaxIntensities(self.projProc)
+            # Initialize non-view UI for new image
+            self.initMaskThreshold(self.projProc)
             self.refreshStatusbar()
             self.updateCenter()
             
@@ -1957,35 +1957,17 @@ class ProjectionTracesGUI(BaseGUI):
         if hasattr(self, 'workspace') and self.workspace.navigator:
             self.workspace.navigator.navigate_next_file()
 
-    def initMinMaxIntensities(self, projProc):
+    def initMaskThreshold(self, projProc):
         """
-        Set preference for image min & max intesity spinboxes, and initial their value
-        :param projProc: current Projection Processor object
-        :return:
+        Initialize mask threshold UI state for the current image.
+
+        Note: Intensity UI (min/max, steps, labels, persist) is managed by ImageViewerWidget
+        via DisplayOptionsPanel.update_from_image() during image display.
         """
         img = projProc.orig_img
         self.syncUI = True
-        self.minIntSpnBx.setMinimum(img.min())
-        self.minIntSpnBx.setMaximum(img.max())
-        self.maxIntSpnBx.setMinimum(img.min())
-        self.maxIntSpnBx.setMaximum(img.max())
-        self.minIntLabel.setText("Min Intensity <br/>("+str(img.min())+")")
-        self.maxIntLabel.setText("Max Intensity <br/>("+str(img.max())+")")
-        step = (img.max() - img.min()) * 0.07  # set spinboxes step as 7% of image range
-        self.minIntSpnBx.setSingleStep(step)
-        self.maxIntSpnBx.setSingleStep(step)
 
-        # use cached values if they're available
-        if not self.persistIntensity.isChecked():
-            if "minInt" in self.projProc.info and "maxInt" in self.projProc.info:
-                self.minIntSpnBx.setValue(self.projProc.info["minInt"])
-                self.maxIntSpnBx.setValue(self.projProc.info["maxInt"])
-            else:
-                if self.maxIntSpnBx.value() == 0:
-                    self.minIntSpnBx.setValue(img.min())  # init min intensity as min value
-                    self.maxIntSpnBx.setValue(img.max() * 0.1)  # init max intensity as 20% of max value
-
-        self.maskThresSpnBx.valueChanged.disconnect(self.maskThresChanged) # Avoid an extra run at launch
+        self.maskThresSpnBx.valueChanged.disconnect(self.maskThresChanged)  # Avoid an extra run at launch
         if 'mask_thres' in self.projProc.info:
             self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
         elif self.maskThresSpnBx.value() == -999:
