@@ -494,11 +494,22 @@ class GMMParameterEditorDialog(QDialog):
         # Update moved_peaks with new positions
         self.projProc.info['moved_peaks'][self.box_name] = peak_positions
         
-        # Update fixed parameters for all types (position, sigma, amplitude, common_sigma)
-        self.projProc.fixed_sigma = {}
-        self.projProc.fixed_center = {}
-        self.projProc.fixed_amplitude = {}
-        self.projProc.fixed_common_sigma = None
+        # Update fixed parameters for this box (per-box fixed storage)
+        if not isinstance(self.projProc.fixed_sigma, dict):
+            self.projProc.fixed_sigma = {}
+        if not isinstance(self.projProc.fixed_center, dict):
+            self.projProc.fixed_center = {}
+        if not isinstance(self.projProc.fixed_amplitude, dict):
+            self.projProc.fixed_amplitude = {}
+        if not isinstance(self.projProc.fixed_common_sigma, dict):
+            self.projProc.fixed_common_sigma = {}
+        
+        # Clear only this box's fixed state to avoid affecting other boxes
+        self.projProc.fixed_sigma[self.box_name] = {}
+        self.projProc.fixed_center[self.box_name] = {}
+        self.projProc.fixed_amplitude[self.box_name] = {}
+        if self.box_name in self.projProc.fixed_common_sigma:
+            del self.projProc.fixed_common_sigma[self.box_name]
         
         for param_name, pinfo in paramInfo.items():
             if not pinfo.get('fixed', False):
@@ -506,22 +517,22 @@ class GMMParameterEditorDialog(QDialog):
             
             # Fixed common_sigma (GMM mode)
             if param_name == 'common_sigma':
-                self.projProc.fixed_common_sigma = pinfo['val']
+                self.projProc.fixed_common_sigma[self.box_name] = pinfo['val']
             
             # Fixed sigma (independent mode)
             elif param_name.startswith('sigma') and param_name != 'common_sigma':
                 sigma_idx = int(param_name.replace('sigma', ''))
-                self.projProc.fixed_sigma[sigma_idx] = pinfo['val']
+                self.projProc.fixed_sigma[self.box_name][sigma_idx] = pinfo['val']
             
             # Fixed position (p_0, p_1, ...)
             elif param_name.startswith('p_'):
                 pos_idx = int(param_name.replace('p_', ''))
-                self.projProc.fixed_center[pos_idx] = pinfo['val']
+                self.projProc.fixed_center[self.box_name][pos_idx] = pinfo['val']
             
             # Fixed amplitude
             elif param_name.startswith('amplitude'):
                 amp_idx = int(param_name.replace('amplitude', ''))
-                self.projProc.fixed_amplitude[amp_idx] = pinfo['val']
+                self.projProc.fixed_amplitude[self.box_name][amp_idx] = pinfo['val']
         
         # Clear cached results to force re-fitting and recalculation
         # Note: We delete fit_results and subtracted_hists to trigger recalculation

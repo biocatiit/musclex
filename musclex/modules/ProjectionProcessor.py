@@ -74,10 +74,15 @@ class ProjectionProcessor:
         # Note: self.rotated removed - use (not self._image_data.quadrant_folded) instead
         self.version = __version__
         self.masked = False
+        # Fixed parameters (per-box):
+        # - fixed_center[box_name][peak_idx] = value
+        # - fixed_sigma[box_name][peak_idx] = value
+        # - fixed_amplitude[box_name][peak_idx] = value
+        # - fixed_common_sigma[box_name] = value
         self.fixed_sigma = {}
         self.fixed_center = {}
         self.fixed_amplitude = {}
-        self.fixed_common_sigma = None
+        self.fixed_common_sigma = {}
         self.rotMat = None
         
         # Load cache
@@ -183,6 +188,15 @@ class ProjectionProcessor:
             # If peaks changed, previously stored per-parameter bounds are no longer trustworthy.
             if 'param_bounds' in self.info and name in self.info['param_bounds']:
                 del self.info['param_bounds'][name]
+            # If peaks changed, any fixed peak indices are no longer trustworthy.
+            if isinstance(self.fixed_center, dict) and name in self.fixed_center and isinstance(self.fixed_center.get(name), dict):
+                del self.fixed_center[name]
+            if isinstance(self.fixed_sigma, dict) and name in self.fixed_sigma and isinstance(self.fixed_sigma.get(name), dict):
+                del self.fixed_sigma[name]
+            if isinstance(self.fixed_amplitude, dict) and name in self.fixed_amplitude and isinstance(self.fixed_amplitude.get(name), dict):
+                del self.fixed_amplitude[name]
+            if isinstance(self.fixed_common_sigma, dict) and name in self.fixed_common_sigma:
+                del self.fixed_common_sigma[name]
 
             skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg', 'use_common_sigma', 'param_bounds']
             for k in self.info.keys():
@@ -549,6 +563,22 @@ class ProjectionProcessor:
             # Check if GMM mode (shared sigma) is enabled for this box
             use_gmm = self.info.get('use_common_sigma', {}).get(name, False)
             
+            # Fixed params for this box (support backward-compatible old dict format)
+            fc = self.fixed_center if isinstance(self.fixed_center, dict) else {}
+            fs = self.fixed_sigma if isinstance(self.fixed_sigma, dict) else {}
+            fa = self.fixed_amplitude if isinstance(self.fixed_amplitude, dict) else {}
+            fixed_center_for_box = fc.get(name, {}) if isinstance(fc.get(name, None), dict) else fc
+            fixed_sigma_for_box = fs.get(name, {}) if isinstance(fs.get(name, None), dict) else fs
+            fixed_amplitude_for_box = fa.get(name, {}) if isinstance(fa.get(name, None), dict) else fa
+            
+            fcs = self.fixed_common_sigma
+            fixed_common_sigma_for_box = None
+            if isinstance(fcs, dict):
+                fixed_common_sigma_for_box = fcs.get(name, None)
+            else:
+                # legacy scalar
+                fixed_common_sigma_for_box = fcs
+            
             # Check if hull_ranges exist to constrain peak search range
             # Get peak tolerance from settings (default 10.0 for backward compatibility)
             default_search_dist = self.info.get('peak_tolerances', {}).get(name, 2.0)
@@ -565,8 +595,8 @@ class ProjectionProcessor:
             if use_gmm:
                 # GMM mode: all peaks share one sigma
                 # Check if common_sigma is fixed
-                if self.fixed_common_sigma is not None:
-                    params.add('common_sigma', self.fixed_common_sigma, vary=False)
+                if fixed_common_sigma_for_box is not None:
+                    params.add('common_sigma', fixed_common_sigma_for_box, vary=False)
                 else:
                     # Bounds-driven common_sigma: prefer persisted bounds; otherwise default [1, 50]
                     orig_cs_min, orig_cs_max = self._get_param_bounds(name, 'common_sigma')
@@ -616,8 +646,8 @@ class ProjectionProcessor:
                         self._set_param_bounds(name, f'p_{j}', p_min, p_max)
                     
                     # Position: check if fixed
-                    if j in self.fixed_center:
-                        params.add('p_' + str(j), self.fixed_center[j], vary=False)
+                    if j in fixed_center_for_box:
+                        params.add('p_' + str(j), fixed_center_for_box[j], vary=False)
                     else:
                         params.add('p_' + str(j), p, min=p_min, max=p_max)
                     
@@ -640,8 +670,8 @@ class ProjectionProcessor:
                         self._set_param_bounds(name, s_name, s_min, s_max)
                     
                     # Amplitude: check if fixed
-                    if j in self.fixed_amplitude:
-                        params.add('amplitude' + str(j), self.fixed_amplitude[j], vary=False, min=-1)
+                    if j in fixed_amplitude_for_box:
+                        params.add('amplitude' + str(j), fixed_amplitude_for_box[j], vary=False, min=-1)
                     else:
                         # Bounds-driven amplitude: prefer persisted bounds; otherwise default [-1, sum(hist)+1]
                         a_name = f'amplitude{j}'
@@ -688,14 +718,14 @@ class ProjectionProcessor:
                         self._set_param_bounds(name, f'p_{j}', p_min, p_max)
                     
                     # Position: check if fixed
-                    if j in self.fixed_center:
-                        params.add('p_' + str(j), self.fixed_center[j], vary=False)
+                    if j in fixed_center_for_box:
+                        params.add('p_' + str(j), fixed_center_for_box[j], vary=False)
                     else:
                         params.add('p_' + str(j), p, min=p_min, max=p_max)
                     
                     # Sigma: check if fixed
-                    if j in self.fixed_sigma:
-                        params.add('sigma' + str(j), self.fixed_sigma[j], vary=False)
+                    if j in fixed_sigma_for_box:
+                        params.add('sigma' + str(j), fixed_sigma_for_box[j], vary=False)
                     else:
                         # Bounds-driven sigma: prefer persisted bounds; otherwise default [1, 50]
                         s_name = f'sigma{j}'
@@ -715,8 +745,8 @@ class ProjectionProcessor:
                         params.add(s_name, 5, min=s_min, max=s_max)
                     
                     # Amplitude: check if fixed
-                    if j in self.fixed_amplitude:
-                        params.add('amplitude' + str(j), self.fixed_amplitude[j], vary=False, min=-1)
+                    if j in fixed_amplitude_for_box:
+                        params.add('amplitude' + str(j), fixed_amplitude_for_box[j], vary=False, min=-1)
                     else:
                         # Bounds-driven amplitude: prefer persisted bounds; otherwise default [-1, sum(hist)+1]
                         a_name = f'amplitude{j}'
@@ -772,6 +802,28 @@ class ProjectionProcessor:
                     predicted = layerlineModel(x, **result_dict)
                 result_dict['error'] = 1. - r2_score(hist, predicted)
                 
+                # Persist fixed flags into fit_results so UI reflects reality.
+                if fixed_common_sigma_for_box is not None:
+                    result_dict['common_sigma_fixed'] = True
+                if isinstance(fixed_center_for_box, dict):
+                    for idx, val in fixed_center_for_box.items():
+                        key = f'p_{idx}'
+                        if key in result_dict:
+                            result_dict[key] = val
+                        result_dict[f'{key}_fixed'] = True
+                if isinstance(fixed_sigma_for_box, dict):
+                    for idx, val in fixed_sigma_for_box.items():
+                        key = f'sigma{idx}'
+                        if key in result_dict:
+                            result_dict[key] = val
+                        result_dict[f'{key}_fixed'] = True
+                if isinstance(fixed_amplitude_for_box, dict):
+                    for idx, val in fixed_amplitude_for_box.items():
+                        key = f'amplitude{idx}'
+                        if key in result_dict:
+                            result_dict[key] = val
+                        result_dict[f'{key}_fixed'] = True
+                
                 if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
                     if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
                         result_dict['bg_sigma'] = self.info['main_peak_info'][name]['bg_sigma']
@@ -788,9 +840,7 @@ class ProjectionProcessor:
                 
                 self.info['fit_results'][name] = result_dict
                 self.removeInfo(name, 'subtracted_hists')
-                for i in self.fixed_center:
-                    if 'p_'+str(i) in self.info['fit_results'][name]:
-                        self.info['fit_results'][name]['p_'+str(i)] = self.fixed_center[i]
+                # Legacy behavior retained above via fixed_center_for_box; no extra override needed.
                 
                 # Print fitting results
                 print("Box : "+ str(name))
@@ -929,7 +979,12 @@ class ProjectionProcessor:
 
     def setGaussCenter(self, box_name, peak_num, new_center):
         new_center = float(str(new_center))
-        self.fixed_center[peak_num] = new_center
+        if not isinstance(self.fixed_center, dict):
+            self.fixed_center = {}
+        if box_name not in self.fixed_center or not isinstance(self.fixed_center.get(box_name), dict):
+            # If legacy format exists (int->val), do not reuse it across boxes.
+            self.fixed_center[box_name] = {}
+        self.fixed_center[box_name][peak_num] = new_center
         self.removeInfo(box_name, 'fit_results')
         #self.fitModel()
 
@@ -942,7 +997,11 @@ class ProjectionProcessor:
         :return:
         """
         new_sigma = float(str(new_sigma))
-        self.fixed_sigma[peak_num] = new_sigma
+        if not isinstance(self.fixed_sigma, dict):
+            self.fixed_sigma = {}
+        if box_name not in self.fixed_sigma or not isinstance(self.fixed_sigma.get(box_name), dict):
+            self.fixed_sigma[box_name] = {}
+        self.fixed_sigma[box_name][peak_num] = new_sigma
         self.removeInfo(box_name, 'fit_results')
 
     def setBaseline(self, box_name, peak_num, new_baseline):
