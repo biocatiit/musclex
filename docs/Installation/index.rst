@@ -1,6 +1,6 @@
 Installing MuscleX
 ==================
-
+.. _Install:
 
 .. toctree::
    :maxdepth: 1
