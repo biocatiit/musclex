@@ -1209,12 +1209,27 @@ class ProjectionBoxTab(QWidget):
             if self.peaksChkBx.isChecked():
                 # display model peaks
                 i = 0
-                while 'p_' + str(i) in model:
-                    p = model['p_' + str(i)]
-                    i += 1
+                while True:
+                    key = f"p_{i}"
+                    if key not in model:
+                        break
+
+                    p = model[key]
+                    x = model['centerX'] + p
+
                     # ax.axvline(model['centerX'] - p, color='r', alpha=0.7)
-                    center_line = ax.axvline(model['centerX'] + p, color='r', alpha=0.7)
+                    center_line = ax.axvline(x, color='r', alpha=0.7)
                     self.lines.append(center_line)
+
+                    # Label peak using the stored variable name (p_0, p_1, ...)
+                    ax.text(
+                        x, 0.95, key,
+                        transform=ax.get_xaxis_transform(),
+                        color='r', fontsize=9,
+                        ha='center', va='top'
+                    )
+
+                    i += 1
 
             if self.maxPeaksChkBx.isChecked():
                 peaks = all_peaks[name]
