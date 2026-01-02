@@ -470,8 +470,9 @@ class ProjectionBoxTab(QWidget):
         self.editMainPeakButton.clicked.connect(self.editMainPeak)
         self.refitButton.clicked.connect(self.refit)
 
-        self.resultTable1.itemClicked.connect(self.handleTable1Event)
-        self.resultTable2.itemClicked.connect(self.handleTable2Event)
+        # TEMP: disable table click events (to avoid hooking itemChanged handlers on click)
+        # self.resultTable1.itemClicked.connect(self.handleTable1Event)
+        # self.resultTable2.itemClicked.connect(self.handleTable2Event)
         
 
         self.prevButton.clicked.connect(self.parent.prevClicked)
@@ -485,9 +486,10 @@ class ProjectionBoxTab(QWidget):
         self.graphFigure2.canvas.mpl_connect('button_release_event', self.graphReleased)
         self.graphFigure1.canvas.mpl_connect('figure_leave_event', self.graphReleased)
         self.graphFigure2.canvas.mpl_connect('figure_leave_event', self.graphReleased)
-        self.graphFigure1.canvas.mpl_connect('button_press_event', self.on_press)
-        self.graphFigure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
-        self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
+        # TEMP: disable draggable vertical-line behavior on graphFigure1
+        # self.graphFigure1.canvas.mpl_connect('button_press_event', self.on_press)
+        # self.graphFigure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        # self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
     
     def editMainPeak(self):
         # print(self.parent.projProc.info['fit_results'][self.name])
