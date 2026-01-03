@@ -53,7 +53,7 @@ class EQ_CSVManager:
         self.colnames = ["Filename","Side","Distance From Center","Area","Sigma D","Sigma S","Sigma C",
                         "gamma","Z line","Sigma Z","Iz","gamma Z", "Extra peak","Sigma Z EP","Iz EP","gamma Z EP",
                         "Model", "CenterX", "S10", "d10",
-                        "I11/I10", "Average I11/I10 per fiber", "Fitting error","comment"]
+                        "I11/I10", "Average I11/I10 per fiber", "Fitting error","rmse", "comment"]
         self.filename2 = fullPath(result_path, 'summary2.csv')
         self.colnames2 = ['Filename', 'left peak 0 ', 'right peak 0 ', 'left peak 1 ', 'right peak 1 ',
                          'left Sigma D', 'right Sigma D', 'left Sigma S', 'right Sigma S', 'left Sigma C',
@@ -62,7 +62,7 @@ class EQ_CSVManager:
                          'right gamma Z', 'left Extra peak', 'right Extra peak',
                          'left Sigma Z EP', 'right Sigma Z EP', 'left Iz EP', 'right Iz EP', 'left gamma Z EP',
                          'right gamma Z EP', 'Model', 'CenterX', 'S10', 'd10', 'left I11/I10', 'right I11/I10',
-                         'Average I11/I10 per fiber', 'Fitting error', 'comment']
+                         'Average I11/I10 per fiber', 'Fitting error', "rmse",'comment']
         for k in range(40):
             self.colnames2.append(f'left peak {k}')
             self.colnames2.append(f'right peak {k}')
@@ -187,6 +187,7 @@ class EQ_CSVManager:
                     first_row['Average I11/I10 per fiber'] = fit_results['avg_ratio']
                     first_row['Model'] = fit_results['model']
                     first_row['Fitting error'] = fit_results['fiterror']
+                    first_row['rmse'] = fit_results['rmse']
                     first_row['CenterX'] = round(fit_results['centerX'], 2)
 
                     if 'd10' in fit_results.keys():
@@ -286,6 +287,7 @@ class EQ_CSVManager:
                     data['Average I11/I10 per fiber'] = fit_results['avg_ratio']
                     data['Model'] = fit_results['model']
                     data['Fitting error'] = fit_results['fiterror']
+                    data['rmse'] = fit_results['rmse']
                     data['CenterX'] = round(fit_results['centerX'], 2)
 
                     if 'd10' in fit_results.keys():

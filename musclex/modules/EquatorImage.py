@@ -1055,10 +1055,10 @@ class EquatorImage:
                 pred_full = cardiacFitGeneric(**{**fit_result, 'x': x})
 
                 # fit_result["fiterror"] = 1. - r2_score(cardiacFitGeneric(**fit_result), histNdarray)
-                fit_result["fiterror"] = 1. - r2_score(histNdarray[~image_mask], pred_full[~image_mask])
-                fit_result["r2"] = r2_score(pred_full[~image_mask], histNdarray[~image_mask])
-                fit_result["mse"] = mean_squared_error(pred_full[~image_mask], histNdarray[~image_mask])
-                fit_result["rmse"] = np.sqrt(fit_result["mse"])
+                fit_result['fiterror'] = 1. - r2_score(histNdarray[~image_mask], pred_full[~image_mask])
+                fit_result['r2'] = r2_score(pred_full[~image_mask], histNdarray[~image_mask])
+                fit_result['mse'] = mean_squared_error(pred_full[~image_mask], histNdarray[~image_mask])
+                fit_result['rmse'] = np.sqrt(fit_result['mse'])
                 
                 # del fit_result['x']
                 left_areas = [fit_result['left_area' + str(i + 1)] for i in range(len(left_peaks))]
@@ -1217,7 +1217,7 @@ class EquatorImage:
         if final_result is not None:
             fit_result = final_result.values
             fit_result.update(int_vars)
-            fit_result["fiterror"] = 1. - r2_score(cardiacFit(**fit_result), histNdarray)
+            fit_result['fiterror'] = 1. - r2_score(cardiacFit(**fit_result), histNdarray)
             del fit_result['x']
             left_areas = [fit_result['left_area' + str(i + 1)] for i in range(len(left_peaks))]
             right_areas = [fit_result['right_area' + str(i + 1)] for i in range(len(right_peaks))]
