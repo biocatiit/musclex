@@ -7,6 +7,15 @@ First check the type of GPU mounted on your computer with
 
 Then install the corresponding drivers if it is not already the case. 
 
+If the NVIDIA driver is not installed and you cannot use the nvidia-smi command, you can list the available GPU paths with detailed information using the following command:
+```
+ls /proc/driver/nvidia/gpus/
+```
+Once you have the correct path to the available GPUs from the previous command, you can then view the information file:
+```
+cat /proc/driver/nvidia/gpus/0000:01:00.0/information
+```
+
 ## NVIDIA
 
 For NVIDIA card, proceed as following to install the drivers.
