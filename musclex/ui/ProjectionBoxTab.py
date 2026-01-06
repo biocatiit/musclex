@@ -175,6 +175,16 @@ class ProjectionBoxTab(QWidget):
         self.fixed_indices = []
         self.lines = []
         
+        # Store original manual selections (without mirroring)
+        self.manual_peaks = []  # Only positive side peaks
+        self.manual_hull_range = None  # Only positive side hull range (start, end)
+        
+        # Parameter editor state
+        self.param_editor_active = False
+        self.overlay_patches = []  # List to store overlay patches for both axes
+        self.overlay_drag_start = None
+        self.overlay_dragging = False
+        
         self.initUI()
         self.setAllToolTips()
         self.setConnections()
@@ -670,6 +680,12 @@ class ProjectionBoxTab(QWidget):
         Triggered when mouse is released from plot
         :return:
         """
+        # Handle overlay drag release
+        if self.overlay_dragging:
+            self.overlay_dragging = False
+            self.overlay_drag_start = None
+            return
+        
         if self.function is not None and 'move' in self.function[0]:
             self.function = None
             self.parent.pixel_detail.setText("")
@@ -683,6 +699,19 @@ class ProjectionBoxTab(QWidget):
 
         if self.parent.projProc is None or x is None or y is None:
             return
+
+        # Check if parameter editor is active and we're clicking on overlay
+        if self.param_editor_active and self.manual_hull_range is not None:
+            center = self.getCenterX()
+            start, end = self.manual_hull_range
+            x_left = center - end
+            x_right = center + end
+            
+            # Check if click is within overlay region
+            if x_left <= x <= x_right:
+                self.overlay_dragging = True
+                self.overlay_drag_start = x
+                return
 
         func = self.function
 
@@ -705,6 +734,19 @@ class ProjectionBoxTab(QWidget):
         y = event.ydata
         if self.parent.projProc is None or x is None or y is None:
             return
+
+        # Check if parameter editor is active and we're clicking on overlay
+        if self.param_editor_active and self.manual_hull_range is not None:
+            center = self.getCenterX()
+            start, end = self.manual_hull_range
+            x_left = center - end
+            x_right = center + end
+            
+            # Check if click is within overlay region
+            if x_left <= x <= x_right:
+                self.overlay_dragging = True
+                self.overlay_drag_start = x
+                return
 
         if self.function is None:
             self.function = ['move1', (x,y)]
@@ -780,6 +822,8 @@ class ProjectionBoxTab(QWidget):
 
             if len(hull_range) == 2:
                 hull_range = tuple(sorted(hull_range))
+                # Store manual hull range (only positive side)
+                self.manual_hull_range = hull_range
                 self.parent.hull_ranges[self.name] = hull_range
                 self.parent.projProc.removeInfo(self.name, 'hists2')
                 self.parent.processImage()
@@ -820,6 +864,13 @@ class ProjectionBoxTab(QWidget):
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
+            # Handle overlay dragging
+            if self.overlay_dragging and self.overlay_drag_start is not None:
+                delta_x = x - self.overlay_drag_start
+                self.overlay_drag_start = x
+                self.updateOverlayAndPeaks(delta_x)
+                return
+            
             centerX = self.getCenterX() # this should be the center in the box?
             distance = x - centerX
             hist = self.parent.projProc.info['hists'][self.name]
@@ -842,11 +893,18 @@ class ProjectionBoxTab(QWidget):
 
     def graphOnMotion2(self, event):
         """
-        Trigger when mouse hovers the first plot
+        Trigger when mouse hovers the second plot
         """
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
+            # Handle overlay dragging
+            if self.overlay_dragging and self.overlay_drag_start is not None:
+                delta_x = x - self.overlay_drag_start
+                self.overlay_drag_start = x
+                self.updateOverlayAndPeaks(delta_x)
+                return
+            
             centerX = self.getCenterX()
             distance = x - centerX
             all_hists =  self.parent.projProc.info['subtracted_hists']
@@ -880,6 +938,10 @@ class ProjectionBoxTab(QWidget):
         if self.hullRangeButton.isChecked():
             self.function = ['hull', []]
         else:
+            # Store the manual hull range when accepted
+            if self.name in self.parent.hull_ranges:
+                hull_range = self.parent.hull_ranges[self.name]
+                self.manual_hull_range = hull_range  # (start, end) tuple
             self.resetUI()
 
     def addSinglePeak(self):
@@ -902,6 +964,9 @@ class ProjectionBoxTab(QWidget):
                 QMessageBox.warning(self, "Too Many Peaks", 
                                   f"Only one peak allowed. Using the first one.")
                 peaks = [peaks[0]]
+            
+            # Store manual peaks (only positive side)
+            self.manual_peaks = peaks.copy()
             
             # Auto-mirror (keep original logic)
             op_peaks = [-x for x in peaks]
@@ -941,6 +1006,9 @@ class ProjectionBoxTab(QWidget):
                                   f"Please select at least 2 peaks. You selected {len(peaks)}.")
                 self.peakClusterButton.setChecked(True)
                 return
+            
+            # Store manual peaks (only positive side)
+            self.manual_peaks = peaks.copy()
             
             # Auto-mirror (keep original logic)
             op_peaks = [-x for x in peaks]
@@ -1017,7 +1085,7 @@ class ProjectionBoxTab(QWidget):
     
     def openParameterEditor(self):
         """
-        Open parameter editor dialog
+        Open parameter editor dialog (non-modal, allows interaction with tab)
         """
         if 'fit_results' not in self.parent.projProc.info or \
            self.name not in self.parent.projProc.info['fit_results']:
@@ -1025,15 +1093,104 @@ class ProjectionBoxTab(QWidget):
                               "Please fit peaks first before opening parameter editor.")
             return
         
-        
-        # Open parameter editor dialog
+        # Open parameter editor dialog as non-modal
         try:
             from .GMMParameterEditorDialog import GMMParameterEditorDialog
             dialog = GMMParameterEditorDialog(self, self.name)
-            dialog.exec_()
+            
+            # Make it non-modal so tab can be interacted with
+            dialog.setModal(False)
+            
+            # Enable dragging mode
+            self.param_editor_active = True
+            self.showOverlay()
+            
+            # Connect close signal to cleanup
+            dialog.finished.connect(self.onParameterEditorClosed)
+            
+            dialog.show()
         except ImportError as e:
             QMessageBox.critical(self, "Import Error", 
                                f"Cannot import GMMParameterEditorDialog: {str(e)}")
+
+    def onParameterEditorClosed(self):
+        """
+        Called when parameter editor dialog is closed
+        """
+        self.param_editor_active = False
+        self.hideOverlay()
+    
+    def showOverlay(self):
+        """
+        Show semi-transparent overlay for selected hull range when parameter editor is open
+        """
+        if self.manual_hull_range is None or self.parent.projProc is None:
+            return
+        
+        # Clear old overlays first
+        self.hideOverlay()
+        
+        center = self.getCenterX()
+        start, end = self.manual_hull_range
+        
+        # Draw overlay on both axes
+        for ax in [self.graphAxes1, self.graphAxes2]:
+            # Create semi-transparent overlay spanning the hull range
+            x_left = center - end
+            x_right = center + end
+            width = x_right - x_left
+            
+            ylim = ax.get_ylim()
+            height = ylim[1] - ylim[0]
+            
+            overlay_patch = patches.Rectangle(
+                (x_left, ylim[0]), width, height,
+                linewidth=2, edgecolor='cyan', facecolor='cyan', 
+                alpha=0.2, linestyle='--', picker=True
+            )
+            ax.add_patch(overlay_patch)
+            self.overlay_patches.append(overlay_patch)
+        
+        self.graphCanvas1.draw_idle()
+        self.graphCanvas2.draw_idle()
+    
+    def hideOverlay(self):
+        """
+        Hide overlay when parameter editor is closed
+        """
+        for ax in [self.graphAxes1, self.graphAxes2]:
+            for patch in self.overlay_patches:
+                if patch in ax.patches:
+                    ax.patches.remove(patch)
+        
+        self.overlay_patches = []
+        self.graphCanvas1.draw_idle()
+        self.graphCanvas2.draw_idle()
+    
+    def updateOverlayAndPeaks(self, delta_x):
+        """
+        Update overlay position and adjust peaks/hull range accordingly
+        :param delta_x: Change in x position
+        """
+        if self.manual_hull_range is None:
+            return
+        
+        center = self.getCenterX()
+        
+        # Update manual peaks
+        if len(self.manual_peaks) > 0:
+            new_manual_peaks = [p + delta_x for p in self.manual_peaks]
+            self.manual_peaks = new_manual_peaks
+            
+            # Create mirrored peaks
+            op_peaks = [-x for x in new_manual_peaks]
+            all_peaks = new_manual_peaks + op_peaks
+            
+            # Update in parent (this will trigger reprocessing)
+            self.parent.addPeakstoBox(self.name, all_peaks)
+        
+        # Update overlay position
+        self.showOverlay()
 
     def refreshUI(self):
         #clear the axes
@@ -1061,6 +1218,9 @@ class ProjectionBoxTab(QWidget):
         Clears all peaks without changing button state
         :return:
         """
+        # Clear manual peaks
+        self.manual_peaks = []
+        
         if self.function is None:
             # Clear all peaks from parent
             self.parent.addPeakstoBox(self.name, [])
@@ -1340,6 +1500,10 @@ class ProjectionBoxTab(QWidget):
         self.graphCanvas1.draw()
         self.graphFigure2.tight_layout()
         self.graphCanvas2.draw()
+        
+        # Redraw overlay if parameter editor is active
+        if self.param_editor_active:
+            self.showOverlay()
 
         # Update Table
         
