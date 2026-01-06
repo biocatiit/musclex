@@ -181,6 +181,7 @@ class ProjectionBoxTab(QWidget):
         
         # Parameter editor state
         self.param_editor_active = False
+        self.param_editor_dialog = None  # Store reference to dialog
         self.overlay_patches = []  # List to store overlay patches for both axes
         self.overlay_drag_start = None
         self.overlay_dragging = False
@@ -704,11 +705,14 @@ class ProjectionBoxTab(QWidget):
         if self.param_editor_active and self.manual_hull_range is not None:
             center = self.getCenterX()
             start, end = self.manual_hull_range
-            x_left = center - end
-            x_right = center + end
             
-            # Check if click is within overlay region
-            if x_left <= x <= x_right:
+            # Check if click is within either overlay region
+            # Left region: [center - end, center - start]
+            # Right region: [center + start, center + end]
+            in_left_region = (center - end) <= x <= (center - start)
+            in_right_region = (center + start) <= x <= (center + end)
+            
+            if in_left_region or in_right_region:
                 self.overlay_dragging = True
                 self.overlay_drag_start = x
                 return
@@ -739,11 +743,14 @@ class ProjectionBoxTab(QWidget):
         if self.param_editor_active and self.manual_hull_range is not None:
             center = self.getCenterX()
             start, end = self.manual_hull_range
-            x_left = center - end
-            x_right = center + end
             
-            # Check if click is within overlay region
-            if x_left <= x <= x_right:
+            # Check if click is within either overlay region
+            # Left region: [center - end, center - start]
+            # Right region: [center + start, center + end]
+            in_left_region = (center - end) <= x <= (center - start)
+            in_right_region = (center + start) <= x <= (center + end)
+            
+            if in_left_region or in_right_region:
                 self.overlay_dragging = True
                 self.overlay_drag_start = x
                 return
@@ -1093,10 +1100,18 @@ class ProjectionBoxTab(QWidget):
                               "Please fit peaks first before opening parameter editor.")
             return
         
+        # Create snapshot of manual selections before opening editor
+        import copy
+        self.snapshot_manual_peaks = copy.deepcopy(self.manual_peaks)
+        self.snapshot_manual_hull_range = copy.deepcopy(self.manual_hull_range)
+        
         # Open parameter editor dialog as non-modal
         try:
             from .GMMParameterEditorDialog import GMMParameterEditorDialog
             dialog = GMMParameterEditorDialog(self, self.name)
+            
+            # Store reference to dialog
+            self.param_editor_dialog = dialog
             
             # Make it non-modal so tab can be interacted with
             dialog.setModal(False)
@@ -1113,16 +1128,33 @@ class ProjectionBoxTab(QWidget):
             QMessageBox.critical(self, "Import Error", 
                                f"Cannot import GMMParameterEditorDialog: {str(e)}")
 
-    def onParameterEditorClosed(self):
+    def onParameterEditorClosed(self, result):
         """
         Called when parameter editor dialog is closed
+        :param result: QDialog.Accepted or QDialog.Rejected
         """
         self.param_editor_active = False
+        self.param_editor_dialog = None
         self.hideOverlay()
+        
+        # If user cancelled, restore snapshot
+        if result == QDialog.Rejected:
+            import copy
+            if hasattr(self, 'snapshot_manual_peaks'):
+                self.manual_peaks = copy.deepcopy(self.snapshot_manual_peaks)
+            if hasattr(self, 'snapshot_manual_hull_range'):
+                self.manual_hull_range = copy.deepcopy(self.snapshot_manual_hull_range)
+        
+        # Clean up snapshots
+        if hasattr(self, 'snapshot_manual_peaks'):
+            del self.snapshot_manual_peaks
+        if hasattr(self, 'snapshot_manual_hull_range'):
+            del self.snapshot_manual_hull_range
     
     def showOverlay(self):
         """
         Show semi-transparent overlay for selected hull range when parameter editor is open
+        Hull range (start, end) defines the valid region: [center-end, center-start] U [center+start, center+end]
         """
         if self.manual_hull_range is None or self.parent.projProc is None:
             return
@@ -1134,22 +1166,36 @@ class ProjectionBoxTab(QWidget):
         start, end = self.manual_hull_range
         
         # Draw overlay on both axes
+        # The hull range defines two regions (left and right sides)
         for ax in [self.graphAxes1, self.graphAxes2]:
-            # Create semi-transparent overlay spanning the hull range
-            x_left = center - end
-            x_right = center + end
-            width = x_right - x_left
-            
             ylim = ax.get_ylim()
             height = ylim[1] - ylim[0]
             
-            overlay_patch = patches.Rectangle(
-                (x_left, ylim[0]), width, height,
+            # Left region: center - end to center - start
+            x_left_region_start = center - end
+            x_left_region_end = center - start
+            width_left = x_left_region_end - x_left_region_start
+            
+            overlay_left = patches.Rectangle(
+                (x_left_region_start, ylim[0]), width_left, height,
                 linewidth=2, edgecolor='cyan', facecolor='cyan', 
                 alpha=0.2, linestyle='--', picker=True
             )
-            ax.add_patch(overlay_patch)
-            self.overlay_patches.append(overlay_patch)
+            ax.add_patch(overlay_left)
+            self.overlay_patches.append(overlay_left)
+            
+            # Right region: center + start to center + end
+            x_right_region_start = center + start
+            x_right_region_end = center + end
+            width_right = x_right_region_end - x_right_region_start
+            
+            overlay_right = patches.Rectangle(
+                (x_right_region_start, ylim[0]), width_right, height,
+                linewidth=2, edgecolor='cyan', facecolor='cyan', 
+                alpha=0.2, linestyle='--', picker=True
+            )
+            ax.add_patch(overlay_right)
+            self.overlay_patches.append(overlay_right)
         
         self.graphCanvas1.draw_idle()
         self.graphCanvas2.draw_idle()
@@ -1158,10 +1204,13 @@ class ProjectionBoxTab(QWidget):
         """
         Hide overlay when parameter editor is closed
         """
-        for ax in [self.graphAxes1, self.graphAxes2]:
-            for patch in self.overlay_patches:
-                if patch in ax.patches:
-                    ax.patches.remove(patch)
+        # Remove patches using patch.remove() method
+        for patch in self.overlay_patches:
+            try:
+                patch.remove()
+            except (ValueError, AttributeError):
+                # Patch may have already been removed or axes cleared
+                pass
         
         self.overlay_patches = []
         self.graphCanvas1.draw_idle()
@@ -1169,28 +1218,56 @@ class ProjectionBoxTab(QWidget):
     
     def updateOverlayAndPeaks(self, delta_x):
         """
-        Update overlay position and adjust peaks/hull range accordingly
+        Update overlay position and adjust peaks/hull range temporarily (without refit/process)
         :param delta_x: Change in x position
         """
         if self.manual_hull_range is None:
             return
         
-        center = self.getCenterX()
-        
-        # Update manual peaks
+        # Update manual peaks (temporary, only in parameter editor display)
         if len(self.manual_peaks) > 0:
             new_manual_peaks = [p + delta_x for p in self.manual_peaks]
             self.manual_peaks = new_manual_peaks
             
-            # Create mirrored peaks
-            op_peaks = [-x for x in new_manual_peaks]
-            all_peaks = new_manual_peaks + op_peaks
-            
-            # Update in parent (this will trigger reprocessing)
-            self.parent.addPeakstoBox(self.name, all_peaks)
+            # Update in fit_results (for display only, no refit)
+            if 'fit_results' in self.parent.projProc.info and \
+               self.name in self.parent.projProc.info['fit_results']:
+                fit_result = self.parent.projProc.info['fit_results'][self.name]
+                for i, peak in enumerate(new_manual_peaks):
+                    if f'p_{i}' in fit_result:
+                        fit_result[f'p_{i}'] = peak
+                # Also update mirrored peaks
+                for i in range(len(new_manual_peaks), len(new_manual_peaks) * 2):
+                    mirror_idx = i - len(new_manual_peaks)
+                    if f'p_{i}' in fit_result:
+                        fit_result[f'p_{i}'] = -new_manual_peaks[mirror_idx]
+        
+        # Update hull_range to follow the drag (shift by delta_x)
+        # Note: This updates the hull_range position but keeps its width unchanged
+        old_start, old_end = self.manual_hull_range
+        # Shift both start and end by delta_x to move the range
+        new_start = old_start + delta_x
+        new_end = old_end + delta_x
+        self.manual_hull_range = (new_start, new_end)
+        
+        # Update in projProc.info for display and parameter editor
+        if 'hull_ranges' not in self.parent.projProc.info:
+            self.parent.projProc.info['hull_ranges'] = {}
+        self.parent.projProc.info['hull_ranges'][self.name] = (new_start, new_end)
         
         # Update overlay position
         self.showOverlay()
+        
+        # Notify parameter editor to update table (if open)
+        if self.param_editor_dialog is not None and self.param_editor_active:
+            try:
+                self.param_editor_dialog.populateParameters()
+            except Exception as e:
+                print(f"Warning: Could not update parameter editor table: {e}")
+        
+        # Redraw without refitting
+        self.need_update = True
+        self.updateUI()
 
     def refreshUI(self):
         #clear the axes
