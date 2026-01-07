@@ -1250,10 +1250,9 @@ class ProjectionBoxTab(QWidget):
         new_end = old_end + delta_x
         self.manual_hull_range = (new_start, new_end)
         
-        # Update in projProc.info for display and parameter editor
-        if 'hull_ranges' not in self.parent.projProc.info:
-            self.parent.projProc.info['hull_ranges'] = {}
-        self.parent.projProc.info['hull_ranges'][self.name] = (new_start, new_end)
+        # Update in ProcessingBox directly (not through info compatibility layer)
+        box = self.parent.projProc.boxes[self.name]
+        box.hull_range = (new_start, new_end)
         
         # Update overlay position
         self.showOverlay()
