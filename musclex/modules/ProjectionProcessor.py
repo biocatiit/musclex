@@ -529,6 +529,8 @@ class ProjectionProcessor:
         for name, box in self.boxes.items():
             # Skip if histogram already computed
             if box.hist is not None:
+                # Still need to clear downstream stages
+                box.hist2 = None
                 continue
             
             # Use the current image (already rotated in process() if needed)
