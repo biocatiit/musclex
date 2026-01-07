@@ -125,7 +125,7 @@ class PT_CSVManager:
                         new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (Pixel)"] = model['p_'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(i//2) + side] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(i//2)+ side] = model['amplitude'+str(i)]
-                        if 'lambda_sdd' in info:
+                        if 'lambda_sdd' in info and info['lambda_sdd'] is not None:
                             new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (nm)"] = info['lambda_sdd']/moved_peaks[i]
                             new_data["Box " + str(bn) + " Centroid " + str(i//2) + side + " (nm)"] = info['lambda_sdd']/c
                             new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (nm)"] = info['lambda_sdd'] / model['p_' + str(i)]

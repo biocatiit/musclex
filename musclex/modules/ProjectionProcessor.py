@@ -29,6 +29,8 @@ authorization from Illinois Institute of Technology.
 import copy
 import pickle
 from os.path import exists, isfile
+from dataclasses import dataclass, field
+from typing import Optional, Dict, List, Tuple
 import numpy as np
 from lmfit import Model, Parameters
 from lmfit.models import GaussianModel, VoigtModel
@@ -45,6 +47,94 @@ except: # for coverage
     from utils.histogram_processor import movePeaks, getPeakInformations, convexHull
     from utils.image_processor import *
     from utils.image_data import ImageData
+
+
+@dataclass
+class ProcessingBox:
+    """
+    Data container for a single processing box.
+    Encapsulates all data and results for one box region.
+    """
+    # === Basic Configuration ===
+    name: str
+    coordinates: tuple  # ((x1, x2), (y1, y2), ...) or complex oriented format
+    type: str  # 'h' (horizontal), 'v' (vertical), 'oriented'
+    bgsub: int  # 0=gaussian fitting, 1=convex hull, 2=none
+    
+    # === Processing Parameters ===
+    peaks: List[float] = field(default_factory=list)
+    merid_bg: bool = False
+    hull_range: Optional[Tuple[float, float]] = None  # (start, end)
+    param_bounds: Dict[str, Dict] = field(default_factory=dict)
+    use_common_sigma: bool = False
+    peak_tolerance: float = 2.0
+    sigma_tolerance: float = 5.0
+    
+    # === Intermediate Results ===
+    hist: Optional[np.ndarray] = None
+    hist2: Optional[np.ndarray] = None
+    
+    # === Fitting Results ===
+    fit_results: Optional[Dict] = None
+    
+    # === Final Results ===
+    moved_peaks: Optional[List[float]] = None
+    subtracted_hist: Optional[np.ndarray] = None
+    baselines: Optional[List[float]] = None
+    centroids: Optional[np.ndarray] = None
+    widths: Optional[List[float]] = None
+    areas: Optional[List[float]] = None
+    
+    def clear_results(self, from_stage='fit'):
+        """
+        Clear results from a specific processing stage onwards.
+        This maintains the dependency chain integrity.
+        
+        :param from_stage: Starting stage ('hist', 'hist2', 'fit', 'peaks')
+        """
+        stages = {
+            'hist': ['hist', 'hist2', 'fit_results', 'moved_peaks', 
+                    'subtracted_hist', 'baselines', 'centroids', 'widths', 'areas'],
+            'hist2': ['hist2', 'fit_results', 'moved_peaks', 
+                     'subtracted_hist', 'baselines', 'centroids', 'widths', 'areas'],
+            'fit': ['fit_results', 'moved_peaks', 'subtracted_hist', 
+                   'baselines', 'centroids', 'widths', 'areas'],
+            'peaks': ['moved_peaks', 'baselines', 'centroids', 'widths', 'areas']
+        }
+        
+        list_attrs = ['peaks', 'moved_peaks', 'baselines', 'widths', 'areas']
+        for attr in stages.get(from_stage, []):
+            if attr in list_attrs:
+                setattr(self, attr, [] if attr == 'peaks' else None)
+            else:
+                setattr(self, attr, None)
+
+
+@dataclass
+class ProcessingState:
+    """
+    Complete state container for the projection processing pipeline.
+    Replaces the old self.info dictionary with a structured, type-safe design.
+    """
+    # === Metadata ===
+    version: str
+    filename: str
+    dir_path: str
+    
+    # === All Processing Boxes ===
+    boxes: Dict[str, ProcessingBox] = field(default_factory=dict)
+    
+    # === Global Settings ===
+    mask_thres: Optional[float] = None
+    blank_mask: bool = False
+    detector: Optional[str] = None
+    orientation_model: Optional[object] = None  # Not serialized, rebuilt at runtime
+    lambda_sdd: Optional[float] = None
+    
+    # === Special: Main Peak Information ===
+    main_peak_info: Dict = field(default_factory=dict)
+    # Structure: {box_name: {'bg_sigma': ..., 'bg_amplitude': ..., ...}}
+
 
 class ProjectionProcessor:
     """
@@ -69,65 +159,90 @@ class ProjectionProcessor:
         # Store reference to ImageData
         self._image_data = image_data
         
-        # Initialize state
+        # Initialize runtime state
         self.rotated_img = None
-        # Note: self.rotated removed - use (not self._image_data.quadrant_folded) instead
         self.version = __version__
         self.masked = False
-        # Fixed parameters (per-box):
-        # - fixed_center[box_name][peak_idx] = value
-        # - fixed_sigma[box_name][peak_idx] = value
-        # - fixed_amplitude[box_name][peak_idx] = value
-        # - fixed_common_sigma[box_name] = value
+        self.rotMat = None
+        
+        # Fixed parameters (per-box) - legacy support
+        # These will be migrated into ProcessingBox.param_bounds
         self.fixed_sigma = {}
         self.fixed_center = {}
         self.fixed_amplitude = {}
         self.fixed_common_sigma = {}
-        self.rotMat = None
+        
+        # Initialize ProcessingState (replaces self.info)
+        self.state = ProcessingState(
+            version=__version__,
+            filename=self.filename,
+            dir_path=self.dir_path
+        )
         
         # Load cache
-        cache = self.loadCache()
+        cached_state = self.loadCache()
+        if cached_state:
+            self.state = cached_state
         
-        if cache is None:
-            # info dictionary will save all results
-            self.info = {
-                'box_names' : set(),
-                'boxes' : {},
-                'types' : {},
-                'hists' : {},
-                'peaks' : {},
-                'bgsubs' : {},
-                'merid_bg' : {},
-                'hull_ranges':{},
-                'hists2': {},
-                'fit_results':{},
-                'subtracted_hists' : {},
-                'moved_peaks':{},
-                'baselines':{},
-                'centroids':{},
-                'widths': {},
-                'areas': {},
-                # Optional per-parameter bounds that survive re-fitting.
-                # Structure: info['param_bounds'][box_name][param_name] = {'min': float, 'max': float}
-                # Primary use: per-peak search ranges for p_i, initialized from Peak Tolerance and editable in UI.
-                'param_bounds': {},
-                'centerx': self.orig_img.shape[0] / 2 - 0.5,
-                'centery': self.orig_img.shape[1] / 2 - 0.5,
-                'rotationAngle' : 0
-            }
-        else:
-            self.info = cache
-            # Backward compatibility: older caches won't have param_bounds
-            if 'param_bounds' not in self.info:
-                self.info['param_bounds'] = {}
+        # Initialize mask threshold if not set
+        if self.state.mask_thres is None:
+            self.state.mask_thres = getMaskThreshold(self.orig_img)
         
         # Configure from ImageData
         if image_data.detector:
-            self.info['detector'] = image_data.detector
+            self.state.detector = image_data.detector
         if image_data.orientation_model is not None:
-            self.info['orientation_model'] = image_data.orientation_model
+            self.state.orientation_model = image_data.orientation_model
         
         # Note: center and rotation are now dynamic properties from ImageData
+    
+    @property
+    def boxes(self) -> Dict[str, ProcessingBox]:
+        """
+        Convenient access to all processing boxes.
+        Returns the boxes dictionary from state.
+        """
+        return self.state.boxes
+    
+    @property
+    def info(self) -> dict:
+        """
+        Legacy compatibility property: provides dict-like access to state.
+        This allows old code to continue working during the transition.
+        
+        WARNING: This is a compatibility shim and will be removed in the future.
+        New code should access self.state or self.boxes directly.
+        """
+        # Create a dict-like view of the state
+        info_dict = {
+            'box_names': set(self.boxes.keys()),
+            'boxes': {name: box.coordinates for name, box in self.boxes.items()},
+            'types': {name: box.type for name, box in self.boxes.items()},
+            'hists': {name: box.hist for name, box in self.boxes.items() if box.hist is not None},
+            'peaks': {name: box.peaks for name, box in self.boxes.items()},
+            'bgsubs': {name: box.bgsub for name, box in self.boxes.items()},
+            'merid_bg': {name: box.merid_bg for name, box in self.boxes.items()},
+            'hull_ranges': {name: box.hull_range for name, box in self.boxes.items() if box.hull_range is not None},
+            'hists2': {name: box.hist2 for name, box in self.boxes.items() if box.hist2 is not None},
+            'fit_results': {name: box.fit_results for name, box in self.boxes.items() if box.fit_results is not None},
+            'subtracted_hists': {name: box.subtracted_hist for name, box in self.boxes.items() if box.subtracted_hist is not None},
+            'moved_peaks': {name: box.moved_peaks for name, box in self.boxes.items() if box.moved_peaks is not None},
+            'baselines': {name: box.baselines for name, box in self.boxes.items() if box.baselines is not None},
+            'centroids': {name: box.centroids for name, box in self.boxes.items() if box.centroids is not None},
+            'widths': {name: box.widths for name, box in self.boxes.items() if box.widths is not None},
+            'areas': {name: box.areas for name, box in self.boxes.items() if box.areas is not None},
+            'param_bounds': {name: box.param_bounds for name, box in self.boxes.items()},
+            'use_common_sigma': {name: box.use_common_sigma for name, box in self.boxes.items()},
+            'peak_tolerances': {name: box.peak_tolerance for name, box in self.boxes.items()},
+            'sigma_tolerances': {name: box.sigma_tolerance for name, box in self.boxes.items()},
+            'mask_thres': self.state.mask_thres,
+            'blank_mask': self.state.blank_mask,
+            'detector': self.state.detector,
+            'orientation_model': self.state.orientation_model,
+            'lambda_sdd': self.state.lambda_sdd,
+            'main_peak_info': self.state.main_peak_info,
+        }
+        return info_dict
     
     @property
     def center(self):
@@ -152,71 +267,86 @@ class ProjectionProcessor:
 
     def addBox(self, name, box, typ, bgsub):
         """
-        Add a box to info. If it exists and it changed, clear all old result
+        Add a box to state. If it exists and it changed, clear all old results.
         :param name: box name
         :param box: box coordinates
-        :param typ: box typ 'v' ad vertical, 'h' as horizontal
-        :param bgsub: background subtraction method 0 = fitting gaussians, 1 = convex hull
+        :param typ: box type 'v' as vertical, 'h' as horizontal, 'oriented'
+        :param bgsub: background subtraction method 0=gaussian, 1=convex hull, 2=none
         :return:
         """
-        box_names = self.info['box_names']
-        if name in box_names and typ == 'oriented' and self.info['boxes'][name][-1] != box[-1]:
-            self.removeInfo(name)
-            self.addBox(name, box, typ, bgsub)
-        elif name in box_names and self.info['boxes'][name] != box:
-            self.removeInfo(name)
-            self.addBox(name, box, typ, bgsub)
+        if name in self.boxes:
+            # Box exists - check if coordinates changed
+            existing_box = self.boxes[name]
+            coords_changed = existing_box.coordinates != box
+            oriented_changed = (typ == 'oriented' and 
+                              len(box) > 6 and len(existing_box.coordinates) > 6 and 
+                              box[-1] != existing_box.coordinates[-1])
+            
+            if coords_changed or oriented_changed:
+                # Coordinates changed - clear all results
+                existing_box.coordinates = box
+                existing_box.type = typ
+                existing_box.bgsub = bgsub
+                existing_box.clear_results(from_stage='hist')
+            else:
+                # Just update config
+                existing_box.type = typ
+                existing_box.bgsub = bgsub
         else:
-            box_names.add(name)
-            self.info['boxes'][name] = box
-            self.info['types'][name] = typ
-            self.info['bgsubs'][name] = bgsub
+            # New box - create it
+            self.boxes[name] = ProcessingBox(
+                name=name,
+                coordinates=box,
+                type=typ,
+                bgsub=bgsub
+            )
 
     def addPeaks(self, name, peaks):
         """
         Add peaks to a box.
         :param name: box name
-        :param peaks: peaks
+        :param peaks: peaks list
         :return:
         """
-        box_names = self.info['box_names']
-        if name in box_names:
-            all_peaks = self.info['peaks']
-            if name in all_peaks and all_peaks[name] == peaks:
-                return
-            all_peaks[name] = peaks
-            # If peaks changed, previously stored per-parameter bounds are no longer trustworthy.
-            if 'param_bounds' in self.info and name in self.info['param_bounds']:
-                del self.info['param_bounds'][name]
-            # If peaks changed, any fixed peak indices are no longer trustworthy.
-            if isinstance(self.fixed_center, dict) and name in self.fixed_center and isinstance(self.fixed_center.get(name), dict):
-                del self.fixed_center[name]
-            if isinstance(self.fixed_sigma, dict) and name in self.fixed_sigma and isinstance(self.fixed_sigma.get(name), dict):
-                del self.fixed_sigma[name]
-            if isinstance(self.fixed_amplitude, dict) and name in self.fixed_amplitude and isinstance(self.fixed_amplitude.get(name), dict):
-                del self.fixed_amplitude[name]
-            if isinstance(self.fixed_common_sigma, dict) and name in self.fixed_common_sigma:
-                del self.fixed_common_sigma[name]
-
-            skip_list = ['box_names', 'boxes', 'types', 'peaks', 'hists', 'bgsubs', 'merid_bg', 'use_common_sigma', 'param_bounds']
-            for k in self.info.keys():
-                if k not in skip_list:
-                    self.removeInfo(name, k)
-        else:
-            print("Warning : box name is invalid.")
+        if name not in self.boxes:
+            print(f"Warning: box name '{name}' is invalid.")
+            return
+        
+        box = self.boxes[name]
+        
+        # Check if peaks actually changed
+        if box.peaks == peaks:
+            return
+        
+        # Update peaks
+        box.peaks = peaks
+        
+        # Clear parameter bounds as they're no longer valid
+        box.param_bounds = {}
+        
+        # Clear fixed parameters (legacy support)
+        if isinstance(self.fixed_center, dict) and name in self.fixed_center:
+            del self.fixed_center[name]
+        if isinstance(self.fixed_sigma, dict) and name in self.fixed_sigma:
+            del self.fixed_sigma[name]
+        if isinstance(self.fixed_amplitude, dict) and name in self.fixed_amplitude:
+            del self.fixed_amplitude[name]
+        if isinstance(self.fixed_common_sigma, dict) and name in self.fixed_common_sigma:
+            del self.fixed_common_sigma[name]
+        
+        # Clear downstream results (fitting onwards)
+        box.clear_results(from_stage='fit')
 
     def _get_param_bounds(self, box_name: str, param_name: str):
         """
         Helper to read stored per-parameter bounds if available.
         Returns (min, max) or (None, None).
         """
-        pb = self.info.get('param_bounds', {})
-        if not isinstance(pb, dict):
+        if box_name not in self.boxes:
             return (None, None)
-        box_bounds = pb.get(box_name, {})
-        if not isinstance(box_bounds, dict):
-            return (None, None)
-        b = box_bounds.get(param_name)
+        
+        box = self.boxes[box_name]
+        b = box.param_bounds.get(param_name)
         if not isinstance(b, dict):
             return (None, None)
         return (b.get('min', None), b.get('max', None))
@@ -225,11 +355,11 @@ class ProjectionProcessor:
         """
         Helper to persist per-parameter bounds.
         """
-        if 'param_bounds' not in self.info or not isinstance(self.info['param_bounds'], dict):
-            self.info['param_bounds'] = {}
-        if box_name not in self.info['param_bounds'] or not isinstance(self.info['param_bounds'].get(box_name), dict):
-            self.info['param_bounds'][box_name] = {}
-        self.info['param_bounds'][box_name][param_name] = {'min': float(bmin), 'max': float(bmax)}
+        if box_name not in self.boxes:
+            return
+        
+        box = self.boxes[box_name]
+        box.param_bounds[param_name] = {'min': float(bmin), 'max': float(bmax)}
 
     def removePeaks(self, name):
         """
@@ -237,10 +367,10 @@ class ProjectionProcessor:
         :param name: box name
         :return:
         """
-        skip_list = ['box_names', 'boxes', 'types', 'bgsubs', 'merid_bg']
-        for k in self.info.keys():
-            if k not in skip_list:
-                self.removeInfo(name, k)
+        if name in self.boxes:
+            box = self.boxes[name]
+            box.peaks = []
+            box.clear_results(from_stage='fit')
 
     def process(self, settings={}):
         """
@@ -282,24 +412,28 @@ class ProjectionProcessor:
         Apply the blank image and mask threshold on the orig_img
         :return: -
         """
-        if 'blank_mask' in self.info and self.info['blank_mask'] and not self.masked:
+        if self.state.blank_mask and not self.masked:
             img = np.array(self.orig_img, 'float32')
             blank, mask = getBlankImageAndMask(self.dir_path)
             maskOnly = getMaskOnly(self.dir_path)
             if blank is not None:
                 img = img - blank
             if mask is not None:
-                img[mask == 0] = self.info['mask_thres'] - 1.
+                img[mask == 0] = self.state.mask_thres - 1.
             if maskOnly is not None:
-                img[maskOnly == 0] = self.info['mask_thres'] - 1
+                img[maskOnly == 0] = self.state.mask_thres - 1
             
-            self.info['hists'] = {}
+            # Clear all histograms
+            for box in self.boxes.values():
+                box.hist = None
+                box.clear_results(from_stage='hist2')
+            
             self.orig_img = img
             self.masked = True
 
     def updateSettings(self, settings):
         """
-        Update info dict using settings
+        Update state and boxes using settings
         :param settings: calibration settings
         :return: -
         """
@@ -307,54 +441,83 @@ class ProjectionProcessor:
             new_boxes = settings['boxes']
             types = settings['types']
             bgsubs = settings['bgsubs']
-            old_boxes = self.info['boxes']
-            all_name = list(new_boxes.keys())
-            all_name.extend(list(old_boxes.keys()))
-            all_name = set(all_name)
+            old_boxes = set(self.boxes.keys())
+            all_name = set(new_boxes.keys()) | old_boxes
+            
             for name in all_name:
-                if name in new_boxes.keys():
+                if name in new_boxes:
                     if 'refit' in settings:
                         self.removeInfo(name, 'fit_results')
                     self.addBox(name, new_boxes[name], types[name], bgsubs[name])
                 else:
                     self.removeInfo(name)
+            
             del settings['boxes']
             del settings['types']
             del settings['bgsubs']
 
         if 'peaks' in settings:
             new_peaks = settings['peaks']
-            old_peaks = self.info['peaks']
-            all_name = list(new_peaks.keys())
-            all_name.extend(list(old_peaks.keys()))
-            all_name = set(all_name)
+            old_boxes = set(self.boxes.keys())
+            all_name = set(new_peaks.keys()) | old_boxes
+            
             for name in all_name:
-                if name in new_peaks.keys():
+                if name in new_peaks:
                     self.addPeaks(name, new_peaks[name])
                 else:
                     self.removePeaks(name)
+            
             del settings['peaks']
 
         if 'hull_ranges' in settings:
-            new = settings['hull_ranges']
-            current = self.info['hull_ranges']
-            current.update(new)
+            for name, hull_range in settings['hull_ranges'].items():
+                if name in self.boxes:
+                    self.boxes[name].hull_range = hull_range
             del settings['hull_ranges']
 
-        # Note: 'rotated' and 'rotationAngle' settings removed - rotation state is now
-        # determined by ImageData.quadrant_folded and ImageData.rotation properties
-
-        self.info.update(settings)
-
-        # Note: center is now a dynamic property from ImageData
+        # Update box-level settings
+        if 'merid_bg' in settings:
+            for name, value in settings['merid_bg'].items():
+                if name in self.boxes:
+                    self.boxes[name].merid_bg = value
+            del settings['merid_bg']
         
-        if 'mask_thres' not in self.info:
-            if 'mask_thres' in settings:
-                self.info['mask_thres'] = settings['mask_thres']
-            else:
-                self.info['mask_thres'] = getMaskThreshold(self.orig_img)
+        if 'use_common_sigma' in settings:
+            for name, value in settings['use_common_sigma'].items():
+                if name in self.boxes:
+                    self.boxes[name].use_common_sigma = value
+            del settings['use_common_sigma']
+        
+        if 'peak_tolerances' in settings:
+            for name, value in settings['peak_tolerances'].items():
+                if name in self.boxes:
+                    self.boxes[name].peak_tolerance = value
+            del settings['peak_tolerances']
+        
+        if 'sigma_tolerances' in settings:
+            for name, value in settings['sigma_tolerances'].items():
+                if name in self.boxes:
+                    self.boxes[name].sigma_tolerance = value
+            del settings['sigma_tolerances']
+
+        # Update global state settings
+        if 'mask_thres' in settings:
+            self.state.mask_thres = settings['mask_thres']
+            del settings['mask_thres']
+        elif self.state.mask_thres is None:
+            self.state.mask_thres = getMaskThreshold(self.orig_img)
+        
         if 'blank_mask' in settings:
-            self.info['blank_mask'] = settings['blank_mask']
+            self.state.blank_mask = settings['blank_mask']
+            del settings['blank_mask']
+        
+        if 'lambda_sdd' in settings:
+            self.state.lambda_sdd = settings['lambda_sdd']
+            del settings['lambda_sdd']
+        
+        if 'main_peak_info' in settings:
+            self.state.main_peak_info.update(settings['main_peak_info'])
+            del settings['main_peak_info']
 
     def getHistograms(self):
         """
@@ -363,104 +526,97 @@ class ProjectionProcessor:
         Note: Image rotation is now done in process(), so we directly use self.orig_img
         which is already rotated if needed.
         """
-        box_names = self.info['box_names']
-        if len(box_names) > 0:
-            boxes = self.info['boxes']
-            types = self.info['types']
-            hists = self.info['hists']
-            for name in box_names:
-                if name in hists:
-                    continue
-                t = types[name]
-                
-                # Use the current image (already rotated in process() if needed)
-                img = copy.copy(self.orig_img)
+        for name, box in self.boxes.items():
+            # Skip if histogram already computed
+            if box.hist is not None:
+                continue
+            
+            # Use the current image (already rotated in process() if needed)
+            img = copy.copy(self.orig_img)
+            b = box.coordinates
+            t = box.type
 
-                if name not in hists:
-                    b = boxes[name]
+            if t == 'oriented':
+                # rotate bottom left to new origin, then get top right
+                # the box center
+                cx, cy = b[6]
+                rot_angle = b[5]
+                img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
 
-                    if t == 'oriented':
-                        # rotate bottom left to new origin, then get top right
-                        # the box center
-                        cx, cy = b[6]
-                        rot_angle = b[5]
-                        img = rotateImageAboutPoint(img, (cx, cy), rot_angle)
+            # y is shape[0], x is shape[1]?
+            x1 = np.max((int(b[0][0]), 0))
+            x2 = np.min((int(b[0][1]), img.shape[1]))
+            y1 = np.max((int(b[1][0]), 0))
+            y2 = np.min((int(b[1][1]), img.shape[0]))
 
-                    # y is shape[0], x is shape[1]?
-                    x1 = np.max((int(b[0][0]), 0))
-                    x2 = np.min((int(b[0][1]), img.shape[1]))
-                    y1 = np.max((int(b[1][0]), 0))
-                    y2 = np.min((int(b[1][1]), img.shape[0]))
+            area = img[y1:y2+1, x1:x2+1]
+            if t in ('h', 'oriented'):
+                hist = np.sum(area, axis=0)
+            else:
+                hist = np.sum(area, axis=1)
 
-                    area = img[y1:y2+1, x1:x2+1]
-                    if t in ('h', 'oriented'):
-                        hist = np.sum(area, axis=0)
-                    else:
-                        hist = np.sum(area, axis=1)
-
-                    hists[name] = hist
-                    self.removeInfo(name, 'hists2')
+            box.hist = hist
+            box.hist2 = None  # Clear next stage
 
     def applyConvexhull(self):
         """
         Apply Convex hull to the projected intensity if background subtraction method is 1 (Convex hull)
         :return:
         """
-        box_names = self.info['box_names']
-        if len(box_names) > 0:
-            boxes = self.info['boxes']
-            all_peaks = self.info['peaks']
-            hists = self.info['hists']
-            bgsubs = self.info['bgsubs']
-            hists2 = self.info['hists2']
-            types = self.info['types']
-            hull_ranges = self.info['hull_ranges']
-            for name in box_names:
-                if name in hists2:
-                    continue
+        for name, box in self.boxes.items():
+            # Skip if hist2 already computed
+            if box.hist2 is not None:
+                continue
+            
+            # Skip if no histogram
+            if box.hist is None:
+                continue
 
-                if bgsubs[name] == 1 and name in all_peaks and len(all_peaks[name]) > 0:
-                    # apply convex hull to the left and right if peaks are specified
-                    box = boxes[name]
-                    hist = hists[name]
-                    peaks = all_peaks[name]
-                    start_x = box[0][0]
-                    start_y = box[1][0]
-                    if types[name] == 'h':
-                        centerX = self.center[0] - start_x
-                    elif types[name] == 'oriented':
-                        centerX = box[6][0] - start_x
-                    else:
-                        centerX = self.center[1] - start_y
-                    centerX = int(round(centerX))
-                    right_hist = hist[centerX:]
-                    left_hist = hist[:centerX][::-1]
-                    min_len = min(len(right_hist), len(left_hist))
-
-                    if name not in hull_ranges:
-                        start = max(min(peaks) - 15, 10)
-                        end = min(max(peaks) + 15, min_len)
-                        hull_ranges[name] = (start, end)
-
-                    # find start and end points
-                    (start, end) = hull_ranges[name]
-
-                    left_ignore = np.array([(i <= self.info['mask_thres']) for i in left_hist])
-                    right_ignore = np.array([(i <= self.info['mask_thres']) for i in right_hist])
-                    if not any(left_ignore) and not any(right_ignore):
-                        left_ignore = None
-                        right_ignore = None
-
-                    left_hull = convexHull(left_hist, start, end, ignore=left_ignore)[::-1]
-                    right_hull = convexHull(right_hist, start, end, ignore=right_ignore)
-
-                    hists2[name] = np.append(left_hull, right_hull)
+            if box.bgsub == 1 and box.peaks and len(box.peaks) > 0:
+                # apply convex hull to the left and right if peaks are specified
+                hist = box.hist
+                peaks = box.peaks
+                coords = box.coordinates
+                start_x = coords[0][0]
+                start_y = coords[1][0]
+                
+                if box.type == 'h':
+                    centerX = self.center[0] - start_x
+                elif box.type == 'oriented':
+                    centerX = coords[6][0] - start_x
                 else:
-                    # use original histogram and apply threshold
-                    hists2[name] = copy.copy(hists[name])
-                    hists2[name][hists2[name] <= self.info['mask_thres']] = self.info['mask_thres']
+                    centerX = self.center[1] - start_y
+                centerX = int(round(centerX))
+                
+                right_hist = hist[centerX:]
+                left_hist = hist[:centerX][::-1]
+                min_len = min(len(right_hist), len(left_hist))
 
-                self.removeInfo(name, 'fit_results')
+                if box.hull_range is None:
+                    start = max(min(peaks) - 15, 10)
+                    end = min(max(peaks) + 15, min_len)
+                    box.hull_range = (start, end)
+
+                # find start and end points
+                (start, end) = box.hull_range
+
+                left_ignore = np.array([(i <= self.state.mask_thres) for i in left_hist])
+                right_ignore = np.array([(i <= self.state.mask_thres) for i in right_hist])
+                if not any(left_ignore) and not any(right_ignore):
+                    left_ignore = None
+                    right_ignore = None
+
+                left_hull = convexHull(left_hist, start, end, ignore=left_ignore)[::-1]
+                right_hull = convexHull(right_hist, start, end, ignore=right_ignore)
+
+                box.hist2 = np.append(left_hull, right_hull)
+            else:
+                # use original histogram and apply threshold
+                box.hist2 = copy.copy(box.hist)
+                box.hist2[box.hist2 <= self.state.mask_thres] = self.state.mask_thres
+
+            # Clear downstream results
+            box.fit_results = None
 
     def updateRotationAngle(self):
         """
@@ -474,29 +630,22 @@ class ProjectionProcessor:
     def fitModel(self):
         """
         Fit model to histogram
-        Fit results will be kept in self.info["fit_results"].
+        Fit results will be kept in box.fit_results.
         """
-        box_names = self.info['box_names']
-        all_hists = self.info['hists2']
-        bgsubs = self.info['bgsubs']
-        all_peaks = self.info['peaks']
-        all_boxes = self.info['boxes']
-        fit_results = self.info['fit_results']
-
-        for name in box_names:
+        for name, box in self.boxes.items():
             # Skip if histogram data not available for this box
-            if name not in all_hists:
+            if box.hist2 is None:
                 continue
-                
-            hist = np.array(all_hists[name])
-
-            if name not in all_peaks or len(all_peaks[name]) == 0 or name in fit_results:
+            
+            # Skip if no peaks or already fitted
+            if not box.peaks or len(box.peaks) == 0 or box.fit_results is not None:
                 continue
-
-            peaks = all_peaks[name]
-            box = all_boxes[name]
-            start_x = box[0][0]
-            start_y = box[1][0]
+            
+            hist = np.array(box.hist2)
+            peaks = box.peaks
+            coords = box.coordinates
+            start_x = coords[0][0]
+            start_y = coords[1][0]
 
             x = np.arange(0, len(hist))
 
@@ -508,19 +657,17 @@ class ProjectionProcessor:
             params = Parameters()
 
             # Init Center X
-            if self.info['types'][name] == 'h':
-                # init_center = self.orig_img.shape[1] / 2 - 0.5 - start_x
+            if box.type == 'h':
                 init_center = self.center[0] - start_x
-            elif self.info['types'][name] == 'oriented':
-                init_center = box[6][0] - start_x
+            elif box.type == 'oriented':
+                init_center = coords[6][0] - start_x
             else:
-                # init_center = self.orig_img.shape[0] / 2 - 0.5 - start_y
                 init_center = self.center[1] - start_y
 
             init_center = int(round(init_center))
             params.add('centerX', init_center, min=init_center - 1., max=init_center + 1.)
 
-            if bgsubs[name] == 1:
+            if box.bgsub == 1:
                 # Convex hull has been applied, so we don't need to fit 3 gaussian anymore
                 int_vars['bg_line'] = 0
                 int_vars['bg_sigma'] = 1
@@ -534,20 +681,21 @@ class ProjectionProcessor:
                 # params.add('bg_line', 0, min=0)
                 int_vars['bg_line'] = 0
 
-                if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
-                    params.add('bg_sigma', self.info['main_peak_info'][name]['bg_sigma'], min=1, max=len(hist)*2+1.)
-                    params.add('bg_amplitude', self.info['main_peak_info'][name]['bg_amplitude'], min=-1, max=sum(hist)+1.)
-                    params.add('center_sigma1', self.info['main_peak_info'][name]['center_sigma1'], min=1, max=len(hist)+1.)
-                    params.add('center_amplitude1', self.info['main_peak_info'][name]['center_amplitude1'], min=-1, max=sum(hist) + 1.)
-                    params.add('center_sigma2', self.info['main_peak_info'][name]['center_sigma2'], min=1, max=len(hist)+1.)
-                    params.add('center_amplitude2', self.info['main_peak_info'][name]['center_amplitude2'], min=-1, max=sum(hist)+1.)
+                if name in self.state.main_peak_info:
+                    main_info = self.state.main_peak_info[name]
+                    params.add('bg_sigma', main_info['bg_sigma'], min=1, max=len(hist)*2+1.)
+                    params.add('bg_amplitude', main_info['bg_amplitude'], min=-1, max=sum(hist)+1.)
+                    params.add('center_sigma1', main_info['center_sigma1'], min=1, max=len(hist)+1.)
+                    params.add('center_amplitude1', main_info['center_amplitude1'], min=-1, max=sum(hist) + 1.)
+                    params.add('center_sigma2', main_info['center_sigma2'], min=1, max=len(hist)+1.)
+                    params.add('center_amplitude2', main_info['center_amplitude2'], min=-1, max=sum(hist)+1.)
                 
                 else:
                 # Init background params
                     params.add('bg_sigma', len(hist)/3., min=1, max=len(hist)*2+1.)
                     params.add('bg_amplitude', 0, min=-1, max=sum(hist)+1.)
 
-                    if self.info['merid_bg'][name]:
+                    if box.merid_bg:
                         # Init Meridian params1
                         params.add('center_sigma1', 15, min=1, max=len(hist)+1.)
                         params.add('center_amplitude1', sum(hist) / 20., min=-1, max=sum(hist) + 1.)
@@ -561,7 +709,7 @@ class ProjectionProcessor:
 
             # Init peaks params
             # Check if GMM mode (shared sigma) is enabled for this box
-            use_gmm = self.info.get('use_common_sigma', {}).get(name, False)
+            use_gmm = box.use_common_sigma
             
             # Fixed params for this box (support backward-compatible old dict format)
             fc = self.fixed_center if isinstance(self.fixed_center, dict) else {}
@@ -580,14 +728,14 @@ class ProjectionProcessor:
                 fixed_common_sigma_for_box = fcs
             
             # Check if hull_ranges exist to constrain peak search range
-            # Get peak tolerance from settings (default 10.0 for backward compatibility)
-            default_search_dist = self.info.get('peak_tolerances', {}).get(name, 2.0)
+            # Get peak tolerance from settings (default 2.0 for backward compatibility)
+            default_search_dist = box.peak_tolerance
             # Sigma tolerance for initializing sigma/common_sigma bounds when none are stored
             # (used as ± tolerance around the default initial value 5)
-            sigma_tol = self.info.get('sigma_tolerances', {}).get(name, 5.0)
+            sigma_tol = box.sigma_tolerance
             hull_constraint = None
-            if name in self.info['hull_ranges']:
-                hull_start, hull_end = self.info['hull_ranges'][name]
+            if box.hull_range is not None:
+                hull_start, hull_end = box.hull_range
                 # hull_ranges: (start, end) are both positive numbers
                 # Valid ranges: [start, end] for positive peaks, [-end, -start] for negative peaks
                 hull_constraint = (hull_start, hull_end)
@@ -824,23 +972,24 @@ class ProjectionProcessor:
                             result_dict[key] = val
                         result_dict[f'{key}_fixed'] = True
                 
-                if 'main_peak_info' in self.info and name in self.info['main_peak_info']:
-                    if self.info['main_peak_info'][name]['bg_sigma_lock'] == True:
-                        result_dict['bg_sigma'] = self.info['main_peak_info'][name]['bg_sigma']
-                    if self.info['main_peak_info'][name]['bg_amplitude_lock'] == True:
-                        result_dict['bg_amplitude'] = self.info['main_peak_info'][name]['bg_amplitude']
-                    if self.info['main_peak_info'][name]['center_sigma1_lock'] == True:
-                        result_dict['center_sigma1'] = self.info['main_peak_info'][name]['center_sigma1']   
-                    if self.info['main_peak_info'][name]['center_amplitude1_lock'] == True:
-                        result_dict['center_amplitude1'] = self.info['main_peak_info'][name]['center_amplitude1']
-                    if self.info['main_peak_info'][name]['center_sigma2_lock'] == True:
-                        result_dict['center_sigma2'] = self.info['main_peak_info'][name]['center_sigma2']
-                    if self.info['main_peak_info'][name]['center_amplitude2_lock'] == True:
-                        result_dict['center_amplitude2'] = self.info['main_peak_info'][name]['center_amplitude2']
+                if name in self.state.main_peak_info:
+                    main_info = self.state.main_peak_info[name]
+                    if main_info.get('bg_sigma_lock', False):
+                        result_dict['bg_sigma'] = main_info['bg_sigma']
+                    if main_info.get('bg_amplitude_lock', False):
+                        result_dict['bg_amplitude'] = main_info['bg_amplitude']
+                    if main_info.get('center_sigma1_lock', False):
+                        result_dict['center_sigma1'] = main_info['center_sigma1']   
+                    if main_info.get('center_amplitude1_lock', False):
+                        result_dict['center_amplitude1'] = main_info['center_amplitude1']
+                    if main_info.get('center_sigma2_lock', False):
+                        result_dict['center_sigma2'] = main_info['center_sigma2']
+                    if main_info.get('center_amplitude2_lock', False):
+                        result_dict['center_amplitude2'] = main_info['center_amplitude2']
                 
-                self.info['fit_results'][name] = result_dict
-                self.removeInfo(name, 'subtracted_hists')
-                # Legacy behavior retained above via fixed_center_for_box; no extra override needed.
+                # Save fit results to box
+                box.fit_results = result_dict
+                box.subtracted_hist = None  # Clear downstream results
                 
                 # Print fitting results
                 print("Box : "+ str(name))
@@ -849,13 +998,13 @@ class ProjectionProcessor:
                 print(f"Chi-square: {result.chisqr:.6f}")
                 print(f"Reduced chi-square: {result.redchi:.6f}")
                 if use_gmm:
-                    common_sigma_val = self.info['fit_results'][name].get('common_sigma', 'N/A')
+                    common_sigma_val = result_dict.get('common_sigma', 'N/A')
                     print(f"  Common Sigma = {common_sigma_val}")
                 else:
-                    sigmas = [self.info['fit_results'][name].get(f'sigma{i}', 'N/A') for i in range(min(3, len(peaks)))]
+                    sigmas = [result_dict.get(f'sigma{i}', 'N/A') for i in range(min(3, len(peaks)))]
                     print(f"  Individual Sigmas (first 3): {sigmas}")
-                print("Fitting Result : " + str(self.info['fit_results'][name]))
-                print("Fitting Error : " + str(self.info['fit_results'][name]['error']))
+                print("Fitting Result : " + str(result_dict))
+                print("Fitting Error : " + str(result_dict['error']))
                 if hasattr(result, 'aic') and hasattr(result, 'bic'):
                     print(f"AIC: {result.aic:.2f}, BIC: {result.bic:.2f}")
                 print("---")
@@ -863,64 +1012,60 @@ class ProjectionProcessor:
 
     def getBackgroundSubtractedHistograms(self):
         """
-        Get Background Subtracted Histograms by subtract the original histogram by background from fitting model
+        Get Background Subtracted Histograms by subtracting the background from fitting model
         :return:
         """
-        box_names = self.info['box_names']
-        all_hists = self.info['hists2']
-        fit_results = self.info['fit_results']
-        subt_hists = self.info['subtracted_hists']
-        bgsubs = self.info['bgsubs']
-        for name in box_names:
-            if name in subt_hists or name not in fit_results:
+        for name, box in self.boxes.items():
+            # Skip if already computed or no fit results
+            if box.subtracted_hist is not None or box.fit_results is None:
                 continue
-            if bgsubs[name] == 2: # no background, so there should be no subtraction
-                subt_hists[name] = all_hists[name]
-                self.removeInfo(name, 'moved_peaks')
+            
+            # Skip if no hist2
+            if box.hist2 is None:
+                continue
+            
+            if box.bgsub == 2:  # no background, so no subtraction
+                box.subtracted_hist = box.hist2
             else:
                 # Get subtracted histogram if fit result exists
-                fit_result = fit_results[name]
-                hist = all_hists[name]
+                hist = box.hist2
                 xs = np.arange(0, len(hist))
-                background = layerlineModelBackground(xs, **fit_result)
-                subt_hists[name] = hist-background
-                self.removeInfo(name, 'moved_peaks')
+                background = layerlineModelBackground(xs, **box.fit_results)
+                box.subtracted_hist = hist - background
+            
+            # Clear downstream results
+            box.moved_peaks = None
 
     def getPeakInfos(self):
         """
-        Get peaks' infomation including baseline and centroids
+        Get peaks' information including baseline and centroids
         :return:
         """
-        box_names = self.info['box_names']
-        all_hists = self.info['subtracted_hists']
-        fit_results = self.info['fit_results']
-        moved_peaks = self.info['moved_peaks']
-        all_baselines = self.info['baselines']
-        all_centroids = self.info['centroids']
-        all_widths = self.info['widths']
-        all_areas = self.info['areas']
-
-        for name in box_names:
-            if name not in all_hists:
+        for name, box in self.boxes.items():
+            # Skip if no subtracted histogram
+            if box.subtracted_hist is None:
+                continue
+            
+            # Skip if no fit results
+            if box.fit_results is None:
                 continue
 
             ### Find real peak locations in the box (not distance from center)
-            model = fit_results[name]
-            hist = all_hists[name]
-            if name not in moved_peaks:
-                peaks = self.info['peaks'][name]
+            model = box.fit_results
+            hist = box.subtracted_hist
+            
+            if box.moved_peaks is None:
+                peaks = box.peaks
                 moved = []
                 for p in peaks:
                     globalpeak = int(round(model['centerX']+p))
                     if 0 <= globalpeak <= len(hist):
                         moved.append(globalpeak)
-                    # else:
-                    #     moved.append(int(round(model['centerX']-p)))
 
                 # Constrain movePeaks search range by hull_ranges if available
-                if name in self.info['hull_ranges']:
+                if box.hull_range is not None:
                     # Get hull range (start, end are distances from center)
-                    hull_start, hull_end = self.info['hull_ranges'][name]
+                    hull_start, hull_end = box.hull_range
                     centerX = int(round(model['centerX']))
                     
                     # Move each peak with constrained search distance
@@ -954,25 +1099,25 @@ class ProjectionProcessor:
                     # No hull range constraint, use default
                     moved = movePeaks(hist, moved, 10)
                 
-                moved_peaks[name] = moved
-                self.removeInfo(name, 'baselines')
+                box.moved_peaks = moved
+                box.baselines = None  # Clear downstream results
 
-            peaks = moved_peaks[name]
+            peaks = box.moved_peaks
             ### Calculate Baselines
-            if name not in all_baselines:
+            if box.baselines is None:
                 baselines = []
                 for p in peaks:
                     baselines.append(hist[p]*0.5)
-                all_baselines[name] = baselines
-                self.removeInfo(name, 'centroids')
+                box.baselines = baselines
+                box.centroids = None  # Clear downstream results
 
-            baselines = all_baselines[name]
+            baselines = box.baselines
 
-            if name not in all_centroids:
+            if box.centroids is None:
                 results = getPeakInformations(hist, peaks, baselines)
-                all_centroids[name] = np.array(results['centroids']) - model['centerX']
-                all_widths[name] = results['widths']
-                all_areas[name] = results['areas']
+                box.centroids = np.array(results['centroids']) - model['centerX']
+                box.widths = results['widths']
+                box.areas = results['areas']
                 print("Box : "+ str(name))
                 print("Centroid Result : " + str(results))
                 print("---")
@@ -1052,52 +1197,81 @@ class ProjectionProcessor:
 
     def removeInfo(self, name, k=None):
         """
-        Remove information from info dictionary by k as a key. If k is None, remove all information in the dictionary
+        Remove information from box. If k is None, remove the entire box.
         :param name: box name
-        :param k: key of dictionary
+        :param k: specific result key to clear (e.g. 'fit_results', 'centroids')
         :return: -
         """
-        if k is not None and k in self.info:
-            d = self.info[k]
-            if isinstance(d, dict) and name in d:
-                del d[name]
-
+        if name not in self.boxes:
+            return
+        
         if k is None:
-            keys = list(self.info.keys())
-            for key in keys:
-                d = self.info[key]
-                if key == 'box_names':
-                    d.remove(name)
+            # Remove entire box
+            del self.boxes[name]
+        else:
+            # Clear specific result
+            box = self.boxes[name]
+            # Map old dict keys to box attributes
+            key_map = {
+                'hists': 'hist',
+                'hists2': 'hist2',
+                'fit_results': 'fit_results',
+                'subtracted_hists': 'subtracted_hist',
+                'moved_peaks': 'moved_peaks',
+                'baselines': 'baselines',
+                'centroids': 'centroids',
+                'widths': 'widths',
+                'areas': 'areas',
+                'param_bounds': 'param_bounds',
+            }
+            
+            if k in key_map:
+                attr = key_map[k]
+                if attr in ['moved_peaks', 'baselines', 'widths', 'areas']:
+                    setattr(box, attr, None)
+                elif attr == 'param_bounds':
+                    setattr(box, attr, {})
                 else:
-                    self.removeInfo(name, key)
+                    setattr(box, attr, None)
 
-    def loadCache(self):
+    def loadCache(self) -> Optional[ProcessingState]:
         """
-        Load info dict from cache. Cache file will be filename.info in folder "pt_cache"
-        :return: cached info (dict)
+        Load ProcessingState from cache. Cache file will be filename.cache in folder "pt_cache"
+        :return: cached ProcessingState or None
         """
         cache_path = fullPath(self.dir_path, "pt_cache")
-        cache_file = fullPath(cache_path, self.filename + '.info')
-        if exists(cache_path) and isfile(cache_file):
-            cinfo = pickle.load(open(cache_file, "rb"))
-            if cinfo is not None:
-                if cinfo['program_version'] == self.version:
-                    return cinfo
-                print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
+        cache_file = fullPath(cache_path, self.filename + '.cache')
+        
+        if not exists(cache_file):
+            return None
+        
+        try:
+            with open(cache_file, 'rb') as f:
+                state = pickle.load(f)
+            
+            # Version check
+            if isinstance(state, ProcessingState) and state.version == self.version:
+                return state
+            else:
+                version = state.version if isinstance(state, ProcessingState) else "unknown"
+                print(f"Cache version {version} did not match with Program version {self.version}")
                 print("Invalidating cache and reprocessing the image")
-        return None
+                return None
+        except Exception as e:
+            print(f"Failed to load cache: {e}")
+            return None
 
     def cacheInfo(self):
         """
-        Save info dict to cache. Cache file will be save as filename.info in folder "pt_cache"
+        Save ProcessingState to cache. Cache file will be saved as filename.cache in folder "pt_cache"
         :return: -
         """
         cache_path = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_path)
-        cache_file = fullPath(cache_path, self.filename + '.info')
-
-        self.info["program_version"] = self.version
-        pickle.dump(self.info, open(cache_file, "wb"))
+        cache_file = fullPath(cache_path, self.filename + '.cache')
+        
+        with open(cache_file, 'wb') as f:
+            pickle.dump(self.state, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def layerlineModel(x, centerX, bg_line, bg_sigma, bg_amplitude, center_sigma1, center_amplitude1,
