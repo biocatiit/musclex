@@ -1014,6 +1014,11 @@ class ProjectionBoxTab(QWidget):
             box.peak_tolerance = self.peakToleranceSpinBox.value()
             box.sigma_tolerance = self.sigmaToleranceSpinBox.value()
             
+            # CRITICAL: Clear param_bounds to force recalculation based on NEW peak positions
+            # If we don't clear this, fitModel will use old cached bounds from previous fit,
+            # which may not match the new peak positions, causing peaks to drift outside hull_range
+            box.param_bounds = {}
+            
             # Clear old fit_results to force re-fitting without GMM
             box.fit_results = None
             
@@ -1072,6 +1077,11 @@ class ProjectionBoxTab(QWidget):
             # These control the bounds for peak positions and sigmas during fitting
             box.peak_tolerance = self.peakToleranceSpinBox.value()
             box.sigma_tolerance = self.sigmaToleranceSpinBox.value()
+            
+            # CRITICAL: Clear param_bounds to force recalculation based on NEW peak positions
+            # If we don't clear this, fitModel will use old cached bounds from previous fit,
+            # which may not match the new peak positions, causing peaks to drift outside hull_range
+            box.param_bounds = {}
             
             # Clear old fit_results to force re-fitting with new GMM mode
             box.fit_results = None
