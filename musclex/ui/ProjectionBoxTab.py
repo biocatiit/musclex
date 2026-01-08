@@ -1273,20 +1273,22 @@ class ProjectionBoxTab(QWidget):
         self.need_update = True
         self.updateUI()
 
-        #redraw the lines
-        center = self.getCenterX()
+        # Only redraw lines if function exists
+        if self.function is not None and len(self.function) > 1:
+            #redraw the lines
+            center = self.getCenterX()
 
-        for distance in self.function[1]:
-            ax = self.graphAxes1
-            ax.axvline(center + distance, color='#ff630a', linewidth=2)
-            ax.axvline(center - distance, color='#ff630a', linewidth=2)
+            for distance in self.function[1]:
+                ax = self.graphAxes1
+                ax.axvline(center + distance, color='#ff630a', linewidth=2)
+                ax.axvline(center - distance, color='#ff630a', linewidth=2)
 
-            ax = self.graphAxes2
-            ax.axvline(center + distance, color='#ff630a', linewidth=2)
-            ax.axvline(center - distance, color='#ff630a', linewidth=2)
+                ax = self.graphAxes2
+                ax.axvline(center + distance, color='#ff630a', linewidth=2)
+                ax.axvline(center - distance, color='#ff630a', linewidth=2)
 
-        self.graphCanvas1.draw_idle()
-        self.graphCanvas2.draw_idle()
+            self.graphCanvas1.draw_idle()
+            self.graphCanvas2.draw_idle()
 
     def clearPeaks(self):
         """
