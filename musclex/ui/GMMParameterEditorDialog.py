@@ -312,8 +312,12 @@ class GMMParameterEditorDialog(QDialog):
                     minSpin.setEnabled(True)
                     maxSpin.setEnabled(True)
         
-        # Update use_common_sigma flag in fit_results and trigger redraw
-        self.projProc.info['fit_results'][self.box_name]['use_common_sigma'] = is_gmm
+        # Update use_common_sigma flag in fit_results directly in ProcessingBox
+        box = self.projProc.boxes[self.box_name]
+        if box.fit_results is None:
+            box.fit_results = {}
+        box.fit_results['use_common_sigma'] = is_gmm
+        box.use_common_sigma = is_gmm
         
         # Update parameter values and redraw
         self.onParameterChanged()
@@ -411,7 +415,7 @@ class GMMParameterEditorDialog(QDialog):
     def onParameterChanged(self):
         """
         Real-time parameter update: when user changes value in table,
-        update info['fit_results'] and redraw immediately
+        update ProcessingBox and redraw immediately
         """
         # If a value spinner changed for p_i / sigma_i, auto-reset that row's bounds to value ± tolerance
         sender = self.sender()
@@ -428,27 +432,28 @@ class GMMParameterEditorDialog(QDialog):
         # Get current parameters from table
         edited_params = self.getParametersFromTable()
         
-        # Update info['fit_results'] directly (unified data layer)
+        # Get ProcessingBox for direct updates
+        box = self.projProc.boxes[self.box_name]
+        if box.fit_results is None:
+            box.fit_results = {}
+        
+        # Update ProcessingBox directly
         for param_name, pinfo in edited_params.items():
             # Handle hull_range parameters specially
             if param_name == 'hull_start':
-                if 'hull_ranges' not in self.projProc.info:
-                    self.projProc.info['hull_ranges'] = {}
-                current_hull = self.projProc.info['hull_ranges'].get(self.box_name, (0, 0))
-                self.projProc.info['hull_ranges'][self.box_name] = (pinfo['val'], current_hull[1] if isinstance(current_hull, (tuple, list)) and len(current_hull) >= 2 else 0)
+                current_hull = box.hull_range if box.hull_range else (0, 0)
+                box.hull_range = (pinfo['val'], current_hull[1] if isinstance(current_hull, (tuple, list)) and len(current_hull) >= 2 else 0)
                 # Update parent_tab's manual_hull_range
                 if hasattr(self.parent_tab, 'manual_hull_range'):
-                    self.parent_tab.manual_hull_range = self.projProc.info['hull_ranges'][self.box_name]
+                    self.parent_tab.manual_hull_range = box.hull_range
             elif param_name == 'hull_end':
-                if 'hull_ranges' not in self.projProc.info:
-                    self.projProc.info['hull_ranges'] = {}
-                current_hull = self.projProc.info['hull_ranges'].get(self.box_name, (0, 0))
-                self.projProc.info['hull_ranges'][self.box_name] = (current_hull[0] if isinstance(current_hull, (tuple, list)) and len(current_hull) >= 2 else 0, pinfo['val'])
+                current_hull = box.hull_range if box.hull_range else (0, 0)
+                box.hull_range = (current_hull[0] if isinstance(current_hull, (tuple, list)) and len(current_hull) >= 2 else 0, pinfo['val'])
                 # Update parent_tab's manual_hull_range
                 if hasattr(self.parent_tab, 'manual_hull_range'):
-                    self.parent_tab.manual_hull_range = self.projProc.info['hull_ranges'][self.box_name]
+                    self.parent_tab.manual_hull_range = box.hull_range
             else:
-                self.projProc.info['fit_results'][self.box_name][param_name] = pinfo['val']
+                box.fit_results[param_name] = pinfo['val']
         
         self.parent_tab.need_update = True
         # Redraw with updated parameters (uses info['fit_results'])
@@ -473,17 +478,14 @@ class GMMParameterEditorDialog(QDialog):
     
     def _commit_bounds_from_table(self, params_info):
         """
-        Commit Min/Max bounds from table to projProc.info['param_bounds'].
+        Commit Min/Max bounds from table to ProcessingBox.param_bounds.
         This is used right before refit so fitModel uses the user's edited bounds.
         """
-        if 'param_bounds' not in self.projProc.info or not isinstance(self.projProc.info.get('param_bounds'), dict):
-            self.projProc.info['param_bounds'] = {}
-        if self.box_name not in self.projProc.info['param_bounds'] or not isinstance(self.projProc.info['param_bounds'].get(self.box_name), dict):
-            self.projProc.info['param_bounds'][self.box_name] = {}
+        box = self.projProc.boxes[self.box_name]
         
         for param_name, pinfo in params_info.items():
             # Only commit if min/max exist in the table structure
-            self.projProc.info['param_bounds'][self.box_name][param_name] = {
+            box.param_bounds[param_name] = {
                 'min': float(pinfo.get('min', 0.0)),
                 'max': float(pinfo.get('max', 0.0)),
             }
@@ -500,6 +502,11 @@ class GMMParameterEditorDialog(QDialog):
         except Exception:
             pass
         
+        # Get ProcessingBox for direct updates
+        box = self.projProc.boxes[self.box_name]
+        if box.fit_results is None:
+            box.fit_results = {}
+        
         if self.equalVarianceChkBx.isChecked():
             # GMM mode: sync all individual sigmas to common_sigma
             for row in range(self.paramTable.rowCount()):
@@ -512,10 +519,10 @@ class GMMParameterEditorDialog(QDialog):
                     # Keep sigma bounds visually in sync as well
                     self._reset_bounds_for_row_by_tolerance(row, param_name, value)
                     # Update in fit_results
-                    self.projProc.info['fit_results'][self.box_name][param_name] = value
+                    box.fit_results[param_name] = value
         
         # Update common_sigma in fit_results
-        self.projProc.info['fit_results'][self.box_name]['common_sigma'] = value
+        box.fit_results['common_sigma'] = value
         
         # Trigger redraw
         self.parent_tab.need_update = True
@@ -609,10 +616,13 @@ class GMMParameterEditorDialog(QDialog):
         print(f"use_equal_variance: {use_equal_variance}")
         print(f"Number of parameters: {len(paramInfo)}")
         
+        # Get ProcessingBox for direct updates
+        box = self.projProc.boxes[self.box_name]
+        
         # Save old result for comparison
         old_result = None
-        if self.box_name in self.projProc.info.get('fit_results', {}):
-            old_result = dict(self.projProc.info['fit_results'][self.box_name])
+        if box.fit_results:
+            old_result = dict(box.fit_results)
             print(f"\n--- OLD VALUES (before refit) ---")
             print(f"  common_sigma: {old_result.get('common_sigma', 'N/A')}")
             print(f"  error: {old_result.get('error', 'N/A')}")
@@ -623,9 +633,7 @@ class GMMParameterEditorDialog(QDialog):
                 print(f"  individual sigmas (first 5): {sigmas}")
         
         # Update use_common_sigma flag BEFORE calling fitModel
-        if 'use_common_sigma' not in self.projProc.info:
-            self.projProc.info['use_common_sigma'] = {}
-        self.projProc.info['use_common_sigma'][self.box_name] = use_equal_variance
+        box.use_common_sigma = use_equal_variance
         
         # Extract peak positions from paramInfo (p_0, p_1, p_2, ...)
         # These are relative positions (distance from centerX)
@@ -649,23 +657,16 @@ class GMMParameterEditorDialog(QDialog):
             new_hull_range = (hull_start, hull_end)
             
             # Check if hull_range actually changed
-            old_hull_range = self.projProc.info.get('hull_ranges', {}).get(self.box_name, None)
+            old_hull_range = box.hull_range
             if old_hull_range != new_hull_range:
                 hull_range_changed = True
-                if 'hull_ranges' not in self.projProc.info:
-                    self.projProc.info['hull_ranges'] = {}
-                self.projProc.info['hull_ranges'][self.box_name] = new_hull_range
+                box.hull_range = new_hull_range
                 print(f"Updated hull_range: {old_hull_range} -> {new_hull_range}")
         
         # Update both peaks and moved_peaks with new positions (do this BEFORE clearing cache)
         # peaks is used by applyConvexhull, moved_peaks is used by fitModel
-        if 'peaks' not in self.projProc.info:
-            self.projProc.info['peaks'] = {}
-        self.projProc.info['peaks'][self.box_name] = peak_positions
-        
-        if 'moved_peaks' not in self.projProc.info:
-            self.projProc.info['moved_peaks'] = {}
-        self.projProc.info['moved_peaks'][self.box_name] = peak_positions
+        box.peaks = peak_positions
+        box.moved_peaks = peak_positions
         
         # Update fixed parameters for this box (per-box fixed storage)
         if not isinstance(self.projProc.fixed_sigma, dict):
@@ -713,40 +714,35 @@ class GMMParameterEditorDialog(QDialog):
         # baselines, centroids, etc. will be automatically deleted by getPeakInfos() 
         # through its internal removeInfo() calls
         
-        if self.box_name in self.projProc.info.get('fit_results', {}):
-            del self.projProc.info['fit_results'][self.box_name]
-        
-        if self.box_name in self.projProc.info.get('subtracted_hists', {}):
-            del self.projProc.info['subtracted_hists'][self.box_name]
+        box.fit_results = None
+        box.subtracted_hist = None
         
         # If hull_range changed, clear hists2 and related data to force recalculation
         if hull_range_changed:
-            if 'hists2' in self.projProc.info and self.box_name in self.projProc.info['hists2']:
-                del self.projProc.info['hists2'][self.box_name]
-            # Also clear baselines, centroids, widths, areas that depend on hists2
-            for key in ['baselines', 'centroids', 'widths', 'areas']:
-                if key in self.projProc.info and self.box_name in self.projProc.info[key]:
-                    del self.projProc.info[key][self.box_name]
+            box.hist2 = None
+            box.baselines = None
+            box.centroids = None
+            box.widths = None
+            box.areas = None
             print(f"Cleared hists2 and dependent data for {self.box_name} due to hull_range change")
         
         # DO NOT delete moved_peaks here - we just set it above and fitModel needs it!
         
         # Debug: Check what data exists before calling fitModel
         print(f"\n--- Data state BEFORE fitModel ---")
-        print(f"  peaks[{self.box_name}]: {self.projProc.info.get('peaks', {}).get(self.box_name, 'MISSING')}")
-        print(f"  moved_peaks[{self.box_name}]: {self.projProc.info.get('moved_peaks', {}).get(self.box_name, 'MISSING')}")
-        print(f"  hists exists: {'hists' in self.projProc.info}")
-        print(f"  hists[{self.box_name}] exists: {self.box_name in self.projProc.info.get('hists', {})}")
-        print(f"  hists2[{self.box_name}] exists: {self.box_name in self.projProc.info.get('hists2', {})}")
-        print(f"  fit_results[{self.box_name}] exists: {self.box_name in self.projProc.info.get('fit_results', {})}")
-        print(f"  bgsubs[{self.box_name}]: {self.projProc.info.get('bgsubs', {}).get(self.box_name, 'MISSING')}")
+        print(f"  peaks: {box.peaks}")
+        print(f"  moved_peaks: {box.moved_peaks}")
+        print(f"  hist exists: {box.hist is not None}")
+        print(f"  hist2 exists: {box.hist2 is not None}")
+        print(f"  fit_results exists: {box.fit_results is not None}")
+        print(f"  bgsub: {box.bgsub}")
         
         # Call the complete processing pipeline (same flow as process())
         # Note: These methods process all boxes but only refit/recalculate missing data
         try:
             # Always call applyConvexhull to ensure hists2 is properly generated
             # (especially if it was deleted due to hull_range change)
-            if hull_range_changed or self.box_name not in self.projProc.info.get('hists2', {}):
+            if hull_range_changed or box.hist2 is None:
                 print(f"Calling applyConvexhull to regenerate hists2...")
                 self.projProc.applyConvexhull()
             
@@ -759,10 +755,10 @@ class GMMParameterEditorDialog(QDialog):
             
             # Retrieve the fit result
             print(f"\n--- Data state AFTER processing ---")
-            print(f"  fit_results[{self.box_name}] exists: {self.box_name in self.projProc.info.get('fit_results', {})}")
+            print(f"  fit_results exists: {box.fit_results is not None}")
             
-            if self.box_name in self.projProc.info.get('fit_results', {}):
-                result_dict = self.projProc.info['fit_results'][self.box_name]
+            if box.fit_results:
+                result_dict = box.fit_results
                 
                 # Save fixed states from paramInfo to fit_results
                 for param_name, pinfo in paramInfo.items():
@@ -822,16 +818,16 @@ class GMMParameterEditorDialog(QDialog):
     
     def onApply(self):
         """
-        Apply changes and close - info is already updated by onParameterChanged
+        Apply changes and close - ProcessingBox is already updated by onParameterChanged
         """
         # Update use_common_sigma flag to persist the equal variance setting
         use_equal_variance = self.equalVarianceChkBx.isChecked()
-        self.projProc.info['fit_results'][self.box_name]['use_common_sigma'] = use_equal_variance
+        box = self.projProc.boxes[self.box_name]
         
-        # Also update in projProc.info for future fitting
-        if 'use_common_sigma' not in self.projProc.info:
-            self.projProc.info['use_common_sigma'] = {}
-        self.projProc.info['use_common_sigma'][self.box_name] = use_equal_variance
+        if box.fit_results is None:
+            box.fit_results = {}
+        box.fit_results['use_common_sigma'] = use_equal_variance
+        box.use_common_sigma = use_equal_variance
         
         # Final refresh to ensure UI is in sync
         self.parent_tab.updateUI()
@@ -842,43 +838,33 @@ class GMMParameterEditorDialog(QDialog):
         """
         Cancel: rollback to the snapshot captured when dialog opened
         """
+        box = self.projProc.boxes[self.box_name]
         
         # Restore fit_results snapshot
-        if 'fit_results' not in self.projProc.info or not isinstance(self.projProc.info.get('fit_results'), dict):
-            self.projProc.info['fit_results'] = {}
-        self.projProc.info['fit_results'][self.box_name] = copy.deepcopy(self._snapshot_fit_result)
+        box.fit_results = copy.deepcopy(self._snapshot_fit_result)
         
-        # Restore param_bounds snapshot (or remove if none existed)
-        if 'param_bounds' not in self.projProc.info or not isinstance(self.projProc.info.get('param_bounds'), dict):
-            self.projProc.info['param_bounds'] = {}
+        # Restore param_bounds snapshot
         if self._snapshot_param_bounds:
-            self.projProc.info['param_bounds'][self.box_name] = copy.deepcopy(self._snapshot_param_bounds)
+            box.param_bounds = copy.deepcopy(self._snapshot_param_bounds)
         else:
-            if self.box_name in self.projProc.info['param_bounds']:
-                del self.projProc.info['param_bounds'][self.box_name]
+            box.param_bounds = {}
         
         # Restore use_common_sigma snapshot
         if self._snapshot_use_common_sigma is not None:
-            if 'use_common_sigma' not in self.projProc.info or not isinstance(self.projProc.info.get('use_common_sigma'), dict):
-                self.projProc.info['use_common_sigma'] = {}
-            self.projProc.info['use_common_sigma'][self.box_name] = self._snapshot_use_common_sigma
+            box.use_common_sigma = self._snapshot_use_common_sigma
+            if box.fit_results:
+                box.fit_results['use_common_sigma'] = self._snapshot_use_common_sigma
         else:
-            if 'use_common_sigma' in self.projProc.info and isinstance(self.projProc.info.get('use_common_sigma'), dict):
-                if self.box_name in self.projProc.info['use_common_sigma']:
-                    del self.projProc.info['use_common_sigma'][self.box_name]
+            box.use_common_sigma = False
         
         # Restore hull_ranges snapshot
         if self._snapshot_hull_ranges is not None:
-            if 'hull_ranges' not in self.projProc.info or not isinstance(self.projProc.info.get('hull_ranges'), dict):
-                self.projProc.info['hull_ranges'] = {}
-            self.projProc.info['hull_ranges'][self.box_name] = copy.deepcopy(self._snapshot_hull_ranges)
+            box.hull_range = copy.deepcopy(self._snapshot_hull_ranges)
             # Also restore parent_tab's manual_hull_range
             if hasattr(self.parent_tab, 'manual_hull_range'):
                 self.parent_tab.manual_hull_range = copy.deepcopy(self._snapshot_hull_ranges)
         else:
-            if 'hull_ranges' in self.projProc.info and isinstance(self.projProc.info.get('hull_ranges'), dict):
-                if self.box_name in self.projProc.info['hull_ranges']:
-                    del self.projProc.info['hull_ranges'][self.box_name]
+            box.hull_range = None
         
         # Redraw to show original values
         self.parent_tab.need_update = True
