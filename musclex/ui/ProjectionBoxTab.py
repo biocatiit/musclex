@@ -512,9 +512,8 @@ class ProjectionBoxTab(QWidget):
             
     def refit(self):
         self.parent.projProc.removeInfo(self.name, 'fit_results')
-        if 'main_peak_info' not in self.parent.projProc.info:
-            self.parent.projProc.info['main_peak_info'] = {}
-        self.parent.projProc.info['main_peak_info'][self.name] = self.newinfo
+        # Update main_peak_info in ProcessingState (not per-box)
+        self.parent.projProc.state.main_peak_info[self.name] = self.newinfo
         self.parent.processImage() 
         self.refitButton.setEnabled(False)
         self.refitButton.setStyleSheet("") 
@@ -979,14 +978,12 @@ class ProjectionBoxTab(QWidget):
             op_peaks = [-x for x in peaks]
             all_peaks = peaks + op_peaks  # [+dist, -dist]
             
-            # Disable GMM mode for single peak selection
-            if 'use_common_sigma' in self.parent.projProc.info:
-                self.parent.projProc.info['use_common_sigma'][self.name] = False
+            # Disable GMM mode for single peak selection (update ProcessingBox)
+            box = self.parent.projProc.boxes[self.name]
+            box.use_common_sigma = False
             
             # Clear old fit_results to force re-fitting without GMM
-            if 'fit_results' in self.parent.projProc.info and \
-               self.name in self.parent.projProc.info['fit_results']:
-                del self.parent.projProc.info['fit_results'][self.name]
+            box.fit_results = None
             
             self.function = None
             self.parent.addPeakstoBox(self.name, all_peaks)
@@ -1035,24 +1032,18 @@ class ProjectionBoxTab(QWidget):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         
         try:
-            # Enable GMM mode BEFORE processing
-            # Store in projProc.info (will be used during fitting)
-            if 'use_common_sigma' not in self.parent.projProc.info:
-                self.parent.projProc.info['use_common_sigma'] = {}
-            self.parent.projProc.info['use_common_sigma'][self.name] = True
+            # Enable GMM mode BEFORE processing (update ProcessingBox directly)
+            box = self.parent.projProc.boxes[self.name]
+            box.use_common_sigma = True
             
             # Clear old fit_results to force re-fitting with new GMM mode
-            if 'fit_results' in self.parent.projProc.info and \
-               self.name in self.parent.projProc.info['fit_results']:
-                del self.parent.projProc.info['fit_results'][self.name]
+            box.fit_results = None
             
             # Add peaks and process
             self.parent.addPeakstoBox(self.name, all_peaks)
             
             # Re-ensure GMM mode is set after processing
-            if 'use_common_sigma' not in self.parent.projProc.info:
-                self.parent.projProc.info['use_common_sigma'] = {}
-            self.parent.projProc.info['use_common_sigma'][self.name] = True
+            box.use_common_sigma = True
             
             # Check results after processing
             if 'fit_results' in self.parent.projProc.info and \
