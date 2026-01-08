@@ -186,6 +186,10 @@ class ProjectionBoxTab(QWidget):
         self.overlay_drag_start = None
         self.overlay_dragging = False
         
+        # Preview parameters for real-time editing (used by parameter editor dialog)
+        self.preview_params = None  # When not None, updateUI uses this instead of fit_results
+        self.preview_hull_range = None  # When not None, updateUI uses this instead of hull_ranges
+        
         self.initUI()
         self.setAllToolTips()
         self.setConnections()
@@ -228,6 +232,29 @@ class ProjectionBoxTab(QWidget):
                 self.centerX = self.parent.centery - start_y
 
         return self.centerX
+    
+    def _getRenderParams(self):
+        """
+        Get parameters for rendering (supports preview mode)
+        
+        Returns:
+            dict: Parameters to use for rendering
+                  - In preview mode (dialog open): returns preview_params (temporary)
+                  - In normal mode: returns fit_results (persistent)
+        """
+        name = self.name
+        
+        # Preview mode (when parameter editor dialog is open)
+        if self.preview_params is not None:
+            return self.preview_params
+        
+        # Normal mode: use fit_results from projProc
+        if self.parent.projProc is not None:
+            info = self.parent.projProc.info
+            if 'fit_results' in info and name in info['fit_results']:
+                return info['fit_results'][name]
+        
+        return None
 
     def initUI(self):
         """
@@ -982,6 +1009,11 @@ class ProjectionBoxTab(QWidget):
             box = self.parent.projProc.boxes[self.name]
             box.use_common_sigma = False
             
+            # Set peak and sigma tolerances from UI spinboxes
+            # These control the bounds for peak positions and sigmas during fitting
+            box.peak_tolerance = self.peakToleranceSpinBox.value()
+            box.sigma_tolerance = self.sigmaToleranceSpinBox.value()
+            
             # Clear old fit_results to force re-fitting without GMM
             box.fit_results = None
             
@@ -1036,10 +1068,15 @@ class ProjectionBoxTab(QWidget):
             box = self.parent.projProc.boxes[self.name]
             box.use_common_sigma = True
             
+            # Set peak and sigma tolerances from UI spinboxes
+            # These control the bounds for peak positions and sigmas during fitting
+            box.peak_tolerance = self.peakToleranceSpinBox.value()
+            box.sigma_tolerance = self.sigmaToleranceSpinBox.value()
+            
             # Clear old fit_results to force re-fitting with new GMM mode
             box.fit_results = None
             
-            # Add peaks and process
+            # Add peaks and process (will use tolerances set above)
             self.parent.addPeakstoBox(self.name, all_peaks)
             
             # Re-ensure GMM mode is set after processing
@@ -1209,53 +1246,73 @@ class ProjectionBoxTab(QWidget):
     
     def updateOverlayAndPeaks(self, delta_x):
         """
-        Update overlay position and adjust peaks/hull range temporarily (without refit/process)
-        :param delta_x: Change in x position
+        Update overlay position and adjust peaks/hull range during drag interaction
+        
+        This method is ONLY called when parameter editor is open (preview mode).
+        It updates preview_params and preview_hull_range for real-time preview,
+        WITHOUT modifying the persistent fit_results or box.hull_range.
+        
+        :param delta_x: Change in x position during drag
         """
+        # Sanity check: this should only be called in preview mode
+        if self.preview_params is None or self.preview_hull_range is None:
+            print("WARNING: updateOverlayAndPeaks called outside preview mode - this should not happen!")
+            return
+        
         if self.manual_hull_range is None:
             return
         
-        # Update manual peaks (temporary, only in parameter editor display)
+        # Update manual peaks (temporary preview data)
         if len(self.manual_peaks) > 0:
             new_manual_peaks = [p + delta_x for p in self.manual_peaks]
             self.manual_peaks = new_manual_peaks
             
-            # Update in fit_results (for display only, no refit)
-            if 'fit_results' in self.parent.projProc.info and \
-               self.name in self.parent.projProc.info['fit_results']:
-                fit_result = self.parent.projProc.info['fit_results'][self.name]
+            # Update preview_params (for rendering)
+            for i, peak in enumerate(new_manual_peaks):
+                if f'p_{i}' in self.preview_params:
+                    self.preview_params[f'p_{i}'] = peak
+            # Also update mirrored peaks
+            for i in range(len(new_manual_peaks), len(new_manual_peaks) * 2):
+                mirror_idx = i - len(new_manual_peaks)
+                if f'p_{i}' in self.preview_params:
+                    self.preview_params[f'p_{i}'] = -new_manual_peaks[mirror_idx]
+            
+            # Update dialog's working_params (for table display)
+            if self.param_editor_dialog is not None and self.param_editor_active:
                 for i, peak in enumerate(new_manual_peaks):
-                    if f'p_{i}' in fit_result:
-                        fit_result[f'p_{i}'] = peak
-                # Also update mirrored peaks
+                    if f'p_{i}' in self.param_editor_dialog.working_params:
+                        self.param_editor_dialog.working_params[f'p_{i}'] = peak
+                # Update mirrored peaks
                 for i in range(len(new_manual_peaks), len(new_manual_peaks) * 2):
                     mirror_idx = i - len(new_manual_peaks)
-                    if f'p_{i}' in fit_result:
-                        fit_result[f'p_{i}'] = -new_manual_peaks[mirror_idx]
+                    if f'p_{i}' in self.param_editor_dialog.working_params:
+                        self.param_editor_dialog.working_params[f'p_{i}'] = -new_manual_peaks[mirror_idx]
         
         # Update hull_range to follow the drag (shift by delta_x)
         # Note: This updates the hull_range position but keeps its width unchanged
         old_start, old_end = self.manual_hull_range
-        # Shift both start and end by delta_x to move the range
         new_start = old_start + delta_x
         new_end = old_end + delta_x
         self.manual_hull_range = (new_start, new_end)
         
-        # Update in ProcessingBox directly (not through info compatibility layer)
-        box = self.parent.projProc.boxes[self.name]
-        box.hull_range = (new_start, new_end)
+        # Update preview_hull_range (for rendering)
+        self.preview_hull_range = (new_start, new_end)
+        
+        # Update dialog's working_hull_range (for table display)
+        if self.param_editor_dialog is not None and self.param_editor_active:
+            self.param_editor_dialog.working_hull_range = (new_start, new_end)
         
         # Update overlay position
         self.showOverlay()
         
-        # Notify parameter editor to update table (if open)
+        # Notify parameter editor to update table
         if self.param_editor_dialog is not None and self.param_editor_active:
             try:
                 self.param_editor_dialog.populateParameters()
             except Exception as e:
                 print(f"Warning: Could not update parameter editor table: {e}")
         
-        # Redraw without refitting
+        # Redraw with updated preview data (no refit, just visual update)
         self.need_update = True
         self.updateUI()
 
@@ -1358,7 +1415,6 @@ class ProjectionBoxTab(QWidget):
             return
 
         hist = info['hists'][name]
-        fit_results = info['fit_results']
         subtracted_hists = info['subtracted_hists']
         all_baselines = info['baselines']
         all_centroids = info['centroids']
@@ -1384,10 +1440,12 @@ class ProjectionBoxTab(QWidget):
         if name in merid_bgs:
             self.meridBckGrndChkBx.setChecked(merid_bgs[name])
 
-        if name in fit_results:
+        # Get render parameters (supports preview mode for parameter editor)
+        model = self._getRenderParams()
+        
+        if model is not None:
             self.editMainPeakButton.setEnabled(True)
             xs = np.arange(0, len(hist))
-            model = info['fit_results'][name]
             convex_hull = hist - info['hists2'][name]
             
             print(f"[updateUI] Drawing fit for '{name}'")
@@ -1494,17 +1552,26 @@ class ProjectionBoxTab(QWidget):
 
                     i += 1
 
-        if self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and name in hull_ranges:
+        # Get hull range (supports preview mode)
+        current_hull_range = None
+        if self.preview_hull_range is not None:
+            # Preview mode (parameter editor open)
+            current_hull_range = self.preview_hull_range
+        elif name in hull_ranges:
+            # Normal mode
+            current_hull_range = hull_ranges[name]
+        
+        if self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and current_hull_range is not None:
             # Color area OUTSIDE convex hull range
             centerX = self.getCenterX()
 
-            ax.axvspan(centerX - hull_ranges[name][0], centerX + hull_ranges[name][0], alpha=0.5, color='k')
-            ax.axvspan(0, centerX - hull_ranges[name][1], alpha=0.5, color='k')
-            ax.axvspan(centerX + hull_ranges[name][1], len(hist), alpha=0.5, color='k')
+            ax.axvspan(centerX - current_hull_range[0], centerX + current_hull_range[0], alpha=0.5, color='k')
+            ax.axvspan(0, centerX - current_hull_range[1], alpha=0.5, color='k')
+            ax.axvspan(centerX + current_hull_range[1], len(hist), alpha=0.5, color='k')
 
             # Update spin box
-            self.startHull.setValue(hull_ranges[name][0])
-            self.endHull.setValue(hull_ranges[name][1])
+            self.startHull.setValue(current_hull_range[0])
+            self.endHull.setValue(current_hull_range[1])
 
         if self.zoom1 is not None:
             ax.set_xlim(self.zoom1[0])
@@ -1576,21 +1643,20 @@ class ProjectionBoxTab(QWidget):
 
         # Update Table
         
-        if name in all_centroids and name in all_baselines:
+        if name in all_centroids and name in all_baselines and model is not None:
             centroids = all_centroids[name]
             baselines = all_baselines[name]
             widths = all_widths[name]
             areas = all_areas[name]
             nPeaks = len(centroids)
-            fit_result = fit_results[name]
-            peaks = np.array(all_peaks[name]) - fit_result['centerX']
+            peaks = np.array(all_peaks[name]) - model['centerX']
             self.resultTable1.setRowCount(nPeaks)
             self.resultTable2.setRowCount(nPeaks)
 
             for i in range(nPeaks):
-                center = round(fit_result['p_'+str(i)], 2)
-                sigma = round(fit_result['sigma'+str(i)], 2)
-                area = round(fit_result['amplitude' + str(i)], 2)
+                center = round(model['p_'+str(i)], 2)
+                sigma = round(model['sigma'+str(i)], 2)
+                area = round(model['amplitude' + str(i)], 2)
 
                 item = QTableWidgetItem(str(round(peaks[i], 2)))
                 item.setFlags(Qt.ItemIsEnabled)

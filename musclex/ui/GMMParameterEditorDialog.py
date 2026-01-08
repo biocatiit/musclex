@@ -19,20 +19,20 @@ class GMMParameterEditorDialog(QDialog):
         self.box_name = box_name
         self.projProc = parent_tab.parent.projProc
         
-        # Snapshot state for Cancel rollback (dialog should be transactional)
-        self._snapshot_fit_result = copy.deepcopy(
-            self.projProc.info.get('fit_results', {}).get(self.box_name, {})
-        )
-        self._snapshot_param_bounds = copy.deepcopy(
-            self.projProc.info.get('param_bounds', {}).get(self.box_name, {})
-        )
-        self._snapshot_use_common_sigma = copy.deepcopy(
-            self.projProc.info.get('use_common_sigma', {}).get(self.box_name, None)
-        )
-        # Snapshot hull_ranges
-        self._snapshot_hull_ranges = copy.deepcopy(
-            self.projProc.info.get('hull_ranges', {}).get(self.box_name, None)
-        )
+        # Create working copy from original fit_results (for real-time preview editing)
+        box = self.projProc.boxes[self.box_name]
+        if box.fit_results is None:
+            raise ValueError(f"No fit results found for box '{box_name}'. Please fit peaks first.")
+        
+        # Working parameters - used for preview, only committed on Refit
+        self.working_params = dict(box.fit_results)
+        
+        # Working hull_range - also needs preview support (not part of fit_results)
+        self.working_hull_range = box.hull_range if box.hull_range else None
+        
+        # Enable preview mode on parent tab
+        self.parent_tab.preview_params = self.working_params
+        self.parent_tab.preview_hull_range = self.working_hull_range
         
         self.setWindowTitle(f"GMM Parameter Editor - {box_name}")
         self.resize(600, 500)  # Simpler, smaller window
@@ -83,15 +83,17 @@ class GMMParameterEditorDialog(QDialog):
         # Buttons
         buttonLayout = QHBoxLayout()
         
-        self.refitBtn = QPushButton("Re-fit")
+        self.refitBtn = QPushButton("Refit && Save")
         self.refitBtn.clicked.connect(self.onRefit)
         self.refitBtn.setAutoDefault(False)
         self.refitBtn.setDefault(False)
+        self.refitBtn.setToolTip("Re-fit parameters and save changes to fit_results.\nYou can continue editing after saving.")
         
-        self.cancelBtn = QPushButton("Cancel")
+        self.cancelBtn = QPushButton("Close without Saving")
         self.cancelBtn.clicked.connect(self.reject)
         self.cancelBtn.setAutoDefault(False)
         self.cancelBtn.setDefault(False)
+        self.cancelBtn.setToolTip("Close dialog and discard any unsaved edits.\n(Already saved changes from 'Refit & Save' will be kept)")
         
         buttonLayout.addWidget(self.refitBtn)
         buttonLayout.addWidget(self.cancelBtn)
@@ -100,9 +102,10 @@ class GMMParameterEditorDialog(QDialog):
     
     def populateParameters(self):
         """
-        Populate parameter table from fit results
+        Populate parameter table from working parameters
         """
-        fit_result = self.projProc.info['fit_results'][self.box_name]
+        # Use working_params for display (preview mode)
+        fit_result = self.working_params
         
         # Use explicit flag to determine GMM mode (fallback to checking common_sigma)
         is_gmm = fit_result.get('use_common_sigma', 'common_sigma' in fit_result)
@@ -136,11 +139,10 @@ class GMMParameterEditorDialog(QDialog):
             'enabled': is_gmm  # Only enabled in GMM mode
         }
         
-        # Hull range parameters (if exists)
-        hull_ranges = self.projProc.info.get('hull_ranges', {})
-        if self.box_name in hull_ranges:
-            hull_range = hull_ranges[self.box_name]
-            if isinstance(hull_range, (tuple, list)) and len(hull_range) >= 2:
+        # Hull range parameters (if exists) - use working_hull_range for preview
+        if self.working_hull_range and isinstance(self.working_hull_range, (tuple, list)) and len(self.working_hull_range) >= 2:
+            hull_range = self.working_hull_range
+            if True:  # Keep indentation
                 # Add hull_start parameter
                 hull_start_bounds = box_bounds.get('hull_start', {})
                 if not isinstance(hull_start_bounds, dict):
@@ -312,12 +314,8 @@ class GMMParameterEditorDialog(QDialog):
                     minSpin.setEnabled(True)
                     maxSpin.setEnabled(True)
         
-        # Update use_common_sigma flag in fit_results directly in ProcessingBox
-        box = self.projProc.boxes[self.box_name]
-        if box.fit_results is None:
-            box.fit_results = {}
-        box.fit_results['use_common_sigma'] = is_gmm
-        box.use_common_sigma = is_gmm
+        # Update use_common_sigma flag in working_params (preview mode)
+        self.working_params['use_common_sigma'] = is_gmm
         
         # Update parameter values and redraw
         self.onParameterChanged()
@@ -415,7 +413,7 @@ class GMMParameterEditorDialog(QDialog):
     def onParameterChanged(self):
         """
         Real-time parameter update: when user changes value in table,
-        update ProcessingBox and redraw immediately
+        update working_params for preview (does NOT modify fit_results)
         """
         # If a value spinner changed for p_i / sigma_i, auto-reset that row's bounds to value ± tolerance
         sender = self.sender()
@@ -432,49 +430,31 @@ class GMMParameterEditorDialog(QDialog):
         # Get current parameters from table
         edited_params = self.getParametersFromTable()
         
-        # Get ProcessingBox for direct updates
-        box = self.projProc.boxes[self.box_name]
-        if box.fit_results is None:
-            box.fit_results = {}
-        
-        # Update ProcessingBox directly
+        # Update working_params and working_hull_range (preview mode - not committed yet)
         for param_name, pinfo in edited_params.items():
-            # Handle hull_range parameters specially
+            # Handle hull_range parameters specially (not part of fit_results)
             if param_name == 'hull_start':
-                current_hull = box.hull_range if box.hull_range else (0, 0)
-                box.hull_range = (pinfo['val'], current_hull[1] if isinstance(current_hull, (tuple, list)) and len(current_hull) >= 2 else 0)
-                # Update parent_tab's manual_hull_range
-                if hasattr(self.parent_tab, 'manual_hull_range'):
-                    self.parent_tab.manual_hull_range = box.hull_range
+                if self.working_hull_range:
+                    self.working_hull_range = (pinfo['val'], self.working_hull_range[1])
+                else:
+                    self.working_hull_range = (pinfo['val'], 0)
+                # Update preview
+                self.parent_tab.preview_hull_range = self.working_hull_range
             elif param_name == 'hull_end':
-                current_hull = box.hull_range if box.hull_range else (0, 0)
-                box.hull_range = (current_hull[0] if isinstance(current_hull, (tuple, list)) and len(current_hull) >= 2 else 0, pinfo['val'])
-                # Update parent_tab's manual_hull_range
-                if hasattr(self.parent_tab, 'manual_hull_range'):
-                    self.parent_tab.manual_hull_range = box.hull_range
+                if self.working_hull_range:
+                    self.working_hull_range = (self.working_hull_range[0], pinfo['val'])
+                else:
+                    self.working_hull_range = (0, pinfo['val'])
+                # Update preview
+                self.parent_tab.preview_hull_range = self.working_hull_range
             else:
-                box.fit_results[param_name] = pinfo['val']
+                # Regular parameters go to working_params
+                self.working_params[param_name] = pinfo['val']
         
+        # parent_tab.preview_params points to working_params, already in sync
+        # Trigger redraw (updateUI will use preview_params via _getRenderParams())
         self.parent_tab.need_update = True
-        # Redraw with updated parameters (uses info['fit_results'])
         self.parent_tab.updateUI()
-    
-    def _refresh_snapshot(self):
-        """
-        Refresh snapshot to current state (used after a successful refit).
-        """
-        self._snapshot_fit_result = copy.deepcopy(
-            self.projProc.info.get('fit_results', {}).get(self.box_name, {})
-        )
-        self._snapshot_param_bounds = copy.deepcopy(
-            self.projProc.info.get('param_bounds', {}).get(self.box_name, {})
-        )
-        self._snapshot_use_common_sigma = copy.deepcopy(
-            self.projProc.info.get('use_common_sigma', {}).get(self.box_name, None)
-        )
-        self._snapshot_hull_ranges = copy.deepcopy(
-            self.projProc.info.get('hull_ranges', {}).get(self.box_name, None)
-        )
     
     def _commit_bounds_from_table(self, params_info):
         """
@@ -493,6 +473,7 @@ class GMMParameterEditorDialog(QDialog):
     def onCommonSigmaChanged(self, value):
         """
         When common_sigma changes in GMM mode, sync all individual sigmas
+        (Updates working_params only for preview)
         """
         # Auto-reset common_sigma bounds to value ± sigma tolerance
         try:
@@ -502,10 +483,8 @@ class GMMParameterEditorDialog(QDialog):
         except Exception:
             pass
         
-        # Get ProcessingBox for direct updates
-        box = self.projProc.boxes[self.box_name]
-        if box.fit_results is None:
-            box.fit_results = {}
+        # Update working_params (preview mode)
+        self.working_params['common_sigma'] = value
         
         if self.equalVarianceChkBx.isChecked():
             # GMM mode: sync all individual sigmas to common_sigma
@@ -518,13 +497,10 @@ class GMMParameterEditorDialog(QDialog):
                     valueSpin.blockSignals(False)
                     # Keep sigma bounds visually in sync as well
                     self._reset_bounds_for_row_by_tolerance(row, param_name, value)
-                    # Update in fit_results
-                    box.fit_results[param_name] = value
+                    # Update in working_params
+                    self.working_params[param_name] = value
         
-        # Update common_sigma in fit_results
-        box.fit_results['common_sigma'] = value
-        
-        # Trigger redraw
+        # Trigger redraw (uses preview_params)
         self.parent_tab.need_update = True
         self.parent_tab.updateUI()
     
@@ -564,6 +540,16 @@ class GMMParameterEditorDialog(QDialog):
             result = self.refitGMM(params_info)
             
             if result:
+                # Refit successful - sync working_params to new fit_results
+                self.working_params = dict(result)
+                self.parent_tab.preview_params = self.working_params
+                
+                # Also sync working_hull_range if it was updated
+                box = self.projProc.boxes[self.box_name]
+                if box.hull_range:
+                    self.working_hull_range = box.hull_range
+                    self.parent_tab.preview_hull_range = self.working_hull_range
+                
                 # Update table with new values
                 self.populateParameters()
                 
@@ -576,9 +562,6 @@ class GMMParameterEditorDialog(QDialog):
                 # Force canvas redraw after updateUI
                 self.parent_tab.graphCanvas1.draw()
                 self.parent_tab.graphCanvas2.draw()
-
-                # After successful refit, refresh snapshot so Cancel rolls back to latest state
-                self._refresh_snapshot()
                 
                 # Display mode in message
                 mode = "GMM (Equal Variance)" if self.equalVarianceChkBx.isChecked() \
@@ -592,10 +575,14 @@ class GMMParameterEditorDialog(QDialog):
                     sigmas = [result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result]
                     sigma_info = f"Sigmas (first 5): {[f'{s:.2f}' for s in sigmas if s]}"
                 
-                QMessageBox.information(self, "Refit Complete", 
+                QMessageBox.information(self, "Refit & Save Complete", 
+                                      f"✓ Changes saved to fit_results!\n\n"
                                       f"Mode: {mode}\n"
                                       f"{sigma_info}\n"
-                                      f"New error: {result.get('error', 0):.6f}")
+                                      f"Fit Error: {result.get('error', 0):.6f}\n\n"
+                                      f"You can:\n"
+                                      f"• Continue editing and save again\n"
+                                      f"• Close dialog (unsaved edits will be discarded)")
         except Exception as e:
             QMessageBox.critical(self, "Refit Error", str(e))
             import traceback
@@ -816,58 +803,31 @@ class GMMParameterEditorDialog(QDialog):
             traceback.print_exc()
             return None
     
-    def onApply(self):
-        """
-        Apply changes and close - ProcessingBox is already updated by onParameterChanged
-        """
-        # Update use_common_sigma flag to persist the equal variance setting
-        use_equal_variance = self.equalVarianceChkBx.isChecked()
-        box = self.projProc.boxes[self.box_name]
-        
-        if box.fit_results is None:
-            box.fit_results = {}
-        box.fit_results['use_common_sigma'] = use_equal_variance
-        box.use_common_sigma = use_equal_variance
-        
-        # Final refresh to ensure UI is in sync
-        self.parent_tab.updateUI()
-        
-        self.accept()
-    
     def reject(self):
         """
-        Cancel: rollback to the snapshot captured when dialog opened
+        Close without saving: discard working_params and working_hull_range, exit preview mode
+        
+        Note: This only discards unsaved edits since the last "Refit & Save".
+        Changes that were already saved via "Refit & Save" are kept.
+        fit_results and box.hull_range were only modified by successful Refit operations.
         """
-        box = self.projProc.boxes[self.box_name]
+        # Exit preview mode (revert to last saved fit_results and hull_range)
+        self.parent_tab.preview_params = None
+        self.parent_tab.preview_hull_range = None
         
-        # Restore fit_results snapshot
-        box.fit_results = copy.deepcopy(self._snapshot_fit_result)
-        
-        # Restore param_bounds snapshot
-        if self._snapshot_param_bounds:
-            box.param_bounds = copy.deepcopy(self._snapshot_param_bounds)
-        else:
-            box.param_bounds = {}
-        
-        # Restore use_common_sigma snapshot
-        if self._snapshot_use_common_sigma is not None:
-            box.use_common_sigma = self._snapshot_use_common_sigma
-            if box.fit_results:
-                box.fit_results['use_common_sigma'] = self._snapshot_use_common_sigma
-        else:
-            box.use_common_sigma = False
-        
-        # Restore hull_ranges snapshot
-        if self._snapshot_hull_ranges is not None:
-            box.hull_range = copy.deepcopy(self._snapshot_hull_ranges)
-            # Also restore parent_tab's manual_hull_range
-            if hasattr(self.parent_tab, 'manual_hull_range'):
-                self.parent_tab.manual_hull_range = copy.deepcopy(self._snapshot_hull_ranges)
-        else:
-            box.hull_range = None
-        
-        # Redraw to show original values
+        # Redraw to show saved values (not working values)
         self.parent_tab.need_update = True
         self.parent_tab.updateUI()
         
         super().reject()
+    
+    def closeEvent(self, event):
+        """
+        Ensure we exit preview mode when dialog is closed
+        Behaves the same as "Close without Saving"
+        """
+        self.parent_tab.preview_params = None
+        self.parent_tab.preview_hull_range = None
+        self.parent_tab.need_update = True
+        self.parent_tab.updateUI()
+        event.accept()
