@@ -200,6 +200,10 @@ class ProjectionBoxTab(QWidget):
         if not settings.contains("initial_setup_done"):
             settings.clear()
             settings.setValue("initial_setup_done", True)
+    
+    def get_box(self):
+        """Get the ProcessingBox object for this tab."""
+        return self.parent.boxes.get(self.name)
 
     def getCenterX(self):
         """
@@ -280,8 +284,9 @@ class ProjectionBoxTab(QWidget):
         self.histChkBx = QCheckBox("Original Projection")
         self.histChkBx.setChecked(True)
         self.hullRangeChkBx = QCheckBox('Hull Range')
-        self.hullRangeChkBx.setEnabled(self.parent.bgsubs[self.name] == 1)
-        self.hullRangeChkBx.setChecked(self.parent.bgsubs[self.name]==1)
+        box = self.get_box()
+        self.hullRangeChkBx.setEnabled(box.bgsub == 1 if box else False)
+        self.hullRangeChkBx.setChecked(box.bgsub == 1 if box else False)
         self.fitmodelChkBx = QCheckBox("Fitting Model")
         self.fitmodelChkBx.setChecked(True)
         self.bgChkBx = QCheckBox("Background")
@@ -358,7 +363,8 @@ class ProjectionBoxTab(QWidget):
         
         self.meridBckGrndChkBx = QCheckBox("Meridional Peak")
         self.meridBckGrndChkBx.setChecked(True)
-        self.meridBckGrndChkBx.setHidden(self.parent.bgsubs[self.name]!=0)
+        box = self.get_box()
+        self.meridBckGrndChkBx.setHidden(box.bgsub != 0 if box else True)
         self.editMainPeakButton = QPushButton("Edit Meridional Peak")
         self.editMainPeakButton.setEnabled(False)
         self.refitButton = QPushButton("Refit")
@@ -366,18 +372,17 @@ class ProjectionBoxTab(QWidget):
         
         self.hullRangeButton = QPushButton("Set Manual Convex Hull Range")
         self.hullRangeButton.setCheckable(True)
-        self.hullRangeButton.setHidden(self.parent.bgsubs[self.name]!=1)
-        box = self.parent.allboxes[self.name]
-        width = int(np.ceil(abs(box[0][0]-box[0][1])/2.))
+        self.hullRangeButton.setHidden(box.bgsub != 1 if box else True)
+        width = int(np.ceil(abs(box.coordinates[0][0]-box.coordinates[0][1])/2.)) if box else 100
 
         self.startHull = QSpinBox()
         self.startHull.setRange(0, width)
         self.startHull.setKeyboardTracking(False)
-        self.startHull.setHidden(self.parent.bgsubs[self.name] != 1)
+        self.startHull.setHidden(box.bgsub != 1 if box else True)
         self.endHull = QSpinBox()
         self.endHull.setRange(0, width)
         self.endHull.setKeyboardTracking(False)
-        self.endHull.setHidden(self.parent.bgsubs[self.name] != 1)
+        self.endHull.setHidden(box.bgsub != 1 if box else True)
         self.checkableButtons.append(self.hullRangeButton)
         
         # Layout for new buttons
@@ -390,7 +395,8 @@ class ProjectionBoxTab(QWidget):
         self.settingLayout.addWidget(self.clearPeakButton, 4, 0, 1, 2)
         self.settingLayout.addWidget(self.paramEditorButton, 5, 0, 1, 2)
         self.settingLayout.addWidget(self.hullRangeButton, 6, 0, 1, 2)
-        if self.parent.bgsubs[self.name]== 1:
+        box = self.get_box()
+        if box and box.bgsub == 1:
             self.settingLayout.addWidget(QLabel("Start"), 7, 0, 1, 1, Qt.AlignCenter)
             self.settingLayout.addWidget(QLabel("End"), 7, 1, 1, 1, Qt.AlignCenter)
         self.settingLayout.addWidget(self.startHull, 8, 0, 1, 1)
@@ -551,7 +557,9 @@ class ProjectionBoxTab(QWidget):
         """
         if self.parent.projProc is not None and not self.syncUI:
             self.parent.projProc.removeInfo(self.name, 'fit_results')
-            self.parent.merid_bg[self.name] = self.meridBckGrndChkBx.isChecked()
+            box = self.get_box()
+            if box:
+                box.merid_bg = self.meridBckGrndChkBx.isChecked()
             self.parent.processImage()
 
     def hullRangeChanged(self):
@@ -559,7 +567,9 @@ class ProjectionBoxTab(QWidget):
         Trigger when convex hull range is changed
         """
         if self.parent.projProc is not None and not self.syncUI:
-            self.parent.hull_ranges[self.name] = (self.startHull.value(), self.endHull.value())
+            box = self.get_box()
+            if box:
+                box.hull_range = (self.startHull.value(), self.endHull.value())
             self.parent.projProc.removeInfo(self.name, 'hists2')
             self.parent.processImage()
             
@@ -857,7 +867,9 @@ class ProjectionBoxTab(QWidget):
                 hull_range = tuple(sorted(hull_range))
                 # Store manual hull range (only positive side)
                 self.manual_hull_range = hull_range
-                self.parent.hull_ranges[self.name] = hull_range
+                box = self.get_box()
+                if box:
+                    box.hull_range = hull_range
                 self.parent.projProc.removeInfo(self.name, 'hists2')
                 self.parent.processImage()
         elif func[0] == 'zoom':
@@ -972,8 +984,9 @@ class ProjectionBoxTab(QWidget):
             self.function = ['hull', []]
         else:
             # Store the manual hull range when accepted
-            if self.name in self.parent.hull_ranges:
-                hull_range = self.parent.hull_ranges[self.name]
+            box = self.get_box()
+            if box and box.hull_range:
+                hull_range = box.hull_range
                 self.manual_hull_range = hull_range  # (start, end) tuple
             self.resetUI()
 

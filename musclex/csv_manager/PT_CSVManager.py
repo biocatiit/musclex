@@ -38,32 +38,32 @@ class PT_CSVManager:
     """
     A class taking care of writing results including csv file of Projection Traces
     """
-    def __init__(self, dir_path, boxes, peaks):
+    def __init__(self, dir_path, boxes):
         """
         init with directory path
-        :param dir_path:
+        :param dir_path: directory path
+        :param boxes: Dict[str, ProcessingBox] - box objects with all configuration
         """
         self.dataframe = None
         result_path = fullPath(dir_path, "pt_results")
         createFolder(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
-        self.setColumnNames(boxes=boxes, peaks=peaks)
+        self.setColumnNames(boxes=boxes)
         self.loadSummary()
 
-    def setColumnNames(self, boxes, peaks):
+    def setColumnNames(self, boxes):
         """
-        Set Colume name
+        Set Column names from ProcessingBox objects
         e.g. "Filename", "L1 Meridian Sigma", "L1 Meridian Amplitude", "L1 centroid 0", "L2 Meridian Sigma",...
-        :param boxes: boxes dictionary (box_name:box coords)
-        :param peaks: peaks dictionary (box_name:peak list)
+        :param boxes: Dict[str, ProcessingBox] - box objects with peaks and configuration
         :return:
         """
         self.colnames = ["Filename"]
-        for box_name in boxes.keys():
-            if box_name in peaks:
+        for box_name, box in boxes.items():
+            if box.peaks:
                 self.colnames.append("Box " + str(box_name) + " Meridian Sigma")
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
-                for i in range(len(peaks[box_name])):
+                for i in range(len(box.peaks)):
                     side = " right" if i%2 == 0 else " left"
                     self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (Pixel)")
                     self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (nm)")

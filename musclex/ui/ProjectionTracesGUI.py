@@ -48,7 +48,7 @@ from ..utils.misc_utils import inverseNmFromCenter
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
 from ..utils.image_processor import getPerpendicularLineHomogenous, calcSlope, getIntersectionOfTwoLines, getBGR, get8bitImage, getNewZoom, getCenter, rotateImageAboutPoint, rotatePoint, processImageForIntCenter, getMaskThreshold
 from ..utils.image_data import ImageData
-from ..modules.ProjectionProcessor import ProjectionProcessor
+from ..modules.ProjectionProcessor import ProjectionProcessor, ProcessingBox
 from ..ui.ProjectionBoxTab import ProjectionBoxTab
 from ..CalibrationSettings import CalibrationSettings
 from ..csv_manager import PT_CSVManager
@@ -206,18 +206,21 @@ class BoxDetails(QDialog):
         
 class EditBoxDetails(QDialog):
     
-    def __init__(self, all_boxes, box_types):
+    def __init__(self, boxes):
+        """
+        Args:
+            boxes: Dict[str, ProcessingBox] - box objects
+        """
         super().__init__(None)
-        self.all_boxes = all_boxes
-        self.box_types = box_types
+        self.boxes = boxes
         self.setWindowTitle("Edit a Box")
-        print(all_boxes)
+        print(boxes)
         self.initUI()
         
     def initUI(self):
         self.boxLayout = QGridLayout(self)
         self.boxNames = QComboBox()
-        for key in self.all_boxes.keys():
+        for key in self.boxes.keys():
             self.boxNames.addItem(key)
             
         self.box_height = QDoubleSpinBox()
@@ -262,25 +265,26 @@ class EditBoxDetails(QDialog):
         
     def updateBoxInfo(self):
         box_name = str(self.boxNames.currentText())
-        box = self.all_boxes[box_name]
-        if box_name in self.box_types.keys():
-            if self.box_types[box_name] == 'oriented':
-                self.box_height.setValue(box[4])
-                self.box_width.setValue(box[3])
-                
-                # self.boxWidthLabel.setVisible(False)
-                # self.boxWidthMode.setVisible(False)
-                # self.boxHeightLabel.setVisible(False)
-                # self.boxHeightMode.setVisible(False)
-                
-            else:
-                x1,x2 = box[0]
-                width = abs(x1 - x2)
-                y1, y2 = box[1]
-                height = abs(y1 - y2)
-                print(height, width)
-                self.box_height.setValue(height)
-                self.box_width.setValue(width)
+        box_obj = self.boxes[box_name]
+        box = box_obj.coordinates
+        
+        if box_obj.type == 'oriented':
+            self.box_height.setValue(box[4])
+            self.box_width.setValue(box[3])
+            
+            # self.boxWidthLabel.setVisible(False)
+            # self.boxWidthMode.setVisible(False)
+            # self.boxHeightLabel.setVisible(False)
+            # self.boxHeightMode.setVisible(False)
+            
+        else:
+            x1,x2 = box[0]
+            width = abs(x1 - x2)
+            y1, y2 = box[1]
+            height = abs(y1 - y2)
+            print(height, width)
+            self.box_height.setValue(height)
+            self.box_width.setValue(width)
                 
                 # self.boxWidthLabel.setVisible(True)
                 # self.boxWidthMode.setVisible(True)
@@ -329,13 +333,11 @@ class ProjectionTracesGUI(BaseGUI):
         self.masked = False
         self.img_zoom = None
         self.function = None # current active function
-        self.allboxes = {}
-        self.boxes_on_img = {}
-        self.boxtypes = {}
-        self.bgsubs = {}
-        self.merid_bg = {}
-        self.peaks = {}
-        self.hull_ranges = {}
+        
+        # Unified data structure: all box data in ProcessingBox objects
+        self.boxes = {}  # Dict[str, ProcessingBox]
+        self.boxes_on_img = {}  # Visual representations on matplotlib
+        
         self.centerx = None
         self.centery = None
         # Note: center_func, rotated, rotationAngle removed - rotation state now managed by ImageData
@@ -739,10 +741,10 @@ class ProjectionTracesGUI(BaseGUI):
         :param peaks:
         :return:
         """
-        self.peaks[name] = peaks
-
-        # if name in self.hull_ranges:
-        #     del self.hull_ranges[name]
+        if name in self.boxes:
+            self.boxes[name].peaks = peaks
+            # Clear hull_range when peaks change
+            # self.boxes[name].hull_range = None
 
     def addPeakstoBox(self, name, peaks):
         """
@@ -823,23 +825,23 @@ class ProjectionTracesGUI(BaseGUI):
         settings = self.getSettings()
 
         text += "\nCurrent Settings"
-        for bn in self.allboxes.keys():
-            text += "\n\n  - Box "+str(bn)+" : " + str(self.allboxes[bn])
+        for bn in self.boxes.keys():
+            box = self.boxes[bn]
+            text += "\n\n  - Box "+str(bn)+" : " + str(box.coordinates)
             text += "\n     - Peaks : "
-            if bn in self.peaks:
-                text += str(self.peaks[bn])
+            if box.peaks:
+                text += str(box.peaks)
             else:
                 text += "-"
 
-            if bn in self.bgsubs:
-                text += '\n     - Background Subtraction : '
-                if self.bgsubs[bn] == 0:
-                    text += 'Fitting Gaussians'
-                else:
-                    text += 'Convex Hull'
+            text += '\n     - Background Subtraction : '
+            if box.bgsub == 0:
+                text += 'Fitting Gaussians'
+            else:
+                text += 'Convex Hull'
 
-            if bn in self.hull_ranges:
-                text += '\n     - Convex Hull Range : '+str(self.hull_ranges[bn])
+            if box.hull_range:
+                text += '\n     - Convex Hull Range : '+str(box.hull_range)
 
         if 'lambda_sdd' in settings:
             text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
@@ -883,23 +885,23 @@ class ProjectionTracesGUI(BaseGUI):
         settings = self.getSettings()
 
         text += "\nCurrent Settings"
-        for bn in self.allboxes.keys():
-            text += "\n\n  - Box "+str(bn)+" : " + str(self.allboxes[bn])
+        for bn in self.boxes.keys():
+            box = self.boxes[bn]
+            text += "\n\n  - Box "+str(bn)+" : " + str(box.coordinates)
             text += "\n     - Peaks : "
-            if bn in self.peaks:
-                text += str(self.peaks[bn])
+            if box.peaks:
+                text += str(box.peaks)
             else:
                 text += "-"
 
-            if bn in self.bgsubs:
-                text += '\n     - Background Subtraction : '
-                if self.bgsubs[bn] == 0:
-                    text += 'Fitting Gaussians'
-                else:
-                    text += 'Convex Hull'
+            text += '\n     - Background Subtraction : '
+            if box.bgsub == 0:
+                text += 'Fitting Gaussians'
+            else:
+                text += 'Convex Hull'
 
-            if bn in self.hull_ranges:
-                text += '\n     - Convex Hull Range : '+str(self.hull_ranges[bn])
+            if box.hull_range:
+                text += '\n     - Convex Hull Range : '+str(box.hull_range)
 
         if 'lambda_sdd' in settings:
             text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
@@ -934,13 +936,8 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Clear all boxes
         """
-        self.allboxes = {}
-        self.boxtypes = {}
+        self.boxes = {}
         self.boxes_on_img = {}
-        self.bgsubs = {}
-        self.merid_bg = {}
-        self.peaks = {}
-        self.hull_ranges = {}
         self.removeAllTabs()
         self.processImage()
 
@@ -1014,8 +1011,8 @@ class ProjectionTracesGUI(BaseGUI):
             self.resetUI()
             
     def editBoxes(self):
-        if len(self.allboxes) > 0:
-            dialog = EditBoxDetails(self.allboxes, self.boxtypes)
+        if len(self.boxes) > 0:
+            dialog = EditBoxDetails(self.boxes)
             if dialog.exec_():
                 height = dialog.new_height
                 width = dialog.new_width
@@ -1035,9 +1032,10 @@ class ProjectionTracesGUI(BaseGUI):
             
     def updateBoxDetails2(self, box_name, height, width, height_mode, width_mode):
     
-        box = self.allboxes[box_name]
+        box_obj = self.boxes[box_name]
+        box = box_obj.coordinates
 
-        if self.boxtypes[box_name] == 'oriented':
+        if box_obj.type == 'oriented':
             bx, by = box[2]
             current_width = box[3]
             current_height = box[4]
@@ -1081,7 +1079,7 @@ class ProjectionTracesGUI(BaseGUI):
             (bl_rot, br_rot, tl_rot, tr_rot)
 
             # Update the box with the new points
-            self.allboxes[box_name] = [bl_rot, br_rot, tl_rot, tr_rot, width, height, angle, (cx, cy)]
+            box_obj.coordinates = [bl_rot, br_rot, tl_rot, tr_rot, width, height, angle, (cx, cy)]
         else:
             # Handle non-oriented box (as in your original code)
             x1, x2 = box[0]
@@ -1108,11 +1106,12 @@ class ProjectionTracesGUI(BaseGUI):
                 elif width_mode == 'Right':
                     x2 = x2 + width_diff
 
-                self.allboxes[box_name] = [(x1, x2), (y1, y2)]
+                box_obj.coordinates = [(x1, x2), (y1, y2)]
             
     def updateBoxDetails(self, box_name, height, width, height_mode, width_mode):
-        box = self.allboxes[box_name]
-        if self.boxtypes[box_name] == 'oriented':
+        box_obj = self.boxes[box_name]
+        box = box_obj.coordinates
+        if box_obj.type == 'oriented':
             bx, by = box[2]
             current_width = box[3]
             current_height = box[4]
@@ -1144,7 +1143,7 @@ class ProjectionTracesGUI(BaseGUI):
                 x1, y1 = translated_point
                 x2 = x1 + width
                 y2 = y1 + height
-                self.allboxes[box_name] = ((x1, x2), (y1, y2), new_bl, width, height, angle, (cx,cy))         
+                box_obj.coordinates = ((x1, x2), (y1, y2), new_bl, width, height, angle, (cx,cy))         
         else:
             x1,x2 = box[0]
             y1,y2 = box[1]
@@ -1172,13 +1171,13 @@ class ProjectionTracesGUI(BaseGUI):
                 elif width_mode == 'Right':
                     x2 = x2 + width_diff
     
-                self.allboxes[box_name] = [(x1, x2), (y1, y2)]
+                box_obj.coordinates = [(x1, x2), (y1, y2)]
                 
                 
         for artist in self.boxes_on_img[box_name].values():
             artist.remove()
         del self.boxes_on_img[box_name]     
-        self.boxes_on_img[box_name] = self.genBoxArtists(box_name, self.allboxes[box_name], self.boxtypes[box_name])
+        self.boxes_on_img[box_name] = self.genBoxArtists(box_name, box_obj.coordinates, box_obj.type)
         self.processImage()
             
         
@@ -1238,16 +1237,14 @@ class ProjectionTracesGUI(BaseGUI):
             widget = self.tabWidget.widget(index)
             if widget is not None:
                 name = widget.name
-                del self.allboxes[name]
-                del self.boxtypes[name]
-                del self.bgsubs[name]
-                for artist in self.boxes_on_img[name].values():
-                    artist.remove()
-                del self.boxes_on_img[name]
-                if name in self.peaks:
-                    del self.peaks[name]
-                if name in self.hull_ranges:
-                    del self.hull_ranges[name]
+                # Remove from unified box storage
+                if name in self.boxes:
+                    del self.boxes[name]
+                # Remove visual representation
+                if name in self.boxes_on_img:
+                    for artist in self.boxes_on_img[name].values():
+                        artist.remove()
+                    del self.boxes_on_img[name]
                 widget.deleteLater()
             self.processImage()
             self.tabWidget.removeTab(index)
@@ -1267,7 +1264,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         self.removeAllTabs()
 
-        for name in self.allboxes.keys():
+        for name in self.boxes.keys():
             proj_tab = ProjectionBoxTab(self, name)
             self.tabWidget.addTab(proj_tab, "Box "+str(name))
 
@@ -1303,8 +1300,9 @@ class ProjectionTracesGUI(BaseGUI):
 
         # Provide different behavior depending on current active function
         if func is None:
-            for name, box in self.allboxes.items():
-                if self.boxtypes[name] == 'h' or self.boxtypes[name] == 'v':
+            for name, box_obj in self.boxes.items():
+                box = box_obj.coordinates
+                if box_obj.type == 'h' or box_obj.type == 'v':
                     breadth = 10
                     x1, x2, y1, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
                     if (x1 - breadth <= x <= x1 + breadth or x2 - breadth <= x <= x2 + breadth) and \
@@ -1325,15 +1323,21 @@ class ProjectionTracesGUI(BaseGUI):
                 y1 = int(round(min(points[0][1], points[1][1])))
                 x2 = int(round(max(points[0][0], points[1][0])))
                 y2 = int(round(max(points[0][1], points[1][1])))
-                boxDialog = BoxDetails(self.allboxes.keys())
+                boxDialog = BoxDetails(self.boxes.keys())
                 result = boxDialog.exec_()
                 if result == 1:
                     name, bgsub, axis = boxDialog.getDetails()
-                    self.allboxes[name] = ((x1, x2), (y1, y2))
-                    self.boxtypes[name] = 'h' if axis == 0 else 'v'
-                    self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
-                    self.bgsubs[name] = bgsub
-                    self.merid_bg[name] = True
+                    box_type = 'h' if axis == 0 else 'v'
+                    # Create new ProcessingBox
+                    self.boxes[name] = ProcessingBox(
+                        name=name,
+                        coordinates=((x1, x2), (y1, y2)),
+                        type=box_type,
+                        bgsub=bgsub,
+                        peaks=[],
+                        merid_bg=True
+                    )
+                    self.boxes_on_img[name] = self.genBoxArtists(name, self.boxes[name].coordinates, box_type)
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
@@ -1368,9 +1372,9 @@ class ProjectionTracesGUI(BaseGUI):
 
             elif len(func) == 3: # drag to select the width
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
+                    for i in range(len(ax.patches)-1,len(self.boxes.keys())-1,-1):
                         ax.patches[i].remove()
-                    # ax.patches = ax.patches[:len(self.allboxes.keys())]
+                    # ax.patches = ax.patches[:len(self.boxes.keys())]
                 for line in list(ax.lines):
                     line.remove()
 
@@ -1423,7 +1427,7 @@ class ProjectionTracesGUI(BaseGUI):
                                                    linewidth=1, edgecolor='g', facecolor='none', linestyle='dotted'))
                     self.displayImgCanvas.draw_idle()
 
-                    boxDialog = BoxDetails(self.allboxes.keys(), oriented=True)
+                    boxDialog = BoxDetails(self.boxes.keys(), oriented=True)
                     result = boxDialog.exec_()
                     if result == 1:
                         # get the image (already rotated in process() if needed)
@@ -1442,11 +1446,16 @@ class ProjectionTracesGUI(BaseGUI):
 
                         # add the oriented box
                         name, bgsub, _ = boxDialog.getDetails()
-                        self.allboxes[name] = ((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot) #, img)
-                        self.boxtypes[name] = 'oriented'
-                        self.boxes_on_img[name] = self.genBoxArtists(name, self.allboxes[name], self.boxtypes[name])
-                        self.bgsubs[name] = bgsub
-                        self.merid_bg[name] = True
+                        # Create new ProcessingBox for oriented type
+                        self.boxes[name] = ProcessingBox(
+                            name=name,
+                            coordinates=((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot),
+                            type='oriented',
+                            bgsub=bgsub,
+                            peaks=[],
+                            merid_bg=True
+                        )
+                        self.boxes_on_img[name] = self.genBoxArtists(name, self.boxes[name].coordinates, 'oriented')
                         self.function = None
 
                         self.addBoxTabs()
@@ -1454,12 +1463,13 @@ class ProjectionTracesGUI(BaseGUI):
 
         elif func[0] == "peaks":
             peaks = func[1]
-            if len(self.allboxes.keys()) > 0:
-                for name in self.allboxes.keys():
-                    box = self.allboxes[name]
+            if len(self.boxes.keys()) > 0:
+                for name in self.boxes.keys():
+                    box_obj = self.boxes[name]
+                    box = box_obj.coordinates
                     boxx = box[0]
                     boxy = box[1]
-                    typ = self.boxtypes[name]
+                    typ = box_obj.type
                     centerx = self.centerx
                     centery = self.centery
                     comp_x, comp_y = x, y # use a placeholder x,y for comparisons
@@ -1599,9 +1609,9 @@ class ProjectionTracesGUI(BaseGUI):
             elif len(func) == 2:
                 # draw rectangle
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
+                    for i in range(len(ax.patches)-1,len(self.boxes.keys())-1,-1):
                         ax.patches[i].remove()
-                    # ax.patches = ax.patches[:len(self.allboxes.keys())]
+                    # ax.patches = ax.patches[:len(self.boxes.keys())]
                 for line in list(ax.lines):
                     if line.get_label() != "Blue Dot":
                         line.remove()
@@ -1638,9 +1648,9 @@ class ProjectionTracesGUI(BaseGUI):
                 self.displayImgCanvas.draw_idle()
             elif len(func) == 3: # get the width of the box
                 if len(ax.patches) > 0:
-                    for i in range(len(ax.patches)-1,len(self.allboxes.keys())-1,-1):
+                    for i in range(len(ax.patches)-1,len(self.boxes.keys())-1,-1):
                         ax.patches[i].remove()
-                    # ax.patches = ax.patches[:len(self.allboxes.keys())]
+                    # ax.patches = ax.patches[:len(self.boxes.keys())]
 
                 angle = np.radians(90 - func[2][4])
                 p_mouse = np.array([x,y])
@@ -1719,7 +1729,7 @@ class ProjectionTracesGUI(BaseGUI):
                 box = self.boxes_on_img[func[1]]
                 w, h = box['rect'].get_width(), box['rect'].get_height()
                 xy = box['rect'].get_xy()
-                self.allboxes[func[1]] = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
+                self.boxes[func[1]].coordinates = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
@@ -1816,63 +1826,77 @@ class ProjectionTracesGUI(BaseGUI):
         self.propGrp.setEnabled(True)
         self.boxGrp.setEnabled(True)
         
-        # Load cached boxes and peaks from previous session
-        cache = self.loadBoxesAndPeaks()
+        # Load cached box configuration from previous session
+        cache = self.loadBoxesConfig()
         if cache is not None:
-            self.allboxes = cache['boxes']
-            self.peaks = cache['peaks']
-            self.boxtypes = cache['types']
-            self.bgsubs = cache['bgsubs']
-            self.merid_bg = cache['merid_bg']
-            self.hull_ranges = cache['hull_ranges']
-            self.centerx = cache['centerx']
-            self.centery = cache['centery']
-            # Note: center_func removed - no longer needed with ImageData
-            for name, box in self.allboxes.items():
-                self.boxes_on_img[name] = self.genBoxArtists(name, box, self.boxtypes[name])
+            self.boxes = cache['boxes']
+            self.centerx = cache.get('centerx')
+            self.centery = cache.get('centery')
+            # Create visual representations
+            for name, box in self.boxes.items():
+                self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
         else:
-            self.allboxes = {}
-            self.peaks = {}
+            self.boxes = {}
         
         # Create CSV manager for this folder
-        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
+        self.csvManager = PT_CSVManager(self.dir_path, self.boxes)
         
         # Add box tabs for loaded boxes
         self.addBoxTabs()
         self.selectPeaksGrp.setEnabled(False)
         
         print(f"Folder loaded: {dir_path}")
-        print(f"  - Boxes loaded: {len(self.allboxes)}")
-        print(f"  - Peaks loaded: {len(self.peaks)}")
+        print(f"  - Boxes loaded: {len(self.boxes)}")
     
     def _on_image_data_ready(self, image_data):
         """
         Called when ImageData is ready for processing (main processing entry point).
         
-        This replaces the old onImageChanged() method, following the QF pattern.
-        The ProcessingWorkspace has already:
-        - Loaded the image
-        - Created ImageData with center/rotation/blank/mask settings
-        - Applied manual settings if they exist
+        Cache-first strategy:
+        1. Create ProjectionProcessor (automatically loads image-level cache if exists)
+        2. If cache exists → use it directly (skip folder template)
+        3. If no cache → use folder template as initial config
+        4. Process image
+        5. Update folder cache with refined results
         
         Args:
             image_data: ImageData instance ready for processing
         """
         try:
-            # Create ProjectionProcessor with the ready ImageData
+            # Create ProjectionProcessor (automatically loads image cache in __init__)
             self.projProc = ProjectionProcessor(image_data)
             
-            # Update ProcessingWorkspace display (settings panel, etc.)
-            self.workspace.update_display(image_data)
+            # Check if image-level cache was loaded
+            if len(self.projProc.boxes) > 0:
+                # === Cache Hit: Use cached results ===
+                print(f"✓ Loaded cached results for {image_data.img_name}")
+                print(f"  - {len(self.projProc.boxes)} boxes with processing results")
+                
+                # Sync cache to GUI
+                self.boxes = {name: box for name, box in self.projProc.boxes.items()}
+                
+                # Update visual representations
+                for name, box in self.boxes.items():
+                    if name not in self.boxes_on_img:
+                        self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
+            else:
+                # === Cache Miss: Use folder template ===
+                print(f"✗ No cache for {image_data.img_name}")
+                print(f"  - Using folder template ({len(self.boxes)} boxes)")
+                
+                # Transfer folder template to Processor (without results)
+                for name, box in self.boxes.items():
+                    self.projProc.state.boxes[name] = self._create_box_copy_without_results(box)
             
-            # Note: Quadrant folded state is now synced automatically by workspace
+            # Update ProcessingWorkspace display
+            self.workspace.update_display(image_data)
             
             # Initialize non-view UI for new image
             self.initMaskThreshold(self.projProc)
             self.refreshStatusbar()
             self.updateCenter()
             
-            # Process the new image
+            # Process the image
             self.processImage()
             
         except Exception as e:
@@ -2031,11 +2055,17 @@ class ProjectionTracesGUI(BaseGUI):
             self.workspace._center_widget.update_current_center(
                 self.projProc.center  # Current center coordinates
             )
+        
+        # === Update folder cache with refined results ===
+        self._update_folder_cache_from_results()
+        
+        # Sync Processor boxes back to GUI
+        self.boxes = {name: box for name, box in self.projProc.boxes.items()}
+        
         self.resetUI()
         self.refreshStatusbar()
-        self.cacheBoxesAndPeaks()
 
-        self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        self.csvManager.setColumnNames(self.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         QApplication.restoreOverrideCursor()
@@ -2087,10 +2117,16 @@ class ProjectionTracesGUI(BaseGUI):
     
     
     def onProcessingFinished(self):
+        # Update folder cache with refined results
+        self._update_folder_cache_from_results()
+        
+        # Sync Processor boxes back to GUI
+        self.boxes = {name: box for name, box in self.projProc.boxes.items()}
+        
         self.resetUI()
         self.refreshStatusbar()
-        self.cacheBoxesAndPeaks()
-        self.csvManager.setColumnNames(self.allboxes, self.peaks)
+        
+        self.csvManager.setColumnNames(self.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         
@@ -2124,87 +2160,168 @@ class ProjectionTracesGUI(BaseGUI):
                     coords = zip(xs, sub_hist)
                     f.write("\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))))
 
-    def cacheBoxesAndPeaks(self):
+    def _create_box_copy_without_results(self, box: ProcessingBox) -> ProcessingBox:
         """
-        Save the boxes and peaks in the cache file
+        Create a copy of ProcessingBox with only configuration, no processing results.
+        Used when saving folder-level cache (template).
+        """
+        return ProcessingBox(
+            name=box.name,
+            coordinates=box.coordinates,
+            type=box.type,
+            bgsub=box.bgsub,
+            peaks=box.peaks,
+            merid_bg=box.merid_bg,
+            hull_range=box.hull_range,
+            param_bounds=box.param_bounds.copy() if box.param_bounds else {},
+            use_common_sigma=box.use_common_sigma,
+            peak_tolerance=box.peak_tolerance,
+            sigma_tolerance=box.sigma_tolerance,
+            # Results fields are None (defaults)
+        )
+    
+    def saveBoxesConfig(self):
+        """
+        Save folder-level box configuration (without processing results).
+        This serves as a template for new images in the folder.
         """
         cache = {
-            'boxes' : self.allboxes,
-            'peaks' : self.peaks,
-            'types' : self.boxtypes,
-            'bgsubs' : self.bgsubs,
-            'merid_bg' : self.merid_bg,
-            'hull_ranges' : self.hull_ranges,
-            'centerx' : self.centerx,
-            'centery' : self.centery,
-            # Note: center_func removed - state now in ImageData
-            'mask_thres' : self.maskThresSpnBx.value()
+            'boxes': {
+                name: self._create_box_copy_without_results(box)
+                for name, box in self.boxes.items()
+            },
+            'centerx': self.centerx,
+            'centery': self.centery,
+            'mask_thres': self.maskThresSpnBx.value()
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)
-        cache_file = fullPath(cache_dir, 'boxes_peaks.info')
-        pickle.dump(cache, open(cache_file, "wb"))
-
-    def loadBoxesAndPeaks(self):
+        cache_file = fullPath(cache_dir, 'boxes_config.info')
+        with open(cache_file, "wb") as f:
+            pickle.dump(cache, f)
+    
+    def loadBoxesConfig(self):
         """
-        Load the boxes and peaks stored in the cache file, if it exists
+        Load folder-level box configuration from cache.
+        Returns dict with 'boxes', 'centerx', 'centery', 'mask_thres' or None.
         """
-        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_peaks.info')
+        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_config.info')
         if exists(cache_file):
-            cache = pickle.load(open(cache_file, "rb"))
-            if cache is not None:
-                return cache
+            try:
+                with open(cache_file, "rb") as f:
+                    cache = pickle.load(f)
+                if cache is not None:
+                    return cache
+            except Exception as e:
+                print(f"Warning: Failed to load box config cache: {e}")
         return None
+    
+    def _extract_refined_peaks(self, proc_box: ProcessingBox):
+        """
+        Extract refined peak positions from fit results.
+        
+        The fit results contain p_0, p_1, p_2... which are the optimal peak positions
+        found by the fitter (relative to centerX).
+        
+        Returns:
+            List of refined peak positions, or original peaks if no fit results.
+        """
+        if proc_box.fit_results is None:
+            return proc_box.peaks
+        
+        fit_results = proc_box.fit_results
+        refined_peaks = []
+        
+        # Extract all p_i parameters
+        i = 0
+        while f'p_{i}' in fit_results:
+            peak_pos = fit_results[f'p_{i}']
+            refined_peaks.append(float(peak_pos))
+            i += 1
+        
+        if len(refined_peaks) == 0:
+            return proc_box.peaks
+        
+        return refined_peaks
+    
+    def _update_folder_cache_from_results(self):
+        """
+        Update folder-level cache with refined results from current image processing.
+        
+        Key updates:
+        1. peaks: Use refined peak positions from fit results
+        2. param_bounds: Parameter bounds learned during fitting
+        3. Other configuration parameters
+        
+        This allows subsequent images to benefit from improved initial values.
+        """
+        for name, proc_box in self.projProc.boxes.items():
+            
+            # Skip boxes without fit results
+            if proc_box.fit_results is None:
+                continue
+            
+            # Extract refined peak positions
+            refined_peaks = self._extract_refined_peaks(proc_box)
+            
+            if name not in self.boxes:
+                # New box: add to folder cache
+                self.boxes[name] = self._create_box_copy_without_results(proc_box)
+                self.boxes[name].peaks = refined_peaks
+                print(f"Added new box to folder cache: {name}")
+                print(f"  - Refined peaks: {refined_peaks}")
+            else:
+                # Existing box: update configuration
+                folder_box = self.boxes[name]
+                
+                # Update basic configuration
+                folder_box.coordinates = proc_box.coordinates
+                folder_box.type = proc_box.type
+                folder_box.bgsub = proc_box.bgsub
+                folder_box.merid_bg = proc_box.merid_bg
+                folder_box.hull_range = proc_box.hull_range
+                
+                # === Key: Update with refined peak positions ===
+                old_peaks = folder_box.peaks
+                folder_box.peaks = refined_peaks
+                
+                # Show refinement progress
+                if old_peaks != refined_peaks and len(old_peaks) == len(refined_peaks):
+                    print(f"Box {name}: Refined peaks")
+                    for i, (old, new) in enumerate(zip(old_peaks, refined_peaks)):
+                        delta = new - old
+                        print(f"  Peak {i}: {old:.2f} → {new:.2f} (Δ{delta:+.3f})")
+                
+                # Update fitting parameters
+                folder_box.param_bounds = proc_box.param_bounds.copy() if proc_box.param_bounds else {}
+                folder_box.use_common_sigma = proc_box.use_common_sigma
+                folder_box.peak_tolerance = proc_box.peak_tolerance
+                folder_box.sigma_tolerance = proc_box.sigma_tolerance
+        
+        # Save updated configuration to disk
+        self.saveBoxesConfig()
 
     def getSettings(self):
         """
-        Give the current settings
-        :return: settings
+        Get current processing settings.
+        
+        Note: Box configurations are now managed by ProcessingBox objects
+        in self.projProc.boxes, so we don't need to pass them here.
+        This method only returns global settings.
         """
         settings = {}
-        # add boxes
-        settings['boxes'] = self.allboxes
-
-        # add box types
-        settings['types'] = self.boxtypes
-
-        # add bgsub methods
-        settings['bgsubs'] = self.bgsubs
-
-        # add meridian bg on/off
-        settings['merid_bg'] = self.merid_bg
-
-        # add peaks location
-        settings['peaks'] = self.peaks
-
-        # add hull ranges
-        settings['hull_ranges'] = self.hull_ranges
-
-        # add peak tolerance / sigma tolerance from each box tab
-        peak_tolerances = {}
-        sigma_tolerances = {}
-        for i in range(1, self.tabWidget.count()):
-            tab = self.tabWidget.widget(i)
-            if tab is not None and hasattr(tab, 'peakToleranceSpinBox'):
-                peak_tolerances[tab.name] = tab.peakToleranceSpinBox.value()
-            if tab is not None and hasattr(tab, 'sigmaToleranceSpinBox'):
-                sigma_tolerances[tab.name] = tab.sigmaToleranceSpinBox.value()
-        settings['peak_tolerances'] = peak_tolerances
-        settings['sigma_tolerances'] = sigma_tolerances
-
-        # add GMM mode settings (from projProc.info if available)
-        if self.projProc and 'use_common_sigma' in self.projProc.info:
-            settings['use_common_sigma'] = self.projProc.info['use_common_sigma']
-
-        # add blank image and mask (from ProcessingWorkspace)
+        
+        # Global settings
+        settings['mask_thres'] = self.maskThresSpnBx.value()
+        
+        # Blank/mask settings from workspace
         if hasattr(self, 'workspace'):
             blank_mask_config = self.workspace.get_blank_mask_config()
             settings['blank_mask'] = blank_mask_config['apply_blank']
         else:
             settings['blank_mask'] = False
-
-        settings['mask_thres'] = self.maskThresSpnBx.value()
-
+        
+        # Refit flag
         if self.refit:
             settings['refit'] = self.refit
             self.refit = False
@@ -2317,7 +2434,7 @@ class ProjectionTracesGUI(BaseGUI):
         ax = self.displayImgAxes
         
         # Draw boxes
-        if len(self.allboxes.keys()) > 0:
+        if len(self.boxes.keys()) > 0:
             self.selectPeaksGrp.setEnabled(True)
             if self.boxesChkBx.isChecked():
                 for name, aritists in self.boxes_on_img.items():
@@ -2326,16 +2443,19 @@ class ProjectionTracesGUI(BaseGUI):
 
             # Draw peaks
             if self.peaksChkBx.isChecked():
-                for name in self.peaks.keys():
+                for name in self.boxes.keys():
+                    box_obj = self.boxes[name]
+                    if not box_obj.peaks:
+                        continue
                     center = self.projProc.center
                     centerx = center[0]
                     centery = center[1]
-                    for p in self.peaks[name]:
-                        if self.boxtypes[name] == 'h':
-                            ax.plot((centerx - p, centerx - p), self.allboxes[name][1], color='m')
-                            ax.plot((centerx + p, centerx + p), self.allboxes[name][1], color='m')
-                        elif self.boxtypes[name] == 'oriented':
-                            box = self.allboxes[name]
+                    box = box_obj.coordinates
+                    for p in box_obj.peaks:
+                        if box_obj.type == 'h':
+                            ax.plot((centerx - p, centerx - p), box[1], color='m')
+                            ax.plot((centerx + p, centerx + p), box[1], color='m')
+                        elif box_obj.type == 'oriented':
                             edge_1 = rotatePoint((box[6][0], box[6][1]), (box[6][0]-p, box[1][0]), np.radians(box[5]))
                             edge_2 = rotatePoint((box[6][0], box[6][1]), (box[6][0]-p, box[1][1]), np.radians(box[5]))
                             edge_3 = rotatePoint((box[6][0], box[6][1]), (box[6][0]+p, box[1][0]), np.radians(box[5]))
@@ -2343,8 +2463,8 @@ class ProjectionTracesGUI(BaseGUI):
                             ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r')
                             ax.plot((edge_3[0], edge_4[0]), (edge_3[1], edge_4[1]), color='r')
                         else:
-                            ax.plot(self.allboxes[name][0], (centery - p, centery - p), color='r')
-                            ax.plot(self.allboxes[name][0], (centery + p, centery + p), color='r')
+                            ax.plot(box[0], (centery - p, centery - p), color='r')
+                            ax.plot(box[0], (centery + p, centery + p), color='r')
 
         # Draw center circle
         if self.centerChkBx.isChecked():
