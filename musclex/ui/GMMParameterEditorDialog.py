@@ -53,6 +53,9 @@ class GMMParameterEditorDialog(QDialog):
         titleLabel = QLabel(f"<h2>Parameters for {self.box_name}</h2>")
         mainLayout.addWidget(titleLabel)
         
+        # Controls layout (Equal Variance + Hull Range)
+        controlsLayout = QVBoxLayout()
+        
         # Equal Variance checkbox
         self.equalVarianceChkBx = QCheckBox("Equal Variance (Common Sigma)")
         # Note: Initial state will be set in populateParameters() based on fit results
@@ -61,7 +64,35 @@ class GMMParameterEditorDialog(QDialog):
             "When unchecked: Each peak has independent sigma"
         )
         self.equalVarianceChkBx.stateChanged.connect(self.onEqualVarianceChanged)
-        mainLayout.addWidget(self.equalVarianceChkBx)
+        controlsLayout.addWidget(self.equalVarianceChkBx)
+        
+        # Hull Range controls
+        hullLayout = QHBoxLayout()
+        hullLabel = QLabel("Hull Range (Convex Hull Constraint):")
+        hullLayout.addWidget(hullLabel)
+        
+        hullLayout.addWidget(QLabel("Start:"))
+        self.hullStartSpinBox = QDoubleSpinBox()
+        self.hullStartSpinBox.setDecimals(2)
+        self.hullStartSpinBox.setRange(0, 1000)
+        self.hullStartSpinBox.setValue(0)
+        self.hullStartSpinBox.valueChanged.connect(self.onHullRangeChanged)
+        self.hullStartSpinBox.setToolTip("Start position for convex hull background subtraction")
+        hullLayout.addWidget(self.hullStartSpinBox)
+        
+        hullLayout.addWidget(QLabel("End:"))
+        self.hullEndSpinBox = QDoubleSpinBox()
+        self.hullEndSpinBox.setDecimals(2)
+        self.hullEndSpinBox.setRange(0, 1000)
+        self.hullEndSpinBox.setValue(0)
+        self.hullEndSpinBox.valueChanged.connect(self.onHullRangeChanged)
+        self.hullEndSpinBox.setToolTip("End position for convex hull background subtraction")
+        hullLayout.addWidget(self.hullEndSpinBox)
+        
+        hullLayout.addStretch()
+        controlsLayout.addLayout(hullLayout)
+        
+        mainLayout.addLayout(controlsLayout)
         
         # Parameter table (same as Equator)
         self.paramTable = QTableWidget()
@@ -126,6 +157,22 @@ class GMMParameterEditorDialog(QDialog):
         # Peak tolerance (fallback for initial bounds if none are stored)
         peak_tol = self.projProc.info.get('peak_tolerances', {}).get(self.box_name, 2.0)
         
+        # Populate hull range spinboxes (not in table - these are preprocessing constraints)
+        if self.working_hull_range and isinstance(self.working_hull_range, (tuple, list)) and len(self.working_hull_range) >= 2:
+            self.hullStartSpinBox.blockSignals(True)
+            self.hullEndSpinBox.blockSignals(True)
+            self.hullStartSpinBox.setValue(float(self.working_hull_range[0]))
+            self.hullEndSpinBox.setValue(float(self.working_hull_range[1]))
+            self.hullStartSpinBox.blockSignals(False)
+            self.hullEndSpinBox.blockSignals(False)
+            # Enable hull range controls
+            self.hullStartSpinBox.setEnabled(True)
+            self.hullEndSpinBox.setEnabled(True)
+        else:
+            # Disable if no hull range
+            self.hullStartSpinBox.setEnabled(False)
+            self.hullEndSpinBox.setEnabled(False)
+        
         # Common sigma - ALWAYS show it (will be enabled/disabled based on mode)
         cs_bounds = box_bounds.get('common_sigma', {})
         if not isinstance(cs_bounds, dict):
@@ -138,34 +185,6 @@ class GMMParameterEditorDialog(QDialog):
             'fixed': fit_result.get('common_sigma_fixed', False),  # Read fixed state
             'enabled': is_gmm  # Only enabled in GMM mode
         }
-        
-        # Hull range parameters (if exists) - use working_hull_range for preview
-        if self.working_hull_range and isinstance(self.working_hull_range, (tuple, list)) and len(self.working_hull_range) >= 2:
-            hull_range = self.working_hull_range
-            if True:  # Keep indentation
-                # Add hull_start parameter
-                hull_start_bounds = box_bounds.get('hull_start', {})
-                if not isinstance(hull_start_bounds, dict):
-                    hull_start_bounds = {}
-                params_to_show['hull_start'] = {
-                    'val': float(hull_range[0]),
-                    'min': hull_start_bounds.get('min', 0.0),
-                    'max': hull_start_bounds.get('max', 200.0),
-                    'fixed': fit_result.get('hull_start_fixed', False),
-                    'enabled': True
-                }
-                
-                # Add hull_end parameter
-                hull_end_bounds = box_bounds.get('hull_end', {})
-                if not isinstance(hull_end_bounds, dict):
-                    hull_end_bounds = {}
-                params_to_show['hull_end'] = {
-                    'val': float(hull_range[1]),
-                    'min': hull_end_bounds.get('min', 0.0),
-                    'max': hull_end_bounds.get('max', 500.0),
-                    'fixed': fit_result.get('hull_end_fixed', False),
-                    'enabled': True
-                }
         
         # Parameters for each peak
         i = 0
@@ -320,6 +339,20 @@ class GMMParameterEditorDialog(QDialog):
         # Update parameter values and redraw
         self.onParameterChanged()
     
+    def onHullRangeChanged(self):
+        """
+        Handle hull range spinbox changes - update working_hull_range and preview
+        """
+        hull_start = self.hullStartSpinBox.value()
+        hull_end = self.hullEndSpinBox.value()
+        
+        self.working_hull_range = (hull_start, hull_end)
+        self.parent_tab.preview_hull_range = self.working_hull_range
+        
+        # Trigger redraw
+        self.parent_tab.need_update = True
+        self.parent_tab.updateUI()
+    
     def _get_peak_tolerance(self) -> float:
         """
         Get current peak tolerance (used for p_i bounds reset).
@@ -427,29 +460,12 @@ class GMMParameterEditorDialog(QDialog):
                 except Exception:
                     pass
         
-        # Get current parameters from table
+        # Get current parameters from table (model parameters only)
         edited_params = self.getParametersFromTable()
         
-        # Update working_params and working_hull_range (preview mode - not committed yet)
+        # Update working_params (preview mode - not committed yet)
         for param_name, pinfo in edited_params.items():
-            # Handle hull_range parameters specially (not part of fit_results)
-            if param_name == 'hull_start':
-                if self.working_hull_range:
-                    self.working_hull_range = (pinfo['val'], self.working_hull_range[1])
-                else:
-                    self.working_hull_range = (pinfo['val'], 0)
-                # Update preview
-                self.parent_tab.preview_hull_range = self.working_hull_range
-            elif param_name == 'hull_end':
-                if self.working_hull_range:
-                    self.working_hull_range = (self.working_hull_range[0], pinfo['val'])
-                else:
-                    self.working_hull_range = (0, pinfo['val'])
-                # Update preview
-                self.parent_tab.preview_hull_range = self.working_hull_range
-            else:
-                # Regular parameters go to working_params
-                self.working_params[param_name] = pinfo['val']
+            self.working_params[param_name] = pinfo['val']
         
         # parent_tab.preview_params points to working_params, already in sync
         # Trigger redraw (updateUI will use preview_params via _getRenderParams())
@@ -636,11 +652,11 @@ class GMMParameterEditorDialog(QDialog):
         
         print(f"Extracted {len(peak_positions)} peak positions: {peak_positions[:5]}...")
         
-        # Extract hull_range from paramInfo if present and check if it changed
+        # Get hull_range from spinboxes (not from paramInfo - it's a preprocessing constraint)
         hull_range_changed = False
-        if 'hull_start' in paramInfo and 'hull_end' in paramInfo:
-            hull_start = paramInfo['hull_start']['val']
-            hull_end = paramInfo['hull_end']['val']
+        if self.hullStartSpinBox.isEnabled():
+            hull_start = self.hullStartSpinBox.value()
+            hull_end = self.hullEndSpinBox.value()
             new_hull_range = (hull_start, hull_end)
             
             # Check if hull_range actually changed
