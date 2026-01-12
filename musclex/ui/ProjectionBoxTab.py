@@ -175,10 +175,6 @@ class ProjectionBoxTab(QWidget):
         self.fixed_indices = []
         self.lines = []
         
-        # Store original manual selections (without mirroring)
-        self.manual_peaks = []  # Only positive side peaks
-        self.manual_hull_range = None  # Only positive side hull range (start, end)
-        
         # Parameter editor state
         self.param_editor_active = False
         self.param_editor_dialog = None  # Store reference to dialog
@@ -743,9 +739,10 @@ class ProjectionBoxTab(QWidget):
             return
 
         # Check if parameter editor is active and we're clicking on overlay
-        if self.param_editor_active and self.manual_hull_range is not None:
+        box = self.get_box()
+        if self.param_editor_active and box and box.hull_range is not None:
             center = self.getCenterX()
-            start, end = self.manual_hull_range
+            start, end = box.hull_range
             
             # Check if click is within either overlay region
             # Left region: [center - end, center - start]
@@ -781,9 +778,10 @@ class ProjectionBoxTab(QWidget):
             return
 
         # Check if parameter editor is active and we're clicking on overlay
-        if self.param_editor_active and self.manual_hull_range is not None:
+        box = self.get_box()
+        if self.param_editor_active and box and box.hull_range is not None:
             center = self.getCenterX()
-            start, end = self.manual_hull_range
+            start, end = box.hull_range
             
             # Check if click is within either overlay region
             # Left region: [center - end, center - start]
@@ -870,13 +868,12 @@ class ProjectionBoxTab(QWidget):
 
             if len(hull_range) == 2:
                 hull_range = tuple(sorted(hull_range))
-                # Store manual hull range (only positive side)
-                self.manual_hull_range = hull_range
+                # Store hull range in ProcessingBox
                 box = self.get_box()
                 if box:
                     box.hull_range = hull_range
-                self.parent.projProc.removeInfo(self.name, 'hists2')
-                self.parent.processImage()
+                    self.parent.projProc.removeInfo(self.name, 'hists2')
+                    self.parent.processImage()
         elif func[0] == 'zoom':
             # select zoom in area for the second plot
             func.append((1, (x, y)))
@@ -988,11 +985,7 @@ class ProjectionBoxTab(QWidget):
         if self.hullRangeButton.isChecked():
             self.function = ['hull', []]
         else:
-            # Store the manual hull range when accepted
-            box = self.get_box()
-            if box and box.hull_range:
-                hull_range = box.hull_range
-                self.manual_hull_range = hull_range  # (start, end) tuple
+            # Hull range already stored in ProcessingBox
             self.resetUI()
 
     def addSinglePeak(self):
@@ -1015,9 +1008,6 @@ class ProjectionBoxTab(QWidget):
                 QMessageBox.warning(self, "Too Many Peaks", 
                                   f"Only one peak allowed. Using the first one.")
                 peaks = [peaks[0]]
-            
-            # Store manual peaks (only positive side)
-            self.manual_peaks = peaks.copy()
             
             # Auto-mirror (keep original logic)
             op_peaks = [-x for x in peaks]
@@ -1065,9 +1055,6 @@ class ProjectionBoxTab(QWidget):
                                   f"Please select at least 2 peaks. You selected {len(peaks)}.")
                 self.peakClusterButton.setChecked(True)
                 return
-            
-            # Store manual peaks (only positive side)
-            self.manual_peaks = peaks.copy()
             
             # Auto-mirror (keep original logic)
             op_peaks = [-x for x in peaks]
@@ -1158,8 +1145,13 @@ class ProjectionBoxTab(QWidget):
         
         # Create snapshot of manual selections before opening editor
         import copy
-        self.snapshot_manual_peaks = copy.deepcopy(self.manual_peaks)
-        self.snapshot_manual_hull_range = copy.deepcopy(self.manual_hull_range)
+        box = self.get_box()
+        if box:
+            self.snapshot_peaks = copy.deepcopy(box.peaks)
+            self.snapshot_hull_range = copy.deepcopy(box.hull_range)
+        else:
+            self.snapshot_peaks = []
+            self.snapshot_hull_range = None
         
         # Open parameter editor dialog as non-modal
         try:
@@ -1196,30 +1188,33 @@ class ProjectionBoxTab(QWidget):
         # If user cancelled, restore snapshot
         if result == QDialog.Rejected:
             import copy
-            if hasattr(self, 'snapshot_manual_peaks'):
-                self.manual_peaks = copy.deepcopy(self.snapshot_manual_peaks)
-            if hasattr(self, 'snapshot_manual_hull_range'):
-                self.manual_hull_range = copy.deepcopy(self.snapshot_manual_hull_range)
+            box = self.get_box()
+            if box:
+                if hasattr(self, 'snapshot_peaks'):
+                    box.peaks = copy.deepcopy(self.snapshot_peaks)
+                if hasattr(self, 'snapshot_hull_range'):
+                    box.hull_range = copy.deepcopy(self.snapshot_hull_range)
         
         # Clean up snapshots
-        if hasattr(self, 'snapshot_manual_peaks'):
-            del self.snapshot_manual_peaks
-        if hasattr(self, 'snapshot_manual_hull_range'):
-            del self.snapshot_manual_hull_range
+        if hasattr(self, 'snapshot_peaks'):
+            del self.snapshot_peaks
+        if hasattr(self, 'snapshot_hull_range'):
+            del self.snapshot_hull_range
     
     def showOverlay(self):
         """
         Show semi-transparent overlay for selected hull range when parameter editor is open
         Hull range (start, end) defines the valid region: [center-end, center-start] U [center+start, center+end]
         """
-        if self.manual_hull_range is None or self.parent.projProc is None:
+        box = self.get_box()
+        if not box or box.hull_range is None or self.parent.projProc is None:
             return
         
         # Clear old overlays first
         self.hideOverlay()
         
         center = self.getCenterX()
-        start, end = self.manual_hull_range
+        start, end = box.hull_range
         
         # Draw overlay on both axes
         # The hull range defines two regions (left and right sides)
@@ -1287,13 +1282,30 @@ class ProjectionBoxTab(QWidget):
             print("WARNING: updateOverlayAndPeaks called outside preview mode - this should not happen!")
             return
         
-        if self.manual_hull_range is None:
+        box = self.get_box()
+        if not box or box.hull_range is None:
             return
         
-        # Update manual peaks (temporary preview data)
-        if len(self.manual_peaks) > 0:
-            new_manual_peaks = [p + delta_x for p in self.manual_peaks]
-            self.manual_peaks = new_manual_peaks
+        # Extract current peak positions from preview_params (already shifted from previous drags)
+        # instead of re-reading from box.peaks (which has original positions)
+        # This makes dragging cumulative since delta_x is incremental per frame
+        current_peaks = []
+        i = 0
+        while f'p_{i}' in self.preview_params:
+            peak_val = self.preview_params[f'p_{i}']
+            # Only collect positive-side peaks (peaks are mirrored: [+p1, +p2, -p1, -p2])
+            # We can identify positive peaks as those that come first in the sequence
+            current_peaks.append(peak_val)
+            i += 1
+        
+        # Since peaks are mirrored, first half are positive side
+        n_total = i
+        if n_total > 0:
+            n_positive = n_total // 2
+            current_peaks = current_peaks[:n_positive]
+            
+            # Update peaks with drag offset (cumulative because we read from preview_params)
+            new_manual_peaks = [p + delta_x for p in current_peaks]
             
             # Update preview_params (for rendering)
             for i, peak in enumerate(new_manual_peaks):
@@ -1316,12 +1328,11 @@ class ProjectionBoxTab(QWidget):
                     if f'p_{i}' in self.param_editor_dialog.working_params:
                         self.param_editor_dialog.working_params[f'p_{i}'] = -new_manual_peaks[mirror_idx]
         
-        # Update hull_range to follow the drag (shift by delta_x)
-        # Note: This updates the hull_range position but keeps its width unchanged
-        old_start, old_end = self.manual_hull_range
+        # Update hull_range: read from preview_hull_range (already shifted), not box.hull_range
+        # This makes dragging cumulative since delta_x is incremental per frame
+        old_start, old_end = self.preview_hull_range
         new_start = old_start + delta_x
         new_end = old_end + delta_x
-        self.manual_hull_range = (new_start, new_end)
         
         # Update preview_hull_range (for rendering)
         self.preview_hull_range = (new_start, new_end)
@@ -1372,11 +1383,8 @@ class ProjectionBoxTab(QWidget):
         Clears all peaks without changing button state
         :return:
         """
-        # Clear manual peaks
-        self.manual_peaks = []
-        
         if self.function is None:
-            # Clear all peaks from parent
+            # Clear all peaks from parent (which updates box.peaks)
             self.parent.addPeakstoBox(self.name, [])
         else:
             # Clear all peaks from function
