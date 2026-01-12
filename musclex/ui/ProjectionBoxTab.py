@@ -1214,7 +1214,11 @@ class ProjectionBoxTab(QWidget):
         self.hideOverlay()
         
         center = self.getCenterX()
-        start, end = box.hull_range
+        # Use preview_hull_range during dragging, otherwise use box.hull_range
+        if self.preview_hull_range is not None:
+            start, end = self.preview_hull_range
+        else:
+            start, end = box.hull_range
         
         # Draw overlay on both axes
         # The hull range defines two regions (left and right sides)
