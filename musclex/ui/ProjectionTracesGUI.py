@@ -1262,11 +1262,34 @@ class ProjectionTracesGUI(BaseGUI):
         Add old box tabs
         :return:
         """
+        # Save current tab index and name
+        current_index = self.tabWidget.currentIndex()
+        was_on_box_tab = current_index > 0  # Was on a box tab (not image tab)
+        current_tab_name = None
+        if was_on_box_tab:
+            current_tab_name = self.tabWidget.tabText(current_index).replace("Box ", "")
+        
         self.removeAllTabs()
 
-        for name in self.boxes.keys():
+        # Rebuild tabs and track the index to restore
+        restore_index = 0
+        for idx, name in enumerate(self.boxes.keys(), start=1):
             proj_tab = ProjectionBoxTab(self, name)
             self.tabWidget.addTab(proj_tab, "Box "+str(name))
+            
+            # Check if this is the previously selected tab
+            if current_tab_name == name:
+                restore_index = idx
+        
+        # Restore tab selection:
+        # 1. If the exact same box exists, select it
+        # 2. If user was on a box tab but that box no longer exists, select first box tab
+        # 3. If user was on image tab, stay on image tab
+        if restore_index > 0:
+            self.tabWidget.setCurrentIndex(restore_index)
+        elif was_on_box_tab and len(self.boxes) > 0:
+            # Was on a box tab, but that box no longer exists -> select first box tab
+            self.tabWidget.setCurrentIndex(1)
 
     def imgClicked(self, event):
         """
@@ -1329,7 +1352,7 @@ class ProjectionTracesGUI(BaseGUI):
                     name, bgsub, axis = boxDialog.getDetails()
                     box_type = 'h' if axis == 0 else 'v'
                     # Create new ProcessingBox
-                    self.boxes[name] = ProcessingBox(
+                    new_box = ProcessingBox(
                         name=name,
                         coordinates=((x1, x2), (y1, y2)),
                         type=box_type,
@@ -1337,7 +1360,13 @@ class ProjectionTracesGUI(BaseGUI):
                         peaks=[],
                         merid_bg=True
                     )
-                    self.boxes_on_img[name] = self.genBoxArtists(name, self.boxes[name].coordinates, box_type)
+                    self.boxes[name] = new_box
+                    self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, box_type)
+                    
+                    # Add new box to processor
+                    if self.projProc:
+                        self.projProc.state.boxes[name] = new_box
+                        
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
@@ -1447,7 +1476,7 @@ class ProjectionTracesGUI(BaseGUI):
                         # add the oriented box
                         name, bgsub, _ = boxDialog.getDetails()
                         # Create new ProcessingBox for oriented type
-                        self.boxes[name] = ProcessingBox(
+                        new_box = ProcessingBox(
                             name=name,
                             coordinates=((x1, x2), (y1, y2), bottom_left, width, height*2, rot_angle, pivot),
                             type='oriented',
@@ -1455,8 +1484,13 @@ class ProjectionTracesGUI(BaseGUI):
                             peaks=[],
                             merid_bg=True
                         )
-                        self.boxes_on_img[name] = self.genBoxArtists(name, self.boxes[name].coordinates, 'oriented')
+                        self.boxes[name] = new_box
+                        self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, 'oriented')
                         self.function = None
+                        
+                        # Add new box to processor
+                        if self.projProc:
+                            self.projProc.state.boxes[name] = new_box
 
                         self.addBoxTabs()
                         self.processImage()
@@ -1729,7 +1763,13 @@ class ProjectionTracesGUI(BaseGUI):
                 box = self.boxes_on_img[func[1]]
                 w, h = box['rect'].get_width(), box['rect'].get_height()
                 xy = box['rect'].get_xy()
-                self.boxes[func[1]].coordinates = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
+                new_coords = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
+                self.boxes[func[1]].coordinates = new_coords
+                
+                # Sync to processor
+                if self.projProc and func[1] in self.projProc.boxes:
+                    self.projProc.boxes[func[1]].coordinates = new_coords
+                    
                 self.function = None
                 self.addBoxTabs()
                 self.processImage()
@@ -1886,7 +1926,20 @@ class ProjectionTracesGUI(BaseGUI):
                 
                 # Transfer folder template to Processor (without results)
                 for name, box in self.boxes.items():
-                    self.projProc.state.boxes[name] = self._create_box_copy_without_results(box)
+                    print(f"  Box '{name}' from folder template: {len(box.peaks)} peaks")
+                    # Create a copy with only configuration (no results)
+                    box_copy = self._create_box_copy_without_results(box)
+                    print(f"  After _create_box_copy_without_results: {len(box_copy.peaks)} peaks")
+                    
+                    # Expand peaks by mirroring user-selected peaks
+                    # (folder template only contains first half)
+                    self._expand_peaks_mirrored(box_copy)
+                    
+                    self.projProc.state.boxes[name] = box_copy
+                    
+                    # Update visual representations
+                    if name not in self.boxes_on_img:
+                        self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
             
             # Update ProcessingWorkspace display
             self.workspace.update_display(image_data)
@@ -1895,6 +1948,10 @@ class ProjectionTracesGUI(BaseGUI):
             self.initMaskThreshold(self.projProc)
             self.refreshStatusbar()
             self.updateCenter()
+            
+            # Refresh box tabs to match current boxes
+            # This ensures tabs are synchronized with the actual boxes for this image
+            self.addBoxTabs()
             
             # Process the image
             self.processImage()
@@ -2160,19 +2217,59 @@ class ProjectionTracesGUI(BaseGUI):
                     coords = zip(xs, sub_hist)
                     f.write("\n".join(list(map(lambda c: str(c[0]) + "\t" + str(c[1]), coords))))
 
+    def _expand_peaks_mirrored(self, box: ProcessingBox):
+        """
+        Expand peaks in a ProcessingBox by mirroring the first half.
+        
+        User-selected peaks (first half) are mirrored to create symmetric peaks.
+        For example: [10, 20, 30] -> [10, 20, 30, -10, -20, -30]
+        
+        Modifies box.peaks in-place.
+        
+        Note: hull_range is NOT mirrored because it's already a symmetric concept:
+        hull_range = (start, end) means distance from center, applied to both sides.
+        
+        Args:
+            box: ProcessingBox with user-selected peaks (first half only)
+        """
+        if not box.peaks:
+            print(f"  [_expand_peaks_mirrored] Box '{box.name}': No peaks to expand")
+            return
+        
+        # Mirror peaks: first half stays, add mirrored second half
+        user_peaks = box.peaks  # Already only the first half
+        mirrored_peaks = [-p for p in user_peaks]
+        box.peaks = user_peaks + mirrored_peaks
+        
+        print(f"  [_expand_peaks_mirrored] Box '{box.name}': {len(user_peaks)} user peaks → {len(box.peaks)} total peaks")
+        print(f"    User selected: {user_peaks}")
+        print(f"    After mirroring: {box.peaks}")
+        
+        # hull_range doesn't need mirroring - it's already symmetric
+        # (start, end) defines distance ranges from center for both positive and negative sides
+    
     def _create_box_copy_without_results(self, box: ProcessingBox) -> ProcessingBox:
         """
         Create a copy of ProcessingBox with only configuration, no processing results.
         Used when saving folder-level cache (template).
+        
+        IMPORTANT: Only saves the FIRST HALF of peaks (user-selected side).
+        The mirrored peaks will be regenerated when loading.
+        
+        hull_range is saved as-is because it's already a symmetric concept:
+        (start, end) defines distance ranges from center for both sides.
         """
+        # Extract only the first half of peaks (user-selected)
+        user_peaks = box.peaks[:len(box.peaks)//2] if box.peaks else []
+        
         return ProcessingBox(
             name=box.name,
             coordinates=box.coordinates,
             type=box.type,
             bgsub=box.bgsub,
-            peaks=box.peaks,
+            peaks=user_peaks,  # Only first half
             merid_bg=box.merid_bg,
-            hull_range=box.hull_range,
+            hull_range=box.hull_range,  # Keep as-is (already symmetric)
             param_bounds=box.param_bounds.copy() if box.param_bounds else {},
             use_common_sigma=box.use_common_sigma,
             peak_tolerance=box.peak_tolerance,
@@ -2223,11 +2320,18 @@ class ProjectionTracesGUI(BaseGUI):
         The fit results contain p_0, p_1, p_2... which are the optimal peak positions
         found by the fitter (relative to centerX).
         
+        IMPORTANT: Returns only the FIRST HALF of refined peaks (user-selected side).
+        The fitting preserves peak order, so the first half corresponds to the original
+        user-selected peaks.
+        
         Returns:
-            List of refined peak positions, or original peaks if no fit results.
+            List of refined peak positions (first half only), or original peaks if no fit results.
         """
         if proc_box.fit_results is None:
-            return proc_box.peaks
+            # No fit results: return first half of original peaks
+            result = proc_box.peaks[:len(proc_box.peaks)//2] if proc_box.peaks else []
+            print(f"  [_extract_refined_peaks] No fit results for '{proc_box.name}': {len(proc_box.peaks)} peaks → {len(result)} (first half)")
+            return result
         
         fit_results = proc_box.fit_results
         refined_peaks = []
@@ -2240,9 +2344,16 @@ class ProjectionTracesGUI(BaseGUI):
             i += 1
         
         if len(refined_peaks) == 0:
-            return proc_box.peaks
+            result = proc_box.peaks[:len(proc_box.peaks)//2] if proc_box.peaks else []
+            print(f"  [_extract_refined_peaks] No p_i in fit results for '{proc_box.name}': {len(proc_box.peaks)} peaks → {len(result)} (first half)")
+            return result
         
-        return refined_peaks
+        # Return only the first half (user-selected side)
+        result = refined_peaks[:len(refined_peaks)//2]
+        print(f"  [_extract_refined_peaks] Box '{proc_box.name}': {len(refined_peaks)} refined peaks → {len(result)} (first half)")
+        print(f"    All refined: {refined_peaks}")
+        print(f"    Saved (first half): {result}")
+        return result
     
     def _update_folder_cache_from_results(self):
         """

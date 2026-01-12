@@ -213,23 +213,28 @@ class ProjectionBoxTab(QWidget):
         if self.parent.projProc is None:
             return 0
 
-        info = self.parent.projProc.info
-        name = self.name
-        box = info['boxes'][name]
-        if info['types'][name] == 'h':
-            start_x = box[0][0]
+        # Use the helper method to get ProcessingBox
+        box_obj = self.get_box()
+        if box_obj is None:
+            return 0
+        
+        coords = box_obj.coordinates
+        box_type = box_obj.type
+        
+        if box_type == 'h':
+            start_x = coords[0][0]
             if self.parent.centerx is None:
                 self.centerX = self.parent.projProc.orig_img.shape[1] / 2. - 0.5 - start_x
             else:
                 self.centerX = self.parent.centerx - start_x
-        elif info['types'][name] == 'oriented':
-            start_x = box[0][0]
-            self.centerX = box[6][0] - start_x
+        elif box_type == 'oriented':
+            start_x = coords[0][0]
+            self.centerX = coords[6][0] - start_x
         else:
-            if info['types'][name] == 'v':
-                start_y = box[1][0]
+            if box_type == 'v':
+                start_y = coords[1][0]
             else:
-                start_y = box[0][1]
+                start_y = coords[0][1]
             if self.parent.centery is None:
                 self.centerX = self.parent.projProc.orig_img.shape[0] / 2. - 0.5 - start_y
             else:
@@ -1584,7 +1589,11 @@ class ProjectionBoxTab(QWidget):
             # Normal mode
             current_hull_range = hull_ranges[name]
         
-        if self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and current_hull_range is not None:
+        # Check if hull_range is valid (not None, not empty, has 2 elements)
+        if (self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and 
+            current_hull_range is not None and 
+            isinstance(current_hull_range, (tuple, list)) and 
+            len(current_hull_range) == 2):
             # Color area OUTSIDE convex hull range
             centerX = self.getCenterX()
 
