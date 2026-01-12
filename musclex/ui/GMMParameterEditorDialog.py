@@ -38,7 +38,7 @@ class GMMParameterEditorDialog(QDialog):
         self.resize(600, 500)  # Simpler, smaller window
         
         # Make dialog independent of parent window movement
-        self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
         
         self.initUI()
         self.populateParameters()
