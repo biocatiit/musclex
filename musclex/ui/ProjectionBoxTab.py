@@ -783,6 +783,16 @@ class ProjectionBoxTab(QWidget):
                 self.dragged_edge = 'right_outer'
                 self.overlay_drag_start = x
                 return
+            
+            # If not clicking on edges, check if clicking inside regions (for whole-region dragging)
+            in_left_region = (left_outer < x < left_inner)
+            in_right_region = (right_inner < x < right_outer)
+            
+            if in_left_region or in_right_region:
+                self.overlay_dragging = True
+                self.dragged_edge = None  # None means dragging the whole region
+                self.overlay_drag_start = x
+                return
 
         func = self.function
 
@@ -846,6 +856,16 @@ class ProjectionBoxTab(QWidget):
             elif abs(x - right_outer) < threshold_data:
                 self.overlay_dragging = True
                 self.dragged_edge = 'right_outer'
+                self.overlay_drag_start = x
+                return
+            
+            # If not clicking on edges, check if clicking inside regions (for whole-region dragging)
+            in_left_region = (left_outer < x < left_inner)
+            in_right_region = (right_inner < x < right_outer)
+            
+            if in_left_region or in_right_region:
+                self.overlay_dragging = True
+                self.dragged_edge = None  # None means dragging the whole region
                 self.overlay_drag_start = x
                 return
 
@@ -966,11 +986,17 @@ class ProjectionBoxTab(QWidget):
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
-            # Handle overlay edge dragging
-            if self.overlay_dragging and self.overlay_drag_start is not None and self.dragged_edge is not None:
+            # Handle overlay dragging (edge or whole region)
+            if self.overlay_dragging and self.overlay_drag_start is not None:
                 delta_x = x - self.overlay_drag_start
                 self.overlay_drag_start = x
-                self.updateHullRangeBound(delta_x)
+                
+                # If dragged_edge is None, it means dragging the whole region (peaks + hull_range)
+                # Otherwise, dragging a specific edge (hull_range bound only)
+                if self.dragged_edge is None:
+                    self.updateOverlayAndPeaks(delta_x)  # Whole region drag
+                else:
+                    self.updateHullRangeBound(delta_x)  # Edge drag
                 return
             
             # Change cursor when hovering over edges (when parameter editor is active)
@@ -1027,11 +1053,17 @@ class ProjectionBoxTab(QWidget):
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
-            # Handle overlay edge dragging
-            if self.overlay_dragging and self.overlay_drag_start is not None and self.dragged_edge is not None:
+            # Handle overlay dragging (edge or whole region)
+            if self.overlay_dragging and self.overlay_drag_start is not None:
                 delta_x = x - self.overlay_drag_start
                 self.overlay_drag_start = x
-                self.updateHullRangeBound(delta_x)
+                
+                # If dragged_edge is None, it means dragging the whole region (peaks + hull_range)
+                # Otherwise, dragging a specific edge (hull_range bound only)
+                if self.dragged_edge is None:
+                    self.updateOverlayAndPeaks(delta_x)  # Whole region drag
+                else:
+                    self.updateHullRangeBound(delta_x)  # Edge drag
                 return
             
             # Change cursor when hovering over edges (when parameter editor is active)
