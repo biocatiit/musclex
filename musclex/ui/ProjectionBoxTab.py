@@ -181,6 +181,8 @@ class ProjectionBoxTab(QWidget):
         self.overlay_patches = []  # List to store overlay patches for both axes
         self.overlay_drag_start = None
         self.overlay_dragging = False
+        self.dragged_edge = None  # Track which edge is being dragged ('left_inner', 'left_outer', 'right_inner', 'right_outer')
+        self.edge_drag_threshold = 5  # Pixel threshold for edge detection
         
         # Preview parameters for real-time editing (used by parameter editor dialog)
         self.preview_params = None  # When not None, updateUI uses this instead of fit_results
@@ -722,6 +724,7 @@ class ProjectionBoxTab(QWidget):
         if self.overlay_dragging:
             self.overlay_dragging = False
             self.overlay_drag_start = None
+            self.dragged_edge = None
             return
         
         if self.function is not None and 'move' in self.function[0]:
@@ -738,20 +741,46 @@ class ProjectionBoxTab(QWidget):
         if self.parent.projProc is None or x is None or y is None:
             return
 
-        # Check if parameter editor is active and we're clicking on overlay
+        # Check if parameter editor is active and we're clicking on overlay edge
         box = self.get_box()
         if self.param_editor_active and box and box.hull_range is not None:
             center = self.getCenterX()
-            start, end = box.hull_range
+            # Use preview hull range if available, otherwise use box hull range
+            if self.preview_hull_range is not None:
+                start, end = self.preview_hull_range
+            else:
+                start, end = box.hull_range
             
-            # Check if click is within either overlay region
-            # Left region: [center - end, center - start]
-            # Right region: [center + start, center + end]
-            in_left_region = (center - end) <= x <= (center - start)
-            in_right_region = (center + start) <= x <= (center + end)
+            # Calculate edge positions
+            left_outer = center - end
+            left_inner = center - start
+            right_inner = center + start
+            right_outer = center + end
             
-            if in_left_region or in_right_region:
+            # Convert threshold from pixels to data coordinates
+            xlim = self.graphAxes2.get_xlim()
+            fig_width = self.graphFigure2.get_figwidth() * self.graphFigure2.dpi
+            threshold_data = (xlim[1] - xlim[0]) * self.edge_drag_threshold / fig_width
+            
+            # Check which edge is being clicked (prioritize edges over regions)
+            if abs(x - left_outer) < threshold_data:
                 self.overlay_dragging = True
+                self.dragged_edge = 'left_outer'
+                self.overlay_drag_start = x
+                return
+            elif abs(x - left_inner) < threshold_data:
+                self.overlay_dragging = True
+                self.dragged_edge = 'left_inner'
+                self.overlay_drag_start = x
+                return
+            elif abs(x - right_inner) < threshold_data:
+                self.overlay_dragging = True
+                self.dragged_edge = 'right_inner'
+                self.overlay_drag_start = x
+                return
+            elif abs(x - right_outer) < threshold_data:
+                self.overlay_dragging = True
+                self.dragged_edge = 'right_outer'
                 self.overlay_drag_start = x
                 return
 
@@ -777,20 +806,46 @@ class ProjectionBoxTab(QWidget):
         if self.parent.projProc is None or x is None or y is None:
             return
 
-        # Check if parameter editor is active and we're clicking on overlay
+        # Check if parameter editor is active and we're clicking on overlay edge
         box = self.get_box()
         if self.param_editor_active and box and box.hull_range is not None:
             center = self.getCenterX()
-            start, end = box.hull_range
+            # Use preview hull range if available, otherwise use box hull range
+            if self.preview_hull_range is not None:
+                start, end = self.preview_hull_range
+            else:
+                start, end = box.hull_range
             
-            # Check if click is within either overlay region
-            # Left region: [center - end, center - start]
-            # Right region: [center + start, center + end]
-            in_left_region = (center - end) <= x <= (center - start)
-            in_right_region = (center + start) <= x <= (center + end)
+            # Calculate edge positions
+            left_outer = center - end
+            left_inner = center - start
+            right_inner = center + start
+            right_outer = center + end
             
-            if in_left_region or in_right_region:
+            # Convert threshold from pixels to data coordinates
+            xlim = self.graphAxes1.get_xlim()
+            fig_width = self.graphFigure1.get_figwidth() * self.graphFigure1.dpi
+            threshold_data = (xlim[1] - xlim[0]) * self.edge_drag_threshold / fig_width
+            
+            # Check which edge is being clicked (prioritize edges over regions)
+            if abs(x - left_outer) < threshold_data:
                 self.overlay_dragging = True
+                self.dragged_edge = 'left_outer'
+                self.overlay_drag_start = x
+                return
+            elif abs(x - left_inner) < threshold_data:
+                self.overlay_dragging = True
+                self.dragged_edge = 'left_inner'
+                self.overlay_drag_start = x
+                return
+            elif abs(x - right_inner) < threshold_data:
+                self.overlay_dragging = True
+                self.dragged_edge = 'right_inner'
+                self.overlay_drag_start = x
+                return
+            elif abs(x - right_outer) < threshold_data:
+                self.overlay_dragging = True
+                self.dragged_edge = 'right_outer'
                 self.overlay_drag_start = x
                 return
 
@@ -911,12 +966,39 @@ class ProjectionBoxTab(QWidget):
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
-            # Handle overlay dragging
-            if self.overlay_dragging and self.overlay_drag_start is not None:
+            # Handle overlay edge dragging
+            if self.overlay_dragging and self.overlay_drag_start is not None and self.dragged_edge is not None:
                 delta_x = x - self.overlay_drag_start
                 self.overlay_drag_start = x
-                self.updateOverlayAndPeaks(delta_x)
+                self.updateHullRangeBound(delta_x)
                 return
+            
+            # Change cursor when hovering over edges (when parameter editor is active)
+            if self.param_editor_active:
+                box = self.get_box()
+                if box and box.hull_range is not None:
+                    center = self.getCenterX()
+                    # Use preview hull range if available, otherwise use box hull range
+                    if self.preview_hull_range is not None:
+                        start, end = self.preview_hull_range
+                    else:
+                        start, end = box.hull_range
+                    
+                    left_outer = center - end
+                    left_inner = center - start
+                    right_inner = center + start
+                    right_outer = center + end
+                    
+                    xlim = self.graphAxes1.get_xlim()
+                    fig_width = self.graphFigure1.get_figwidth() * self.graphFigure1.dpi
+                    threshold_data = (xlim[1] - xlim[0]) * self.edge_drag_threshold / fig_width
+                    
+                    # Check if hovering over any edge
+                    if (abs(x - left_outer) < threshold_data or abs(x - left_inner) < threshold_data or
+                        abs(x - right_inner) < threshold_data or abs(x - right_outer) < threshold_data):
+                        self.graphCanvas1.setCursor(Qt.SizeHorCursor)
+                    else:
+                        self.graphCanvas1.setCursor(Qt.ArrowCursor)
             
             centerX = self.getCenterX() # this should be the center in the box?
             distance = x - centerX
@@ -945,12 +1027,39 @@ class ProjectionBoxTab(QWidget):
         x = event.xdata
         y = event.ydata
         if x is not None and y is not None:
-            # Handle overlay dragging
-            if self.overlay_dragging and self.overlay_drag_start is not None:
+            # Handle overlay edge dragging
+            if self.overlay_dragging and self.overlay_drag_start is not None and self.dragged_edge is not None:
                 delta_x = x - self.overlay_drag_start
                 self.overlay_drag_start = x
-                self.updateOverlayAndPeaks(delta_x)
+                self.updateHullRangeBound(delta_x)
                 return
+            
+            # Change cursor when hovering over edges (when parameter editor is active)
+            if self.param_editor_active:
+                box = self.get_box()
+                if box and box.hull_range is not None:
+                    center = self.getCenterX()
+                    # Use preview hull range if available, otherwise use box hull range
+                    if self.preview_hull_range is not None:
+                        start, end = self.preview_hull_range
+                    else:
+                        start, end = box.hull_range
+                    
+                    left_outer = center - end
+                    left_inner = center - start
+                    right_inner = center + start
+                    right_outer = center + end
+                    
+                    xlim = self.graphAxes2.get_xlim()
+                    fig_width = self.graphFigure2.get_figwidth() * self.graphFigure2.dpi
+                    threshold_data = (xlim[1] - xlim[0]) * self.edge_drag_threshold / fig_width
+                    
+                    # Check if hovering over any edge
+                    if (abs(x - left_outer) < threshold_data or abs(x - left_inner) < threshold_data or
+                        abs(x - right_inner) < threshold_data or abs(x - right_outer) < threshold_data):
+                        self.graphCanvas2.setCursor(Qt.SizeHorCursor)
+                    else:
+                        self.graphCanvas2.setCursor(Qt.ArrowCursor)
             
             centerX = self.getCenterX()
             distance = x - centerX
@@ -1344,6 +1453,72 @@ class ProjectionBoxTab(QWidget):
         # Update dialog's working_hull_range (for table display)
         if self.param_editor_dialog is not None and self.param_editor_active:
             self.param_editor_dialog.working_hull_range = (new_start, new_end)
+        
+        # Update overlay position
+        self.showOverlay()
+        
+        # Notify parameter editor to update table
+        if self.param_editor_dialog is not None and self.param_editor_active:
+            try:
+                self.param_editor_dialog.populateParameters()
+            except Exception as e:
+                print(f"Warning: Could not update parameter editor table: {e}")
+        
+        # Redraw with updated preview data (no refit, just visual update)
+        self.need_update = True
+        self.updateUI()
+    
+    def updateHullRangeBound(self, delta_x):
+        """
+        Update only the dragged hull range bound
+        
+        This method is called when parameter editor is open and user drags a hull range edge.
+        Unlike updateOverlayAndPeaks, this ONLY updates the hull range bounds, not the peaks.
+        
+        :param delta_x: Change in x position during drag
+        """
+        # Sanity check: this should only be called in preview mode
+        if self.preview_hull_range is None or self.dragged_edge is None:
+            print("WARNING: updateHullRangeBound called without preview mode or dragged edge!")
+            return
+        
+        box = self.get_box()
+        if not box or box.hull_range is None:
+            return
+        
+        # Get current hull range from preview
+        start, end = self.preview_hull_range
+        
+        # Update the appropriate bound based on which edge is being dragged
+        if self.dragged_edge == 'left_outer':
+            # Dragging left outer edge (center - end)
+            # Moving right increases end, moving left decreases end
+            end = end - delta_x
+        elif self.dragged_edge == 'left_inner':
+            # Dragging left inner edge (center - start)
+            # Moving right decreases start, moving left increases start
+            start = start - delta_x
+        elif self.dragged_edge == 'right_inner':
+            # Dragging right inner edge (center + start)
+            # Moving right increases start, moving left decreases start
+            start = start + delta_x
+        elif self.dragged_edge == 'right_outer':
+            # Dragging right outer edge (center + end)
+            # Moving right increases end, moving left decreases end
+            end = end + delta_x
+        
+        # Ensure start <= end and both are positive
+        start = max(0, start)
+        end = max(0, end)
+        if start > end:
+            start, end = end, start
+        
+        # Update preview_hull_range (for rendering)
+        self.preview_hull_range = (start, end)
+        
+        # Update dialog's working_hull_range (for table display)
+        if self.param_editor_dialog is not None and self.param_editor_active:
+            self.param_editor_dialog.working_hull_range = (start, end)
         
         # Update overlay position
         self.showOverlay()
