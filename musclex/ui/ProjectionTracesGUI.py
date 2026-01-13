@@ -736,15 +736,26 @@ class ProjectionTracesGUI(BaseGUI):
 
     def updatePeaks(self, name, peaks):
         """
-        update peaks in box name
-        :param name:
-        :param peaks:
-        :return:
+        Update peaks in both folder template and processor.
+        
+        :param name: Box name
+        :param peaks: Full mirrored peaks (e.g., [10, 20, -10, -20])
+        
+        Design:
+        - self.boxes[name].peaks: Store only first half (folder template)
+        - projProc.boxes[name].peaks: Store full peaks (for immediate processing)
         """
+        # Update folder template (only first half - user-selected side)
         if name in self.boxes:
-            self.boxes[name].peaks = peaks
-            # Clear hull_range when peaks change
-            # self.boxes[name].hull_range = None
+            self.boxes[name].peaks = peaks[:len(peaks)//2] if peaks else []
+            print(f"Updated folder template peaks for '{name}': {len(self.boxes[name].peaks)} peaks (first half)")
+        
+        # Update processor (full peaks for immediate processing)
+        if self.projProc and name in self.projProc.boxes:
+            self.projProc.boxes[name].peaks = peaks
+            # Clear cached results to force re-fitting with new peaks
+            self.projProc.boxes[name].clear_results(from_stage='fit')
+            print(f"Updated processor peaks for '{name}': {len(peaks)} peaks (full)")
 
     def addPeakstoBox(self, name, peaks):
         """
@@ -938,6 +949,11 @@ class ProjectionTracesGUI(BaseGUI):
         """
         self.boxes = {}
         self.boxes_on_img = {}
+        
+        # Clear boxes from processor as well
+        if self.projProc:
+            self.projProc.boxes.clear()
+            
         self.removeAllTabs()
         self.processImage()
 
@@ -1172,8 +1188,13 @@ class ProjectionTracesGUI(BaseGUI):
                     x2 = x2 + width_diff
     
                 box_obj.coordinates = [(x1, x2), (y1, y2)]
-                
-                
+        
+        # Sync coordinates to processor
+        if self.projProc and box_name in self.projProc.boxes:
+            self.projProc.boxes[box_name].coordinates = box_obj.coordinates
+            # Clear histogram results since box region changed
+            self.projProc.boxes[box_name].clear_results(from_stage='hist')
+        
         for artist in self.boxes_on_img[box_name].values():
             artist.remove()
         del self.boxes_on_img[box_name]     
@@ -1240,6 +1261,9 @@ class ProjectionTracesGUI(BaseGUI):
                 # Remove from unified box storage
                 if name in self.boxes:
                     del self.boxes[name]
+                # Remove from processor
+                if self.projProc and name in self.projProc.boxes:
+                    del self.projProc.boxes[name]
                 # Remove visual representation
                 if name in self.boxes_on_img:
                     for artist in self.boxes_on_img[name].values():
