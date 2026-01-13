@@ -2597,30 +2597,42 @@ class ProjectionTracesGUI(BaseGUI):
                     ax.add_patch(aritists['rect'])
                     ax.add_artist(aritists['text'])
 
-            # Draw peaks
+            # Draw peaks (from fit results - subpixel accuracy)
             if self.peaksChkBx.isChecked():
-                for name in self.boxes.keys():
-                    box_obj = self.boxes[name]
-                    if not box_obj.peaks:
+                for name in self.projProc.boxes.keys():
+                    box_obj = self.projProc.boxes[name]
+                    
+                    # Use fit_results for accurate peak positions (subpixel precision)
+                    if not box_obj.fit_results:
                         continue
+                    
                     center = self.projProc.center
                     centerx = center[0]
                     centery = center[1]
                     box = box_obj.coordinates
-                    for p in box_obj.peaks:
+                    
+                    # Extract all p_i from fit_results (already includes both sides)
+                    i = 0
+                    while f'p_{i}' in box_obj.fit_results:
+                        p_rel = box_obj.fit_results[f'p_{i}']  # Relative to center (float)
+                        
                         if box_obj.type == 'h':
-                            ax.plot((centerx - p, centerx - p), box[1], color='m')
-                            ax.plot((centerx + p, centerx + p), box[1], color='m')
+                            abs_x = centerx + p_rel  # Absolute position (subpixel)
+                            ax.plot((abs_x, abs_x), box[1], color='m', linewidth=1)
                         elif box_obj.type == 'oriented':
-                            edge_1 = rotatePoint((box[6][0], box[6][1]), (box[6][0]-p, box[1][0]), np.radians(box[5]))
-                            edge_2 = rotatePoint((box[6][0], box[6][1]), (box[6][0]-p, box[1][1]), np.radians(box[5]))
-                            edge_3 = rotatePoint((box[6][0], box[6][1]), (box[6][0]+p, box[1][0]), np.radians(box[5]))
-                            edge_4 = rotatePoint((box[6][0], box[6][1]), (box[6][0]+p, box[1][1]), np.radians(box[5]))
-                            ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r')
-                            ax.plot((edge_3[0], edge_4[0]), (edge_3[1], edge_4[1]), color='r')
-                        else:
-                            ax.plot(box[0], (centery - p, centery - p), color='r')
-                            ax.plot(box[0], (centery + p, centery + p), color='r')
+                            # For oriented boxes, p_rel is relative to box center
+                            box_center = box[6]  # (cx, cy)
+                            angle = np.radians(box[5])
+                            
+                            # Calculate edge points for this peak
+                            edge_1 = rotatePoint(box_center, (box_center[0] + p_rel, box[1][0]), angle)
+                            edge_2 = rotatePoint(box_center, (box_center[0] + p_rel, box[1][1]), angle)
+                            ax.plot((edge_1[0], edge_2[0]), (edge_1[1], edge_2[1]), color='r', linewidth=1)
+                        else:  # vertical
+                            abs_y = centery + p_rel  # Absolute position (subpixel)
+                            ax.plot(box[0], (abs_y, abs_y), color='r', linewidth=1)
+                        
+                        i += 1
 
         # Draw center circle
         if self.centerChkBx.isChecked():
