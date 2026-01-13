@@ -1912,13 +1912,17 @@ class ProjectionTracesGUI(BaseGUI):
                 print(f"✓ Loaded cached results for {image_data.img_name}")
                 print(f"  - {len(self.projProc.boxes)} boxes with processing results")
                 
-                # Sync cache to GUI
-                self.boxes = {name: box for name, box in self.projProc.boxes.items()}
-                
-                # Update visual representations
-                for name, box in self.boxes.items():
+                # Extract config-only boxes for folder template (keep self.boxes clean)
+                for name, proc_box in self.projProc.boxes.items():
+                    if name not in self.boxes:
+                        # New box: extract config with refined peaks (first half)
+                        self.boxes[name] = self._create_box_copy_without_results(proc_box)
+                        self.boxes[name].peaks = self._extract_refined_peaks(proc_box)
+                        print(f"Added new box '{name}' to folder template: {len(self.boxes[name].peaks)} peaks")
+                    
+                    # Update visual representations
                     if name not in self.boxes_on_img:
-                        self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
+                        self.boxes_on_img[name] = self.genBoxArtists(name, proc_box.coordinates, proc_box.type)
             else:
                 # === Cache Miss: Use folder template ===
                 print(f"✗ No cache for {image_data.img_name}")
@@ -1927,9 +1931,24 @@ class ProjectionTracesGUI(BaseGUI):
                 # Transfer folder template to Processor (without results)
                 for name, box in self.boxes.items():
                     print(f"  Box '{name}' from folder template: {len(box.peaks)} peaks")
-                    # Create a copy with only configuration (no results)
-                    box_copy = self._create_box_copy_without_results(box)
-                    print(f"  After _create_box_copy_without_results: {len(box_copy.peaks)} peaks")
+                    
+                    # Direct copy of configuration (folder template already has config-only, first-half peaks)
+                    # Don't use _create_box_copy_without_results() here because it would reduce peaks again!
+                    box_copy = ProcessingBox(
+                        name=box.name,
+                        coordinates=box.coordinates,
+                        type=box.type,
+                        bgsub=box.bgsub,
+                        peaks=box.peaks.copy() if box.peaks else [],  # Direct copy, already first half
+                        merid_bg=box.merid_bg,
+                        hull_range=box.hull_range,
+                        param_bounds=box.param_bounds.copy() if box.param_bounds else {},
+                        use_common_sigma=box.use_common_sigma,
+                        peak_tolerance=box.peak_tolerance,
+                        sigma_tolerance=box.sigma_tolerance,
+                        # Results fields default to None
+                    )
+                    print(f"  After direct copy: {len(box_copy.peaks)} peaks")
                     
                     # Expand peaks by mirroring user-selected peaks
                     # (folder template only contains first half)
@@ -2116,13 +2135,14 @@ class ProjectionTracesGUI(BaseGUI):
         # === Update folder cache with refined results ===
         self._update_folder_cache_from_results()
         
-        # Sync Processor boxes back to GUI
-        self.boxes = {name: box for name, box in self.projProc.boxes.items()}
+        # Note: Keep self.boxes as folder template (config-only, peaks = first half)
+        # Don't sync full results back to maintain clean state
         
         self.resetUI()
         self.refreshStatusbar()
 
-        self.csvManager.setColumnNames(self.boxes)
+        # Use projProc.boxes for CSV columns (has full peaks info from processing)
+        self.csvManager.setColumnNames(self.projProc.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         QApplication.restoreOverrideCursor()
@@ -2177,13 +2197,14 @@ class ProjectionTracesGUI(BaseGUI):
         # Update folder cache with refined results
         self._update_folder_cache_from_results()
         
-        # Sync Processor boxes back to GUI
-        self.boxes = {name: box for name, box in self.projProc.boxes.items()}
+        # Note: Keep self.boxes as folder template (config-only, peaks = first half)
+        # Don't sync full results back to maintain clean state
         
         self.resetUI()
         self.refreshStatusbar()
         
-        self.csvManager.setColumnNames(self.boxes)
+        # Use projProc.boxes for CSV columns (has full peaks info from processing)
+        self.csvManager.setColumnNames(self.projProc.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         
