@@ -1490,12 +1490,16 @@ class ProjectionBoxTab(QWidget):
         # Update overlay position
         self.showOverlay()
         
-        # Notify parameter editor to update table
+        # Notify parameter editor to update table and bounds
         if self.param_editor_dialog is not None and self.param_editor_active:
             try:
-                self.param_editor_dialog.populateParameters()
+                # Update min/max bounds for all affected peaks (more efficient than populateParameters)
+                # n_total includes both positive and negative (mirrored) peaks
+                if n_total > 0:
+                    peak_indices = list(range(n_total))
+                    self.param_editor_dialog.updatePeakBounds(peak_indices)
             except Exception as e:
-                print(f"Warning: Could not update parameter editor table: {e}")
+                print(f"Warning: Could not update parameter editor bounds: {e}")
         
         # Redraw with updated preview data (no refit, just visual update)
         self.need_update = True

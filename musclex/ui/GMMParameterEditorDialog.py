@@ -427,6 +427,38 @@ class GMMParameterEditorDialog(QDialog):
             minSpin.blockSignals(False)
             maxSpin.blockSignals(False)
     
+    def updatePeakBounds(self, peak_indices):
+        """
+        Update Min/Max bounds for specific peaks after their positions have changed.
+        This is called during drag operations to keep bounds synchronized with peak positions.
+        
+        :param peak_indices: List of peak indices (e.g., [0, 1, 2] for p_0, p_1, p_2)
+        """
+        for row in range(self.paramTable.rowCount()):
+            param_name_item = self.paramTable.item(row, 1)
+            if param_name_item is None:
+                continue
+            param_name = param_name_item.text()
+            
+            # Check if this is one of the affected peaks
+            if param_name.startswith('p_'):
+                try:
+                    peak_idx = int(param_name.split('_')[1])
+                    if peak_idx in peak_indices:
+                        # Get current value from working_params (already updated by drag)
+                        current_value = self.working_params.get(param_name)
+                        if current_value is not None:
+                            # Update value display in table
+                            valueSpin = self.paramTable.cellWidget(row, 2)
+                            if valueSpin is not None:
+                                valueSpin.blockSignals(True)
+                                valueSpin.setValue(current_value)
+                                valueSpin.blockSignals(False)
+                            # Reset bounds based on new value
+                            self._reset_bounds_for_row_by_tolerance(row, param_name, current_value)
+                except (ValueError, IndexError):
+                    continue
+    
     def onFixedToggled(self, item):
         """
         Toggle Fixed checkbox - enable/disable Min/Max
