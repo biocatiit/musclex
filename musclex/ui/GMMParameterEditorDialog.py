@@ -120,7 +120,7 @@ class GMMParameterEditorDialog(QDialog):
         self.refitBtn.setDefault(False)
         self.refitBtn.setToolTip("Re-fit parameters and save changes to fit_results.\nYou can continue editing after saving.")
         
-        self.cancelBtn = QPushButton("Close without Saving")
+        self.cancelBtn = QPushButton("Close")
         self.cancelBtn.clicked.connect(self.reject)
         self.cancelBtn.setAutoDefault(False)
         self.cancelBtn.setDefault(False)
@@ -598,7 +598,7 @@ class GMMParameterEditorDialog(QDialog):
                                       f"Fit Error: {result.get('error', 0):.6f}\n\n"
                                       f"You can:\n"
                                       f"• Continue editing and save again\n"
-                                      f"• Close dialog (unsaved edits will be discarded)")
+                                      f"• Click 'Close' (unsaved edits will be discarded)")
         except Exception as e:
             QMessageBox.critical(self, "Refit Error", str(e))
             import traceback

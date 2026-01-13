@@ -1154,9 +1154,10 @@ class ProjectionBoxTab(QWidget):
             op_peaks = [-x for x in peaks]
             all_peaks = peaks + op_peaks  # [+dist, -dist]
             
-            # Disable GMM mode for single peak selection (update ProcessingBox)
+            # Enable GMM mode for single peak selection (update ProcessingBox)
+            # Using shared sigma provides better fitting stability and physical correctness
             box = self.parent.projProc.boxes[self.name]
-            box.use_common_sigma = False
+            box.use_common_sigma = True
             
             # Set peak and sigma tolerances from UI spinboxes
             # These control the bounds for peak positions and sigmas during fitting
@@ -1168,7 +1169,7 @@ class ProjectionBoxTab(QWidget):
             # which may not match the new peak positions, causing peaks to drift outside hull_range
             box.param_bounds = {}
             
-            # Clear old fit_results to force re-fitting without GMM
+            # Clear old fit_results to force re-fitting with GMM
             box.fit_results = None
             
             self.function = None
