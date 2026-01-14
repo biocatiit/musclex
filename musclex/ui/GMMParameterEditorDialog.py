@@ -622,7 +622,7 @@ class GMMParameterEditorDialog(QDialog):
                 else:
                     sigmas = [result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result]
                     sigma_info = f"Sigmas (first 5): {[f'{s:.2f}' for s in sigmas if s]}"
-                
+                QApplication.restoreOverrideCursor()
                 QMessageBox.information(self, "Refit & Save Complete", 
                                       f"✓ Changes saved to fit_results!\n\n"
                                       f"Mode: {mode}\n"
@@ -632,11 +632,10 @@ class GMMParameterEditorDialog(QDialog):
                                       f"• Continue editing and save again\n"
                                       f"• Click 'Close' (unsaved edits will be discarded)")
         except Exception as e:
+            QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, "Refit Error", str(e))
             import traceback
             traceback.print_exc()
-        finally:
-            QApplication.restoreOverrideCursor()
     
     def refitGMM(self, paramInfo):
         """
