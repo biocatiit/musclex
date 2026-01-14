@@ -560,6 +560,8 @@ class EquatorWindow(QMainWindow):
         self.fitChkBx.setChecked(True)
         self.fitChkBxBG = QCheckBox('Fitted Curve\nwith BG')
         self.fitChkBxBG.setChecked(False)
+        self.fitChkBxBGBG = QCheckBox('Fitted Curve (BG)')
+        self.fitChkBxBGBG.setChecked(False)
         self.peakChkBx = QCheckBox('Peaks')
         self.peakChkBx.setChecked(True)
         self.dispZlineChkBx = QCheckBox("Z line")
@@ -576,6 +578,7 @@ class EquatorWindow(QMainWindow):
         self.fitDispOptLayout.addWidget(self.peakChkBx, 1, 0, 1, 1)
         self.fitDispOptLayout.addWidget(self.fitChkBx, 1, 1, 1, 1)
         self.fitDispOptLayout.addWidget(self.fitChkBxBG, 2, 1, 1, 1)
+        self.fitDispOptLayout.addWidget(self.fitChkBxBGBG, 3, 1, 1, 1)
         self.fitDispOptLayout.addWidget(self.dispZlineChkBx, 2, 0, 1, 1)
         self.fitDispOptLayout.addWidget(self.centerXChkBx, 3, 0, 1, 1)
         self.fitDispOptLayout.addWidget(self.graphZoomInB, 4, 0, 1, 1)
@@ -1004,6 +1007,7 @@ class EquatorWindow(QMainWindow):
         self.centerXChkBx.stateChanged.connect(self.refreshGraph)
         self.fitChkBx.stateChanged.connect(self.refreshGraph)
         self.fitChkBxBG.stateChanged.connect(self.refreshGraph)
+        self.fitChkBxBGBG.stateChanged.connect(self.refreshGraph)
         self.graphZoomInB.clicked.connect(self.graphZoomIn)
         self.graphZoomOutB.clicked.connect(self.graphZoomOut)
 
@@ -1437,7 +1441,7 @@ class EquatorWindow(QMainWindow):
             ax = self.fittingAxes
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines[i].remove()
-            ax.plot(bioImg.info['hulls']['all'], color = 'b')
+            ax.plot(bioImg.info['hulls']['all'], color = 'g', label='Convex Hull')
             self.fittingCanvas.draw_idle()
         else:
             # Finish peak selections
@@ -4438,7 +4442,7 @@ class EquatorWindow(QMainWindow):
                 graph = getCardiacGraph(x, fit_result)
                 mask = fit_result['image_mask']
                 graph[mask] = np.nan
-                ax.plot(graph, color = 'b', label=f'Fit. RMSE: {round(fit_result["rmse"], 0)}')
+                ax.plot(graph, color = 'b', label=f'Fit. RMSE: {round(fit_result["rmse"], 2)}')
 
             # draw fitting model
             if self.fitChkBxBG.isChecked():
@@ -4448,7 +4452,17 @@ class EquatorWindow(QMainWindow):
                 if self.ch_chkbx.isChecked():
                     graph += (hist - hull)
                 graph[mask] = np.nan
-                ax.plot(graph, color = 'orange', label=f'Fit with Background.\nRMSE: {round(fit_result["rmse"], 0)}')
+                ax.plot(graph, color = 'orange', label=f'Fit with Background.\nRMSE: {round(fit_result["rmse"], 2)}')
+
+            if self.fitChkBxBGBG.isChecked():
+                x = np.linspace(0, len(hull), len(hull))
+                graphbg = getCardiacGraphBG(x, fit_result)
+                graphfit = getCardiacGraph(x, fit_result)
+                graph = graphbg - graphfit
+                mask = fit_result['image_mask']
+                graph[mask] = np.nan
+                ax.plot(graph, color = 'purple', label=f'Fit (Background).')
+
 
             if 'model_peaks' in fit_result and self.peakChkBx.isChecked():
                 # Draw peak lines
