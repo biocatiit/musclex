@@ -1342,13 +1342,30 @@ class ProjectionBoxTab(QWidget):
     def onParameterEditorClosed(self, result):
         """
         Called when parameter editor dialog is closed
+        This is the ONLY place that handles parameter editor cleanup.
+        
+        Execution order is critical:
+        1. Disable parameter editor state first (before any drawing)
+        2. Clear overlay patches list
+        3. Clear preview data
+        4. Restore snapshots if cancelled
+        5. Redraw UI (without overlay since param_editor_active is now False)
+        
         :param result: QDialog.Accepted or QDialog.Rejected
         """
+        # Step 1: Disable parameter editor state FIRST
+        # This prevents updateUI() from calling showOverlay()
         self.param_editor_active = False
         self.param_editor_dialog = None
-        self.hideOverlay()
         
-        # If user cancelled, restore snapshot
+        # Step 2: Clear overlay patches list (ax.cla() in updateUI will remove them from axes)
+        self.overlay_patches = []
+        
+        # Step 3: Clear preview data (exit preview mode)
+        self.preview_params = None
+        self.preview_hull_range = None
+        
+        # Step 4: If user cancelled, restore snapshot
         if result == QDialog.Rejected:
             import copy
             box = self.get_box()
@@ -1358,11 +1375,16 @@ class ProjectionBoxTab(QWidget):
                 if hasattr(self, 'snapshot_hull_range'):
                     box.hull_range = copy.deepcopy(self.snapshot_hull_range)
         
-        # Clean up snapshots
+        # Step 5: Clean up snapshots
         if hasattr(self, 'snapshot_peaks'):
             del self.snapshot_peaks
         if hasattr(self, 'snapshot_hull_range'):
             del self.snapshot_hull_range
+        
+        # Step 6: Redraw UI with saved values (not working/preview values)
+        # Since param_editor_active is now False, this won't trigger showOverlay()
+        self.need_update = True
+        self.updateUI()
     
     def showOverlay(self):
         """

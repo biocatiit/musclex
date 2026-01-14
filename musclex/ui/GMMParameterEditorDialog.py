@@ -858,24 +858,19 @@ class GMMParameterEditorDialog(QDialog):
         Note: This only discards unsaved edits since the last "Refit & Save".
         Changes that were already saved via "Refit & Save" are kept.
         fit_results and box.hull_range were only modified by successful Refit operations.
+        
+        The actual cleanup is handled by parent_tab.onParameterEditorClosed() 
+        which is triggered by the finished signal.
         """
-        # Exit preview mode (revert to last saved fit_results and hull_range)
-        self.parent_tab.preview_params = None
-        self.parent_tab.preview_hull_range = None
-        
-        # Redraw to show saved values (not working values)
-        self.parent_tab.need_update = True
-        self.parent_tab.updateUI()
-        
+        # Let parent handle all cleanup via onParameterEditorClosed callback
         super().reject()
     
     def closeEvent(self, event):
         """
-        Ensure we exit preview mode when dialog is closed
-        Behaves the same as "Close without Saving"
+        Handle dialog close event (e.g., clicking X button)
+        
+        The actual cleanup is handled by parent_tab.onParameterEditorClosed() 
+        which is triggered by the finished signal when the dialog closes.
         """
-        self.parent_tab.preview_params = None
-        self.parent_tab.preview_hull_range = None
-        self.parent_tab.need_update = True
-        self.parent_tab.updateUI()
+        # Let parent handle all cleanup via onParameterEditorClosed callback
         event.accept()
