@@ -200,8 +200,22 @@ class ProjectionBoxTab(QWidget):
             settings.setValue("initial_setup_done", True)
     
     def get_box(self):
-        """Get the ProcessingBox object for this tab."""
-        return self.parent.boxes.get(self.name)
+        """
+        Get the ProcessingBox object for this tab.
+        
+        Strategy:
+        1. If projProc exists → return actual processing box (projProc.boxes)
+        2. If projProc doesn't exist → return folder template box (self.parent.boxes)
+           (Used during UI initialization before image is loaded)
+        
+        Returns:
+            ProcessingBox or None
+        """
+        if self.parent.projProc is not None:
+            return self.parent.projProc.boxes.get(self.name)
+        else:
+            # Fallback to folder template for UI initialization
+            return self.parent.boxes.get(self.name)
 
     def getCenterX(self):
         """
@@ -560,17 +574,19 @@ class ProjectionBoxTab(QWidget):
         """
         if self.parent.projProc is not None and not self.syncUI:
             self.parent.projProc.removeInfo(self.name, 'fit_results')
-            box = self.get_box()
+            # Directly access projProc.boxes for modifications
+            box = self.parent.projProc.boxes.get(self.name)
             if box:
                 box.merid_bg = self.meridBckGrndChkBx.isChecked()
             self.parent.processImage()
 
     def hullRangeChanged(self):
         """
-        Trigger when convex hull range is changed
+        Trigger when convex hull range is changed (via spinbox)
         """
         if self.parent.projProc is not None and not self.syncUI:
-            box = self.get_box()
+            # Directly access projProc.boxes for modifications
+            box = self.parent.projProc.boxes.get(self.name)
             if box:
                 box.hull_range = (self.startHull.value(), self.endHull.value())
             self.parent.projProc.removeInfo(self.name, 'hists2')
@@ -943,8 +959,13 @@ class ProjectionBoxTab(QWidget):
 
             if len(hull_range) == 2:
                 hull_range = tuple(sorted(hull_range))
-                # Store hull range in ProcessingBox
-                box = self.get_box()
+                
+                # CRITICAL: Must have projProc to set hull_range
+                if self.parent.projProc is None:
+                    return
+                
+                # Store hull range in ProcessingBox (directly access projProc.boxes)
+                box = self.parent.projProc.boxes.get(self.name)
                 if box:
                     box.hull_range = hull_range
                     self.parent.projProc.removeInfo(self.name, 'hists2')
@@ -1649,13 +1670,9 @@ class ProjectionBoxTab(QWidget):
         Draw plots and display results in text
         :return:
         """
-        print(f"[updateUI] Called for box '{self.name}', need_update={self.need_update}")
-        
         if self.parent.projProc is None or not self.need_update:
-            print(f"[updateUI] Skipped - projProc exists: {self.parent.projProc is not None}, need_update: {self.need_update}")
             return
 
-        print(f"[updateUI] Proceeding with UI update...")
         self.syncUI = True
         
         self.lines = []
