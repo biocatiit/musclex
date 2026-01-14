@@ -886,8 +886,15 @@ class EquatorImage:
             #### masking 
             image_mask = np.zeros_like(x, dtype=bool)
             weights = np.ones_like(histNdarray, dtype=float)
-            rmin_fit = self.info.get('rmin_fit', None)
-            rmax_fit = self.info.get('rmax_fit', None)
+            # rmin_fit = self.info.get('rmin_fit', None)
+            # rmax_fit = self.info.get('rmax_fit', None)
+
+            center = self.info['center']
+            shapes = self.image.shape
+            rmax = int(min(center[0], center[1], shapes[1] - center[0], shapes[0] - center[1]) * 0.8)
+            rmin_fit = self.info.get('rmin', None)
+            rmax_fit = self.info.get('rmax', rmax)
+
             print(f"Using center mask with rmin = {rmin_fit} and rmax = {rmax_fit}")
             
             if rmin_fit is not None:

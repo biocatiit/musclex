@@ -632,25 +632,25 @@ class EquatorWindow(QMainWindow):
         # self.k_spnbx.setEnabled(False)
         self.k_spnbx.setValue(0)
 
-        self.rmin_spnbx = QDoubleSpinBox()
-        self.rmin_spnbx.setObjectName('rmin_spnbx')
-        self.editableVars[self.rmin_spnbx.objectName()] = None
-        self.rmin_spnbx.setDecimals(0)
-        self.rmin_spnbx.setRange(0, 500)
-        self.rmin_spnbx.setValue(70)
-        self.rmax_spnbx = QDoubleSpinBox()
-        self.rmax_spnbx.setObjectName('rmax_spnbx')
-        self.editableVars[self.rmax_spnbx.objectName()] = None
-        self.rmax_spnbx.setDecimals(0)
-        self.rmax_spnbx.setRange(0, 6000)
-        self.rmax_spnbx.setValue(1000)
+        # self.rmin_spnbx = QDoubleSpinBox()
+        # self.rmin_spnbx.setObjectName('rmin_spnbx')
+        # self.editableVars[self.rmin_spnbx.objectName()] = None
+        # self.rmin_spnbx.setDecimals(0)
+        # self.rmin_spnbx.setRange(0, 500)
+        # self.rmin_spnbx.setValue(70)
+        # self.rmax_spnbx = QDoubleSpinBox()
+        # self.rmax_spnbx.setObjectName('rmax_spnbx')
+        # self.editableVars[self.rmax_spnbx.objectName()] = None
+        # self.rmax_spnbx.setDecimals(0)
+        # self.rmax_spnbx.setRange(0, 6000)
+        # self.rmax_spnbx.setValue(1000)
 
         self.nfev_spnbx = QDoubleSpinBox()
         self.nfev_spnbx.setObjectName('nfev_spnbx')
         self.editableVars[self.nfev_spnbx.objectName()] = None
         self.nfev_spnbx.setDecimals(0)
         self.nfev_spnbx.setRange(0, 50_000)
-        self.nfev_spnbx.setValue(10_000)
+        self.nfev_spnbx.setValue(25_000)
 
         # Add checkboxes to the background fitting layout
         self.backgroundFittingLayout.addWidget(self.backgroundFittingNote, 0, 0, 1, 4)
@@ -661,12 +661,12 @@ class EquatorWindow(QMainWindow):
         self.backgroundFittingLayout.addWidget(self.ch_chkbx, 2, 0, 1, 4)
         self.backgroundFittingLayout.addWidget(self.de1_chkbx, 3, 0, 1, 4)
         self.backgroundFittingLayout.addWidget(self.el1_chkbx, 4, 0, 1, 4)
-            # self.backgroundFittingLayout.addWidget(self.de2_chkbx, 4, 0, 1, 4)
-            # self.backgroundFittingLayout.addWidget(self.el2_chkbx, 5, 0, 1, 4)
-        self.backgroundFittingLayout.addWidget(self.rmin_chkbx, 5, 0, 1, 1)
-        self.backgroundFittingLayout.addWidget(self.rmin_spnbx, 5, 1, 1, 1)
-        self.backgroundFittingLayout.addWidget(self.rmax_chkbx, 5, 2, 1, 1)
-        self.backgroundFittingLayout.addWidget(self.rmax_spnbx, 5, 3, 1, 1) 
+        self.backgroundFittingLayout.addWidget(self.de2_chkbx, 5, 0, 1, 4)
+        self.backgroundFittingLayout.addWidget(self.el2_chkbx, 6, 0, 1, 4)
+        # self.backgroundFittingLayout.addWidget(self.rmin_chkbx, 5, 0, 1, 1)
+        # self.backgroundFittingLayout.addWidget(self.rmin_spnbx, 5, 1, 1, 1)
+        # self.backgroundFittingLayout.addWidget(self.rmax_chkbx, 5, 2, 1, 1)
+        # self.backgroundFittingLayout.addWidget(self.rmax_spnbx, 5, 3, 1, 1) 
         self.backgroundFittingGrp.setLayout(self.backgroundFittingLayout)
 
         self.k_layout = QHBoxLayout()
@@ -1030,8 +1030,8 @@ class EquatorWindow(QMainWindow):
         self.smoothing_window.editingFinished.connect(self.smoothingWindowChanged)
         self.addGapsButton.clicked.connect(self.addGaps)
         self.clearGapsButton.clicked.connect(self.clearGaps)
-        self.rmin_spnbx.editingFinished.connect(self.rminChanged)
-        self.rmax_spnbx.editingFinished.connect(self.rmaxChanged)
+        # self.rmin_spnbx.editingFinished.connect(self.rminChanged)
+        # self.rmax_spnbx.editingFinished.connect(self.rmaxChanged)
 
         #### Parameter Editor Tab
         self.parameterEditorTable.itemClicked.connect(self.onRowFixed)
@@ -1112,13 +1112,13 @@ class EquatorWindow(QMainWindow):
         """
         self.log_changes('backgroudK', obj=self.k_spnbx)
 
-    def rminChanged(self):
-        self.log_changes('rmin_fit', obj=self.rmin_spnbx)
-        self.bioImg.info['rmin_fit'] = self.rmin_spnbx.value()
+    # def rminChanged(self):
+    #     self.log_changes('rmin_fit', obj=self.rmin_spnbx)
+    #     self.bioImg.info['rmin_fit'] = self.rmin_spnbx.value()
 
-    def rmaxChanged(self):
-        self.log_changes('rmax_fit', obj=self.rmax_spnbx)
-        self.bioImg.info['rmax_fit'] = self.rmax_spnbx.value()
+    # def rmaxChanged(self):
+    #     self.log_changes('rmax_fit', obj=self.rmax_spnbx)
+    #     self.bioImg.info['rmax_fit'] = self.rmax_spnbx.value()
 
     def refitting(self):
         """
@@ -3524,11 +3524,17 @@ class EquatorWindow(QMainWindow):
             if 'paramInfo' in info:
                 self.k_spnbx.setValue(info['paramInfo']['k']['val'])
 
-        if 'rmin_fit' in info:
-            self.rmin_spnbx.setValue(info['rmin_fit'])
+        # if 'rmin_fit' in info:
+        #     self.rmin_spnbx.setValue(info['rmin_fit'])
         
-        if 'rmax_fit' in info:
-            self.rmax_spnbx.setValue(info['rmax_fit'])
+        # if 'rmax_fit' in info:
+        #     self.rmax_spnbx.setValue(info['rmax_fit'])
+
+        # if 'rmin' in info:
+        #     self.rmin_spnbx.setValue(info['rmin'])
+        
+        # if 'rmax' in info:
+        #     self.rmax_spnbx.setValue(info['rmax'])
 
 
         if 'nPeaks' in info:
@@ -4135,11 +4141,11 @@ class EquatorWindow(QMainWindow):
         if self.k_chkbx.isChecked():
             settings['fix_k'] = self.k_spnbx.value()
 
-        if self.rmin_chkbx.isChecked():
-            settings['rmin_fit'] = self.rmin_spnbx.value()
+        # if self.rmin_chkbx.isChecked():
+        #     settings['rmin_fit'] = self.rmin_spnbx.value()
         
-        if self.rmax_chkbx.isChecked():
-            settings['rmax_fit'] = self.rmax_spnbx.value()
+        # if self.rmax_chkbx.isChecked():
+        #     settings['rmax_fit'] = self.rmax_spnbx.value()
 
         if self.ch_chkbx.isChecked():
             settings['background_model'] = 'ConvexHull'
@@ -4156,6 +4162,11 @@ class EquatorWindow(QMainWindow):
 
         if self.de2_chkbx.isChecked():
             settings['background_model'] = ['Exp', 'Exp']
+            if self.ch_chkbx.isChecked():
+                self.ch_chkbx.setChecked(False)
+
+        if self.el2_chkbx.isChecked():
+            settings['background_model'] = ['Exp', 'ModLor']
             if self.ch_chkbx.isChecked():
                 self.ch_chkbx.setChecked(False)
 
