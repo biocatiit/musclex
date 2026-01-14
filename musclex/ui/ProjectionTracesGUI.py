@@ -28,7 +28,6 @@ authorization from Illinois Institute of Technology.
 
 import sys
 import copy
-import pickle
 import traceback
 import json
 import os
@@ -2321,7 +2320,47 @@ class ProjectionTracesGUI(BaseGUI):
             sigma_tolerance=box.sigma_tolerance,
             # Results fields are None (defaults)
         )
-    
+
+    def _box_to_dict(self, box: ProcessingBox) -> dict:
+        return {
+            'name': box.name,
+            'coordinates': box.coordinates,
+            'type': box.type,
+            'bgsub': box.bgsub,
+            'peaks': box.peaks,
+            'merid_bg': box.merid_bg,
+            'hull_range': box.hull_range,
+            'param_bounds': box.param_bounds,
+            'use_common_sigma': box.use_common_sigma,
+            'peak_tolerance': box.peak_tolerance,
+            'sigma_tolerance': box.sigma_tolerance,
+        }
+
+    def _dict_to_box(self, box_dict: dict) -> ProcessingBox:
+        # Convert lists back to tuples where needed (JSON doesn't preserve tuple type)
+        coordinates = box_dict['coordinates']
+        if isinstance(coordinates, list):
+            coordinates = tuple(tuple(item) if isinstance(item, list) else item 
+                              for item in coordinates)
+        
+        hull_range = box_dict.get('hull_range')
+        if hull_range is not None and isinstance(hull_range, list):
+            hull_range = tuple(hull_range)
+        
+        return ProcessingBox(
+            name=box_dict['name'],
+            coordinates=coordinates,
+            type=box_dict['type'],
+            bgsub=box_dict['bgsub'],
+            peaks=box_dict.get('peaks', []),
+            merid_bg=box_dict.get('merid_bg', False),
+            hull_range=hull_range,
+            param_bounds=box_dict.get('param_bounds', {}),
+            use_common_sigma=box_dict.get('use_common_sigma', False),
+            peak_tolerance=box_dict.get('peak_tolerance', 2.0),
+            sigma_tolerance=box_dict.get('sigma_tolerance', 5.0),
+        )
+
     def saveBoxesConfig(self):
         """
         Save folder-level box configuration (without processing results).
@@ -2329,7 +2368,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         cache = {
             'boxes': {
-                name: self._create_box_copy_without_results(box)
+                name: self._box_to_dict(self._create_box_copy_without_results(box))
                 for name, box in self.boxes.items()
             },
             'centerx': self.centerx,
@@ -2338,21 +2377,25 @@ class ProjectionTracesGUI(BaseGUI):
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)
-        cache_file = fullPath(cache_dir, 'boxes_config.info')
-        with open(cache_file, "wb") as f:
-            pickle.dump(cache, f)
-    
+        cache_file = fullPath(cache_dir, 'boxes_config.json')
+        with open(cache_file, "w") as f:
+            json.dump(cache, f, indent=2)
+ 
     def loadBoxesConfig(self):
         """
         Load folder-level box configuration from cache.
         Returns dict with 'boxes', 'centerx', 'centery', 'mask_thres' or None.
         """
-        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_config.info')
+        cache_file = fullPath(fullPath(self.dir_path, 'pt_cache'), 'boxes_config.json')
         if exists(cache_file):
             try:
-                with open(cache_file, "rb") as f:
-                    cache = pickle.load(f)
+                with open(cache_file, "r") as f:
+                    cache = json.load(f)
                 if cache is not None:
+                    cache['boxes'] = {
+                        name: self._dict_to_box(box_dict)
+                        for name, box_dict in cache['boxes'].items()
+                    }
                     return cache
             except Exception as e:
                 print(f"Warning: Failed to load box config cache: {e}")
