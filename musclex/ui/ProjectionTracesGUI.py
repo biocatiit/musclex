@@ -26,6 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
+import shutil
 import sys
 import copy
 import traceback
@@ -558,14 +559,20 @@ class ProjectionTracesGUI(BaseGUI):
  
     def _create_menu_bar(self):
         """Create menu bar"""
-        saveSettingsAction = QAction('Save Current Settings', self)
-        saveSettingsAction.setShortcut('Ctrl+S')
-        saveSettingsAction.triggered.connect(self.saveSettings)
+        saveSettingAction = QAction('Save Current Settings', self)
+        saveSettingAction.setShortcut('Ctrl+S')
+        saveSettingAction.triggered.connect(self.saveSettings)
+
+        loadSettingAction = QAction('Load Settings', self)
+        loadSettingAction.setShortcut('Ctrl+L')
+        loadSettingAction.triggered.connect(self.loadSettings)
+
 
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(saveSettingsAction)
+        fileMenu.addAction(saveSettingAction)
+        fileMenu.addAction(loadSettingAction)
 
         aboutAct = QAction('About', self)
         aboutAct.triggered.connect(self.showAbout)
@@ -676,28 +683,6 @@ class ProjectionTracesGUI(BaseGUI):
         """
         if hasattr(self, 'statusReport'):
             self.statusReport.setText(text)
-
-    def saveSettings(self):
-        """
-        save settings to json
-        """
-        if self.projProc is not None:
-            settings = self.calSettings if self.calSettings is not None else {}
-            cache = self.loadBoxesAndPeaks()
-            if cache is not None:
-                settings.update(cache)
-                # for b in settings["boxes"].items():
-                #     if isinstance(b[1][-1], np.ndarray):
-                #         settings["boxes"][b[0]] = [x for x in b[1]]
-                #         # settings["boxes"][b[0]][-1] = b[1][-1].tolist()
-                #         settings["boxes"][b[0]].pop(-1)
-                # print(settings["boxes"])
-            filename = getSaveFile(os.path.join("musclex", "settings", "ptsettings.json"), None)
-            if filename != "":
-                with open(filename, 'w') as f:
-                    json.dump(settings, f)
-
-    # Note: blankChecked() and blankSettingClicked() removed - now handled by ProcessingWorkspace
 
     def maskThresChanged(self):
         """
@@ -2400,7 +2385,127 @@ class ProjectionTracesGUI(BaseGUI):
             except Exception as e:
                 print(f"Warning: Failed to load box config cache: {e}")
         return None
+
+    def saveSettings(self):
+        """
+        Save current settings to json file.
+        """
+        if self.projProc is None:
+            return
+        
+        cache = {
+            'boxes': {
+                name: self._box_to_dict(self._create_box_copy_without_results(box))
+                for name, box in self.projProc.boxes.items()
+            },
+            'centerx': self.centerx,
+            'centery': self.centery,
+            'mask_thres': self.maskThresSpnBx.value()
+        }
+
+        filename = getSaveFile(os.path.join("musclex", "settings", "pt_template.json"), None)
+        if filename != "":
+            with open(filename, "w") as f:
+                json.dump(cache, f, indent=2)
     
+    def loadSettings(self):
+        """
+        Load template from a JSON file and apply to current folder.
+        This will:
+        1. Copy the selected template to current folder's pt_cache/boxes_config.json
+        2. Load and apply the configuration to runtime variables
+        3. Update UI and visualizations
+        """
+        # Let user select a template file
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Template",
+            os.path.join("musclex", "settings"),
+            "JSON Files (*.json)"
+        )
+        
+        if filename == "":
+            return
+        
+        if not self.dir_path:
+            print("Warning: No directory loaded")
+            return
+        
+        # Copy template to current folder's cache
+        cache_dir = fullPath(self.dir_path, 'pt_cache')
+        createFolder(cache_dir)
+        cache_file = fullPath(cache_dir, 'boxes_config.json')
+        shutil.copyfile(filename, cache_file)
+        
+        # Load configuration
+        cache = self.loadBoxesConfig()
+        if cache is None:
+            print("Warning: Failed to load template configuration")
+            return
+        
+        # Clear existing boxes
+        self.boxes = {}
+        self.boxes_on_img = {}
+        
+        # Apply configuration to runtime variables
+        self.boxes = cache['boxes']
+        self.centerx = cache.get('centerx')
+        self.centery = cache.get('centery')
+        
+        # Update mask threshold spinbox
+        if 'mask_thres' in cache:
+            self.maskThresSpnBx.setValue(cache['mask_thres'])
+        
+        # Sync with projProc if it exists
+        if self.projProc is not None:
+            for name, box in self.boxes.items():
+                # Create a copy with unexpanded peaks
+                box_copy = ProcessingBox(
+                    name=box.name,
+                    coordinates=box.coordinates,
+                    type=box.type,
+                    bgsub=box.bgsub,
+                    peaks=box.peaks.copy() if box.peaks else [],
+                    merid_bg=box.merid_bg,
+                    hull_range=box.hull_range,
+                    param_bounds=box.param_bounds.copy() if box.param_bounds else {},
+                    use_common_sigma=box.use_common_sigma,
+                    peak_tolerance=box.peak_tolerance,
+                    sigma_tolerance=box.sigma_tolerance,
+                )
+                # Expand peaks by mirroring (only in projProc copy)
+                self._expand_peaks_mirrored(box_copy)
+                # Update projProc's boxes to match
+                self.projProc.state.boxes[name] = box_copy
+            # Update mask threshold
+            if 'mask_thres' in cache:
+                self.projProc.state.mask_thres = cache['mask_thres']
+        
+        # Create visual representations for boxes
+        for name, box in self.boxes.items():
+            self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
+        
+        # Update CSV manager with new boxes
+        if self.csvManager is not None:
+            self.csvManager = PT_CSVManager(self.dir_path, self.boxes)
+        
+        # Redraw image with new boxes
+        if hasattr(self, 'displayImgCanvas'):
+            self.displayImgCanvas.draw_idle()
+        
+        print(f"Template loaded: {filename}")
+        print(f"  - Boxes applied: {len(self.boxes)}")
+        
+        # If image is loaded, rebuild tabs and reprocess
+        if self.projProc is not None:
+            self.addBoxTabs()
+            self.processImage()
+            print("  ✓ Image reprocessed with new template")
+                
+
+
+
+        
     def _extract_refined_peaks(self, proc_box: ProcessingBox):
         """
         Extract refined peak positions from fit results.

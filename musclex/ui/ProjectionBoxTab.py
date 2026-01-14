@@ -2023,6 +2023,10 @@ class ProjectionBoxTab(QWidget):
         #fit_gaussians(fixed_indices)
         print(self.fixed_indices)
         
+        # Check if histogram exists for this box
+        if self.name not in self.parent.projProc.info['hists']:
+            return
+        
         hist = self.parent.projProc.info['hists'][self.name]
         
         print(event.xdata - len(hist)/2)
