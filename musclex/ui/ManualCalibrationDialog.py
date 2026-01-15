@@ -27,6 +27,8 @@ authorization from Illinois Institute of Technology.
 """
 
 import numpy as np
+import csv
+import os
 import cv2
 from datetime import datetime
 from matplotlib.backend_bases import MouseButton
@@ -729,6 +731,66 @@ class ManualCalibrationDialog(QDialog):
 
         return c, r, best_obj
 
+    def _get_history_export_dir(self):
+        """
+        Choose a directory to export the optimization history CSV.
+        Prefer the calibration file directory (if available), otherwise cwd.
+        """
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "calFile"):
+            cal_file = getattr(parent, "calFile", None)
+            if cal_file:
+                return os.path.dirname(str(cal_file))
+        return os.getcwd()
+
+    def _export_history_csv(self):
+        """
+        Export optimization history to a CSV file for analysis.
+        """
+        if not self.optimization_history:
+            return None
+
+        export_dir = self._get_history_export_dir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"manual_calibration_history_{timestamp}.csv"
+        out_path = os.path.join(export_dir, filename)
+
+        fieldnames = [
+            "eval_index",
+            "phase",
+            "center_x",
+            "center_y",
+            "radius",
+            "delta",
+            "objective",
+            "accepted",
+            "best_objective",
+        ]
+
+        try:
+            with open(out_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for i, row in enumerate(self.optimization_history):
+                    writer.writerow(
+                        {
+                            "eval_index": i,
+                            "phase": row.get("phase"),
+                            "center_x": row.get("center", [None, None])[0],
+                            "center_y": row.get("center", [None, None])[1],
+                            "radius": row.get("radius"),
+                            "delta": row.get("delta"),
+                            "objective": row.get("objective"),
+                            "accepted": row.get("accepted"),
+                            "best_objective": row.get("best_objective"),
+                        }
+                    )
+        except OSError as exc:
+            print_log(f"Failed to export optimization history: {exc}")
+            return None
+
+        return out_path
+
     # ===================== end objective-based refinement =====================
     
     def applyCalibration(self):
@@ -773,11 +835,15 @@ class ManualCalibrationDialog(QDialog):
         self.radius = opt_radius
 
         self.scale = self.radius * self.silverBehenateSpinBox.value()
+
+        history_path = self._export_history_csv()
         
         print_log(
             f"Final fit (after objective opt) - Center: {self.center}, Radius: {self.radius}, "
             f"Scale: {self.scale}, Obj: {opt_obj:.6g}, Evals: {len(self.optimization_history)}"
         )
+        if history_path:
+            print_log(f"Optimization history exported: {history_path}")
         
         # Update display
         self.displayCalibrationResults()
