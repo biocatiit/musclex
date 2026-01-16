@@ -169,6 +169,7 @@ class ProjectionBoxTab(QWidget):
         self.zoom2 = None
         self.zoomRect = None
         self.centerX = None
+        self.auto_zoom_applied = False  # Flag to track if auto-zoom has been applied
         
         self.dragging = False
         self.dragged_line = None
@@ -708,6 +709,78 @@ class ProjectionBoxTab(QWidget):
         self.zoom1 = None
         self.zoom2 = None
         self.resetUI()
+
+    def autoZoomToHullRange(self):
+        """
+        Auto-zoom graph1 to show user-selected hull_range side in the center 3/4 of the view.
+        
+        Strategy:
+        - X axis: User-selected side hull_range (right side) occupies middle 3/4 (1/8 padding on each side)
+        - Y axis: find min/max in that hull_range region, add 10% padding
+        
+        Only applies to graph1 (original projection), graph2 stays at default zoom.
+        """
+        if self.parent.projProc is None:
+            return
+        
+        box = self.get_box()
+        if box is None or box.hull_range is None:
+            return
+        
+        name = self.name
+        info = self.parent.projProc.info
+        
+        if name not in info['hists']:
+            return
+        
+        hist = info['hists'][name]
+        centerX = self.getCenterX()
+        start, end = box.hull_range
+        
+        # === X axis: Show only user-selected side (right side) in middle 3/4 ===
+        # User-selected hull_range is on right side: [centerX + start, centerX + end]
+        hull_width = end - start  # Width of user-selected region
+        
+        # Calculate view width: hull_range should occupy 3/4
+        # So: hull_width = view_width * 3/4
+        # => view_width = hull_width / 0.75
+        view_width = hull_width / 0.75
+        
+        # Center the view on the middle of user-selected hull_range
+        hull_center = centerX + (start + end) / 2
+        x_min = hull_center - view_width / 2
+        x_max = hull_center + view_width / 2
+        
+        # Clamp to valid range
+        x_min = max(0, x_min)
+        x_max = min(len(hist), x_max)
+        
+        # === Y axis: find min/max in user-selected hull_range region ===
+        # Only look at right side: [centerX + start, centerX + end]
+        region_start = int(max(0, centerX + start))
+        region_end = int(min(len(hist), centerX + end))
+        
+        # Extract data in hull_range region
+        region_data = hist[region_start:region_end] if region_start < region_end else []
+        
+        if len(region_data) > 0:
+            y_min = np.min(region_data)
+            y_max = np.max(region_data)
+            
+            # Add 10% padding
+            y_range = y_max - y_min
+            y_padding = y_range * 0.1
+            y_min = y_min - y_padding
+            y_max = y_max + y_padding
+        else:
+            # Fallback: use full hist range
+            y_min = np.min(hist)
+            y_max = np.max(hist)
+        
+        # Set zoom1 (only for graph1)
+        self.zoom1 = [(x_min, x_max), (y_min, y_max)]
+        
+        # Note: zoom2 stays None (graph2 will use default full view)
 
     def setZoomIn(self, point1, point2):
         """
@@ -1988,6 +2061,18 @@ class ProjectionBoxTab(QWidget):
                 item = QTableWidgetItem(str(area))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 3, item)
+        
+        # Auto-zoom graph1 to hull_range on first load (only if not already applied)
+        if not self.auto_zoom_applied and self.zoom1 is None and self.graphMaxBound is not None:
+            box = self.get_box()
+            if box and box.hull_range is not None:
+                self.autoZoomToHullRange()
+                self.auto_zoom_applied = True  # Mark as applied
+                # Apply the zoom to graph1
+                if self.zoom1 is not None:
+                    self.graphAxes1.set_xlim(self.zoom1[0])
+                    self.graphAxes1.set_ylim(self.zoom1[1])
+                    self.graphCanvas1.draw_idle()
         
         self.need_update = False
         self.syncUI = False
