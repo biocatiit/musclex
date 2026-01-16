@@ -1596,6 +1596,17 @@ class ProjectionBoxTab(QWidget):
         # Update dialog's working_hull_range (for table display)
         if self.param_editor_dialog is not None and self.param_editor_active:
             self.param_editor_dialog.working_hull_range = (new_start, new_end)
+            
+            # Directly update spinbox display (efficient - no full table refresh)
+            try:
+                self.param_editor_dialog.hullStartSpinBox.blockSignals(True)
+                self.param_editor_dialog.hullEndSpinBox.blockSignals(True)
+                self.param_editor_dialog.hullStartSpinBox.setValue(float(new_start))
+                self.param_editor_dialog.hullEndSpinBox.setValue(float(new_end))
+                self.param_editor_dialog.hullStartSpinBox.blockSignals(False)
+                self.param_editor_dialog.hullEndSpinBox.blockSignals(False)
+            except Exception as e:
+                print(f"Warning: Could not update hull range spinboxes: {e}")
         
         # Update overlay position
         self.showOverlay()
