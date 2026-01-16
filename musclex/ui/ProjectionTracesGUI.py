@@ -1916,32 +1916,13 @@ class ProjectionTracesGUI(BaseGUI):
             
             # Check if image-level cache was loaded
             if len(self.projProc.boxes) > 0:
-                # === Cache Hit: Use cached results ===
-                print(f"✓ Loaded cached results for {image_data.img_name}")
-                print(f"  - {len(self.projProc.boxes)} boxes with processing results")
-                
-                # Extract config-only boxes for folder template (keep self.boxes clean)
                 for name, proc_box in self.projProc.boxes.items():
-                    if name not in self.boxes:
-                        # New box: extract config with refined peaks (first half)
-                        self.boxes[name] = self._create_box_copy_without_results(proc_box)
-                        self.boxes[name].peaks = self._extract_refined_peaks(proc_box)
-                        print(f"Added new box '{name}' to folder template: {len(self.boxes[name].peaks)} peaks")
-                    
-                    # Update visual representations
                     if name not in self.boxes_on_img:
                         self.boxes_on_img[name] = self.genBoxArtists(name, proc_box.coordinates, proc_box.type)
             else:
-                # === Cache Miss: Use folder template ===
-                print(f"✗ No cache for {image_data.img_name}")
-                print(f"  - Using folder template ({len(self.boxes)} boxes)")
-                
                 # Transfer folder template to Processor (without results)
                 for name, box in self.boxes.items():
-                    print(f"  Box '{name}' from folder template: {len(box.peaks)} peaks")
-                    
                     # Direct copy of configuration (folder template already has config-only, first-half peaks)
-                    # Don't use _create_box_copy_without_results() here because it would reduce peaks again!
                     box_copy = ProcessingBox(
                         name=box.name,
                         coordinates=box.coordinates,
@@ -2277,35 +2258,6 @@ class ProjectionTracesGUI(BaseGUI):
         # hull_range doesn't need mirroring - it's already symmetric
         # (start, end) defines distance ranges from center for both positive and negative sides
     
-    def _create_box_copy_without_results(self, box: ProcessingBox) -> ProcessingBox:
-        """
-        Create a copy of ProcessingBox with only configuration, no processing results.
-        Used when saving folder-level cache (template).
-        
-        IMPORTANT: Only saves the FIRST HALF of peaks (user-selected side).
-        The mirrored peaks will be regenerated when loading.
-        
-        hull_range is saved as-is because it's already a symmetric concept:
-        (start, end) defines distance ranges from center for both sides.
-        """
-        # Extract only the first half of peaks (user-selected)
-        user_peaks = box.peaks[:len(box.peaks)//2] if box.peaks else []
-        
-        return ProcessingBox(
-            name=box.name,
-            coordinates=box.coordinates,
-            type=box.type,
-            bgsub=box.bgsub,
-            peaks=user_peaks,  # Only first half
-            merid_bg=box.merid_bg,
-            hull_range=box.hull_range,  # Keep as-is (already symmetric)
-            param_bounds=box.param_bounds.copy() if box.param_bounds else {},
-            use_common_sigma=box.use_common_sigma,
-            peak_tolerance=box.peak_tolerance,
-            sigma_tolerance=box.sigma_tolerance,
-            # Results fields are None (defaults)
-        )
-
     def _box_to_dict(self, box: ProcessingBox) -> dict:
         return {
             'name': box.name,
@@ -2353,7 +2305,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         cache = {
             'boxes': {
-                name: self._box_to_dict(self._create_box_copy_without_results(box))
+                name: self._box_to_dict(box)
                 for name, box in self.boxes.items()
             },
             'centerx': self.centerx,
@@ -2395,8 +2347,8 @@ class ProjectionTracesGUI(BaseGUI):
         
         cache = {
             'boxes': {
-                name: self._box_to_dict(self._create_box_copy_without_results(box))
-                for name, box in self.projProc.boxes.items()
+                name: self._box_to_dict(box)
+                for name, box in self.boxes.items()
             },
             'centerx': self.centerx,
             'centery': self.centery,
@@ -2569,9 +2521,20 @@ class ProjectionTracesGUI(BaseGUI):
             refined_peaks = self._extract_refined_peaks(proc_box)
             
             if name not in self.boxes:
-                # New box: add to folder cache
-                self.boxes[name] = self._create_box_copy_without_results(proc_box)
-                self.boxes[name].peaks = refined_peaks
+                # New box: add to folder cache with refined peaks
+                self.boxes[name] = ProcessingBox(
+                    name=proc_box.name,
+                    coordinates=proc_box.coordinates,
+                    type=proc_box.type,
+                    bgsub=proc_box.bgsub,
+                    peaks=refined_peaks,  # Directly use refined peaks (already first half)
+                    merid_bg=proc_box.merid_bg,
+                    hull_range=proc_box.hull_range,
+                    param_bounds=proc_box.param_bounds.copy() if proc_box.param_bounds else {},
+                    use_common_sigma=proc_box.use_common_sigma,
+                    peak_tolerance=proc_box.peak_tolerance,
+                    sigma_tolerance=proc_box.sigma_tolerance,
+                )
                 print(f"Added new box to folder cache: {name}")
                 print(f"  - Refined peaks: {refined_peaks}")
             else:
