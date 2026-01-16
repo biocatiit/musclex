@@ -724,16 +724,10 @@ class ProjectionBoxTab(QWidget):
             return
         
         box = self.get_box()
-        if box is None or box.hull_range is None:
+        if box is None or box.hull_range is None or box.hist is None:
             return
         
-        name = self.name
-        info = self.parent.projProc.info
-        
-        if name not in info['hists']:
-            return
-        
-        hist = info['hists'][name]
+        hist = box.hist
         centerX = self.getCenterX()
         start, end = box.hull_range
         
