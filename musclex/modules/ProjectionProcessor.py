@@ -39,12 +39,12 @@ import fabio
 from musclex import __version__
 try:
     from ..utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
-    from ..utils.histogram_processor import movePeaks, getPeakInformations, convexHull
+    from ..utils.histogram_processor import getPeakInformations, convexHull
     from ..utils.image_processor import *
     from ..utils.image_data import ImageData
 except: # for coverage
     from utils.file_manager import fullPath, createFolder, ifHdfReadConvertless, getBlankImageAndMask, getMaskOnly
-    from utils.histogram_processor import movePeaks, getPeakInformations, convexHull
+    from utils.histogram_processor import getPeakInformations, convexHull
     from utils.image_processor import *
     from utils.image_data import ImageData
 
@@ -1063,44 +1063,9 @@ class ProjectionProcessor:
                     globalpeak = int(round(model['centerX']+p))
                     if 0 <= globalpeak <= len(hist):
                         moved.append(globalpeak)
-
-                # Constrain movePeaks search range by hull_ranges if available
-                if box.hull_range is not None:
-                    # Get hull range (start, end are distances from center)
-                    hull_start, hull_end = box.hull_range
-                    centerX = int(round(model['centerX']))
-                    
-                    # Move each peak with constrained search distance
-                    default_dist = 10
-                    constrained_moved = []
-                    for pk in moved:
-                        # Determine valid boundaries based on peak position
-                        if pk > centerX:
-                            # Positive direction: [centerX + hull_start, centerX + hull_end]
-                            valid_min = max(0, centerX + hull_start)
-                            valid_max = min(len(hist), centerX + hull_end)
-                        else:
-                            # Negative direction: [centerX - hull_end, centerX - hull_start]
-                            valid_min = max(0, centerX - hull_end)
-                            valid_max = min(len(hist), centerX - hull_start)
-                        
-                        # Calculate distance to valid boundaries
-                        dist_to_min = pk - valid_min
-                        dist_to_max = valid_max - pk
-                        
-                        # Use the smaller of: default dist, distance to boundaries
-                        max_search_dist = min(default_dist, dist_to_min, dist_to_max)
-                        max_search_dist = max(3, max_search_dist)  # At least 3 pixels
-                        
-                        # Move this peak with constrained distance
-                        moved_single = movePeaks(hist, [pk], max_search_dist)
-                        constrained_moved.append(moved_single[0])
-                    
-                    moved = constrained_moved
-                else:
-                    # No hull range constraint, use default
-                    moved = movePeaks(hist, moved, 10)
                 
+                # Use Gaussian fit positions directly (more accurate than movePeaks)
+                # This respects fixed peaks and avoids noise-induced position errors
                 box.moved_peaks = moved
                 box.baselines = None  # Clear downstream results
 
