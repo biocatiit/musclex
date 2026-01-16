@@ -1053,7 +1053,7 @@ class ProjectionBoxTab(QWidget):
         :return:
         """
         if self.zoomRect is not None and self.zoomRect in ax.patches:
-            ax.patches.remove(self.zoomRect)
+            self.zoomRect.remove()
 
         x1 = min(point1[0], point2[0])
         x2 = max(point1[0], point2[0])
