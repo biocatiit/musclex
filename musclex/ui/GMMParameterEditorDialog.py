@@ -597,6 +597,21 @@ class GMMParameterEditorDialog(QDialog):
                 if box.hull_range:
                     self.working_hull_range = box.hull_range
                     self.parent_tab.preview_hull_range = self.working_hull_range
+                    
+                    # Update snapshot so Close won't revert Refitted changes
+                    import copy
+                    if hasattr(self.parent_tab, 'snapshot_hull_range'):
+                        self.parent_tab.snapshot_hull_range = copy.deepcopy(box.hull_range)
+                    
+                    # Update zoom to match new hull_range
+                    if self.parent_tab.zoom1 is not None:
+                        self.parent_tab.autoZoomToHullRange()
+                
+                # Also update peaks snapshot
+                if box.peaks:
+                    import copy
+                    if hasattr(self.parent_tab, 'snapshot_peaks'):
+                        self.parent_tab.snapshot_peaks = copy.deepcopy(box.peaks)
                 
                 # Update table with new values
                 self.populateParameters()
