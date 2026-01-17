@@ -2469,15 +2469,12 @@ class ProjectionTracesGUI(BaseGUI):
         The fitting preserves peak order, so the first half corresponds to the original
         user-selected peaks.
         
-        Returns:
-            List of refined peak positions (first half only), or original peaks if no fit results.
-        """
-        if proc_box.fit_results is None:
-            # No fit results: return first half of original peaks
-            result = proc_box.peaks[:len(proc_box.peaks)//2] if proc_box.peaks else []
-            print(f"  [_extract_refined_peaks] No fit results for '{proc_box.name}': {len(proc_box.peaks)} peaks → {len(result)} (first half)")
-            return result
+        NOTE: This method assumes proc_box.fit_results is not None.
+        Caller must check this before calling.
         
+        Returns:
+            List of refined peak positions (first half only)
+        """
         fit_results = proc_box.fit_results
         refined_peaks = []
         
@@ -2487,11 +2484,6 @@ class ProjectionTracesGUI(BaseGUI):
             peak_pos = fit_results[f'p_{i}']
             refined_peaks.append(float(peak_pos))
             i += 1
-        
-        if len(refined_peaks) == 0:
-            result = proc_box.peaks[:len(proc_box.peaks)//2] if proc_box.peaks else []
-            print(f"  [_extract_refined_peaks] No p_i in fit results for '{proc_box.name}': {len(proc_box.peaks)} peaks → {len(result)} (first half)")
-            return result
         
         # Return only the first half (user-selected side)
         result = refined_peaks[:len(refined_peaks)//2]
