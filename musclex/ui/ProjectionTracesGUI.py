@@ -1267,8 +1267,8 @@ class ProjectionTracesGUI(BaseGUI):
 
     def addBoxTabs(self):
         """
-        Add old box tabs
-        :return:
+        Add box tabs based on current image's boxes.
+        Uses projProc.boxes if available (current image), otherwise uses folder template.
         """
         # Save current tab index and name
         current_index = self.tabWidget.currentIndex()
@@ -1279,9 +1279,15 @@ class ProjectionTracesGUI(BaseGUI):
         
         self.removeAllTabs()
 
+        # Use current image's boxes if available, otherwise use folder template
+        if self.projProc is not None:
+            boxes_to_display = self.projProc.boxes
+        else:
+            boxes_to_display = self.boxes
+
         # Rebuild tabs and track the index to restore
         restore_index = 0
-        for idx, name in enumerate(self.boxes.keys(), start=1):
+        for idx, name in enumerate(boxes_to_display.keys(), start=1):
             proj_tab = ProjectionBoxTab(self, name)
             self.tabWidget.addTab(proj_tab, "Box "+str(name))
             
@@ -1295,7 +1301,7 @@ class ProjectionTracesGUI(BaseGUI):
         # 3. If user was on image tab, stay on image tab
         if restore_index > 0:
             self.tabWidget.setCurrentIndex(restore_index)
-        elif was_on_box_tab and len(self.boxes) > 0:
+        elif was_on_box_tab and len(boxes_to_display) > 0:
             # Was on a box tab, but that box no longer exists -> select first box tab
             self.tabWidget.setCurrentIndex(1)
 
