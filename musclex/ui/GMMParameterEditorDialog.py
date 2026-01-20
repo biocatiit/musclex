@@ -149,13 +149,19 @@ class GMMParameterEditorDialog(QDialog):
         # Extract all parameters
         params_to_show = {}
         
-        # Per-parameter bounds (scheme B): persisted in projProc.info['param_bounds']
-        box_bounds = self.projProc.info.get('param_bounds', {}).get(self.box_name, {})
+        # Per-parameter bounds (scheme B): persisted in box.param_bounds
+        if self.box_name in self.projProc.boxes:
+            box_bounds = self.projProc.boxes[self.box_name].param_bounds
+        else:
+            box_bounds = {}
         if not isinstance(box_bounds, dict):
             box_bounds = {}
         
         # Peak tolerance (fallback for initial bounds if none are stored)
-        peak_tol = self.projProc.info.get('peak_tolerances', {}).get(self.box_name, 2.0)
+        if self.box_name in self.projProc.boxes:
+            peak_tol = self.projProc.boxes[self.box_name].peak_tolerance
+        else:
+            peak_tol = 2.0
         
         # Populate hull range spinboxes (not in table - these are preprocessing constraints)
         if self.working_hull_range and isinstance(self.working_hull_range, (tuple, list)) and len(self.working_hull_range) >= 2:
@@ -363,7 +369,9 @@ class GMMParameterEditorDialog(QDialog):
                 return float(self.parent_tab.peakToleranceSpinBox.value())
         except Exception:
             pass
-        return float(self.projProc.info.get('peak_tolerances', {}).get(self.box_name, 2.0))
+        if self.box_name in self.projProc.boxes:
+            return float(self.projProc.boxes[self.box_name].peak_tolerance)
+        return 2.0
     
     def _get_sigma_tolerance(self) -> float:
         """
@@ -375,7 +383,9 @@ class GMMParameterEditorDialog(QDialog):
                 return float(self.parent_tab.sigmaToleranceSpinBox.value())
         except Exception:
             pass
-        return float(self.projProc.info.get('sigma_tolerances', {}).get(self.box_name, 5.0))
+        if self.box_name in self.projProc.boxes:
+            return float(self.projProc.boxes[self.box_name].sigma_tolerance)
+        return 5.0
     
     def _find_row_for_value_widget(self, widget):
         """

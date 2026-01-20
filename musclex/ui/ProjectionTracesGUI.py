@@ -689,7 +689,9 @@ class ProjectionTracesGUI(BaseGUI):
         Trigger when Mask threshold is changed
         """
         if self.projProc is not None:
-            self.projProc.info['hists'] = {}
+            # Clear histograms for all boxes (info is read-only)
+            for box in self.projProc.boxes.values():
+                box.hist = None
             print("Mask threshold changed")
             self.processImage()
 
@@ -2063,8 +2065,8 @@ class ProjectionTracesGUI(BaseGUI):
         self.syncUI = True
 
         self.maskThresSpnBx.valueChanged.disconnect(self.maskThresChanged)  # Avoid an extra run at launch
-        if 'mask_thres' in self.projProc.info:
-            self.maskThresSpnBx.setValue(self.projProc.info['mask_thres'])
+        if self.projProc.state.mask_thres is not None:
+            self.maskThresSpnBx.setValue(self.projProc.state.mask_thres)
         elif self.maskThresSpnBx.value() == -999:
             self.maskThresSpnBx.setValue(getMaskThreshold(img))
         self.maskThresSpnBx.valueChanged.connect(self.maskThresChanged)
@@ -2218,8 +2220,8 @@ class ProjectionTracesGUI(BaseGUI):
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
-            orig_hists = self.projProc.info['hists']
-            subtr_hists = self.projProc.info['subtracted_hists']
+            orig_hists = {name: box.hist for name, box in self.projProc.boxes.items() if box.hist is not None}
+            subtr_hists = {name: box.subtracted_hist for name, box in self.projProc.boxes.items() if box.subtracted_hist is not None}
 
             for k in orig_hists.keys():
                 hist = orig_hists[k]
@@ -2604,7 +2606,8 @@ class ProjectionTracesGUI(BaseGUI):
             
 
             if "detector" in self.calSettings:
-                self.projProc.info["detector"] = self.calSettings["detector"]
+                # Write to state, not info (info is read-only)
+                self.projProc.state.detector = self.calSettings["detector"]
 
         return settings
 

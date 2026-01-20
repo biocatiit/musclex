@@ -272,9 +272,10 @@ class ProjectionBoxTab(QWidget):
         
         # Normal mode: use fit_results from projProc
         if self.parent.projProc is not None:
-            info = self.parent.projProc.info
-            if 'fit_results' in info and name in info['fit_results']:
-                return info['fit_results'][name]
+            if name in self.parent.projProc.boxes:
+                box = self.parent.projProc.boxes[name]
+                if box.fit_results is not None:
+                    return box.fit_results
         
         return None
 
@@ -554,8 +555,8 @@ class ProjectionBoxTab(QWidget):
         # self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
     
     def editMainPeak(self):
-        # print(self.parent.projProc.info['fit_results'][self.name])
-        dialog = EditPeakDetails(self.parent.projProc.info['fit_results'][self.name])
+        # print(self.parent.projProc.boxes[self.name].fit_results)
+        dialog = EditPeakDetails(self.parent.projProc.boxes[self.name].fit_results)
         if dialog.exec_():
             self.newinfo = dialog.newinfo
             self.refitButton.setEnabled(True)
@@ -1116,7 +1117,7 @@ class ProjectionBoxTab(QWidget):
             
             centerX = self.getCenterX() # this should be the center in the box?
             distance = x - centerX
-            hist = self.parent.projProc.info['hists'][self.name]
+            hist = self.parent.projProc.boxes[self.name].hist
             if int(round(x)) < len(hist):
                 self.parent.pixel_detail.setText("Distance = " + str(round(distance, 3))+", Intensity = "+str(hist[int(round(x))]))
             if self.function is not None:
@@ -1183,9 +1184,9 @@ class ProjectionBoxTab(QWidget):
             
             centerX = self.getCenterX()
             distance = x - centerX
-            all_hists =  self.parent.projProc.info['subtracted_hists']
-            if self.name in all_hists:
-                hist = all_hists[self.name]
+            box = self.parent.projProc.boxes[self.name]
+            if box.subtracted_hist is not None:
+                hist = box.subtracted_hist
                 if int(round(x)) < len(hist):
                     self.parent.pixel_detail.setText(
                         "Distance = " + str(round(distance, 3)) + ", Intensity = " + str(hist[int(round(x))]))
@@ -1328,10 +1329,10 @@ class ProjectionBoxTab(QWidget):
             box.use_common_sigma = True
             
             # Check results after processing
-            if 'fit_results' in self.parent.projProc.info and \
-               self.name in self.parent.projProc.info['fit_results']:
+            box = self.parent.projProc.boxes[self.name]
+            if box.fit_results is not None:
                 
-                result = self.parent.projProc.info['fit_results'][self.name]
+                result = box.fit_results
                 
                 # Enable parameter editor
                 self.paramEditorButton.setEnabled(True)
@@ -1367,8 +1368,8 @@ class ProjectionBoxTab(QWidget):
         """
         Open parameter editor dialog (non-modal, allows interaction with tab)
         """
-        if 'fit_results' not in self.parent.projProc.info or \
-           self.name not in self.parent.projProc.info['fit_results']:
+        box = self.parent.projProc.boxes[self.name]
+        if box.fit_results is None:
             QMessageBox.warning(self, "No Fit Results", 
                               "Please fit peaks first before opening parameter editor.")
             return
@@ -1778,21 +1779,25 @@ class ProjectionBoxTab(QWidget):
         self.lines = []
         
         # Update graphs
-        info = self.parent.projProc.info
         name = self.name
-        if not name in info['box_names']:
+        if name not in self.parent.projProc.boxes:
             return
 
-        hist = info['hists'][name]
-        subtracted_hists = info['subtracted_hists']
-        all_baselines = info['baselines']
-        all_centroids = info['centroids']
-        all_widths = info['widths']
-        all_peaks = info['moved_peaks']
-        all_areas = info['areas']
-        bgsubs = info['bgsubs']
-        merid_bgs = info['merid_bg']
-        hull_ranges = info['hull_ranges']
+        box = self.parent.projProc.boxes[name]
+        hist = box.hist
+        subtracted_hist = box.subtracted_hist
+        baselines = box.baselines
+        centroids = box.centroids
+        widths = box.widths
+        peaks = box.moved_peaks
+        areas = box.areas
+        bgsub = box.bgsub
+        merid_bg = box.merid_bg
+        hull_range = box.hull_range
+
+        # Check if hist is available
+        if hist is None:
+            return
 
         ax = self.graphAxes1
         ax.cla()
@@ -1806,8 +1811,8 @@ class ProjectionBoxTab(QWidget):
         if self.histChkBx.isChecked():
             ax.plot(hist, color='k')
 
-        if name in merid_bgs:
-            self.meridBckGrndChkBx.setChecked(merid_bgs[name])
+        if merid_bg is not None:
+            self.meridBckGrndChkBx.setChecked(merid_bg)
 
         # Get render parameters (supports preview mode for parameter editor)
         model = self._getRenderParams()
@@ -1815,7 +1820,7 @@ class ProjectionBoxTab(QWidget):
         if model is not None:
             self.editMainPeakButton.setEnabled(True)
             xs = np.arange(0, len(hist))
-            convex_hull = hist - info['hists2'][name]
+            convex_hull = hist - box.hist2 if box.hist2 is not None else hist
             
             print(f"[updateUI] Drawing fit for '{name}'")
             print(f"  Fit model checkbox: {self.fitmodelChkBx.isChecked()}")
@@ -1823,28 +1828,28 @@ class ProjectionBoxTab(QWidget):
             print(f"  Model amplitude0: {model.get('amplitude0', 'N/A')}")
             print(f"  Model common_sigma: {model.get('common_sigma', 'N/A')}")
 
-            if self.subHistChkBx.isChecked() and name in subtracted_hists:
-                ax2.plot(subtracted_hists[name], color='k')
+            if self.subHistChkBx.isChecked() and subtracted_hist is not None:
+                ax2.plot(subtracted_hist, color='k')
 
             if self.fitmodelChkBx.isChecked():
                 model_hist = layerlineModel(xs, **model)
                 subtracted_model = model_hist-layerlineModelBackground(xs, **model)
 
-                if bgsubs[name] == 1:
+                if bgsub == 1:
                     # Add convexhull background
                     model_hist = model_hist + convex_hull
 
                 ax.plot(model_hist, color='g')
                 print(f"  Drew fit curve on ax1, model_hist range: [{model_hist.min():.2f}, {model_hist.max():.2f}]")
                 
-                if bgsubs[name] == 2: # if no background subtraction, use the fit from the original model
+                if bgsub == 2: # if no background subtraction, use the fit from the original model
                     ax2.plot(model_hist, color='g')
                 else:
                     ax2.plot(subtracted_model, color='g')
                 print(f"  Drew fit curve on ax2")
 
             if self.bgChkBx.isChecked():
-                if bgsubs[name] == 1:
+                if bgsub == 1:
                     # Add convex hull background
                     ax.fill_between(xs, min(convex_hull), convex_hull, facecolor='b', alpha=0.3)
                 else:
@@ -1890,22 +1895,18 @@ class ProjectionBoxTab(QWidget):
                     i += 1
 
             if self.maxPeaksChkBx.isChecked():
-                peaks = all_peaks[name]
-                for p in peaks:
-                    d = p - model['centerX']
-                    # ax2.axvline(model['centerX'] - d, color='b', alpha=0.7)
-                    ax2.axvline(model['centerX'] + d, color='b', alpha=0.7)
+                if peaks is not None:
+                    for p in peaks:
+                        d = p - model['centerX']
+                        # ax2.axvline(model['centerX'] - d, color='b', alpha=0.7)
+                        ax2.axvline(model['centerX'] + d, color='b', alpha=0.7)
             # max intensity locations
             # if name in all_peaks:
             #     peaks = all_peaks[name]
             #     for p in peaks:
             #         ax2.axvline(p, color='r', alpha=0.7)
 
-            if name in all_centroids and name in all_baselines and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
-                # Add baselines and centroids
-                centroids = all_centroids[name]
-                baselines = all_baselines[name]
-                widths = all_widths[name]
+            if centroids is not None and baselines is not None and (self.centroidChkBx.isChecked() or self.baselineChkBx.isChecked()):
                 centerX = model['centerX']
                 i = 0
                 while 'p_' + str(i) in model:
@@ -1926,12 +1927,12 @@ class ProjectionBoxTab(QWidget):
         if self.preview_hull_range is not None:
             # Preview mode (parameter editor open)
             current_hull_range = self.preview_hull_range
-        elif name in hull_ranges:
+        else:
             # Normal mode
-            current_hull_range = hull_ranges[name]
+            current_hull_range = hull_range
         
         # Check if hull_range is valid (not None, not empty, has 2 elements)
-        if (self.hullRangeChkBx.isChecked() and bgsubs[name] == 1 and 
+        if (self.hullRangeChkBx.isChecked() and bgsub == 1 and 
             current_hull_range is not None and 
             isinstance(current_hull_range, (tuple, list)) and 
             len(current_hull_range) == 2):
@@ -2016,22 +2017,18 @@ class ProjectionBoxTab(QWidget):
 
         # Update Table
         
-        if name in all_centroids and name in all_baselines and model is not None:
-            centroids = all_centroids[name]
-            baselines = all_baselines[name]
-            widths = all_widths[name]
-            areas = all_areas[name]
+        if centroids is not None and baselines is not None and model is not None:
             nPeaks = len(centroids)
-            peaks = np.array(all_peaks[name]) - model['centerX']
+            peaks_for_table = np.array(peaks) - model['centerX'] if peaks is not None else None
             self.resultTable1.setRowCount(nPeaks)
             self.resultTable2.setRowCount(nPeaks)
 
             for i in range(nPeaks):
                 center = round(model['p_'+str(i)], 2)
                 sigma = round(model['sigma'+str(i)], 2)
-                area = round(model['amplitude' + str(i)], 2)
+                area_gauss = round(model['amplitude' + str(i)], 2)
 
-                item = QTableWidgetItem(str(round(peaks[i], 2)))
+                item = QTableWidgetItem(str(round(peaks_for_table[i], 2)) if peaks_for_table is not None else "")
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 0, item)
 
@@ -2043,14 +2040,14 @@ class ProjectionBoxTab(QWidget):
                 # item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 2, item)
 
-                item = QTableWidgetItem(str(area))
+                item = QTableWidgetItem(str(area_gauss))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable1.setItem(i, 3, item)
 
                 centroid = round(centroids[i], 2)
                 baseline = round(baselines[i], 2)
-                width = round(widths[i], 2)
-                area = round(areas[i], 2)
+                width = round(widths[i], 2) if widths is not None else 0.0
+                area_cent = round(areas[i], 2) if areas is not None else 0.0
 
                 item = QTableWidgetItem(str(baseline))
                 self.resultTable2.setItem(i, 0, item)
@@ -2063,7 +2060,7 @@ class ProjectionBoxTab(QWidget):
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 2, item)
 
-                item = QTableWidgetItem(str(area))
+                item = QTableWidgetItem(str(area_cent))
                 item.setFlags(Qt.ItemIsEnabled)
                 self.resultTable2.setItem(i, 3, item)
         
@@ -2114,10 +2111,10 @@ class ProjectionBoxTab(QWidget):
         print(self.fixed_indices)
         
         # Check if histogram exists for this box
-        if self.name not in self.parent.projProc.info['hists']:
+        if self.name not in self.parent.projProc.boxes:
             return
         
-        hist = self.parent.projProc.info['hists'][self.name]
+        hist = self.parent.projProc.boxes[self.name].hist
         
         print(event.xdata - len(hist)/2)
         

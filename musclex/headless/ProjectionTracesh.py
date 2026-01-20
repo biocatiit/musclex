@@ -139,12 +139,31 @@ class ProjectionTracesh:
         This will create a new ProjectionProcessor object for the new image if cache is available
         Process the new image if there's no cache.
         """
-        self.projProc = ProjectionProcessor(self.dir_path, self.imgList[self.current_file], self.fileList, self.ext)
+        # Load image data
+        import fabio
+        from ..utils.image_data import ImageData
+        from ..utils.file_manager import fullPath
+        
+        img_name = self.imgList[self.current_file]
+        img_full_path = fullPath(self.dir_path, img_name)
+        img = fabio.open(img_full_path).data
+        
+        # Create ImageData object
+        image_data = ImageData(img, self.dir_path, img_name)
+        
+        # Create ProjectionProcessor with ImageData
+        self.projProc = ProjectionProcessor(image_data)
         if self.mask_thres == -999:
             self.mask_thres = getMaskThreshold(self.projProc.orig_img)
+        
+        # Get center from ImageData instead of info
+        center = self.projProc._image_data.center
+        self.centerx, self.centery = center
+        
         if self.center_func is None:
             self.center_func = 'init'
-        self.updateCenter() # do not update fit results
+        elif self.center_func != 'init':
+            self.updateCenter() # do not update fit results for 'init' mode
         # Process new image
         self.processImage()
 
@@ -159,12 +178,8 @@ class ProjectionTracesh:
         elif self.center_func == 'quadrant_fold': # default to quadrant folded
             self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
             self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
-        elif self.center_func == 'init': # loading from the cache if it exists
-            self.centerx = self.projProc.info['centerx']
-            self.centery = self.projProc.info['centery']
-
-        self.projProc.info['centerx'] = self.centerx
-        self.projProc.info['centery'] = self.centery
+        elif self.center_func == 'init': # loading from cache - center already set above
+            pass  # centerx and centery already set from ImageData
 
         self.projProc.cache = None
         self.refit = refit
@@ -190,9 +205,23 @@ class ProjectionTracesh:
         if self.lock is not None:
             self.lock.acquire()
         self.cacheBoxesAndPeaks()
-        self.csvManager = PT_CSVManager(self.dir_path, self.allboxes, self.peaks)
+        
+        # Convert old-style boxes/peaks dicts to ProcessingBox objects
+        from ..modules.ProjectionProcessor import ProcessingBox
+        processing_boxes = {}
+        for box_name, coords in self.allboxes.items():
+            box_type = self.boxtypes.get(box_name, 'h')  # default to horizontal
+            box_peaks = self.peaks.get(box_name, [])
+            processing_boxes[box_name] = ProcessingBox(
+                name=box_name,
+                coordinates=coords,
+                type=box_type,
+                bgsub=0,  # default gaussian fitting
+                peaks=box_peaks
+            )
+        
+        self.csvManager = PT_CSVManager(self.dir_path, processing_boxes)
         self.csvManager.loadSummary()
-        self.csvManager.setColumnNames(self.allboxes, self.peaks)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         # release the lock
@@ -209,8 +238,8 @@ class ProjectionTracesh:
             createFolder(path)
             fullname = str(self.projProc.filename)
             filename, _ = splitext(fullname)
-            orig_hists = self.projProc.info['hists']
-            subtr_hists = self.projProc.info['subtracted_hists']
+            orig_hists = {name: box.hist for name, box in self.projProc.boxes.items() if box.hist is not None}
+            subtr_hists = {name: box.subtracted_hist for name, box in self.projProc.boxes.items() if box.subtracted_hist is not None}
 
             for k in orig_hists.keys():
                 hist = orig_hists[k]
@@ -322,14 +351,13 @@ class ProjectionTracesh:
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
             if "center" in self.calSettings and self.center_func != 'manual':
                 settings["center"] = self.calSettings["center"]
-                self.projProc.info['orig_center'] = self.calSettings["center"]
-                self.projProc.info['centery'] = self.calSettings["center"][1]
-                self.projProc.info['centerx'] = self.calSettings["center"][0]
-            else:
-                del self.projProc.info['centerx']
-                del self.projProc.info['centery']
+                # Set center on ImageData instead of info (info is read-only)
+                self.projProc._image_data.set_manual_center(self.calSettings["center"])
+            # else: No need to delete - center will auto-calculate if not manually set
+            
             if "detector" in self.calSettings:
-                self.projProc.info["detector"] = self.calSettings["detector"]
+                # Write to state, not info (info is read-only)
+                self.projProc.state.detector = self.calSettings["detector"]
 
         return settings
 

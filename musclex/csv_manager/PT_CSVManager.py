@@ -98,50 +98,48 @@ class PT_CSVManager:
     def writeNewData(self, projProc):
         """
         Add new data to dataframe, then re-write summary.csv
-        :param projProc: Projection Processor object with results in its info dict
+        :param projProc: Projection Processor object with results
         :return: -
         """
         file_name = projProc.filename
-        info = projProc.info
         self.removeData(file_name)
         new_data = {
             'Filename' : file_name
         }
 
-        box_names = info['box_names']
-        for bn in box_names:
-            if 'fit_results' in info and bn in info['fit_results']:
-                model = info['fit_results'][bn]
+        for bn, box in projProc.boxes.items():
+            if box.fit_results is not None:
+                model = box.fit_results
                 new_data['Box ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
                 new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
-                if 'centroids' in info and bn in info['centroids']:
-                    centroids = info['centroids'][bn]
-                    moved_peaks = np.array(info['moved_peaks'][bn]) - model['centerX']
+                if box.centroids is not None:
+                    centroids = box.centroids
+                    moved_peaks = np.array(box.moved_peaks) - model['centerX']
                     for i,c in enumerate(centroids):
                         side = " right" if i%2 == 0 else " left"
                         new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (Pixel)"] = moved_peaks[i]
                         new_data["Box " + str(bn) + " Centroid " + str(i//2) + side + " (Pixel)"] = c
-                        new_data["Box " + str(bn) + " Centroid Area " + str(i//2) + side] = info["areas"][bn][i]
+                        new_data["Box " + str(bn) + " Centroid Area " + str(i//2) + side] = box.areas[i]
                         new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (Pixel)"] = model['p_'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(i//2) + side] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(i//2)+ side] = model['amplitude'+str(i)]
-                        if 'lambda_sdd' in info and info['lambda_sdd'] is not None:
-                            new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (nm)"] = info['lambda_sdd']/moved_peaks[i]
-                            new_data["Box " + str(bn) + " Centroid " + str(i//2) + side + " (nm)"] = info['lambda_sdd']/c
-                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (nm)"] = info['lambda_sdd'] / model['p_' + str(i)]
+                        if projProc.state.lambda_sdd is not None:
+                            new_data["Box " + str(bn) + " Maximum Point " + str(i//2) + side + " (nm)"] = projProc.state.lambda_sdd/moved_peaks[i]
+                            new_data["Box " + str(bn) + " Centroid " + str(i//2) + side + " (nm)"] = projProc.state.lambda_sdd/c
+                            new_data["Box " + str(bn) + " Gaussian Peak " + str(i//2) + side + " (nm)"] = projProc.state.lambda_sdd / model['p_' + str(i)]
                         if i%2 == 1:
-                            new_data["Box " + str(bn) + " Average Centroid Area " + str(i//2)] = (info["areas"][bn][i] + info["areas"][bn][i-1])/2
+                            new_data["Box " + str(bn) + " Average Centroid Area " + str(i//2)] = (box.areas[i] + box.areas[i-1])/2
                             new_data["Box " + str(bn) + " Average Gaussian Area " + str(i//2)] = (model['amplitude'+str(i)] + model['amplitude'+str(i-1)])/2
                 new_data["Box " + str(bn) + " error"] = model['error']
                 if model['error'] > 0.15:
                     new_data["Box " + str(bn) + " comments"] = "High fitting error"
 
-                new_data["Box " + str(bn) + " Background Sigma"] = info['fit_results'][bn]['bg_sigma']
-                new_data["Box " + str(bn) + " Background Amplitude"] = info['fit_results'][bn]['bg_amplitude']
-                new_data["Box " + str(bn) + " Meridian Background Sigma"] = info['fit_results'][bn]['center_sigma1']
-                new_data["Box " + str(bn) + " Meridian Background Amplitude"] = info['fit_results'][bn]['center_amplitude1']
-                new_data["Box " + str(bn) + " Meridian Sigma"] = info['fit_results'][bn]['center_sigma2']
-                new_data["Box " + str(bn) + " Meridian Amplitude"] = info['fit_results'][bn]['center_amplitude2']
+                new_data["Box " + str(bn) + " Background Sigma"] = model['bg_sigma']
+                new_data["Box " + str(bn) + " Background Amplitude"] = model['bg_amplitude']
+                new_data["Box " + str(bn) + " Meridian Background Sigma"] = model['center_sigma1']
+                new_data["Box " + str(bn) + " Meridian Background Amplitude"] = model['center_amplitude1']
+                new_data["Box " + str(bn) + " Meridian Sigma"] = model['center_sigma2']
+                new_data["Box " + str(bn) + " Meridian Amplitude"] = model['center_amplitude2']
 
         for col in self.colnames:
             if col not in new_data:

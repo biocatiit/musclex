@@ -204,45 +204,6 @@ class ProjectionProcessor:
         """
         return self.state.boxes
     
-    @property
-    def info(self) -> dict:
-        """
-        Legacy compatibility property: provides dict-like access to state.
-        This allows old code to continue working during the transition.
-        
-        WARNING: This is a compatibility shim and will be removed in the future.
-        New code should access self.state or self.boxes directly.
-        """
-        # Create a dict-like view of the state
-        info_dict = {
-            'box_names': set(self.boxes.keys()),
-            'boxes': {name: box.coordinates for name, box in self.boxes.items()},
-            'types': {name: box.type for name, box in self.boxes.items()},
-            'hists': {name: box.hist for name, box in self.boxes.items() if box.hist is not None},
-            'peaks': {name: box.peaks for name, box in self.boxes.items()},
-            'bgsubs': {name: box.bgsub for name, box in self.boxes.items()},
-            'merid_bg': {name: box.merid_bg for name, box in self.boxes.items()},
-            'hull_ranges': {name: box.hull_range for name, box in self.boxes.items() if box.hull_range is not None},
-            'hists2': {name: box.hist2 for name, box in self.boxes.items() if box.hist2 is not None},
-            'fit_results': {name: box.fit_results for name, box in self.boxes.items() if box.fit_results is not None},
-            'subtracted_hists': {name: box.subtracted_hist for name, box in self.boxes.items() if box.subtracted_hist is not None},
-            'moved_peaks': {name: box.moved_peaks for name, box in self.boxes.items() if box.moved_peaks is not None},
-            'baselines': {name: box.baselines for name, box in self.boxes.items() if box.baselines is not None},
-            'centroids': {name: box.centroids for name, box in self.boxes.items() if box.centroids is not None},
-            'widths': {name: box.widths for name, box in self.boxes.items() if box.widths is not None},
-            'areas': {name: box.areas for name, box in self.boxes.items() if box.areas is not None},
-            'param_bounds': {name: box.param_bounds for name, box in self.boxes.items()},
-            'use_common_sigma': {name: box.use_common_sigma for name, box in self.boxes.items()},
-            'peak_tolerances': {name: box.peak_tolerance for name, box in self.boxes.items()},
-            'sigma_tolerances': {name: box.sigma_tolerance for name, box in self.boxes.items()},
-            'mask_thres': self.state.mask_thres,
-            'blank_mask': self.state.blank_mask,
-            'detector': self.state.detector,
-            'orientation_model': self.state.orientation_model,
-            'lambda_sdd': self.state.lambda_sdd,
-            'main_peak_info': self.state.main_peak_info,
-        }
-        return info_dict
     
     @property
     def center(self):
@@ -1125,9 +1086,9 @@ class ProjectionProcessor:
         :return:
         """
         new_baseline = str(new_baseline)
-        baselines = self.info['baselines'][box_name]
-        peak = self.info['moved_peaks'][box_name][peak_num]
-        hist = self.info['subtracted_hists'][box_name]
+        baselines = self.boxes[box_name].baselines
+        peak = self.boxes[box_name].moved_peaks[peak_num]
+        hist = self.boxes[box_name].subtracted_hist
         height = hist[peak]
         if "%" in new_baseline:
             # if new_baseline contain "%", baseline value will use this as percent of peak height
