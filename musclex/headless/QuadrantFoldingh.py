@@ -97,12 +97,25 @@ class QuadrantFoldingh:
         img_full_path = fullPath(self.dir_path, fileName)
         img = fabio.open(img_full_path).data
         
-        # Create QuadrantFolder with loaded image
-        # Note: QuadrantFolder expects img_name with extension
-        self.quadFold = QuadrantFolder(img, self.dir_path, fileName, self)
-
+        # Load calibration settings first if needed
+        center = None
         if self.inputsettings:
-            self.setCalibrationImage()
+            try:
+                import json
+                with open(self.settingspath, 'r') as f:
+                    self.calSettings = json.load(f)
+                if self.calSettings is not None and 'center' in self.calSettings:
+                    center = tuple(self.calSettings['center'])
+            except:
+                self.calSettings = None
+        
+        # Create ImageData object with center if available
+        from ..utils.image_data import ImageData
+        image_data = ImageData(img, self.dir_path, fileName, center=center)
+        
+        # Create QuadrantFolder with ImageData
+        self.quadFold = QuadrantFolder(image_data, self)
+
         self.onImageChanged()
 
     def inputerror(self):
@@ -353,16 +366,9 @@ class QuadrantFoldingh:
             if self.calSettings is not None and 'center' in self.calSettings:
                 # Set center from settings file (treated as manual)
                 center = tuple(self.calSettings['center'])
-                self.quadFold.setBaseCenter(center)
+                self.quadFold.image_data.set_manual_center(center)
             else:
                 self.inputsettings = False
-            if 'manual_center' in self.quadFold.info:
-                del self.quadFold.info['manual_center']
-            if 'center' in self.quadFold.info:
-                del self.quadFold.info['center']
         else:
-            # Reset to auto mode
-            if self.quadFold is not None:
-                self.quadFold.setBaseCenter(None)
-            if self.quadFold is not None and 'center' in self.quadFold.info:
-                del self.quadFold.info['center']
+            # Reset to auto mode - center is already set in ImageData during __init__
+            pass
