@@ -1379,9 +1379,24 @@ class ProjectionTracesGUI(BaseGUI):
                     self.boxes[name] = new_box
                     self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, box_type)
                     
-                    # Add new box to processor
+                    # Add new box to processor (create independent copy to avoid shared reference)
                     if self.projProc:
-                        self.projProc.state.boxes[name] = new_box
+                        box_copy = ProcessingBox(
+                            name=new_box.name,
+                            coordinates=new_box.coordinates,
+                            type=new_box.type,
+                            bgsub=new_box.bgsub,
+                            peaks=new_box.peaks.copy() if new_box.peaks else [],
+                            merid_bg=new_box.merid_bg,
+                            hull_range=new_box.hull_range,
+                            param_bounds=new_box.param_bounds.copy() if new_box.param_bounds else {},
+                            use_common_sigma=new_box.use_common_sigma,
+                            peak_tolerance=new_box.peak_tolerance,
+                            sigma_tolerance=new_box.sigma_tolerance,
+                        )
+                        # Expand peaks for processor (folder template keeps first half only)
+                        self._expand_peaks_mirrored(box_copy)
+                        self.projProc.state.boxes[name] = box_copy
                         
                 self.function = None
                 self.addBoxTabs()
@@ -1504,9 +1519,24 @@ class ProjectionTracesGUI(BaseGUI):
                         self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, 'oriented')
                         self.function = None
                         
-                        # Add new box to processor
+                        # Add new box to processor (create independent copy to avoid shared reference)
                         if self.projProc:
-                            self.projProc.state.boxes[name] = new_box
+                            box_copy = ProcessingBox(
+                                name=new_box.name,
+                                coordinates=new_box.coordinates,
+                                type=new_box.type,
+                                bgsub=new_box.bgsub,
+                                peaks=new_box.peaks.copy() if new_box.peaks else [],
+                                merid_bg=new_box.merid_bg,
+                                hull_range=new_box.hull_range,
+                                param_bounds=new_box.param_bounds.copy() if new_box.param_bounds else {},
+                                use_common_sigma=new_box.use_common_sigma,
+                                peak_tolerance=new_box.peak_tolerance,
+                                sigma_tolerance=new_box.sigma_tolerance,
+                            )
+                            # Expand peaks for processor (folder template keeps first half only)
+                            self._expand_peaks_mirrored(box_copy)
+                            self.projProc.state.boxes[name] = box_copy
 
                         self.addBoxTabs()
                         self.processImage()
