@@ -556,7 +556,15 @@ class ProjectionBoxTab(QWidget):
     
     def editMainPeak(self):
         # print(self.parent.projProc.boxes[self.name].fit_results)
-        dialog = EditPeakDetails(self.parent.projProc.boxes[self.name].fit_results)
+        box = self.get_box()
+        if box is None or box.fit_results is None:
+            QMessageBox.warning(
+                self,
+                "No Fit Results",
+                "Please fit peaks first before editing peak parameters."
+            )
+            return
+        dialog = EditPeakDetails(box.fit_results)
         if dialog.exec_():
             self.newinfo = dialog.newinfo
             self.refitButton.setEnabled(True)
