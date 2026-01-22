@@ -613,9 +613,7 @@ class GMMParameterEditorDialog(QDialog):
                     if hasattr(self.parent_tab, 'snapshot_hull_range'):
                         self.parent_tab.snapshot_hull_range = copy.deepcopy(box.hull_range)
                     
-                    # Update zoom to match new hull_range
-                    if self.parent_tab.zoom1 is not None:
-                        self.parent_tab.autoZoomToHullRange()
+
                 
                 # Also update peaks snapshot
                 if box.peaks:
