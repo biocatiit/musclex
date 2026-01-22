@@ -823,6 +823,16 @@ class GMMParameterEditorDialog(QDialog):
                 for param_name, pinfo in paramInfo.items():
                     if pinfo.get('fixed', False):
                         result_dict[f'{param_name}_fixed'] = True
+
+                # Persist updated ProcessingState to disk cache (same as ProjectionProcessor.process()).
+                # This is intentionally done only after a successful refit so cache isn't polluted by
+                # failed/incomplete fits during interactive editing.
+                try:
+                    self.projProc.cacheInfo()
+                    print(f"Cached updated ProcessingState for {self.projProc.filename}")
+                except Exception as cache_e:
+                    # Cache errors should not break refitting; treat as non-fatal.
+                    print(f"WARNING: Failed to write cache after refit: {cache_e}")
                 
                 # Print comparison if we have old result
                 if old_result:
