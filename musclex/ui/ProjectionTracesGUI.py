@@ -1953,7 +1953,8 @@ class ProjectionTracesGUI(BaseGUI):
             self.projProc = ProjectionProcessor(image_data)
             
             # Check if image-level cache was loaded
-            if len(self.projProc.boxes) > 0:
+            image_cache_loaded = len(self.projProc.boxes) > 0
+            if image_cache_loaded:
                 for name, proc_box in self.projProc.boxes.items():
                     if name not in self.boxes_on_img:
                         self.boxes_on_img[name] = self.genBoxArtists(name, proc_box.coordinates, proc_box.type)
@@ -2000,7 +2001,9 @@ class ProjectionTracesGUI(BaseGUI):
             self.addBoxTabs()
             
             # Process the image
-            self.processImage()
+            # If image-level cache exists, skip ProjectionProcessor.process() (expensive full pipeline)
+            # and only run UI/data export steps using cached results.
+            self.processImage(use_cache=image_cache_loaded)
             
         except Exception as e:
             import traceback
@@ -2122,7 +2125,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.projProc.cache = None
         self.refit = refit
 
-    def processImage(self):
+    def processImage(self, use_cache: bool = False):
         """
         Process Image by getting all settings and call process() of ProjectionTraces object
         Then, write data and update UI
@@ -2131,9 +2134,12 @@ class ProjectionTracesGUI(BaseGUI):
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
-        settings = self.getSettings()
         try:
-            self.projProc.process(settings)
+            if use_cache:
+                print("Image cache detected: skipping ProjectionProcessor.process()")
+            else:
+                settings = self.getSettings()
+                self.projProc.process(settings)
             # self.currentTask = Worker.fromProjProc(self.projProc, settings)
             # self.currentTask.signals.result.connect(self.thread_done)
             # self.currentTask.signals.finished.connect(self.thread_finished)
