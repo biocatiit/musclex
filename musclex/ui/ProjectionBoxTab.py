@@ -1454,6 +1454,20 @@ class ProjectionBoxTab(QWidget):
         self.need_update = True
         self.updateUI()
     
+    def closeParameterEditor(self):
+        """
+        Close parameter editor dialog if open.
+        Called before tab is removed (e.g., during image switch).
+        
+        Returns:
+            bool: True if dialog was open and is being closed, False otherwise
+        """
+        if self.param_editor_dialog is not None and self.param_editor_active:
+            # Close the dialog - this will trigger onParameterEditorClosed via finished signal
+            self.param_editor_dialog.close()
+            return True
+        return False
+    
     def showOverlay(self):
         """
         Show semi-transparent overlay for selected hull range when parameter editor is open

@@ -1271,6 +1271,10 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Add box tabs based on current image's boxes.
         Uses projProc.boxes if available (current image), otherwise uses folder template.
+        
+        Handles open parameter editors during image switch:
+        - Saves which boxes had open parameter editors
+        - After creating new tabs, updates the editors with new image data
         """
         # Save current tab index and name
         current_index = self.tabWidget.currentIndex()
@@ -1278,6 +1282,21 @@ class ProjectionTracesGUI(BaseGUI):
         current_tab_name = None
         if was_on_box_tab:
             current_tab_name = self.tabWidget.tabText(current_index).replace("Box ", "")
+        
+        # Save info about open parameter editors before removing tabs
+        # {box_name: QRect} - save geometry (position + size) for each open editor
+        open_param_editors = {}
+        for i in range(1, self.tabWidget.count()):  # Skip image tab (index 0)
+            tab = self.tabWidget.widget(i)
+            if isinstance(tab, ProjectionBoxTab) and tab.param_editor_active:
+                # Save dialog geometry before closing
+                if tab.param_editor_dialog is not None:
+                    open_param_editors[tab.name] = tab.param_editor_dialog.geometry()
+                else:
+                    open_param_editors[tab.name] = None
+                # Close the dialog before removing the tab
+                # This ensures proper cleanup (onParameterEditorClosed will be triggered)
+                tab.closeParameterEditor()
         
         self.removeAllTabs()
 
@@ -1289,9 +1308,11 @@ class ProjectionTracesGUI(BaseGUI):
 
         # Rebuild tabs and track the index to restore
         restore_index = 0
+        new_tabs = {}  # {box_name: ProjectionBoxTab} to reopen editors after
         for idx, name in enumerate(boxes_to_display.keys(), start=1):
             proj_tab = ProjectionBoxTab(self, name)
             self.tabWidget.addTab(proj_tab, "Box "+str(name))
+            new_tabs[name] = proj_tab
             
             # Check if this is the previously selected tab
             if current_tab_name == name:
@@ -1306,6 +1327,23 @@ class ProjectionTracesGUI(BaseGUI):
         elif was_on_box_tab and len(boxes_to_display) > 0:
             # Was on a box tab, but that box no longer exists -> select first box tab
             self.tabWidget.setCurrentIndex(1)
+        
+        # Reopen parameter editors for boxes that still exist in the new image
+        # This is done after tab restoration so the UI is in a stable state
+        for box_name, saved_geometry in open_param_editors.items():
+            if box_name in new_tabs:
+                new_tab = new_tabs[box_name]
+                # Check if the new image has fit_results for this box
+                box = new_tab.get_box()
+                if box and box.fit_results is not None:
+                    # Reopen parameter editor with new image's data
+                    print(f"Reopening parameter editor for box '{box_name}' after image switch")
+                    new_tab.openParameterEditor()
+                    # Restore saved geometry (position + size)
+                    if saved_geometry is not None and new_tab.param_editor_dialog is not None:
+                        new_tab.param_editor_dialog.setGeometry(saved_geometry)
+                else:
+                    print(f"Box '{box_name}' has no fit_results in new image, not reopening editor")
 
     def imgClicked(self, event):
         """
