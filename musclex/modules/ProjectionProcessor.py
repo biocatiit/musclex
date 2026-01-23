@@ -70,6 +70,13 @@ class ProcessingBox:
     peak_tolerance: float = 2.0
     sigma_tolerance: float = 5.0
     
+    # === Fixed Parameters (for GMM fitting) ===
+    # Dict mapping peak index -> fixed value
+    fixed_center: Dict[int, float] = field(default_factory=dict)
+    fixed_sigma: Dict[int, float] = field(default_factory=dict)
+    fixed_amplitude: Dict[int, float] = field(default_factory=dict)
+    fixed_common_sigma: Optional[float] = None  # For GMM equal variance mode
+    
     # === Intermediate Results ===
     hist: Optional[np.ndarray] = None
     hist2: Optional[np.ndarray] = None
@@ -162,13 +169,6 @@ class ProjectionProcessor:
         self.rotated_img = None
         self.version = __version__
         self.rotMat = None
-        
-        # Fixed parameters (per-box) - legacy support
-        # These will be migrated into ProcessingBox.param_bounds
-        self.fixed_sigma = {}
-        self.fixed_center = {}
-        self.fixed_amplitude = {}
-        self.fixed_common_sigma = {}
         
         # Initialize ProcessingState (replaces self.info)
         self.state = ProcessingState(
@@ -283,15 +283,11 @@ class ProjectionProcessor:
         # Clear parameter bounds as they're no longer valid
         box.param_bounds = {}
         
-        # Clear fixed parameters (legacy support)
-        if isinstance(self.fixed_center, dict) and name in self.fixed_center:
-            del self.fixed_center[name]
-        if isinstance(self.fixed_sigma, dict) and name in self.fixed_sigma:
-            del self.fixed_sigma[name]
-        if isinstance(self.fixed_amplitude, dict) and name in self.fixed_amplitude:
-            del self.fixed_amplitude[name]
-        if isinstance(self.fixed_common_sigma, dict) and name in self.fixed_common_sigma:
-            del self.fixed_common_sigma[name]
+        # Clear fixed parameters (stored in ProcessingBox)
+        box.fixed_center = {}
+        box.fixed_sigma = {}
+        box.fixed_amplitude = {}
+        box.fixed_common_sigma = None
         
         # Clear downstream results (fitting onwards)
         box.clear_results(from_stage='fit')
@@ -591,21 +587,11 @@ class ProjectionProcessor:
             # Check if GMM mode (shared sigma) is enabled for this box
             use_gmm = box.use_common_sigma
             
-            # Fixed params for this box (support backward-compatible old dict format)
-            fc = self.fixed_center if isinstance(self.fixed_center, dict) else {}
-            fs = self.fixed_sigma if isinstance(self.fixed_sigma, dict) else {}
-            fa = self.fixed_amplitude if isinstance(self.fixed_amplitude, dict) else {}
-            fixed_center_for_box = fc.get(name, {}) if isinstance(fc.get(name, None), dict) else fc
-            fixed_sigma_for_box = fs.get(name, {}) if isinstance(fs.get(name, None), dict) else fs
-            fixed_amplitude_for_box = fa.get(name, {}) if isinstance(fa.get(name, None), dict) else fa
-            
-            fcs = self.fixed_common_sigma
-            fixed_common_sigma_for_box = None
-            if isinstance(fcs, dict):
-                fixed_common_sigma_for_box = fcs.get(name, None)
-            else:
-                # legacy scalar
-                fixed_common_sigma_for_box = fcs
+            # Fixed params directly from ProcessingBox
+            fixed_center_for_box = box.fixed_center
+            fixed_sigma_for_box = box.fixed_sigma
+            fixed_amplitude_for_box = box.fixed_amplitude
+            fixed_common_sigma_for_box = box.fixed_common_sigma
             
             # Check if hull_ranges exist to constrain peak search range
             # Get peak tolerance from settings (default 2.0 for backward compatibility)
@@ -968,31 +954,28 @@ class ProjectionProcessor:
                 print("---")
 
     def setGaussCenter(self, box_name, peak_num, new_center):
+        """
+        Fix a peak center position for fitting.
+        :param box_name: box name (str)
+        :param peak_num: peak index (int)
+        :param new_center: fixed center value (float)
+        """
         new_center = float(str(new_center))
-        if not isinstance(self.fixed_center, dict):
-            self.fixed_center = {}
-        if box_name not in self.fixed_center or not isinstance(self.fixed_center.get(box_name), dict):
-            # If legacy format exists (int->val), do not reuse it across boxes.
-            self.fixed_center[box_name] = {}
-        self.fixed_center[box_name][peak_num] = new_center
-        self.removeInfo(box_name, 'fit_results')
-        #self.fitModel()
+        if box_name in self.boxes:
+            self.boxes[box_name].fixed_center[peak_num] = new_center
+            self.removeInfo(box_name, 'fit_results')
 
     def setGaussSig(self, box_name, peak_num, new_sigma):
         """
-        Change Gaussian Sigma and clear previous fit
+        Fix a Gaussian sigma for fitting and clear previous fit.
         :param box_name: box name (str)
-        :param peak_num: peak name (int)
-        :param mew_sigma: new sigma value or percentage (str)
-        :return:
+        :param peak_num: peak index (int)
+        :param new_sigma: fixed sigma value (float)
         """
         new_sigma = float(str(new_sigma))
-        if not isinstance(self.fixed_sigma, dict):
-            self.fixed_sigma = {}
-        if box_name not in self.fixed_sigma or not isinstance(self.fixed_sigma.get(box_name), dict):
-            self.fixed_sigma[box_name] = {}
-        self.fixed_sigma[box_name][peak_num] = new_sigma
-        self.removeInfo(box_name, 'fit_results')
+        if box_name in self.boxes:
+            self.boxes[box_name].fixed_sigma[peak_num] = new_sigma
+            self.removeInfo(box_name, 'fit_results')
 
     def setBaseline(self, box_name, peak_num, new_baseline):
         """
