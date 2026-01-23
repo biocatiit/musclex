@@ -197,14 +197,14 @@ class ProjectionTracesh:
 
     def processImage(self):
         """
-        Process Image by getting all settings and call process() of ProjectionTraces object.
+        Process Image by applying settings and calling process() of ProjectionProcessor.
         Then, write data to CSV and export histograms.
         """
         if self.projProc is None:
             return
-        settings = self.getSettings()
+        self.applySettings()
         try:
-            self.projProc.process(settings)
+            self.projProc.process()
         except Exception:
             print('Unexpected error')
             msg = 'Please report the problem with error message below and the input image\n\n'
@@ -321,31 +321,32 @@ class ProjectionTracesh:
                 settings = None
             return settings
 
-    def getSettings(self):
+    def applySettings(self):
         """
-        Get current processing settings.
+        Apply current settings directly to ProjectionProcessor state.
         
-        Note: Box configurations are now managed by ProcessingBox objects
-        in self.projProc.boxes, so we don't need to pass them here.
-        This method only returns global settings.
+        Note: Box configurations are managed by ProcessingBox objects in projProc.boxes.
+        This method writes global settings directly to projProc.state.
         """
-        settings = {}
+        if self.projProc is None:
+            return
         
-        # Global settings
-        settings['mask_thres'] = self.mask_thres
+        # Mask threshold
+        self.projProc.state.mask_thres = self.mask_thres
 
-        # Refit flag
+        # Handle refit flag - clear fit results directly
         if self.refit:
-            settings['refit'] = self.refit
+            for box in self.projProc.boxes.values():
+                box.clear_results(from_stage='fit')
             self.refit = False
 
         # Calibration settings
         if self.calSettings is not None:
             if 'type' in self.calSettings:
                 if self.calSettings["type"] == "img":
-                    settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+                    self.projProc.state.lambda_sdd = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
-                    settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+                    self.projProc.state.lambda_sdd = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
             
             if "center" in self.calSettings and self.center_func != 'manual':
                 # Set center on ImageData
@@ -354,8 +355,6 @@ class ProjectionTracesh:
             if "detector" in self.calSettings:
                 # Write to state
                 self.projProc.state.detector = self.calSettings["detector"]
-
-        return settings
 
     def inputerror(self):
         """

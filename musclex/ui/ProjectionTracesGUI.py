@@ -65,12 +65,12 @@ class ProjectionParams:
         Parameters for Worker thread (batch processing).
         
         Args:
-            settings: Processing settings dict
+            settings: Processing settings dict (for display/legacy purposes)
             index: Image index in file_manager.names
             file_manager: FileManager instance
-            gui: Parent GUI instance (for accessing ProcessingWorkspace)
+            gui: Parent GUI instance (for accessing ProcessingWorkspace and state)
         """
-        self.settings = settings
+        self.settings = settings  # For display in confirmation dialogs
         self.index = index
         self.file_manager = file_manager
         self.gui = gui
@@ -119,7 +119,14 @@ class Worker(QRunnable):
                 # Create ProjectionProcessor with ImageData
                 self.projProc = ProjectionProcessor(image_data)
             
-            self.projProc.process(self.settings)
+            # Apply settings directly to state
+            if self.settings:
+                if 'mask_thres' in self.settings:
+                    self.projProc.state.mask_thres = self.settings['mask_thres']
+                if 'lambda_sdd' in self.settings:
+                    self.projProc.state.lambda_sdd = self.settings['lambda_sdd']
+            
+            self.projProc.process()
         except:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -686,10 +693,13 @@ class ProjectionTracesGUI(BaseGUI):
 
     def maskThresChanged(self):
         """
-        Trigger when Mask threshold is changed
+        Trigger when Mask threshold is changed.
+        Writes directly to state and clears histograms.
         """
         if self.projProc is not None:
-            # Clear histograms for all boxes (info is read-only)
+            # Write directly to state
+            self.projProc.state.mask_thres = self.maskThresSpnBx.value()
+            # Clear histograms for all boxes
             for box in self.projProc.boxes.values():
                 box.hist = None
             print("Mask threshold changed")
@@ -2165,8 +2175,8 @@ class ProjectionTracesGUI(BaseGUI):
 
     def processImage(self, use_cache: bool = False):
         """
-        Process Image by getting all settings and call process() of ProjectionTraces object
-        Then, write data and update UI
+        Process Image by applying settings and calling process() of ProjectionProcessor.
+        Then, write data and update UI.
         """
         if self.projProc is None:
             return
@@ -2176,8 +2186,8 @@ class ProjectionTracesGUI(BaseGUI):
             if use_cache:
                 print("Image cache detected: skipping ProjectionProcessor.process()")
             else:
-                settings = self.getSettings()
-                self.projProc.process(settings)
+                self.applySettings()
+                self.projProc.process()
             # self.currentTask = Worker.fromProjProc(self.projProc, settings)
             # self.currentTask.signals.result.connect(self.thread_done)
             # self.currentTask.signals.finished.connect(self.thread_finished)
@@ -2642,43 +2652,54 @@ class ProjectionTracesGUI(BaseGUI):
         # Save updated configuration to disk
         self.saveBoxesConfig()
 
-    def getSettings(self):
+    def applySettings(self):
         """
-        Get current processing settings.
+        Apply current UI settings directly to ProjectionProcessor state.
         
-        Note: Box configurations are now managed by ProcessingBox objects
-        in self.projProc.boxes, so we don't need to pass them here.
-        This method only returns global settings.
+        Note: This method writes settings directly to projProc.state instead of
+        returning a settings dict. Box configurations are managed by ProcessingBox
+        objects in projProc.boxes.
         """
-        settings = {}
+        if self.projProc is None:
+            return
         
-        # Global settings
-        settings['mask_thres'] = self.maskThresSpnBx.value()
+        # Mask threshold
+        self.projProc.state.mask_thres = self.maskThresSpnBx.value()
         
-        # Note: Blank/mask preprocessing is now handled by ImageData
-        # No need to pass blank_mask setting to ProjectionProcessor
-        
-        # Refit flag
+        # Handle refit flag - clear fit results directly
         if self.refit:
-            settings['refit'] = self.refit
+            for box in self.projProc.boxes.values():
+                box.clear_results(from_stage='fit')
             self.refit = False
 
-        # Note: 'rotated' and 'rotationAngle' settings removed - rotation state is now
-        # determined by ImageData.quadrant_folded and ImageData.rotation properties
-        # ProjectionProcessor reads these directly from ImageData
+        # Calibration settings
+        if self.calSettings is not None:
+            if 'type' in self.calSettings:
+                if self.calSettings["type"] == "img":
+                    self.projProc.state.lambda_sdd = self.calSettings["silverB"] * self.calSettings["radius"]
+                elif self.calSettings["type"] == "cont":
+                    self.projProc.state.lambda_sdd = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
 
+            if "detector" in self.calSettings:
+                self.projProc.state.detector = self.calSettings["detector"]
+    
+    def getSettings(self):
+        """
+        Get current settings for display purposes (batch processing dialogs).
+        
+        Note: For processing, use applySettings() instead which writes directly to state.
+        This method is kept for backward compatibility with batch processing UI.
+        """
+        settings = {}
+        settings['mask_thres'] = self.maskThresSpnBx.value()
+        
         if self.calSettings is not None:
             if 'type' in self.calSettings:
                 if self.calSettings["type"] == "img":
                     settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
-            
-
-            if "detector" in self.calSettings:
-                # Write to state, not info (info is read-only)
-                self.projProc.state.detector = self.calSettings["detector"]
-
+        
         return settings
 
     def refreshStatusbar(self):

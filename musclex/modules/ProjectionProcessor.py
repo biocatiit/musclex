@@ -327,17 +327,24 @@ class ProjectionProcessor:
             box.peaks = []
             box.clear_results(from_stage='fit')
 
-    def process(self, settings={}):
+    def process(self, no_cache: bool = False):
         """
-        All processing steps - all settings are provided by Projection Traces app as a dictionary
+        Execute all processing steps.
+        
+        Settings should be written directly to self.state before calling this method.
+        Box configurations are managed by ProcessingBox objects in self.boxes.
         
         Note: Rotation is performed once at the beginning of processing.
         This ensures GUI displays the rotated image directly without additional rotation.
+        
+        :param no_cache: If True, skip caching results to disk
         """
         # Reset to raw image to avoid cumulative rotation on repeated process() calls
         self.orig_img = self._raw_img.copy()
         
-        self.updateSettings(settings)
+        # Ensure mask_thres is set (fallback to auto-detection)
+        if self.state.mask_thres is None:
+            self.state.mask_thres = getMaskThreshold(self.orig_img)
         
         # ==================== Unified Rotation Logic ====================
         # Rotate the image once at the beginning if needed
@@ -360,38 +367,8 @@ class ProjectionProcessor:
         self.fitModel()
         self.getBackgroundSubtractedHistograms()
         self.getPeakInfos()
-        if 'no_cache' not in settings:
+        if not no_cache:
             self.cacheInfo()
-    def updateSettings(self, settings):
-        """
-        Update global state settings.
-        
-        Note: Box configurations are now managed directly by ProcessingBox objects
-        in self.boxes. The GUI and headless modes populate boxes before calling process().
-        This method only handles global settings.
-        
-        :param settings: dictionary of global settings
-        """
-        # Handle refit flag - clear fit results for all boxes
-        if 'refit' in settings:
-            for box in self.boxes.values():
-                box.clear_results(from_stage='fit')
-            del settings['refit']
-        
-        # Update global state settings
-        if 'mask_thres' in settings:
-            self.state.mask_thres = settings['mask_thres']
-            del settings['mask_thres']
-        elif self.state.mask_thres is None:
-            self.state.mask_thres = getMaskThreshold(self.orig_img)
-        
-        if 'lambda_sdd' in settings:
-            self.state.lambda_sdd = settings['lambda_sdd']
-            del settings['lambda_sdd']
-        
-        if 'main_peak_info' in settings:
-            self.state.main_peak_info.update(settings['main_peak_info'])
-            del settings['main_peak_info']
 
     def getHistograms(self):
         """
