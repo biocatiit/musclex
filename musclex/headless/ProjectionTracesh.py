@@ -49,7 +49,10 @@ class BoxDetails:
 
 class ProjectionTracesh:
     """
-    This class is for Projection Traces GUI Object
+    This class is for Projection Traces headless mode.
+    
+    Note: Box configurations are now managed directly by ProcessingBox objects
+    in self.projProc.boxes, following the same architecture as the GUI.
     """
     def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'ptsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
         self.lock = lock
@@ -58,19 +61,10 @@ class ProjectionTracesh:
         self.projProc = None
         self.csvManager = None
         self.masked = False
-        self.allboxes = {}
-        self.boxes_on_img = {}
-        self.boxtypes = {}
-        self.bgsubs = {}
-        self.merid_bg = {}
-        self.peaks = {}
-        self.hull_ranges = {}
         self.mask_thres = -999
         self.centerx = None
         self.centery = None
         self.center_func = None
-        self.rotated = False
-        self.rotationAngle = 0
         self.refit = False
 
         self.version = __version__
@@ -93,56 +87,46 @@ class ProjectionTracesh:
             if cache_exist:
                 os.remove(cache_path)
 
-        if self.inputsettings:
-            self.getSettings()
         self.onImageSelect()
 
     def onImageSelect(self):
         """
-        Triggered when a new image is selected
-        :return:
+        Triggered when a new image is selected.
+        Loads saved settings and creates ProjectionProcessor with boxes.
         """
-        # self.dir_path, self.imgList, self.current_file, self.fileList, self.ext = getImgFiles(fullfilename)
         savedParams = self.getSavedBoxesAndPeaks()
         cache = self.loadBoxesAndPeaks()
+        
+        # Determine source of box configuration
         if cache is not None and not self.delcache:
-            self.allboxes = cache['boxes']
-            self.peaks = cache['peaks']
-            self.boxtypes = cache['types']
-            self.bgsubs = cache['bgsubs']
-            self.merid_bg = cache['merid_bg']
-            self.hull_ranges = cache['hull_ranges']
-            self.centerx = cache['centerx']
-            self.centery = cache['centery']
-            self.center_func = cache['center_func']
-            self.mask_thres = cache['mask_thres']
+            box_config = cache
         elif savedParams is not None:
-            self.allboxes = savedParams['boxes']
-            self.peaks = savedParams['peaks']
-            self.boxtypes = savedParams['types']
-            self.bgsubs = savedParams['bgsubs']
-            self.merid_bg = savedParams['merid_bg']
-            self.hull_ranges = savedParams['hull_ranges']
-            self.centerx = savedParams['centerx']
-            self.centery = savedParams['centery']
-            self.center_func = savedParams['center_func']
-            self.mask_thres = savedParams['mask_thres']
+            box_config = savedParams
             self.calSettings = savedParams
         else:
-            self.allboxes = {}
-            self.peaks = {}
-        self.onImageChanged()
+            box_config = None
+        
+        # Extract global settings from config
+        if box_config is not None:
+            self.centerx = box_config.get('centerx')
+            self.centery = box_config.get('centery')
+            self.center_func = box_config.get('center_func')
+            self.mask_thres = box_config.get('mask_thres', -999)
+        
+        self.onImageChanged(box_config)
 
-    def onImageChanged(self):
+    def onImageChanged(self, box_config=None):
         """
-        Need to be called when image is change i.e. to the next image.
-        This will create a new ProjectionProcessor object for the new image if cache is available
-        Process the new image if there's no cache.
+        Called when image changes (e.g. to next image in batch).
+        Creates a new ProjectionProcessor and populates boxes from config.
+        
+        :param box_config: Dictionary containing box configurations from cache or settings file
         """
         # Load image data
         import fabio
         from ..utils.image_data import ImageData
         from ..utils.file_manager import fullPath
+        from ..modules.ProjectionProcessor import ProcessingBox
         
         img_name = self.imgList[self.current_file]
         img_full_path = fullPath(self.dir_path, img_name)
@@ -168,7 +152,29 @@ class ProjectionTracesh:
         if self.center_func is None:
             self.center_func = 'init'
         elif self.center_func != 'init':
-            self.updateCenter() # do not update fit results for 'init' mode
+            self.updateCenter()  # do not update fit results for 'init' mode
+        
+        # Populate boxes from config directly into projProc.boxes
+        if box_config is not None:
+            boxes_dict = box_config.get('boxes', {})
+            types_dict = box_config.get('types', {})
+            bgsubs_dict = box_config.get('bgsubs', {})
+            peaks_dict = box_config.get('peaks', {})
+            merid_bg_dict = box_config.get('merid_bg', {})
+            hull_ranges_dict = box_config.get('hull_ranges', {})
+            
+            for box_name, coords in boxes_dict.items():
+                box = ProcessingBox(
+                    name=box_name,
+                    coordinates=coords,
+                    type=types_dict.get(box_name, 'h'),
+                    bgsub=bgsubs_dict.get(box_name, 0),
+                    peaks=peaks_dict.get(box_name, []),
+                    merid_bg=merid_bg_dict.get(box_name, False),
+                    hull_range=hull_ranges_dict.get(box_name)
+                )
+                self.projProc.boxes[box_name] = box
+        
         # Process new image
         self.processImage()
 
@@ -191,8 +197,8 @@ class ProjectionTracesh:
 
     def processImage(self):
         """
-        Process Image by getting all settings and call process() of ProjectionTraces object
-        Then, write data and update UI
+        Process Image by getting all settings and call process() of ProjectionTraces object.
+        Then, write data to CSV and export histograms.
         """
         if self.projProc is None:
             return
@@ -209,26 +215,15 @@ class ProjectionTracesh:
         # acquire the lock
         if self.lock is not None:
             self.lock.acquire()
+        
         self.cacheBoxesAndPeaks()
         
-        # Convert old-style boxes/peaks dicts to ProcessingBox objects
-        from ..modules.ProjectionProcessor import ProcessingBox
-        processing_boxes = {}
-        for box_name, coords in self.allboxes.items():
-            box_type = self.boxtypes.get(box_name, 'h')  # default to horizontal
-            box_peaks = self.peaks.get(box_name, [])
-            processing_boxes[box_name] = ProcessingBox(
-                name=box_name,
-                coordinates=coords,
-                type=box_type,
-                bgsub=0,  # default gaussian fitting
-                peaks=box_peaks
-            )
-        
-        self.csvManager = PT_CSVManager(self.dir_path, processing_boxes)
+        # Use boxes directly from projProc - no conversion needed
+        self.csvManager = PT_CSVManager(self.dir_path, self.projProc.boxes)
         self.csvManager.loadSummary()
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
+        
         # release the lock
         if self.lock is not None:
             self.lock.release()
@@ -260,19 +255,37 @@ class ProjectionTracesh:
 
     def cacheBoxesAndPeaks(self):
         """
-        Save the boxes and peaks in the cache file
+        Save the boxes and peaks in the cache file.
+        Extracts box configurations from ProcessingBox objects.
         """
+        # Extract box configurations from ProcessingBox objects
+        boxes = {}
+        peaks = {}
+        types = {}
+        bgsubs = {}
+        merid_bg = {}
+        hull_ranges = {}
+        
+        for name, box in self.projProc.boxes.items():
+            boxes[name] = box.coordinates
+            peaks[name] = box.peaks
+            types[name] = box.type
+            bgsubs[name] = box.bgsub
+            merid_bg[name] = box.merid_bg
+            if box.hull_range is not None:
+                hull_ranges[name] = box.hull_range
+        
         cache = {
-            'boxes' : self.allboxes,
-            'peaks' : self.peaks,
-            'types' : self.boxtypes,
-            'bgsubs' : self.bgsubs,
-            'merid_bg' : self.merid_bg,
-            'hull_ranges' : self.hull_ranges,
-            'centerx' : self.centerx,
-            'centery' : self.centery,
-            'center_func' : self.center_func,
-            'mask_thres' : self.mask_thres
+            'boxes': boxes,
+            'peaks': peaks,
+            'types': types,
+            'bgsubs': bgsubs,
+            'merid_bg': merid_bg,
+            'hull_ranges': hull_ranges,
+            'centerx': self.centerx,
+            'centery': self.centery,
+            'center_func': self.center_func,
+            'mask_thres': self.mask_thres
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
         createFolder(cache_dir)
@@ -310,54 +323,36 @@ class ProjectionTracesh:
 
     def getSettings(self):
         """
-        Give the current settings
-        :return: settings
+        Get current processing settings.
+        
+        Note: Box configurations are now managed by ProcessingBox objects
+        in self.projProc.boxes, so we don't need to pass them here.
+        This method only returns global settings.
         """
         settings = {}
-        # add boxes
-        settings['boxes'] = self.allboxes
-
-        # add box types
-        settings['types'] = self.boxtypes
-
-        # add bgsub methods
-        settings['bgsubs'] = self.bgsubs
-
-        # add meridian bg on/off
-        settings['merid_bg'] = self.merid_bg
-
-        # add peaks location
-        settings['peaks'] = self.peaks
-
-        # add hull ranges
-        settings['hull_ranges'] = self.hull_ranges
         
+        # Global settings
         settings['mask_thres'] = self.mask_thres
 
+        # Refit flag
         if self.refit:
             settings['refit'] = self.refit
             self.refit = False
 
-        if self.center_func == 'manual' or self.rotated:
-            settings['rotated'] = True
-            self.rotated = True
-            if self.rotationAngle != 0:
-                settings['rotationAngle'] = self.rotationAngle
-
+        # Calibration settings
         if self.calSettings is not None:
             if 'type' in self.calSettings:
                 if self.calSettings["type"] == "img":
                     settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
                 elif self.calSettings["type"] == "cont":
                     settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+            
             if "center" in self.calSettings and self.center_func != 'manual':
-                settings["center"] = self.calSettings["center"]
-                # Set center on ImageData instead of info (info is read-only)
+                # Set center on ImageData
                 self.projProc._image_data.set_manual_center(self.calSettings["center"])
-            # else: No need to delete - center will auto-calculate if not manually set
             
             if "detector" in self.calSettings:
-                # Write to state, not info (info is read-only)
+                # Write to state
                 self.projProc.state.detector = self.calSettings["detector"]
 
         return settings

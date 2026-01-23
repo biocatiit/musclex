@@ -368,73 +368,20 @@ class ProjectionProcessor:
             self.cacheInfo()
     def updateSettings(self, settings):
         """
-        Update state and boxes using settings
-        :param settings: calibration settings
-        :return: -
+        Update global state settings.
+        
+        Note: Box configurations are now managed directly by ProcessingBox objects
+        in self.boxes. The GUI and headless modes populate boxes before calling process().
+        This method only handles global settings.
+        
+        :param settings: dictionary of global settings
         """
-        if 'boxes' in settings:
-            new_boxes = settings['boxes']
-            types = settings['types']
-            bgsubs = settings['bgsubs']
-            old_boxes = set(self.boxes.keys())
-            all_name = set(new_boxes.keys()) | old_boxes
-            
-            for name in all_name:
-                if name in new_boxes:
-                    if 'refit' in settings:
-                        self.removeInfo(name, 'fit_results')
-                    self.addBox(name, new_boxes[name], types[name], bgsubs[name])
-                else:
-                    self.removeInfo(name)
-            
-            del settings['boxes']
-            del settings['types']
-            del settings['bgsubs']
-
-        if 'peaks' in settings:
-            new_peaks = settings['peaks']
-            old_boxes = set(self.boxes.keys())
-            all_name = set(new_peaks.keys()) | old_boxes
-            
-            for name in all_name:
-                if name in new_peaks:
-                    self.addPeaks(name, new_peaks[name])
-                else:
-                    self.removePeaks(name)
-            
-            del settings['peaks']
-
-        if 'hull_ranges' in settings:
-            for name, hull_range in settings['hull_ranges'].items():
-                if name in self.boxes:
-                    self.boxes[name].hull_range = hull_range
-            del settings['hull_ranges']
-
-        # Update box-level settings
-        if 'merid_bg' in settings:
-            for name, value in settings['merid_bg'].items():
-                if name in self.boxes:
-                    self.boxes[name].merid_bg = value
-            del settings['merid_bg']
+        # Handle refit flag - clear fit results for all boxes
+        if 'refit' in settings:
+            for box in self.boxes.values():
+                box.clear_results(from_stage='fit')
+            del settings['refit']
         
-        if 'use_common_sigma' in settings:
-            for name, value in settings['use_common_sigma'].items():
-                if name in self.boxes:
-                    self.boxes[name].use_common_sigma = value
-            del settings['use_common_sigma']
-        
-        if 'peak_tolerances' in settings:
-            for name, value in settings['peak_tolerances'].items():
-                if name in self.boxes:
-                    self.boxes[name].peak_tolerance = value
-            del settings['peak_tolerances']
-        
-        if 'sigma_tolerances' in settings:
-            for name, value in settings['sigma_tolerances'].items():
-                if name in self.boxes:
-                    self.boxes[name].sigma_tolerance = value
-            del settings['sigma_tolerances']
-
         # Update global state settings
         if 'mask_thres' in settings:
             self.state.mask_thres = settings['mask_thres']
