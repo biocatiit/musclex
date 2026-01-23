@@ -331,10 +331,6 @@ class ProjectionTracesh:
 
         # add hull ranges
         settings['hull_ranges'] = self.hull_ranges
-
-        # add blank image and mask
-        # if 'blank_mask' in self.projProc.info:
-        #     settings['blank_mask'] = self.projProc.info['blank_mask']
         
         settings['mask_thres'] = self.mask_thres
 

@@ -217,7 +217,9 @@ class QuadrantFolder:
 
         self.updateInfo(flags)
         self.initParams()
-        self.applyBlankImageAndMask()
+        
+        # Note: Blank/mask preprocessing is already applied by ImageData.get_working_image()
+        # No need to apply again here (would cause double subtraction of blank image)
         
         # Determine center and rotation to use for this run
         self.findCenter()        # Sets self.center from ImageData
@@ -330,18 +332,6 @@ class QuadrantFolder:
             self.info['bgsub'] = 'None'
         if 'bgsub2' not in self.info:
             self.info['bgsub2'] = 'None'
-
-
-    def applyBlankImageAndMask(self):
-        """
-        Apply the blank image and mask threshold on the orig_img.
-        
-        NOTE: With ImageData, blank/mask are already applied in __init__.
-        This method is now a no-op for compatibility.
-        """
-        # Blank and mask are already applied by ImageData.get_working_image()
-        # Nothing to do here
-        pass
 
 
     def findCenter(self):

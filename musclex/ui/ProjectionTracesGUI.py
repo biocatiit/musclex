@@ -2655,12 +2655,8 @@ class ProjectionTracesGUI(BaseGUI):
         # Global settings
         settings['mask_thres'] = self.maskThresSpnBx.value()
         
-        # Blank/mask settings from workspace
-        if hasattr(self, 'workspace'):
-            blank_mask_config = self.workspace.get_blank_mask_config()
-            settings['blank_mask'] = blank_mask_config['apply_blank']
-        else:
-            settings['blank_mask'] = False
+        # Note: Blank/mask preprocessing is now handled by ImageData
+        # No need to pass blank_mask setting to ProjectionProcessor
         
         # Refit flag
         if self.refit:

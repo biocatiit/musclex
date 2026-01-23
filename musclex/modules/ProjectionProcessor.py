@@ -126,7 +126,6 @@ class ProcessingState:
     
     # === Global Settings ===
     mask_thres: Optional[float] = None
-    blank_mask: bool = False
     detector: Optional[str] = None
     orientation_model: Optional[object] = None  # Not serialized, rebuilt at runtime
     lambda_sdd: Optional[float] = None
@@ -162,7 +161,6 @@ class ProjectionProcessor:
         # Initialize runtime state
         self.rotated_img = None
         self.version = __version__
-        self.masked = False
         self.rotMat = None
         
         # Fixed parameters (per-box) - legacy support
@@ -358,7 +356,8 @@ class ProjectionProcessor:
             print(f"Image rotated by {self.rotation}° around center {self.center}")
         # ================================================================
         
-        self.applyBlankImageAndMask()
+        # Note: Blank/mask preprocessing is already applied by ImageData.get_working_image()
+        # No need to apply again here (would cause double subtraction of blank image)
         self.getHistograms()
         self.applyConvexhull()
         self.updateRotationAngle()
@@ -367,31 +366,6 @@ class ProjectionProcessor:
         self.getPeakInfos()
         if 'no_cache' not in settings:
             self.cacheInfo()
-
-    def applyBlankImageAndMask(self):
-        """
-        Apply the blank image and mask threshold on the orig_img
-        :return: -
-        """
-        if self.state.blank_mask and not self.masked:
-            img = np.array(self.orig_img, 'float32')
-            blank, mask = getBlankImageAndMask(self.dir_path)
-            maskOnly = getMaskOnly(self.dir_path)
-            if blank is not None:
-                img = img - blank
-            if mask is not None:
-                img[mask == 0] = self.state.mask_thres - 1.
-            if maskOnly is not None:
-                img[maskOnly == 0] = self.state.mask_thres - 1
-            
-            # Clear all histograms
-            for box in self.boxes.values():
-                box.hist = None
-                box.clear_results(from_stage='hist2')
-            
-            self.orig_img = img
-            self.masked = True
-
     def updateSettings(self, settings):
         """
         Update state and boxes using settings
@@ -467,10 +441,6 @@ class ProjectionProcessor:
             del settings['mask_thres']
         elif self.state.mask_thres is None:
             self.state.mask_thres = getMaskThreshold(self.orig_img)
-        
-        if 'blank_mask' in settings:
-            self.state.blank_mask = settings['blank_mask']
-            del settings['blank_mask']
         
         if 'lambda_sdd' in settings:
             self.state.lambda_sdd = settings['lambda_sdd']
