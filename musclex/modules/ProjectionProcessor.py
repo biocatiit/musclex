@@ -337,7 +337,7 @@ class ProjectionProcessor:
         """
         All processing steps - all settings are provided by Projection Traces app as a dictionary
         
-        Note: Rotation is now performed in process() instead of getRotatedImage().
+        Note: Rotation is performed once at the beginning of processing.
         This ensures GUI displays the rotated image directly without additional rotation.
         """
         # Reset to raw image to avoid cumulative rotation on repeated process() calls
@@ -1106,22 +1106,6 @@ class ProjectionProcessor:
             self.removeInfo(box_name, 'widths')
             self.removeInfo(box_name, 'areas')
 
-    def getRotatedImage(self, img=None, angle=None):
-        """
-        [DEPRECATED] Get rotated image by angle.
-        
-        This method is deprecated as rotation is now performed in process().
-        The image in self.orig_img is already rotated if needed.
-        
-        This method is kept for backward compatibility and now simply returns
-        the current orig_img (which is already rotated in process()).
-        
-        :param img: input image (ignored, kept for compatibility)
-        :param angle: rotation angle (ignored, kept for compatibility)
-        :return: rotated image (actually self.orig_img which is already rotated)
-        """
-        # Return the current image which is already rotated in process()
-        return self.orig_img
 
     def removeInfo(self, name, k=None):
         """
