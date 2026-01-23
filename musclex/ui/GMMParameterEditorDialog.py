@@ -668,11 +668,6 @@ class GMMParameterEditorDialog(QDialog):
         # Check Equal Variance checkbox state
         use_equal_variance = self.equalVarianceChkBx.isChecked()
         
-        print(f"\n=== DEBUG refitGMM (Unified Logic) ===")
-        print(f"Box: {self.box_name}")
-        print(f"use_equal_variance: {use_equal_variance}")
-        print(f"Number of parameters: {len(paramInfo)}")
-        
         # Get ProcessingBox for direct updates
         box = self.projProc.boxes[self.box_name]
         
@@ -680,14 +675,6 @@ class GMMParameterEditorDialog(QDialog):
         old_result = None
         if box.fit_results:
             old_result = dict(box.fit_results)
-            print(f"\n--- OLD VALUES (before refit) ---")
-            print(f"  common_sigma: {old_result.get('common_sigma', 'N/A')}")
-            print(f"  error: {old_result.get('error', 'N/A')}")
-            if use_equal_variance:
-                print(f"  (GMM mode - all sigmas share common_sigma)")
-            else:
-                sigmas = [old_result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in old_result]
-                print(f"  individual sigmas (first 5): {sigmas}")
         
         # Update use_common_sigma flag BEFORE calling fitModel
         box.use_common_sigma = use_equal_variance
@@ -701,10 +688,7 @@ class GMMParameterEditorDialog(QDialog):
             i += 1
         
         if not peak_positions:
-            print("ERROR: No peak positions found in paramInfo!")
             return None
-        
-        print(f"Extracted {len(peak_positions)} peak positions: {peak_positions[:5]}...")
         
         # Get hull_range from spinboxes (not from paramInfo - it's a preprocessing constraint)
         hull_range_changed = False
@@ -718,7 +702,6 @@ class GMMParameterEditorDialog(QDialog):
             if old_hull_range != new_hull_range:
                 hull_range_changed = True
                 box.hull_range = new_hull_range
-                print(f"Updated hull_range: {old_hull_range} -> {new_hull_range}")
         
         # Update both peaks and moved_peaks with new positions (do this BEFORE clearing cache)
         # peaks is used by applyConvexhull, moved_peaks is used by fitModel
@@ -781,18 +764,8 @@ class GMMParameterEditorDialog(QDialog):
             box.centroids = None
             box.widths = None
             box.areas = None
-            print(f"Cleared hists2 and dependent data for {self.box_name} due to hull_range change")
         
         # DO NOT delete moved_peaks here - we just set it above and fitModel needs it!
-        
-        # Debug: Check what data exists before calling fitModel
-        print(f"\n--- Data state BEFORE fitModel ---")
-        print(f"  peaks: {box.peaks}")
-        print(f"  moved_peaks: {box.moved_peaks}")
-        print(f"  hist exists: {box.hist is not None}")
-        print(f"  hist2 exists: {box.hist2 is not None}")
-        print(f"  fit_results exists: {box.fit_results is not None}")
-        print(f"  bgsub: {box.bgsub}")
         
         # Call the complete processing pipeline (same flow as process())
         # Note: These methods process all boxes but only refit/recalculate missing data
@@ -800,20 +773,13 @@ class GMMParameterEditorDialog(QDialog):
             # Always call applyConvexhull to ensure hists2 is properly generated
             # (especially if it was deleted due to hull_range change)
             if hull_range_changed or box.hist2 is None:
-                print(f"Calling applyConvexhull to regenerate hists2...")
                 self.projProc.applyConvexhull()
             
-            print(f"Calling fitModel...")
             self.projProc.fitModel()
-            print(f"Calling getBackgroundSubtractedHistograms...")
             self.projProc.getBackgroundSubtractedHistograms()
-            print(f"Calling getPeakInfos...")
             self.projProc.getPeakInfos()
             
             # Retrieve the fit result
-            print(f"\n--- Data state AFTER processing ---")
-            print(f"  fit_results exists: {box.fit_results is not None}")
-            
             if box.fit_results:
                 result_dict = box.fit_results
                 
@@ -827,58 +793,15 @@ class GMMParameterEditorDialog(QDialog):
                 # failed/incomplete fits during interactive editing.
                 try:
                     self.projProc.cacheInfo()
-                    print(f"Cached updated ProcessingState for {self.projProc.filename}")
                 except Exception as cache_e:
                     # Cache errors should not break refitting; treat as non-fatal.
-                    print(f"WARNING: Failed to write cache after refit: {cache_e}")
-                
-                # Print comparison if we have old result
-                if old_result:
-                    print(f"\n--- NEW VALUES (after refit) ---")
-                    print(f"  common_sigma: {result_dict.get('common_sigma', 'N/A')}")
-                    print(f"  error: {result_dict.get('error', 'N/A')}")
-                    if use_equal_variance:
-                        print(f"  (GMM mode - all sigmas share common_sigma)")
-                    else:
-                        sigmas = [result_dict.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result_dict]
-                        print(f"  individual sigmas (first 5): {sigmas}")
-                    
-                    print(f"\n--- CHANGES ---")
-                    # Compare key parameters
-                    params_to_compare = ['common_sigma', 'error']
-                    # Add individual sigmas if not GMM
-                    if not use_equal_variance:
-                        params_to_compare.extend([f'sigma{i}' for i in range(min(5, len([k for k in result_dict.keys() if k.startswith('sigma') and k != 'common_sigma'])))])
-                    # Add first 3 positions and amplitudes
-                    for i in range(min(3, len([k for k in result_dict.keys() if k.startswith('p_')]))):
-                        params_to_compare.append(f'p_{i}')
-                        params_to_compare.append(f'amplitude{i}')
-                    
-                    for key in params_to_compare:
-                        if key in result_dict and key in old_result:
-                            old_val = old_result[key]
-                            new_val = result_dict[key]
-                            diff = new_val - old_val
-                            percent = (diff / old_val * 100) if old_val != 0 else 0
-                            print(f"  {key:15s}: {old_val:10.4f} → {new_val:10.4f}  (Δ={diff:+10.6f}, {percent:+6.2f}%)")
-                
-                # Debug: print sigma values after fit
-                print(f"\nFit complete. Error: {result_dict.get('error', 0):.6f}")
-                if use_equal_variance:
-                    print(f"  common_sigma: {result_dict.get('common_sigma', 'N/A')}")
-                else:
-                    sigma_values = [result_dict.get(f'sigma{i}', None) for i in range(20) if f'sigma{i}' in result_dict]
-                    print(f"  Individual sigmas: {sigma_values[:5]}...")
-                
-                print(f"=== Refit completed using unified logic, use_common_sigma = {use_equal_variance} ===\n")
+                    pass
                 
                 return result_dict
             else:
-                print("ERROR: fitModel did not produce results for this box!")
                 return None
                 
         except Exception as e:
-            print(f"ERROR in fitModel: {e}")
             import traceback
             traceback.print_exc()
             return None
