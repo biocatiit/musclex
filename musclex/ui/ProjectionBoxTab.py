@@ -248,14 +248,15 @@ class ProjectionBoxTab(QWidget):
         self.peakToleranceSpinBox.setDecimals(1)
         self.peakToleranceSpinBox.setToolTip("Peak tolerance - search distance for peak fitting")
 
-        # New: Sigma Tolerance label and spinner for sigma bounds initialization
-        self.sigmaToleranceLabel = QLabel("Sigma Tolerance")
+        # New: Sigma Tolerance label and spinner for sigma bounds initialization (percentage)
+        self.sigmaToleranceLabel = QLabel("Sigma Tolerance (%)")
         self.sigmaToleranceSpinBox = QDoubleSpinBox()
-        self.sigmaToleranceSpinBox.setRange(0.1, 100.0)
-        self.sigmaToleranceSpinBox.setValue(5.0)
-        self.sigmaToleranceSpinBox.setSingleStep(0.5)
+        self.sigmaToleranceSpinBox.setRange(1.0, 200.0)
+        self.sigmaToleranceSpinBox.setValue(100.0)
+        self.sigmaToleranceSpinBox.setSingleStep(5.0)
         self.sigmaToleranceSpinBox.setDecimals(1)
-        self.sigmaToleranceSpinBox.setToolTip("Sigma tolerance - used to initialize sigma/common_sigma bounds (± tolerance)")
+        self.sigmaToleranceSpinBox.setSuffix("%")
+        self.sigmaToleranceSpinBox.setToolTip("Sigma tolerance percentage - used to initialize sigma/common_sigma bounds (± tolerance% of value)")
         
         self.clearPeakButton = QPushButton("Clear Peaks")
         self.clearPeakButton.setVisible(True)

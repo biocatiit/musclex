@@ -375,7 +375,7 @@ class GMMParameterEditorDialog(QDialog):
     
     def _get_sigma_tolerance(self) -> float:
         """
-        Get current sigma tolerance (used for sigma/common_sigma bounds reset).
+        Get current sigma tolerance percentage (used for sigma/common_sigma bounds reset).
         Prefer the live value from the parent tab if available.
         """
         try:
@@ -385,7 +385,7 @@ class GMMParameterEditorDialog(QDialog):
             pass
         if self.box_name in self.projProc.boxes:
             return float(self.projProc.boxes[self.box_name].sigma_tolerance)
-        return 5.0
+        return 100.0  # Default 100%
     
     def _find_row_for_value_widget(self, widget):
         """
@@ -401,7 +401,7 @@ class GMMParameterEditorDialog(QDialog):
         """
         Reset Min/Max in a given row based on current tolerance:
         - p_i: value ± peak_tolerance
-        - sigma{i}, common_sigma: value ± sigma_tolerance (clamped at 0 for min)
+        - sigma{i}, common_sigma: value ± sigma_tolerance% (clamped at 0 for min)
         """
         if row is None or row < 0 or row >= self.paramTable.rowCount():
             return
@@ -415,7 +415,9 @@ class GMMParameterEditorDialog(QDialog):
             bmin = float(value) - tol
             bmax = float(value) + tol
         elif param_name == 'common_sigma' or (param_name.startswith('sigma') and param_name != 'common_sigma'):
-            tol = self._get_sigma_tolerance()
+            tol_percent = self._get_sigma_tolerance()
+            # Calculate tolerance as percentage of current value
+            tol = float(value) * (tol_percent / 100.0)
             bmin = max(0.0, float(value) - tol)
             bmax = float(value) + tol
         else:

@@ -2387,7 +2387,7 @@ class ProjectionTracesGUI(BaseGUI):
             param_bounds=box_dict.get('param_bounds', {}),
             use_common_sigma=box_dict.get('use_common_sigma', False),
             peak_tolerance=box_dict.get('peak_tolerance', 2.0),
-            sigma_tolerance=box_dict.get('sigma_tolerance', 5.0),
+            sigma_tolerance=box_dict.get('sigma_tolerance', 100.0),  # Default 100% (changed from 5.0)
         )
 
     def saveBoxesConfig(self):

@@ -68,7 +68,7 @@ class ProcessingBox:
     param_bounds: Dict[str, Dict] = field(default_factory=dict)
     use_common_sigma: bool = False
     peak_tolerance: float = 2.0
-    sigma_tolerance: float = 5.0
+    sigma_tolerance: float = 100.0  # Changed to percentage (default 100%)
     
     # === Fixed Parameters (for GMM fitting) ===
     # Dict mapping peak index -> fixed value
@@ -573,9 +573,9 @@ class ProjectionProcessor:
             # Check if hull_ranges exist to constrain peak search range
             # Get peak tolerance from settings (default 2.0 for backward compatibility)
             default_search_dist = box.peak_tolerance
-            # Sigma tolerance for initializing sigma/common_sigma bounds when none are stored
-            # (used as ± tolerance around the default initial value 5)
-            sigma_tol = box.sigma_tolerance
+            # Sigma tolerance percentage for initializing sigma/common_sigma bounds when none are stored
+            # (used as ± tolerance% around the default initial value 5)
+            sigma_tol_percent = box.sigma_tolerance
             hull_constraint = None
             if box.hull_range is not None:
                 hull_start, hull_end = box.hull_range
@@ -593,9 +593,10 @@ class ProjectionProcessor:
                     orig_cs_min, orig_cs_max = self._get_param_bounds(name, 'common_sigma')
                     cs_min, cs_max = orig_cs_min, orig_cs_max
                     if cs_min is None:
-                        cs_min = max(0.0, 5.0 - float(sigma_tol))
+                        # Calculate tolerance as percentage of default value 5.0
+                        cs_min = max(0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0))
                     if cs_max is None:
-                        cs_max = 5.0 + float(sigma_tol)
+                        cs_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
                     if cs_min > cs_max:
                         cs_min, cs_max = cs_max, cs_min
                     if cs_min == cs_max:
@@ -651,8 +652,9 @@ class ProjectionProcessor:
                     s_name = f'sigma{j}'
                     orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
                     if orig_s_min is None and orig_s_max is None:
-                        s_min = max(0.0, 5.0 - float(sigma_tol))
-                        s_max = 5.0 + float(sigma_tol)
+                        # Calculate tolerance as percentage of default value 5.0
+                        s_min = max(0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0))
+                        s_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
                         if s_min > s_max:
                             s_min, s_max = s_max, s_min
                         if s_min == s_max:
@@ -723,9 +725,10 @@ class ProjectionProcessor:
                         orig_s_min, orig_s_max = self._get_param_bounds(name, s_name)
                         s_min, s_max = orig_s_min, orig_s_max
                         if s_min is None:
-                            s_min = max(0.0, 5.0 - float(sigma_tol))
+                            # Calculate tolerance as percentage of default value 5.0
+                            s_min = max(0.0, 5.0 * (1.0 - float(sigma_tol_percent) / 100.0))
                         if s_max is None:
-                            s_max = 5.0 + float(sigma_tol)
+                            s_max = 5.0 * (1.0 + float(sigma_tol_percent) / 100.0)
                         if s_min > s_max:
                             s_min, s_max = s_max, s_min
                         if s_min == s_max:
