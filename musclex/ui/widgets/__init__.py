@@ -11,6 +11,7 @@ from .collapsible_groupbox import CollapsibleGroupBox
 from .image_viewer_widget import ImageViewerWidget
 from .image_navigator_widget import ImageNavigatorWidget
 from .processing_workspace import ProcessingWorkspace
+from .parameter_editor_table import ParameterEditorTable
 
 __all__ = [
     'NavigationControls',
@@ -27,4 +28,5 @@ __all__ = [
     'ImageViewerWidget',
     'ImageNavigatorWidget',
     'ProcessingWorkspace',
+    'ParameterEditorTable',
 ]

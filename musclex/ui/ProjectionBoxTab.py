@@ -31,125 +31,9 @@ import matplotlib.patches as patches
 from matplotlib.ticker import MaxNLocator, FixedLocator
 import numpy as np
 from .pyqt_utils import *
+from .EditPeakDetailsDialog import EditPeakDetailsDialog
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground
 from ..utils.image_processor import getNewZoom
-
-class EditPeakDetails(QDialog):
-    
-    def __init__(self, info):
-        super().__init__(None)
-        self.info = info
-        self.setWindowTitle("Edit Peak Information")
-        self.initUI()
-        self.loadSettings()
-        
-    def initUI(self):
-        self.boxLayout = QGridLayout(self)
-        
-        self.bgsigma = QDoubleSpinBox()
-        self.bgamp = QDoubleSpinBox()
-        self.csigma1 = QDoubleSpinBox()
-        self.camp1 = QDoubleSpinBox()
-        self.csigma2 = QDoubleSpinBox()
-        self.camp2 = QDoubleSpinBox()
-        
-        self.bgsigchk = QCheckBox("Lock Variable")
-        self.bgampchk = QCheckBox("Lock Variable")
-        self.csig1chk = QCheckBox("Lock Variable")
-        self.camp1chk = QCheckBox("Lock Variable")
-        self.csig2chk = QCheckBox("Lock Variable")
-        self.camp2chk = QCheckBox("Lock Variable")
-        
-        self.bgsigma.setRange(-1e10, 1e10)
-        self.bgamp.setRange(-1e10, 1e10)
-        self.csigma1.setRange(-1e10, 1e10)
-        self.camp1.setRange(-1e10, 1e10)
-        self.csigma2.setRange(-1e10, 1e10)
-        self.camp2.setRange(-1e10, 1e10)
-        
-        self.bgsigma.setDecimals(2)
-        self.bgamp.setDecimals(2)
-        self.csigma1.setDecimals(2)
-        self.camp1.setDecimals(2)
-        self.csigma2.setDecimals(2)
-        self.camp2.setDecimals(2)
-        
-        self.bgsigma.setValue(self.info['bg_sigma'])
-        self.bgamp.setValue(self.info['bg_amplitude'])
-        self.csigma1.setValue(self.info['center_sigma1'])
-        self.camp1.setValue(self.info['center_amplitude1'])
-        self.csigma2.setValue(self.info['center_sigma2'])
-        self.camp2.setValue(self.info['center_amplitude2'])   
-        
-        self.bottons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-                                              Qt.Horizontal, self)
-        self.bottons.accepted.connect(self.okClicked)
-        self.bottons.rejected.connect(self.reject)
-        self.bottons.setFixedWidth(200)
-        
-        self.boxLayout.addWidget(QLabel("Background Sigma (blue)"), 0, 0,1,1)
-        self.boxLayout.addWidget(self.bgsigma, 0, 1, 1, 1)
-        self.boxLayout.addWidget(self.bgsigchk, 0, 2, 1, 1)
-        self.boxLayout.addWidget(QLabel("Background Amplitude (blue)"), 1, 0, 1, 1)
-        self.boxLayout.addWidget(self.bgamp, 1, 1, 1, 1)
-        self.boxLayout.addWidget(self.bgampchk, 1, 2, 1, 1)
-        self.boxLayout.addWidget(QLabel("Meridian Background Sigma (yellow)"), 2, 0, 1, 1)
-        self.boxLayout.addWidget(self.csigma1, 2, 1, 1, 1)
-        self.boxLayout.addWidget(self.csig1chk, 2, 2, 1, 1)
-        self.boxLayout.addWidget(QLabel("Meridian Amplitude (yellow)"), 3, 0, 1, 1)
-        self.boxLayout.addWidget(self.camp1, 3, 1, 1, 1)
-        self.boxLayout.addWidget(self.camp1chk, 3, 2, 1, 1)
-        self.boxLayout.addWidget(QLabel("Meridian Sigma (red)"), 4, 0, 1, 1)
-        self.boxLayout.addWidget(self.csigma2, 4, 1, 1, 1)
-        self.boxLayout.addWidget(self.csig2chk, 4, 2, 1, 1)
-        self.boxLayout.addWidget(QLabel("Meridian Amplitude (red)"), 5, 0, 1, 1)
-        self.boxLayout.addWidget(self.camp2, 5, 1, 1, 1)
-        self.boxLayout.addWidget(self.camp2chk, 5, 2, 1, 1)
-        self.boxLayout.addWidget(self.bottons, 6, 0, 1, 2)
-        
-    def closeEvent(self, event):
-        self.saveSettings()
-        event.accept()
-        
-    def okClicked(self):
-        """
-        Triggered when OK is clicked
-        """
-        self.newinfo = {
-            'bg_sigma': self.bgsigma.value(),
-            'bg_amplitude': self.bgamp.value(),
-            'center_sigma1': self.csigma1.value(),
-            'center_amplitude1': self.camp1.value(),
-            'center_sigma2': self.csigma2.value(),
-            'center_amplitude2': self.camp2.value(),
-            'bg_sigma_lock': self.bgsigchk.isChecked(),
-            'bg_amplitude_lock': self.bgampchk.isChecked(),
-            'center_sigma1_lock': self.csig1chk.isChecked(),
-            'center_amplitude1_lock': self.camp1chk.isChecked(),
-            'center_sigma2_lock': self.csig2chk.isChecked(),
-            'center_amplitude2_lock': self.camp2chk.isChecked()
-        }
-        self.saveSettings()
-        self.accept()
-        
-    def saveSettings(self):
-        settings = QSettings("Checkboxes", "PeakDetails")
-        settings.setValue("bg_sigma_lock", self.bgsigchk.isChecked())
-        settings.setValue("bg_amplitude_lock", self.bgampchk.isChecked())
-        settings.setValue("center_sigma1_lock", self.csig1chk.isChecked())  
-        settings.setValue("center_amplitude1_lock", self.camp1chk.isChecked())
-        settings.setValue("center_sigma2_lock", self.csig2chk.isChecked())
-        settings.setValue("center_amplitude2_lock", self.camp2chk.isChecked())
-        
-    def loadSettings(self):
-        settings = QSettings("Checkboxes", "PeakDetails")
-        self.bgsigchk.setChecked(settings.value("bg_sigma_lock", False, type=bool))
-        self.bgampchk.setChecked(settings.value("bg_amplitude_lock", False, type=bool))
-        self.csig1chk.setChecked(settings.value("center_sigma1_lock", False, type=bool))
-        self.camp1chk.setChecked(settings.value("center_amplitude1_lock", False, type=bool))
-        self.csig2chk.setChecked(settings.value("center_sigma2_lock", False, type=bool))
-        self.camp2chk.setChecked(settings.value("center_amplitude2_lock", False, type=bool))
-        
 
 class ProjectionBoxTab(QWidget):
     """
@@ -555,7 +439,10 @@ class ProjectionBoxTab(QWidget):
         # self.graphFigure1.canvas.mpl_connect('button_release_event', self.on_release)
     
     def editMainPeak(self):
-        # print(self.parent.projProc.boxes[self.name].fit_results)
+        """
+        Open the Meridional Peak Parameter Editor dialog.
+        Uses the new EditPeakDetailsDialog with integrated Refit & Save.
+        """
         box = self.get_box()
         if box is None or box.fit_results is None:
             QMessageBox.warning(
@@ -564,19 +451,26 @@ class ProjectionBoxTab(QWidget):
                 "Please fit peaks first before editing peak parameters."
             )
             return
-        dialog = EditPeakDetails(box.fit_results)
-        if dialog.exec_():
-            self.newinfo = dialog.newinfo
-            self.refitButton.setEnabled(True)
-            self.refitButton.setStyleSheet("background-color: orange;")
+        
+        try:
+            dialog = EditPeakDetailsDialog(self, self.name)
+            dialog.exec_()
+            # No need to handle result - dialog handles Refit & Save internally
+        except ValueError as e:
+            QMessageBox.warning(self, "Error", str(e))
             
     def refit(self):
-        self.parent.projProc.removeInfo(self.name, 'fit_results')
-        # Update main_peak_info in ProcessingState (not per-box)
-        self.parent.projProc.state.main_peak_info[self.name] = self.newinfo
-        self.parent.processImage() 
-        self.refitButton.setEnabled(False)
-        self.refitButton.setStyleSheet("") 
+        """
+        Legacy refit method - kept for backward compatibility.
+        The new EditPeakDetailsDialog handles refit internally.
+        """
+        if hasattr(self, 'newinfo') and self.newinfo:
+            self.parent.projProc.removeInfo(self.name, 'fit_results')
+            # Update main_peak_info in ProcessingState (not per-box)
+            self.parent.projProc.state.main_peak_info[self.name] = self.newinfo
+            self.parent.processImage() 
+            self.refitButton.setEnabled(False)
+            self.refitButton.setStyleSheet("") 
 
     def meridBckGrndChanged(self):
         """
