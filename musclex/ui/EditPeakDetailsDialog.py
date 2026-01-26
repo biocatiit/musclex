@@ -33,7 +33,9 @@ A dialog for editing meridional peak fitting parameters with:
 - Table-style UI (Fixed | Parameter | Value | Min | Max)
 - Real-time graph preview
 - Integrated Refit & Save functionality
-- Tolerance-based min/max auto-update
+- Tolerance-based min/max auto-update:
+  - Sigma: percentage tolerance (from parent tab's sigmaToleranceSpinBox)
+  - Amplitude: no auto bounds (wide range)
 
 Consistent with GMMParameterEditorDialog style.
 """
@@ -47,25 +49,27 @@ class EditPeakDetailsDialog(QDialog):
     Meridional Peak parameter editor dialog.
     
     Edit and refit meridional peak parameters:
-    - bg_sigma, bg_amplitude (Background)
-    - center_sigma1, center_amplitude1 (Meridian Background)
-    - center_sigma2, center_amplitude2 (Meridian Peak)
+    - bg_sigma, center_sigma1, center_sigma2 (Sigma - percentage tolerance)
+    - bg_amplitude, center_amplitude1, center_amplitude2 (Amplitude - no auto bounds)
     
     Features:
     - Table-style UI consistent with GMMParameterEditorDialog
     - Real-time preview on parameter changes
     - Integrated Refit & Save button
-    - Tolerance-based min/max bound calculation
+    - Tolerance-based min/max bound calculation:
+      - Sigma uses percentage tolerance from parent tab
+      - Amplitude uses very wide range (no auto bounds)
     """
     
-    # Parameter configuration: (internal_key, display_name, color_hint)
+    # Parameter configuration: (internal_key, display_name, color_hint, param_type)
+    # param_type: 'sigma' or 'amplitude'
     PARAMS_CONFIG = [
-        ('bg_sigma', 'Background Sigma', 'blue'),
-        ('bg_amplitude', 'Background Amplitude', 'blue'),
-        ('center_sigma1', 'Meridian Bg Sigma', 'yellow'),
-        ('center_amplitude1', 'Meridian Amplitude', 'yellow'),
-        ('center_sigma2', 'Meridian Sigma', 'red'),
-        ('center_amplitude2', 'Meridian Amplitude', 'red'),
+        ('bg_sigma', 'Background Sigma', 'blue', 'sigma'),
+        ('bg_amplitude', 'Background Amplitude', 'blue', 'amplitude'),
+        ('center_sigma1', 'Meridian Bg Sigma', 'yellow', 'sigma'),
+        ('center_amplitude1', 'Meridian Amplitude', 'yellow', 'amplitude'),
+        ('center_sigma2', 'Meridian Sigma', 'red', 'sigma'),
+        ('center_amplitude2', 'Meridian Amplitude', 'red', 'amplitude'),
     ]
     
     def __init__(self, parent_tab, box_name):
@@ -97,7 +101,6 @@ class EditPeakDetailsDialog(QDialog):
         
         self._init_ui()
         self._populate_parameters()
-        self._load_settings()
     
     def _init_ui(self):
         """Initialize the UI layout."""
@@ -110,30 +113,24 @@ class EditPeakDetailsDialog(QDialog):
         # Description
         descLabel = QLabel(
             "Edit meridional peak fitting parameters. Changes are previewed in real-time.\n"
+            "Sigma parameters use percentage tolerance from main tab.\n"
             "Click 'Refit & Save' to apply and save changes."
         )
         descLabel.setWordWrap(True)
         descLabel.setStyleSheet("color: gray; margin-bottom: 10px;")
         mainLayout.addWidget(descLabel)
         
-        # Tolerance control
-        toleranceLayout = QHBoxLayout()
-        toleranceLayout.addWidget(QLabel("Tolerance:"))
-        self.toleranceSpinBox = QDoubleSpinBox()
-        self.toleranceSpinBox.setDecimals(2)
-        self.toleranceSpinBox.setRange(0.1, 10000)
-        self.toleranceSpinBox.setValue(10.0)
-        self.toleranceSpinBox.setToolTip(
-            "Tolerance for min/max bounds.\n"
-            "When you change a value, min/max are recalculated as: value ± tolerance"
-        )
-        toleranceLayout.addWidget(self.toleranceSpinBox)
-        toleranceLayout.addStretch()
-        mainLayout.addLayout(toleranceLayout)
-        
-        # Parameter table
+        # Parameter table - configure tolerance getters
         self.paramTable = ParameterEditorTable()
-        self.paramTable.setToleranceGetter(lambda: self.toleranceSpinBox.value())
+        
+        # Set tolerance getters for different parameter types
+        # Sigma: percentage tolerance from parent tab's spinbox
+        self.paramTable.setToleranceGetter(
+            'sigma',
+            lambda: self.parent_tab.sigmaToleranceSpinBox.value()
+        )
+        # Note: amplitude type has no tolerance getter (no auto bounds)
+        
         self.paramTable.setClampMinAtZero(False)  # Allow negative for amplitudes
         self.paramTable.parameterChanged.connect(self._on_parameter_changed)
         mainLayout.addWidget(self.paramTable)
@@ -163,17 +160,67 @@ class EditPeakDetailsDialog(QDialog):
         buttonLayout.addWidget(self.cancelBtn)
         mainLayout.addLayout(buttonLayout)
     
+    def _get_sigma_tolerance_percentage(self) -> float:
+        """Get sigma tolerance percentage from parent tab's spinbox."""
+        try:
+            return float(self.parent_tab.sigmaToleranceSpinBox.value())
+        except Exception:
+            return 100.0  # Default 100%
+    
     def _populate_parameters(self):
-        """Populate the parameter table from fit_results."""
+        """
+        Populate the parameter table from fit_results and box.param_bounds.
+        
+        Logic:
+        1. Read values from fit_results
+        2. Read bounds from box.param_bounds if available
+        3. If no stored bounds, calculate using tolerance
+        """
         fit_result = self.working_params
-        tolerance = self.toleranceSpinBox.value()
+        
+        # Get stored bounds from box (persisted from previous edits)
+        box = self.projProc.boxes.get(self.box_name)
+        box_bounds = {}
+        if box and hasattr(box, 'param_bounds') and isinstance(box.param_bounds, dict):
+            box_bounds = box.param_bounds
+        
+        # Get tolerance percentage for sigma params
+        sigma_tolerance_pct = self._get_sigma_tolerance_percentage()
         
         params_dict = {}
         order = []
         
-        for param_key, display_name, color in self.PARAMS_CONFIG:
+        for param_key, display_name, color, param_type in self.PARAMS_CONFIG:
             val = fit_result.get(param_key, 0.0)
             fixed = fit_result.get(f'{param_key}_lock', False)
+            
+            # Check if bounds are already stored
+            stored_bounds = box_bounds.get(param_key, {})
+            if not isinstance(stored_bounds, dict):
+                stored_bounds = {}
+            
+            # Use stored bounds if available, otherwise calculate from tolerance
+            if 'min' in stored_bounds and 'max' in stored_bounds:
+                # Use persisted bounds
+                bmin = stored_bounds['min']
+                bmax = stored_bounds['max']
+            else:
+                # Calculate initial bounds based on parameter type
+                if param_type == 'sigma':
+                    # Sigma: use percentage tolerance
+                    tolerance_abs = abs(val) * (sigma_tolerance_pct / 100.0)
+                    bmin = max(0.0, val - tolerance_abs)
+                    bmax = val + tolerance_abs
+                elif param_type == 'amplitude':
+                    # Amplitude: wide range, no strict limits
+                    if val == 0:
+                        bmin, bmax = -1e6, 1e6
+                    else:
+                        scale = abs(val) * 5
+                        bmin, bmax = -scale, scale
+                else:
+                    # Fallback: fixed tolerance
+                    bmin, bmax = val - 10, val + 10
             
             # Create display name with color hint
             full_display_name = f"{display_name} ({color})"
@@ -181,11 +228,12 @@ class EditPeakDetailsDialog(QDialog):
             
             params_dict[full_display_name] = {
                 'val': val,
-                'min': val - tolerance,
-                'max': val + tolerance,
+                'min': bmin,
+                'max': bmax,
                 'fixed': fixed,
                 'enabled': True,
-                '_key': param_key
+                '_key': param_key,
+                '_type': param_type
             }
         
         self.paramTable.populateParameters(params_dict, order)
@@ -223,8 +271,20 @@ class EditPeakDetailsDialog(QDialog):
                     new_info[internal_key] = pinfo['val']
                     new_info[f'{internal_key}_lock'] = pinfo['fixed']
             
-            # Clear fit_results to force refit
+            # Save bounds to box.param_bounds (for persistence)
             box = self.projProc.boxes[self.box_name]
+            if not hasattr(box, 'param_bounds') or box.param_bounds is None:
+                box.param_bounds = {}
+            
+            for display_name, pinfo in params.items():
+                internal_key = pinfo.get('_key')
+                if internal_key:
+                    box.param_bounds[internal_key] = {
+                        'min': pinfo['min'],
+                        'max': pinfo['max']
+                    }
+            
+            # Clear fit_results to force refit
             box.fit_results = None
             
             # Update state with new main_peak_info
@@ -277,7 +337,6 @@ class EditPeakDetailsDialog(QDialog):
     
     def reject(self):
         """Close dialog and exit preview mode."""
-        self._save_settings()
         self.parent_tab.preview_params = None
         self.parent_tab.need_update = True
         self.parent_tab.updateUI()
@@ -285,19 +344,7 @@ class EditPeakDetailsDialog(QDialog):
     
     def closeEvent(self, event):
         """Handle dialog close event."""
-        self._save_settings()
         self.parent_tab.preview_params = None
         self.parent_tab.need_update = True
         self.parent_tab.updateUI()
         event.accept()
-    
-    def _save_settings(self):
-        """Save dialog settings (e.g., tolerance) to QSettings."""
-        settings = QSettings("MuscleX", "EditPeakDetailsDialog")
-        settings.setValue("tolerance", self.toleranceSpinBox.value())
-    
-    def _load_settings(self):
-        """Load dialog settings from QSettings."""
-        settings = QSettings("MuscleX", "EditPeakDetailsDialog")
-        tolerance = settings.value("tolerance", 10.0, type=float)
-        self.toleranceSpinBox.setValue(tolerance)
