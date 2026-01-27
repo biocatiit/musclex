@@ -1387,18 +1387,8 @@ class ProjectionTracesGUI(BaseGUI):
 
         # Provide different behavior depending on current active function
         if func is None:
-            for name, box_obj in self.boxes.items():
-                box = box_obj.coordinates
-                if box_obj.type == 'h' or box_obj.type == 'v':
-                    breadth = 10
-                    x1, x2, y1, y2 = box[0][0], box[0][1], box[1][0], box[1][1]
-                    if (x1 - breadth <= x <= x1 + breadth or x2 - breadth <= x <= x2 + breadth) and \
-                       y1 - breadth <= y <= y2 + breadth or x1 - breadth <= x <= x2 + breadth and \
-                       (y1 - breadth <= y <= y1 + breadth or y2 - breadth <= y <= y2 + breadth):
-                        self.function = ['box_move', name, (x, y)]
-                        break
-            else:
-                self.function = ['im_move', (x, y)]
+            # Enable image panning when clicking on empty areas
+            self.function = ['im_move', (x, y)]
 
         elif func[0] == 'box':
             # First draw two lines
@@ -1834,16 +1824,6 @@ class ProjectionTracesGUI(BaseGUI):
                 ax.invert_yaxis()
                 self.displayImgCanvas.draw_idle()
 
-        elif func[0] == 'box_move':
-            box = self.boxes_on_img[func[1]]
-            offset = (x - func[2][0], y - func[2][1])
-            xy = box['rect'].get_xy()
-            xy_t = box['text'].get_position()
-            box['rect'].set_xy((xy[0] + offset[0], xy[1] + offset[1]))
-            box['text'].set_position((xy_t[0] + offset[0], xy_t[1] + offset[1]))
-            self.displayImgCanvas.draw_idle()
-            func[2] = (x, y)
-
 
     def imgReleased(self, event):
         """
@@ -1853,20 +1833,6 @@ class ProjectionTracesGUI(BaseGUI):
             func = self.function
             if func[0] == 'im_move':
                 self.function = None
-            if func[0] == 'box_move':
-                box = self.boxes_on_img[func[1]]
-                w, h = box['rect'].get_width(), box['rect'].get_height()
-                xy = box['rect'].get_xy()
-                new_coords = ((xy[0], xy[0] + w), (xy[1], xy[1] + h))
-                self.boxes[func[1]].coordinates = new_coords
-                
-                # Sync to processor
-                if self.projProc and func[1] in self.projProc.boxes:
-                    self.projProc.boxes[func[1]].coordinates = new_coords
-                    
-                self.function = None
-                self.addBoxTabs()
-                self.processImage()
 
     def leaveImage(self, event):
         """
