@@ -1,0 +1,134 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+
+\title{Manual Calibration: Circle-band objective (contrast with background)}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent
+This note documents the objective used by \texttt{musclex/ui/ManualCalibrationDialog.py} in
+\texttt{ManualCalibrationDialog.\_circle\_band\_objective(center, radius, Q)} (the ``circle band'' optimizer).
+
+\section{What it computes}
+
+Given:
+\begin{itemize}
+  \item circle center \(c=(c_x,c_y)\)
+  \item radius \(r\)
+  \item band scale \(Q>0\) (roughly a ring-width scale, in pixels)
+  \item \texttt{objective\_alpha} \(\alpha\)
+  \item \texttt{objective\_bg\_k} \(k\)
+  \item \texttt{objective\_nphi} \(N_\phi\) (number of angular samples)
+\end{itemize}
+
+Let angles be uniformly sampled:
+\[
+\phi_j = \frac{2\pi j}{N_\phi},\quad j=0,\ldots,N_\phi-1
+\]
+
+Let the bilinear-sampled image intensity at a point be \(I(x,y)\).
+
+\subsection{Signal bands}
+
+The ``signal'' is sampled on 5 concentric circles near the candidate ring, using offsets
+\[
+o \in \{-Q,\,-0.5Q,\,0,\,0.5Q,\,Q\}.
+\]
+
+The signal mean is
+\[
+\mu_{\text{sig}} =
+\frac{1}{5N_\phi}
+\sum_{o}\sum_{j}
+I\!\left(c_x+(r+o)\cos\phi_j,\;c_y+(r+o)\sin\phi_j\right).
+\]
+
+\subsection{Background bands}
+
+The ``background'' is sampled on 2 concentric circles farther away (symmetric inside/outside), using offsets
+\[
+o \in \{-kQ,\,+kQ\}.
+\]
+
+The background mean is
+\[
+\mu_{\text{bg}} =
+\frac{1}{2N_\phi}
+\sum_{o}\sum_{j}
+I\!\left(c_x+(r+o)\cos\phi_j,\;c_y+(r+o)\sin\phi_j\right).
+\]
+
+\subsection{Objective value (maximize)}
+
+The returned objective is:
+\[
+J(c,r;Q)=\mu_{\text{sig}}-\alpha\,\mu_{\text{bg}}.
+\]
+
+\section{Why subtract a symmetric background}
+
+\subsection{The problem: ``maximize the integration'' is biased by radial background}
+
+If you maximize a raw ring integral/mean, you are effectively optimizing
+\[
+\int \big(S(r,\phi) + B(r,\phi)\big)\,d\phi,
+\]
+where \(S\) is the ring/peak contribution you care about and \(B\) is baseline/background intensity.
+
+In real diffraction images, \(B\) commonly varies strongly with radius (beam halo, small-angle scatter,
+detector response, broad diffuse scatter). That means the optimizer can increase the integral by
+moving the circle to a location where \(B\) is larger---even if the ring alignment is worse.
+
+Concretely, small changes to center/radius can ``ride'' the background gradient and produce a larger
+sum/mean without actually matching the ring. This can pull the solution toward bright halos,
+broad low-\(q\) scatter, nearby rings with higher baseline, or detector shading artifacts.
+
+\subsection{What the background bands do}
+
+Subtracting \(\alpha\,\mu_{\text{bg}}\) makes the objective approximate \emph{local contrast}:
+``how much brighter is the ring neighborhood compared to nearby off-ring samples''.
+
+Sampling background at both \(r-kQ\) and \(r+kQ\) is important:
+\begin{itemize}
+  \item \textbf{Symmetry cancels first-order radial slope:} if \(B(r)\) is roughly smooth, then
+  averaging inside/outside approximates the local baseline at \(r\) and reduces bias from \(dB/dr\).
+  \item \textbf{Stays local but avoids the peak:} using \(\pm kQ\) ties the background separation to the ring-width
+  scale \(Q\), so the off-ring samples remain ``nearby'' across different rings/images while being far
+  enough not to sit on the peak itself.
+\end{itemize}
+
+\subsection{Why not subtract a full radial profile?}
+
+A full radial background model can work, but it requires additional assumptions (masking peaks, robust
+fits, handling anisotropy). The two-band symmetric sampling is a lightweight, optimization-friendly
+proxy that is local (responds to local baseline), robust to global illumination changes, and cheap to compute.
+
+\subsection{Assumptions and practical caveats}
+The interpretation above relies on two practical assumptions:
+\begin{itemize}
+  \item \textbf{Background smoothness:} the baseline varies reasonably smoothly with radius so that
+  sampling at \(r\pm kQ\) approximates the local baseline at \(r\).
+  \item \textbf{Background samples are off-peak:} the offsets \(\pm kQ\) are far enough from the ring
+  so they do not land on the ring itself or a nearby ring/feature.
+\end{itemize}
+If rings are thick (e.g., \(\sim\!20\) pixels wide) or nearby features exist, increase \(Q\) and/or \(k\)
+so the background bands are truly outside the ring, or set \(\alpha=0\) to disable the background term.
+
+\section{Parameter intuition}
+\begin{itemize}
+  \item \textbf{\(Q\):} sets the ``thickness'' scale of the signal sampling band; also scales how far away background is measured.
+  \item \textbf{\(k\) (\texttt{objective\_bg\_k}):} how far from the ring to sample background (in units of \(Q\)).
+  Larger \(k\) reduces contamination from the ring peak but can make the background less ``local''.
+  \item \textbf{\(\alpha\) (\texttt{objective\_alpha}):} weight of the background penalty.
+  Higher \(\alpha\) emphasizes contrast; lower \(\alpha\) behaves more like raw intensity maximization.
+  \item \textbf{\(N_\phi\) (\texttt{objective\_nphi}):} angular sampling density; higher values reduce noise at higher compute cost.
+\end{itemize}
+
+\end{document}
+
