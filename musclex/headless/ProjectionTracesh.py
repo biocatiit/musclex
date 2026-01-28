@@ -35,7 +35,7 @@ from os.path import exists, splitext
 import numpy as np
 from musclex import __version__
 from ..utils.file_manager import fullPath, getImgFiles, createFolder
-from ..utils.image_processor import getMaskThreshold, getCenter, processImageForIntCenter
+from ..utils.image_processor import getMaskThreshold
 from ..modules.ProjectionProcessor import ProjectionProcessor
 from ..csv_manager import PT_CSVManager
 
@@ -64,7 +64,7 @@ class ProjectionTracesh:
         self.mask_thres = -999
         self.centerx = None
         self.centery = None
-        self.center_func = None
+        # Note: center_func removed - center is now managed by ImageData (matching GUI architecture)
         self.refit = False
 
         self.version = __version__
@@ -110,7 +110,6 @@ class ProjectionTracesh:
         if box_config is not None:
             self.centerx = box_config.get('centerx')
             self.centery = box_config.get('centery')
-            self.center_func = box_config.get('center_func')
             self.mask_thres = box_config.get('mask_thres', -999)
         
         self.onImageChanged(box_config)
@@ -145,14 +144,14 @@ class ProjectionTracesh:
         if self.mask_thres == -999:
             self.mask_thres = getMaskThreshold(self.projProc.orig_img)
         
-        # Get center from ImageData instead of info
+        # Set center from config if available, otherwise use ImageData's auto-calculated center
+        if self.centerx is not None and self.centery is not None:
+            # Use center from config (stored from previous GUI session)
+            self.projProc._image_data.set_manual_center((self.centerx, self.centery))
+        
+        # Get final center from ImageData (manual or auto-calculated)
         center = self.projProc._image_data.center
         self.centerx, self.centery = center
-        
-        if self.center_func is None:
-            self.center_func = 'init'
-        elif self.center_func != 'init':
-            self.updateCenter()  # do not update fit results for 'init' mode
         
         # Populate boxes from config directly into projProc.boxes
         if box_config is not None:
@@ -177,23 +176,6 @@ class ProjectionTracesh:
         
         # Process new image
         self.processImage()
-
-    def updateCenter(self, refit=True):
-        """
-        Update the image center
-        :return:
-        """
-        if self.center_func == 'automatic':
-            self.projProc.orig_img, center = processImageForIntCenter(self.projProc.orig_img, getCenter(self.projProc.orig_img))
-            self.centerx, self.centery = center
-        elif self.center_func == 'quadrant_fold': # default to quadrant folded
-            self.centerx = self.projProc.orig_img.shape[1] / 2. - 0.5
-            self.centery = self.projProc.orig_img.shape[0] / 2. - 0.5
-        elif self.center_func == 'init': # loading from cache - center already set above
-            pass  # centerx and centery already set from ImageData
-
-        self.projProc.cache = None
-        self.refit = refit
 
     def processImage(self):
         """
@@ -284,7 +266,6 @@ class ProjectionTracesh:
             'hull_ranges': hull_ranges,
             'centerx': self.centerx,
             'centery': self.centery,
-            'center_func': self.center_func,
             'mask_thres': self.mask_thres
         }
         cache_dir = fullPath(self.dir_path, 'pt_cache')
@@ -348,8 +329,8 @@ class ProjectionTracesh:
                 elif self.calSettings["type"] == "cont":
                     self.projProc.state.lambda_sdd = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
             
-            if "center" in self.calSettings and self.center_func != 'manual':
-                # Set center on ImageData
+            if "center" in self.calSettings:
+                # Set calibration center on ImageData (overrides any previous center)
                 self.projProc._image_data.set_manual_center(self.calSettings["center"])
             
             if "detector" in self.calSettings:
