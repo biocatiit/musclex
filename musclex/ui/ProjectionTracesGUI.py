@@ -2431,6 +2431,7 @@ class ProjectionTracesGUI(BaseGUI):
     def saveSettings(self):
         """
         Save current settings to json file.
+        Includes box configurations, center, mask threshold, and calibration parameters.
         """
         if self.projProc is None:
             return
@@ -2444,8 +2445,37 @@ class ProjectionTracesGUI(BaseGUI):
             'centery': self.centery,
             'mask_thres': self.maskThresSpnBx.value()
         }
+        
+        # Add calibration settings if available
+        # These are needed by headless mode to reproduce the same processing
+        if self.calSettings is not None:
+            # Calibration type (determines which formula to use)
+            if 'type' in self.calSettings:
+                cache['type'] = self.calSettings['type']
+            
+            # Image-based calibration parameters (using silver behenate)
+            if 'radius' in self.calSettings:
+                cache['radius'] = self.calSettings['radius']
+            if 'silverB' in self.calSettings:
+                cache['silverB'] = self.calSettings['silverB']
+            
+            # Instrument-based calibration parameters
+            if 'lambda' in self.calSettings:
+                cache['lambda'] = self.calSettings['lambda']
+            if 'sdd' in self.calSettings:
+                cache['sdd'] = self.calSettings['sdd']
+            if 'pixel_size' in self.calSettings:
+                cache['pixel_size'] = self.calSettings['pixel_size']
+            
+            # Calibration center (may differ from centerx/centery)
+            if 'center' in self.calSettings:
+                cache['center'] = self.calSettings['center']
+            
+            # Detector type
+            if 'detector' in self.calSettings:
+                cache['detector'] = self.calSettings['detector']
 
-        filename = getSaveFile(os.path.join("musclex", "settings", "pt_template.json"), None)
+        filename = getSaveFile(os.path.join("musclex", "settings", "ptsettings.json"), None)
         if filename != "":
             with open(filename, "w") as f:
                 json.dump(cache, f, indent=2)
