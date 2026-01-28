@@ -1,0 +1,169 @@
+{
+  "boxes": {
+    "m3": {
+      "name": "m3",
+      "coordinates": [
+        [
+          993,
+          1049
+        ],
+        [
+          665,
+          1339
+        ]
+      ],
+      "type": "v",
+      "bgsub": 1,
+      "peaks": [
+        276.1078655537059
+      ],
+      "merid_bg": true,
+      "hull_range": [
+        269,
+        287
+      ],
+      "param_bounds": {
+        "common_sigma": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "p_0": {
+          "min": 275.0,
+          "max": 279.0
+        },
+        "sigma0": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude0": {
+          "min": -1.0,
+          "max": 373359.46054867824
+        },
+        "p_1": {
+          "min": -279.0,
+          "max": -275.0
+        },
+        "sigma1": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude1": {
+          "min": -1.0,
+          "max": 373359.46054867824
+        }
+      },
+      "use_common_sigma": true,
+      "peak_tolerance": 2.0,
+      "sigma_tolerance": 100.0
+    },
+    "m6": {
+      "name": "m6",
+      "coordinates": [
+        [
+          983,
+          1075
+        ],
+        [
+          9,
+          2048
+        ]
+      ],
+      "type": "v",
+      "bgsub": 1,
+      "peaks": [
+        546.2384830406218,
+        551.8902975679126,
+        556.4696175252676
+      ],
+      "merid_bg": true,
+      "hull_range": [
+        542,
+        562
+      ],
+      "param_bounds": {
+        "common_sigma": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "p_0": {
+          "min": 543.0,
+          "max": 547.0
+        },
+        "sigma0": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude0": {
+          "min": -1.0,
+          "max": 58032.01134542383
+        },
+        "p_1": {
+          "min": 550.0,
+          "max": 554.0
+        },
+        "sigma1": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude1": {
+          "min": -1.0,
+          "max": 58032.01134542383
+        },
+        "p_2": {
+          "min": 554.0,
+          "max": 558.0
+        },
+        "sigma2": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude2": {
+          "min": -1.0,
+          "max": 58032.01134542383
+        },
+        "p_3": {
+          "min": -547.0,
+          "max": -543.0
+        },
+        "sigma3": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude3": {
+          "min": -1.0,
+          "max": 58032.01134542383
+        },
+        "p_4": {
+          "min": -554.0,
+          "max": -550.0
+        },
+        "sigma4": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude4": {
+          "min": -1.0,
+          "max": 58032.01134542383
+        },
+        "p_5": {
+          "min": -558.0,
+          "max": -554.0
+        },
+        "sigma5": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude5": {
+          "min": -1.0,
+          "max": 58032.01134542383
+        }
+      },
+      "use_common_sigma": true,
+      "peak_tolerance": 2.0,
+      "sigma_tolerance": 100.0
+    }
+  },
+  "centerx": 1024,
+  "centery": 1046,
+  "mask_thres": 0.0
+}

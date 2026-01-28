@@ -120,6 +120,7 @@ class ProjectionTracesh:
         Creates a new ProjectionProcessor and populates boxes from config.
         
         :param box_config: Dictionary containing box configurations from cache or settings file
+                           Expected format (NEW): {'boxes': {'name': {...}}, 'centerx': ..., 'centery': ..., 'mask_thres': ...}
         """
         # Load image data
         import fabio
@@ -153,29 +154,65 @@ class ProjectionTracesh:
         center = self.projProc._image_data.center
         self.centerx, self.centery = center
         
-        # Populate boxes from config directly into projProc.boxes
-        if box_config is not None:
-            boxes_dict = box_config.get('boxes', {})
-            types_dict = box_config.get('types', {})
-            bgsubs_dict = box_config.get('bgsubs', {})
-            peaks_dict = box_config.get('peaks', {})
-            merid_bg_dict = box_config.get('merid_bg', {})
-            hull_ranges_dict = box_config.get('hull_ranges', {})
+        # Populate boxes from config (NEW FORMAT: boxes contain all info as objects)
+        if box_config is not None and 'boxes' in box_config:
+            boxes_dict = box_config['boxes']
             
-            for box_name, coords in boxes_dict.items():
+            for box_name, box_dict in boxes_dict.items():
+                # Create ProcessingBox from dict (new format with all properties)
                 box = ProcessingBox(
-                    name=box_name,
-                    coordinates=coords,
-                    type=types_dict.get(box_name, 'h'),
-                    bgsub=bgsubs_dict.get(box_name, 0),
-                    peaks=peaks_dict.get(box_name, []),
-                    merid_bg=merid_bg_dict.get(box_name, False),
-                    hull_range=hull_ranges_dict.get(box_name)
+                    name=box_dict.get('name', box_name),
+                    coordinates=box_dict.get('coordinates'),
+                    type=box_dict.get('type', 'h'),
+                    bgsub=box_dict.get('bgsub', 0),
+                    peaks=box_dict.get('peaks', []).copy() if box_dict.get('peaks') else [],
+                    merid_bg=box_dict.get('merid_bg', False),
+                    hull_range=tuple(box_dict['hull_range']) if box_dict.get('hull_range') else None,
+                    param_bounds=box_dict.get('param_bounds', {}).copy() if box_dict.get('param_bounds') else {},
+                    use_common_sigma=box_dict.get('use_common_sigma', False),
+                    peak_tolerance=box_dict.get('peak_tolerance', 2.0),
+                    sigma_tolerance=box_dict.get('sigma_tolerance', 100.0)
                 )
+                
+                # Expand peaks by mirroring (matching GUI behavior)
+                # Template contains first half only, we mirror to create full set
+                self._expand_peaks_mirrored(box)
+                
                 self.projProc.boxes[box_name] = box
         
         # Process new image
         self.processImage()
+
+    def _expand_peaks_mirrored(self, box):
+        """
+        Expand peaks in a ProcessingBox by mirroring the first half.
+        
+        User-selected peaks (first half) are mirrored to create symmetric peaks.
+        For example: [10, 20, 30] -> [10, 20, 30, -10, -20, -30]
+        
+        Modifies box.peaks in-place.
+        
+        Note: hull_range is NOT mirrored because it's already a symmetric concept:
+        hull_range = (start, end) means distance from center, applied to both sides.
+        
+        Args:
+            box: ProcessingBox with user-selected peaks (first half only)
+        """
+        if not box.peaks:
+            print(f"  [_expand_peaks_mirrored] Box '{box.name}': No peaks to expand")
+            return
+        
+        # Mirror peaks: first half stays, add mirrored second half
+        user_peaks = box.peaks  # Already only the first half
+        mirrored_peaks = [-p for p in user_peaks]
+        box.peaks = user_peaks + mirrored_peaks
+        
+        print(f"  [_expand_peaks_mirrored] Box '{box.name}': {len(user_peaks)} user peaks → {len(box.peaks)} total peaks")
+        print(f"    User selected: {user_peaks}")
+        print(f"    After mirroring: {box.peaks}")
+        
+        # hull_range doesn't need mirroring - it's already symmetric
+        # (start, end) defines distance ranges from center for both positive and negative sides
 
     def processImage(self):
         """
@@ -238,32 +275,28 @@ class ProjectionTracesh:
     def cacheBoxesAndPeaks(self):
         """
         Save the boxes and peaks in the cache file.
-        Extracts box configurations from ProcessingBox objects.
+        Uses NEW FORMAT: boxes contain all info as objects (matching GUI).
         """
-        # Extract box configurations from ProcessingBox objects
+        # Extract box configurations from ProcessingBox objects (NEW FORMAT)
         boxes = {}
-        peaks = {}
-        types = {}
-        bgsubs = {}
-        merid_bg = {}
-        hull_ranges = {}
         
         for name, box in self.projProc.boxes.items():
-            boxes[name] = box.coordinates
-            peaks[name] = box.peaks
-            types[name] = box.type
-            bgsubs[name] = box.bgsub
-            merid_bg[name] = box.merid_bg
-            if box.hull_range is not None:
-                hull_ranges[name] = box.hull_range
+            boxes[name] = {
+                'name': box.name,
+                'coordinates': box.coordinates,
+                'type': box.type,
+                'bgsub': box.bgsub,
+                'peaks': box.peaks,
+                'merid_bg': box.merid_bg,
+                'hull_range': box.hull_range,
+                'param_bounds': box.param_bounds if hasattr(box, 'param_bounds') else {},
+                'use_common_sigma': box.use_common_sigma if hasattr(box, 'use_common_sigma') else False,
+                'peak_tolerance': box.peak_tolerance if hasattr(box, 'peak_tolerance') else 2.0,
+                'sigma_tolerance': box.sigma_tolerance if hasattr(box, 'sigma_tolerance') else 100.0
+            }
         
         cache = {
             'boxes': boxes,
-            'peaks': peaks,
-            'types': types,
-            'bgsubs': bgsubs,
-            'merid_bg': merid_bg,
-            'hull_ranges': hull_ranges,
             'centerx': self.centerx,
             'centery': self.centery,
             'mask_thres': self.mask_thres
