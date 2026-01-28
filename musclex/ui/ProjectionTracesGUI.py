@@ -58,6 +58,7 @@ from .pyqt_utils import *
 from .base_gui import BaseGUI
 from .widgets import ProcessingWorkspace
 from .widgets.collapsible_groupbox import CollapsibleGroupBox
+from .tools.placeholder_tool import PlaceholderTool
 
 class ProjectionParams:
     def __init__(self, settings, index, file_manager, gui):
@@ -681,6 +682,10 @@ class ProjectionTracesGUI(BaseGUI):
         self.displayImgFigure.canvas.mpl_connect('figure_leave_event', self.leaveImage)
         self.displayImgFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
 
+        # Register PlaceholderTool to block ImageViewerWidget's built-in pan during PT operations
+        if hasattr(self, 'image_viewer') and self.image_viewer:
+            self.image_viewer.tool_manager.register_tool('pt_operation', PlaceholderTool)
+
     def _on_status_text_requested(self, text: str):
         """
         Handle status text update request from ProcessingWorkspace.
@@ -780,6 +785,9 @@ class ProjectionTracesGUI(BaseGUI):
                     "Add left and right peaks simultaneously to boxes by clicking inside a box (ESC to cancel)")
                 peaks = {}
                 self.function = ['peaks', peaks]
+                # Activate placeholder tool to block ImageViewerWidget's built-in pan
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for i in range(len(ax.lines)-1,-1,-1):
                     ax.lines[i].remove()
@@ -968,6 +976,9 @@ class ProjectionTracesGUI(BaseGUI):
                 self.addBoxButton.setText("Done")
                 self.setLeftStatus("Add a box to the image by drawing a rectangle (ESC to cancel)")
                 self.function = ['box']
+                # Activate placeholder tool to block ImageViewerWidget's built-in pan
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -975,6 +986,9 @@ class ProjectionTracesGUI(BaseGUI):
             else:
                 self.addBoxButton.setChecked(False)
                 self.function = None
+                # Deactivate placeholder tool
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 return
 
     def addOrientedBox(self):
@@ -993,6 +1007,9 @@ class ProjectionTracesGUI(BaseGUI):
                 self.addOrientedBoxButton.setText("Done")
                 self.setLeftStatus("Select a pivot point indicating the box center (ESC to cancel)")
                 self.function = ['oriented_box']
+                # Activate placeholder tool to block ImageViewerWidget's built-in pan
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -1000,6 +1017,9 @@ class ProjectionTracesGUI(BaseGUI):
             else:
                 self.addOrientedBoxButton.setChecked(False)
                 self.function = None
+                # Deactivate placeholder tool
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 return
 
         elif self.addCenterOrientedBoxButton.isChecked() and not self.addOrientedBoxButton.isChecked():
@@ -1009,6 +1029,9 @@ class ProjectionTracesGUI(BaseGUI):
                 self.setLeftStatus("Drag to select the rotation angle and length of the projection axis (ESC to cancel)")
                 self.function = ['center_oriented_box']
                 self.function.append(self.projProc.center)
+                # Activate placeholder tool to block ImageViewerWidget's built-in pan
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.activate_tool('pt_operation')
                 ax = self.displayImgAxes
                 for line in list(ax.lines):
                     line.remove()
@@ -1016,6 +1039,9 @@ class ProjectionTracesGUI(BaseGUI):
             else:
                 self.addOrientedBoxButton.setChecked(False)
                 self.function = None
+                # Deactivate placeholder tool
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 return
         else:
             self.addCenterOrientedBoxButton.setChecked(False)
@@ -1437,6 +1463,9 @@ class ProjectionTracesGUI(BaseGUI):
                         self.projProc.state.boxes[name] = box_copy
                         
                 self.function = None
+                # Deactivate placeholder tool after box operation completes
+                if hasattr(self, 'image_viewer') and self.image_viewer:
+                    self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                 self.addBoxTabs()
                 self.processImage()
 
@@ -1556,6 +1585,9 @@ class ProjectionTracesGUI(BaseGUI):
                         self.boxes[name] = new_box
                         self.boxes_on_img[name] = self.genBoxArtists(name, new_box.coordinates, 'oriented')
                         self.function = None
+                        # Deactivate placeholder tool after oriented box operation completes
+                        if hasattr(self, 'image_viewer') and self.image_viewer:
+                            self.image_viewer.tool_manager.deactivate_tool('pt_operation')
                         
                         # Add new box to processor (create independent copy to avoid shared reference)
                         if self.projProc:
@@ -2703,6 +2735,9 @@ class ProjectionTracesGUI(BaseGUI):
         Refresh all tabs
         """
         self.function = None
+        # Deactivate placeholder tool when resetting UI (e.g., ESC pressed)
+        if hasattr(self, 'image_viewer') and self.image_viewer:
+            self.image_viewer.tool_manager.deactivate_tool('pt_operation')
         # self.graph_zoom = None
         QApplication.restoreOverrideCursor()
         self.selectPeaksButton.setText("Select Approximate Peak Locations")
