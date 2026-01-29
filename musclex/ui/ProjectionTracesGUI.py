@@ -2175,21 +2175,20 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Process Image by applying settings and calling process() of ProjectionProcessor.
         Then, write data and update UI.
+        
+        Args:
+            use_cache: If True, use cached computation results (rotation still applied)
         """
         if self.projProc is None:
             return
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
         try:
-            if use_cache:
-                print("Image cache detected: skipping ProjectionProcessor.process()")
-            else:
-                self.applySettings()
-                self.projProc.process()
-            # self.currentTask = Worker.fromProjProc(self.projProc, settings)
-            # self.currentTask.signals.result.connect(self.thread_done)
-            # self.currentTask.signals.finished.connect(self.thread_finished)
-            # self.threadPool.start(self.currentTask)
+            # Apply current settings to processor state
+            self.applySettings()
+            # Process with cache flag - rotation always applied, computation conditionally skipped
+            self.projProc.process(use_existing_cache=use_cache)
+
         except Exception:
             QApplication.restoreOverrideCursor()
             errMsg = QMessageBox()

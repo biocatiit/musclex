@@ -327,17 +327,14 @@ class ProjectionProcessor:
             box.peaks = []
             box.clear_results(from_stage='fit')
 
-    def process(self, no_cache: bool = False):
+    def _preprocess(self):
         """
-        Execute all processing steps.
+        Stage 1: Preprocessing (always executed, even when using cache).
         
-        Settings should be written directly to self.state before calling this method.
-        Box configurations are managed by ProcessingBox objects in self.boxes.
-        
-        Note: Rotation is performed once at the beginning of processing.
-        This ensures GUI displays the rotated image directly without additional rotation.
-        
-        :param no_cache: If True, skip caching results to disk
+        This stage prepares the image for processing:
+        - Resets to raw image
+        - Sets mask threshold
+        - Applies rotation if needed
         """
         # Reset to raw image to avoid cumulative rotation on repeated process() calls
         self.orig_img = self._raw_img.copy()
@@ -358,15 +355,53 @@ class ProjectionProcessor:
             self.rotMat = cv2.getRotationMatrix2D(tuple(self.center), self.rotation, 1)
             print(f"Image rotated by {self.rotation}° around center {self.center}")
         # ================================================================
+    
+    def _compute(self):
+        """
+        Stage 2: Main computation pipeline (can be skipped when using cache).
         
-        # Note: Blank/mask preprocessing is already applied by ImageData.get_working_image()
-        # No need to apply again here (would cause double subtraction of blank image)
+        This stage performs the expensive computations:
+        - Histogram generation
+        - Convex hull application
+        - Model fitting
+        - Peak detection
+        
+        Note: Blank/mask preprocessing is already applied by ImageData.get_working_image()
+        No need to apply again here (would cause double subtraction of blank image)
+        """
         self.getHistograms()
         self.applyConvexhull()
         self.updateRotationAngle()
         self.fitModel()
         self.getBackgroundSubtractedHistograms()
         self.getPeakInfos()
+    
+    def process(self, no_cache: bool = False, use_existing_cache: bool = False):
+        """
+        Execute all processing steps.
+        
+        Settings should be written directly to self.state before calling this method.
+        Box configurations are managed by ProcessingBox objects in self.boxes.
+        
+        Three-stage processing pipeline:
+        1. Preprocessing (always run) - image preparation and rotation
+        2. Main computation (skipped if use_existing_cache=True) - expensive calculations
+        3. Caching (unless no_cache=True) - save results to disk
+        
+        :param no_cache: If True, skip caching results to disk
+        :param use_existing_cache: If True, skip expensive computation and use cached results
+                                   (preprocessing like rotation is still applied)
+        """
+        # Stage 1: Preprocessing (always run)
+        self._preprocess()
+        
+        # Stage 2: Main computation (skip if using cache)
+        if use_existing_cache:
+            print("Using cached computation results: skipping expensive processing pipeline")
+        else:
+            self._compute()
+        
+        # Stage 3: Cache results to disk
         if not no_cache:
             self.cacheInfo()
 
