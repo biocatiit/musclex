@@ -142,10 +142,10 @@ class ProjectionTracesh:
         
         # Create ProjectionProcessor with ImageData
         self.projProc = ProjectionProcessor(image_data)
-        # Headless mode: disable global rotation
-        # Box coordinates in ptsettings.json are based on the original (unrotated) image
-        # So we skip the global rotation to maintain coordinate consistency
-        self.projProc._image_data.set_manual_rotation(0)
+        # Headless mode: Use the same rotation as GUI
+        # Box coordinates in ptsettings.json are based on the rotated image displayed in GUI
+        # ImageData will automatically load rotation from auto_geometry cache if it exists
+        # This ensures headless and GUI produce identical results
         
         if self.mask_thres == -999:
             self.mask_thres = getMaskThreshold(self.projProc.orig_img)
