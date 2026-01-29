@@ -929,6 +929,7 @@ class XRayViewerGUI(QMainWindow):
                 self.xrayViewer.hist = rotImg[newCenter[1], :]
                 self.updateFittingTab(self.xrayViewer.hist)
                 self.saveGraphSlice.setEnabled(True)
+                self.tabWidget.setTabEnabled(1, True)
             self.refreshAllTabs()
 
     def setSliceBoxChecked(self):
@@ -974,6 +975,7 @@ class XRayViewerGUI(QMainWindow):
                 self.xrayViewer.hist[self.xrayViewer.hist <= -1] = -1
                 self.updateFittingTab(self.xrayViewer.hist)
                 self.saveGraphSlice.setEnabled(True)
+                self.tabWidget.setTabEnabled(1, True)
             self.refreshAllTabs()
             
     def makeText(self, p1, p2, txt, dist=100):
