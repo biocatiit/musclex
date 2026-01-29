@@ -405,7 +405,7 @@ class TestDialog(QDialog):
         from the log in the parent process.
         """
         self.progressBar.reset()
-        NTESTS = 14
+        NTESTS = 13
 
         suite = unittest.TestSuite()
         
@@ -418,9 +418,8 @@ class TestDialog(QDialog):
         suite.addTest(MuscleXGlobalTester("testHeadlessMarDiffraction"))
         suite.addTest(MuscleXGlobalTester("testHeadlessEigerDiffraction"))
         suite.addTest(MuscleXGlobalTester("testHeadlessPilatusDiffraction"))
-        suite.addTest(MuscleXGlobalTester("testHeadlessMarProjectionTraces"))
-        suite.addTest(MuscleXGlobalTester("testHeadlessEigerProjectionTraces"))
-        suite.addTest(MuscleXGlobalTester("testHeadlessPilatusProjectionTraces"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessMarPTConvexHullVertical"))
+        suite.addTest(MuscleXGlobalTester("testHeadlessEigerPTConvexHullVertical"))
         suite.addTest(MuscleXGlobalTester("testHeadlessAISE"))
         runner = unittest.TextTestRunner()
         proc = Thread(target=runner.run, args=(suite,))
