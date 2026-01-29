@@ -400,6 +400,16 @@ class XRayViewerGUI(QMainWindow):
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            elif len(func) >= 3:
+                # Auto-complete slice after second point is clicked
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines[i].remove()
+                for i in range(len(ax.patches)-1,-1,-1):
+                    ax.patches[i].remove()
+                self.imageCanvas.draw_idle()
+                self.setSlice.setChecked(False)
+                self.setSliceChecked()
+                return  # Exit early since setSliceChecked will redraw
             self.imageCanvas.draw_idle()
         
         elif func[0] == "dist":
@@ -419,6 +429,74 @@ class XRayViewerGUI(QMainWindow):
                 ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
                 ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
                 ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.imageCanvas.draw_idle()
+        
+        elif func[0] == "slice_box":
+            # Draw slice box markers as mouse moves
+            if len(func) == 1:
+                # First point, draw crosshair
+                for i in range(len(ax.lines)-1,-1,-1):
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+            elif len(func) == 2:
+                # Second point, draw line
+                start_pt = func[1]
+                if len(ax.lines) > 2:
+                    for i in range(len(ax.lines)-1,1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+                ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
+                ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            elif len(func) == 3:
+                # Third point for width, draw box preview
+                for i in range(len(ax.lines)-1,1,-1):
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
+                angle = np.radians(90 - func[2][4])
+                p_mouse = np.array([x, y])
+                if func[2][0] < func[2][1]:  # p1 is to the left
+                    p_left = np.array((func[2][0], func[2][2]))
+                    p_right = np.array((func[2][1], func[2][3]))
+                else:
+                    p_left = np.array((func[2][1], func[2][3]))
+                    p_right = np.array((func[2][0], func[2][2]))
+                
+                v1 = p_left - p_right
+                v2 = p_mouse - p_right
+                u = v1/np.linalg.norm(v1)
+                n = (-u[1], u[0])
+                
+                height = np.abs(np.dot(v2, n))
+                
+                x1_left = p_left[0] - height*np.cos(angle)
+                y1_left = p_left[1] - height*np.sin(angle)
+                x2_left = p_left[0] + height*np.cos(angle)
+                y2_left = p_left[1] + height*np.sin(angle)
+                x1_right = p_right[0] - height*np.cos(angle)
+                y1_right = p_right[1] - height*np.sin(angle)
+                x2_right = p_right[0] + height*np.cos(angle)
+                y2_right = p_right[1] + height*np.sin(angle)
+                
+                ax.plot([func[2][0], func[2][1]], [func[2][2], func[2][3]], color="r")
+                ax.plot([p_left[0], x2_left], [p_left[1], y2_left], color="r", linestyle='dotted')
+                ax.plot([x1_left, p_left[0]], [y1_left, p_left[1]], color="r", linestyle='dotted')
+                ax.plot([p_right[0], x2_right], [p_right[1], y2_right], color="r", linestyle='dotted')
+                ax.plot([x1_right, p_right[0]], [y1_right, p_right[1]], color="r", linestyle='dotted')
+                ax.plot([x1_left, x1_right], [y1_left, y1_right], color="r", linestyle='dotted')
+                ax.plot([x2_left, x2_right], [y2_left, y2_right], color="r", linestyle='dotted')
+            elif len(func) >= 4:
+                # Auto-complete slice box after third point is clicked
+                for i in range(len(ax.lines)-1,-1,-1):
+                    ax.lines[i].remove()
+                for i in range(len(ax.patches)-1,-1,-1):
+                    ax.patches[i].remove()
+                self.imageCanvas.draw_idle()
+                self.setSliceBox.setChecked(False)
+                self.setSliceBoxChecked()
+                return  # Exit early since setSliceBoxChecked will redraw
             self.imageCanvas.draw_idle()
     
     def _on_canvas_clicked(self, event):
@@ -926,7 +1004,7 @@ class XRayViewerGUI(QMainWindow):
                     print("Center of the line: ", (cx, cy))
             if len(func) > 1:
                 rotImg, newCenter, _ = rotateImage(self.xrayViewer.orig_img, [cx, cy], angle)
-                self.xrayViewer.hist = rotImg[newCenter[1], :]
+                self.xrayViewer.hist = rotImg[int(newCenter[1]), :]
                 self.updateFittingTab(self.xrayViewer.hist)
                 self.saveGraphSlice.setEnabled(True)
                 self.tabWidget.setTabEnabled(1, True)
@@ -968,10 +1046,11 @@ class XRayViewerGUI(QMainWindow):
                     print("Center of the line: ", (cx, cy))
 
                 rotImg, newCenter, _ = rotateImage(self.xrayViewer.orig_img, [cx, cy], angle)
-                l = func[3][3]//2
-                self.xrayViewer.hist = rotImg[newCenter[1]-func[3][2], newCenter[0]-l:newCenter[0]+l]
-                for i in range(newCenter[1]-func[3][2], newCenter[1]+func[3][2]):
-                    self.xrayViewer.hist += rotImg[i, newCenter[0]-l:newCenter[0]+l]
+                l = int(func[3][3]//2)
+                nc_x, nc_y = int(newCenter[0]), int(newCenter[1])
+                self.xrayViewer.hist = rotImg[nc_y-func[3][2], nc_x-l:nc_x+l]
+                for i in range(nc_y-func[3][2], nc_y+func[3][2]):
+                    self.xrayViewer.hist += rotImg[i, nc_x-l:nc_x+l]
                 self.xrayViewer.hist[self.xrayViewer.hist <= -1] = -1
                 self.updateFittingTab(self.xrayViewer.hist)
                 self.saveGraphSlice.setEnabled(True)
