@@ -115,16 +115,20 @@ class XRayViewerGUI(QMainWindow):
         """
         self.setWindowTitle("X-Ray Viewer v." + __version__)
 
+        # Create main container that holds scroll area AND status bars
+        self.mainContainer = QWidget(self)
+        self.mainContainerLayout = QVBoxLayout(self.mainContainer)
+        self.mainContainerLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainContainerLayout.setSpacing(0)
+        self.setCentralWidget(self.mainContainer)
+        
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidgetResizable(True)
+        self.mainContainerLayout.addWidget(self.scrollArea, 1)  # Scroll area takes all space
 
-        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-
-        self.centralWidget = QWidget(self)
+        self.centralWidget = QWidget()
         self.scrollArea.setWidget(self.centralWidget)
         self.mainLayout = QVBoxLayout(self.centralWidget)
-        self.setCentralWidget(self.scrollArea)
         
 
         self.tabWidget = QTabWidget()
@@ -211,6 +215,7 @@ class XRayViewerGUI(QMainWindow):
 
         #### Status bar #####
         self.statusBar = QStatusBar()
+        self.statusBar.setSizeGripEnabled(False)  # Disable size grip to prevent layout changes
         self.progressBar = QProgressBar()
         self.progressBar.setMaximum(100)
         self.progressBar.setMinimum(0)
@@ -220,6 +225,7 @@ class XRayViewerGUI(QMainWindow):
         self.statusReport = QLabel()
         self.imgDetailOnStatusBar = QLabel()
         self.imgCoordOnStatusBar = QLabel()
+        self.imgCoordOnStatusBar.setMinimumWidth(450)  # Fixed width to prevent resize
         self.imgPathOnStatusBar = QLabel()
         self.imgPathOnStatusBar.setText("  Please select an image or a folder to process")
         self.statusBar.addPermanentWidget(self.statusReport)
@@ -235,9 +241,9 @@ class XRayViewerGUI(QMainWindow):
         self.scrollWheelStatusBar.addWidget(QLabel("Hint: Use the scroll wheel on your mouse to zoom in and out!"))
         self.scrollWheelStatusBar.setVisible(False)
 
-        #Add both status bars
-        self.mainLayout.addWidget(self.scrollWheelStatusBar)
-        self.mainLayout.addWidget(self.statusBar)
+        #Add both status bars OUTSIDE scroll area to prevent jitter
+        self.mainContainerLayout.addWidget(self.scrollWheelStatusBar)
+        self.mainContainerLayout.addWidget(self.statusBar)
 
         #### Menu Bar #####
         selectImageAction = QAction('Select an Image...', self)
@@ -364,7 +370,7 @@ class XRayViewerGUI(QMainWindow):
             q, units = [-1, ""]
         
         self.imgCoordOnStatusBar.setText(
-            f"x={x}, y={y}, value={value}, distance={q}{units}")
+            f"x={x:.2f}, y={y:.2f}, value={value:.2f}, distance={q:.2f}{units}")
         
         # Custom tool drawing (only if function is active)
         if self.function is None:
