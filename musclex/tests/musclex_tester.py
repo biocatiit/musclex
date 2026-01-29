@@ -418,6 +418,34 @@ class MuscleXGlobalTester(unittest.TestCase):
         # Remove cache folders
         if os.path.exists(os.path.join(pt_dir, "pt_cache")):
             shutil.rmtree(os.path.join(pt_dir, "pt_cache"))
+
+    def testHeadlessEigerPTConvexHullVertical(self):
+        """Test ProjectionTraces with EIGER_PT_Convex_Hull_Vertical (new format with embedded box config)"""
+        pt_dir = os.path.join(self.currdir, "testImages", "EIGER_PT_Convex_Hull_Vertical")
+        for filename in os.listdir(pt_dir):
+            _, ext = os.path.splitext(str(filename))
+            if ext in self.input_types:
+                f = os.path.join(pt_dir, filename)
+                ProjectionTracesh(f, True, True, os.path.join(pt_dir, "ptsettings.json"))
+
+        print(f"\033[3;33m\nVerifying that generated headless ProjectionTraces is equivalent to GUI ProjectionTraces\033[0;3140m")
+        generated_results = os.path.join(pt_dir, "pt_results", "summary.csv")
+        release_results = os.path.join(self.currdir, "testResults", "EIGER_PT_Convex_Hull_Vertical", "summary.csv")
+        
+        pass_test = compare_csv_files(generated_results, release_results, ignore_columns=ignore_columns, sort_key=sort_key, rtol=1, atol=atol)
+        if not pass_test:
+            print(f"\nTesting ProjectionTraces on {pt_dir} ..... \033[0;31mFAILED\033[0;3140m\033[0;3840m")
+            print("Compare the following files for more information:\n" \
+                    "File generated for testing: {p1}\nReference file: {p2}\n" \
+                    .format(p1 = generated_results, p2 = release_results))
+        else:
+            print(f"Testing ProjectionTraces on {pt_dir} ..... \033[0;32mPASSED\033[0;3140m")
+        self.log_results(pass_test, "ProjectionTraces EIGER_PT_Convex_Hull_Vertical")
+        self.assertTrue(pass_test,"ProjectionTraces Image Headless Test for EIGER_PT_Convex_Hull_Vertical failed.")
+
+        # Remove cache folders
+        if os.path.exists(os.path.join(pt_dir, "pt_cache")):
+            shutil.rmtree(os.path.join(pt_dir, "pt_cache"))
             
     def testHeadlessAISE(self):
         aise_dir = os.path.join(self.currdir, "test_images")
