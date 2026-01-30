@@ -36,7 +36,6 @@ import matplotlib.patches as patches
 
 from PySide6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
     QVBoxLayout,
     QHBoxLayout,
     QGridLayout,
@@ -100,6 +99,7 @@ class ManualCalibrationDialog(QDialog):
         self.calibration_circle = None  # Matplotlib circle patch
         self.calibration_center_artist = None  # Center point marker
         self.radial_lines = []  # List of radial line artists
+        self.applied = False  # Flag to track if Apply has been clicked
         
         # Calibration results
         self.center = None
@@ -201,11 +201,6 @@ class ManualCalibrationDialog(QDialog):
         self.clearPointsBtn.clicked.connect(self.clearAllPoints)
         buttonsLayout.addWidget(self.clearPointsBtn)
         
-        self.applyBtn = QPushButton("Apply (Preview)")
-        self.applyBtn.clicked.connect(self.applyCalibration)
-        self.applyBtn.setEnabled(False)
-        buttonsLayout.addWidget(self.applyBtn)
-        
         pointsLayout.addLayout(buttonsLayout)
         
         self.optionsLayout.addWidget(self.pointsGroup)
@@ -231,20 +226,32 @@ class ManualCalibrationDialog(QDialog):
         
         self.mainLayout.addLayout(self.contentLayout)
         
-        # Button box
-        self.buttonBox = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-            Qt.Horizontal,
-            self
-        )
-        self.buttonBox.accepted.connect(self.onAccept)
-        self.buttonBox.rejected.connect(self.reject)
+        # Button layout (Cancel - Apply - Done)
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addStretch()
         
-        # Change OK button text to "Done"
-        self.buttonBox.button(QDialogButtonBox.Ok).setText("Done")
+        # Set consistent height for all buttons
+        btn_height = 28
         
-        self.mainLayout.addWidget(self.buttonBox)
-        self.mainLayout.setAlignment(self.buttonBox, Qt.AlignCenter)
+        self.cancelBtn = QPushButton("Cancel")
+        self.cancelBtn.setFixedHeight(btn_height)
+        self.cancelBtn.clicked.connect(self.reject)
+        buttonLayout.addWidget(self.cancelBtn)
+        
+        self.applyBtn = QPushButton("Apply (Preview)")
+        self.applyBtn.setFixedHeight(btn_height)
+        self.applyBtn.clicked.connect(self.applyCalibration)
+        self.applyBtn.setEnabled(False)
+        buttonLayout.addWidget(self.applyBtn)
+        
+        self.doneBtn = QPushButton("Done")
+        self.doneBtn.setFixedHeight(btn_height)
+        self.doneBtn.clicked.connect(self.onAccept)
+        self.doneBtn.setEnabled(False)  # Disabled until Apply is clicked
+        buttonLayout.addWidget(self.doneBtn)
+        
+        buttonLayout.addStretch()
+        self.mainLayout.addLayout(buttonLayout)
         
         # Set minimum size
         self.imageViewer.canvas.setMinimumSize(800, 600)
@@ -364,13 +371,14 @@ class ManualCalibrationDialog(QDialog):
         
         # Enable/disable buttons based on point count
         if count < 5:
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
             self.applyBtn.setEnabled(False)
             self.pointsCountLabel.setStyleSheet("QLabel { color: orange; }")
         else:
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
             self.applyBtn.setEnabled(True)
             self.pointsCountLabel.setStyleSheet("QLabel { color: green; }")
+        
+        # Done button is only enabled after Apply is clicked
+        self.doneBtn.setEnabled(self.applied)
     
     def onAccept(self):
         """Handle OK/Done button click"""
@@ -847,6 +855,10 @@ class ManualCalibrationDialog(QDialog):
         
         # Update display
         self.displayCalibrationResults()
+        
+        # Enable Done button after Apply is clicked
+        self.applied = True
+        self.doneBtn.setEnabled(True)
         
         QMessageBox.information(
             self,
