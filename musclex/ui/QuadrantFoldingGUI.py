@@ -177,8 +177,9 @@ class Worker(QRunnable):
         print(method)
         if method != 'None':
 
-            filename = self.params.fileName
-            bg_path = fullPath(self.params.filePath, os.path.join("qf_results", "bg"))
+            filename = self.params.file_manager.names[self.params.index]
+            file_path = self.params.file_manager.dir_path
+            bg_path = fullPath(file_path, os.path.join("qf_results", "bg"))
             result_path = fullPath(bg_path, filename + ".bg.tif")
 
             # create bg folder
@@ -187,12 +188,12 @@ class Worker(QRunnable):
             fabio.tifimage.tifimage(data=resultImg).write(result_path)
 
             #self.bgCSV(np.sum(resultImg), bg_path)
-            self.bgDict[self.params.fileName] = np.sum(resultImg)
+            self.bgDict[filename] = np.sum(resultImg)
 
 
     def bgCSV(self, total_inten, bg_path):
-            filename = self.params.fileName
-            csv_path = join(bg_path, f'background_sum_{self.params.fileName}.csv')
+            filename = self.params.file_manager.names[self.params.index]
+            csv_path = join(bg_path, f'background_sum_{filename}.csv')
 
                 # create csv file to save total intensity for background
             if exists(csv_path):
