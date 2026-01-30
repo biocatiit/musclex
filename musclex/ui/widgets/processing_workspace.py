@@ -1927,3 +1927,23 @@ class ProcessingWorkspace(QWidget):
                 process(img)
         """
         return self._file_manager
+    
+    @property
+    def calibration_settings(self):
+        """
+        Get calibration settings from cache file.
+        
+        Returns the 'settings' dict from calibration.info, which contains:
+        - type: "img" or "cont"
+        - For "img" type: silverB, radius
+        - For "cont" type: lambda, sdd, pixel_size, scale
+        - center: [x, y] (optional)
+        - detector: detector name (optional)
+        
+        Returns:
+            dict or None: Calibration settings, or None if not available
+        """
+        cache = self._load_calibration_cache()
+        if cache is not None and 'settings' in cache:
+            return cache['settings']
+        return None

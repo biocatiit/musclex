@@ -330,7 +330,6 @@ class ProjectionTracesGUI(BaseGUI):
         self.filePath = "" # current directory
         self.current_file = 0
         self.dir_path = ""
-        self.calSettings = None
         self.update_plot = {'img':True}
         self.imgList = []
         self.h5index = 0
@@ -1706,17 +1705,18 @@ class ProjectionTracesGUI(BaseGUI):
             x = int(round(x))
             y = int(round(y))
             unit = "px"
-            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                if 'center' in self.calSettings and self.calSettings['center'] is not None:
-                    center = self.calSettings['center']
+            calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
+            if calSettings is not None and 'scale' in calSettings:
+                if 'center' in calSettings and calSettings['center'] is not None:
+                    center = calSettings['center']
                 else:
                     center = self.projProc.center
-                q, unit = inverseNmFromCenter([x, y], center, self.calSettings['scale'])
-                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
+                q, unit = inverseNmFromCenter([x, y], center, calSettings['scale'])
+                # constant = calSettings["silverB"] * calSettings["radius"]
                 # calib_distance = mouse_distance * 1.0/constant
                 # calib_distance = f"{calib_distance:.4f}"
             if x < img.shape[1] and y < img.shape[0]:
-                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                if calSettings is not None and 'scale' in calSettings:
                     self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
                     center = self.projProc.center
@@ -2447,32 +2447,33 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Add calibration settings if available
         # These are needed by headless mode to reproduce the same processing
-        if self.calSettings is not None:
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
+        if calSettings is not None:
             # Calibration type (determines which formula to use)
-            if 'type' in self.calSettings:
-                cache['type'] = self.calSettings['type']
+            if 'type' in calSettings:
+                cache['type'] = calSettings['type']
             
             # Image-based calibration parameters (using silver behenate)
-            if 'radius' in self.calSettings:
-                cache['radius'] = self.calSettings['radius']
-            if 'silverB' in self.calSettings:
-                cache['silverB'] = self.calSettings['silverB']
+            if 'radius' in calSettings:
+                cache['radius'] = calSettings['radius']
+            if 'silverB' in calSettings:
+                cache['silverB'] = calSettings['silverB']
             
             # Instrument-based calibration parameters
-            if 'lambda' in self.calSettings:
-                cache['lambda'] = self.calSettings['lambda']
-            if 'sdd' in self.calSettings:
-                cache['sdd'] = self.calSettings['sdd']
-            if 'pixel_size' in self.calSettings:
-                cache['pixel_size'] = self.calSettings['pixel_size']
+            if 'lambda' in calSettings:
+                cache['lambda'] = calSettings['lambda']
+            if 'sdd' in calSettings:
+                cache['sdd'] = calSettings['sdd']
+            if 'pixel_size' in calSettings:
+                cache['pixel_size'] = calSettings['pixel_size']
             
             # Calibration center (may differ from centerx/centery)
-            if 'center' in self.calSettings:
-                cache['center'] = self.calSettings['center']
+            if 'center' in calSettings:
+                cache['center'] = calSettings['center']
             
             # Detector type
-            if 'detector' in self.calSettings:
-                cache['detector'] = self.calSettings['detector']
+            if 'detector' in calSettings:
+                cache['detector'] = calSettings['detector']
 
         filename = getSaveFile(os.path.join("musclex", "settings", "ptsettings.json"), None)
         if filename != "":
@@ -2700,15 +2701,16 @@ class ProjectionTracesGUI(BaseGUI):
             self.refit = False
 
         # Calibration settings
-        if self.calSettings is not None:
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    self.projProc.state.lambda_sdd = self.calSettings["silverB"] * self.calSettings["radius"]
-                elif self.calSettings["type"] == "cont":
-                    self.projProc.state.lambda_sdd = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
+        if calSettings is not None:
+            if 'type' in calSettings:
+                if calSettings["type"] == "img":
+                    self.projProc.state.lambda_sdd = calSettings["silverB"] * calSettings["radius"]
+                elif calSettings["type"] == "cont":
+                    self.projProc.state.lambda_sdd = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
 
-            if "detector" in self.calSettings:
-                self.projProc.state.detector = self.calSettings["detector"]
+            if "detector" in calSettings:
+                self.projProc.state.detector = calSettings["detector"]
     
     def getSettings(self):
         """
@@ -2720,12 +2722,13 @@ class ProjectionTracesGUI(BaseGUI):
         settings = {}
         settings['mask_thres'] = self.maskThresSpnBx.value()
         
-        if self.calSettings is not None:
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
-                elif self.calSettings["type"] == "cont":
-                    settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings["pixel_size"]
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
+        if calSettings is not None:
+            if 'type' in calSettings:
+                if calSettings["type"] == "img":
+                    settings["lambda_sdd"] = calSettings["silverB"] * calSettings["radius"]
+                elif calSettings["type"] == "cont":
+                    settings["lambda_sdd"] = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
         
         return settings
 
@@ -2744,10 +2747,11 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Update image details
         img = self.projProc.orig_img
-        if self.calSettings is not None and not self.calSettings:
-            self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
-        elif self.calSettings is not None and self.calSettings:
+        calSettings = self.workspace.calibration_settings if hasattr(self, 'workspace') else None
+        if calSettings:
             self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype) + " " + "(Image Calibrated)")
+        else:
+            self.imgDetailOnStatusBar.setText(str(img.shape[0]) + "x" + str(img.shape[1]) + " " + str(img.dtype))
         self.imgCoordOnStatusBar.setText("")
         # QApplication.processEvents()
 
