@@ -125,24 +125,27 @@ class ZoomRectangleTool(InteractionTool):
     
     def handle_click(self, event) -> bool:
         """
-        RectangleSelector handles clicks internally, so we don't need to process them.
-        Just return False to indicate we're not blocking the event.
+        RectangleSelector handles clicks internally.
+        Return True to block the event while tool is active.
         """
-        return False
+        # Block the event when tool is active to prevent accidental clicks
+        return self.is_active
     
     def handle_motion(self, event) -> bool:
         """
         RectangleSelector handles motion internally for drawing the rectangle.
-        Just return False to indicate we're not blocking the event.
+        Return True to block the event while tool is active.
         """
-        return False
+        # Block the event when tool is active
+        return self.is_active
     
     def handle_release(self, event) -> bool:
         """
         RectangleSelector handles release internally to finalize the selection.
-        We return False to let other handlers process the event if needed.
+        Return True to block canvasClicked signal while tool is active.
         """
-        return False
+        # Block the event when tool is active to prevent accidental clicks
+        return self.is_active
     
     def get_result(self):
         """
