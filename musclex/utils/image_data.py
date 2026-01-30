@@ -163,7 +163,7 @@ class ImageData:
         Usage:
             # In GUI code
             image_data = ImageData.from_settings_panel(
-                img, self.file_manager.dir_path, img_name, self.image_settings_panel
+                img, self.file_manager.dir_path, img_name, self.workspace
             )
         """
         import json

@@ -101,7 +101,7 @@ class ProcessingWorkspace(QWidget):
     needsReprocess = Signal()  # Settings changed, need to reprocess
     statusTextRequested = Signal(str)  # Request GUI to update status bar text
     
-    def __init__(self, settings_dir: str, coord_transform_func=None):
+    def __init__(self, settings_dir: str, coord_transform_func=None, get_display_center_func=None):
         """
         Initialize the ProcessingWorkspace.
         
@@ -111,6 +111,11 @@ class ProcessingWorkspace(QWidget):
                                  displayed (transformed) image to original image.
                                  Signature: (x, y) -> (orig_x, orig_y)
                                  This is needed when tools operate on transformed images.
+            get_display_center_func: Optional function to get the center in display
+                                    (transformed) coordinates.
+                                    Signature: () -> (x, y) or None
+                                    For QF: returns transformed center (image center after transform)
+                                    For PT: not needed (display coords = original coords)
         
         Note:
             ImageNavigatorWidget and all other components are created internally.
@@ -121,6 +126,7 @@ class ProcessingWorkspace(QWidget):
         # Configuration
         self._settings_dir = settings_dir
         self._coord_transform_func = coord_transform_func
+        self._get_display_center_func = get_display_center_func
         self._current_filename = None
         self._current_image_data = None
         
@@ -1191,11 +1197,19 @@ class ProcessingWorkspace(QWidget):
     
     def _get_current_center(self) -> Optional[Tuple[float, float]]:
         """
-        Get current center (for RotationTool).
+        Get current center in DISPLAY coordinates (for RotationTool).
+        
+        For QF: Returns transformed center (after image transformation)
+        For PT: Returns original center (no transformation needed)
         
         Returns:
-            Current center or None
+            Current center in display coordinates, or None
         """
+        # If GUI provides a display center function, use it (needed for QF)
+        if self._get_display_center_func:
+            return self._get_display_center_func()
+        
+        # Default: use ImageData center (works for PT where no transform needed)
         if self._current_image_data:
             return self._current_image_data.center
         return None

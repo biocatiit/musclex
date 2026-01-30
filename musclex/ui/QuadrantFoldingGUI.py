@@ -120,12 +120,12 @@ class Worker(QRunnable):
             img = self.params.file_manager.get_image_by_index(self.params.index)
             filename = self.params.file_manager.names[self.params.index]
 
-            # Create ImageData using factory method (gets all settings from Panel)
+            # Create ImageData using factory method (gets all settings from workspace)
             img_data = ImageData.from_settings_panel(
                 img, 
                 self.params.file_manager.dir_path, 
                 filename, 
-                self.params.gui.image_settings_panel
+                self.params.parent.workspace
             )
 
             self.quadFold = QuadrantFolder(img_data, self.params.parent)
@@ -305,7 +305,8 @@ class QuadrantFoldingGUI(BaseGUI):
         # Navigator will show select buttons initially, then hide them after loading
         self.workspace = ProcessingWorkspace(
             settings_dir=self.filePath,
-            coord_transform_func=self.getOrigCoordsCenter
+            coord_transform_func=self.getOrigCoordsCenter,
+            get_display_center_func=self._get_display_center
         )
         self.imageTabLayout.addWidget(self.workspace, 1)
         
@@ -1165,7 +1166,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
 
-    # NOTE: updateCurrentCenter removed - use image_settings_panel.update_display() instead
+    # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
 
 
 
@@ -1326,6 +1327,21 @@ class QuadrantFoldingGUI(BaseGUI):
     # Blank/Mask settings moved to ImageSettingsPanel
 
     # Blank/Mask checkbox changes moved to ImageSettingsPanel
+
+    def _get_display_center(self):
+        """
+        Get center in DISPLAY (transformed) coordinates.
+        
+        After transformImage(), the image is centered and the center moves to
+        (w//2, h//2) in the transformed image. This is the center that should
+        be used for drawing rotation lines on the displayed image.
+        
+        Returns:
+            (x, y) center in display coordinates, or None if not available
+        """
+        if self.quadFold:
+            return self.quadFold.center
+        return None
 
     def getOrigCoordsCenter(self, x, y):
         """
@@ -1975,7 +1991,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
     # NOTE: orientationModelChanged removed - fully handled by ImageSettingsPanel.set_orientation_model() now
 
-    # NOTE: getModeRotation removed - use image_settings_panel.calculate_mode_rotation() directly
+    # NOTE: getModeRotation removed - use workspace.calculate_mode_rotation() directly
 
     def ableToProcess(self):
         """
@@ -2150,7 +2166,7 @@ class QuadrantFoldingGUI(BaseGUI):
         Close the event
         """
         # ✅ Save settings before closing
-        if hasattr(self, 'image_settings_panel'):
+        if hasattr(self, 'workspace'):
             self.workspace.save_settings()
         
         self.close()
