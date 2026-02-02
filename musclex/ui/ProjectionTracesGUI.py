@@ -882,7 +882,7 @@ class ProjectionTracesGUI(BaseGUI):
             # self.progressBar.setVisible(False)
         
         self.navControls.processFolderButton.setChecked(False)
-        if self.ext in ['.h5', '.hdf5']:
+        if self.workspace.navigator.is_h5_mode:
             self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
             self.navControls.processFolderButton.setText("Process Current Folder")
@@ -1256,7 +1256,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Sets the H5 list of file and displays the right set of buttons depending on the file selected
         """
-        if self.ext in ['.h5', '.hdf5']:
+        if self.workspace.navigator.is_h5_mode:
             for file in os.listdir(self.dir_path):
                 if file.endswith(".h5") or file.endswith(".hdf5"):
                     self.h5List.append(file)
