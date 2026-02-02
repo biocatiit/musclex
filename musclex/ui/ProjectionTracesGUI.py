@@ -326,13 +326,10 @@ class ProjectionTracesGUI(BaseGUI):
         
         super().__init__()
         # Note: self.file_manager is now initialized by workspace.file_manager in _create_tabs()
-        self.h5List = [] # if the file selected is an H5 file, regroups all the other h5 files names
         self.filePath = "" # current directory
         self.current_file = 0
         self.dir_path = ""
         self.update_plot = {'img':True}
-        self.imgList = []
-        self.h5index = 0
         self.stop_process = False
         self.projProc = None
         self.syncUI = False
@@ -823,46 +820,65 @@ class ProjectionTracesGUI(BaseGUI):
         if self.navControls.processH5Button.isChecked():
             if not self.progressBar.isVisible():
                 self.navControls.processH5Button.setText("Stop")
-                self.processH5Folder()
+                self.processH5File()
         else:
             self.stop_process = True
 
     def processFolder(self):
         """
-        Process the folder selected
+        Triggered when a folder has been selected to process it
         """
-        self.numberOfFiles = len(self.imgList)
+        idxs = range(len(self.file_manager.names))
+        self._process_image_list(idxs, text="Process Current Folder")
+
+    def processH5File(self):
+        """
+        Triggered when a folder with multiple H5 files has been selected to process it
+        """
+        start_idx, end_idx = self.file_manager.get_current_h5_range()
+        self._process_image_list(range(start_idx, end_idx + 1), text="Process Current H5 File")
+
+    def _process_image_list(self, img_ids, text):
+        """
+        Process a list of images by index.
+        
+        Args:
+            img_ids: Iterable of image indices to process
+            text: Dialog title text
+        """
+        img_ids = list(img_ids)  # Convert range to list for len()
+        self.numberOfFiles = len(img_ids)
 
         errMsg = QMessageBox()
-        errMsg.setText('Process Current Folder')
-        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
+        errMsg.setText(text)
+        info_text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
         settings = self.getSettings()
 
-        text += "\nCurrent Settings"
+        info_text += "\nCurrent Settings"
         for bn in self.boxes.keys():
             box = self.boxes[bn]
-            text += "\n\n  - Box "+str(bn)+" : " + str(box.coordinates)
-            text += "\n     - Peaks : "
+            info_text += "\n\n  - Box "+str(bn)+" : " + str(box.coordinates)
+            info_text += "\n     - Peaks : "
             if box.peaks:
-                text += str(box.peaks)
+                info_text += str(box.peaks)
             else:
-                text += "-"
+                info_text += "-"
 
-            text += '\n     - Background Subtraction : '
+            info_text += '\n     - Background Subtraction : '
             if box.bgsub == 0:
-                text += 'Fitting Gaussians'
+                info_text += 'Fitting Gaussians'
             else:
-                text += 'Convex Hull'
+                info_text += 'Convex Hull'
 
             if box.hull_range:
-                text += '\n     - Convex Hull Range : '+str(box.hull_range)
+                info_text += '\n     - Convex Hull Range : '+str(box.hull_range)
 
         if 'lambda_sdd' in settings:
-            text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
+            info_text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
 
-        text += '\n\nAre you sure you want to process ' + str(
-            self.numberOfFiles) + ' image(s) in this Folder? \nThis might take a long time.'
-        errMsg.setInformativeText(text)
+        info_text += '\n\nAre you sure you want to process ' + str(
+            self.numberOfFiles) + ' image(s)? \nThis might take a long time.'
+        errMsg.setInformativeText(info_text)
         errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         errMsg.setIcon(QMessageBox.Warning)
         ret = errMsg.exec_()
@@ -871,80 +887,25 @@ class ProjectionTracesGUI(BaseGUI):
         if ret == QMessageBox.Yes:
             self.progressBar.setVisible(True)
             self.stop_process = False
-            for i in range(self.numberOfFiles):
+            self.totalFiles = self.numberOfFiles
+            self.tasksDone = 0
+            for idx, i in enumerate(img_ids):
                 if self.stop_process:
                     break
                 self.addTask(i)
-                # self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                # QApplication.processEvents()
-                # self.nextClicked()
-            # self.startNextTask()
-            # self.progressBar.setVisible(False)
+                # Process UI events periodically to keep Stop button responsive
+                if idx % 10 == 0:
+                    QApplication.processEvents()
+        else:
+            # User cancelled the dialog, reset buttons
+            self.navControls.processFolderButton.setChecked(False)
+            self.navControls.processH5Button.setChecked(False)
         
-        self.navControls.processFolderButton.setChecked(False)
+        # Reset button text based on mode
         if self.workspace.navigator.is_h5_mode:
             self.navControls.processFolderButton.setText("Process Current H5 File")
         else:
             self.navControls.processFolderButton.setText("Process Current Folder")
-
-    def processH5Folder(self):
-        """
-        Process the folder selected
-        """
-        self.numberOfFiles = len(self.imgList)
-
-        errMsg = QMessageBox()
-        errMsg.setText('Process Current Folder')
-        text = 'The current folder will be processed using current settings. Make sure to adjust them before processing the folder. \n\n'
-        settings = self.getSettings()
-
-        text += "\nCurrent Settings"
-        for bn in self.boxes.keys():
-            box = self.boxes[bn]
-            text += "\n\n  - Box "+str(bn)+" : " + str(box.coordinates)
-            text += "\n     - Peaks : "
-            if box.peaks:
-                text += str(box.peaks)
-            else:
-                text += "-"
-
-            text += '\n     - Background Subtraction : '
-            if box.bgsub == 0:
-                text += 'Fitting Gaussians'
-            else:
-                text += 'Convex Hull'
-
-            if box.hull_range:
-                text += '\n     - Convex Hull Range : '+str(box.hull_range)
-
-        if 'lambda_sdd' in settings:
-            text += "\n  - Lambda Sdd : " + str(settings["lambda_sdd"])
-
-        text += '\n\nAre you sure you want to process ' + str(
-            len(self.h5List)) + ' H5 file(s) in this Folder? \nThis might take a long time.'
-        errMsg.setInformativeText(text)
-        errMsg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
-        errMsg.setIcon(QMessageBox.Warning)
-        ret = errMsg.exec_()
-
-        # If "yes" is pressed
-        if ret == QMessageBox.Yes:
-            self.progressBar.setVisible(True)
-            self.stop_process = False
-            for _ in range(len(self.h5List)):
-                for i in range(self.numberOfFiles):
-                    if self.stop_process:
-                        break
-                    self.progressBar.setValue(int(100. / self.numberOfFiles * i))
-                    QApplication.processEvents()
-                    self.nextClicked()
-                if self.stop_process:
-                    break
-                self.nextFileClicked()
-            self.progressBar.setVisible(False)
-
-        self.navControls.processH5Button.setChecked(False)
-        self.navControls.processH5Button.setText("Process All H5 Files")
 
     def clearBoxes(self):
         """
@@ -1254,13 +1215,9 @@ class ProjectionTracesGUI(BaseGUI):
 
     def setH5Mode(self, file_name):
         """
-        Sets the H5 list of file and displays the right set of buttons depending on the file selected
+        Displays the right set of buttons depending on whether we're in H5 mode.
         """
         if self.workspace.navigator.is_h5_mode:
-            for file in os.listdir(self.dir_path):
-                if file.endswith(".h5") or file.endswith(".hdf5"):
-                    self.h5List.append(file)
-            self.h5index = self.h5List.index(os.path.split(file_name)[1])
             self.navControls.nextFileButton.show()
             self.navControls.prevFileButton.show()
             self.navControls.processH5Button.show()
