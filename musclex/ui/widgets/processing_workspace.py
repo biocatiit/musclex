@@ -1653,13 +1653,11 @@ class ProcessingWorkspace(QWidget):
         #   next event loop turn, and delay the imageDataReady emission slightly.
         from PySide6.QtCore import QTimer
 
-        # Show settings status notification on first image in folder
+        # Show settings status notification on first image in folder (blocking)
+        # This must complete BEFORE emitting imageDataReady to avoid rendering issues
         if self._first_image_in_folder:
             self._first_image_in_folder = False
-            QTimer.singleShot(
-                0,
-                lambda fn=filename: self._show_first_image_settings_notification(fn),
-            )
+            self._show_first_image_settings_notification(filename)
 
         # Emit high-level signal with ImageData (delayed to allow UI paint)
         # GUIs should listen to this instead of imageChanged
@@ -1722,13 +1720,12 @@ class ProcessingWorkspace(QWidget):
         # Use top-level window (QMainWindow) as parent for proper display
         parent = self.window()
         
-        # Create non-modal message box with OK button
+        # Create modal message box with OK button
         msg_box = QMessageBox(parent)
         msg_box.setIcon(QMessageBox.Information)
         msg_box.setText(message)
         msg_box.setStandardButtons(QMessageBox.Ok)
-        msg_box.setWindowModality(Qt.NonModal)
-        msg_box.setWindowFlags(Qt.Tool | Qt.WindowStaysOnTopHint)
+        msg_box.setWindowModality(Qt.ApplicationModal)
         
         # Get OK button and set initial text with countdown
         ok_button = msg_box.button(QMessageBox.Ok)
@@ -1751,13 +1748,11 @@ class ProcessingWorkspace(QWidget):
                     self._notification_box.deleteLater()
                     self._notification_box = None
         
-        # Show the message box non-modally
-        msg_box.show()
-        msg_box.raise_()
-        msg_box.activateWindow()
-        
-        # Start countdown
+        # Start countdown before exec (timer will still run)
         update_countdown()
+        
+        # Show the message box modally (blocks until closed)
+        msg_box.exec()
     
     def create_image_data(self, img, filename):
         """
