@@ -61,7 +61,7 @@ from .widgets.collapsible_groupbox import CollapsibleGroupBox
 from .tools.placeholder_tool import PlaceholderTool
 
 class ProjectionParams:
-    def __init__(self, settings, index, file_manager, gui):
+    def __init__(self, settings, index, file_manager, gui, boxes_copy):
         """
         Parameters for Worker thread (batch processing).
         
@@ -70,11 +70,13 @@ class ProjectionParams:
             index: Image index in file_manager.names
             file_manager: FileManager instance
             gui: Parent GUI instance (for accessing ProcessingWorkspace and state)
+            boxes_copy: Deep copy of folder template boxes (thread-safe)
         """
         self.settings = settings  # For display in confirmation dialogs
         self.index = index
         self.file_manager = file_manager
         self.gui = gui
+        self.boxes_copy = boxes_copy  # Thread-safe copy of boxes configuration
 
 class WorkerSignals(QObject):
     
@@ -99,6 +101,25 @@ class Worker(QRunnable):
     @classmethod
     def fromParams(cls, params):
         return cls(params=params)
+    
+    @staticmethod
+    def _expand_peaks_mirrored(box: ProcessingBox):
+        """
+        Expand peaks in a ProcessingBox by mirroring the first half.
+        
+        User-selected peaks (first half) are mirrored to create symmetric peaks.
+        For example: [10, 20, 30] -> [10, 20, 30, -10, -20, -30]
+        
+        Args:
+            box: ProcessingBox with user-selected peaks (first half only)
+        """
+        if not box.peaks:
+            return
+        
+        # Mirror peaks: first half stays, add mirrored second half
+        user_peaks = box.peaks
+        mirrored_peaks = [-p for p in user_peaks]
+        box.peaks = user_peaks + mirrored_peaks
         
     @Slot()
     def run(self):
@@ -119,6 +140,27 @@ class Worker(QRunnable):
                 
                 # Create ProjectionProcessor with ImageData
                 self.projProc = ProjectionProcessor(image_data)
+                
+                # Transfer folder template boxes to processor if cache is empty
+                if len(self.projProc.boxes) == 0 and self.params.boxes_copy:
+                    for name, box in self.params.boxes_copy.items():
+                        # Direct copy of configuration
+                        box_copy = ProcessingBox(
+                            name=box.name,
+                            coordinates=box.coordinates,
+                            type=box.type,
+                            bgsub=box.bgsub,
+                            peaks=box.peaks.copy() if box.peaks else [],
+                            merid_bg=box.merid_bg,
+                            hull_range=box.hull_range,
+                            param_bounds=box.param_bounds.copy() if box.param_bounds else {},
+                            use_common_sigma=box.use_common_sigma,
+                            peak_tolerance=box.peak_tolerance,
+                            sigma_tolerance=box.sigma_tolerance,
+                        )
+                        # Expand peaks by mirroring (folder template only contains first half)
+                        self._expand_peaks_mirrored(box_copy)
+                        self.projProc.state.boxes[name] = box_copy
             
             # Apply settings directly to state
             if self.settings:
@@ -889,10 +931,12 @@ class ProjectionTracesGUI(BaseGUI):
             self.stop_process = False
             self.totalFiles = self.numberOfFiles
             self.tasksDone = 0
+            # Create boxes copy once for all tasks (thread-safe)
+            boxes_copy = self._create_boxes_copy()
             for idx, i in enumerate(img_ids):
                 if self.stop_process:
                     break
-                self.addTask(i)
+                self.addTask(i, boxes_copy=boxes_copy)
                 # Process UI events periodically to keep Stop button responsive
                 if idx % 10 == 0:
                     QApplication.processEvents()
@@ -2207,17 +2251,43 @@ class ProjectionTracesGUI(BaseGUI):
                 self.progressBar.setVisible(False)
                 self.csvManager.sortCSV()
     
-    def addTask(self, i):
-        """Add a processing task to the queue (for batch processing)."""
+    def addTask(self, i, boxes_copy=None):
+        """Add a processing task to the queue (for batch processing).
+        
+        Args:
+            i: Image index to process
+            boxes_copy: Pre-copied boxes configuration (shared across batch)
+        """
         params = ProjectionParams(
             settings=self.getSettings(),
             index=i,
             file_manager=self.file_manager,
-            gui=self
+            gui=self,
+            boxes_copy=boxes_copy or self._create_boxes_copy()
         )
         self.tasksQueue.put(params)
         
         self.startNextTask()
+    
+    def _create_boxes_copy(self):
+        """Create a deep copy of folder template boxes for batch processing."""
+        from copy import deepcopy
+        boxes_copy = {}
+        for name, box in self.boxes.items():
+            boxes_copy[name] = ProcessingBox(
+                name=box.name,
+                coordinates=box.coordinates,
+                type=box.type,
+                bgsub=box.bgsub,
+                peaks=box.peaks.copy() if box.peaks else [],
+                merid_bg=box.merid_bg,
+                hull_range=box.hull_range,
+                param_bounds=deepcopy(box.param_bounds) if box.param_bounds else {},
+                use_common_sigma=box.use_common_sigma,
+                peak_tolerance=box.peak_tolerance,
+                sigma_tolerance=box.sigma_tolerance,
+            )
+        return boxes_copy
             
     def startNextTask(self):
         while not self.tasksQueue.empty() and self.threadPool.activeThreadCount() < self.threadPool.maxThreadCount() / 2:
