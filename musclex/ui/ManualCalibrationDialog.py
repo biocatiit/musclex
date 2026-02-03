@@ -75,7 +75,7 @@ class ManualCalibrationDialog(QDialog):
         silver_behenate=5.83803,
         objective_Q=1.0,
         objective_nphi=720,
-        objective_alpha=0.5,
+        objective_alpha=0,
         objective_bg_k=3.0,
     ):
         """
@@ -772,7 +772,7 @@ class ManualCalibrationDialog(QDialog):
         self._record_eval("init", list(center), radius, 0.0, init_obj, True, init_obj)
 
         # Define search bounds around initial estimate
-        center_range = 10.0  # pixels: search +/- 10 pixels from initial center
+        center_range = 100.0  # pixels: search +/- center_range pixels from initial center
         radius_range = 0.10  # fraction: search +/- 10% of initial radius
 
         bounds = [
@@ -805,6 +805,8 @@ class ManualCalibrationDialog(QDialog):
             neg_objective,
             bounds,
             maxiter=max_cycles * 10,  # More iterations for global search
+            popsize=100,
+            tol=1e-4,
             seed=42,  # Reproducibility
             polish=True,  # Local refinement at end (uses L-BFGS-B)
             updating='deferred',  # Better for non-noisy objectives
