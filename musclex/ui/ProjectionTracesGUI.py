@@ -540,6 +540,7 @@ class ProjectionTracesGUI(BaseGUI):
         self.addBoxButton.setCheckable(True)
         self.addOrientedBoxButton = QPushButton("Add Oriented Box")
         self.addOrientedBoxButton.setCheckable(True)
+        self.addOrientedBoxButton.setEnabled(False)  # Temporarily disabled
         self.addCenterOrientedBoxButton = QPushButton("Add Centered Oriented Box")
         self.addCenterOrientedBoxButton.setCheckable(True)
         self.editBoxButton = QPushButton('Edit Boxes')
