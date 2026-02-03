@@ -31,6 +31,7 @@ import csv
 import os
 import cv2
 from datetime import datetime
+from scipy.optimize import differential_evolution
 from matplotlib.backend_bases import MouseButton
 import matplotlib.patches as patches
 
@@ -715,29 +716,84 @@ class ManualCalibrationDialog(QDialog):
 
     def _optimize_center_radius(self, center, radius, Q: float, max_cycles=25):
         """
-        Alternate optimization: center then radius, repeat until both don't improve.
-        Records objective process in self.optimization_history.
+        Global optimization using differential evolution to find optimal center and radius.
+        This avoids local minima issues that depend on user-selected points.
+
+        Parameters
+        ----------
+        center : list or tuple
+            Initial center estimate [x, y] (used to define search bounds).
+        radius : float
+            Initial radius estimate (used to define search bounds).
+        Q : float
+            Half-width of the signal band (in pixels).
+        max_cycles : int
+            Not directly used; controls maxiter indirectly for compatibility.
+
+        Returns
+        -------
+        opt_center : list
+            Optimized center [x, y].
+        opt_radius : float
+            Optimized radius.
+        opt_obj : float
+            Best objective value found.
         """
         self.optimization_history = []
-        c = [float(center[0]), float(center[1])]
-        r = float(radius)
 
-        best_obj = self._circle_band_objective(c, r, Q)
-        self._record_eval("init", c, r, 0.0, best_obj, True, best_obj)
+        # Record initial state
+        init_obj = self._circle_band_objective(center, radius, Q)
+        self._record_eval("init", list(center), radius, 0.0, init_obj, True, init_obj)
 
-        for _ in range(int(max_cycles)):
-            c, obj_c, imp_c = self._refine_center(c, r, Q, delta0=0.1)
-            if obj_c > best_obj:
-                best_obj = obj_c
+        # Define search bounds around initial estimate
+        center_range = 10.0  # pixels: search +/- 10 pixels from initial center
+        radius_range = 0.10  # fraction: search +/- 10% of initial radius
 
-            r, obj_r, imp_r = self._refine_radius(c, r, Q, delta0=0.01)
-            if obj_r > best_obj:
-                best_obj = obj_r
+        bounds = [
+            (center[0] - center_range, center[0] + center_range),  # center_x
+            (center[1] - center_range, center[1] + center_range),  # center_y
+            (radius * (1 - radius_range), radius * (1 + radius_range)),  # radius
+        ]
 
-            if (not imp_c) and (not imp_r):
-                break
+        # Counter for recording evaluations
+        self._de_eval_count = 0
+        self._de_best_obj = -np.inf
 
-        return c, r, best_obj
+        def neg_objective(params):
+            """Negative objective for minimization (DE minimizes)."""
+            c = [params[0], params[1]]
+            r = params[2]
+            obj = self._circle_band_objective(c, r, Q)
+
+            # Record evaluation
+            self._de_eval_count += 1
+            accepted = obj > self._de_best_obj
+            if accepted:
+                self._de_best_obj = obj
+            self._record_eval("DE", c, r, 0.0, obj, accepted, self._de_best_obj)
+
+            return -obj  # Negate for minimization
+
+        # Run differential evolution
+        result = differential_evolution(
+            neg_objective,
+            bounds,
+            maxiter=max_cycles * 10,  # More iterations for global search
+            seed=42,  # Reproducibility
+            polish=True,  # Local refinement at end (uses L-BFGS-B)
+            updating='deferred',  # Better for non-noisy objectives
+            workers=1,  # Single-threaded (GUI compatibility)
+            disp=False,
+        )
+
+        opt_center = [result.x[0], result.x[1]]
+        opt_radius = result.x[2]
+        opt_obj = -result.fun  # Un-negate
+
+        # Record final result
+        self._record_eval("final", opt_center, opt_radius, 0.0, opt_obj, True, opt_obj)
+
+        return opt_center, opt_radius, opt_obj
 
     def _get_history_export_dir(self):
         """
