@@ -1,0 +1,60 @@
+{
+  "boxes": {
+    "TEST": {
+      "name": "TEST",
+      "coordinates": [
+        [
+          2956,
+          3806
+        ],
+        [
+          3031,
+          3066
+        ]
+      ],
+      "type": "h",
+      "bgsub": 0,
+      "peaks": [
+        145.56416047153328
+      ],
+      "merid_bg": true,
+      "hull_range": null,
+      "param_bounds": {
+        "common_sigma": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "p_0": {
+          "min": 143.0,
+          "max": 147.0
+        },
+        "sigma0": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude0": {
+          "min": -1.0,
+          "max": 16120.080078125
+        },
+        "p_1": {
+          "min": -147.0,
+          "max": -143.0
+        },
+        "sigma1": {
+          "min": 0.0,
+          "max": 10.0
+        },
+        "amplitude1": {
+          "min": -1.0,
+          "max": 16120.080078125
+        }
+      },
+      "use_common_sigma": true,
+      "peak_tolerance": 2.0,
+      "sigma_tolerance": 100.0
+    }
+  },
+  "centerx": 3370.5,
+  "centery": 3370.5,
+  "mask_thres": -0.01
+}
