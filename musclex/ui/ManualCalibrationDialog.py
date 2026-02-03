@@ -562,7 +562,8 @@ class ManualCalibrationDialog(QDialog):
             mean(signal_band) - alpha * mean(background_bands)
 
         This reduces bias from strong radial background gradients compared to
-        using absolute intensity sum alone.
+        using absolute intensity sum alone. Outlier angles are rejected using
+        MAD (Median Absolute Deviation) filtering.
         """
         cx, cy = float(center[0]), float(center[1])
         r = float(radius)
@@ -584,19 +585,44 @@ class ManualCalibrationDialog(QDialog):
             np.array([-float(self.objective_bg_k), +float(self.objective_bg_k)], dtype=np.float64) * float(Q)
         )
 
-        def sample_offsets(offsets: np.ndarray) -> np.ndarray:
+        def sample_offsets_2d(offsets: np.ndarray) -> np.ndarray:
+            """Returns array of shape (n_offsets, nphi)"""
             rr = r + offsets[:, None]  # (nrad, nphi)
             x = cx + rr * c[None, :]
             y = cy + rr * s[None, :]
-            return self._bilinear_sample(self.img, x.ravel(), y.ravel())
+            samples = self._bilinear_sample(self.img, x.ravel(), y.ravel())
+            return samples.reshape(len(offsets), nphi)
 
-        sig = sample_offsets(offsets_signal)
-        bg = sample_offsets(offsets_bg)
-        if sig.size == 0 or bg.size == 0:
+        sig_2d = sample_offsets_2d(offsets_signal)  # (5, nphi)
+        bg_2d = sample_offsets_2d(offsets_bg)       # (2, nphi)
+
+        if sig_2d.size == 0 or bg_2d.size == 0:
             return -np.inf
 
-        sig_mean = float(np.mean(sig))
-        bg_mean = float(np.mean(bg))
+        # Compute per-angle (phi) mean across radial offsets
+        sig_per_phi = np.mean(sig_2d, axis=0)  # (nphi,)
+        bg_per_phi = np.mean(bg_2d, axis=0)    # (nphi,)
+
+        # MAD-based outlier rejection: identify "good" phi angles using signal intensity
+        median_sig = np.median(sig_per_phi)
+        mad_sig = np.median(np.abs(sig_per_phi - median_sig))
+
+        if mad_sig < 1e-10:
+            # All values nearly identical, no outliers to reject
+            good_mask = np.ones(nphi, dtype=bool)
+        else:
+            k = 3.0  # Number of MADs from median to allow
+            good_mask = np.abs(sig_per_phi - median_sig) <= k * mad_sig
+
+        # Apply same mask to both signal and background for consistency
+        sig_filtered = sig_per_phi[good_mask]
+        bg_filtered = bg_per_phi[good_mask]
+
+        if sig_filtered.size == 0 or bg_filtered.size == 0:
+            return -np.inf
+
+        sig_mean = float(np.mean(sig_filtered))
+        bg_mean = float(np.mean(bg_filtered))
         return sig_mean - float(self.objective_alpha) * bg_mean
 
     def _record_eval(self, phase: str, center, radius, delta: float, obj: float, accepted: bool, best_obj: float):
