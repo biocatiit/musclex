@@ -28,6 +28,8 @@ Development is done by current and former students at Illinois Tech with Illinoi
 
 * Nicholas Allison (2025)
 
+* Alex Lan (2025, 2026)
+
   
 
 ## Scientific advising

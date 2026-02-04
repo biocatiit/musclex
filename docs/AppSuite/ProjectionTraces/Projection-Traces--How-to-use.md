@@ -19,6 +19,7 @@ In this page, you will know about ...
 6. [Navigation](#navigation)
 7. [Other Options](#other-options)
 8. [Box Tab](#box-tab)
+9. [GMM Fitting Mode (Advanced)](#gmm-fitting-mode-advanced)
 
 ### Display options
 In the image tab, there are display options shown on the right. These options will not affect any processing. You can check "Boxes", "Center" or "Peaks" to be displayed on the image. You can zoom-in by pressing "Zoom in" and select the zoom in area on the image by drawing a rectangle. (You can zoom-in or zoom-out by mouse wheeling too). Also, you can select min/max intensity to see the image clearly.
@@ -135,6 +136,118 @@ If the baseline value is higher than the height of the maximum peak, the program
 
 #### Modify Gaussian Sigma Value
 Inside the Fitting Results table on the bottom right of your screen, you can fix the Gaussian Sigma of a peak. You can do so by double clicking on that value, modifying it, then pressing enter.
+
+### GMM Fitting Mode (Advanced)
+
+```eval_rst
+.. note:: **New in version 1.27.0**: Gaussian Mixture Model (GMM) fitting provides advanced peak fitting capabilities for complex diffraction patterns with multiple overlapping peaks.
+```
+
+#### What is GMM Fitting?
+
+GMM (Gaussian Mixture Model) fitting is an advanced peak fitting method that allows you to fit multiple Gaussian peaks simultaneously. This is particularly useful when you have:
+- Overlapping peaks that are difficult to separate
+- Multiple peaks that should share the same width (sigma)
+- Complex peak patterns requiring precise parameter control
+
+#### Enabling GMM Mode
+
+In the **Other Options** section at the bottom of the Image tab, you'll find GMM mode settings:
+
+1. **Common Sigma**: Check this box to force all peaks in a box to share the same sigma (width) value. This is useful when you expect all peaks to have similar widths.
+
+#### Using the Parameter Editor
+
+Once you have selected peaks in a box, you can fine-tune the fitting parameters using the **Parameter Editor** button in the box tab.
+
+##### Opening the Parameter Editor
+
+1. Select peaks in your box (as described in [Select Peaks](#select-peaks))
+2. Click the **"Parameter Editor"** button in the box tab
+3. The GMM Parameter Editor dialog will open, showing:
+   - Current histogram and fitted peaks
+   - Parameter table with all peak parameters
+   - Control options for fitting
+
+##### Parameter Editor Features
+
+**Parameter Table:**
+- **Peak Position (μ)**: Center location of each peak
+- **Peak Height (A)**: Amplitude/height of each peak  
+- **Peak Width (σ)**: Standard deviation (width) of each peak
+- **Fixed**: Check to lock a parameter during fitting
+- **Min/Max Bounds**: Set constraints for each parameter
+
+**Peak Management:**
+- **Add Peak**: Manually add a new peak to the fit
+- **Remove Peak**: Delete a selected peak
+- **Edit Peak Details**: Double-click a row to edit individual peak parameters with tolerance settings
+
+**Tolerance Settings:**
+- **Peak Tolerance**: Maximum allowed movement of peak positions during fitting (in pixels or percentage)
+- **Sigma Tolerance**: Maximum allowed change in peak width during fitting (percentage)
+
+**Hull Range:**
+- Adjust the convex hull range by dragging the vertical lines on the histogram
+- Use **"Set Hull Range"** to manually specify start and end points
+- The fitting will only consider data within this range
+
+**Fitting Controls:**
+- **Refit**: Run the fitting algorithm with current parameters
+- **Apply**: Save the current fit results and close the dialog
+- **Cancel**: Discard changes and revert to previous fit
+- **Reset**: Restore parameters to their initial values
+
+##### Workflow Tips
+
+1. **Initial Peak Selection**: Start by selecting approximate peak locations using the standard peak selection tool
+2. **Open Parameter Editor**: Fine-tune the fit using the Parameter Editor
+3. **Set Bounds**: Define reasonable min/max bounds for each parameter to guide the fitting
+4. **Fix Parameters**: Lock parameters that you know should not change (e.g., peak positions for known reflections)
+5. **Adjust Tolerance**: Set appropriate tolerances to prevent peaks from drifting too far
+6. **Refit Iteratively**: Click "Refit" multiple times to refine the fit
+7. **Visual Inspection**: Check the overlay plot to ensure the fit matches your data
+8. **Apply Changes**: Once satisfied, click "Apply" to save the results
+
+##### Common Sigma Mode
+
+When **Common Sigma** is enabled:
+- All peaks in the box will share the same width (σ) value
+- The parameter table will show the sigma value only once
+- This constraint often improves fitting stability for similar peaks
+- Useful for meridional reflections that should have the same width
+
+##### Advanced Features
+
+**Transactional Editing**: The Parameter Editor uses a transactional approach - changes are only saved when you click "Apply". You can experiment freely and use "Cancel" to discard unwanted changes.
+
+**Snapshot Refresh**: The editor maintains a snapshot of the current fit. When you change hull range or other parameters, you can refresh the snapshot to see updated results.
+
+**Auto-Zoom**: When you adjust the hull range, the plot automatically zooms to show the relevant region.
+
+**Peak Bounds Synchronization**: When you edit peak positions or widths, the bounds are automatically updated to maintain consistency.
+
+#### Editing Peak Details
+
+For fine-grained control over individual peaks:
+
+1. In the Parameter Editor, double-click on a peak row
+2. The **Edit Peak Details** dialog opens
+3. Adjust:
+   - Peak position with tolerance (how far the peak can move)
+   - Peak sigma with tolerance (how much the width can change)
+   - Whether to fix the position or sigma during fitting
+4. Click **OK** to apply changes
+
+#### Viewing Results
+
+After fitting, the box tab will display:
+- **Fitted Peaks**: Overlaid on the histogram in the left plot
+- **Fitting Results Table**: Shows final peak parameters (position, height, sigma, area)
+- **Other Results Table**: Shows additional metrics (centroid, FWHM, etc.)
+- **Peak Labels**: Visual labels on the plot for easy identification
+
+The results are automatically saved and will be used for subsequent images in the folder.
 
 ## Headless Mode
 Image processing performed in the terminal.

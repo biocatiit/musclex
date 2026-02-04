@@ -29,7 +29,12 @@ All options in Display Options will not affect any processing. These options all
 
 ![-](../../images/QF/image_tab.png)
 
-#### Blank Image and Mask
+#### Empty Cell Image and Mask
+
+```eval_rst
+.. note:: **Terminology Update in version 1.27.0**: "Blank Image" has been renamed to "Empty Cell Image" for better clarity. This refers to an image of the empty sample cell (without sample) used for background subtraction.
+```
+
 See the [Blank Image and Mask](Blank-Image-and-Mask.html) documentation for more information on how to use this option.
 
 ![-](../../images/QF/blank_img_mask.png)
@@ -52,8 +57,16 @@ By selecting this option, the resulting quadrant folded image (which is saved in
 As discussed in the working of Quadrant Folding, we enlarge the image such that the diffraction center is at the center of the resulting image.
 By selecting this option the resulting quadrant folded image (which is saved in qf_results) is cropped such that the size of the image is same as the original input image size.
 
-##### Set Rotation and Center
-Before setting manual rotation and center, it’s better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.<br/>
+##### Quick Center and Rotation Angle
+
+```eval_rst
+.. note:: **New in version 1.27.0**: The "Quick Center and Rotation Angle" tool (formerly "Set Rotation and Center") provides a streamlined way to set both center and rotation simultaneously.
+```
+
+Before setting manual rotation and center, it's better to zoom the image to the area of the diffraction because it will be easier to set these parameters correctly. To set the rotation and center, you need to click 2 positions of the image. The first one will be a reflection peak on one side of the equator, and the second one will be the corresponding (opposite) reflection peak on the other side of the equator. To cancel, press ESC.
+
+**Center and Rotation Mode Indicators**: The interface now displays whether you're using automatic or manual center/rotation settings, making it easier to track your calibration state.
+
 ![-](../../images/QF/center.png)
 
 ##### Set Center By Chords
@@ -65,20 +78,93 @@ Before setting center by perpendiculars, it’s better to zoom the image to the 
 ![-](../../images/QF/perpendiculars.png)
 
 ##### Set Rotation Angle
-This assumes that the center of diffraction is correct. After the button is clicked, the program will allow users to select an angle by moving a line. Clicking on image when the line is on the equator of the diffraction will set manual rotation angle. To cancel, press ESC.<br/>
+This assumes that the center of diffraction is correct. After the button is clicked, the program will allow users to select an angle by moving a line. Clicking on image when the line is on the equator of the diffraction will set manual rotation angle. 
+
+```eval_rst
+.. note:: **New in version 1.27.0**: Negative rotation angles are now supported. The rotation angle dialog has been enhanced with improved visual feedback.
+```
+
+To cancel, press ESC.<br/>
 ![-](../../images/QF/rotation.png)
 
+##### Restoring Automatic Settings
+
+```eval_rst
+.. note:: **New in version 1.27.0**: You can now restore automatic center and rotation detection with granular control.
+```
+
+If you have manually set the center or rotation angle and want to return to automatic detection:
+
+1. **Restore Auto Center**: Click this button to return to automatic center detection
+   - Choose to apply to **current image only** or **all subsequent images**
+   - Useful when manual settings are no longer needed
+
+2. **Restore Auto Rotation**: Click this button to return to automatic rotation detection
+   - Choose to apply to **current image only** or **all subsequent images**
+   - The program will automatically detect the optimal rotation angle
+
+3. **Apply Current Settings**: Once you've set a center or rotation manually, you can apply it to:
+   - Only the current image
+   - All subsequent images in the folder
+
+These options give you fine-grained control over when manual settings are used versus automatic detection.
+
+##### Center and Rotation Management
+
+**Configuration Fingerprinting**: The program now uses configuration fingerprinting to validate cached results. When you change center or rotation settings, the cache is automatically invalidated, ensuring consistency across your processing workflow.
+
+**Manual Settings Preservation**: Your manual center and rotation settings are preserved during cache operations, so you don't lose your calibration when the cache is updated.
 
 The Mask Threshold is used for excluding certain pixel values when calculating the folded image. The program will ignore pixels with intensity below mask threshold. This can be used to remove the dark gaps in images resulting from the gaps between detector elements in Pilatus detectors, as well as other detector abnormalities.
 
-To fix the center position to a user supplied value, you can check Fix Center check box, specify the coordinates of the beam center (before rotation). The image will be reprocessed when x, or y is changed. This will affect the next image if it’s still checked.
+```eval_rst
+.. note:: **Changed in version 1.27.0**: The mask threshold is now fixed at -1 for invalid pixels. Previous versions allowed user-adjustable thresholds, but this has been standardized for consistency.
+```
+
+To fix the center position to a user supplied value, you can check Fix Center check box, specify the coordinates of the beam center (before rotation). The image will be reprocessed when x, or y is changed. This will affect the next image if it's still checked.
 
 ##### Double Zoom
-This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. This feature can be used with any calibration feature (Set Rotation, Set Center and Rotation...). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Set Center and Rotation button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
+
+```eval_rst
+.. note:: **Enhanced in version 1.27.0**: Double Zoom now features improved intensity normalization and dynamic crop radius adjustment for better visualization.
+```
+
+This feature is used to zoom into subpixel level accuracy. On checking this box, a new subplot is created on the top right of the image. As you move the mouse pointer into the image area, 20 x 20 pixels centered at the location of the mouse pointer is cropped from the image and scaled up to 10 times and plotted in the subplot mentioned earlier. 
+
+This feature can be used with any calibration feature (Quick Center and Rotation Angle, Set Center By Chords, Set Center By Perpendiculars, Set Rotation Angle). Click the double zoom check box so that the subplot appears. Click on a calibration button, for example the Quick Center and Rotation Angle button. Drag your mouse pointer to the position you want to select the first point (or the first reflection peak as described earlier). Click the image to freeze the subplot region. A message appears, check do not show again box to not see this message again. Click on the exact point in the subplot region, which plots an equivalent point in the main image. Perform the previous two steps to select the second point. Uncheck the Double Zoom checkbox to hide the subplot window.<br/>
 ![-](../../images/QF/DoubleZoom.png)
 
 #### Fold Image
 This function is used to tell the program to fold the image. By default, it is checked so the program folds the image during processing. If this options is unchecked, the program will reprocess the image without folding it. This is useful during cases when the images being processed have already been folded.
+
+### UI Improvements in Version 1.27.0
+
+```eval_rst
+.. note:: **New in version 1.27.0**: The Quadrant Folding interface has been significantly enhanced with better organization and user experience improvements.
+```
+
+#### Collapsible Panels
+The right-side panel now features collapsible group boxes, allowing you to:
+- Expand/collapse sections to focus on relevant options
+- Save screen space when working with multiple settings
+- Better organize the various processing options
+
+#### Enhanced Display Options
+- **Persist Intensity Values**: The intensity range settings now persist across images when enabled
+- **Improved Zoom Handling**: Zoom levels are maintained when navigating between images
+- **Better Visual Feedback**: Group boxes now use bold fonts for better visual hierarchy
+- **Green Labels**: Important information is highlighted with green labels for improved visibility
+
+#### Improved Status Bar
+The status bar now displays:
+- Current file index and total file count
+- Processing status information
+- HDF5 processing progress (when applicable)
+
+#### Better Navigation
+- Clearer button text: "Process Current Folder" vs "Process Current H5 File"
+- Confirmation dialog when closing with running tasks
+- Improved progress tracking for batch operations
 
 ### Results
 In this tab, the resulting image will be displayed along with options on the right. 
