@@ -26,7 +26,7 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QFrame
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QFrame, QSizePolicy
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Signal, QSettings
 from PySide6.QtGui import QIcon
 
@@ -92,6 +92,10 @@ class CollapsibleRightPanel(QWidget):
         self.animation_duration = animation_duration
         self.show_toggle_internally = show_toggle_internally
         
+        # Track last "expanded" fixed width so we can collapse/expand cleanly
+        # when toggle button is inside the panel layout (scheme A).
+        self._expanded_fixed_width = None
+        
         # Main layout
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
@@ -100,16 +104,26 @@ class CollapsibleRightPanel(QWidget):
         # Setup UI
         self._setup_ui()
         
-        # Load saved state or use default
-        if self.settings_key:
-            settings = QSettings()
-            saved_visible = settings.value(self.settings_key, start_visible, bool)
-            self.set_visible(saved_visible, animate=False)
-        else:
-            self.set_visible(start_visible, animate=False)
+        # Always start with specified visibility (default: expanded).
+        # We no longer restore saved collapsed state to avoid confusing initial layouts.
+        self.set_visible(start_visible, animate=False)
+
+    def setFixedWidth(self, w: int):
+        """
+        Override to remember the intended expanded width.
+        This enables internal-toggle collapse to temporarily shrink the panel and
+        restore it when expanded again.
+        """
+        self._expanded_fixed_width = w
+        super().setFixedWidth(w)
     
     def _setup_ui(self):
         """Create UI components."""
+        # Ensure the panel stays full-height in parent layouts even when collapsed.
+        # This keeps the toggle button anchored at the top rather than having the
+        # entire panel widget vertically centered when its contents are hidden.
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
         # Toggle button - small and compact, fixed in top-right
         self.toggle_btn = QPushButton()
         self.toggle_btn.setCheckable(True)
@@ -153,6 +167,13 @@ class CollapsibleRightPanel(QWidget):
         self.main_layout.addWidget(self.scroll_area, 1)  # Stretch factor 1 - can grow
         self.main_layout.addWidget(self.bottom_widget, 0)  # Stretch factor 0 - fixed size
         
+        # Spacer widget: only visible when collapsed (internal toggle mode).
+        # Pushes the toggle button to the top when content is hidden.
+        self._collapsed_spacer = QWidget()
+        self._collapsed_spacer.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self._collapsed_spacer.setVisible(False)  # Hidden by default (panel starts expanded)
+        self.main_layout.addWidget(self._collapsed_spacer, 1)
+        
         # Animation for smooth collapse/expand
         self.animation = QPropertyAnimation(self.scroll_area, b"maximumHeight")
         self.animation.setDuration(self.animation_duration)
@@ -184,11 +205,29 @@ class CollapsibleRightPanel(QWidget):
         self.toggle_btn.setChecked(visible)
         self._update_button_text()
         
-        # Show or hide the entire panel widget
-        if visible:
+        # Visibility behavior depends on toggle placement:
+        # - Internal toggle (show_toggle_internally=True): keep panel visible so the
+        #   user can always re-open it; collapse only hides content areas.
+        # - External floating toggle: hide/show entire panel widget.
+        if self.show_toggle_internally:
             self.show()
+            self.scroll_area.setVisible(visible)
+            self.bottom_widget.setVisible(visible)
+            # Show spacer only when collapsed to keep button at top
+            self._collapsed_spacer.setVisible(not visible)
+            
+            # Shrink panel when collapsed so it actually frees screen space
+            if visible:
+                if self._expanded_fixed_width is not None:
+                    super().setFixedWidth(self._expanded_fixed_width)
+            else:
+                # Minimal width to show the button with a little padding
+                super().setFixedWidth(self.toggle_btn.width() + 10)
         else:
-            self.hide()
+            if visible:
+                self.show()
+            else:
+                self.hide()
         
         # Save state
         if self.settings_key:

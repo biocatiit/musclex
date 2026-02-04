@@ -2242,11 +2242,7 @@ class QuadrantFoldingGUI(BaseGUI):
         current_index = self.tabWidget.currentIndex()
         
         if current_index == 0 and hasattr(self, 'right_panel') and hasattr(self, 'imageTab'):
-            # Position Image tab toggle button
-            tab_width = self.imageTab.width()
-            button_x = tab_width - self.right_panel.toggle_btn.width() - 10
-            button_y = 5
-            self.right_panel.toggle_btn.move(button_x, button_y)
+            return
         
         elif current_index == 1 and hasattr(self, 'result_right_panel') and hasattr(self, 'resultTab'):
             # Position Result tab toggle button
