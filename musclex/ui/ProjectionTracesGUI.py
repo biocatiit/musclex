@@ -606,6 +606,10 @@ class ProjectionTracesGUI(BaseGUI):
  
     def _create_menu_bar(self):
         """Create menu bar"""
+        selectImageAction = QAction('Select an Image...', self)
+        selectImageAction.setShortcut('Ctrl+I')
+        selectImageAction.triggered.connect(self._on_browse_file)
+
         saveSettingAction = QAction('Save Current Settings', self)
         saveSettingAction.setShortcut('Ctrl+S')
         saveSettingAction.triggered.connect(self.saveSettings)
@@ -618,6 +622,7 @@ class ProjectionTracesGUI(BaseGUI):
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(selectImageAction)
         fileMenu.addAction(saveSettingAction)
         fileMenu.addAction(loadSettingAction)
 
@@ -2134,6 +2139,10 @@ class ProjectionTracesGUI(BaseGUI):
         """
         if hasattr(self, 'workspace') and self.workspace.navigator:
             self.workspace.navigator.navigate_next_file()
+    
+    def _on_browse_file(self):
+        """Handle file browse menu action."""
+        self.workspace.navigator.browse_file()
 
     def initMaskThreshold(self, projProc):
         """
