@@ -410,10 +410,6 @@ class QuadrantFoldingGUI(BaseGUI):
         # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
     
-    def _position_floating_widgets(self):
-        """Position floating toggle buttons after window is fully rendered"""
-        self._position_toggle_button()
-    
     def _finalize_ui(self):
         """Final UI setup - set window constraints"""
         # Set minimum size for central widget to ensure usable UI
@@ -949,8 +945,7 @@ class QuadrantFoldingGUI(BaseGUI):
             parent=self, 
             title="Options", 
             settings_key="quadrant/result_right_panel",
-            start_visible=True,
-            show_toggle_internally=False  # Toggle button will be floating
+            start_visible=True
         )
         
         # Create display options
@@ -966,18 +961,11 @@ class QuadrantFoldingGUI(BaseGUI):
         buttonsWidget.setLayout(self.buttonsLayout2)
         self.result_right_panel.add_bottom_widget(buttonsWidget)
         
-        # Set fixed width and margins (same as Image tab)
+        # Set fixed width
         self.result_right_panel.setFixedWidth(500)
-        self.result_right_panel.setContentsMargins(0, 35, 0, 0)  # Top margin for toggle button
         
         # Add to layout
         self.resultTabLayout.addWidget(self.result_right_panel, 0)  # No stretch, fixed width
-        
-        # Setup floating toggle button
-        self.result_right_panel.toggle_btn.setParent(self.resultTab)
-        self.result_right_panel.toggle_btn.raise_()
-        # Initially hidden (Image tab is shown first)
-        self.result_right_panel.toggle_btn.hide()
         
         # Keep old references for backward compatibility
         self.rightLayout = self.result_right_panel.content_layout
@@ -2222,40 +2210,12 @@ class QuadrantFoldingGUI(BaseGUI):
         if index == 0:  # Image tab
             # In Image tab, navControls should be in right_panel's bottom area (fixed, always visible)
             self.right_panel.add_bottom_widget(self.navControls)
-            # Show Image tab toggle button, hide Result tab toggle button
-            self.right_panel.toggle_btn.show()
-            self.result_right_panel.toggle_btn.hide()
-            self._position_toggle_button()
         elif index == 1:  # Results tab
             # In Results tab, navControls should be in result_right_panel's bottom area
             self.buttonsLayout2.addWidget(self.navControls, 0, 0, 1, 1)
-            # Show Result tab toggle button, hide Image tab toggle button
-            self.result_right_panel.toggle_btn.show()
-            self.right_panel.toggle_btn.hide()
-            self._position_toggle_button()
         
         # Trigger UI update
         self.updateUI()
-    
-    def _position_toggle_button(self):
-        """Position the floating toggle buttons in the top-right corner of active tab."""
-        current_index = self.tabWidget.currentIndex()
-        
-        if current_index == 0 and hasattr(self, 'right_panel') and hasattr(self, 'imageTab'):
-            return
-        
-        elif current_index == 1 and hasattr(self, 'result_right_panel') and hasattr(self, 'resultTab'):
-            # Position Result tab toggle button
-            tab_width = self.resultTab.width()
-            button_x = tab_width - self.result_right_panel.toggle_btn.width() - 10
-            button_y = 5
-            self.result_right_panel.toggle_btn.move(button_x, button_y)
-    
-    def resizeEvent(self, event):
-        """Handle window resize to reposition floating toggle buttons."""
-        super().resizeEvent(event)
-        # Reposition toggle button when window is resized
-        self._position_toggle_button()
 
     def updateUI(self):
         """

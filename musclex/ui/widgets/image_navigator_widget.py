@@ -154,10 +154,7 @@ class ImageNavigatorWidget(QWidget):
         self.right_panel = CollapsibleRightPanel(
             parent=self,
             settings_key="image_navigator/right_panel",
-            start_visible=True,
-            # Scheme A: let panel manage toggle button in its own layout so it
-            # never overlaps content and doesn't require floating positioning.
-            show_toggle_internally=True
+            start_visible=True
         )
         self.right_panel.setFixedWidth(500)
         
@@ -167,9 +164,6 @@ class ImageNavigatorWidget(QWidget):
         
         # Add navigation controls to right panel bottom
         self.right_panel.add_bottom_widget(self.nav_controls)
-
-        # Toggle button is handled internally by CollapsibleRightPanel layout
-        # (show_toggle_internally=True), so no floating setup is needed.
 
         # Create select buttons panel if requested
         self.select_panel = None

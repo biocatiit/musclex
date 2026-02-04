@@ -72,7 +72,7 @@ class CollapsibleRightPanel(QWidget):
     visibilityChanged = Signal(bool)  # is_visible
     
     def __init__(self, parent=None, title="Options", settings_key=None, 
-                 start_visible=True, animation_duration=200, show_toggle_internally=True):
+                 start_visible=True, animation_duration=200):
         """
         Initialize the collapsible right panel.
         
@@ -82,18 +82,14 @@ class CollapsibleRightPanel(QWidget):
             settings_key: QSettings key for state persistence (e.g., "quadrant/right_panel")
             start_visible: Initial visibility if no saved state
             animation_duration: Animation duration in milliseconds
-            show_toggle_internally: If True, toggle button is added to panel's layout.
-                                   If False, button is created but not added (for external placement)
         """
         super().__init__(parent)
         
         self.title = title
         self.settings_key = settings_key
         self.animation_duration = animation_duration
-        self.show_toggle_internally = show_toggle_internally
         
         # Track last "expanded" fixed width so we can collapse/expand cleanly
-        # when toggle button is inside the panel layout (scheme A).
         self._expanded_fixed_width = None
         
         # Main layout
@@ -156,14 +152,12 @@ class CollapsibleRightPanel(QWidget):
         self.bottom_layout.setSpacing(5)
         
         # Add to main layout
-        # Only add toggle button if it should be shown internally
-        if self.show_toggle_internally:
-            # Create a horizontal layout for the button to align it to the right
-            button_layout = QHBoxLayout()
-            button_layout.setContentsMargins(0, 0, 0, 0)
-            button_layout.addStretch()  # Push button to the right
-            button_layout.addWidget(self.toggle_btn)
-            self.main_layout.addLayout(button_layout)
+        # Toggle button in a horizontal layout to align it to the right
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.addStretch()  # Push button to the right
+        button_layout.addWidget(self.toggle_btn)
+        self.main_layout.addLayout(button_layout)
         self.main_layout.addWidget(self.scroll_area, 1)  # Stretch factor 1 - can grow
         self.main_layout.addWidget(self.bottom_widget, 0)  # Stretch factor 0 - fixed size
         
@@ -205,29 +199,21 @@ class CollapsibleRightPanel(QWidget):
         self.toggle_btn.setChecked(visible)
         self._update_button_text()
         
-        # Visibility behavior depends on toggle placement:
-        # - Internal toggle (show_toggle_internally=True): keep panel visible so the
-        #   user can always re-open it; collapse only hides content areas.
-        # - External floating toggle: hide/show entire panel widget.
-        if self.show_toggle_internally:
-            self.show()
-            self.scroll_area.setVisible(visible)
-            self.bottom_widget.setVisible(visible)
-            # Show spacer only when collapsed to keep button at top
-            self._collapsed_spacer.setVisible(not visible)
-            
-            # Shrink panel when collapsed so it actually frees screen space
-            if visible:
-                if self._expanded_fixed_width is not None:
-                    super().setFixedWidth(self._expanded_fixed_width)
-            else:
-                # Minimal width to show the button with a little padding
-                super().setFixedWidth(self.toggle_btn.width() + 10)
+        # Keep panel visible so the user can always re-open it;
+        # collapse only hides content areas.
+        self.show()
+        self.scroll_area.setVisible(visible)
+        self.bottom_widget.setVisible(visible)
+        # Show spacer only when collapsed to keep button at top
+        self._collapsed_spacer.setVisible(not visible)
+        
+        # Shrink panel when collapsed so it actually frees screen space
+        if visible:
+            if self._expanded_fixed_width is not None:
+                super().setFixedWidth(self._expanded_fixed_width)
         else:
-            if visible:
-                self.show()
-            else:
-                self.hide()
+            # Minimal width to show the button with a little padding
+            super().setFixedWidth(self.toggle_btn.width() + 10)
         
         # Save state
         if self.settings_key:
