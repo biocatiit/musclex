@@ -177,6 +177,9 @@ class ImageNavigatorWidget(QWidget):
         self._scan_timer.setInterval(250)
         self._scan_timer.timeout.connect(self._check_scan_progress)
         
+        # Track previous filename to detect image changes
+        self._previous_filename = None
+        
         # Setup UI
         self._setup_ui()
         
@@ -430,6 +433,7 @@ class ImageNavigatorWidget(QWidget):
         Behavior:
         - If auto_display=True: Automatically displays the image in image_viewer
         - If auto_display=False: Only emits signal, allows external code to control display
+        - If filename changed (new image) and persist is not enabled: Reset intensity to auto-scale
         
         Always emits imageChanged signal regardless of auto_display setting.
         """
@@ -442,6 +446,19 @@ class ImageNavigatorWidget(QWidget):
             if img is None:
                 self.navigationError.emit(f"Failed to load image: {filename}")
                 return
+            
+            # Check if this is a NEW image (filename changed)
+            is_new_image = (filename != self._previous_filename)
+            self._previous_filename = filename
+            
+            # Handle intensity reset for new images
+            # Only reset if:
+            # 1. This is a new image (filename changed)
+            # 2. Persist is NOT enabled
+            # 3. Display panel exists
+            if is_new_image and self.image_viewer.display_panel:
+                if not self.image_viewer.display_panel.is_persist_enabled():
+                    self.image_viewer.display_panel.reset_intensity_from_image(img)
             
             # Display image only if auto_display is enabled
             if self._auto_display:

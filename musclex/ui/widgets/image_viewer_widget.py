@@ -359,11 +359,12 @@ class ImageViewerWidget(QWidget):
             self.axes.set_ylim(saved_zoom[1])
         # else: First time displaying - use imshow's default (full image with correct Y-axis direction)
         
-        # Update display panel with new image data
+        # Update display panel labels (step sizes, range labels, decimals)
+        # NOTE: We only update labels here, NOT intensity values.
+        # Intensity values should be preserved during redisplay.
+        # Only ImageNavigatorWidget should reset intensity when loading a NEW image.
         if self.display_panel:
-            # This automatically updates intensity values, step sizes, labels, and decimals
-            # It respects the persist checkbox - only updates values if persist is unchecked
-            self.display_panel.update_from_image(img, respect_persist=True)
+            self.display_panel.update_labels_from_image(img)
         
         self.canvas.draw()
         
