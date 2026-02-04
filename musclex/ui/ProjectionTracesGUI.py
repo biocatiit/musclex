@@ -39,7 +39,7 @@ from matplotlib.colors import LogNorm, Normalize
 from threading import Lock
 import numpy as np
 import cv2
-from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal
+from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal, QSettings
 from queue import Queue
 import fabio
 import tifffile
@@ -409,6 +409,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.resize(1200, 900)
         
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
+        
+        # Show warning dialog about non-axis aligned boxes
+        self._show_oriented_box_warning()
 
     # ===== BaseGUI abstract methods implementation =====
     
@@ -672,6 +675,66 @@ class ProjectionTracesGUI(BaseGUI):
         # statusTextRequested: Update status bar
         self.workspace.statusTextRequested.connect(self._on_status_text_requested)
     
+    def _show_oriented_box_warning(self):
+        """
+        Show a warning dialog about non-axis aligned (oriented) boxes.
+        Includes a 'Don't show again' checkbox to suppress future warnings.
+        """
+        settings = QSettings("BioCAT", "MuscleX")
+        if settings.value("pt/hide_oriented_box_warning", False, type=bool):
+            return
+        
+        # Create custom dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Projection Traces - Important Notice")
+        dialog.setMinimumWidth(450)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Warning icon and message
+        msg_layout = QHBoxLayout()
+        icon_label = QLabel()
+        icon_label.setPixmap(dialog.style().standardIcon(
+            dialog.style().StandardPixmap.SP_MessageBoxWarning
+        ).pixmap(48, 48))
+        msg_layout.addWidget(icon_label)
+        
+        text_label = QLabel(
+            "<b>Note about Oriented Boxes:</b><br><br>"
+            "Non-axis aligned (oriented) boxes are currently experimental "
+            "and may not work correctly in all cases.<br><br>"
+            "For reliable results, please use <b>Axis Aligned Boxes</b> "
+            "(horizontal or vertical projection boxes).<br><br>"
+            "The 'Add Oriented Box' feature is temporarily disabled."
+        )
+        text_label.setWordWrap(True)
+        msg_layout.addWidget(text_label, 1)
+        layout.addLayout(msg_layout)
+        
+        layout.addSpacing(10)
+        
+        # Don't show again checkbox
+        dont_show_checkbox = QCheckBox("Don't show this message again")
+        layout.addWidget(dont_show_checkbox)
+        
+        layout.addSpacing(10)
+        
+        # OK button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        ok_button = QPushButton("OK")
+        ok_button.setDefault(True)
+        ok_button.clicked.connect(dialog.accept)
+        button_layout.addWidget(ok_button)
+        button_layout.addStretch()
+        layout.addLayout(button_layout)
+        
+        dialog.exec()
+        
+        # Save preference if checkbox was checked
+        if dont_show_checkbox.isChecked():
+            settings.setValue("pt/hide_oriented_box_warning", True)
+
     def updateLeftWidgetWidth(self):
         """Update left widget width based on canvas visibility"""
         if self.displayImgCanvas.isVisible():
