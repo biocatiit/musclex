@@ -149,19 +149,14 @@ class GMMParameterEditorDialog(QDialog):
         # Extract all parameters
         params_to_show = {}
         
+        # Get ProcessingBox reference
+        box = self.projProc.boxes[self.box_name]
+        
         # Per-parameter bounds (scheme B): persisted in box.param_bounds
-        if self.box_name in self.projProc.boxes:
-            box_bounds = self.projProc.boxes[self.box_name].param_bounds
-        else:
-            box_bounds = {}
-        if not isinstance(box_bounds, dict):
-            box_bounds = {}
+        box_bounds = box.param_bounds if isinstance(box.param_bounds, dict) else {}
         
         # Peak tolerance (fallback for initial bounds if none are stored)
-        if self.box_name in self.projProc.boxes:
-            peak_tol = self.projProc.boxes[self.box_name].peak_tolerance
-        else:
-            peak_tol = 2.0
+        peak_tol = box.peak_tolerance if box.peak_tolerance else 2.0
         
         # Populate hull range spinboxes (not in table - these are preprocessing constraints)
         if self.working_hull_range and isinstance(self.working_hull_range, (tuple, list)) and len(self.working_hull_range) >= 2:
@@ -211,18 +206,14 @@ class GMMParameterEditorDialog(QDialog):
                 'enabled': True
             }
             
-            # Amplitude
-            a_name = f'amplitude{i}'
-            a_bounds = box_bounds.get(a_name, {})
-            if not isinstance(a_bounds, dict):
-                a_bounds = {}
+            # Amplitude (no bounds - amplitude is unconstrained in fitting)
             params_to_show[f'amplitude{i}'] = {
                 'val': fit_result[f'amplitude{i}'],
-                # Prefer persisted bounds; fallback to legacy UI heuristic
-                'min': a_bounds.get('min', 0),
-                'max': a_bounds.get('max', fit_result[f'amplitude{i}'] * 5),
+                'min': -1,  # Display only, not used in fitting
+                'max': 1e10,  # Display only, not used in fitting
                 'fixed': fit_result.get(f'amplitude{i}_fixed', False),  # Read fixed state
-                'enabled': True
+                'enabled': True,
+                'bounds_enabled': False  # Disable Min/Max spinboxes for amplitude
             }
             
             # Sigma - ALWAYS show it (will be enabled/disabled based on mode)
@@ -277,7 +268,9 @@ class GMMParameterEditorDialog(QDialog):
             minSpin.setDecimals(6)
             minSpin.setRange(-1e10, 1e10)
             minSpin.setValue(pdict['min'])
-            minSpin.setEnabled(pdict['enabled'] and not pdict['fixed'])
+            # Disable if bounds_enabled is False (e.g., amplitude), or if fixed/disabled
+            bounds_enabled = pdict.get('bounds_enabled', True)
+            minSpin.setEnabled(bounds_enabled and pdict['enabled'] and not pdict['fixed'])
             self.paramTable.setCellWidget(row, 3, minSpin)
             
             # Max spinbox
@@ -285,7 +278,7 @@ class GMMParameterEditorDialog(QDialog):
             maxSpin.setDecimals(6)
             maxSpin.setRange(-1e10, 1e10)
             maxSpin.setValue(pdict['max'])
-            maxSpin.setEnabled(pdict['enabled'] and not pdict['fixed'])
+            maxSpin.setEnabled(bounds_enabled and pdict['enabled'] and not pdict['fixed'])
             self.paramTable.setCellWidget(row, 4, maxSpin)
             
             row += 1
