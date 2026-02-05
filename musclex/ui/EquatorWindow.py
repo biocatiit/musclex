@@ -4506,7 +4506,8 @@ class EquatorWindow(QMainWindow):
             genResults += "<b>Skeletal Muscle : </b>" + str(fit_results["isSkeletal"]) + '<br/><br/>'
             genResults += "<b>CenterX : </b>" + str(fit_results["centerX"]) + '<br/><br/>'
             genResults += "<b>S10 : </b>" + str(fit_results["S10"]) + '<br/><br/>'
-            genResults += "<b>S0 : </b>" + str(fit_results["S0"]) + '<br/><br/>'
+            genResults += "<b>Left S0 : </b>" + str(fit_results["left_S0"]) + '<br/><br/>'
+            genResults += "<b>Right S0 : </b>" + str(fit_results["right_S0"]) + '<br/><br/>'
             if 'd10' in fit_results.keys():
                 genResults += "<b>d10 : </b>" + str(fit_results["d10"]) + '<br/><br/>'
             genResults += "<b>Average I11/I10 per fiber : </b>" + str(fit_results["avg_ratio"]) + '<br/><br/>'

@@ -751,7 +751,7 @@ class EquatorImage:
 
     def findFirstSymmetricPeaks(self, left_peaks, right_peaks):
         """
-        Get first symatric peaks from left and right
+        Get first symmetric peaks from left and right
         :param left_peaks: peaks on the left histogram (list)
         :param right_peaks: peaks on the right histogram (list)
         :return: first symmetric peaks, return None if there are no symmetric peaks
@@ -917,13 +917,14 @@ class EquatorImage:
             ####
 
             margin = 10.
-            S0=0
+            self.info['left_S0'] = 0
+            self.info['right_S0'] = 0
 
             # Add all fitting variables to params
             params = Parameters()
             params.add("centerX", centerX, min=centerX - margin, max=centerX + margin)
             params.add("S10", S[0], min=S[0] - margin, max=S[0] + margin)
-            params.add("S0", S0, min=-0.001,  max=0.001)
+            # params.add("S0", S0, min=-0.001,  max=0.001)
 
             for (i, e) in enumerate(left_areas):
                 params.add("left_area" + str(i + 1), max(e, 100), min=0)
@@ -948,6 +949,7 @@ class EquatorImage:
 
             # Set initial parameters or independent parameters on each side
             for side in ['left', 'right']:
+                params.add(side+"_S0", self.info[side+'_S0'], min=-1,  max=1)
 
                 # If params are fixed, add them to int_vars
                 if side+'_fix_sigmac' in self.info.keys():
@@ -1083,9 +1085,10 @@ class EquatorImage:
 
                 centerX = fit_result["centerX"]
                 S10 = fit_result["S10"]
-                S0 = fit_result["S0"]
-                model_peaks = [centerX + S0 - S10 * theta(i) for i in range(len(left_peaks))]
-                model_peaks.extend([centerX + S0 + S10 * theta(i) for i in range(len(right_peaks))])
+                left_S0 = fit_result["left_S0"]
+                right_S0 = fit_result["right_S0"]
+                model_peaks = [centerX + left_S0 - S10 * theta(i) for i in range(len(left_peaks))]
+                model_peaks.extend([centerX + right_S0 + S10 * theta(i) for i in range(len(right_peaks))])
                 all_S = [S10 * theta(i) for i in range(len(left_peaks))]    
                 fit_result['model_peaks'] = sorted(model_peaks)
                 fit_result['all_S'] = all_S
@@ -1103,7 +1106,12 @@ class EquatorImage:
                 self.saveParamInfo(params, int_vars, fit_result)
 
         if 'fit_results' in self.info:
-            print("Done. Fitting Results : " + str(self.info['fit_results']))
+            # print("Done. Fitting Results : " + str(self.info['fit_results']))
+            print("Done. Fitting Results : ")
+            for k in self.info['fit_results'].keys():
+                if k != 'histNdarray' and k != 'fittedCurve' and k != 'fittedCurve' \
+                    and k != 'image_mask' and k != 'x':
+                    print(f"{k} : {self.info['fit_results'][k]}", end=', ')
             if self.info['fit_results']['fiterror'] > self.fitting_error:
                 print("WARNING : High Fitting Error")
         else:
@@ -1242,9 +1250,10 @@ class EquatorImage:
 
             centerX = fit_result["centerX"]
             S10 = fit_result["S10"]
-            S0 = fit_result["S0"]
-            model_peaks = [centerX + S0 - S10 * theta(i) + Speaks[i] for i in range(len(left_peaks))]
-            model_peaks.extend([centerX + S0 + S10 * theta(i) + Speaks[i] for i in range(len(right_peaks))])
+            left_S0 = fit_result["left_S0"]
+            right_S0 = fit_result["right_S0"]
+            model_peaks = [centerX + left_S0 - S10 * theta(i) + Speaks[i] for i in range(len(left_peaks))]
+            model_peaks.extend([centerX + right_S0 + S10 * theta(i) + Speaks[i] for i in range(len(right_peaks))])
 
             fit_result['model_peaks'] = sorted(model_peaks)
             all_S = [S10 * theta(i) for i in range(len(left_peaks))]
@@ -1258,7 +1267,12 @@ class EquatorImage:
             self.saveCache()
 
         if 'fit_results' in self.info:
-            print("Done. Fitting Results : " + str(self.info['fit_results']))
+            # print("Done. Fitting Results : " + str(self.info['fit_results']))
+            print("Done. Fitting Results : ")
+            for k in self.info['fit_results'].keys():
+                if k != 'histNdarray' and k != 'fittedCurve' and k != 'fittedCurve'\
+                      and k != 'image_mask' and k != 'x':
+                    print(f"{k} : {self.info['fit_results'][k]}", end=', ')
             if self.info['fit_results']['fiterror'] > self.fitting_error:
                 print("WARNING : High Fitting Error")
         else:
@@ -1351,7 +1365,7 @@ class EquatorImage:
         """
         print(text)
 
-def cardiacFit(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
+def cardiacFit(x, centerX, left_S0, right_S0, S10, model, isSkeletal, isExtraPeak, k,
                 left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
                 left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
                 right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
@@ -1406,37 +1420,37 @@ def cardiacFit(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
 
         Speaks = sorted(speaks_dict.items(), key=lambda kv: kv[0])
         Speaks = [v for (_, v) in Speaks]
-        result = cardiacSide(model, 'left', x, centerX, S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
-        result += cardiacSide(model, 'right', x, centerX, S0, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
+        result = cardiacSide(model, 'left', x, centerX, left_S0, S10, left_sigmac, left_sigmad, left_sigmas, left_gamma, left_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
+        result += cardiacSide(model, 'right', x, centerX, right_S0, S10, right_sigmac, right_sigmad, right_sigmas, right_gamma,
                              right_areas, Speaks, extraGaussCenter, extraGaussSig, extraGaussArea)
         if isSkeletal:
             if model == "Gaussian":
                 mod = GaussianModel()
-                result += mod.eval(x=x, amplitude=left_intz, center=centerX + S0 - left_zline,
+                result += mod.eval(x=x, amplitude=left_intz, center=centerX + left_S0 - left_zline,
                                    sigma=left_sigmaz)
-                result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 + right_zline,
+                result += mod.eval(x=x, amplitude=right_intz, center=centerX + right_S0 + right_zline,
                                    sigma=right_sigmaz)
                 if isExtraPeak:
-                    result += mod.eval(x=x, amplitude=left_intz_EP, center=centerX + S0 - left_zline_EP,
+                    result += mod.eval(x=x, amplitude=left_intz_EP, center=centerX + left_S0 - left_zline_EP,
                                    sigma=left_sigmaz_EP)
-                    result += mod.eval(x=x, amplitude=right_intz_EP, center=centerX + S0 + right_zline_EP,
+                    result += mod.eval(x=x, amplitude=right_intz_EP, center=centerX + right_S0 + right_zline_EP,
                                    sigma=right_sigmaz_EP)
             elif model == "Voigt":
                 mod = VoigtModel()
-                result += mod.eval(x=x, amplitude=left_intz, center=centerX + S0 + left_zline,
+                result += mod.eval(x=x, amplitude=left_intz, center=centerX + left_S0 + left_zline,
                                    sigma=left_sigmaz, gamma=left_gammaz)
-                result += mod.eval(x=x, amplitude=right_intz, center=centerX + S0 - right_zline,
+                result += mod.eval(x=x, amplitude=right_intz, center=centerX + right_S0 - right_zline,
                                    sigma=right_sigmaz, gamma=right_gammaz)
                 if isExtraPeak:
-                    result += mod.eval(x=x, amplitude=left_intz_EP, center=centerX + S0 + left_zline_EP,
+                    result += mod.eval(x=x, amplitude=left_intz_EP, center=centerX + left_S0 + left_zline_EP,
                                    sigma=left_sigmaz_EP, gamma=left_gammaz_EP)
-                    result += mod.eval(x=x, amplitude=right_intz_EP, center=centerX + S0 - right_zline_EP,
+                    result += mod.eval(x=x, amplitude=right_intz_EP, center=centerX + right_S0 - right_zline_EP,
                                    sigma=right_sigmaz_EP, gamma=right_gammaz_EP)
         return result + k
     return 0
 
 
-def cardiacFitGeneric(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
+def cardiacFitGeneric(x, centerX, left_S0, right_S0, S10, model, isSkeletal, isExtraPeak, k,
                       left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
                       left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
                       right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
@@ -1445,7 +1459,7 @@ def cardiacFitGeneric(x, centerX, S0, S10, model, isSkeletal, isExtraPeak, k,
                       image_mask=None, bg_names=None, **kwargs):
     # reuse your base peaks/z-lines (k=0), then add backgrounds, apply mask, then add k
     base = cardiacFit(
-        x, centerX, S0, S10, model, isSkeletal, isExtraPeak, 0.0,
+        x, centerX, left_S0, right_S0, S10, model, isSkeletal, isExtraPeak, 0.0,
         left_sigmad, left_sigmas, left_sigmac, left_gamma, left_intz, left_sigmaz, left_zline, left_gammaz,
         left_zline_EP, left_sigmaz_EP, left_intz_EP, left_gammaz_EP,
         right_sigmad, right_sigmas, right_sigmac, right_gamma, right_intz, right_sigmaz, right_zline, right_gammaz,
@@ -1579,7 +1593,8 @@ def cardiacFit_old(x, centerX, S10, sigmad, sigmas, sigmac, model, gamma, isSkel
 def getCardiacGraph(x, fit_results):
     plot_params = {
         'centerX': fit_results['centerX'],
-        'S0': fit_results["S0"],
+        'left_S0': fit_results["left_S0"],
+        'right_S0': fit_results["right_S0"],
         'S10': fit_results['S10'],
         'model': fit_results['model'],
         'isSkeletal': fit_results['isSkeletal'],
@@ -1625,7 +1640,8 @@ def getCardiacGraph(x, fit_results):
 def getCardiacGraphBG(x, fit_results):
     plot_params = {
         'centerX': fit_results['centerX'],
-        'S0': fit_results["S0"],
+        'left_S0': fit_results["left_S0"],
+        'right_S0': fit_results["right_S0"],
         'S10': fit_results['S10'],
         'model': fit_results['model'],
         'isSkeletal': fit_results['isSkeletal'],
