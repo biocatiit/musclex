@@ -154,16 +154,23 @@ class XRayViewerGUI(QMainWindow):
         self.settingsGroup.setLayout(self.settingsLayout)
 
         self.calibrationButton = QPushButton("Calibration Settings")
+        self.calibrationButton.setToolTip("Open calibration settings to set detector parameters\nand calculate q-values from pixel distances.")
         self.openTrace = QPushButton("Open Trace Window")
+        self.openTrace.setToolTip("Open a separate window to view intensity traces\nacross multiple images in the folder.")
         self.measureDist = QPushButton("Measure a Distance")
         self.measureDist.setCheckable(True)
+        self.measureDist.setToolTip("Click two points on the image to measure the distance between them.\nYou can measure multiple distances. Press ESC or uncheck to finish.")
         self.setSlice = QPushButton("Set Graph Slice")
         self.setSlice.setCheckable(True)
+        self.setSlice.setToolTip("Click two points to define a slice line.\nThe intensity profile along this line will be shown in the Graph tab.")
         self.setSliceBox = QPushButton("Set Graph Box")
         self.setSliceBox.setCheckable(True)
+        self.setSliceBox.setToolTip("Click three points to define a box region:\n1. First click: start of center line\n2. Second click: end of center line\n3. Third click: set the box width\nThe summed intensity within the box will be shown in the Graph tab.")
         self.saveGraphSlice = QCheckBox("Save Graph Profile")
         self.saveGraphSlice.setEnabled(False)
+        self.saveGraphSlice.setToolTip("When checked, the graph profile data will be saved to a CSV file.")
         self.inpaintChkBx = QCheckBox("Inpainting")
+        self.inpaintChkBx.setToolTip("Fill in masked/dead pixels using surrounding pixel values.\nUseful for removing detector artifacts.")
         
         self.checkableButtons.extend([self.measureDist, self.setSlice, self.setSliceBox])
         
@@ -180,11 +187,14 @@ class XRayViewerGUI(QMainWindow):
         
         self.measureDist2 = QPushButton("Measure a Distance")
         self.measureDist2.setCheckable(True)
+        self.measureDist2.setToolTip("Click two points on the graph to measure the distance between them.")
 
         self.zoomInGraphButton = QPushButton("Zoom In")
         self.zoomInGraphButton.setCheckable(True)
+        self.zoomInGraphButton.setToolTip("Draw a rectangle on the graph to zoom into that region.")
 
         self.resetZoomButton = QPushButton("Reset Zoom")
+        self.resetZoomButton.setToolTip("Reset the graph view to show the full data range.")
         
         # Navigation widget container for Graph tab (widget moved here on tab switch)
         self.bottomLayout2 = QGridLayout()
