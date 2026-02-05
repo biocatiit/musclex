@@ -323,17 +323,19 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
             derivate[i] = peak_list[i] - peak_list[i - 1]
         i = 0
         while i < len(derivate) - 1:
-            s = peak_list[i]
+            s = peak_list[i]*hist[peak_list[i]]
             c = 0
+            t = hist[peak_list[i]]
             if derivate[i + 1] == 1 and not i + 1 == len(derivate) - 1:
                 j = i + 1
                 while j <= len(derivate):
                     if derivate[j] == 1 and not j + 1 == len(derivate):
-                        s += peak_list[j]
+                        s += peak_list[j]*hist[peak_list[j]]
+                        t += hist[peak_list[j]]
                         c += 1
                         j += 1
                     else:
-                        s /= (c + 1)
+                        s /= t
                         i = j
                         break
             else:
@@ -342,6 +344,8 @@ def getPeaksFromHist(orig_hist, width_thres=0, height_thres=0):
         if i != len(derivate) - 1:
             new_list.append(peak_list[i])
         peak_list = new_list
+
+        print("Merged Peaks:", peak_list)
 
     peak_list.sort()
     return peak_list
@@ -367,7 +371,8 @@ def movePeaks(hist, peaks, dist=20):
             new_peak = start + np.argmax(hist[int(start):int(end)])
 
             # if the local maximum is not far from initital peak, break
-            if abs(p - new_peak) <= 5: #
+            print('Peak:', p, ' New Peak:', new_peak)
+            if abs(p - new_peak) <= 5:
                 break
             else:
                 left = min(p, new_peak)
