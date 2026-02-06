@@ -1,4 +1,4 @@
-# Version-1.27.0 (Beta)
+# Version-1.27.0
 
 Release Date : February 2026
 
@@ -293,7 +293,7 @@ Release Date : February 2026
 ---
 
 ```eval_rst
-.. note:: Version 1.27.0 is currently in **Beta**. This version has been tested on Python 3.8 and 3.10 on Ubuntu 20.04 and 22.04, macOS 12.6+, Windows 10 and Windows 11.
+.. note:: Version 1.27.0 is a full release. This version has been tested on 3.10 on Ubuntu 22.04
 ```
 
 **Total Changes**: 346+ commits since v1.26.1
