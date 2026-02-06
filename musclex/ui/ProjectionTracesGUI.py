@@ -1392,17 +1392,22 @@ class ProjectionTracesGUI(BaseGUI):
         # Save info about open parameter editors before removing tabs
         # {box_name: QRect} - save geometry (position + size) for each open editor
         open_param_editors = {}
+        # Save zoom1 per box name so it persists across image switches
+        saved_zooms = {}
         for i in range(1, self.tabWidget.count()):  # Skip image tab (index 0)
             tab = self.tabWidget.widget(i)
-            if isinstance(tab, ProjectionBoxTab) and tab.param_editor_active:
-                # Save dialog geometry before closing
-                if tab.param_editor_dialog is not None:
-                    open_param_editors[tab.name] = tab.param_editor_dialog.geometry()
-                else:
-                    open_param_editors[tab.name] = None
-                # Close the dialog before removing the tab
-                # This ensures proper cleanup (onParameterEditorClosed will be triggered)
-                tab.closeParameterEditor()
+            if isinstance(tab, ProjectionBoxTab):
+                if tab.zoom1 is not None:
+                    saved_zooms[tab.name] = tab.zoom1
+                if tab.param_editor_active:
+                    # Save dialog geometry before closing
+                    if tab.param_editor_dialog is not None:
+                        open_param_editors[tab.name] = tab.param_editor_dialog.geometry()
+                    else:
+                        open_param_editors[tab.name] = None
+                    # Close the dialog before removing the tab
+                    # This ensures proper cleanup (onParameterEditorClosed will be triggered)
+                    tab.closeParameterEditor()
         
         self.removeAllTabs()
 
@@ -1417,6 +1422,9 @@ class ProjectionTracesGUI(BaseGUI):
         new_tabs = {}  # {box_name: ProjectionBoxTab} to reopen editors after
         for idx, name in enumerate(boxes_to_display.keys(), start=1):
             proj_tab = ProjectionBoxTab(self, name)
+            # Restore zoom1 from previous image's tab if available
+            if name in saved_zooms:
+                proj_tab.zoom1 = saved_zooms[name]
             self.tabWidget.addTab(proj_tab, "Box "+str(name))
             new_tabs[name] = proj_tab
             

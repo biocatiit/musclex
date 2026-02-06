@@ -616,11 +616,13 @@ class ProjectionBoxTab(QWidget):
 
     def autoZoomToHullRange(self):
         """
-        Auto-zoom graph1 to show user-selected hull_range side in the center 3/4 of the view.
+        Auto-zoom graph1 to center the hull_range in the current display.
         
         Strategy:
-        - X axis: User-selected side hull_range (right side) occupies middle 3/4 (1/8 padding on each side)
-        - Y axis: find min/max in that hull_range region, add 10% padding
+        - X axis: Keep the same display width as previous, shift so hull_range center
+          is in the middle of the view.
+        - Y axis: Only expand if hull data range exceeds current display range;
+          otherwise keep previous Y zoom.
         
         Only applies to graph1 (original projection), graph2 stays at default zoom.
         """
@@ -635,45 +637,46 @@ class ProjectionBoxTab(QWidget):
         centerX = self.getCenterX()
         start, end = box.hull_range
         
-        # === X axis: Show only user-selected side (right side) in middle 3/4 ===
-        # User-selected hull_range is on right side: [centerX + start, centerX + end]
-        hull_width = end - start  # Width of user-selected region
+        # === Get previous zoom ranges ===
+        prev_x_min, prev_x_max = self.zoom1[0]
+        prev_y_min, prev_y_max = self.zoom1[1]
         
-        # Calculate view width: hull_range should occupy 3/4
-        # So: hull_width = view_width * 3/4
-        # => view_width = hull_width / 0.75
-        view_width = hull_width / 0.75
-        
-        # Center the view on the middle of user-selected hull_range
+        # === X axis: Keep previous width, center hull_range in the display ===
+        prev_width = prev_x_max - prev_x_min
         hull_center = centerX + (start + end) / 2
-        x_min = hull_center - view_width / 2
-        x_max = hull_center + view_width / 2
+        x_min = hull_center - prev_width / 2
+        x_max = hull_center + prev_width / 2
         
         # Clamp to valid range
         x_min = max(0, x_min)
         x_max = min(len(hist), x_max)
         
-        # === Y axis: find min/max in user-selected hull_range region ===
-        # Only look at right side: [centerX + start, centerX + end]
+        # === Y axis: only expand if hull data range exceeds current display ===
+        # Compute hull region data min/max
         region_start = int(max(0, centerX + start))
         region_end = int(min(len(hist), centerX + end))
-        
-        # Extract data in hull_range region
         region_data = hist[region_start:region_end] if region_start < region_end else []
         
         if len(region_data) > 0:
-            y_min = np.min(region_data)
-            y_max = np.max(region_data)
+            y_min_hull = np.min(region_data)
+            y_max_hull = np.max(region_data)
+            hull_y_span = y_max_hull - y_min_hull
+            prev_y_span = prev_y_max - prev_y_min
             
-            # Add 10% padding
-            y_range = y_max - y_min
-            y_padding = y_range * 0.1
-            y_min = y_min - y_padding
-            y_max = y_max + y_padding
+            if hull_y_span > prev_y_span:
+                # Hull data exceeds display range — expand with 10% padding
+                y_padding = hull_y_span * 0.1
+                y_min = y_min_hull - y_padding
+                y_max = y_max_hull + y_padding
+            else:
+                # Hull data fits — keep previous Y width, center on hull data midpoint
+                hull_y_center = (y_min_hull + y_max_hull) / 2
+                y_min = hull_y_center - prev_y_span / 2
+                y_max = hull_y_center + prev_y_span / 2
         else:
-            # Fallback: use full hist range
-            y_min = np.min(hist)
-            y_max = np.max(hist)
+            # Fallback: keep previous Y range
+            y_min = prev_y_min
+            y_max = prev_y_max
         
         # Set zoom1 (only for graph1)
         self.zoom1 = [(x_min, x_max), (y_min, y_max)]
@@ -1982,7 +1985,7 @@ class ProjectionBoxTab(QWidget):
                 self.resultTable2.setItem(i, 3, item)
         
         # Auto-zoom graph1 to hull_range on first load (only if not already applied)
-        if not self.auto_zoom_applied and self.zoom1 is None and self.graphMaxBound is not None:
+        if not self.auto_zoom_applied and self.zoom1 is not None and self.graphMaxBound is not None:
             box = self.get_box()
             if box and box.hull_range is not None:
                 self.autoZoomToHullRange()
