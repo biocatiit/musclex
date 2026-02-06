@@ -315,19 +315,20 @@ class QuadrantFoldingh:
         flags['win_sep_y'] = 10
         flags["bin_theta"] = 30
         flags['radial_bin'] = 10
-        flags['smooth'] = 0.1
+        flags['smooth'] = 1.0
         flags['tension'] = 1.0
-        flags["tophat1"] = 5
-        flags['tophat2'] = 20
+        flags["tophat1"] = 50
+        flags['tophat2'] = 50
         flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img)
-        flags['sigmoid'] = 0.1
-        flags['fwhm'] = 10
-        flags['boxcar_x'] = 10
-        flags['boxcar_y'] = 10
-        flags['cycles'] = 5
+        flags['fwhm'] = 15
+        flags['boxcar_x'] = 15
+        flags['boxcar_y'] = 15
+        flags['cycles'] = 250
         flags['blank_mask'] = False
         flags['rotate'] = False
-        flags['fold_image'] = True # always fold image
+        flags['fold_image'] = True
+        flags['downsample'] = 2
+        flags['smooth_image'] = False
 
         if self.calSettings is not None:
             flags.update(self.calSettings)

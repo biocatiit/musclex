@@ -400,6 +400,30 @@ def getFirstVallay(hist):
             return i
     return limit
 
+def getFirstPeak(hist):
+    """
+    Find first peak from the radial histogram. This assumes that the first peak is the maximum peak.
+    :param hist: input histogram
+    :return: firstpeak
+    """
+    start = max(int(round(np.argmax(hist[:int(len(hist)/4)]))), 5)
+    for i in range(start, int(len(hist)//4)):
+        if hist[i] - hist[i-1] < -10:
+            return i
+    return 20
+
+def getDetectorEdge(hist, end=None):
+    """
+    Find detector edge from the radial histogram. This assumes that there is a sharp drop at the edge of the detector.
+    :param hist: input histogram
+    :return: detector edge value
+    """
+    end = end if end is not None else len(hist)-1
+    for i in range(end, int(end*0.75), -1):
+        if abs(hist[i] - hist[i-1]) > 10:
+            return i
+    return end
+
 def getCentroid(hist, p, intersections):
     """
     Get centroid
