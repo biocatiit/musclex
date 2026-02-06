@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/musclex-{{ version }}.tar.gz
-  sha256: aa382cb65b18d74e985833f58112df6a8c29e9041a65d226fd7cec6aa1670220
+  sha256: 08401c69c79304aa1d2f1a5a3e53d57288132d7b0afbb47178341c966d17375e
 
 build:
   entry_points:
