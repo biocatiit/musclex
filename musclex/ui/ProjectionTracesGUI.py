@@ -1378,8 +1378,9 @@ class ProjectionTracesGUI(BaseGUI):
         Uses projProc.boxes if available (current image), otherwise uses folder template.
         
         Handles open parameter editors during image switch:
-        - Saves which boxes had open parameter editors
-        - After creating new tabs, updates the editors with new image data
+        - Saves which boxes had open parameter editors and closes them
+        - Stores the info in self._pending_param_editors for deferred reopening
+        - Actual reopening happens in _reopenPendingParameterEditors() after processImage()
         """
         # Save current tab index and name
         current_index = self.tabWidget.currentIndex()
@@ -1433,22 +1434,40 @@ class ProjectionTracesGUI(BaseGUI):
             # Was on a box tab, but that box no longer exists -> select first box tab
             self.tabWidget.setCurrentIndex(1)
         
-        # Reopen parameter editors for boxes that still exist in the new image
-        # This is done after tab restoration so the UI is in a stable state
-        for box_name, saved_geometry in open_param_editors.items():
-            if box_name in new_tabs:
-                new_tab = new_tabs[box_name]
-                # Check if the new image has fit_results for this box
-                box = new_tab.get_box()
-                if box and box.fit_results is not None:
-                    # Reopen parameter editor with new image's data
-                    print(f"Reopening parameter editor for box '{box_name}' after image switch")
-                    new_tab.openParameterEditor()
-                    # Restore saved geometry (position + size)
-                    if saved_geometry is not None and new_tab.param_editor_dialog is not None:
-                        new_tab.param_editor_dialog.setGeometry(saved_geometry)
-                else:
-                    print(f"Box '{box_name}' has no fit_results in new image, not reopening editor")
+        # Store pending parameter editors to reopen AFTER processImage() completes.
+        # At this point fit_results don't exist yet for the new image, so we defer
+        # reopening until processing is done.
+        self._pending_param_editors = open_param_editors
+
+    def _reopenPendingParameterEditors(self):
+        """
+        Reopen parameter editors that were saved by addBoxTabs().
+        
+        Called after processImage() completes, so fit_results are available.
+        Reads self._pending_param_editors, reopens editors for boxes that have
+        fit_results, restores window geometry, then clears the pending dict.
+        """
+        pending = getattr(self, '_pending_param_editors', {})
+        if not pending:
+            return
+        
+        for box_name, saved_geometry in pending.items():
+            # Find the tab for this box
+            for i in range(1, self.tabWidget.count()):
+                tab = self.tabWidget.widget(i)
+                if isinstance(tab, ProjectionBoxTab) and tab.name == box_name:
+                    box = tab.get_box()
+                    if box and box.fit_results is not None:
+                        print(f"Reopening parameter editor for box '{box_name}' after processing")
+                        tab.openParameterEditor()
+                        # Restore saved geometry (position + size)
+                        if saved_geometry is not None and tab.param_editor_dialog is not None:
+                            tab.param_editor_dialog.setGeometry(saved_geometry)
+                    else:
+                        print(f"Box '{box_name}' has no fit_results after processing, not reopening editor")
+                    break
+        
+        self._pending_param_editors = {}
 
     def imgClicked(self, event):
         """
@@ -2297,6 +2316,11 @@ class ProjectionTracesGUI(BaseGUI):
         self.csvManager.setColumnNames(self.projProc.boxes)
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
+        
+        # Reopen parameter editors that were deferred by addBoxTabs().
+        # Now fit_results are available after processing.
+        self._reopenPendingParameterEditors()
+        
         QApplication.restoreOverrideCursor()
 
     def thread_done(self, projProc):
