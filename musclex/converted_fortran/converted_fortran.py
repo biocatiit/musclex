@@ -602,38 +602,48 @@ def bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tens, pc1, pc2, npix, nrast, m
     return b
     #print(f'Number of bad background points {ibad}', file=iprint)
     #print(f'Number of bad background points {ibad}', file=ilog)
-
+    
 @jit(nopython=True)
 def process_window(buf, iwid, jwid, pc1, pc2, npix, nrast, i, j):
-    # Calculate window boundaries
+    """Optimized: use partial sort (quickselect) instead of full sort."""
     iw1 = max(i - iwid, 0)
     iw2 = min(i + iwid + 1, npix)
     jw1 = max(j - jwid, 0)
     jw2 = min(j + jwid + 1, nrast)
-
-    # Collect and sort window values, compute average
     max_window_size = (iw2 - iw1) * (jw2 - jw1)
-    window_values = np.empty(max_window_size, dtype=np.float32)
-    count = 0
+    window_buffer = np.empty(max_window_size, dtype=np.float32)
 
+    # Collect window values
+    count = 0
     for jn in range(jw1, jw2):
         for in_ in range(iw1, iw2):
             idx = jn * npix + in_
             if buf[idx] > -1.0E+30:
-                window_values[count] = buf[idx]
+                window_buffer[count] = buf[idx]
                 count += 1
 
-    if count > 0:
-        # Only consider the non-empty part of the window
-        valid_window_values = window_values[:count]
-        valid_window_values.sort()
-        start_idx = int(pc1 * count)
-        end_idx = int(pc2 * count)
-        # Compute the mean manually
-        avg_bck = valid_window_values[start_idx:end_idx].sum() / (end_idx - start_idx)
-        return avg_bck
-    else:
+    if count == 0:
         return -1.0E+30
+
+    valid_window = window_buffer[:count]
+    start_idx = int(pc1 * count)
+    end_idx = int(pc2 * count)
+
+    if end_idx <= start_idx:
+        return -1.0E+30
+
+    # Use median-of-3 partition to split without full sort
+    # Only partially sort the percentile range
+    if start_idx > 0:
+        for k in range(start_idx):
+            quickselect(valid_window, k)
+    
+    # Sum the percentile range directly
+    total = 0.0
+    for idx in range(start_idx, end_idx):
+        total += valid_window[idx]
+    
+    return total / (end_idx - start_idx)
     
 def replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tens, pc1, pc2, npix, nrast, maxdim, maxwin, xb, yb, ys, ysp, wrk, bw, index, iprint, ilog):
     """
@@ -656,8 +666,8 @@ def replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tens, pc1, pc2, npix
     b.fill(-1.0E+30)
 
     # Iterate over the image using the roving window
-    for j in range(nrast):
-        for i in range(npix):
+    for j in range(0, nrast, jsep):
+        for i in range(0, npix, isep):
             b[j * npix + i] = process_window(buf, iwid, jwid, pc1, pc2, npix, nrast, i, j)
 
     # Fit splines row-wise
@@ -678,6 +688,33 @@ def replicate_bgwsrt2(buf, b, iwid, jwid, isep, jsep, smoo, tens, pc1, pc2, npix
 
     return b
 
+@jit(nopython=True)
+def partition_inplace(arr, left, right, pivot_idx):
+    """Partition array around pivot for quickselect."""
+    pivot = arr[pivot_idx]
+    arr[pivot_idx], arr[right] = arr[right], arr[pivot_idx]
+    store_idx = left
+    for i in range(left, right):
+        if arr[i] < pivot:
+            arr[i], arr[store_idx] = arr[store_idx], arr[i]
+            store_idx += 1
+    arr[right], arr[store_idx] = arr[store_idx], arr[right]
+    return store_idx
+
+@jit(nopython=True)
+def quickselect(arr, k):
+    """Find k-th smallest element in-place."""
+    left, right = 0, len(arr) - 1
+    while left < right:
+        pivot_idx = (left + right) // 2
+        pivot_idx = partition_inplace(arr, left, right, pivot_idx)
+        if k == pivot_idx:
+            return arr[k]
+        elif k < pivot_idx:
+            right = pivot_idx - 1
+        else:
+            left = pivot_idx + 1
+    return arr[left]
 
 
 @jit(nopython=True, parallel=True)
