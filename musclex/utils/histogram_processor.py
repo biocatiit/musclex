@@ -419,8 +419,8 @@ def getDetectorEdge(hist, end=None):
     :return: detector edge value
     """
     end = end if end is not None else len(hist)-1
-    for i in range(end, int(end*0.75), -1):
-        if abs(hist[i] - hist[i-1]) > 10:
+    for i in range(end, int(end*0.3), -1):
+        if abs(hist[i] - hist[i-1]) > 2:
             return i
     return end
 

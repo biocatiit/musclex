@@ -545,12 +545,10 @@ class QuadrantFoldingGUI(BaseGUI):
         self.rmaxLabel = QLabel("R-max")
 
 
-        self.downsampleSpnBx = QSpinBox()
-        self.downsampleSpnBx.setSingleStep(1)
-        self.downsampleSpnBx.setValue(1)
-        self.downsampleSpnBx.setRange(1, 6)
-        self.downsampleSpnBx.setKeyboardTracking(False)
         self.downsampleLabel = QLabel("Downsample")
+        self.downsampleCB = QComboBox()
+        self.downsampleCB.addItems(["1", "2", "4"])
+        self.downsampleCB.setCurrentIndex(1)
 
         self.smoothImageChkbx = QCheckBox("Smooth Image")
         self.smoothImageChkbx.setChecked(False)
@@ -684,8 +682,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgLayout.addWidget(self.fixedRoiChkBx, 0, 2, 1, 1)
         self.bgLayout.addWidget(self.fixedRoi, 0, 3, 1, 1)
         self.bgLayout.addWidget(separator_2, 1, 0, 1, 4)
-        self.bgLayout.addWidget(QLabel("Background Subtraction Method:"), 2, 0, 1, 2)
-        self.bgLayout.addWidget(self.bgChoiceIn, 2, 2, 1, 2)
+        self.bgLayout.addWidget(QLabel("Background Subtraction Method:"), 100, 0, 1, 2)
+        self.bgLayout.addWidget(self.bgChoiceIn, 100, 2, 1, 2)
 
         # R-min settings
         self.rrangeSettingFrame = QFrame()
@@ -698,10 +696,10 @@ class QuadrantFoldingGUI(BaseGUI):
         self.rrangeSettingLayout.addWidget(self.setRminRmaxButton, 3, 0, 1, 1)
         self.rrangeSettingLayout.addWidget(self.showRminRmaxChkBx, 3, 1, 1, 1)
         self.rrangeSettingLayout.addWidget(self.fixedRadiusRangeChkBx, 3, 2, 1, 2)
-        self.rrangeSettingLayout.addWidget(self.downsampleLabel, 4, 0, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.downsampleSpnBx, 4, 1, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.smoothImageChkbx, 4, 2, 1, 1)
-        self.rrangeSettingLayout.addWidget(self.showResultMaskChkBx, 4, 3, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.showResultMaskChkBx, 4, 0, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.downsampleLabel, 4, 2, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.downsampleCB, 4, 3, 1, 1)
+        self.rrangeSettingLayout.addWidget(self.smoothImageChkbx, 4, 1, 1, 1)
         self.bgLayout.addWidget(self.rrangeSettingFrame, 5, 0, 5, 4)
 
         # Gaussian FWHM
@@ -711,49 +709,49 @@ class QuadrantFoldingGUI(BaseGUI):
         # Box car size
         self.bgLayout.addWidget(self.boxcarLabel, 116, 0, 1, 1)
         self.bgLayout.addWidget(self.boxcarX, 116, 1, 1, 1)
-        self.bgLayout.addWidget(self.boxcarY, 117, 0, 1, 1)
+        self.bgLayout.addWidget(self.boxcarY, 117, 1, 1, 1)
 
         # Number of cycles
         self.bgLayout.addWidget(self.cycleLabel, 116, 2, 1, 1)
         self.bgLayout.addWidget(self.cycle, 116, 3, 1, 1)
 
         # Theta bin
-        self.bgLayout.addWidget(self.thetaBinLabel, 119, 0, 1, 2)
-        self.bgLayout.addWidget(self.thetabinCB, 119, 2, 1, 2)
+        self.bgLayout.addWidget(self.thetaBinLabel, 119, 0, 1, 1)
+        self.bgLayout.addWidget(self.thetabinCB, 119, 1, 1, 1)
         # Radial bin
-        self.bgLayout.addWidget(self.radialBinLabel, 120, 0, 1, 2)
-        self.bgLayout.addWidget(self.radialBinSpnBx, 120, 2, 1, 2)
+        self.bgLayout.addWidget(self.radialBinLabel, 120, 0, 1, 1)
+        self.bgLayout.addWidget(self.radialBinSpnBx, 120, 1, 1, 1)
 
         # Window size
-        self.bgLayout.addWidget(self.windowSizeLabel, 121, 0, 1, 2)
-        self.bgLayout.addWidget(self.winSizeX, 121, 2, 1, 1)
-        self.bgLayout.addWidget(self.winSizeY, 121, 3, 1, 1)
+        self.bgLayout.addWidget(self.windowSizeLabel, 121, 0, 1, 1)
+        self.bgLayout.addWidget(self.winSizeX, 121, 1, 1, 1)
+        self.bgLayout.addWidget(self.winSizeY, 122, 1, 1, 1)
 
         # Window Seperation
-        self.bgLayout.addWidget(self.windowSepLabel, 122, 0, 1, 2)
-        self.bgLayout.addWidget(self.winSepX, 122, 2, 1, 1)
+        self.bgLayout.addWidget(self.windowSepLabel, 121, 2, 1, 1)
+        self.bgLayout.addWidget(self.winSepX, 121, 3, 1, 1)
         self.bgLayout.addWidget(self.winSepY, 122, 3, 1, 1)
 
         # Pixel ranges
-        self.bgLayout.addWidget(self.pixRangeLabel, 123, 0, 1, 2)
-        self.bgLayout.addWidget(self.minPixRange, 123, 2, 1, 1)
-        self.bgLayout.addWidget(self.maxPixRange, 123, 3, 1, 1)
+        self.bgLayout.addWidget(self.pixRangeLabel, 123, 0, 1, 1)
+        self.bgLayout.addWidget(self.minPixRange, 123, 1, 1, 1)
+        self.bgLayout.addWidget(self.maxPixRange, 124, 1, 1, 1)
 
         # Smooth
-        self.bgLayout.addWidget(self.smoothLabel, 124, 0, 1, 1)
-        self.bgLayout.addWidget(self.smoothSpnBx, 124, 1, 1, 1)
+        self.bgLayout.addWidget(self.smoothLabel, 123, 2, 1, 1)
+        self.bgLayout.addWidget(self.smoothSpnBx, 123, 3, 1, 1)
 
         # Tension
         self.bgLayout.addWidget(self.tensionLabel, 124, 2, 1, 1)
         self.bgLayout.addWidget(self.tensionSpnBx, 124, 3, 1, 1)
 
         # CH deg step
-        self.bgLayout.addWidget(self.deg1Label, 125, 0, 1, 2)
-        self.bgLayout.addWidget(self.deg1CB, 125, 2, 1, 2)
+        self.bgLayout.addWidget(self.deg1Label, 125, 2, 1, 1)
+        self.bgLayout.addWidget(self.deg1CB, 125, 3, 1, 1)
 
         # White top hat
-        self.bgLayout.addWidget(self.tophat1Label, 126, 0, 1, 2)
-        self.bgLayout.addWidget(self.tophat1SpnBx, 126, 2, 1, 2)
+        self.bgLayout.addWidget(self.tophat1Label, 126, 2, 1, 1)
+        self.bgLayout.addWidget(self.tophat1SpnBx, 126, 3, 1, 1)
 
         self.bgLayout.addWidget(separator, 130, 0, 1, 4)
 
@@ -947,7 +945,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.fixedRoiChkBx.stateChanged.connect(self.fixedRoiChecked)
         self.fixedRoi.editingFinished.connect(self.fixedRoiChanged)
         self.bgChoiceIn.currentIndexChanged.connect(self.bgChoiceInChanged)
-        # self.bgChoiceOut.currentIndexChanged.connect(self.bgChoiceOutChanged)
+        self.bgChoiceIn.currentIndexChanged.connect(self.highlightApply)
+
         self.minPixRange.valueChanged.connect(self.pixRangeChanged)
         self.maxPixRange.valueChanged.connect(self.pixRangeChanged)
 
@@ -977,7 +976,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.radialBinSpnBx.valueChanged.connect(self.highlightApply)
         self.smoothSpnBx.valueChanged.connect(self.highlightApply)
         self.tensionSpnBx.valueChanged.connect(self.highlightApply)
-        self.downsampleSpnBx.valueChanged.connect(self.highlightApply)
+        self.downsampleCB.currentIndexChanged.connect(self.highlightApply)
 
 
     # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
@@ -1685,9 +1684,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.windowSizeLabel.setHidden(not choice == 'Roving Window')
         self.winSizeX.setHidden(not choice == 'Roving Window')
         self.winSizeY.setHidden(not choice == 'Roving Window')
-        self.windowSepLabel.setHidden(True)
-        self.winSepX.setHidden(True)
-        self.winSepY.setHidden(True)
+        self.windowSepLabel.setHidden(not choice == 'Roving Window')
+        self.winSepX.setHidden(not choice == 'Roving Window')
+        self.winSepY.setHidden(not choice == 'Roving Window')
         self.maxPixRange.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
         self.minPixRange.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
         self.pixRangeLabel.setHidden(not choice in ('Roving Window', 'Circularly-symmetric'))
@@ -1710,10 +1709,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tensionLabel.setHidden(not choice in ('Roving Window'))
         self.tensionSpnBx.setHidden(not choice in ('Roving Window'))
 
+        # self.applyBGButton.setHidden(choice == 'None')
 
-        self.applyBGButton.setHidden(choice == 'None')
-
-        self.highlightApply()
+        # self.highlightApply()
 
 
     def updateImportedBG(self):
@@ -1733,8 +1731,7 @@ class QuadrantFoldingGUI(BaseGUI):
         """
         QApplication.processEvents()
         if self.ableToProcess():
-            self.deleteInfo(['bgimg1']) # delete bgimg1 to make QuadrantFolder reproduce background subrtacted image
-            self.deleteInfo(['bgimg2']) # delete bgimg2 to make QuadrantFolder reproduce background subrtacted image
+            self.deleteInfo(['bgimg']) # delete result_img to make QuadrantFolder reproduce background subtracted image
             self.deleteImgCache(['BgSubFold'])
             self.processImage()
 
@@ -2526,7 +2523,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
         # bg rm (in)
         flags['bgsub'] = self.bgChoiceIn.currentText()
-        flags['downsample'] = self.downsampleSpnBx.value()
+        flags['downsample'] = int(self.downsampleCB.currentText())
         flags["cirmin"] = self.minPixRange.value()
         flags["cirmax"] = self.maxPixRange.value()
         flags['win_size_x'] = self.winSizeX.value()
@@ -2721,7 +2718,7 @@ class QuadrantFoldingGUI(BaseGUI):
             except:
                 text += "\n  - Empty Cell Image : Enabled"
         
-        text += "\n  - Background Subtraction Method (In): "+ str(self.bgChoiceIn.currentText())
+        text += "\n  - Background Subtraction Method : "+ str(self.bgChoiceIn.currentText())
 
         if flags['bgsub'] != 'None':
             if 'fixed_rmin' in flags:
@@ -2744,30 +2741,6 @@ class QuadrantFoldingGUI(BaseGUI):
                 text += "\n  - Box car width : " + str(flags["boxcar_x"])
                 text += "\n  - Box car height : " + str(flags["boxcar_y"])
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
-
-        text += "\n  - Background Subtraction Method (Out): "+ str(self.bgChoiceOut.currentText())
-        if flags['bgsub2'] != 'None':
-            if flags['bgsub2'] in ['Circularly-symmetric', 'Roving Window']:
-                text += "\n  - Pixel Range (Percentage) : " + str(flags["cirmin2"]) + "% - "+str(flags["cirmax2"])+"%"
-
-            if flags['bgsub2'] == 'Circularly-symmetric':
-                text += "\n  - Radial Bin : " + str(flags["radial_bin2"])
-                text += "\n  - Smooth : " + str(flags["smooth2"])
-            elif flags['bgsub2'] == '2D Convexhull':
-                text += "\n  - Step (deg) : " + str(flags["deg2"])
-            elif flags['bgsub2'] == 'White-top-hats':
-                text += "\n  - Tophat : " + str(flags["tophat2"])
-            elif flags['bgsub2'] == 'Smoothed-Gaussian':
-                text += "\n  - FWHM : " + str(flags["fwhm2"])
-                text += "\n  - Number of cycle : " + str(flags["cycles2"])
-            elif flags['bgsub2'] == 'Smoothed-BoxCar':
-                text += "\n  - Box car width : " + str(flags["boxcar_x2"])
-                text += "\n  - Box car height : " + str(flags["boxcar_y2"])
-                text += "\n  - Number of cycle : " + str(flags["cycles2"])
-
-
-            text += "\n  - Merge Transition Radius : " + str(flags["transition_radius"])
-            text += "\n  - Merge Transition Delta : " + str(flags["transition_delta"])
 
         text += '\n\nAre you sure you want to process ' + str(len(img_ids)) + ' image(s) in this Folder? \nThis might take a long time.'
         errMsg.setInformativeText(text)

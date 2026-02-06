@@ -253,13 +253,17 @@ class QuadrantFolder:
         self.createMask()
 
         # try:
+        
+        self.createArtificialData()
         self.smoothFold()
         self.downsampleImage()
         self.applyBackgroundSubtraction()
         # except Exception as e:
         #     print("ERROR: Background subtraction failed.")
         #     print(e)
+        self.applyBackgroundSubtractionSynthetic()
         self.generateResultImage()
+        self.evaluateResult()
 
         if "no_cache" not in flags:
             self.cacheInfo()
@@ -304,8 +308,7 @@ class QuadrantFolder:
             self.info['ignore_folds'] = set()
         if 'bgsub' not in self.info:
             self.info['bgsub'] = 'None'
-        if 'bgsub2' not in self.info:
-            self.info['bgsub2'] = 'None'
+
 
 
     def findCenter(self):
@@ -371,7 +374,7 @@ class QuadrantFolder:
         Uses self.rotation and self.center from findCenter()/getRotationAngle() to build
         a single composite transformation matrix that's applied to orig_img.
         """
-        h_o, w_o = self.orig_img.shape
+        h_o, w_o = self.origSize
         x, y = self.center
         
         # Get angle from runtime variable (set by getRotationAngle)
@@ -441,6 +444,8 @@ class QuadrantFolder:
         Apply a guided filter to remove noise 
         """
         self.info['avg_fold'] = self.info['avg_fold'].astype(np.float32)
+        self.info["avg_fold_with_syn"] = self.info["avg_fold_with_syn"].astype(np.float32)
+
         if 'smooth_image' in self.info and self.info['smooth_image']:
             self.info['_avg_fold'] = cv2.ximgproc.guidedFilter(
                 guide=self.info['avg_fold'],
@@ -448,8 +453,15 @@ class QuadrantFolder:
                 radius=7,
                 eps=1
             )
+            self.info['_avg_fold_with_syn'] = cv2.ximgproc.guidedFilter(
+                guide=self.info["avg_fold_with_syn"],
+                src=self.info["avg_fold_with_syn"],
+                radius=7,
+                eps=1
+            )
         else:
             self.info['_avg_fold'] = self.info['avg_fold']
+            self.info['_avg_fold_with_syn'] = self.info['avg_fold_with_syn']
 
 
     def downsampleImage(self):
@@ -461,18 +473,16 @@ class QuadrantFolder:
         if 'downsample' in self.info and self.info['downsample'] > 1:
             factor = self.info['downsample']
 
-            h, w = self.orig_img.shape[:2]
+            h, w = self.origSize
             new_w = w // factor
             new_h = h // factor
-            # self.ds_img = cv2.resize(self.orig_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
             h, w = self.info['_avg_fold'].shape[:2]
             new_w = w // factor
             new_h = h // factor
 
             self.info['_avg_fold'] = cv2.resize(self.info['_avg_fold'], (new_w, new_h), interpolation=cv2.INTER_AREA)
-        # else:
-        #     # self.ds_img = self.orig_img
-        #     self.info['_avg_fold'] = self.info['_avg_fold']
+            self.info['_avg_fold_with_syn'] = cv2.resize(self.info['_avg_fold_with_syn'], (new_w, new_h), interpolation=cv2.INTER_AREA)
+
 
    
     def upsampleImage(self, img):
@@ -666,8 +676,7 @@ class QuadrantFolder:
         background = np.array(background, "float32")
         background = background.reshape((height, width))
         # replacing values that fall outside the roi_rad with the original values fromthe image
-        print("background shape before padding", background.shape)
-        print("fold shape", fold.shape)
+
         if "roi_rad" in self.info:
             background = background[:height//2, :width//2]
             pad_y = max((fold.shape[0] - background.shape[0]), 0)
@@ -806,31 +815,34 @@ class QuadrantFolder:
 
         if 'fixed_rmin' in self.info:
             self.info['rmin'] = self.info['fixed_rmin']
-        elif 'rmin' in self.info and 'rmax' in self.info:
+        
+        if 'fixed_rmax' in self.info:
+            self.info['rmax'] = self.info['fixed_rmax']
+
+        if 'rmin' in self.info and 'rmax' in self.info:
             return
         else:
             copy_img = copy.copy(self.info['avg_fold'])
+            center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
+            npt_rad = int(distance(center, (0, 0)))
+
+            # Get 1D azimuthal integration histogram
+            if 'detector' in self.info:
+                det = find_detector(copy_img, man_det=self.info['detector'])
+            else:
+                det = find_detector(copy_img)
+
+            ai = AzimuthalIntegrator(detector=det)
+            ai.setFit2D(100, center[0], center[1])
+            integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
+            _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
             
             if 'rmin' not in self.info:
-                center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
-                npt_rad = int(distance(center, (0, 0)))
-
-                # Get 1D azimuthal integration histogram
-                if 'detector' in self.info:
-                    det = find_detector(copy_img, man_det=self.info['detector'])
-                else:
-                    det = find_detector(copy_img)
-
-                ai = AzimuthalIntegrator(detector=det)
-                ai.setFit2D(100, center[0], center[1])
-                integration_method = IntegrationMethod.select_one_available("csr", dim=1, default="csr", degradable=True)
-                _, totalI = ai.integrate1d(copy_img, npt_rad, unit="r_mm", method=integration_method, azimuth_range=(180, 270))
-
                 self.info['rmin'] = int(round(getFirstPeak(totalI) + 5))
 
             if 'rmax' not in self.info:
                 # self.info['rmax'] = int(round((min(copy_img.shape[0], copy_img.shape[1]) - 1)))
-                self.info['rmax'] = getDetectorEdge(totalI, end=(min(copy_img.shape[0], copy_img.shape[1]) - 1))
+                self.info['rmax'] = getDetectorEdge(totalI, end=(min(copy_img.shape[0], copy_img.shape[1]) - 1)) - 20
             
         self.deleteFromDict(self.info, 'bgimg') # remove "bgimg" from info to make it reprocess
         print(f"Done. R-min is {str(self.info['rmin'])} and R-max is set to max: {str(self.info['rmax'])}")
@@ -840,11 +852,11 @@ class QuadrantFolder:
         Create a mask for the image based on the rmin and rmax values. The mask is stored in self.info['mask'].
         """
 
-        mask = self._rminrmaxmask() * self._equator_peaks_mask() * self._equator_center_beam_mask() * self._equator_mask() 
+        mask = self._rminrmax_mask() * self._equator_peaks_mask() * self._equator_center_beam_mask() * self._equator_mask() 
         
         self.info['mask'] = mask.astype(int)
 
-    def _rminrmaxmask(self):
+    def _rminrmax_mask(self):
         mask = create_circular_mask(self.orig_img.shape[0], self.orig_img.shape[1], inside=True, \
                                     radius=self.info['rmax'])
         mask *= create_circular_mask(self.orig_img.shape[0], self.orig_img.shape[1], inside=False, \
@@ -893,6 +905,63 @@ class QuadrantFolder:
         mask = create_circular_mask(height, width, inside=False, radius=beam_width)
         return mask.astype(int)
 
+    def createArtificialData(self):
+        AMP = 0.01
+        SIGMA_X_DIV = 5
+        SIGMA_Y_DIV = 20
+        FREQ = 'medium'
+
+        i0, i1 = find_i0_i1_peaks_auto(self.orig_img, rmin=30)
+        i0 = 100 if abs(i0-100) > 50 else i0
+        m1 = find_m_peak_auto(self.orig_img, m=1, rmin=30)
+        m1 = 50 if abs(m1-50) > 50 else m1
+
+        if FREQ == 'sparce':
+            offset_x = int(i0 / 2)
+            step_x = int(i0*2)
+            offset_y = int(m1 / 2)
+            step_y = int(m1*2)
+        elif FREQ == 'medium':
+            offset_x = int(i0 / 2)
+            step_x = int(i0)
+            offset_y = int(m1 / 2)
+            step_y = int(m1)
+        elif FREQ == 'dense':
+            offset_x = int(i0 / 4)
+            step_x = int(i0 / 2)
+            offset_y = int(m1 / 4)
+            step_y = int(m1 / 2)
+    
+        grid = get_grid(image_shape=self.orig_img.shape, 
+            step_x=step_x, step_y=step_y, 
+            offset_x=offset_x, offset_y=offset_y, fold=True)
+        
+        equator_half = get_projection(self.orig_img, gap=2, orientation=0, half=True)
+
+        amplitude = equator_half[i0] * AMP * i0
+        amplitude = 4000 if amplitude < 4000 else amplitude
+
+        sigma_x = i0 / SIGMA_X_DIV / (2 * np.sqrt(2 * np.log(2)))
+        sigma_y = m1 / SIGMA_Y_DIV / (2 * np.sqrt(2 * np.log(2)))
+
+        gauss_data = GaussianArtificialData(image_shape=self.orig_img.shape)
+        gauss_data.define_parameters(sigma_x=sigma_x, sigma_y=sigma_y, amplitude=amplitude)
+        gauss_data.pre_compute_kernel()
+
+        mask_data = MaskArtificialData(image_shape=self.orig_img.shape)
+        mask_data.define_parameters(sigma_x=sigma_x, sigma_y=sigma_y, mult=2)
+
+        for point in grid:
+            gauss_data.create_image(point[0], point[1])
+            mask_data.create_image(point[0], point[1])
+
+        gauss_data.apply_intencity_decrease()
+
+        self.info["synthetic_data"] = gauss_data.get_faded_image()
+        self.info["synthetic_mask"] = mask_data.get_mask()
+        syn_data_top_left = self.info["synthetic_data"][:self.info['avg_fold'].shape[0], :self.info['avg_fold'].shape[1]]
+        self.info["avg_fold_with_syn"] = self.info['avg_fold'] + syn_data_top_left
+
 
 
     def apply2DConvexhull(self, copy_img, rmin, step=1):
@@ -902,7 +971,6 @@ class QuadrantFolder:
         center = [copy_img.shape[1] - 1, copy_img.shape[0] - 1]
         rmax = copy_img.shape[0] + 10
 
-        # print(f"[IK] ConvexHull: rmin {rmin}, rmax {rmax}, step deg: {step}")
         hist_x = list(np.arange(rmin, rmax + 1))
         pchiplines = []
 
@@ -1033,7 +1101,7 @@ class QuadrantFolder:
     def applyBackgroundSubtraction(self):
         """
         Apply background subtraction by user's choice.
-        - bgimg : image after applying background subtraction
+        - bgimg : fold after applying background subtraction
         """
         self.parent.statusPrint("Applying Background Subtraction...")
         method = self.info["bgsub"]
@@ -1067,7 +1135,6 @@ class QuadrantFolder:
                 bg = avg_fold
                 method = 'None'
             
-            print(bg.shape, avg_fold.shape, self.info['downsample'])
             # upsample background and subtract from original image if downsampling is used
             if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
                 print(f"Upsampling background from downsampled version by factor {self.info['downsample']}...")
@@ -1083,6 +1150,48 @@ class QuadrantFolder:
         self.imgCache['BgSubFold'] = copy.copy(self.info["bgimg"])
         self.deleteFromDict(self.imgCache, "resultImg")
         print("Done.")
+
+    def applyBackgroundSubtractionSynthetic(self):
+        """
+        Apply background subtraction by user's choice.
+        - bgimg : fold after applying background subtraction
+        """
+        print("Applying Background Subtraction to synthetic data... method: " + self.info["bgsub"])
+        method = self.info["bgsub"]
+        tmp_rmin = self.info['_rmin']
+        tmp_center = self.info['_center']
+
+        avg_fold_with_syn = np.array(self.info['avg_fold_with_syn'], dtype="float32")
+        tmp_avg_fold_with_syn = np.array(self.info['_avg_fold_with_syn'], dtype="float32")
+    
+        if method == 'None':
+            bg_syn = np.zeros_like(tmp_avg_fold_with_syn)
+        elif method == '2D Convexhull':
+            bg_syn = self.apply2DConvexhull(tmp_avg_fold_with_syn, tmp_rmin, self.info['deg1'])
+        elif method == 'Circularly-symmetric':
+            bg_syn = self.applyCircularlySymBGSub2(tmp_avg_fold_with_syn, tmp_rmin)
+        elif method == 'White-top-hats':
+            bg_syn = self.applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat1"])
+        elif method == 'Roving Window':
+            bg_syn = self.applyRovingWindowBGSub(tmp_avg_fold_with_syn, tmp_center)
+        elif method == 'Smoothed-Gaussian':
+            bg_syn = self.applySmoothedBGSub(tmp_avg_fold_with_syn, tmp_center, 'gauss')   
+        elif method == 'Smoothed-BoxCar':
+            bg_syn = self.applySmoothedBGSub(tmp_avg_fold_with_syn, tmp_center, 'boxcar')
+        else:
+            bg_syn = tmp_avg_fold_with_syn
+            method = 'None'
+        
+        if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
+            bg_syn = self.upsampleImage(bg_syn)
+        
+        if method != 'None':
+            result = np.array(avg_fold_with_syn - bg_syn, dtype=np.float32)
+            result = qfu.replaceRmin(result, int(tmp_rmin), 0.)
+        else:
+            result = avg_fold_with_syn
+        self.info["bgimg_syn"] = result
+    
 
     def generateResultImage(self):
         """
@@ -1111,6 +1220,35 @@ class QuadrantFolder:
         self.imgCache['resultImg'] = result_scaled
         print("Done.")
 
+
+    def evaluateResult(self):
+        """
+        Evaluate the result by calculating the loss metrics on the result image and background. 
+        """
+        self.parent.statusPrint("Evaluating Result...")
+        print("Evaluating result image...")
+        if 'resultImg' not in self.imgCache:
+            print("Result image not found. Please generate the result image first.")
+            return
+
+        result = self.imgCache['resultImg']
+        bg = self.orig_img - result
+        baseline = get_radial_average_rmax(result+bg, self.info['rmax'], band_width=30)*0.2
+        syn_srt = self.info.get('synthetic_data', None)
+        syn_mask = self.info.get('synthetic_mask', None)
+        syn_fold = self.info.get('bgimg_syn', None)
+        syn_img = self.makeFullImage(syn_fold) if syn_fold is not None else None
+
+        metrics = full_eval_metrics(result, bg, art_img=syn_img, art_str=syn_srt, mask_art=syn_mask, \
+                                    mask_equator=self.info['mask'], baseline_value=baseline)
+        
+        print("Evaluation Metrics:")
+        for key, value in metrics.items():
+            print(f"{key}: {value:.4f}")
+
+
+
+
     def makeFullImage(self, fold):
         """
         Flip + rotate 4 folds and combine them to 1 image
@@ -1123,14 +1261,14 @@ class QuadrantFolder:
         top_left = fold
         top_right = cv2.flip(fold, 1)
 
-        buttom_left = cv2.flip(fold, 0)
-        buttom_right = cv2.flip(buttom_left, 1)
+        bottom_left = cv2.flip(fold, 0)
+        bottom_right = cv2.flip(bottom_left, 1)
 
         resultImg = np.zeros((fold_height * 2, fold_width * 2))
         resultImg[0:fold_height, 0:fold_width] = top_left
         resultImg[0:fold_height, fold_width:fold_width * 2] = top_right
-        resultImg[fold_height:fold_height * 2, 0:fold_width] = buttom_left
-        resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = buttom_right
+        resultImg[fold_height:fold_height * 2, 0:fold_width] = bottom_left
+        resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = bottom_right
 
         return resultImg
 
