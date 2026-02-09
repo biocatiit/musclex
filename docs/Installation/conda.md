@@ -75,13 +75,13 @@ Using a virtual environment is recommended to avoid conflicts with system packag
 ### Install Latest Stable Release
 
 ```bash
-conda install -c conda-forge musclex
+conda install -c biocat_iit musclex
 ```
 
-### Install a Specific Version (e.g., v1.24.0)
+### Install a Specific Version (e.g., v1.27.0)
 
 ```bash
-conda install -c conda-forge musclex=1.24.0
+conda install -c biocat_iit musclex=1.27.0
 ```
 
 > Beta and pre-release versions are **not available** via Conda as it does **not support installing directly from GitHub**. If you need a beta or development version, use the pip method instead.
