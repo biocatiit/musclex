@@ -4,7 +4,8 @@
 \usepackage{lmodern}
 \usepackage{amsmath,amssymb}
 
-\title{Manual Calibration: Circle-band objective (contrast with background)}
+\title{Manual Calibration: Circle-band objective (contrast with background)\\
+       and differential-evolution optimization}
 \author{}
 \date{}
 
@@ -41,14 +42,6 @@ The ``signal'' is sampled on 5 concentric circles near the candidate ring, using
 o \in \{-Q,\,-0.5Q,\,0,\,0.5Q,\,Q\}.
 \]
 
-The signal mean is
-\[
-\mu_{\text{sig}} =
-\frac{1}{5N_\phi}
-\sum_{o}\sum_{j}
-I\!\left(c_x+(r+o)\cos\phi_j,\;c_y+(r+o)\sin\phi_j\right).
-\]
-
 \subsection{Background bands}
 
 The ``background'' is sampled on 2 concentric circles farther away (symmetric inside/outside), using offsets
@@ -56,19 +49,37 @@ The ``background'' is sampled on 2 concentric circles farther away (symmetric in
 o \in \{-kQ,\,+kQ\}.
 \]
 
-The background mean is
+\subsection{Per-angle averaging}
+
+For each angular sample \(\phi_j\) the signal and background intensities are averaged
+over the respective radial offsets:
 \[
-\mu_{\text{bg}} =
-\frac{1}{2N_\phi}
-\sum_{o}\sum_{j}
-I\!\left(c_x+(r+o)\cos\phi_j,\;c_y+(r+o)\sin\phi_j\right).
+s_j = \frac{1}{5}\sum_{o\,\in\,\text{sig}} I\!\left(c_x+(r+o)\cos\phi_j,\;c_y+(r+o)\sin\phi_j\right),
+\qquad
+b_j = \frac{1}{2}\sum_{o\,\in\,\text{bg}} I\!\left(c_x+(r+o)\cos\phi_j,\;c_y+(r+o)\sin\phi_j\right).
 \]
+
+\subsection{MAD-based outlier rejection}
+
+Before computing the final means, outlier angles are rejected using
+Median Absolute Deviation (MAD) filtering on the per-angle signal values
+\(\{s_j\}\):
+\begin{enumerate}
+  \item Compute the median: \(m = \operatorname{median}(s_j)\).
+  \item Compute the MAD: \(\mathrm{MAD} = \operatorname{median}\!\bigl(|s_j - m|\bigr)\).
+  \item Define the ``good'' set
+    \(\mathcal{G} = \bigl\{j : |s_j - m| \le 3\,\mathrm{MAD}\bigr\}\).
+    (If \(\mathrm{MAD} < 10^{-10}\), all angles are kept.)
+  \item Apply the same angular mask to both signal and background for consistency.
+\end{enumerate}
 
 \subsection{Objective value (maximize)}
 
-The returned objective is:
+The returned objective is computed over the surviving angles:
 \[
-J(c,r;Q)=\mu_{\text{sig}}-\alpha\,\mu_{\text{bg}}.
+J(c,r;Q)
+= \frac{1}{|\mathcal{G}|}\sum_{j\in\mathcal{G}} s_j
+  \;-\;\alpha\,\frac{1}{|\mathcal{G}|}\sum_{j\in\mathcal{G}} b_j.
 \]
 
 \section{Why subtract a symmetric background}
@@ -103,6 +114,27 @@ Sampling background at both \(r-kQ\) and \(r+kQ\) is important:
   enough not to sit on the peak itself.
 \end{itemize}
 
+\subsection{Why MAD outlier rejection?}
+
+Real diffraction images often contain beam stops, detector gaps, parasitic scatter, or
+saturated pixels that produce extreme intensity values at particular angles.
+Without filtering, a handful of such angles can dominate the mean and steer the optimizer
+toward solutions that maximize these artifacts rather than the ring contrast.
+
+MAD filtering is chosen because:
+\begin{itemize}
+  \item It is \emph{robust}: the median and MAD are not affected by a minority of extreme
+    values, unlike the standard deviation.
+  \item It is \emph{cheap}: only two passes over the per-angle array are needed (median, then
+    median of absolute deviations).
+  \item The threshold \(3\,\mathrm{MAD}\) is a conventional choice for moderate outlier
+    rejection without discarding too many valid samples.
+\end{itemize}
+
+The same angular mask is applied to both signal and background arrays so that
+the contrast estimate remains paired (each surviving angle contributes to both
+the numerator and the background penalty).
+
 \subsection{Why not subtract a full radial profile?}
 
 A full radial background model can work, but it requires additional assumptions (masking peaks, robust
@@ -119,6 +151,61 @@ The interpretation above relies on two practical assumptions:
 \end{itemize}
 If rings are thick (e.g., \(\sim\!20\) pixels wide) or nearby features exist, increase \(Q\) and/or \(k\)
 so the background bands are truly outside the ring, or set \(\alpha=0\) to disable the background term.
+
+\section{Optimization strategy: differential evolution}
+
+The optimizer in
+\texttt{ManualCalibrationDialog.\_optimize\_center\_radius(center, radius, Q)}
+refines the initial circle fit (from user-selected points) by maximizing the
+circle-band objective \(J(c,r;Q)\) over three parameters:
+center \((c_x, c_y)\) and radius \(r\).
+
+\subsection{Search bounds}
+
+The search region is defined relative to the initial fit:
+\[
+c_x \in [\hat{c}_x - \Delta c,\;\hat{c}_x + \Delta c],\qquad
+c_y \in [\hat{c}_y - \Delta c,\;\hat{c}_y + \Delta c],\qquad
+r   \in [\hat{r}(1-\epsilon),\;\hat{r}(1+\epsilon)],
+\]
+where \(\Delta c = 100\) pixels and \(\epsilon = 0.10\) (10\%).
+
+\subsection{Solver}
+
+The optimization uses \texttt{scipy.optimize.differential\_evolution} with the
+following settings:
+\begin{itemize}
+  \item \textbf{Population size:} 100 (per parameter dimension).
+  \item \textbf{Tolerance:} \(10^{-4}\) (convergence criterion on objective
+    improvement).
+  \item \textbf{Polish:} enabled---after convergence, a local L-BFGS-B refinement
+    is applied to the best solution.
+  \item \textbf{Updating:} \texttt{deferred} (full-generation updates; better for
+    smooth, non-noisy landscapes).
+  \item \textbf{Seed:} 42 (reproducible results).
+\end{itemize}
+
+Because the objective is negated for the minimizer, the solver effectively
+\emph{maximizes} \(J\).
+
+\subsection{Why differential evolution?}
+
+The previous implementation used an alternating coordinate-descent approach
+(refine center \(\to\) refine radius \(\to\) repeat) with a grid-search over
+8-connected neighbors and shrinking step sizes.
+
+Differential evolution replaces this with a \emph{global} optimizer that:
+\begin{itemize}
+  \item Explores the full 3-D search region simultaneously, avoiding local
+    optima that depend on the initial point quality.
+  \item Does not require manual tuning of step sizes, shrink factors, or
+    alternation schedules.
+  \item Terminates with a local polish step that achieves sub-pixel precision.
+\end{itemize}
+
+The trade-off is higher computational cost per call (hundreds to thousands of
+objective evaluations), but for a one-shot calibration step this is
+acceptable---typical runs complete in under a second on modern hardware.
 
 \section{Parameter intuition}
 \begin{itemize}
