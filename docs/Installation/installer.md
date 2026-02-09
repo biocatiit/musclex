@@ -6,7 +6,9 @@ For users who prefer not to manage Python environments, we provide a pre-built i
 
 ### Steps
 
-1. Download the `.exe` installer from the [Releases](https://github.com/biocatiit/musclex/releases) or from [SourceForge](https://sourceforge.net/projects/musclex/files/)
+1. Download the `.exe` installer:
+   - **Version 1.26.0 and later**: [GitHub Releases](https://github.com/biocatiit/musclex/releases)
+   - **Version 1.24.0 and earlier**: [SourceForge](https://sourceforge.net/projects/musclex/files/)
 2. Make sure no older version of MuscleX is installed to avoid conflicts
 3. Double-click the installer to run
 4. Follow the installation wizard
@@ -17,13 +19,14 @@ For users who prefer not to manage Python environments, we provide a pre-built i
 
 
 
-## Install via macOS Installer
+## Install via macOS DMG Image
 
-Currently, macOS builds are not signed, so you may need to bypass security warnings. Two options are available: `.pkg` (deprecated) and `.dmg`.
+> **Note**: For version 1.24.0 and later, DMG Image are not available. Please use [pip](pip.md) or [conda](conda.md) instead.
 
-### DMG Image (Recommended)
+For older versions (1.23.2 and earlier), macOS builds are not signed, so you may need to bypass security warnings. 
 
-1. Download the `.dmg` file from the [Releases](https://github.com/biocatiit/musclex/releases) or [SourceForge](https://sourceforge.net/projects/musclex/files/)
+1. Download the `.dmg` file:
+   - **Version 1.23.2 and earlier**: [SourceForge](https://sourceforge.net/projects/musclex/files/)
 
 2. Open the `.dmg` and drag the MuscleX app into the **Applications** folder
 
@@ -42,58 +45,15 @@ Currently, macOS builds are not signed, so you may need to bypass security warni
 
 
 
-## Install via Linux Packages (No Longer Supported)
+## Install via Linux Packages DEB Package
 
-### AppImage
-
-1. Download the `.AppImage` file from [SourceForge](https://sourceforge.net/projects/musclex/files/)
+1. Download the `.deb` file from [GitHub Releases](https://github.com/biocatiit/musclex/releases)
 
 2. In terminal:
 
    ```bash
-   chmod u+x musclex-1.15.7-x86_64.AppImage
-   ./musclex-1.15.7-x86_64.AppImage
+   sudo dpkg --install musclex-1.27.0_amd64(linux).deb
    ```
-
-#### Run using AppImage on Fedora, Debian, Arch, CentOS, or Ubuntu
-
-- Download the AppImage from [SourceForge](https://sourceforge.net/projects/musclex/files/)
-
-- Open terminal where the AppImage is located
-
-- Run:
-
-  ```bash
-  chmod u+x musclex-1.15.7-x86_64.AppImage
-  ./musclex-1.15.7-x86_64.AppImage
-  ```
-
-If you encounter the error:
-
-```
-AppImages require FUSE to run.
-```
-
-Refer to [this troubleshooting guide](https://docs.appimage.org/user-guide/troubleshooting/fuse.html).
-
-If you encounter a GTK-related error when launching the AppImage, try launching the GUI interface with:
-
-```bash
-gui
-```
-
-instead of calling a module like `qf` directly.
-
-### DEB Package
-
-1. Download the `.deb` file from [SourceForge](https://sourceforge.net/projects/musclex/files/)
-
-2. In terminal:
-
-   ```bash
-   sudo dpkg --install musclex-1.20_amd64(linux).deb
-   ```
-
 
 
 ## Verify Installation
