@@ -32,6 +32,7 @@ from matplotlib.ticker import MaxNLocator, FixedLocator
 import numpy as np
 from .pyqt_utils import *
 from .EditPeakDetailsDialog import EditPeakDetailsDialog
+from .widgets.collapsible_right_panel import CollapsibleRightPanel
 from ..modules.ProjectionProcessor import layerlineModel, layerlineModelBackground, layerlineBackground, meridianBackground
 from ..utils.image_processor import getNewZoom
 
@@ -177,9 +178,14 @@ class ProjectionBoxTab(QWidget):
         self.graphAxes2 = self.graphFigure2.add_subplot(111)
         self.graphCanvas2 = FigureCanvas(self.graphFigure2)
 
-        self.optionsFrame = QFrame()
-        self.optionsFrame.setFixedWidth(350)
-        self.optionsLayout = QVBoxLayout(self.optionsFrame)
+        # CollapsibleRightPanel replaces the old QScrollArea + optionsFrame
+        self.right_panel = CollapsibleRightPanel(
+            parent=self,
+            title=f"{self.name} Options",
+            settings_key=f"projection_box/{self.name}/right_panel",
+            start_visible=True
+        )
+        self.right_panel.setFixedWidth(400)
 
         self.displayOptionsGroup = QGroupBox("Display Options")
         self.dispOptLayout = QGridLayout(self.displayOptionsGroup)
@@ -350,37 +356,25 @@ class ProjectionBoxTab(QWidget):
         self.resultTable2.setColumnWidth(2, 75)
         self.resultTable2.setColumnWidth(3, 75)
         self.resultTable2.setFixedHeight(100)
-        self.pnButtons = QHBoxLayout()
-        self.prevButton = QPushButton("<<<")
-        self.nextButton = QPushButton(">>>")
-        self.pnButtons.addWidget(self.prevButton)
-        self.pnButtons.addWidget(self.nextButton)
 
-        self.optionsLayout.addWidget(self.displayOptionsGroup)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(self.settingGroup)
-        self.optionsLayout.addSpacing(10)
-        self.optionsLayout.addWidget(QLabel("<h3>Model Peak Information</h3>"))
-        self.optionsLayout.addWidget(self.resultTable1)
-        self.optionsLayout.addWidget(QLabel("<h3>Centroid Peak Information</h3>"))
-        self.optionsLayout.addWidget(self.resultTable2)
-        self.optionsLayout.addStretch()
-        self.optionsLayout.addLayout(self.pnButtons)
+        # Add widgets to CollapsibleRightPanel content area (scrollable)
+        self.right_panel.add_widget(self.displayOptionsGroup)
+        self.right_panel.add_widget(self.settingGroup)
+        self.right_panel.add_widget(QLabel("<h3>Model Peak Information</h3>"))
+        self.right_panel.add_widget(self.resultTable1)
+        self.right_panel.add_widget(QLabel("<h3>Centroid Peak Information</h3>"))
+        self.right_panel.add_widget(self.resultTable2)
 
-        # Create scroll area for the options panel
-        self.scrollArea = QScrollArea()
-        self.scrollArea.setWidget(self.optionsFrame)
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.scrollArea.setFixedWidth(370)  # Slightly wider to accommodate scrollbar
+        # Note: Navigation controls (prev/next) are shared across all tabs.
+        # The parent GUI moves the shared navControls into this right_panel's
+        # bottom area when this tab becomes active (via onTabChanged).
 
         self.graphLayout = QVBoxLayout()
         self.graphLayout.addWidget(self.graphCanvas1)
         self.graphLayout.addWidget(self.graphCanvas2)
         self.graphLayout.addWidget(QLabel("<h5>HINT: Use the 'Zoom in' and 'Zoom out' buttons in the top right to zoom in and out of either canvas.</h5>"))
         self.tabLayout.addLayout(self.graphLayout)
-        self.tabLayout.addWidget(self.scrollArea)
+        self.tabLayout.addWidget(self.right_panel)
 
     def setAllToolTips(self):
         """
@@ -421,10 +415,9 @@ class ProjectionBoxTab(QWidget):
         # TEMP: disable table click events (to avoid hooking itemChanged handlers on click)
         # self.resultTable1.itemClicked.connect(self.handleTable1Event)
         # self.resultTable2.itemClicked.connect(self.handleTable2Event)
-        
 
-        self.prevButton.clicked.connect(self.parent.prevClicked)
-        self.nextButton.clicked.connect(self.parent.nextClicked)
+        # Note: prev/next navigation is handled by shared NavigationControls
+        # which is moved into this tab's right_panel by the parent GUI
 
         self.graphFigure1.canvas.mpl_connect('button_press_event', self.graphClicked)
         self.graphFigure2.canvas.mpl_connect('button_press_event', self.graphClicked2)

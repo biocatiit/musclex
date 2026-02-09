@@ -748,7 +748,7 @@ class ProjectionTracesGUI(BaseGUI):
         """
         Set connection for interactive widgets
         """
-        self.tabWidget.currentChanged.connect(self.updateUI)
+        self.tabWidget.currentChanged.connect(self.onTabChanged)
         self.tabWidget.tabCloseRequested.connect(self.removeTab)
 
         # NOTE: ProcessingWorkspace signals are now connected in _additional_setup()
@@ -1348,6 +1348,9 @@ class ProjectionTracesGUI(BaseGUI):
         if index != 0:
             widget = self.tabWidget.widget(index)
             if widget is not None:
+                # Move navControls to safety if it's in the tab being removed
+                if hasattr(widget, 'right_panel') and self.navControls.parent() == widget.right_panel.bottom_widget:
+                    self._move_nav_controls_to_image_tab()
                 name = widget.name
                 # Remove from unified box storage
                 if name in self.boxes:
@@ -1382,6 +1385,11 @@ class ProjectionTracesGUI(BaseGUI):
         - Stores the info in self._pending_param_editors for deferred reopening
         - Actual reopening happens in _reopenPendingParameterEditors() after processImage()
         """
+        # Safety: move shared navControls back to Image tab before destroying box tabs.
+        # If navControls is currently inside a box tab's right_panel, destroying that
+        # tab would also destroy the navControls widget.
+        self._move_nav_controls_to_image_tab()
+
         # Save current tab index and name
         current_index = self.tabWidget.currentIndex()
         was_on_box_tab = current_index > 0  # Was on a box tab (not image tab)
@@ -2179,6 +2187,48 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Update image display
         self.updateImage()
+
+    # ==================== Tab Switching & Navigation Controls ====================
+
+    def onTabChanged(self, index):
+        """
+        Handle tab switching by moving the shared navigation controls to the active tab.
+        
+        NavigationControls is a single shared instance (from ImageNavigatorWidget).
+        It is dynamically reparented to whichever tab is currently active, following
+        the same pattern used by QuadrantFoldingGUI.onTabChanged().
+        """
+        # Remove navControls from its current parent layout
+        current_parent = self.navControls.parent()
+        if current_parent:
+            current_layout = current_parent.layout()
+            if current_layout:
+                current_layout.removeWidget(self.navControls)
+
+        # Add navControls to the appropriate tab's right panel bottom area
+        if index == 0:  # Image tab
+            self.right_panel.add_bottom_widget(self.navControls)
+        else:  # Box tabs
+            tab = self.tabWidget.widget(index)
+            if isinstance(tab, ProjectionBoxTab) and hasattr(tab, 'right_panel'):
+                tab.right_panel.add_bottom_widget(self.navControls)
+
+        # Trigger UI update
+        self.updateUI()
+
+    def _move_nav_controls_to_image_tab(self):
+        """
+        Move shared navControls back to Image tab's right panel.
+        
+        Safety method called before destroying box tabs (addBoxTabs, removeTab)
+        to prevent navControls from being destroyed along with its parent tab.
+        """
+        current_parent = self.navControls.parent()
+        if current_parent:
+            current_layout = current_parent.layout()
+            if current_layout:
+                current_layout.removeWidget(self.navControls)
+        self.right_panel.add_bottom_widget(self.navControls)
 
     # ==================== Navigation Interface (For Child Components) ====================
     
