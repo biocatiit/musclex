@@ -260,7 +260,7 @@ In Headless mode, the user may directly set the parameters in a json format insi
     "fixed_rmin": 100, # in pixels
 
     ## Convex hull settings (inner)
-    "deg1": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
+    "degree": 1, # 0.5, 1, 2, 3, 5, 9, 10, 15, 18
     
     ## Circularly symmetric settings (inner)
     "radial_bin": 1, # in pixels
