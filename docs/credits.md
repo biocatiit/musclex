@@ -28,7 +28,7 @@ Development is done by current and former students at Illinois Tech with Illinoi
 
 * Nicholas Allison (2025)
 
-* Alex Lan (2025, 2026)
+* Xinyu(Alex) Lan (2025, 2026)
 
   
 
@@ -39,5 +39,5 @@ Development is done by current and former students at Illinois Tech with Illinoi
 
 ## How to Cite
 
-[J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, J. Nabon, Weikang Ma. G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.22.0), doi:10.5281/zenodo.8200611, July 2023.](https://doi.org/10.5281/zenodo.8200611)
-![](https://zenodo.org/badge/DOI/10.5281/zenodo.8200611.svg)
+[J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, J. Nabon, X. Lan, Weikang Ma, G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.27.0), doi:10.5281/zenodo.18510470, February 2026.](https://doi.org/10.5281/zenodo.18510470)
+![](https://zenodo.org/badge/DOI/10.5281/zenodo.18510470.svg)

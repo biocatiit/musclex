@@ -57,7 +57,7 @@ Click the following badge.
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.18510470.svg
    :target: https://doi.org/10.5281/zenodo.18510470
 
-`Alex Lan, Jules Nabon, Nikhil P Miskin, Tristan Leduc, Ran, Xintian, Eric, nick-allison, Grant Nikseresht, Jiranun Jiratrakanvong, iitbiocat, agam100, Jiongjiong Li, Irina Klein, Prajwal Premdas, Prajwal Das, Xintian, & tomirving. (2026). biocatiit/musclex: v1.27.0 (v1.27.0). Zenodo. https://doi.org/10.5281/zenodo.18510470`_
+`J. Jiratrakanvong, J. Shao, M. Menendez, X. Li, J. Li, X. Lan, J. Nabon, Weikang Ma, G. Agam, T. Irving, MuscleX: Software suite for diffraction X-ray imaging (v1.27.0), doi:10.5281/zenodo.18510470, February 2026.`_
 
 .. rubric:: License
 
