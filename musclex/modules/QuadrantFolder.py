@@ -1256,7 +1256,7 @@ class QuadrantFolder:
         elif method == 'Circularly-symmetric':
             bg_syn = self.applyCircularlySymBGSub2(tmp_avg_fold_with_syn, tmp_rmin)
         elif method == 'White-top-hats':
-            bg_syn = applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat1"])
+            bg_syn = applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat"])
         elif method == 'Roving Window':
             bg_syn = self.applyRovingWindowBGSub(tmp_avg_fold_with_syn, tmp_center)
         elif method == 'Smoothed-Gaussian':

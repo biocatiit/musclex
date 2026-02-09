@@ -745,7 +745,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.bgLayout.addWidget(self.tensionLabel, 124, 2, 1, 1)
         self.bgLayout.addWidget(self.tensionSpnBx, 124, 3, 1, 1)
 
-        # CH deg step
+        # CH degree step
         self.bgLayout.addWidget(self.deg1Label, 125, 2, 1, 1)
         self.bgLayout.addWidget(self.deg1CB, 125, 3, 1, 1)
 
@@ -2534,12 +2534,12 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['radial_bin'] = self.radialBinSpnBx.value()
         flags['smooth'] = self.smoothSpnBx.value()
         flags['tension'] = self.tensionSpnBx.value()
-        flags["tophat1"] = self.tophat1SpnBx.value()
+        flags["tophat"] = self.tophat1SpnBx.value()
         flags['fwhm'] = self.gaussFWHM.value()
         flags['boxcar_x'] = self.boxcarX.value()
         flags['boxcar_y'] = self.boxcarY.value()
         flags['cycles'] = self.cycle.value()
-        flags['deg1'] = float(self.deg1CB.currentText())
+        flags['degree'] = float(self.deg1CB.currentText())
         
 
 
@@ -2731,9 +2731,9 @@ class QuadrantFoldingGUI(BaseGUI):
                 text += "\n  - Radial Bin : " + str(flags["radial_bin"])
                 text += "\n  - Smooth : " + str(flags["smooth"])
             elif flags['bgsub'] == '2D Convexhull':
-                text += "\n  - Step (deg) : " + str(flags["deg1"])
+                text += "\n  - Step (degree) : " + str(flags["degree"])
             elif flags['bgsub'] == 'White-top-hats':
-                text += "\n  - Tophat (inside R-max) : " + str(flags["tophat1"])
+                text += "\n  - Tophat (inside R-max) : " + str(flags["tophat"])
             elif flags['bgsub'] == 'Smoothed-Gaussian':
                 text += "\n  - FWHM : " + str(flags["fwhm"])
                 text += "\n  - Number of cycle : " + str(flags["cycles"])
