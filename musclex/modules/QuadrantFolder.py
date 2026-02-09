@@ -28,6 +28,7 @@ authorization from Illinois Institute of Technology.
 
 import os
 import pickle
+import multiprocessing as mp
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
 from skimage.morphology import white_tophat, disk
@@ -257,11 +258,12 @@ class QuadrantFolder:
         self.createArtificialData()
         self.smoothFold()
         self.downsampleImage()
-        self.applyBackgroundSubtraction()
+        self.searchBackground()
+        # self.applyBackgroundSubtraction()
         # except Exception as e:
         #     print("ERROR: Background subtraction failed.")
         #     print(e)
-        self.applyBackgroundSubtractionSynthetic()
+        # self.applyBackgroundSubtractionSynthetic()
         self.generateResultImage()
         self.evaluateResult()
 
@@ -289,6 +291,9 @@ class QuadrantFolder:
             del self.info['transform']
         if 'inv_transform' in self.info:
             del self.info['inv_transform']
+
+        if 'best_bg_params' not in self.info:
+            self.info['best_bg_params'] = []
 
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
@@ -578,7 +583,7 @@ class QuadrantFolder:
         Apply Circular Background Subtraction to average fold, and save the result to self.info['bgimg']
         """
 
-        img = self.makeFullImage(fold)
+        img = makeFullImage(fold)
         img = img.astype("float32")
         width = img.shape[1]
         height = img.shape[0]
@@ -624,7 +629,6 @@ class QuadrantFolder:
         return background
 
 
-
     def applySmoothedBGSub(self, fold, center, typ='gauss', bgsub=1):
         """
         Apply the Iterative Low Pass Filter Background Subtraction.
@@ -632,7 +636,7 @@ class QuadrantFolder:
         """
 
 
-        img = self.makeFullImage(fold)
+        img = makeFullImage(fold)
 
         if "roi_rad" in self.info: # if roi_rad is specified, use it
             roi_rad = int(self.info["roi_rad"])
@@ -686,24 +690,13 @@ class QuadrantFolder:
             background = background[:fold.shape[0], :fold.shape[1]]
         return background
 
-    def applyWhiteTophat(self, img, radius):
-        """
-        Fast white top-hat using OpenCV
-        """
-        img32 = np.asarray(img, dtype=np.float32)
-        r = int(round(radius))
-        ksize = max(1, 2 * r + 1)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
-        tophat = cv2.morphologyEx(img32, cv2.MORPH_TOPHAT, kernel, borderType=cv2.BORDER_REPLICATE)
-        return img-tophat
-
     def applyRovingWindowBGSub(self, fold, center, bgsub=1):
         """
         Apply Roving Window background subtraction
         :return:
         """
 
-        img = self.makeFullImage(fold)
+        img = makeFullImage(fold)
 
         if "roi_rad" in self.info: # if roi_rad is specified, use it
             roi_rad = int(self.info["roi_rad"])
@@ -963,7 +956,6 @@ class QuadrantFolder:
         self.info["avg_fold_with_syn"] = self.info['avg_fold'] + syn_data_top_left
 
 
-
     def apply2DConvexhull(self, copy_img, rmin, step=1):
         """
         Apply 2D Convex hull Background Subtraction to average fold, and save the result to self.info['bgimg']
@@ -1098,6 +1090,99 @@ class QuadrantFolder:
         self.info['avg_fold'] = result
         self.info['folded'] = True
 
+
+    def searchBackground(self):
+        """
+        Search for background subtraction method and apply it to average fold.
+        """
+        
+        # self.info['methods'] = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
+        # self.info['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric', 'Smoothed-Boxcar']
+        # self.info['methods'] = ['White-top-hats']
+        # self.info['steps']  = [50, 30, 10, 7, 5, 3, 1]
+        # self.info['early_stop'] = 0.0007
+        self.info['max_iterations'] = 2
+
+
+
+        if 'optimize' in self.info and self.info['optimize']:
+            print(f"Background subtraction methods to optimize: {self.info['methods']}")
+            print(f"Optimization steps: {self.info['steps']}. Early stop threshold: {self.info['early_stop']}. Max iterations: {self.info['max_iterations']}.")
+
+            n_proc = mp.cpu_count()
+            n_proc = len(self.info['methods']) if len(self.info['methods']) < n_proc else n_proc
+                
+            print(f"Optimizing background subtraction method among {self.info['methods']} by multiprocessing with {n_proc} processes...")
+
+            kwargs = {
+                'steps': self.info['steps'],
+                'early_stop': self.info['early_stop'],
+                'max_iterations': self.info['max_iterations'],
+                'refine_params': -1,
+                'integers': True,
+                'tmp_avg_fold': self.info['_avg_fold'],
+                'avg_fold': self.info['avg_fold'],
+                'tmp_rmin': self.info['_rmin'],
+                'rmin': self.info['rmin'],
+                'tmp_center': self.info['_center'],
+                'tmp_avg_fold_with_syn': self.info['_avg_fold_with_syn'],
+                'avg_fold_with_syn': self.info['avg_fold_with_syn'],
+                'orig_img': self.orig_img,
+                'rmax': self.info['rmax'],
+                'mask': self.info['mask'],
+                'synthetic_data': self.info['synthetic_data'],
+                'synthetic_mask': self.info['synthetic_mask'],
+                'downsample_factor': self.info['downsample'],
+
+            }
+            from functools import partial
+            outputs = {}
+            func = partial(optimize_mp_wrapper, **kwargs)
+            with mp.Pool(processes=n_proc) as pool:
+                outputs = pool.map(func, self.info['methods'])
+    
+
+            best_loss = np.inf
+            for i, result in enumerate(outputs):
+                loss = result['best_loss']
+                params = result['best_params']
+                method = result['method']
+                print(f"Method: {method}. Loss: {loss}. Best params: {params}")
+
+                for key, value in params.items():
+                    self.info[f"{key}"] = value
+
+                if loss < best_loss:
+                    best_loss = loss
+                    best_params = params
+                    best_method = method
+            
+            print(f"Best params: {best_params}. Loss: {best_loss} for method {best_method}")
+
+            # for method in self.info['methods']:
+            #     best_params, best_loss, all_results = optimize(method, **kwargs)  # test run
+            #     outputs[method] = (best_params, best_loss, all_results)
+            #     print(f"Best params: {best_params}. Loss: {best_loss} for method {method}")
+            #     self.info["bgsub_params"] = best_params
+            #     for key, value in best_params.items():
+            #         self.info[f"{key}"] = value
+
+            # best_loss = min([outputs[method][1] for method in outputs])
+            # best_method = [method for method in outputs if outputs[method][1] == best_loss][0]
+            # print(f"Best method: {best_method} with loss: {best_loss} and params: {outputs[best_method][0]}")
+            
+            self.info['best_bg_params'].append((best_method, best_params))
+            self.info['optimize'] = False
+            self.info["bgsub"] = best_method
+
+
+        # else:
+        print("Background subtraction is being processed...")
+        self.applyBackgroundSubtraction()
+        self.applyBackgroundSubtractionSynthetic()
+
+
+
     def applyBackgroundSubtraction(self):
         """
         Apply background subtraction by user's choice.
@@ -1120,11 +1205,11 @@ class QuadrantFolder:
             if method == 'None':
                 bg = np.zeros_like(avg_fold)
             elif method == '2D Convexhull':
-                bg = self.apply2DConvexhull(tmp_avg_fold, tmp_rmin, self.info['deg1'])
+                bg = self.apply2DConvexhull(tmp_avg_fold, tmp_rmin, self.info['degree'])
             elif method == 'Circularly-symmetric':
                 bg = self.applyCircularlySymBGSub2(tmp_avg_fold, tmp_rmin)
             elif method == 'White-top-hats':
-                bg = self.applyWhiteTophat(tmp_avg_fold, self.info["tophat1"])
+                bg = applyWhiteTophat(tmp_avg_fold, self.info["tophat"])
             elif method == 'Roving Window':
                 bg = self.applyRovingWindowBGSub(tmp_avg_fold, tmp_center)
             elif method == 'Smoothed-Gaussian':
@@ -1137,7 +1222,7 @@ class QuadrantFolder:
             
             # upsample background and subtract from original image if downsampling is used
             if 'downsample' in self.info and self.info['downsample'] > 1 and method != 'None':
-                print(f"Upsampling background from downsampled version by factor {self.info['downsample']}...")
+                # print(f"Upsampling background from downsampled version by factor {self.info['downsample']}...")
                 bg = self.upsampleImage(bg)
             
             if method != 'None':
@@ -1167,11 +1252,11 @@ class QuadrantFolder:
         if method == 'None':
             bg_syn = np.zeros_like(tmp_avg_fold_with_syn)
         elif method == '2D Convexhull':
-            bg_syn = self.apply2DConvexhull(tmp_avg_fold_with_syn, tmp_rmin, self.info['deg1'])
+            bg_syn = self.apply2DConvexhull(tmp_avg_fold_with_syn, tmp_rmin, self.info['degree'])
         elif method == 'Circularly-symmetric':
             bg_syn = self.applyCircularlySymBGSub2(tmp_avg_fold_with_syn, tmp_rmin)
         elif method == 'White-top-hats':
-            bg_syn = self.applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat1"])
+            bg_syn = applyWhiteTophat(tmp_avg_fold_with_syn, self.info["tophat1"])
         elif method == 'Roving Window':
             bg_syn = self.applyRovingWindowBGSub(tmp_avg_fold_with_syn, tmp_center)
         elif method == 'Smoothed-Gaussian':
@@ -1200,7 +1285,7 @@ class QuadrantFolder:
         """
         self.parent.statusPrint("Generating Resultant Image...")
         print("Generating result image from average fold...")
-        result = self.makeFullImage(copy.copy(self.imgCache['BgSubFold']))
+        result = makeFullImage(copy.copy(self.imgCache['BgSubFold']))
         if 'rotate' in self.info and self.info['rotate']:
             result = np.rot90(result)
         result[np.isnan(result)] = 0.
@@ -1230,47 +1315,28 @@ class QuadrantFolder:
         if 'resultImg' not in self.imgCache:
             print("Result image not found. Please generate the result image first.")
             return
-
+        
         result = self.imgCache['resultImg']
         bg = self.orig_img - result
         baseline = get_radial_average_rmax(result+bg, self.info['rmax'], band_width=30)*0.2
         syn_srt = self.info.get('synthetic_data', None)
         syn_mask = self.info.get('synthetic_mask', None)
         syn_fold = self.info.get('bgimg_syn', None)
-        syn_img = self.makeFullImage(syn_fold) if syn_fold is not None else None
+        syn_img = makeFullImage(syn_fold) if syn_fold is not None else None
 
-        metrics = full_eval_metrics(result, bg, art_img=syn_img, art_str=syn_srt, mask_art=syn_mask, \
-                                    mask_equator=self.info['mask'], baseline_value=baseline)
-        
-        print("Evaluation Metrics:")
-        for key, value in metrics.items():
-            print(f"{key}: {value:.4f}")
+        kwargs = {
+            'dimg': result,
+            'dbg': bg,
+            'baseline': baseline,
+            'syn_img': syn_img,
+            'syn_srt': syn_srt,
+            'syn_mask': syn_mask,
+            'gen_mask': self.info['mask'],
+        }
+        evaluate_loss(**kwargs)
 
 
 
-
-    def makeFullImage(self, fold):
-        """
-        Flip + rotate 4 folds and combine them to 1 image
-        :param fold:
-        :return: result image
-        """
-        fold_height = fold.shape[0]
-        fold_width = fold.shape[1]
-
-        top_left = fold
-        top_right = cv2.flip(fold, 1)
-
-        bottom_left = cv2.flip(fold, 0)
-        bottom_right = cv2.flip(bottom_left, 1)
-
-        resultImg = np.zeros((fold_height * 2, fold_width * 2))
-        resultImg[0:fold_height, 0:fold_width] = top_left
-        resultImg[0:fold_height, fold_width:fold_width * 2] = top_right
-        resultImg[fold_height:fold_height * 2, 0:fold_width] = bottom_left
-        resultImg[fold_height:fold_height * 2, fold_width:fold_width * 2] = bottom_right
-
-        return resultImg
 
     def statusPrint(self, text):
         """

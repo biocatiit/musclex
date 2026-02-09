@@ -37,11 +37,13 @@ from PIL import Image
 from musclex import __version__
 try:
     from ..utils.file_manager import *
+    from ..utils.background_search import makeFullImage
     from ..utils.image_processor import *
     from ..modules.QuadrantFolder import QuadrantFolder
     from ..csv_manager.QF_CSVManager import QF_CSVManager
 except: # for coverage
     from utils.file_manager import *
+    from utils.background_search import makeFullImage
     from utils.image_processor import *
     from modules.QuadrantFolder import QuadrantFolder
     from csv_manager.QF_CSVManager import QF_CSVManager
@@ -256,7 +258,7 @@ class QuadrantFoldingh:
         result = self.quadFold.imgCache["BgSubFold"]
         avg_fold = info["avg_fold"]
         background = avg_fold-result
-        resultImg = self.quadFold.makeFullImage(background)
+        resultImg = makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
             resultImg = np.rot90(resultImg)
@@ -317,18 +319,23 @@ class QuadrantFoldingh:
         flags['radial_bin'] = 10
         flags['smooth'] = 1.0
         flags['tension'] = 1.0
-        flags["tophat1"] = 50
-        flags['tophat2'] = 50
+        flags["tophat"] = 50
         flags['mask_thres'] = getMaskThreshold(self.quadFold.orig_img)
         flags['fwhm'] = 15
         flags['boxcar_x'] = 15
         flags['boxcar_y'] = 15
         flags['cycles'] = 250
+        flags['degree'] = 1
         flags['blank_mask'] = False
         flags['rotate'] = False
         flags['fold_image'] = True
         flags['downsample'] = 2
         flags['smooth_image'] = False
+        flags['optimize'] = True
+        flags['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric', 'Smoothed-Boxcar']
+        flags['steps']  = [50, 30, 10, 7, 5, 3, 1]
+        flags['early_stop'] = 0.0007
+        flags['max_iterations'] = 10
 
         if self.calSettings is not None:
             flags.update(self.calSettings)
