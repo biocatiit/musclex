@@ -1,0 +1,135 @@
+name: Build Conda Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build from PyPI (e.g., 1.27.0)'
+        required: true
+        type: string
+      build_number:
+        description: 'Build number (0 for new version, increment for rebuilds)'
+        required: true
+        type: string
+        default: '0'
+
+jobs:
+  build-conda:
+    name: Build - ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-64
+          - os: windows-latest
+            platform: win-64
+          - os: macos-13
+            platform: osx-64
+          - os: macos-latest
+            platform: osx-arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: '3.10'
+          channels: conda-forge,fastai,defaults
+          channel-priority: flexible
+
+      - name: Install conda-build
+        shell: bash -l {0}
+        run: |
+          conda install -y conda-build anaconda-client
+          conda info
+
+      - name: Patch meta.yaml with version, sha256, and build number
+        shell: bash -l {0}
+        run: |
+          python -c "
+          import re, hashlib, urllib.request
+
+          version = '${{ inputs.version }}'
+          build_number = '${{ inputs.build_number }}'
+
+          # Download tarball from PyPI and compute sha256
+          url = f'https://pypi.io/packages/source/m/musclex/musclex-{version}.tar.gz'
+          print(f'Downloading {url} ...')
+          data = urllib.request.urlopen(url).read()
+          sha256 = hashlib.sha256(data).hexdigest()
+          print(f'SHA256: {sha256}')
+
+          # Patch meta.yaml
+          with open('meta.yaml', 'r') as f:
+              content = f.read()
+
+          content = re.sub(
+              r'\{%\s*set\s+version\s*=\s*\".*?\"\s*%\}',
+              '{% set version = \"' + version + '\" %}',
+              content
+          )
+          content = re.sub(r'sha256:\s*\S+', f'sha256: {sha256}', content)
+          content = re.sub(r'number:\s*\d+', f'number: {build_number}', content)
+
+          with open('meta.yaml', 'w') as f:
+              f.write(content)
+
+          print('=== Patched meta.yaml ===')
+          print(content)
+          "
+
+      - name: Build conda package
+        shell: bash -l {0}
+        run: |
+          conda build . --output-folder ./conda-output
+
+      - name: Find built package
+        shell: bash -l {0}
+        run: |
+          PACKAGE=$(ls ./conda-output/${{ matrix.platform }}/musclex-*.tar.bz2 ./conda-output/${{ matrix.platform }}/musclex-*.conda 2>/dev/null | head -1)
+          if [ -z "$PACKAGE" ]; then
+            echo "ERROR: No conda package found for ${{ matrix.platform }}"
+            echo "Contents of conda-output:"
+            ls -R ./conda-output/ || true
+            exit 1
+          fi
+          echo "CONDA_PACKAGE=${PACKAGE}" >> $GITHUB_ENV
+          echo "Built package: ${PACKAGE}"
+          ls -lh "${PACKAGE}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-${{ matrix.platform }}-musclex-${{ inputs.version }}-${{ inputs.build_number }}
+          path: ${{ env.CONDA_PACKAGE }}
+          retention-days: 90
+
+  summary:
+    name: Build Summary
+    needs: build-conda
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "=== Conda Build Summary ==="
+          echo "Version: ${{ inputs.version }}"
+          echo "Build Number: ${{ inputs.build_number }}"
+          echo "Overall status: ${{ needs.build-conda.result }}"
+          echo ""
+          if [ "${{ needs.build-conda.result }}" = "success" ]; then
+            echo "All platforms built successfully."
+            echo "Download the artifacts from this run and test them locally."
+            echo ""
+            echo "When tests pass, run the 'Upload Conda Packages' workflow with:"
+            echo "  run_id: ${{ github.run_id }}"
+            echo "  version: ${{ inputs.version }}"
+            echo "  build_number: ${{ inputs.build_number }}"
+          else
+            echo "Some platforms failed. Check the job logs above for details."
+          fi

@@ -1,0 +1,112 @@
+name: Upload Conda Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run ID of the Build Conda Packages workflow (from URL: /actions/runs/<run_id>)'
+        required: true
+        type: string
+      version:
+        description: 'Version (must match the build, e.g., 1.27.0)'
+        required: true
+        type: string
+      build_number:
+        description: 'Build number (must match the build)'
+        required: true
+        type: string
+        default: '0'
+
+permissions:
+  actions: read
+
+jobs:
+  upload-conda:
+    name: Upload - ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux-64, win-64, osx-64, osx-arm64]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: '3.10'
+
+      - name: Install anaconda-client
+        shell: bash -l {0}
+        run: conda install -y anaconda-client
+
+      - name: Download artifact from build run
+        uses: actions/download-artifact@v4
+        with:
+          name: conda-${{ matrix.platform }}-musclex-${{ inputs.version }}-${{ inputs.build_number }}
+          path: ./packages
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find package
+        shell: bash -l {0}
+        run: |
+          PACKAGE=$(ls ./packages/musclex-*.tar.bz2 ./packages/musclex-*.conda 2>/dev/null | head -1)
+          if [ -z "$PACKAGE" ]; then
+            echo "ERROR: No package found in ./packages/"
+            ls -R ./packages/
+            exit 1
+          fi
+          echo "CONDA_PACKAGE=${PACKAGE}" >> $GITHUB_ENV
+          echo "Package to upload: ${PACKAGE}"
+          ls -lh "${PACKAGE}"
+
+      - name: Upload to Anaconda Cloud
+        shell: bash -l {0}
+        env:
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          echo "Uploading ${CONDA_PACKAGE} to biocat_IIT for ${{ matrix.platform }}..."
+
+          OUTPUT=$(anaconda -t "$ANACONDA_API_TOKEN" upload --user biocat_IIT "$CONDA_PACKAGE" 2>&1) && {
+            echo "Upload successful for ${{ matrix.platform }}"
+            echo "$OUTPUT"
+          } || {
+            if echo "$OUTPUT" | grep -qi "already exists"; then
+              echo "WARNING: Package for ${{ matrix.platform }} already exists on Anaconda Cloud, skipping."
+            else
+              echo "ERROR: Upload failed for ${{ matrix.platform }}:"
+              echo "$OUTPUT"
+              exit 1
+            fi
+          }
+
+  verify:
+    name: Verify Uploads
+    needs: upload-conda
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: '3.10'
+          channels: conda-forge,fastai,defaults
+
+      - name: Verify package on Anaconda Cloud
+        shell: bash -l {0}
+        run: |
+          echo "=== Upload Summary ==="
+          echo "Version: ${{ inputs.version }}"
+          echo "Build Number: ${{ inputs.build_number }}"
+          echo "Upload status: ${{ needs.upload-conda.result }}"
+          echo ""
+          echo "Checking Anaconda Cloud..."
+          conda install -y anaconda-client
+          anaconda show biocat_IIT/musclex/${{ inputs.version }} || echo "Could not query package info (non-critical)."
+          echo ""
+          echo "To test installation:"
+          echo "  conda create -n test-musclex python=3.10"
+          echo "  conda activate test-musclex"
+          echo "  conda install -c biocat_IIT musclex=${{ inputs.version }}"
