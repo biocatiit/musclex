@@ -51,12 +51,14 @@ jobs:
       - name: Find package
         shell: bash -l {0}
         run: |
-          PACKAGE=$(ls ./packages/musclex-*.tar.bz2 ./packages/musclex-*.conda 2>/dev/null | head -1)
-          if [ -z "$PACKAGE" ]; then
+          shopt -s nullglob
+          PACKAGES=(./packages/musclex-*.conda ./packages/musclex-*.tar.bz2)
+          if [ ${#PACKAGES[@]} -eq 0 ]; then
             echo "ERROR: No package found in ./packages/"
             ls -R ./packages/
             exit 1
           fi
+          PACKAGE="${PACKAGES[0]}"
           echo "CONDA_PACKAGE=${PACKAGE}" >> $GITHUB_ENV
           echo "Package to upload: ${PACKAGE}"
           ls -lh "${PACKAGE}"

@@ -24,7 +24,7 @@ jobs:
             platform: linux-64
           - os: windows-latest
             platform: win-64
-          - os: macos-13
+          - os: macos-15-intel
             platform: osx-64
           - os: macos-latest
             platform: osx-arm64
@@ -91,13 +91,15 @@ jobs:
       - name: Find built package
         shell: bash -l {0}
         run: |
-          PACKAGE=$(ls ./conda-output/${{ matrix.platform }}/musclex-*.tar.bz2 ./conda-output/${{ matrix.platform }}/musclex-*.conda 2>/dev/null | head -1)
-          if [ -z "$PACKAGE" ]; then
+          shopt -s nullglob
+          PACKAGES=(./conda-output/${{ matrix.platform }}/musclex-*.conda ./conda-output/${{ matrix.platform }}/musclex-*.tar.bz2)
+          if [ ${#PACKAGES[@]} -eq 0 ]; then
             echo "ERROR: No conda package found for ${{ matrix.platform }}"
             echo "Contents of conda-output:"
             ls -R ./conda-output/ || true
             exit 1
           fi
+          PACKAGE="${PACKAGES[0]}"
           echo "CONDA_PACKAGE=${PACKAGE}" >> $GITHUB_ENV
           echo "Built package: ${PACKAGE}"
           ls -lh "${PACKAGE}"
