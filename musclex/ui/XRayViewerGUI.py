@@ -557,11 +557,27 @@ class XRayViewerGUI(QMainWindow):
             func.append((x, y))
         
         elif func[0] == "dist":
-            # Record click point for distance measurement
+            # Remove temporary preview lines drawn by mouse move handler
+            if len(func) == 1:
+                # No permanent lines yet, remove all preview lines
+                for i in range(len(ax.lines)-1,-1,-1):
+                    if ax.lines[i].get_label() != "Blue Dot":
+                        ax.lines[i].remove()
+            elif len(func) == 2:
+                # Keep first 2 permanent lines (first X mark), remove preview lines
+                if len(ax.lines) > 2:
+                    for i in range(len(ax.lines)-1,1,-1):
+                        if ax.lines[i].get_label() != "Blue Dot":
+                            ax.lines[i].remove()
+            # Draw permanent X mark at click position
             ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
             ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.imageCanvas.draw_idle()
             func.append((x, y))
+            # Draw the fixed connecting line when a distance segment is completed
+            if len(func) >= 3 and len(func) % 2 != 0:
+                start_pt = func[-2]
+                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
+            self.imageCanvas.draw_idle()
             self.updateMeasureDistBox()
             if len(func) > 2 and len(func) % 2 != 0:
                 ax.add_artist(self.makeText(func[-1], func[-2], str(int((len(func) - 1) / 2))))
