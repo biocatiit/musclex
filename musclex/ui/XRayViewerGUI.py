@@ -97,7 +97,10 @@ class XRayViewerGUI(QMainWindow):
         self.navigator.imageChanged.connect(self._on_image_changed)
         
         # Connect ImageViewer's interaction signals (high-level, cleaner than matplotlib events)
+        # Display chain: coordinatesChanged (x/y/value) -> status bar update only
         self.navigator.image_viewer.coordinatesChanged.connect(self._on_coordinates_changed)
+        # Interaction chain: mouseMoved (raw event) -> tool preview drawing (slice/dist/slice_box)
+        self.navigator.image_viewer.mouseMoved.connect(self._on_mouse_moved_for_preview)
         self.navigator.image_viewer.canvasClicked.connect(self._on_canvas_clicked)
 
         self.initUI() # initial all GUI
@@ -278,7 +281,8 @@ class XRayViewerGUI(QMainWindow):
         ##### Navigation & Display - Handled by Navigator #####
         # Image interaction signals already connected in __init__:
         # - navigator.imageChanged -> _on_image_changed
-        # - navigator.image_viewer.coordinatesChanged -> _on_coordinates_changed  
+        # - navigator.image_viewer.coordinatesChanged -> _on_coordinates_changed (status bar)
+        # - navigator.image_viewer.mouseMoved -> _on_mouse_moved_for_preview (tool drawing)
         # - navigator.image_viewer.canvasClicked -> _on_canvas_clicked
         # Display options (zoom, intensity, etc.) handled internally by ImageViewer
         # Navigation buttons handled internally by Navigator
@@ -360,8 +364,9 @@ class XRayViewerGUI(QMainWindow):
     def _on_coordinates_changed(self, x, y, value):
         """
         Handle coordinate changes (mouse motion over image).
-        Replaces imageOnMotion for basic coordinate display.
-        Only called when no ImageViewer tool is active.
+        Pure display handler: updates the status bar with position, value, and
+        calibrated q-distance. This is decoupled from tool preview drawing so
+        it always fires regardless of DoubleZoom or tool state.
         """
         if not self.ableToProcess() or not self.xrayViewer:
             return
@@ -378,11 +383,26 @@ class XRayViewerGUI(QMainWindow):
         
         self.imgCoordOnStatusBar.setText(
             f"x={x:.2f}, y={y:.2f}, value={value:.2f}, distance={q:.2f}{units}")
+
+    def _on_mouse_moved_for_preview(self, event):
+        """
+        Handle raw mouse motion for tool preview drawing (slice/dist/slice_box).
+        Driven by the mouseMoved signal (raw matplotlib event) so preview lines
+        use float coordinates for smooth rendering.
+        """
+        if not self.ableToProcess() or not self.xrayViewer:
+            return
         
-        # Custom tool drawing (only if function is active)
+        # Validate event is within the image axes
+        if event.inaxes != self.imageAxes or event.xdata is None or event.ydata is None:
+            return
+        
+        # Only draw when a custom tool function is active
         if self.function is None:
             return
         
+        x = event.xdata
+        y = event.ydata
         func = self.function
         ax = self.imageAxes
         axis_size = 5

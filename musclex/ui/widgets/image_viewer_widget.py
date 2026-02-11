@@ -510,28 +510,32 @@ class ImageViewerWidget(QWidget):
         Mouse motion event coordinator.
         
         Processing order:
-        1. Emit signal to external handlers
-        2. DoubleZoom updates
-        3. ToolManager motion handling
-        4. Internal handlers (pan drag)
-        5. Coordinate display
+        1. Always display coordinates (pure display, never blocked)
+        2. DoubleZoom updates (zoom window tracking)
+        3. If DoubleZoom is blocking (waiting for zoom click), stop here
+        4. Emit mouseMoved for external interaction handlers
+        5. ToolManager motion handling
+        6. Internal handlers (pan drag)
         """
-        # 0. Emit raw event signal
-        self.mouseMoved.emit(event)
+        # 0. Always display coordinates (non-blocking, pure display chain)
+        self._display_coordinates(event)
         
         # 1. DoubleZoom updates (updates zoom window as mouse moves)
         if self.double_zoom.is_enabled():
             self.double_zoom.handle_mouse_move_event(event)
+            # Block interaction signals while waiting for zoom window click
+            if self.double_zoom.is_blocking_other_actions():
+                return
         
-        # 2. Try tool manager (modal interactions)
+        # 2. Emit raw event signal for interaction handlers (e.g. tool preview)
+        self.mouseMoved.emit(event)
+        
+        # 3. Try tool manager (modal interactions)
         if self.tool_manager and self.tool_manager.handle_motion(event):
             return  # Tool handled it
         
-        # 3. Fall back to internal handlers (basic navigation)
+        # 4. Fall back to internal handlers (basic navigation)
         self._handle_pan_drag(event)
-        
-        # 4. Always display coordinates (non-blocking)
-        self._display_coordinates(event)
     
     def _on_button_release(self, event):
         """
@@ -770,7 +774,11 @@ class ImageViewerWidget(QWidget):
         self.canvas.draw_idle()
     
     def _display_coordinates(self, event):
-        """Display mouse coordinates (emit signal for external display)."""
+        """Display mouse coordinates (emit signal for external display).
+        
+        This is a pure display signal - it should always fire regardless of
+        DoubleZoom state or active tools, so the status bar stays updated.
+        """
         if event.inaxes == self.axes and event.xdata is not None:
             x = int(round(event.xdata))
             y = int(round(event.ydata))
