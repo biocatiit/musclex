@@ -169,66 +169,66 @@ Note: if the command doesn't exist, you can download the appimage-builder [here]
 [12]:https://appimage-builder.readthedocs.io/en/latest/intro/install.html
 
 
-### Build and upload a Conda Package
+### Build and upload Conda Packages (via GitHub Actions)
 
-Conda packages are a convenient way to distribute MuscleX to users. This section outlines the process for creating and publishing a new Conda package.
+Conda packages are built for all platforms (linux-64, win-64, osx-64, osx-arm64) using GitHub Actions. Two workflows handle this process:
+
+- **Build Conda Packages** (`conda-build.yml`): Builds packages on all 4 platforms and saves them as GitHub Artifacts.
+- **Upload Conda Packages** (`conda-upload.yml`): Downloads previously built artifacts and uploads them to Anaconda Cloud (biocat_IIT).
 
 #### Prerequisites
 
-- Anaconda or Miniconda installed
-- GitHub account (for Conda-Forge submission)
-- Basic understanding of Conda packaging, more information at [Building a conda package from scratch](https://docs.conda.io/projects/conda-build/en/latest/user-guide/tutorials/build-pkgs.html)
+- The pip package must be built and uploaded to PyPI first (the conda build pulls the source from PyPI).
+- The `ANACONDA_TOKEN` secret must be configured in the GitHub repository settings (Settings > Secrets and variables > Actions).
+- Ensure dependencies in `meta.yaml` are accurate and up to date before triggering a build.
 
-#### 1. Update `meta.yaml`
+#### 1. Build the Conda Packages
 
-For each new release:
-- Update `version` and `sha256` in `meta.yaml`.
-- Ensure dependencies in the `requirements` section are accurate and up to date.
-- Review and update the `test` section as necessary.
+1. Go to the GitHub repository **Actions** tab.
+2. Select the **"Build Conda Packages"** workflow.
+3. Click **"Run workflow"** and fill in:
+   - **version**: The version to build (e.g., `1.27.0`). Must match the version on PyPI.
+   - **build_number**: `0` for a new version, increment for rebuilds of the same version.
+4. Wait for all 4 platform jobs to complete. The workflow automatically patches `meta.yaml` with the correct version, sha256 (computed from the PyPI tarball), and build number.
 
-#### 2. Create a virtual environment to build the package
+#### 2. Test the Packages Locally
 
-Create a new environment and install the necessary packages:
-
-```bash
-conda create -n musclex-build python=3.10 conda-build anaconda-client 
-# adding the conda-forge and fastai channels, which are necessary for conda to fetch the dependencies needed for MuscleX
-conda config --add channels conda-forge fastai
-conda activate musclex-build
-```
-
-#### 3. Build the Conda Package
-
-Use the following commands to build your package:
-
-```bash
-conda build .
-```
-
-Note: The conda package currently depends on the pip package, so the pip package should be built and uploaded on PyPi first.
-
-#### 4. Test the Package Locally
-
-Create and activate a test environment:
-
+1. Download the built artifacts from the completed workflow run page on GitHub.
+2. Test locally:
 ```bash
 conda create -n test-musclex python=3.10
 conda activate test-musclex
-conda install --use-local musclex
+conda install /path/to/downloaded/musclex-*.tar.bz2
 ```
+3. Verify the main functionalities and run the tests.
 
-Verify the main functionalities. Run the tests.
+#### 3. Upload to Anaconda Cloud
 
-#### 4. Upload to Anaconda Cloud
+Once testing passes:
 
-Login to the Anaconda account of biocat and upload the package:
+1. Go to the GitHub repository **Actions** tab.
+2. Select the **"Upload Conda Packages"** workflow.
+3. Click **"Run workflow"** and fill in:
+   - **run_id**: The Run ID of the build workflow (found in the URL: `/actions/runs/<run_id>`).
+   - **version**: Must match the version used in the build.
+   - **build_number**: Must match the build number used in the build.
+4. The workflow downloads all 4 platform artifacts and uploads them to Anaconda Cloud under the `biocat_IIT` user. If a package for a platform already exists, it is skipped (not overwritten).
 
+#### 4. Verify
+
+After upload, test installation from Anaconda Cloud:
 ```bash
-anaconda login # then enter your credentials, the username of the account is biocat_IIT
-anaconda upload /path/to/your/conda/package.tar.bz2
+conda create -n verify-musclex python=3.10
+conda activate verify-musclex
+conda install -c biocat_IIT musclex=<version>
 ```
 
-Note : The same process should be followed for the tree different platforms (linux, osx, win), i.e., the package should be built and uploaded for each platform.
+#### Notes
+
+- If a build for one platform fails, the other platforms still complete (`fail-fast: false`).
+- To rebuild a failed platform, re-run the build workflow and then upload only the new artifacts.
+- If you need to overwrite an existing package on Anaconda Cloud, delete it manually via the [Anaconda Cloud dashboard](https://anaconda.org/biocat_IIT/musclex/files) before uploading.
+- Build artifacts are retained for 90 days on GitHub.
 
 ## Old steps 
 
