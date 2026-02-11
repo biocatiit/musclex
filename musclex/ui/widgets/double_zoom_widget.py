@@ -29,18 +29,23 @@ authorization from Illinois Institute of Technology.
 import sys
 import cv2
 import numpy as np
+from enum import Flag, auto
 from matplotlib.colors import Normalize
-from PySide6.QtCore import Qt, Slot, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QApplication,
                                QWidget,
                                QCheckBox,
                                QMessageBox,
                                QVBoxLayout)
 
-from .ui_widget import UIWidget
+
+class DoubleZoomState(Flag):
+    INIT = auto()
+    READY = auto()
+    RUNNING = auto()
 
 
-class DoubleZoomWidget(UIWidget):
+class DoubleZoomWidget(QWidget):
     """
     Widget that provides a zoomed-in view for precise coordinate selection.
     
@@ -66,7 +71,13 @@ class DoubleZoomWidget(UIWidget):
         parent=None,
         get_image_func=None,
         dontShowMessage=False):
-        super().__init__(imageAxes)
+        super().__init__()
+
+        # State management (inlined from former UIWidget base class)
+        self._state = DoubleZoomState.INIT
+        self.imageAxes = imageAxes
+        self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
+        self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
 
         self.parent = parent
         
@@ -114,6 +125,10 @@ class DoubleZoomWidget(UIWidget):
             print(f"[DoubleZoom] Error getting image: {e}")
             return None
     
+    def is_running(self):
+        """Check if the widget is in RUNNING state."""
+        return DoubleZoomState.RUNNING in self._state
+
     def is_enabled(self):
         """
         Check if DoubleZoom is currently enabled (running).
@@ -146,7 +161,7 @@ class DoubleZoomWidget(UIWidget):
         self.doubleZoomImage = None
         
         self.imageCanvas.draw_idle()
-        super().set_running()
+        self._state = DoubleZoomState.RUNNING
 
     def set_ready(self):
         self.doubleZoomCheckbox.setChecked(False)
@@ -165,8 +180,27 @@ class DoubleZoomWidget(UIWidget):
         
         self.imageCanvas.draw_idle()
 
-        super().set_ready()
+        self._state = DoubleZoomState.READY
 
+    def remove_image_lines(self, ax=None, labels=None):
+        """Remove lines and patches from the given axes (defaults to imageAxes)."""
+        if ax is None:
+            ax = self.imageAxes
+
+        if labels:
+            for i in range(len(ax.lines)-1, -1, -1):
+                if ax.lines[i].get_label() in labels:
+                    ax.lines[i].remove()
+
+            for p in ax.patches:
+                if p.get_label() in labels:
+                    p.remove()
+        else:
+            for i in range(len(ax.lines)-1, -1, -1):
+                ax.lines[i].remove()
+
+            for p in ax.patches:
+                p.remove()
 
     def handleDoubleZoomCheckedEvent(self, doubleZoomCheckboxState):
         """Handle checkbox state change - enable/disable DoubleZoom."""

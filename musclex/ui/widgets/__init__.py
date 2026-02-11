@@ -2,7 +2,6 @@
 from .navigation_controls import NavigationControls
 from .double_zoom_widget import DoubleZoomWidget
 from .image_mouse_move_handler import ImageMouseMoveHandler, ImageMouseMoveState
-from .ui_widget import UIWidget
 from .display_options_panel import DisplayOptionsPanel
 from .collapsible_right_panel import CollapsibleRightPanel
 from .collapsible_groupbox import CollapsibleGroupBox
@@ -16,7 +15,6 @@ __all__ = [
     'DoubleZoomWidget',
     'ImageMouseMoveHandler',
     'ImageMouseMoveState',
-    'UIWidget',
     'DisplayOptionsPanel',
     'CollapsibleRightPanel',
     'CollapsibleGroupBox',
