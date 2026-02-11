@@ -42,8 +42,6 @@ from ..csv_manager.XV_CSVManager import XV_CSVManager
 from ..CalibrationSettings import CalibrationSettings
 from .pyqt_utils import *
 from .LogTraceViewer import LogTraceViewer
-from .DoubleZoomGUI import DoubleZoom
-from .widgets.navigation_controls import NavigationControls
 from .widgets.image_navigator_widget import ImageNavigatorWidget
 
 
@@ -107,7 +105,6 @@ class XRayViewerGUI(QMainWindow):
         #self.setMinimumHeight(800)
         #self.setMinimumWidth(1000)
 
-        self.doubleZoomGUI = DoubleZoom(self.imageFigure)
 
     def initUI(self):
         """
