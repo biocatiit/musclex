@@ -29,7 +29,6 @@ authorization from Illinois Institute of Technology.
 import sys
 import cv2
 import numpy as np
-from enum import Flag, auto
 from matplotlib.colors import Normalize
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QApplication,
@@ -37,12 +36,6 @@ from PySide6.QtWidgets import (QApplication,
                                QCheckBox,
                                QMessageBox,
                                QVBoxLayout)
-
-
-class DoubleZoomState(Flag):
-    INIT = auto()
-    READY = auto()
-    RUNNING = auto()
 
 
 class DoubleZoomWidget(QWidget):
@@ -73,8 +66,7 @@ class DoubleZoomWidget(QWidget):
         dontShowMessage=False):
         super().__init__()
 
-        # State management (inlined from former UIWidget base class)
-        self._state = DoubleZoomState.INIT
+        self._running = False
         self.imageAxes = imageAxes
         self.imageFigure = self.imageAxes.figure if self.imageAxes is not None else None
         self.imageCanvas = self.imageFigure.canvas if self.imageFigure is not None else None
@@ -126,8 +118,8 @@ class DoubleZoomWidget(QWidget):
             return None
     
     def is_running(self):
-        """Check if the widget is in RUNNING state."""
-        return DoubleZoomState.RUNNING in self._state
+        """Check if the widget is currently active."""
+        return self._running
 
     def is_enabled(self):
         """
@@ -161,7 +153,7 @@ class DoubleZoomWidget(QWidget):
         self.doubleZoomImage = None
         
         self.imageCanvas.draw_idle()
-        self._state = DoubleZoomState.RUNNING
+        self._running = True
 
     def set_ready(self):
         self.doubleZoomCheckbox.setChecked(False)
@@ -180,7 +172,7 @@ class DoubleZoomWidget(QWidget):
         
         self.imageCanvas.draw_idle()
 
-        self._state = DoubleZoomState.READY
+        self._running = False
 
     def remove_image_lines(self, ax=None, labels=None):
         """Remove lines and patches from the given axes (defaults to imageAxes)."""
