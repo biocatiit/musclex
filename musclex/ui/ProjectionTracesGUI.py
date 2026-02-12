@@ -509,6 +509,8 @@ class ProjectionTracesGUI(BaseGUI):
         self._create_pattern_settings()
         self._create_peaks_settings()
         self._create_export_settings()
+        # Add reject checkbox
+        self.workspace.right_panel.add_widget(self.rejectChkBx)
         
     def _create_pattern_settings(self):
         """Create pattern properties settings group (mask threshold only)"""
@@ -587,6 +589,12 @@ class ProjectionTracesGUI(BaseGUI):
         
         # Add to right panel
         self.workspace.right_panel.add_widget(self.exportGrp)
+        
+        # Reject checkbox (outside Export Options group)
+        self.rejectChkBx = QCheckBox("Reject this image")
+        self.rejectChkBx.setChecked(False)
+        self.rejectChkBx.setToolTip("Mark this image as rejected. 'rejected' will be written to the comments column in CSV")
+
     
     def _add_display_options(self):
         """Add PT-specific display options (only the 3 unique checkboxes)"""
@@ -778,6 +786,9 @@ class ProjectionTracesGUI(BaseGUI):
 
         # Export 1-D Projections checkbox
         self.exportChkBx.stateChanged.connect(self.exportHistograms)
+
+        # Reject checkbox
+        self.rejectChkBx.stateChanged.connect(self.onRejectChanged)
 
         # Process Folder buttons (access via navControls)
         self.navControls.processFolderButton.clicked.connect(self.batchProcBtnToggled)
@@ -2375,6 +2386,11 @@ class ProjectionTracesGUI(BaseGUI):
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         
+        # Restore reject checkbox state from cache
+        self.rejectChkBx.blockSignals(True)
+        self.rejectChkBx.setChecked(self.projProc.state.rejected)
+        self.rejectChkBx.blockSignals(False)
+        
         # Reopen parameter editors that were deferred by addBoxTabs().
         # Now fit_results are available after processing.
         self._reopenPendingParameterEditors()
@@ -2468,10 +2484,31 @@ class ProjectionTracesGUI(BaseGUI):
         self.csvManager.writeNewData(self.projProc)
         self.exportHistograms()
         
+        # Restore reject checkbox state from cache
+        self.rejectChkBx.blockSignals(True)
+        self.rejectChkBx.setChecked(self.projProc.state.rejected)
+        self.rejectChkBx.blockSignals(False)
+        
         QApplication.restoreOverrideCursor()
         self.currentTask = None
         print("all done")
         
+
+    def onRejectChanged(self):
+        """
+        Triggered when reject checkbox state changes.
+        Save reject state to cache and update CSV.
+        """
+        if self.projProc is not None:
+            # Update ProcessingState
+            self.projProc.state.rejected = self.rejectChkBx.isChecked()
+            
+            # Save to cache
+            self.projProc.cacheInfo()
+            
+            # Update CSV
+            if self.csvManager is not None:
+                self.csvManager.writeNewData(self.projProc)
 
     def exportHistograms(self):
         """

@@ -84,6 +84,9 @@ class PT_CSVManager:
                 self.colnames.append ("Box " + str(box_name) + " Meridian Amplitude")
                 self.colnames.append("Box " + str(box_name) + " error")
                 self.colnames.append("Box " + str(box_name) + " comments")
+        
+        # Global reject column (last column, used for image-level reject status)
+        self.colnames.append("reject")
 
     def loadSummary(self):
         """
@@ -140,6 +143,10 @@ class PT_CSVManager:
                 new_data["Box " + str(bn) + " Meridian Background Amplitude"] = model['center_amplitude1']
                 new_data["Box " + str(bn) + " Meridian Sigma"] = model['center_sigma2']
                 new_data["Box " + str(bn) + " Meridian Amplitude"] = model['center_amplitude2']
+
+        # Global reject: write reject status from ProcessingState
+        if projProc.state.rejected:
+            new_data["reject"] = "rejected"
 
         for col in self.colnames:
             if col not in new_data:

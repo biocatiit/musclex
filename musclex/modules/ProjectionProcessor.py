@@ -140,6 +140,9 @@ class ProcessingState:
     # === Special: Main Peak Information ===
     main_peak_info: Dict = field(default_factory=dict)
     # Structure: {box_name: {'bg_sigma': ..., 'bg_amplitude': ..., ...}}
+    
+    # === Image-level Reject Status ===
+    rejected: bool = False
 
 
 class ProjectionProcessor:
