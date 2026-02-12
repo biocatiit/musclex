@@ -511,6 +511,8 @@ class ProjectionTracesGUI(BaseGUI):
         self._create_export_settings()
         # Add reject checkbox
         self.workspace.right_panel.add_widget(self.rejectChkBx)
+        # Add comments editor
+        self.workspace.right_panel.add_widget(self.commentsWidget)
         
     def _create_pattern_settings(self):
         """Create pattern properties settings group (mask threshold only)"""
@@ -593,9 +595,45 @@ class ProjectionTracesGUI(BaseGUI):
         # Reject checkbox (outside Export Options group)
         self.rejectChkBx = QCheckBox("Reject this image")
         self.rejectChkBx.setChecked(False)
-        self.rejectChkBx.setToolTip("Mark this image as rejected. 'rejected' will be written to the comments column in CSV")
+        self.rejectChkBx.setToolTip("Mark this image as rejected. 'rejected' will be written to the reject column in CSV")
 
-    
+        # Comments editor (below reject checkbox)
+        self.commentsWidget = QWidget()
+        self.commentsLayout = QHBoxLayout(self.commentsWidget)
+        self.commentsLayout.setContentsMargins(0, 0, 0, 0)
+
+        # Display mode widgets
+        self.commentsLabel = QLabel("No comments")
+        self.commentsLabel.setWordWrap(True)
+        self.commentsLabel.setStyleSheet("padding: 5px; border: 1px solid #ccc; background-color: #f9f9f9;")
+        self.commentsLabel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.editCommentsBtn = QPushButton("Edit")
+        self.editCommentsBtn.setFixedWidth(60)
+        self.clearCommentsBtn = QPushButton("Clear")
+        self.clearCommentsBtn.setFixedWidth(60)
+
+        # Edit mode widgets (initially hidden)
+        self.commentsLineEdit = QLineEdit()
+        self.commentsLineEdit.setPlaceholderText("Enter comments...")
+        self.commentsLineEdit.hide()
+
+        self.submitCommentsBtn = QPushButton("Submit")
+        self.submitCommentsBtn.setFixedWidth(60)
+        self.submitCommentsBtn.hide()
+
+        self.cancelCommentsBtn = QPushButton("Cancel")
+        self.cancelCommentsBtn.setFixedWidth(60)
+        self.cancelCommentsBtn.hide()
+
+        # Layout
+        self.commentsLayout.addWidget(self.commentsLabel)
+        self.commentsLayout.addWidget(self.commentsLineEdit)
+        self.commentsLayout.addWidget(self.editCommentsBtn)
+        self.commentsLayout.addWidget(self.clearCommentsBtn)
+        self.commentsLayout.addWidget(self.submitCommentsBtn)
+        self.commentsLayout.addWidget(self.cancelCommentsBtn)
+
     def _add_display_options(self):
         """Add PT-specific display options (only the 3 unique checkboxes)"""
         # Add PT-specific checkboxes to display panel
@@ -789,6 +827,12 @@ class ProjectionTracesGUI(BaseGUI):
 
         # Reject checkbox
         self.rejectChkBx.stateChanged.connect(self.onRejectChanged)
+
+        # Comments editor buttons
+        self.editCommentsBtn.clicked.connect(self.onEditComments)
+        self.clearCommentsBtn.clicked.connect(self.onClearComments)
+        self.submitCommentsBtn.clicked.connect(self.onSubmitComments)
+        self.cancelCommentsBtn.clicked.connect(self.onCancelComments)
 
         # Process Folder buttons (access via navControls)
         self.navControls.processFolderButton.clicked.connect(self.batchProcBtnToggled)
@@ -2391,6 +2435,9 @@ class ProjectionTracesGUI(BaseGUI):
         self.rejectChkBx.setChecked(self.projProc.state.rejected)
         self.rejectChkBx.blockSignals(False)
         
+        # Restore comments from cache
+        self._restoreCommentsDisplay()
+        
         # Reopen parameter editors that were deferred by addBoxTabs().
         # Now fit_results are available after processing.
         self._reopenPendingParameterEditors()
@@ -2489,10 +2536,27 @@ class ProjectionTracesGUI(BaseGUI):
         self.rejectChkBx.setChecked(self.projProc.state.rejected)
         self.rejectChkBx.blockSignals(False)
         
+        # Restore comments from cache
+        self._restoreCommentsDisplay()
+        
         QApplication.restoreOverrideCursor()
         self.currentTask = None
         print("all done")
         
+
+    def _restoreCommentsDisplay(self):
+        """Restore comments display from cache and ensure display mode is active."""
+        if self.projProc is None:
+            return
+        comments_text = self.projProc.state.comments
+        self.commentsLabel.setText(comments_text if comments_text else "No comments")
+        # Ensure display mode is active
+        self.commentsLineEdit.hide()
+        self.submitCommentsBtn.hide()
+        self.cancelCommentsBtn.hide()
+        self.commentsLabel.show()
+        self.editCommentsBtn.show()
+        self.clearCommentsBtn.show()
 
     def onRejectChanged(self):
         """
@@ -2509,6 +2573,74 @@ class ProjectionTracesGUI(BaseGUI):
             # Update CSV
             if self.csvManager is not None:
                 self.csvManager.writeNewData(self.projProc)
+
+    def onEditComments(self):
+        """Switch comments to edit mode."""
+        if self.projProc is None:
+            return
+        
+        # Hide display mode widgets
+        self.commentsLabel.hide()
+        self.editCommentsBtn.hide()
+        self.clearCommentsBtn.hide()
+        
+        # Show edit mode widgets
+        self.commentsLineEdit.setText(self.projProc.state.comments)
+        self.commentsLineEdit.show()
+        self.submitCommentsBtn.show()
+        self.cancelCommentsBtn.show()
+        self.commentsLineEdit.setFocus()
+
+    def onClearComments(self):
+        """Clear comments, save to cache and CSV."""
+        if self.projProc is None:
+            return
+        
+        self.projProc.state.comments = ""
+        self.commentsLabel.setText("No comments")
+        
+        # Save to cache
+        self.projProc.cacheInfo()
+        
+        # Update CSV
+        if self.csvManager is not None:
+            self.csvManager.writeNewData(self.projProc)
+
+    def onSubmitComments(self):
+        """Submit edited comments, save to cache and CSV."""
+        if self.projProc is None:
+            return
+        
+        # Update state
+        new_comments = self.commentsLineEdit.text().strip()
+        self.projProc.state.comments = new_comments
+        
+        # Update display
+        self.commentsLabel.setText(new_comments if new_comments else "No comments")
+        
+        # Switch back to display mode
+        self.commentsLineEdit.hide()
+        self.submitCommentsBtn.hide()
+        self.cancelCommentsBtn.hide()
+        self.commentsLabel.show()
+        self.editCommentsBtn.show()
+        self.clearCommentsBtn.show()
+        
+        # Save to cache
+        self.projProc.cacheInfo()
+        
+        # Update CSV
+        if self.csvManager is not None:
+            self.csvManager.writeNewData(self.projProc)
+
+    def onCancelComments(self):
+        """Cancel editing, switch back to display mode without saving."""
+        self.commentsLineEdit.hide()
+        self.submitCommentsBtn.hide()
+        self.cancelCommentsBtn.hide()
+        self.commentsLabel.show()
+        self.editCommentsBtn.show()
+        self.clearCommentsBtn.show()
 
     def exportHistograms(self):
         """

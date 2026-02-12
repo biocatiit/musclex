@@ -143,6 +143,9 @@ class ProcessingState:
     
     # === Image-level Reject Status ===
     rejected: bool = False
+    
+    # === Image-level Comments ===
+    comments: str = ""
 
 
 class ProjectionProcessor:

@@ -85,8 +85,11 @@ class PT_CSVManager:
                 self.colnames.append("Box " + str(box_name) + " error")
                 self.colnames.append("Box " + str(box_name) + " comments")
         
-        # Global reject column (last column, used for image-level reject status)
+        # Global reject column (used for image-level reject status)
         self.colnames.append("reject")
+        
+        # Global comments column (after reject, last column)
+        self.colnames.append("comments")
 
     def loadSummary(self):
         """
@@ -147,6 +150,11 @@ class PT_CSVManager:
         # Global reject: write reject status from ProcessingState
         if projProc.state.rejected:
             new_data["reject"] = "rejected"
+
+        # Global comments: write comments from ProcessingState
+        comments_text = projProc.state.comments.strip()
+        if comments_text:
+            new_data["comments"] = comments_text
 
         for col in self.colnames:
             if col not in new_data:
