@@ -252,7 +252,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
-        self.lock = Lock()
         self.qf_lock = Lock()
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
@@ -2490,23 +2489,19 @@ class QuadrantFoldingGUI(BaseGUI):
         self.startNextTask()
 
     def thread_done(self, quadFold):
-
-        if self.lock is not None:
-            self.lock.acquire()
-
+        # Temporarily switch context to the finished image to update outputs
+        prevQuadFold = self.quadFold
         self.quadFold = quadFold
 
         # In batch processing mode, skip UI updates for each task
-        # Only update UI when processing the last task
         if not self.batchProcessing:
             self.onProcessingFinished()
         else:
             # In batch mode, write CSV data and save results without UI refresh
             self.csvManager.writeNewData(self.quadFold)
             self.saveResults()  # Save result images to qf_results/
-
-        if self.lock is not None:
-            self.lock.release()
+            # Restore previous reference so UI continues showing user's current image
+            self.quadFold = prevQuadFold
 
     def thread_finished(self):
 
