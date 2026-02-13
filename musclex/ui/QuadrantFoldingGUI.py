@@ -116,6 +116,7 @@ class Worker(QRunnable):
 
     @Slot()
     def run(self):
+        import traceback
         try:
             img = self.params.file_manager.get_image_by_index(self.params.index)
             filename = self.params.file_manager.names[self.params.index]
@@ -138,13 +139,16 @@ class Worker(QRunnable):
             self.saveBackground()
 
 
-            if self.qf_lock is not None:
-                self.qf_lock.acquire()
-            with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
-                file.write(self.quadFold.img_name + " saving image"+ "\n")
-            if self.qf_lock is not None:
-                self.qf_lock.release()
-        except:
+            # Write to tasks_done.txt for tracking (with proper lock protection)
+            try:
+                if self.qf_lock is not None:
+                    self.qf_lock.acquire()
+                with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
+                    file.write(self.quadFold.img_name + " saving image"+ "\n")
+            finally:
+                if self.qf_lock is not None:
+                    self.qf_lock.release()
+        except Exception as e:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
         else:
