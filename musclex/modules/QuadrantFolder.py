@@ -288,7 +288,14 @@ class QuadrantFolder:
         self.generateResultImage()
 
         if "no_cache" not in flags:
-            self.cacheInfo()
+            try:
+                self.cacheInfo()
+            except (OSError, IOError) as e:
+                # Cache write failed (likely due to concurrent access), but processing succeeded
+                # Log the error but don't fail the entire processing
+                print(f"Warning: Failed to write cache for {self.img_name}: {e}")
+                import traceback
+                traceback.print_exc()
 
 
         self.parent.statusPrint("")
