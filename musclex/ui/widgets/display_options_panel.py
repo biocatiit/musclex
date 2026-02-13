@@ -491,6 +491,10 @@ class DisplayOptionsPanel(CollapsibleGroupBox):
         
         self.minIntSpnBx.blockSignals(False)
         self.maxIntSpnBx.blockSignals(False)
+
+        # Manually emit signal to update image_viewer's internal state
+        self.intensityChanged.emit(min_val, max_val * 0.5)
+
     
     def update_from_image(self, img, respect_persist=True):
         """
