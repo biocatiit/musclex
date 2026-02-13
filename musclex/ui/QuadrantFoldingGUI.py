@@ -96,7 +96,7 @@ class Worker(QRunnable):
 
     def __init__(self, params, image_center_settings, image_rotation_settings,
                  bgsub = 'Circularly-symmetric',
-                 bgDict = None, bg_lock=None, qf_lock=None):
+                 bgDict = None, bg_lock=None):
 
         super().__init__()
         self.flags = params.flags
@@ -111,8 +111,6 @@ class Worker(QRunnable):
         self.bgsub = bgsub
 
         self.bgDict = bgDict
-
-        self.qf_lock = qf_lock
 
     @Slot()
     def run(self):
@@ -137,23 +135,6 @@ class Worker(QRunnable):
 
             self.quadFold.process(self.flags)
             self.saveBackground()
-
-
-            # Write to tasks_done.txt for tracking (with proper lock protection)
-            # This is non-critical, so we catch exceptions to allow processing to continue
-            try:
-                try:
-                    if self.qf_lock is not None:
-                        self.qf_lock.acquire()
-                    with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
-                        file.write(self.quadFold.img_name + " saving image"+ "\n")
-                finally:
-                    if self.qf_lock is not None:
-                        self.qf_lock.release()
-            except (OSError, IOError) as e:
-                # tasks_done.txt write failed (likely file descriptor exhaustion)
-                # This is non-critical, so we continue processing to ensure CSV data is written
-                print(f"Warning: Failed to write to tasks_done.txt for {self.quadFold.img_name}: {e}")
         except Exception as e:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
@@ -262,7 +243,6 @@ class QuadrantFoldingGUI(BaseGUI):
         self.worker = None
         self.tasksDone = 0
         self.totalFiles = 1
-        self.qf_lock = Lock()
         self.batchProcessing = False  # Flag to indicate batch processing mode
         self.imageMaskingTool = None
 
@@ -2499,6 +2479,13 @@ class QuadrantFoldingGUI(BaseGUI):
         self.startNextTask()
 
     def thread_done(self, quadFold):
+        # Write to tasks_done.txt (safely in main thread, no lock needed)
+        try:
+            with open(quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
+                file.write(quadFold.img_name + " saving image\n")
+        except (OSError, IOError) as e:
+            print(f"Warning: Failed to write to tasks_done.txt for {quadFold.img_name}: {e}")
+
         # Temporarily switch context to the finished image to update outputs
         prevQuadFold = self.quadFold
         self.quadFold = quadFold
@@ -2564,8 +2551,7 @@ class QuadrantFoldingGUI(BaseGUI):
                                       self.workspace._center_settings, 
                                       self.workspace._rotation_settings,
                                       self.bgChoiceIn.currentText(),
-                                      bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock,
-                                      qf_lock=self.qf_lock)
+                                      bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
 
