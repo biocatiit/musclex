@@ -365,11 +365,7 @@ class EquatorWindow(QMainWindow):
         self.checkableButtons.append(self.imgZoomInB)
         self.checkableButtons.append(self.imgZoomOutB)
         
-        # Register minIntSpnBx and maxIntSpnBx in editableVars (needed for change tracking)
-        self.minIntSpnBx.setObjectName('minIntSpnBx')
-        self.maxIntSpnBx.setObjectName('maxIntSpnBx')
-        self.editableVars[self.minIntSpnBx.objectName()] = None
-        self.editableVars[self.maxIntSpnBx.objectName()] = None
+
 
         # Create display option checkboxes
         self.centerChkBx = QCheckBox('Center')
@@ -818,10 +814,7 @@ class EquatorWindow(QMainWindow):
         self.rmaxChkBx.setToolTip("Show the selected R-max")
         self.histChkBx.setToolTip("Show the background subtracted histogram obtained using convex hull operators")
         self.imgPeakChkBx.setToolTip("Show the detected peaks")
-        self.minIntSpnBx.setToolTip("Increase in the minimal intensity shown to allow for more details in the image")
-        self.maxIntSpnBx.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image")
-        self.imgZoomInB.setToolTip("Activate zoom-in operation, click on the image to select zoom-in area")
-        self.imgZoomOutB.setToolTip("Activate zoom-in operation")
+
         # NOTE: Center/rotation/blank/mask tooltips now managed by ProcessingWorkspace
         self.setRminB.setToolTip("Activate R-min adjustment.\n To adjust, please click location of R-min on the image")
         self.setRmaxB.setToolTip("Activate R-max adjustment.\n To adjust, please click location of R-max on the image")
@@ -866,8 +859,7 @@ class EquatorWindow(QMainWindow):
         self.rminChkBx.stateChanged.connect(self.updateImage)
         self.rmaxChkBx.stateChanged.connect(self.updateImage)
         self.imgPeakChkBx.stateChanged.connect(self.updateImage)
-        self.minIntSpnBx.editingFinished.connect(self.intensityChanged)
-        self.maxIntSpnBx.editingFinished.connect(self.intensityChanged)
+
         self.logScaleIntChkBx.stateChanged.connect(self.updateImage)
         self.imgZoomInB.clicked.connect(self.imgZoomIn)
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
@@ -2309,7 +2301,6 @@ class EquatorWindow(QMainWindow):
         # if isExtraPeak is not None:
         #     settings['isExtraPeak'] = isExtraPeak
         self.initWidgets(settings)
-        self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
         self.refitting()
@@ -2386,10 +2377,6 @@ class EquatorWindow(QMainWindow):
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() + 1) % self.tabWidget.count())
         elif key == Qt.Key_A:
             self.tabWidget.setCurrentIndex((self.tabWidget.currentIndex() - 1) % self.tabWidget.count())
-        elif key == Qt.Key_S:
-            self.maxIntSpnBx.stepDown()
-        elif key == Qt.Key_W:
-            self.maxIntSpnBx.stepUp()
         elif key == Qt.Key_Q:
             self.close()
         elif key == Qt.Key_N:
@@ -2418,8 +2405,7 @@ class EquatorWindow(QMainWindow):
         if self.setRotAndCentB.isChecked():
             self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
             ax = self.displayImgAxes
-            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
-            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
+
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
@@ -2489,8 +2475,6 @@ class EquatorWindow(QMainWindow):
         if self.setCentByChords.isChecked():
             self.setLeftStatus("Click on image to select chords (ESC to cancel)")
             ax = self.displayImgAxes
-            # ax2 = self.displayImgFigure.add_subplot(4, 4, 13)
-            # ax2.imshow(getBGR(get8bitImage(self.bioImg.getRotatedImage(), self.minIntSpnBx.value(), self.maxIntSpnBx.value())))
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
@@ -3536,11 +3520,6 @@ class EquatorWindow(QMainWindow):
         if 'fixed_rmax' in info:
             self.fixedRmax.setValue(info['fixed_rmax'])
 
-        if 'fixed_max_intensity' in info:
-            self.maxIntSpnBx.setValue(info['fixed_max_intensity'])
-
-        if 'fixed_min_intensity' in info:
-            self.minIntSpnBx.setValue(info['fixed_min_intensity'])
 
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
@@ -3595,7 +3574,6 @@ class EquatorWindow(QMainWindow):
         
         # Initialize UI widgets
         self.initWidgets(settings)
-        self.initMinMaxIntensities(self.bioImg)
         self.img_zoom = None
         self.refreshStatusbar()
         
@@ -4093,9 +4071,6 @@ class EquatorWindow(QMainWindow):
         if self.fixedRmaxChkBx.isChecked():
             settings['fixed_rmax'] = self.fixedRmax.value()
 
-        if self.persistIntensity.isChecked():
-            settings['fixed_max_intensity'] = self.maxIntSpnBx.value()
-            settings['fixed_min_intensity'] = self.minIntSpnBx.value()
 
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
@@ -4113,40 +4088,6 @@ class EquatorWindow(QMainWindow):
             settings['fix_k'] = self.k_spnbx.value()
 
         return settings
-
-    def initMinMaxIntensities(self, bioImg):
-        """
-        Set preference for image min & max intesity spinboxes, and initial their value
-        :param bioImg: current EquatorImage object
-        :return:
-        """
-        img = bioImg.orig_img
-        self.syncUI = True
-        min_val = img.min()
-        max_val = img.max()
-        
-        if not self.persistIntensity.isChecked():
-            # Only update values when NOT persisting (range is already set to allow any value)
-            # use cached values if they're available, otherwise use defaults
-            if "minInt" in self.bioImg.info and "maxInt" in self.bioImg.info:
-                self.minIntSpnBx.setValue(self.bioImg.info["minInt"])
-                self.maxIntSpnBx.setValue(self.bioImg.info["maxInt"])
-            else:
-                self.minIntSpnBx.setValue(min_val)
-                self.maxIntSpnBx.setValue(max_val * 0.20)
-        # When persist is checked: don't touch range or values at all
-        
-        self.minIntLabel.setText("Min Intensity ("+str(min_val)+")")
-        self.maxIntLabel.setText("Max Intensity ("+str(max_val)+")")
-        step = (max_val - min_val) * 0.07  # set spinboxes step as 7% of image range
-        self.minIntSpnBx.setSingleStep(step)
-        self.maxIntSpnBx.setSingleStep(step)
-
-        self.minIntSpnBx.setDecimals(2)
-        self.maxIntSpnBx.setDecimals(2)
-
-        self.syncUI = False
-        
 
     def refreshGraph(self):
         """
@@ -4174,20 +4115,6 @@ class EquatorWindow(QMainWindow):
 
         self.updateUI()
 
-    def intensityChanged(self):
-        """
-        Triggered when min or max intensity value is changed from spinbox
-        """
-        if self.bioImg is None or self.syncUI:
-            return
-        if self.editableVars[self.minIntSpnBx.objectName()] != self.minIntSpnBx.value():
-            self.log_changes('minIntensity', obj=self.minIntSpnBx)
-        else:
-            self.log_changes('maxIntensity', obj=self.maxIntSpnBx)
-        self.bioImg.info["minInt"] = self.minIntSpnBx.value()
-        self.bioImg.info["maxInt"] = self.maxIntSpnBx.value()
-        self.bioImg.saveCache()
-        self.updateImage()
 
     def updateImage(self):
         """
@@ -4244,7 +4171,6 @@ class EquatorWindow(QMainWindow):
         info = copy.copy(self.bioImg.info)
 
         img = self.bioImg.getRotatedImage()
-        #disp_img = getBGR(get8bitImage(img, self.minIntSpnBx.value(), self.maxIntSpnBx.value()))
         hulls = info['hulls']['all']
         center = info['center']
         rmin = info['rmin']
@@ -4252,12 +4178,7 @@ class EquatorWindow(QMainWindow):
 
         ax = self.displayImgAxes
         ax.cla()
-        #ax.imshow(disp_img)  # Display selected image
-        if self.logScaleIntChkBx.isChecked():
-            ax.imshow(img, cmap='gray', norm=LogNorm(vmin=max(1, self.minIntSpnBx.value()), vmax=self.maxIntSpnBx.value()))
-        else:
-            ax.imshow(img, cmap='gray', norm=Normalize(vmin=self.minIntSpnBx.value(), vmax=self.maxIntSpnBx.value()))
-        ax.set_facecolor('black')
+        self.image_viewer.display_image(img)
 
 
         self.orientationCmbBx.setCurrentIndex(0 if self.orientationModel is None else self.orientationModel)
