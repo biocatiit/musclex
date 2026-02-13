@@ -140,14 +140,20 @@ class Worker(QRunnable):
 
 
             # Write to tasks_done.txt for tracking (with proper lock protection)
+            # This is non-critical, so we catch exceptions to allow processing to continue
             try:
-                if self.qf_lock is not None:
-                    self.qf_lock.acquire()
-                with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
-                    file.write(self.quadFold.img_name + " saving image"+ "\n")
-            finally:
-                if self.qf_lock is not None:
-                    self.qf_lock.release()
+                try:
+                    if self.qf_lock is not None:
+                        self.qf_lock.acquire()
+                    with open(self.quadFold.img_path + "/qf_results/tasks_done.txt", "a") as file:
+                        file.write(self.quadFold.img_name + " saving image"+ "\n")
+                finally:
+                    if self.qf_lock is not None:
+                        self.qf_lock.release()
+            except (OSError, IOError) as e:
+                # tasks_done.txt write failed (likely file descriptor exhaustion)
+                # This is non-critical, so we continue processing to ensure CSV data is written
+                print(f"Warning: Failed to write to tasks_done.txt for {self.quadFold.img_name}: {e}")
         except Exception as e:
             traceback.print_exc()
             self.signals.error.emit((traceback.format_exc()))
