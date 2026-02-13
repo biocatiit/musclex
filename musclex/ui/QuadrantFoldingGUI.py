@@ -96,7 +96,7 @@ class Worker(QRunnable):
 
     def __init__(self, params, image_center_settings, image_rotation_settings,
                  bgsub = 'Circularly-symmetric',
-                 bgDict = None, bg_lock=None):
+                 bgDict = None, bg_lock=None, qf_lock=None):
 
         super().__init__()
         self.flags = params.flags
@@ -112,7 +112,7 @@ class Worker(QRunnable):
 
         self.bgDict = bgDict
 
-        self.qf_lock = Lock()
+        self.qf_lock = qf_lock
 
     @Slot()
     def run(self):
@@ -2564,7 +2564,8 @@ class QuadrantFoldingGUI(BaseGUI):
                                       self.workspace._center_settings, 
                                       self.workspace._rotation_settings,
                                       self.bgChoiceIn.currentText(),
-                                      bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
+                                      bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock,
+                                      qf_lock=self.qf_lock)
             self.currentTask.signals.result.connect(self.thread_done)
             self.currentTask.signals.finished.connect(self.thread_finished)
 
