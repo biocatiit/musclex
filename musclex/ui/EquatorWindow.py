@@ -52,6 +52,8 @@ from .BlankImageSettings import BlankImageSettings
 from .ImageMaskTool import ImageMaskerWindow
 from .DoubleZoomGUI import DoubleZoom
 from .widgets.navigation_controls import NavigationControls
+from .widgets import ProcessingWorkspace
+from ..utils.image_data import ImageData
 from skimage.morphology import binary_dilation
 from PySide6.QtCore import QRunnable, QThreadPool, QEventLoop, Signal, QTimer
 from queue import Queue
@@ -67,6 +69,13 @@ class WorkerSignals(QObject):
 class Worker(QRunnable):
 
     def __init__(self, bioImg, settings, paramInfo):
+        """
+        Worker thread for EquatorImage processing.
+        
+        :param bioImg: EquatorImage instance (already created with ImageData)
+        :param settings: Processing settings dict
+        :param paramInfo: Parameter info dict
+        """
         super().__init__()
         self.bioImg = bioImg
         self.settings = settings
@@ -148,6 +157,11 @@ class EquatorWindow(QMainWindow):
         self._scan_timer.setInterval(200)
         self._scan_timer.timeout.connect(self._checkScanDone)
         
+        self.current_image_data = None  # Current ImageData object
+        self.calSettings = None
+        self.filePath = ""
+        self.dir_path = ""
+        
         self.initUI()  # Initial all UI
 
         self.doubleZoomGUI = DoubleZoom(self.displayImgFigure)
@@ -155,7 +169,6 @@ class EquatorWindow(QMainWindow):
         self.setAllToolTips()  # Set tooltips for widgets
         self.setConnections()  # Set interaction for widgets
         self.show()
-        self.file_manager = None
 
         self.browseFile()
         
@@ -165,6 +178,9 @@ class EquatorWindow(QMainWindow):
         self.csvManager = EQ_CSVManager(self.dir_path)  # Create a CSV Manager object
         self.setWindowTitle("Muscle X Equator v." + __version__)
         self.onImageChanged(first_run=True)
+        
+        # Connect workspace signals AFTER initial load to prevent double-processing
+        self._connectWorkspaceSignals()
 
     def _checkScanDone(self):
         """
@@ -313,15 +329,49 @@ class EquatorWindow(QMainWindow):
         self.imageTab = QWidget()
         self.imageTab.setContentsMargins(0, 0, 0, 0)
         self.imageTabLayout = QHBoxLayout(self.imageTab)
-        self.displayImgFigure = plt.figure()
-        self.displayImgAxes = self.displayImgFigure.add_subplot(111)
-        self.imageVLayout = QVBoxLayout()
-        self.displayImgCanvas = FigureCanvas(self.displayImgFigure)
-        self.imageVLayout.addWidget(self.displayImgCanvas)
+        self.imageTabLayout.setContentsMargins(0, 0, 0, 0)
+        
+        # Create ProcessingWorkspace (handles file navigation, center/rotation/blank/mask settings)
+        # show_display_panel=False and show_double_zoom=False since EQ has its own display options
+        self.workspace = ProcessingWorkspace(
+            settings_dir=self.filePath,
+            coord_transform_func=self._coord_transform_func,
+            get_display_center_func=self._get_display_center,
+        )
+        
+        # Expose components for backward compatibility
+        self.file_manager = self.workspace.file_manager
+        self.navigator = self.workspace.navigator
+        self.image_viewer = self.workspace.image_viewer
+        self.navControls = self.workspace.navigator.nav_controls
+        self.right_panel = self.workspace.right_panel
+        
+        # Backward compatibility for axes/canvas/figure (used by custom drawing)
+        self.displayImgFigure = self.image_viewer.figure
+        self.displayImgAxes = self.image_viewer.axes
+        self.displayImgCanvas = self.image_viewer.canvas
+        
+        # Expose display_panel controls for backward compatibility
+        self.minIntSpnBx = self.image_viewer.display_panel.minIntSpnBx
+        self.maxIntSpnBx = self.image_viewer.display_panel.maxIntSpnBx
+        self.minIntLabel = self.image_viewer.display_panel.minIntLabel
+        self.maxIntLabel = self.image_viewer.display_panel.maxIntLabel
+        self.logScaleIntChkBx = self.image_viewer.display_panel.logScaleChkBx
+        self.persistIntensity = self.image_viewer.display_panel.persistChkBx
+        self.imgZoomInB = self.image_viewer.display_panel.zoomInBtn
+        self.imgZoomOutB = self.image_viewer.display_panel.zoomOutBtn
+        
+        # Add to checkableButtons list
+        self.checkableButtons.append(self.imgZoomInB)
+        self.checkableButtons.append(self.imgZoomOutB)
+        
+        # Register minIntSpnBx and maxIntSpnBx in editableVars (needed for change tracking)
+        self.minIntSpnBx.setObjectName('minIntSpnBx')
+        self.maxIntSpnBx.setObjectName('maxIntSpnBx')
+        self.editableVars[self.minIntSpnBx.objectName()] = None
+        self.editableVars[self.maxIntSpnBx.objectName()] = None
 
-        self.imgDispOptionGrp = QGroupBox('Display Options')
-        self.imgDispOptionGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
-        self.imgDispOptLayout = QGridLayout()
+        # Create display option checkboxes
         self.centerChkBx = QCheckBox('Center')
         self.centerChkBx.setChecked(True)
         self.rminChkBx = QCheckBox('R-min')
@@ -333,66 +383,53 @@ class EquatorWindow(QMainWindow):
         self.intChkBx.setChecked(True)
         self.imgPeakChkBx = QCheckBox('Peaks')
         self.imgPeakChkBx.setChecked(True)
-        self.minIntLabel = QLabel()
-        self.maxIntLabel = QLabel()
-        self.minIntSpnBx = QDoubleSpinBox()
-        self.minIntSpnBx.setObjectName('minIntSpnBx')
-        self.minIntSpnBx.setRange(-1e10, 1e10)  # Allow any value
-        self.editableVars[self.minIntSpnBx.objectName()] = None
-        self.minIntSpnBx.setKeyboardTracking(False)
-        self.maxIntSpnBx = QDoubleSpinBox()
-        self.maxIntSpnBx.setObjectName('maxIntSpnBx')
-        self.maxIntSpnBx.setRange(-1e10, 1e10)  # Allow any value
-        self.editableVars[self.maxIntSpnBx.objectName()] = None
-        self.maxIntSpnBx.setKeyboardTracking(False)
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistIntensity = QCheckBox("Persist intensities")
-        self.imgZoomInB = QPushButton('Zoom In')
-        self.imgZoomInB.setCheckable(True)
-        self.checkableButtons.append(self.imgZoomInB)
-        self.imgZoomOutB = QPushButton('Full')
-        self.checkableButtons.append(self.imgZoomOutB)
+        
+        # Fitting error threshold
         self.fittingErrorText = QLabel("Fitting Error Threshold:")
         self.fittingErrorThreshold = QDoubleSpinBox()
         self.fittingErrorThreshold.setValue(0.2)
         self.fittingErrorThreshold.setKeyboardTracking(False)
-        self.imgDispOptLayout.addWidget(self.centerChkBx,1,0,1,2)
-        self.imgDispOptLayout.addWidget(self.intChkBx,1,2,1,2)
-        self.imgDispOptLayout.addWidget(self.rminChkBx,2,0,1,2)
-        self.imgDispOptLayout.addWidget(self.rmaxChkBx,2,2,1,2)
-        self.imgDispOptLayout.addWidget(self.histChkBx,3,0,1,2)
-        self.imgDispOptLayout.addWidget(self.imgPeakChkBx,3,2,1,2)
-        self.imgDispOptLayout.addWidget(self.minIntLabel,4,0,1,2)
-        self.imgDispOptLayout.addWidget(self.maxIntLabel,4,2,1,2)
-        self.imgDispOptLayout.addWidget(self.minIntSpnBx, 5, 0, 1, 2)
-        self.imgDispOptLayout.addWidget(self.maxIntSpnBx, 5, 2, 1, 2)
-        self.imgDispOptLayout.addWidget(self.logScaleIntChkBx,6,0,1,2)
-        self.imgDispOptLayout.addWidget(self.persistIntensity,6,2,1,2)
-        self.imgDispOptLayout.addWidget(self.imgZoomInB,7,0,1,2)
-        self.imgDispOptLayout.addWidget(self.imgZoomOutB,7,2,1,2)
-        self.imgDispOptLayout.addWidget(self.fittingErrorText, 8, 0, 1, 2)
-        self.imgDispOptLayout.addWidget(self.fittingErrorThreshold, 8, 2, 1, 2)
-        self.imgDispOptionGrp.setLayout(self.imgDispOptLayout)
+        
+        # Create a container widget with grid layout for checkboxes (2 columns x 3 rows)
+        checkboxContainer = QWidget()
+        checkboxGridLayout = QGridLayout()
+        checkboxGridLayout.setContentsMargins(0, 0, 0, 0)  # Remove extra margins
+        checkboxGridLayout.setSpacing(5)
+        
+        # Add checkboxes in 2x3 grid: Row 0-2, Col 0-1
+        checkboxGridLayout.addWidget(self.centerChkBx, 0, 0)
+        checkboxGridLayout.addWidget(self.intChkBx, 0, 1)
+        checkboxGridLayout.addWidget(self.rminChkBx, 1, 0)
+        checkboxGridLayout.addWidget(self.rmaxChkBx, 1, 1)
+        checkboxGridLayout.addWidget(self.histChkBx, 2, 0)
+        checkboxGridLayout.addWidget(self.imgPeakChkBx, 2, 1)
+        
+        checkboxContainer.setLayout(checkboxGridLayout)
+        self.image_viewer.display_panel.add_to_top_slot(checkboxContainer)
+        fittingErrorContainer = QWidget()
+        fittingErrorGridLayout = QGridLayout()
+        fittingErrorGridLayout.setContentsMargins(0, 0, 0, 0)
+        fittingErrorGridLayout.setSpacing(5)
+        fittingErrorGridLayout.addWidget(self.fittingErrorText, 0, 0)
+        fittingErrorGridLayout.addWidget(self.fittingErrorThreshold, 0, 1)
+        fittingErrorContainer.setLayout(fittingErrorGridLayout)
+        self.image_viewer.display_panel.add_to_bottom_slot(fittingErrorContainer)
+
 
         self.imgProcGrp = QGroupBox("Image Processing")
         self.imgProcGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.imgProcLayout = QGridLayout()
         self.imgProcGrp.setLayout(self.imgProcLayout)
-        self.calibrationB = QPushButton("Calibration Settings")
+        # NOTE: Center/rotation buttons are now provided by ProcessingWorkspace
+        # Expose workspace's buttons for backward compatibility
+        self.calibrationB = self.workspace._center_widget.calibrationButton
         self.calibSettingDialog = None
-        self.setRotAndCentB = QPushButton("Set Rotation Angle and Center")
-        self.setRotAndCentB.setCheckable(True)
-        # self.setRotAndCentB.setFixedHeight(45)
-        self.setCentByChords = QPushButton("Set Center by Chords")
-        self.setCentByChords.setCheckable(True)
-        self.setCentByPerp = QPushButton("Set Center by Perpendiculars")
-        self.setCentByPerp.setCheckable(True)
-        self.setAngleB = QPushButton("Set Rotation Angle")
-        self.setAngleB.setCheckable(True)
-        # self.setAngleB.setFixedHeight(45)
+        self.setRotAndCentB = self.workspace._center_widget.setCenterRotationButton
+        self.setCentByChords = self.workspace._center_widget.setCentByChords
+        self.setCentByPerp = self.workspace._center_widget.setCentByPerp
+        self.setAngleB = self.workspace._rotation_widget.setRotationButton
         self.setRminB = QPushButton("Set R-min")
         self.setRminB.setCheckable(True)
-        # self.setRminB.setFixedHeight(45)
         self.setRmaxB = QPushButton("Set R-max")
         self.setRmaxB.setCheckable(True)
         self.setIntAreaB = QPushButton("Set Box Width")
@@ -400,8 +437,7 @@ class EquatorWindow(QMainWindow):
         
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
-        # self.setIntAreaB.setFixedHeight(45)
-        self.checkableButtons.extend([self.setRotAndCentB, self.setIntAreaB, self.setRminB, self.setRmaxB, self.setAngleB, self.setCentByChords, self.setCentByPerp])
+        self.checkableButtons.extend([self.setIntAreaB, self.setRminB, self.setRmaxB])
         self.fixedAngleChkBx = QCheckBox("Fixed Angle:")
         self.fixedAngleChkBx.setChecked(False)
         self.fixedRminChkBx = QCheckBox("Fixed R-min:")
@@ -430,12 +466,9 @@ class EquatorWindow(QMainWindow):
         self.fixedRmax.setKeyboardTracking(False)
         self.fixedRmax.setRange(1, 10000)
         self.fixedRmax.setEnabled(False)
-        self.applyBlank = QCheckBox("Apply Blank Image and Mask")
+        # NOTE: Blank/mask settings now handled by ProcessingWorkspace
         self.doubleZoom = QCheckBox("Double Zoom")
-        self.applyBlank.setChecked(False)
         self.doubleZoom.setChecked(False)
-        self.blankSettings = QPushButton("Set")
-        self.blankSettings.setEnabled(False)
         self.quadrantFoldCheckbx = QCheckBox("Quadrant Folded?")
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setObjectName('maskThresSpnBx')
@@ -451,62 +484,42 @@ class EquatorWindow(QMainWindow):
         self.forceRot90ChkBx = QCheckBox("Persist Rotation")
 
         self.resetAllB = QPushButton("Reset All")
-        self.imgProcLayout.addWidget(self.calibrationB, 0, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.setCentByChords, 1, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setCentByPerp, 1, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.setRotAndCentB, 2, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setAngleB, 2, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.setRminB, 3, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.setRmaxB, 3, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.setIntAreaB, 4, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.brightSpot, 6, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.applyBlank, 7, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.blankSettings, 7, 3, 1, 1)
-        self.imgProcLayout.addWidget(self.doubleZoom, 8, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 8, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 9, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.maskThresSpnBx, 9, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 10, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 10, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRminChkBx, 11, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmin, 11, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 12, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedRmax, 12, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 13, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 13, 2, 1, 2)
-        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 14, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.orientationCmbBx, 14, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.rotation90ChkBx, 15, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 15, 2, 1, 2)
-
-        self.imgProcLayout.addWidget(self.resetAllB, 15, 0, 1, 4)
+        # NOTE: Center/rotation/blank/mask buttons removed from this layout
+        # They are now part of ProcessingWorkspace's right panel
+        self.imgProcLayout.addWidget(self.setRminB, 0, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.setRmaxB, 0, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.setIntAreaB, 1, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.brightSpot, 2, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 3, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 4, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 5, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedAngle, 5, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 7, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedRmax, 7, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 8, 0, 1, 4)
+        self.imgProcLayout.addWidget(self.modeAngleChkBx, 8, 2, 1, 2)
+        self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 9, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.orientationCmbBx, 9, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.rotation90ChkBx, 10, 0, 1, 2)
+        self.imgProcLayout.addWidget(self.forceRot90ChkBx, 10, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.resetAllB, 11, 0, 1, 4)
 
         self.rejectChkBx = QCheckBox("Reject")
         self.rejectChkBx.setFixedWidth(100)
 
-        # Reusable navigation controls for Image tab
-        self.navImg = NavigationControls(process_folder_text="Process Current Folder", process_h5_text="Process Current H5 File")
+        # Use workspace's navigation controls (exposed for backward compatibility)
+        self.navImg = self.workspace.navigator.nav_controls
 
-        self.bottomLayout = QGridLayout()
-        self.bottomLayout.addWidget(self.rejectChkBx, 0, 0, 1, 2)
-        self.bottomLayout.addWidget(self.navImg, 1, 0, 1, 2)
-        self.bottomLayout.setAlignment(self.rejectChkBx, Qt.AlignLeft)
+        # Add EQ-specific settings to workspace's right panel
+        self.workspace.right_panel.add_widget(self.imgProcGrp)
+        self.workspace.right_panel.add_widget(self.rejectChkBx)
 
-        self.imageOptionsFrame = QFrame()
-        self.imageOptionsFrame.setFixedWidth(550)
-        
-        self.imageOptionsLayout = QVBoxLayout()
-        self.imageOptionsLayout.setAlignment(Qt.AlignTop)
-        # self.imageOptionsLayout.addSpacing(10)
-        self.imageOptionsLayout.addWidget(self.imgDispOptionGrp)
-        # self.imageOptionsLayout.addSpacing(10)
-        self.imageOptionsLayout.addWidget(self.imgProcGrp)
-        self.imageOptionsLayout.addStretch()
-        self.imageOptionsLayout.addLayout(self.bottomLayout)
-        self.imageOptionsFrame.setLayout(self.imageOptionsLayout)
-
-        self.imageTabLayout.addLayout(self.imageVLayout)
-        self.imageTabLayout.addWidget(self.imageOptionsFrame)
+        # Add workspace to image tab (replaces old manual layout)
+        self.imageTabLayout.addWidget(self.workspace, 1)
         self.tabWidget.addTab(self.imageTab, "Image")
 
         ### Fitting Tab ###
@@ -809,15 +822,7 @@ class EquatorWindow(QMainWindow):
         self.maxIntSpnBx.setToolTip("Reduction in the maximal intensity shown to allow for more details in the image")
         self.imgZoomInB.setToolTip("Activate zoom-in operation, click on the image to select zoom-in area")
         self.imgZoomOutB.setToolTip("Activate zoom-in operation")
-        self.calibrationB.setToolTip("Launch Calibration Setting Window")
-        self.setRotAndCentB.setToolTip(
-            "Activate rotation and center adjustment.\n To adjust, please click 2 center locations of coresponding diffraction on the image")
-        self.setCentByChords.setToolTip(
-            "Activate center adjustment.\n To adjust, please select multiple chords on coresponding diffraction on the image")
-        self.setCentByPerp.setToolTip(
-            "Activate center adjustment.\n To adjust, please select 4 points indicating equatorial and vertical peaks")
-        self.setAngleB.setToolTip(
-            "Activate rotation adjustment.\n To adjust, please click when the line is on the equator of diffraction")
+        # NOTE: Center/rotation/blank/mask tooltips now managed by ProcessingWorkspace
         self.setRminB.setToolTip("Activate R-min adjustment.\n To adjust, please click location of R-min on the image")
         self.setRmaxB.setToolTip("Activate R-max adjustment.\n To adjust, please click location of R-max on the image")
         self.setIntAreaB.setToolTip(
@@ -868,11 +873,7 @@ class EquatorWindow(QMainWindow):
         self.imgZoomOutB.clicked.connect(self.imgZoomOut)
         self.fittingErrorThreshold.valueChanged.connect(self.fittingErrorChanged)
 
-        self.calibrationB.clicked.connect(self.calibrationClicked)
-        self.setRotAndCentB.clicked.connect(self.setAngleAndCenterClicked)
-        self.setCentByChords.clicked.connect(self.setCenterByChordsClicked)
-        self.setCentByPerp.clicked.connect(self.setCenterByPerpClicked)
-        self.setAngleB.clicked.connect(self.setAngleClicked)
+        # NOTE: Center/rotation/blank/mask button connections now handled by ProcessingWorkspace
         self.setRminB.clicked.connect(self.setRminClicked)
         self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
@@ -886,23 +887,17 @@ class EquatorWindow(QMainWindow):
         self.fixedRmin.editingFinished.connect(self.fixedRminChanged)
         self.fixedRmax.editingFinished.connect(self.fixedRmaxChanged)
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
-        self.applyBlank.stateChanged.connect(self.applyBlankChecked)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.quadrantFoldCheckbx.stateChanged.connect(self.quadrantFoldChecked)
-        self.blankSettings.clicked.connect(self.blankSettingClicked)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
         self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
         self.resetAllB.clicked.connect(self.resetAll)
 
-        self.navImg.prevButton.clicked.connect(self.prevClicked)
-        self.navImg.nextButton.clicked.connect(self.nextClicked)
-        self.navImg.nextFileButton.clicked.connect(self.nextFileClicked)
-        self.navImg.prevFileButton.clicked.connect(self.prevFileClicked)
-        #self.navImg.processFolderButton.clicked.connect(self.processFolder)
+        # NOTE: prev/next/filename navigation now handled by ProcessingWorkspace's navigator
+        # We only connect batch processing buttons
         self.navImg.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.navImg.processH5Button.toggled.connect(self.h5batchProcBtnToggled)
-        self.navImg.filenameLineEdit.editingFinished.connect(self.fileNameChanged)
         self.displayImgFigure.canvas.mpl_connect('button_press_event', self.imgClicked)
         self.displayImgFigure.canvas.mpl_connect('motion_notify_event', self.imgOnMotion)
         self.displayImgFigure.canvas.mpl_connect('button_release_event', self.imgReleased)
@@ -953,6 +948,87 @@ class EquatorWindow(QMainWindow):
         self.refitParamsBtn.clicked.connect(self.refitParamEditor)
         self.addSPeakBtn.clicked.connect(self.addSPeak)
         self.enableExtraGaussBtn.clicked.connect(self.enableExtraGauss)
+    
+    # ==================== ProcessingWorkspace Integration ====================
+    
+    def _connectWorkspaceSignals(self):
+        """Connect ProcessingWorkspace signals to EquatorWindow handlers."""
+        # Main processing pipeline: ImageData ready -> create EquatorImage -> process
+        self.workspace.imageDataReady.connect(self._on_image_data_ready)
+        
+        # Settings changed -> reprocess current image
+        self.workspace.needsReprocess.connect(self.processImage)
+        
+        # Status bar updates
+        self.workspace.statusTextRequested.connect(self._on_status_text_requested)
+        
+        # Scan progress (for HDF5 files)
+        self.workspace.scanComplete.connect(self._on_scan_complete)
+        self.workspace.scanProgressChanged.connect(self._on_scan_progress)
+    
+    def _coord_transform_func(self, x, y):
+        """
+        Transform coordinates from displayed (rotated) image to original image.
+        Used by ProcessingWorkspace for center/rotation tools.
+        
+        Args:
+            x, y: Coordinates in rotated/displayed image
+            
+        Returns:
+            (orig_x, orig_y): Coordinates in original image
+        """
+        if self.bioImg and self.bioImg.rotMat is not None:
+            inv_mat = cv2.invertAffineTransform(self.bioImg.rotMat)
+            point = np.dot(inv_mat, [x, y, 1])
+            return point[0], point[1]
+        return x, y
+    
+    def _get_display_center(self):
+        """
+        Get center in display (rotated) coordinates.
+        Used by ProcessingWorkspace for rotation tool.
+        
+        Returns:
+            (x, y) center in display coordinates, or None
+        """
+        if self.bioImg and 'center' in self.bioImg.info:
+            return self.bioImg.info['center']
+        return None
+    
+    def _on_image_data_ready(self, image_data):
+        """
+        Handle new image from workspace (called when navigation changes image).
+        
+        Args:
+            image_data: ImageData instance from workspace
+        """
+        self.current_image_data = image_data
+        # Trigger the existing processing pipeline
+        self.onImageChanged()
+    
+    def _on_status_text_requested(self, text):
+        """Update status bar from workspace requests."""
+        if text:
+            self.left_status.setText(text)
+        else:
+            self.refreshStatusbar()
+    
+    def _on_scan_complete(self):
+        """Handle scan completion from workspace."""
+        self._provisionalCount = False
+        self._scan_timer.stop()
+        self.refreshStatusbar()
+    
+    def _on_scan_progress(self, done, total):
+        """Handle scan progress update from workspace."""
+        if total > 0:
+            if not self.progressBar.isVisible():
+                self.progressBar.setVisible(True)
+                self.progressBar.setRange(0, total)
+            self.progressBar.setValue(done)
+            self.progressBar.setFormat(f"Processing HDF5 files: {done}/{total}")
+    
+    # ==================== End ProcessingWorkspace Integration ====================
     
     def clearGaps(self):
         self.bioImg.info['gaps'] = []
@@ -1676,7 +1752,8 @@ class EquatorWindow(QMainWindow):
 
     def browseFile(self):
         """
-        Popup an input file dialog. Users can select an image or .txt for failed cases list
+        Popup an input file dialog. Users can select an image or .txt for failed cases list.
+        Now delegates to ProcessingWorkspace for file management.
         """
         file_name = getAFile(add_txt=True)
         print("FILE: ", file_name)
@@ -1693,13 +1770,12 @@ class EquatorWindow(QMainWindow):
                 errMsg.exec_()
 
         self.fileName = file_name
-        if not self.file_manager:
-            self.file_manager = FileManager()
-        self.file_manager.set_from_file(str(file_name))
+        # Load file through workspace (handles FileManager, settings, navigation)
+        self.workspace.load_from_file(str(file_name))
         self.dir_path = self.file_manager.dir_path
+        self.filePath = self.dir_path
         self._provisionalCount = True
         self._scan_timer.start()
-        self.file_manager.start_async_scan(self.file_manager.dir_path)
 
 
     def saveSettings(self):
@@ -2209,9 +2285,11 @@ class EquatorWindow(QMainWindow):
         """
         self.file_manager.next_frame()
         fileName = self.file_manager.current_image_name
-        self.navImg.filenameLineEdit.setText(fileName)
         self.navFit.filenameLineEdit.setText(fileName)
-        self.bioImg = EquatorImage(self.file_manager.current_image, self.file_manager.dir_path, fileName, self)
+        self.current_image_data = self.workspace.create_image_data(
+            self.file_manager.current_image, fileName
+        )
+        self.bioImg = EquatorImage(self.current_image_data, self)
         if reprocess:
             self.refreshProcessingParams()
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
@@ -2694,8 +2772,9 @@ class EquatorWindow(QMainWindow):
         print("Calculating mode of angles of images in directory")
         angles = []
         for idx, filename in enumerate(self.file_manager.names):
-
-            bioImg = EquatorImage(self.file_manager.get_image_by_index(idx), self.file_manager.dir_path, filename, self)
+            img = self.file_manager.get_image_by_index(idx)
+            image_data = self.workspace.create_image_data(img, filename)
+            bioImg = EquatorImage(image_data, self)
             print(f'Getting angle {filename}')
 
             if 'rotationAngle' not in bioImg.info:
@@ -3440,8 +3519,7 @@ class EquatorWindow(QMainWindow):
         else:
             self.rejectChkBx.setChecked(False)
 
-        if 'blank_mask' in info:
-            self.applyBlank.setChecked(info['blank_mask'])
+        # NOTE: blank_mask checkbox now handled by ProcessingWorkspace
 
         if 'fixed_angle' in info:
             self.fixedAngle.setValue(info['fixed_angle'])
@@ -3483,16 +3561,16 @@ class EquatorWindow(QMainWindow):
 
         # Update UI with current filename
         fileName = self.file_manager.current_image_name
-        self.navImg.filenameLineEdit.setText(fileName)
         self.navFit.filenameLineEdit.setText(fileName)
 
-        # Create EquatorImage
-        self.bioImg = EquatorImage(
-            self.file_manager.current_image, 
-            self.file_manager.dir_path, 
-            self.file_manager.current_image_name, 
-            self
-        )
+        # Create ImageData if not already provided (e.g., from _on_image_data_ready)
+        if self.current_image_data is None or self.current_image_data.img_name != fileName:
+            self.current_image_data = self.workspace.create_image_data(
+                self.file_manager.current_image, fileName
+            )
+        
+        # Create EquatorImage with ImageData
+        self.bioImg = EquatorImage(self.current_image_data, self)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         
@@ -3875,8 +3953,9 @@ class EquatorWindow(QMainWindow):
         # Get the correct image for this task
         img = self.file_manager.get_image_by_index(task.job_index)
         
-        # Create EquatorImage with correct filename from task
-        bioImg = EquatorImage(img, self.file_manager.dir_path, filename, self)
+        # Create ImageData and EquatorImage with correct filename from task
+        image_data = self.workspace.create_image_data(img, filename)
+        bioImg = EquatorImage(image_data, self)
         bioImg.info = result['info']
         
         # Write cache (main thread only)
@@ -4026,10 +4105,9 @@ class EquatorWindow(QMainWindow):
             if modeOrientation is not None:
                 settings["mode_angle"] = modeOrientation
 
-        if self.applyBlank.isChecked():
-            settings['blank_mask'] = True
-        else:
-            settings['blank_mask'] = False
+        # Get blank/mask config from workspace
+        blank_mask_config = self.workspace.get_blank_mask_config()
+        settings['blank_mask'] = blank_mask_config['apply_blank'] or blank_mask_config['apply_mask']
 
         if self.k_chkbx.isChecked():
             settings['fix_k'] = self.k_spnbx.value()

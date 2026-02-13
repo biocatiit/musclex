@@ -44,10 +44,12 @@ try:
     from ..utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from ..utils.histogram_processor import *
     from ..utils.image_processor import *
+    from ..utils.image_data import ImageData
 except: # for coverage
     from utils.file_manager import fullPath, getBlankImageAndMask, getMaskOnly, ifHdfReadConvertless
     from utils.histogram_processor import *
     from utils.image_processor import *
+    from utils.image_data import ImageData
 from collections import deque
 
 import matplotlib.pyplot as plt
@@ -58,37 +60,30 @@ class EquatorImage:
     """
     A class for Bio-Muscle processing - go to process() to see all processing steps
     """
-    def __init__(self, img, img_path, img_name, parent):
+    def __init__(self, image_data: ImageData, parent):
         """
-        Initial value for EquatorImage object
-        :param img: already-loaded image ndarray
-        :param img_path: directory path of input image
-        :param img_name: image file name
+        Initialize EquatorImage with ImageData container.
+        
+        :param image_data: ImageData container with image data and preprocessing
         :param parent: owner/GUI for status updates
         """
+        # Store reference to ImageData
+        self._image_data = image_data
+        
         self.sigmaS = 0.0001
-        self.dir_path = img_path
-        self.filename = img_name
-        self.orig_img = np.asarray(img).astype("float32")
+        self.dir_path = str(image_data.img_path)
+        self.filename = image_data.img_name
+        self.orig_img = image_data.img.astype("float32")
         self.image = None
         self.skeletalVarsNotSet = False
         self.extraPeakVarsNotSet = False
 
         self.fitting_error = 0.2
         
-        self.quadrant_folded = False
-        if self.filename.endswith(".tif"):
-            with tifffile.TiffFile(fullPath(self.dir_path, self.filename)) as tif:
-                if "ImageDescription" in tif.pages[0].tags:
-                    metadata = tif.pages[0].tags["ImageDescription"].value
-            if 'folded' in self.filename:
-                self.quadrant_folded = True
-                self.initialImgDim = self.orig_img.shape
-            else:
-                try:
-                    self.quadrant_folded, self.initialImgDim = json.loads(metadata)
-                except Exception:
-                    print(self.filename, " file is not quadrant folded")
+        # Get quadrant folded status from ImageData (already detected)
+        self.quadrant_folded = image_data.is_quadrant_folded
+        if self.quadrant_folded:
+            self.initialImgDim = self.orig_img.shape
 
         self.rotated_img = None
         self.version = __version__
@@ -118,7 +113,8 @@ class EquatorImage:
         print("settings in process eqimg\n")
         print(settings)
         self.updateInfo(settings)
-        self.applyBlankAndMask()
+        # Get working image from ImageData (blank/mask already applied)
+        self.image = self._image_data.get_working_image()
         self.findCenter()
         self.getRotationAngle()
         self.calculateRmin()
@@ -230,23 +226,11 @@ class EquatorImage:
 
     def applyBlankAndMask(self):
         """
-        Subtract the original image with blank image and set pixels in mask below the mask threshold
+        Get working image from ImageData (blank/mask preprocessing handled by ImageData).
+        
+        Kept for backward compatibility but delegates to ImageData.
         """
-        img = np.array(self.orig_img, dtype='float32')
-        if 'blank_mask' in self.info and self.info['blank_mask']:
-            blank, mask = getBlankImageAndMask(self.dir_path)
-            maskOnly = getMaskOnly(self.dir_path)
-            if blank is not None:
-                img = img - blank
-            if mask is not None:
-                # img[mask>0] = self.info['mask_thres']-1
-                img = img * mask
-            if maskOnly is not None:
-                print("Applying mask only image")
-                # img[maskOnly>0] = self.info['mask_thres']-1
-                img = img * maskOnly
-
-        self.image = img
+        self.image = self._image_data.get_working_image()
 
     def findCenter(self):
         """
@@ -260,6 +244,19 @@ class EquatorImage:
             return
         self.parent.statusPrint("Finding Center...")
         print("Center is being calculated...")
+        
+        # Check for manual center from ImageData first
+        if self._image_data.has_manual_center:
+            self.info['center'] = self._image_data.center
+            print("Using manual center from ImageData: " + str(self.info['center']))
+            if self.rotMat is not None:
+                center = self.info['center']
+                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
+                self.info['orig_center'] = (center[0], center[1])
+                print("Original center is " + str(self.info['orig_center']))
+            print("Done. Center is " + str(self.info['center']))
+            return
+        
         if 'center' not in self.info:
             if 'calib_center' in self.info:
                 print("Using Calibration Center")
@@ -288,6 +285,12 @@ class EquatorImage:
         if self.quadrant_folded:
             print("Quadrant folded image: ignoring rotation angle computation")
             self.info['rotationAngle'] = 0
+            return
+
+        # Check for manual rotation from ImageData first
+        if self._image_data.has_manual_rotation:
+            self.info['rotationAngle'] = self._image_data.rotation
+            print("Using manual rotation from ImageData: " + str(self.info['rotationAngle']))
             return
 
         if "fixed_angle" in self.info:
