@@ -99,8 +99,10 @@ def module_test(mode, settings, pickledir, inputpath, compdir=None,
         if mode == 'eq':
             import fabio
             from musclex.utils.file_manager import fullPath
+            from musclex.utils.image_data import ImageData
             img = fabio.open(fullPath(inputpath, filename)).data
-            test_object = EquatorImage(img, inputpath, filename, None)
+            image_data = ImageData(img=img, img_path=inputpath, img_name=filename)
+            test_object = EquatorImage(image_data, None)
             test_name = "EQUATOR IMAGE"
         elif mode == 'qf':
             import fabio

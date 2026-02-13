@@ -34,11 +34,13 @@ from musclex import __version__
 try:
     from ..utils.file_manager import getImgFiles
     from ..modules.EquatorImage import EquatorImage
+    from ..utils.image_data import ImageData
     from ..utils.image_processor import *
     from ..csv_manager import EQ_CSVManager
 except: # for coverage
     from utils.file_manager import getImgFiles
     from modules.EquatorImage import EquatorImage
+    from utils.image_data import ImageData
     from utils.image_processor import *
     from csv_manager import EQ_CSVManager
 
@@ -109,7 +111,8 @@ class EquatorWindowh:
             from musclex.utils.file_manager import fullPath
             import fabio
             img = fabio.open(fullPath(self.dir_path, fileName)).data
-        self.bioImg = EquatorImage(img, self.dir_path, fileName, self)
+        image_data = ImageData(img=img, img_path=self.dir_path, img_name=fileName)
+        self.bioImg = EquatorImage(image_data, self)
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
 

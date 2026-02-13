@@ -62,9 +62,11 @@ def process_one_image(args):
         from musclex.utils.file_manager import load_image_via_spec
         img = load_image_via_spec(dir_path, filename, spec)
         
-        # Create and process EquatorImage with minimal parent
+        # Create ImageData and EquatorImage with minimal parent
+        from musclex.utils.image_data import ImageData
         from musclex.modules.EquatorImage import EquatorImage
-        bioImg = EquatorImage(img, dir_path, filename, parent)
+        image_data = ImageData(img=img, img_path=dir_path, img_name=filename)
+        bioImg = EquatorImage(image_data, parent)
         
         # Process the image
         bioImg.process(settings, paramInfo)

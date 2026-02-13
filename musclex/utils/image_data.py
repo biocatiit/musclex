@@ -224,6 +224,11 @@ class ImageData:
     # ==================== Properties ====================
     
     @property
+    def img(self) -> np.ndarray:
+        """Get raw image array (original, no preprocessing)"""
+        return self._raw_img
+    
+    @property
     def shape(self) -> Tuple[int, int]:
         """Get image shape"""
         return self._raw_img.shape
