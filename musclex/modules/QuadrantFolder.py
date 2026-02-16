@@ -190,20 +190,6 @@ class QuadrantFolder:
         if delStr in dicto:
             del dicto[delStr]
 
-    def readMaskFile(self):
-        """
-        Reads from a file that contains an upper bound and lower bound for
-        pixel values.
-        :return: minimum value(int), maximum value(int)
-        """
-        try:
-            with open(os.path.join(self.img_path, "settings/maskthresh.txt"), "r") as file:
-                lst = file.readlines()
-            return float(lst[0]), float(lst[1])
-        except:
-            print("Ran into some problem reading from mask file.")
-            return -1.0, -1.0
-
     def process(self, flags):
         """
         All processing steps - all flags are provided by Quadrant Folding app as a dictionary
@@ -279,11 +265,7 @@ class QuadrantFolder:
         self.getRminmax()
         self.getTransitionRad()
 
-        try:
-            self.applyBackgroundSubtraction()
-        except Exception as e:
-            print("ERROR: Background subtraction failed.")
-            print(e)
+        self.applyBackgroundSubtraction()
         self.mergeImages()
         self.generateResultImage()
 
@@ -1191,7 +1173,6 @@ class QuadrantFolder:
         method = self.info["bgsub"]
         method2 = self.info["bgsub2"]
         print(f"Background Subtraction is being processed... In method: {method}, Out method: {method2}")
-
 
         # Produce bgimg1
         if "bgimg1" not in self.info:

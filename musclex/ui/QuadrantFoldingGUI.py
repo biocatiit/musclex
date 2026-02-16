@@ -251,7 +251,9 @@ class QuadrantFoldingGUI(BaseGUI):
         self.successCount = 0  # Successful on first attempt
         self.retrySuccessCount = 0  # Successful after retry
         self.retryFailCount = 0  # Failed even after retry
-        self.failedTaskErrors = {}  # {filename: error_message} for final failures
+        self.firstAttemptErrors = {}  # {filename: error_message} for first attempt failures
+        self.failedTaskErrors = {}  # {filename: error_message} for retry failures
+        self.saveErrors = {}  # {filename: error_message} for save failures
         self.imageMaskingTool = None
 
         # NOTE: setCentDialog and setAngleDialog moved to ImageSettingsPanel
@@ -2404,6 +2406,86 @@ class QuadrantFoldingGUI(BaseGUI):
             self.uiUpdating = False
 
 
+    def writeProcessingLog(self):
+        """
+        Write processing summary and error log to qf_results directory.
+        """
+        from datetime import datetime
+        
+        result_path = join(self.filePath, 'qf_results')
+        os.makedirs(result_path, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Calculate totals
+        totalSuccess = self.successCount + self.retrySuccessCount
+        totalFailed = self.retryFailCount
+        totalProcessed = totalSuccess + totalFailed
+        
+        # Count save errors
+        saveErrorCount = len(self.saveErrors) if hasattr(self, 'saveErrors') else 0
+        
+        # Write summary log
+        summary_file = join(result_path, f'processing_summary_{timestamp}.txt')
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write(f"Processing Summary\n")
+            f.write(f"==================\n")
+            f.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Directory: {self.filePath}\n\n")
+            f.write(f"Total processed: {totalProcessed}\n")
+            f.write(f"Successful (first attempt): {self.successCount}\n")
+            f.write(f"Successful (after retry): {self.retrySuccessCount}\n")
+            f.write(f"Failed after retry: {totalFailed}\n")
+            if saveErrorCount > 0:
+                f.write(f"Save errors (processed but failed to save): {saveErrorCount}\n")
+        
+        print(f"Processing summary saved to: {summary_file}")
+        
+        # Write error log if there are failures or save errors
+        if self.failedTaskErrors or (hasattr(self, 'saveErrors') and self.saveErrors):
+            error_file = join(result_path, f'error_log_{timestamp}.txt')
+            with open(error_file, 'w', encoding='utf-8') as f:
+                f.write(f"Error Log\n")
+                f.write(f"=========\n")
+                f.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Directory: {self.filePath}\n")
+                f.write(f"Total processing failed: {len(self.failedTaskErrors)}\n")
+                f.write(f"Total save failed: {saveErrorCount}\n\n")
+                
+                # Processing errors (failed after retry)
+                if self.failedTaskErrors:
+                    f.write(f"{'#'*60}\n")
+                    f.write(f"# PROCESSING ERRORS (failed after retry)\n")
+                    f.write(f"{'#'*60}\n\n")
+                    
+                    for filename, retry_error in self.failedTaskErrors.items():
+                        f.write(f"{'='*60}\n")
+                        f.write(f"File: {filename}\n")
+                        f.write(f"{'='*60}\n\n")
+                        
+                        # Write first attempt error
+                        first_error = self.firstAttemptErrors.get(filename, "N/A")
+                        f.write(f"--- First Attempt Error ---\n")
+                        f.write(f"{first_error}\n\n")
+                        
+                        # Write retry error
+                        f.write(f"--- Retry Attempt Error ---\n")
+                        f.write(f"{retry_error}\n\n")
+                
+                # Save errors (processed successfully but failed to save)
+                if hasattr(self, 'saveErrors') and self.saveErrors:
+                    f.write(f"{'#'*60}\n")
+                    f.write(f"# SAVE ERRORS (processed but failed to save)\n")
+                    f.write(f"{'#'*60}\n\n")
+                    
+                    for filename, save_error in self.saveErrors.items():
+                        f.write(f"{'='*60}\n")
+                        f.write(f"File: {filename}\n")
+                        f.write(f"{'='*60}\n")
+                        f.write(f"{save_error}\n\n")
+            
+            print(f"Error log saved to: {error_file}")
+
     def showProcessingFinishedMessage(self):
         msgBox = QMessageBox()
         msgBox.setWindowTitle("Processing Complete")
@@ -2412,6 +2494,7 @@ class QuadrantFoldingGUI(BaseGUI):
         totalSuccess = self.successCount + self.retrySuccessCount
         totalFailed = self.retryFailCount
         totalProcessed = totalSuccess + totalFailed
+        saveErrorCount = len(self.saveErrors) if hasattr(self, 'saveErrors') else 0
         
         # Build summary text
         summaryText = f"Folder finished processing\n\n"
@@ -2424,6 +2507,12 @@ class QuadrantFoldingGUI(BaseGUI):
         
         if totalFailed > 0:
             summaryText += f"Failed after retry: {totalFailed}\n"
+        
+        if saveErrorCount > 0:
+            summaryText += f"Save errors: {saveErrorCount}\n"
+        
+        # Set icon based on errors
+        if totalFailed > 0 or saveErrorCount > 0:
             msgBox.setIcon(QMessageBox.Warning)
         else:
             msgBox.setIcon(QMessageBox.Information)
@@ -2433,9 +2522,15 @@ class QuadrantFoldingGUI(BaseGUI):
         # Show failed file details if any
         detailText = ""
         if self.failedTaskErrors:
-            detailText = "Failed files:\n"
+            detailText = "Processing failed files:\n"
             for filename, error in self.failedTaskErrors.items():
                 # Show only first line of error for brevity
+                error_brief = error.split('\n')[-2] if '\n' in error else error[:100]
+                detailText += f"  - {filename}: {error_brief}\n"
+        
+        if hasattr(self, 'saveErrors') and self.saveErrors:
+            detailText += "\nSave failed files:\n"
+            for filename, error in self.saveErrors.items():
                 error_brief = error.split('\n')[-2] if '\n' in error else error[:100]
                 detailText += f"  - {filename}: {error_brief}\n"
         
@@ -2556,7 +2651,8 @@ class QuadrantFoldingGUI(BaseGUI):
             self.failedTaskErrors[filename] = error_traceback
             print(f"Task failed after retry: {filename}")
         else:
-            # First failure - queue for retry
+            # First failure - save error and queue for retry
+            self.firstAttemptErrors[filename] = error_traceback
             self.retryQueue.put(params)
             print(f"Task failed, queued for retry: {filename}")
 
@@ -2618,6 +2714,9 @@ class QuadrantFoldingGUI(BaseGUI):
                 # The displayed image remains the same as before batch processing started
                 # If you want to display a specific image after completion, you can manually navigate to it
                 
+                # Write error log and processing summary
+                self.writeProcessingLog()
+                
                 self.showProcessingFinishedMessage()
 
     def startNextTask(self):
@@ -2677,13 +2776,21 @@ class QuadrantFoldingGUI(BaseGUI):
                 img = img[max(yl,0):yh, max(xl,0):xh]
                 print("After cropping, ", img.shape)
                 result_file += '_folded_cropped.tif'
-                if self.compressFoldedImageChkBx.isChecked():
-                    result_file += '_folded_cropped_compressed.tif'
-                    tif_img = Image.fromarray(img)
-                    tif_img.save(result_file, compression='tiff_lzw')
-                else:
-                    result_file += '_folded_cropped.tif'
-                    fabio.tifimage.tifimage(data=img).write(result_file)
+                try:
+                    if self.compressFoldedImageChkBx.isChecked():
+                        result_file += '_folded_cropped_compressed.tif'
+                        tif_img = Image.fromarray(img)
+                        tif_img.save(result_file, compression='tiff_lzw')
+                    else:
+                        result_file += '_folded_cropped.tif'
+                        fabio.tifimage.tifimage(data=img).write(result_file)
+                except Exception as e:
+                    print("Error saving cropped image", e)
+                    # Record save error for logging
+                    if self.batchProcessing and hasattr(self, 'saveErrors'):
+                        import traceback
+                        filename = self.quadFold.img_name
+                        self.saveErrors[filename] = traceback.format_exc()
             else:
                 try:
                     if self.compressFoldedImageChkBx.isChecked():
@@ -2695,6 +2802,11 @@ class QuadrantFoldingGUI(BaseGUI):
                         fabio.tifimage.tifimage(data=img).write(result_file)
                 except Exception as e:
                     print("Error saving image", e)
+                    # Record save error for logging
+                    if self.batchProcessing and hasattr(self, 'saveErrors'):
+                        import traceback
+                        filename = self.quadFold.img_name
+                        self.saveErrors[filename] = traceback.format_exc()
             self.saveBackground()
 
     def saveBackground(self):
@@ -3133,7 +3245,9 @@ class QuadrantFoldingGUI(BaseGUI):
             self.successCount = 0
             self.retrySuccessCount = 0
             self.retryFailCount = 0
+            self.firstAttemptErrors = {}
             self.failedTaskErrors = {}
+            self.saveErrors = {}
             for idx, i in enumerate(img_ids):
                 if self.stop_process:
                     break
