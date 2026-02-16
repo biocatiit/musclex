@@ -88,7 +88,7 @@ class QuadFoldParams:
 class WorkerSignals(QObject):
 
     finished = Signal()
-    error = Signal(tuple)
+    error = Signal(object, object)  # (error_traceback, params) for retry support
     result = Signal(object)
 
 
@@ -137,7 +137,7 @@ class Worker(QRunnable):
             self.saveBackground()
         except Exception as e:
             traceback.print_exc()
-            self.signals.error.emit((traceback.format_exc()))
+            self.signals.error.emit(traceback.format_exc(), self.params)
         else:
             self.signals.result.emit(self.quadFold)
         finally:
@@ -244,6 +244,14 @@ class QuadrantFoldingGUI(BaseGUI):
         self.tasksDone = 0
         self.totalFiles = 1
         self.batchProcessing = False  # Flag to indicate batch processing mode
+        
+        # Retry and statistics tracking
+        self.retryQueue = Queue()  # Queue for failed tasks to retry
+        self.isRetryPhase = False  # Flag to distinguish retry phase
+        self.successCount = 0  # Successful on first attempt
+        self.retrySuccessCount = 0  # Successful after retry
+        self.retryFailCount = 0  # Failed even after retry
+        self.failedTaskErrors = {}  # {filename: error_message} for final failures
         self.imageMaskingTool = None
 
         # NOTE: setCentDialog and setAngleDialog moved to ImageSettingsPanel
@@ -2398,17 +2406,47 @@ class QuadrantFoldingGUI(BaseGUI):
 
     def showProcessingFinishedMessage(self):
         msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Information)
         msgBox.setWindowTitle("Processing Complete")
-        msgBox.setText("Folder finished processing")
+        
+        # Calculate totals
+        totalSuccess = self.successCount + self.retrySuccessCount
+        totalFailed = self.retryFailCount
+        totalProcessed = totalSuccess + totalFailed
+        
+        # Build summary text
+        summaryText = f"Folder finished processing\n\n"
+        summaryText += f"Total processed: {totalProcessed}\n"
+        summaryText += f"Successful: {totalSuccess}"
+        
+        if self.retrySuccessCount > 0:
+            summaryText += f" (including {self.retrySuccessCount} after retry)"
+        summaryText += "\n"
+        
+        if totalFailed > 0:
+            summaryText += f"Failed after retry: {totalFailed}\n"
+            msgBox.setIcon(QMessageBox.Warning)
+        else:
+            msgBox.setIcon(QMessageBox.Information)
+        
+        msgBox.setText(summaryText)
+        
+        # Show failed file details if any
+        detailText = ""
+        if self.failedTaskErrors:
+            detailText = "Failed files:\n"
+            for filename, error in self.failedTaskErrors.items():
+                # Show only first line of error for brevity
+                error_brief = error.split('\n')[-2] if '\n' in error else error[:100]
+                detailText += f"  - {filename}: {error_brief}\n"
+        
+        if detailText:
+            msgBox.setDetailedText(detailText)
+        
         msgBox.setInformativeText("Do you want to exit the application or just close this message?")
 
         # Add buttons
         exitButton = msgBox.addButton("Exit", QMessageBox.ActionRole)
         closeButton = msgBox.addButton("Close", QMessageBox.ActionRole)
-
-        # (Optional) Set a fixed width if you like
-        # msgBox.setFixedWidth(300)
 
         msgBox.exec_()
 
@@ -2499,6 +2537,28 @@ class QuadrantFoldingGUI(BaseGUI):
             self.saveResults()  # Save result images to qf_results/
             # Restore previous reference so UI continues showing user's current image
             self.quadFold = prevQuadFold
+            
+            # Track success statistics
+            if self.isRetryPhase:
+                self.retrySuccessCount += 1
+            else:
+                self.successCount += 1
+
+    def thread_error(self, error_traceback, params):
+        """
+        Handle task error - queue for retry or record final failure.
+        """
+        filename = params.file_manager.names[params.index]
+        
+        if self.isRetryPhase:
+            # Already retried once, record as final failure
+            self.retryFailCount += 1
+            self.failedTaskErrors[filename] = error_traceback
+            print(f"Task failed after retry: {filename}")
+        else:
+            # First failure - queue for retry
+            self.retryQueue.put(params)
+            print(f"Task failed, queued for retry: {filename}")
 
     def thread_finished(self):
 
@@ -2513,6 +2573,25 @@ class QuadrantFoldingGUI(BaseGUI):
             self.startNextTask()
         else:
             if self.threadPool.activeThreadCount() == 0 and self.tasksDone == self.totalFiles:
+                # Check if we need to start retry phase
+                if not self.isRetryPhase and not self.retryQueue.empty():
+                    # Enter retry phase
+                    print(f"Starting retry phase with {self.retryQueue.qsize()} failed tasks")
+                    self.isRetryPhase = True
+                    self.totalFiles = self.retryQueue.qsize()
+                    self.tasksDone = 0
+                    
+                    # Move retry queue items to main task queue
+                    while not self.retryQueue.empty():
+                        self.tasksQueue.put(self.retryQueue.get())
+                    
+                    # Reset progress bar for retry phase
+                    self.progressBar.setValue(0)
+                    self.progressBar.setFormat("Retrying: %p%")
+                    
+                    self.startNextTask()
+                    return
+                
                 print("All threads are complete")
                 self.batchProcessing = False  # Disable batch processing mode
                 self.progressBar.setVisible(False)
@@ -2553,6 +2632,7 @@ class QuadrantFoldingGUI(BaseGUI):
                                       self.bgChoiceIn.currentText(),
                                       bgDict=self.bgAsyncDict, bg_lock=bg_csv_lock)
             self.currentTask.signals.result.connect(self.thread_done)
+            self.currentTask.signals.error.connect(self.thread_error)
             self.currentTask.signals.finished.connect(self.thread_finished)
 
             self.threadPool.start(self.currentTask)
@@ -3046,6 +3126,14 @@ class QuadrantFoldingGUI(BaseGUI):
             self.batchProcessing = True  # Enable batch processing mode
             self.totalFiles = len(img_ids)
             self.tasksDone = 0
+            
+            # Reset retry and statistics tracking
+            self.retryQueue = Queue()
+            self.isRetryPhase = False
+            self.successCount = 0
+            self.retrySuccessCount = 0
+            self.retryFailCount = 0
+            self.failedTaskErrors = {}
             for idx, i in enumerate(img_ids):
                 if self.stop_process:
                     break
