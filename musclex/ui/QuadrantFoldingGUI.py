@@ -1036,7 +1036,6 @@ class QuadrantFoldingGUI(BaseGUI):
         # NOTE: selectFolder.clicked connection removed - folder selection not currently used
         # self.selectFolder.clicked.connect(self._on_browse_folder)
         # Note: intensity/log_scale/colormap changes are handled automatically by ImageViewerWidget
-        # via update_display_settings() which preserves overlays - no need to call refreshImageTab()
         self.showSeparator.stateChanged.connect(self.refreshAllTabs)
         
         ##### Navigation Controls (shared between tabs) #####
@@ -1153,8 +1152,6 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
 
-
-    # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
 
 
 
@@ -1974,8 +1971,7 @@ class QuadrantFoldingGUI(BaseGUI):
 
 
 
-    # NOTE: updateCenterModeIndicator and updateRotationModeIndicator removed
-    # These are now handled by ImageSettingsPanel.update_display()
+
 
     # NOTE: orientationModelChanged removed - fully handled by ImageSettingsPanel.set_orientation_model() now
 
