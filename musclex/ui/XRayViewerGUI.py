@@ -1348,10 +1348,19 @@ class XRayViewerGUI(QMainWindow):
         
         # Open file dialog to get save path
         from PySide6.QtWidgets import QFileDialog
+        import os
+        
+        # Get default filename without extension
+        default_name = ""
+        if self.file_manager.current_image_name:
+            # Remove extension from current image name
+            name_without_ext = os.path.splitext(self.file_manager.current_image_name)[0]
+            default_name = name_without_ext + ".png"
+        
         save_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Current View to PNG",
-            "",
+            default_name,
             "PNG Files (*.png)"
         )
         
