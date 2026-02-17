@@ -1334,7 +1334,7 @@ class XRayViewerGUI(QMainWindow):
 
     def exportCurrentViewToPNG(self):
         """
-        Export the current view to a PNG file.
+        Export the current view to a PNG file (image only, without overlays).
         Opens a file dialog for the user to choose the save location.
         """
         if self.xrayViewer is None or self.xrayViewer.orig_img is None:
@@ -1364,12 +1364,46 @@ class XRayViewerGUI(QMainWindow):
             save_path += '.png'
         
         try:
-            # Get the current figure from the image tab
-            fig = self.imageFigure
+            # Get the current image and zoom bounds
+            img = self.xrayViewer.orig_img
+            xlim = self.imageAxes.get_xlim()
+            ylim = self.imageAxes.get_ylim()
             
-            # Save the figure with current zoom/view settings preserved
-            # Use bbox_inches='tight' to avoid extra whitespace
-            fig.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='white')
+            # Convert zoom bounds to integer pixel coordinates
+            x_min = max(0, int(round(xlim[0])))
+            x_max = min(img.shape[1], int(round(xlim[1])))
+            y_min = max(0, int(round(min(ylim))))
+            y_max = min(img.shape[0], int(round(max(ylim))))
+            
+            # Crop the image to the current view
+            cropped_img = img[y_min:y_max, x_min:x_max]
+            
+            # Get current display settings from the navigator's image viewer
+            display_options = self.navigator.image_viewer.get_display_options()
+            vmin = display_options['vmin']
+            vmax = display_options['vmax']
+            log_scale = display_options['log_scale']
+            colormap = display_options['colormap']
+            
+            # Create a temporary figure to export just the image without overlays
+            temp_fig = plt.figure(figsize=(10, 10))
+            temp_ax = temp_fig.add_subplot(111)
+            
+            # Display the cropped image with current settings
+            if log_scale:
+                temp_ax.imshow(cropped_img, cmap=colormap, 
+                             norm=LogNorm(vmin=max(1, vmin), vmax=vmax))
+            else:
+                temp_ax.imshow(cropped_img, cmap=colormap,
+                             norm=Normalize(vmin=vmin, vmax=vmax))
+            
+            # Remove axes for clean export
+            temp_ax.axis('off')
+            
+            # Save with tight layout
+            temp_fig.savefig(save_path, dpi=150, bbox_inches='tight', 
+                           pad_inches=0, facecolor='black')
+            plt.close(temp_fig)
             
             # Show success message
             self.statusPrint(f"View exported to {save_path}")
