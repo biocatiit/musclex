@@ -41,3 +41,4 @@ Release Notes
    Version-1.26.1
    Version-1.27.0
    Version-1.27.1
+   Version-1.27.2
