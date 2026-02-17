@@ -10,15 +10,10 @@ Release Date : February 2026
 ### Bug Fixes
 - **Persist Intensity**: Fixed bug where unchecking "persist intensity" did not apply to the next image—the previous intensity setting was still used
 - **Process Current Folder Missing Tasks**: Fixed QuadrantFoldingGUI bug where "Process Current Folder" could miss some tasks. Changes include:
-  - Enhanced error handling and retry logic for failed processing tasks
-  - Detailed error signals for retries with statistics tracking (success/failure counts)
-  - Retry phase for failed tasks with improved user feedback
-  - Processing summaries and error reporting in the GUI
-  - New `writeProcessingLog` method for detailed processing summaries and error logs
-  - Refactored `tasks_done.txt` writing: removed `qf_lock`, streamlined logic, safer main-thread handling
-  - Use try-finally to ensure locks are released reliably
-  - Removed unnecessary lock management
-  - QuadrantFolder: Improved cache handling with error logging for cache write failures; processing continues even when caching encounters issues
+  - Retry phase for failed tasks with statistics tracking and improved user feedback
+  - `writeProcessingLog` method for detailed processing summaries and error logs
+  - Refactored `tasks_done.txt` writing: removed `qf_lock`, streamlined logic, safer main-thread handling, try-finally for reliable lock release
+  - QuadrantFolder: Improved cache handling with error logging; processing continues even when caching fails
   - Separate dictionaries for first-attempt and save errors for better diagnostics
 
 ---
