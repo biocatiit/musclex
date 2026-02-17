@@ -259,11 +259,16 @@ class XRayViewerGUI(QMainWindow):
         selectImageAction = QAction('Select an Image...', self)
         selectImageAction.setShortcut('Ctrl+I')
         selectImageAction.triggered.connect(self.navigator.browse_file)
+        
+        exportViewAction = QAction('Export Current View to PNG...', self)
+        exportViewAction.setShortcut('Ctrl+E')
+        exportViewAction.triggered.connect(self.exportCurrentViewToPNG)
 
         menubar = self.menuBar()
         # menubar.setNativeMenuBar(False)
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(selectImageAction)
+        fileMenu.addAction(exportViewAction)
         aboutAct = QAction('About', self)
         aboutAct.triggered.connect(self.showAbout)
         helpMenu = menubar.addMenu('&Help')
@@ -1326,6 +1331,65 @@ class XRayViewerGUI(QMainWindow):
                        "<a href='{0}'>{0}</a><br><br>".format("https://github.com/biocatiit/musclex/issues"))
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec_()
+
+    def exportCurrentViewToPNG(self):
+        """
+        Export the current view to a PNG file.
+        Opens a file dialog for the user to choose the save location.
+        """
+        if self.xrayViewer is None or self.xrayViewer.orig_img is None:
+            infMsg = QMessageBox()
+            infMsg.setText("No Image Loaded")
+            infMsg.setInformativeText("Please load an image before exporting.")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+            return
+        
+        # Open file dialog to get save path
+        from PySide6.QtWidgets import QFileDialog
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Current View to PNG",
+            "",
+            "PNG Files (*.png)"
+        )
+        
+        if not save_path:
+            # User cancelled
+            return
+        
+        # Ensure the file has .png extension
+        if not save_path.lower().endswith('.png'):
+            save_path += '.png'
+        
+        try:
+            # Get the current figure from the image tab
+            fig = self.imageFigure
+            
+            # Save the figure with current zoom/view settings preserved
+            # Use bbox_inches='tight' to avoid extra whitespace
+            fig.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='white')
+            
+            # Show success message
+            self.statusPrint(f"View exported to {save_path}")
+            
+            # Optional: show success dialog
+            infMsg = QMessageBox()
+            infMsg.setText("Export Successful")
+            infMsg.setInformativeText(f"Current view has been saved to:\n{save_path}")
+            infMsg.setStandardButtons(QMessageBox.Ok)
+            infMsg.setIcon(QMessageBox.Information)
+            infMsg.exec_()
+            
+        except Exception as e:
+            # Show error message
+            errMsg = QMessageBox()
+            errMsg.setText("Export Failed")
+            errMsg.setInformativeText(f"Failed to export image:\n{str(e)}")
+            errMsg.setStandardButtons(QMessageBox.Ok)
+            errMsg.setIcon(QMessageBox.Critical)
+            errMsg.exec_()
 
     def statusPrint(self, text):
         """
