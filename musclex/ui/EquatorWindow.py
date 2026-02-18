@@ -988,8 +988,8 @@ class EquatorWindow(QMainWindow):
         Returns:
             (x, y) center in display coordinates, or None
         """
-        if self.bioImg and 'center' in self.bioImg.info:
-            return self.bioImg.info['center']
+        if self.bioImg:
+            return self.bioImg.center
         return None
     
     def _on_image_data_ready(self, image_data):
@@ -1311,7 +1311,7 @@ class EquatorWindow(QMainWindow):
         """
         self.doubleZoomGUI.doubleZoomChecked(img=self.bioImg.getRotatedImage(),
                                              canv=self.displayImgCanvas,
-                                             center=self.bioImg.info['center'],
+                                             center=self.bioImg.center,
                                              is_checked=self.doubleZoom.isChecked())
 
 
@@ -1339,10 +1339,7 @@ class EquatorWindow(QMainWindow):
 
         orig_size = self.bioImg.orig_img.shape 
 
-        if 'rotationAngle' in self.bioImg.info:
-            rotationAngle = self.bioImg.info['rotationAngle']
-        else:
-            rotationAngle = 0
+        rotationAngle = self.bioImg.rotation
 
         trans_x = (img.shape[0] - self.bioImg.orig_img.shape[0]) / 2
         trans_y = (img.shape[1] - self.bioImg.orig_img.shape[1]) / 2
@@ -1412,7 +1409,7 @@ class EquatorWindow(QMainWindow):
         else:
             # Finish peak selections
             self.setPeaksB.setText("Start Manual Peak Selection")
-            centerX = bioImg.info['center'][0]
+            centerX = bioImg.center[0]
             bioImg.info['tmp_peaks']['left'] = [centerX - p for p in self.function[1] if p < centerX]
             bioImg.info['tmp_peaks']['right'] = [p-centerX for p in self.function[1] if p > centerX]
             bioImg.removeInfo('peaks')  # Remove peaks info before re-processing
@@ -1466,7 +1463,7 @@ class EquatorWindow(QMainWindow):
             elif func[0] == "peaks":
                 # Draw selected peaks
                 hist = bioImg.info['hulls']["all"]
-                centerX = bioImg.info['center'][0]
+                centerX = bioImg.center[0]
                 selected_peaks = func[1]
                 x = int(round(x))
                 selected_peaks.append(x)
@@ -2123,17 +2120,14 @@ class EquatorWindow(QMainWindow):
         # This ensures consistency whether user switches images or just reopens the dialog
         quadrant_folded = self.bioImg.quadrant_folded if self.bioImg is not None else False
         
-        # For quadrant folded images, use the geometric center; otherwise use orig_center if available
         center = None
         if self.bioImg is not None:
             if quadrant_folded:
-                # For quadrant folded images, use geometric center directly
                 center = (self.bioImg.orig_img.shape[1] / 2, self.bioImg.orig_img.shape[0] / 2)
                 print(f"Quadrant folded image - using geometric center: {center}")
-            elif 'orig_center' in self.bioImg.info:
-                # Use original center for normal images
-                center = self.bioImg.info['orig_center']
-                print(f"Normal image - using original center: {center}")
+            else:
+                center = self.bioImg.center
+                print(f"Normal image - using center: {center}")
         
         if center is None:
             self.calibSettingDialog = CalibrationSettings(self.dir_path, quadrant_folded=quadrant_folded)
@@ -2390,169 +2384,6 @@ class EquatorWindow(QMainWindow):
             self.bioImg.removeInfo()
             self.processImage()
 
-    def setAngleAndCenterClicked(self):
-        """
-        Prepare for manual rotation angle and center setting
-        """
-        if self.bioImg is None:
-            return
-
-        if self.setRotAndCentB.isChecked():
-            self.setLeftStatus("Click on 2 corresponding reflection peaks along the equator (ESC to cancel)")
-            ax = self.displayImgAxes
-
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["angle_center"]  # set current active function
-        else:
-            self.resetUI()
-
-    def setCenterByPerpClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting perpendiculars
-        """
-        if self.bioImg is None:
-            return
-
-        if self.setCentByPerp.isChecked():
-            self.setLeftStatus("Click on image to select perpendiculars (ESC to cancel)")
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["perp_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            func = self.function
-            print(func)
-            horizontalLines = []
-            verticalLines = []
-            intersections = []
-            for i in range(1, len(func)-1, 2):
-                slope = calcSlope(func[i], func[i+1])
-                if abs(slope)>1:
-                    verticalLines.append((func[i], func[i+1]))
-                else:
-                    horizontalLines.append((func[i], func[i+1]))
-            for line1 in verticalLines:
-                for line2 in horizontalLines:
-                    cx, cy = getIntersectionOfTwoLines(line1, line2)
-                    print("Intersection ", (cx, cy))
-                    intersections.append((cx, cy))
-            cx = int(sum([intersections[i][0] for i in range(0, len(intersections))]) / len(intersections))
-            cy = int(sum([intersections[i][1] for i in range(0, len(intersections))]) / len(intersections))
-
-            print("Center calc ", (cx, cy))
-
-            M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
-            invM = cv2.invertAffineTransform(M)
-            homo_coords = [cx, cy, 1.]
-            new_center = np.dot(invM, homo_coords)
-            # Set new center and rotaion angle , re-calculate R-min
-            self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
-            self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-            self.bioImg.removeInfo('rmin')
-            self.setCentByPerp.setChecked(False)
-            self.processImage()
-
-    def setCenterByChordsClicked(self):
-        """
-        Prepare for manual rotation center setting by selecting chords
-        """
-        if self.bioImg is None:
-            return
-
-        if self.setCentByChords.isChecked():
-            self.setLeftStatus("Click on image to select chords (ESC to cancel)")
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.chordpoints = []
-            self.chordLines = []
-            self.displayImgCanvas.draw_idle()
-            self.function = ["chords_center"]  # set current active function
-        else:
-            QApplication.restoreOverrideCursor()
-            print("Finding Chords center ...")
-            centers = []
-            for i, line1 in enumerate(self.chordLines):
-                for line2 in self.chordLines[i+1:]:
-                    if line1[0] == line2[0]:
-                        continue #parallel lines
-                    if line1[0] == float('inf'):
-                        xcent = line1[1]
-                        ycent = line2[0] * xcent + line2[1]
-                    elif line2[0] == float('inf'):
-                        xcent = line2[1]
-                        ycent = line1[0] * xcent + line1[1]
-                    else:
-                        xcent = (line2[1] - line1[1]) / (line1[0] - line2[0])
-                        ycent = line1[0]*xcent + line1[1]
-                    center = [xcent, ycent]
-                    print("CenterCalc ", center)
-
-                    centers.append(center)
-
-            cx = int(sum([centers[i][0] for i in range(0, len(centers))]) / len(centers))
-            cy = int(sum([centers[i][1] for i in range(0, len(centers))]) / len(centers))
-            M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
-            invM = cv2.invertAffineTransform(M)
-            homo_coords = [cx, cy, 1.]
-            new_center = np.dot(invM, homo_coords)
-            print("New center ", new_center)
-            # Set new center and rotaion angle , re-calculate R-min
-            self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
-            self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-            self.setCentByChords.setChecked(False)
-            self.bioImg.removeInfo('rmin')
-            self.processImage()
-
-    def drawPerpendiculars(self):
-        """
-        Draw perpendiculars on the image
-        """
-        ax = self.displayImgAxes
-        points = self.chordpoints
-        self.chordLines = []
-        for i,p1 in enumerate(points):
-            for p2 in points[i+1:]:
-                slope, cent = getPerpendicularLineHomogenous(p1, p2)
-                if slope == float('inf'):
-                    y_vals = np.array(ax.get_ylim())
-                    x_vals = cent[0] + np.zeros(y_vals.shape)
-                    self.chordLines.append([slope, cent[0]])
-                else:
-                    x_vals = np.array(ax.get_xlim())
-                    y_vals = (x_vals - cent[0])*slope + cent[1]
-                    self.chordLines.append([slope, cent[1] - slope*cent[0]])
-                ax.plot(x_vals, y_vals, linestyle='dashed', color='b')
-
-    def setAngleClicked(self):
-        """
-        Prepare for manual rotation angle setting
-        """
-        if self.bioImg is None:
-            return
-
-        if self.setAngleB.isChecked():
-            self.setLeftStatus("Click on image to select the angle of the equator (ESC to cancel)")
-            ax = self.displayImgAxes
-            for i in range(len(ax.lines)-1,-1,-1):
-                ax.lines[i].remove()
-            for i in range(len(ax.patches)-1,-1,-1):
-                ax.patches[i].remove()
-            self.displayImgCanvas.draw_idle()
-            self.function = ["angle"]  # set current active function
-        else:
-            self.resetUI()
-
     def setRminClicked(self):
         """
         Prepare for manual R-min setting
@@ -2587,65 +2418,49 @@ class EquatorWindow(QMainWindow):
 
     def brightSpotClicked(self):
         """
-        find the oritation along the brightest spots
+        Find orientation along the brightest spots and route results through workspace.
         """
         if self.brightSpot.isChecked():
-            self.setLeftStatus("Please select a center")
+            self.setLeftStatus("Finding orientation from brightest spots...")
             ax = self.displayImgAxes
             for i in range(len(ax.lines)-1,-1,-1):
                 ax.lines[i].remove()
             for i in range(len(ax.patches)-1,-1,-1):
                 ax.patches[i].remove()
             self.displayImgCanvas.draw_idle()
-            # self.function=['bright']
-            if 'center' not in self.bioImg.info:
-                self.bioImg.findCenter()
-            xc,yc=self.bioImg.info['center']
-            ax = self.displayImgAxes
-            # im=self.bioImg.getRotatedImage().copy()
-            im=copy.copy(self.bioImg.getRotatedImage())
 
-            coordinates,m,b=self.fitb(im,xc,yc)
+            xc, yc = self.bioImg.center
+            im = copy.copy(self.bioImg.getRotatedImage())
 
-            ax.scatter(coordinates[:,1],coordinates[:,0],marker='o')
-            fit_eq=m*coordinates[:,1]+b
-            ax.plot(coordinates[:,1],fit_eq,color='r')
-            fit_eq1=m*coordinates[:,1]+b+23*math.sqrt(1+m**2)
-            fit_eq2=m*coordinates[:,1]+b-23*math.sqrt(1+m**2)
-            ax.plot(coordinates[:,1],fit_eq1,color='r')
-            ax.plot(coordinates[:,1],fit_eq2,color='r')
+            coordinates, m, b = self.fitb(im, xc, yc)
+
+            ax.scatter(coordinates[:,1], coordinates[:,0], marker='o')
+            fit_eq = m * coordinates[:,1] + b
+            ax.plot(coordinates[:,1], fit_eq, color='r')
+            fit_eq1 = m * coordinates[:,1] + b + 23 * math.sqrt(1 + m**2)
+            fit_eq2 = m * coordinates[:,1] + b - 23 * math.sqrt(1 + m**2)
+            ax.plot(coordinates[:,1], fit_eq1, color='r')
+            ax.plot(coordinates[:,1], fit_eq2, color='r')
 
             self.displayImgCanvas.draw_idle()
-            for i in range(0,im.shape[0]):
+            for i in range(0, im.shape[0]):
                 for j in range(0, im.shape[1]):
-                    if m*j-i+b+23*math.sqrt(1+m**2)<=0:
-                        im[i][j]=0
-                    elif m*j-i+b+50*math.sqrt(1+m**2)>0 and m*j-i+b-50*math.sqrt(1+m**2)<0:
+                    if m * j - i + b + 23 * math.sqrt(1 + m**2) <= 0:
+                        im[i][j] = 0
+                    elif m * j - i + b + 50 * math.sqrt(1 + m**2) > 0 and m * j - i + b - 50 * math.sqrt(1 + m**2) < 0:
                         pass
                     else:
-                        im[i][j]=0
+                        im[i][j] = 0
 
-            _, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im))
+            _, new_center = processImageForIntCenter(im, getCenter(im))
+            new_angle = math.degrees(math.atan(m))
 
-            center=self.bioImg.info['center']
+            filename = self.file_manager.current_image_name
+            self.workspace.set_center_from_source(filename, new_center, "bright_spot")
+            self.workspace.set_rotation_from_source(filename, new_angle, "bright_spot")
 
-            self.fixedAngleChkBx.setChecked(True)
-
-            new_angle=math.degrees(math.atan(m))
-            #self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
-            angle= self.bioImg.info['rotationAngle'] + new_angle
-            self.bioImg.removeInfo()
-
-            self.bioImg.info['center']=center
-            self.bioImg.info['rotationAngle'] =angle
-
-            self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-            self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
-            self.log_changes('rotationAngle', obj=self.fixedAngle)
             self.brightSpot.setChecked(False)
             self.processImage()
-
-            self.fixedAngleChkBx.setChecked(False)
 
         else:
             self.resetUI()
@@ -2756,9 +2571,9 @@ class EquatorWindow(QMainWindow):
             bioImg = EquatorImage(image_data, self)
             print(f'Getting angle {filename}')
 
-            if 'rotationAngle' not in bioImg.info:
+            angle = bioImg.rotation
+            if angle == 0.0 and not bioImg._image_data.has_manual_rotation and 'rotationAngle' not in bioImg.info:
                 return None
-            angle = bioImg.info['rotationAngle']
             angles.append(angle)
         self.modeOrientation = max(set(angles), key=angles.count)
         return self.modeOrientation
@@ -2929,136 +2744,6 @@ class EquatorWindow(QMainWindow):
         # Provide different behavior depending on current active function
         if func is None:
             self.function = ["im_move", (x, y)]
-        elif func[0] == "chords_center":
-            ax = self.displayImgAxes
-            axis_size = 5
-            self.chordpoints.append([x, y])
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            if len(self.chordpoints) >= 3:
-                self.drawPerpendiculars()
-            self.displayImgCanvas.draw_idle()
-        elif func[0] == "perp_center":
-            ax = self.displayImgAxes
-            axis_size = 5
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            if self.doubleZoom.isChecked() and len(func) > 1 and len(func) % 2 == 0:
-                start_pt = func[len(func) - 1]
-                ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-            self.displayImgCanvas.draw_idle()
-            func.append((x, y))
-
-        elif func[0] == "angle_center":
-            # draw X at points and a line between points
-            ax = self.displayImgAxes
-            axis_size = 5
-            ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            self.displayImgCanvas.draw_idle()
-            func.append((x, y))
-            if len(func) == 3:
-                QApplication.restoreOverrideCursor()
-
-                if func[1][0] < func[2][0]:
-                    x1, y1 = func[1]
-                    x2, y2 = func[2]
-                else:
-                    x1, y1 = func[2]
-                    x2, y2 = func[1]
-
-                if abs(x2 - x1) == 0:
-                    new_angle = -90
-                else:
-                    new_angle = -180. * np.arctan((y1 - y2) / abs(x1 - x2)) / np.pi
-                # new_angle += 90.
-
-                cx = int(round((x1 + x2) / 2.))
-                cy = int(round((y1 + y2) / 2.))
-                # M = cv2.getRotationMatrix2D(tuple(self.bioImg.info['center']), self.bioImg.info['rotationAngle'], 1)
-                new_center = [cx, cy]
-                # Set new center and rotaion angle , re-calculate R-min
-                self.bioImg.info['center'] = (int(round(new_center[0])), int(round(new_center[1])))
-                self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-                self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
-                self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
-                self.log_changes('rotationAngle', obj=self.fixedAngle)
-                self.bioImg.removeInfo('rmin')
-                self.setRotAndCentB.setChecked(False)
-                self.processImage()
-        elif func[0] == "angle":
-            center = self.bioImg.info['center']
-            x1 = center[0]
-            y1 = center[1]
-            if abs(x - x1) == 0:
-                new_angle = -90
-            else:
-                new_angle = -180. * np.arctan((y1 - y) / (x1 - x)) / np.pi
-
-            # Set new rotaion angle , re-calculate from R-min calculation process
-            self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] - new_angle
-            self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
-            self.log_changes('rotationAngle', obj=self.fixedAngle)
-            # self.bioImg.removeInfo('rmin')
-            self.bioImg.removeInfo('int_area')
-            self.setAngleB.setChecked(False)
-            self.processImage()
-        # elif func[0]=="bright":
-            # ax = self.displayImgAxes
-            # axis_size = 5
-            # if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-            #     x,y = self.doubleZoomToOrigCoord(x,y)
-            #     self.doubleZoomMode = True
-            # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-
-            # self.displayImgCanvas.draw_idle()
-            # func.append((x, y))
-            # if len(func) == 2:
-            #     QApplication.restoreOverrideCursor()
-            #     xc,yc=func[1]
-
-            #     # ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-            #     # ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-            #     im=self.bioImg.getRotatedImage().copy()
-
-            #     coordinates,m,b=self.fitb(im,xc,yc)
-
-            #     ax.scatter(coordinates[:,1],coordinates[:,0],marker='o')
-            #     fit_eq=m*coordinates[:,1]+b
-            #     ax.plot(coordinates[:,1],fit_eq,color='r')
-            #     fit_eq1=m*coordinates[:,1]+b+23*math.sqrt(1+m**2)
-            #     fit_eq2=m*coordinates[:,1]+b-23*math.sqrt(1+m**2)
-            #     ax.plot(coordinates[:,1],fit_eq1,color='r')
-            #     ax.plot(coordinates[:,1],fit_eq2,color='r')
-
-            #     self.displayImgCanvas.draw_idle()
-            #     for i in range(0,im.shape[0]):
-            #         for j in range(0, im.shape[1]):
-            #             if m*j-i+b+23*math.sqrt(1+m**2)<=0:
-            #                 im[i][j]=0
-            #             elif m*j-i+b+23*math.sqrt(1+m**2)>0 and m*j-i+b-23*math.sqrt(1+m**2)<0:
-            #                 pass
-            #             else:
-            #                 im[i][j]=0
-
-            #     orig_img, self.bioImg.info['center'] = processImageForIntCenter(im, getCenter(im), self.bioImg.img_type, self.bioImg.info['mask_thres'])
-
-            #     center=self.bioImg.info['center']
-            #     print(center)
-            #     self.bioImg.removeInfo('rmin')
-            #     self.bioImg.removeInfo('int_area')
-            #     self.fixedAngleChkBx.setChecked(True)
-
-            #     new_angle=math.degrees(math.atan(m))
-            #     self.bioImg.info['rotationAngle'] = self.bioImg.info['rotationAngle'] + new_angle
-            #     self.log_changes('center', varName='center', newValue=self.bioImg.info['center'])
-            #     self.fixedAngle.setValue(round(self.bioImg.info['rotationAngle']))
-            #     self.log_changes('rotationAngle', obj=self.fixedAngle)
-            #     self.brightSpot.setChecked(False)
-            #     self.processImage()
-
-            #     self.fixedAngleChkBx.setChecked(False)
         elif func[0] == "int_area":
             # draw 2 horizontal lines
             func.append(y)
@@ -3080,7 +2765,7 @@ class EquatorWindow(QMainWindow):
                 self.processImage()
         elif func[0] == "rmin":
             # Set new R-min, re-calculate from getting integrated area process
-            self.bioImg.info['rmin'] = int(np.round(distance(self.bioImg.info['center'], (x, y))))
+            self.bioImg.info['rmin'] = int(np.round(distance(self.bioImg.center, (x, y))))
             self.fixedRmin.setValue(self.bioImg.info['rmin'])
             self.log_changes('Rmin', obj=self.fixedRmin)
             self.bioImg.removeInfo('int_area')
@@ -3089,7 +2774,7 @@ class EquatorWindow(QMainWindow):
             self.processImage()
         elif func[0] == "rmax":
             # Set new R-min, re-calculate from getting integrated area process
-            self.bioImg.info['rmax'] = int(np.round(distance(self.bioImg.info['center'], (x, y))))
+            self.bioImg.info['rmax'] = int(np.round(distance(self.bioImg.center, (x, y))))
             self.fixedRmax.setValue(self.bioImg.info['rmax'])
             self.log_changes('Rmax', obj=self.fixedRmax)
             self.bioImg.removeInfo('hulls')
@@ -3154,7 +2839,7 @@ class EquatorWindow(QMainWindow):
                 if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
-                    mouse_distance = np.sqrt((self.bioImg.info['center'][0] - x) ** 2 + (self.bioImg.info['center'][1] - y) ** 2)
+                    mouse_distance = np.sqrt((self.bioImg.center[0] - x) ** 2 + (self.bioImg.center[1] - y) ** 2)
                     mouse_distance = f"{mouse_distance:.4f}"
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]) + ", distance=" + str(mouse_distance) + unit)
                 if self.doubleZoom.isChecked() and self.doubleZoomGUI.doubleZoomMode and x > 10 and x < img.shape[1]-10 and y > 10 and y < img.shape[0]-10:
@@ -3215,27 +2900,6 @@ class EquatorWindow(QMainWindow):
                     self.doubleZoomGUI.updateAxes(x, y)
             self.displayImgCanvas.draw_idle()
 
-        elif func[0] == "angle":
-            # draw line as angle
-            center = self.bioImg.info["center"]
-            deltax = x - center[0]
-            deltay = y - center[1]
-            x2 = center[0] - deltax
-            y2 = center[1] - deltay
-            ax = self.displayImgAxes
-            if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                for i in range(len(ax.lines)-1,-1,-1):
-                    if ax.lines[i].get_label() != "Blue Dot":
-                        ax.lines[i].remove()
-                ax.plot([x, x2], [y, y2], color="g")
-            else:
-                if (not self.doubleZoomGUI.doubleZoomMode) and x < 200 and y < 200:
-                    self.doubleZoomGUI.updateAxesInner(x, y)
-                elif self.doubleZoomGUI.doubleZoomMode:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        ax.lines[i].remove()
-                    ax.plot([x, x2], [y, y2], color="g")
-            self.displayImgCanvas.draw_idle()
         elif func[0] == "int_area":
             # draw horizontal lines
             ax = self.displayImgAxes
@@ -3260,7 +2924,7 @@ class EquatorWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
         elif func[0] in ("rmin", "rmax"):
             # draw R-min circle
-            center = self.bioImg.info['center']
+            center = self.bioImg.center
             dis = int(np.round(distance(center, (x, y))))
             ax = self.displayImgAxes
             if not self.doubleZoom.isChecked():
@@ -3277,101 +2941,6 @@ class EquatorWindow(QMainWindow):
                     ax.add_patch(
                         patches.Circle(tuple(center), dis, linewidth=2, edgecolor='r', facecolor='none', linestyle='dotted'))
             self.displayImgCanvas.draw_idle()
-        elif func[0] == "angle_center":
-            # draw X on points and a line between points
-            ax = self.displayImgAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-
-            if len(func) == 1:
-                if len(ax.lines) > 0:
-                    for i in range(len(ax.lines)-1,-1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) == 2:
-                start_pt = func[1]
-                if len(ax.lines) > 2:
-                    # first_cross = ax.lines[:2]
-                    for i in range(len(ax.lines)-1,1,-1):
-                        if ax.lines[i].get_label() != "Blue Dot":
-                            ax.lines[i].remove()
-                    # ax.lines = first_cross
-                if not self.doubleZoom.isChecked():
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-            # self.displayImgCanvas.flush_events()
-        elif func[0] == "perp_center":
-            # draw X on points and a line between points
-            ax = self.displayImgAxes
-            # ax2 = self.displayImgFigure.add_subplot(4,4,13)
-            axis_size = 5
-            if len(func) == 1:
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.lines) > 0:
-                        for i in range(len(ax.lines)-1,-1,-1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) == 2:
-                start_pt = func[1]
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.lines) > 2:
-                        # first_cross = ax.lines[:2]
-                        for i in range(len(ax.lines)-1,1,-1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) % 2 != 0:
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.lines) > 0:
-                        n = (len(func)-1)*5//2 + 2
-                        # first_cross = ax.lines[:n]
-                        for i in range(len(ax.lines)-1,n-1,-1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    # ax.lines = first_cross
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            elif len(func) % 2 == 0:
-                start_pt = func[-1]
-                if not self.doubleZoom.isChecked() or self.doubleZoomGUI.doubleZoomMode:
-                    if len(ax.lines) > 3:
-                        n = len(func) * 5 // 2 - 1
-                        # first_cross = ax.lines[:n]
-                        for i in range(len(ax.lines)-1,n-1,-1):
-                            if ax.lines[i].get_label() != "Blue Dot":
-                                ax.lines[i].remove()
-                    # ax.lines = first_cross
-                    ax.plot((x - axis_size, x + axis_size), (y - axis_size, y + axis_size), color='r')
-                    ax.plot((x - axis_size, x + axis_size), (y + axis_size, y - axis_size), color='r')
-                    ax.plot((start_pt[0], x), (start_pt[1], y), color='r')
-                else:
-                    self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-
-        elif func[0] == "chords_center":
-            if self.doubleZoom.isChecked():
-                self.doubleZoomGUI.updateAxes(x, y)
-            self.displayImgCanvas.draw_idle()
-
         elif func[0] == "im_move":
             # change zoom-in location (x,y ranges) to move around image
             if self.img_zoom is not None:
@@ -3912,7 +3481,7 @@ class EquatorWindow(QMainWindow):
         if 'orientation_model' in info:
             self.orientationModel = info['orientation_model']
         if not self.zoomOutClicked and self.bioImg.quadrant_folded:
-            cx, cy = self.bioImg.info['center']
+            cx, cy = self.bioImg.center
             xlim, ylim = self.bioImg.initialImgDim
             xlim, ylim = int(xlim/2), int(ylim/2)
             self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
@@ -4080,7 +3649,7 @@ class EquatorWindow(QMainWindow):
 
         img = self.bioImg.getRotatedImage()
         hulls = info['hulls']['all']
-        center = info['center']
+        center = self.bioImg.center
         rmin = info['rmin']
         int_area = info['int_area']
 
@@ -4619,7 +4188,7 @@ class EquatorWindow(QMainWindow):
         for objName in self.editableVars:
             self.editableVars[objName] = self.findChild(QAbstractSpinBox, objName).value()
         self.editableVars['int_area'] = self.bioImg.info['int_area']
-        self.editableVars['center'] = self.bioImg.info['center']
+        self.editableVars['center'] = self.bioImg.center
         self.left_fitting_tab.init_logging()
         self.right_fitting_tab.init_logging()
         self.calibSettingDialog.init_logging()

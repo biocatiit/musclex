@@ -101,6 +101,24 @@ class EquatorImage:
         else:
             self.parent = self
 
+    @property
+    def center(self):
+        """Get center dynamically: manual (from ImageData) > auto-detected (from info cache) > geometric."""
+        if self._image_data.has_manual_center:
+            return self._image_data.center
+        if 'center' in self.info:
+            return self.info['center']
+        return (self.orig_img.shape[1] / 2 - 0.5, self.orig_img.shape[0] / 2 - 0.5)
+
+    @property
+    def rotation(self):
+        """Get rotation dynamically: manual (from ImageData) > auto-detected (from info cache) > 0."""
+        if self._image_data.has_manual_rotation:
+            return self._image_data.rotation
+        if 'rotationAngle' in self.info:
+            return self.info['rotationAngle']
+        return 0.0
+
     def process(self, settings, paramInfo=None):
         """
         All processing steps - all settings are provided by bio-muscle app as a dictionary
@@ -234,33 +252,21 @@ class EquatorImage:
 
     def findCenter(self):
         """
-        Find center of the diffraction. The center will be kept in self.info["center"].
-        Once the center is calculated, the rotation angle will be re-calculated, so self.info["rotationAngle"] is deleted
+        Auto-detect center of the diffraction and store in self.info["center"].
+        Manual center is handled by the center @property (reads from ImageData).
         """
-
         if self.quadrant_folded:
             self.info['center'] = self.orig_img.shape[1] / 2, self.orig_img.shape[0] / 2
             print("QF Center is " + str(self.info['center']))
             return
+
+        if self._image_data.has_manual_center:
+            print("Using manual center from ImageData: " + str(self.center))
+            return
+
         self.parent.statusPrint("Finding Center...")
         print("Center is being calculated...")
-        
-        # Check for manual center from ImageData first
-        # Match ProjectionProcessor: center is dynamic from ImageData, no stale cache
-        if self._image_data.has_manual_center:
-            self.info['center'] = self._image_data.center
-            # Manual center is in ORIGINAL image coords (workspace already transformed)
-            self.info['orig_center'] = self.info['center']
-            print("Using manual center from ImageData: " + str(self.info['center']))
-            # Invalidate dependent cache (like ProjectionProcessor: always read fresh)
-            # rotMat/rotated_img were for OLD center - force fresh rotation
-            self.rotated_img = None
-            self.rotMat = None
-            for k in ('rotationAngle', 'rmin', 'int_area', 'hist', 'hulls', 'tmp_peaks', 'peaks'):
-                self.removeInfo(k)
-            print("Done. Center is " + str(self.info['center']))
-            return
-        
+
         if 'center' not in self.info:
             if 'calib_center' in self.info:
                 print("Using Calibration Center")
@@ -270,19 +276,13 @@ class EquatorImage:
                 self.image, self.info['center'] = processImageForIntCenter(self.image, getCenter(self.image))
             else:
                 self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
-            self.removeInfo('rotationAngle') # Remove rotationAngle from info dict to make it be re-calculated
-        else:
-            if self.rotMat is not None:
-                center = self.info['center']
-                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
-                self.info['orig_center'] = (center[0], center[1])
-                print("Original center is " + str(self.info['orig_center']))
-        print("Done. Center is " + str(self.info['center']))
+            self.removeInfo('rotationAngle')
+        print("Done. Center is " + str(self.center))
 
     def getRotationAngle(self):
         """
-        Find rotation angle of the diffraction. Turn the diffraction equator to be horizontal. The angle will be kept in self.info["rotationAngle"]
-        Once the rotation angle is calculated, the rmin will be re-calculated, so self.info["rmin"] is deleted
+        Auto-detect rotation angle and store in self.info["rotationAngle"].
+        Manual rotation is handled by the rotation @property (reads from ImageData).
         """
         self.parent.statusPrint("Finding Rotation Angle...")
 
@@ -291,10 +291,8 @@ class EquatorImage:
             self.info['rotationAngle'] = 0
             return
 
-        # Check for manual rotation from ImageData first
         if self._image_data.has_manual_rotation:
-            self.info['rotationAngle'] = self._image_data.rotation
-            print("Using manual rotation from ImageData: " + str(self.info['rotationAngle']))
+            print("Using manual rotation from ImageData: " + str(self.rotation))
             return
 
         if "fixed_angle" in self.info:
@@ -304,19 +302,19 @@ class EquatorImage:
 
         print("Rotation Angle is being calculated...")
         if 'rotationAngle' not in self.info:
-            center = self.info['center']
+            center = self.center
             img = copy.copy(self.image)
             if 'detector' in self.info:
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
             else:
                 self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
-            self.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
+            self.removeInfo('rmin')
 
         if "mode_angle" in self.info:
             print(f'Using mode orientation {self.info["mode_angle"]}')
             self.info['rotationAngle'] = self.info["mode_angle"]
 
-        print("Done. Rotation Angle is " + str(self.info['rotationAngle']))
+        print("Done. Rotation Angle is " + str(self.rotation))
 
     def calculateRmin(self):
         """
@@ -335,7 +333,7 @@ class EquatorImage:
                 img = copy.copy(self.image)
             else:
                 img = copy.copy(self.orig_img)
-            center = self.info['center']
+            center = self.center
 
             if 'detector' in self.info:
                 det = find_detector(img, man_det=self.info['detector'])
@@ -366,25 +364,17 @@ class EquatorImage:
             img = copy.copy(self.image)
 
         if angle is None:
-            angle = self.info['rotationAngle']
+            angle = self.rotation
         if '90rotation' in self.info and self.info['90rotation'] is True:
             angle = angle - 90 if angle > 90 else angle + 90
 
+        center = self.center
         if self.rotated_img is not None:
-            centersNotEq = self.rotated_img[0] != self.info["center"] if type(self.rotated_img[0] != self.info["center"]) == bool else (self.rotated_img[0] != self.info["center"]).any()
-        if self.rotated_img is None or centersNotEq or self.rotated_img[1] != self.info["rotationAngle"] or (self.rotated_img[2] != img).any():
-            # encapsulate rotated image for using later as a list of [center, angle, original image, rotated image[
-
-            center = self.info["center"]
-
-            if "orig_center" in self.info:
-                center = self.info["orig_center"]
-
-            else:
-                self.info["orig_center"] = center
-
-            rotImg, self.info["center"], self.rotMat = rotateImage(img, center, angle)
-            self.rotated_img = [self.info["center"], angle, img, rotImg]
+            centersNotEq = self.rotated_img[0] != center if type(self.rotated_img[0] != center) == bool else (self.rotated_img[0] != center).any()
+        if self.rotated_img is None or centersNotEq or self.rotated_img[1] != angle or (self.rotated_img[2] != img).any():
+            self.rotMat = cv2.getRotationMatrix2D(tuple(center), angle, 1)
+            rotImg = rotateImageAboutPoint(img, center, angle)
+            self.rotated_img = [center, angle, img, rotImg]
 
         return self.rotated_img[3]
 
@@ -397,7 +387,7 @@ class EquatorImage:
         self.parent.statusPrint("Calculating Integrated Area...")
         print("Integrated Area is being calculated...")
         if 'int_area' not in self.info:
-            center = self.info['center']
+            center = self.center
             if 'fixed_int_area' in self.info: # integrated area is fixed by users
                 self.info['int_area'] = self.info['fixed_int_area']
             else:
@@ -405,7 +395,6 @@ class EquatorImage:
                 img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin) # remove center location
 
                 rotate_img = self.getRotatedImage(img) # rotate image
-                center = self.info["center"] #since rotation might change center
                 init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
                 top = max(0, int(center[1]) - init_range)
                 bottom = min(int(center[1]) + init_range, rotate_img.shape[0])
@@ -493,7 +482,7 @@ class EquatorImage:
         self.parent.statusPrint("Applying Convex Hull...")
         print("Applying Convexhull...")
         if 'hulls' not in self.info:
-            center = self.info['center']
+            center = self.center
             shapes = self.image.shape
             if 'rmax' in self.info:
                 rmax = self.info['rmax']
@@ -860,7 +849,7 @@ class EquatorImage:
             x = np.arange(0, len(hull_hist))
             histNdarray = np.array(hull_hist)
             # total_area = sum(histNdarray)
-            centerX = self.info['center'][0]
+            centerX = self.center[0]
 
             margin = 10.
             S0=0
