@@ -182,7 +182,7 @@ class EquatorWindowh:
             self.orientationModel = info['orientation_model']
 
         if self.bioImg.quadrant_folded:
-            cx, cy = self.bioImg.info['center']
+            cx, cy = self.bioImg.center
             xlim, ylim = self.bioImg.initialImgDim
             xlim, ylim = int(xlim/2), int(ylim/2)
             self.default_img_zoom = [(cx-xlim, cx+xlim), (cy-ylim, cy+ylim)]
