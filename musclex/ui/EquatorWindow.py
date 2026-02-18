@@ -257,22 +257,13 @@ class EquatorWindow(QMainWindow):
         # Update Image tab preview if visible
         if self.tabWidget.currentIndex() == 0:  # Image tab
             if task.result and not task.error:
-                # Update bioImg with processed image data from worker
                 self.bioImg.info = task.result['info']
                 self.bioImg.image = task.result['image']
-                # Reconstruct rotated_img cache
-                self.bioImg.rotated_img = [
-                    task.result['info']['center'],
-                    task.result['info']['rotationAngle'],
-                    task.result['image'],
-                    task.result['rotated_img']
-                ]
                 self.updateImageTab()
         
         # Immediately release large image data after UI update to prevent memory accumulation
         if task.result:
             task.result['image'] = None
-            task.result['rotated_img'] = None
 
         # Check if batch is complete - check after each UI update
         # Must ensure: all tasks done + all accounted for + no pending UI updates
