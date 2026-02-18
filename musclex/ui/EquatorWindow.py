@@ -158,7 +158,6 @@ class EquatorWindow(QMainWindow):
         self._scan_timer.timeout.connect(self._checkScanDone)
         
         self.current_image_data = None  # Current ImageData object
-        self.calSettings = None
         self.filePath = ""
         self.dir_path = ""
         
@@ -427,7 +426,6 @@ class EquatorWindow(QMainWindow):
         # NOTE: Center/rotation buttons are now provided by ProcessingWorkspace
         # Expose workspace's buttons for backward compatibility
         self.calibrationB = self.workspace._center_widget.calibrationButton
-        self.calibSettingDialog = None
         self.setRotAndCentB = self.workspace._center_widget.setCenterRotationButton
         self.setCentByChords = self.workspace._center_widget.setCentByChords
         self.setCentByPerp = self.workspace._center_widget.setCentByPerp
@@ -1248,17 +1246,18 @@ class EquatorWindow(QMainWindow):
             if side+'_fix_gammaz_EP' in settings:
                 text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
 
-        if self.calSettings is not None:
-            if "center" in self.calSettings:
-                text += "\n  - Calibration Center : " + str(self.calSettings["center"])
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
-                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+        calSettings = self.workspace.calibration_settings
+        if calSettings is not None:
+            if "center" in calSettings:
+                text += "\n  - Calibration Center : " + str(calSettings["center"])
+            if 'type' in calSettings:
+                if calSettings["type"] == "img":
+                    text += "\n  - Silver Behenate : " + str(calSettings["silverB"]) + " nm"
+                    text += "\n  - Sdd : " + str(calSettings["radius"]) + " pixels"
                 else:
-                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
-                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
-                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+                    text += "\n  - Lambda : " + str(calSettings["lambda"]) + " nm"
+                    text += "\n  - Sdd : " + str(calSettings["sdd"]) + " mm"
+                    text += "\n  - Pixel Size : " + str(calSettings["pixel_size"]) + " nm"
 
         text += '\n\nAre you sure you want to process ' + str(
             nImg) + ' image(s) in this Folder? \nThis might take a long time.'
@@ -1936,22 +1935,23 @@ class EquatorWindow(QMainWindow):
             if side+'_fix_gammaz_EP' in settings:
                 text += "\n  - "+side+" Fixed Extra Peak Gamma : " + str(settings[side+'_fix_gammaz_EP'])
 
-        if self.calSettings is not None and len(self.calSettings) > 0:
+        calSettings = self.workspace.calibration_settings
+        if calSettings is not None and len(calSettings) > 0:
             # For quadrant folded images, always show that geometric center is used
             if self.bioImg and self.bioImg.quadrant_folded:
                 geo_center = (self.bioImg.orig_img.shape[1] / 2, self.bioImg.orig_img.shape[0] / 2)
                 text += "\n  - Calibration Center : " + str(geo_center) + " (geometric center for quadrant folded)"
-            elif "center" in self.calSettings:
-                text += "\n  - Calibration Center : " + str(self.calSettings["center"])
+            elif "center" in calSettings:
+                text += "\n  - Calibration Center : " + str(calSettings["center"])
             
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    text += "\n  - Silver Behenate : " + str(self.calSettings["silverB"]) + " nm"
-                    text += "\n  - Sdd : " + str(self.calSettings["radius"]) + " pixels"
+            if 'type' in calSettings:
+                if calSettings["type"] == "img":
+                    text += "\n  - Silver Behenate : " + str(calSettings["silverB"]) + " nm"
+                    text += "\n  - Sdd : " + str(calSettings["radius"]) + " pixels"
                 else:
-                    text += "\n  - Lambda : " + str(self.calSettings["lambda"]) + " nm"
-                    text += "\n  - Sdd : " + str(self.calSettings["sdd"]) + " mm"
-                    text += "\n  - Pixel Size : " + str(self.calSettings["pixel_size"]) + " nm"
+                    text += "\n  - Lambda : " + str(calSettings["lambda"]) + " nm"
+                    text += "\n  - Sdd : " + str(calSettings["sdd"]) + " mm"
+                    text += "\n  - Pixel Size : " + str(calSettings["pixel_size"]) + " nm"
 
         text += f'\n\nAre you sure you want to process {nImg} image(s)? \nThis might take a long time.'
         return text
@@ -2109,66 +2109,6 @@ class EquatorWindow(QMainWindow):
                 QTimer.singleShot(0, self.close)
 
 
-
-    def setCalibrationImage(self, force=False):
-        """
-        Popup Calibration Settings window, if there's calibration settings in cache or calibration.tif in the folder
-        :param force: force to popup the window
-        :return: True if calibration set, False otherwise
-        """
-        # Always recreate dialog to ensure all states (quadrant_folded, center, etc.) are current
-        # This ensures consistency whether user switches images or just reopens the dialog
-        quadrant_folded = self.bioImg.quadrant_folded if self.bioImg is not None else False
-        
-        center = None
-        if self.bioImg is not None:
-            if quadrant_folded:
-                center = (self.bioImg.orig_img.shape[1] / 2, self.bioImg.orig_img.shape[0] / 2)
-                print(f"Quadrant folded image - using geometric center: {center}")
-            else:
-                center = self.bioImg.center
-                print(f"Normal image - using center: {center}")
-        
-        if center is None:
-            self.calibSettingDialog = CalibrationSettings(self.dir_path, quadrant_folded=quadrant_folded)
-        else:
-            self.calibSettingDialog = CalibrationSettings(self.dir_path, center=center, quadrant_folded=quadrant_folded)
-
-        self.calSettings = None
-        cal_setting = self.calibSettingDialog.calSettings
-
-        print('cal_setting is:',cal_setting)
-        if cal_setting is not None or force:
-
-            result = self.calibSettingDialog.exec_()
-            logMsgs = self.calibSettingDialog.logMsgs
-            if result == 1:
-                self.calSettings = self.calibSettingDialog.getValues()
-
-                # For quadrant folded images, never use calibrated center (always use geometric center)
-                if "center" in self.calSettings and not quadrant_folded:
-                    self.bioImg.info['calib_center'] = self.calSettings["center"]
-                    self.bioImg.removeInfo('center')
-                if "detector" in self.calSettings:
-                    self.bioImg.info["detector"] = self.calSettings["detector"]
-                # Unchecking use previous fit
-                if self.use_previous_fit_chkbx.isChecked():
-                    print("Calibration setting changed, unchecking use previous fit")
-                    msg = QMessageBox()
-                    msg.setInformativeText(
-                        "Calibration setting changed, unchecking use previous fit")
-                    msg.setStandardButtons(QMessageBox.Ok)
-                    msg.setWindowTitle("Unchecking Use Previous fit")
-                    msg.setStyleSheet("QLabel{min-width: 500px;}")
-                    msg.exec_()
-                    self.use_previous_fit_chkbx.setChecked(False)
-
-                for msg in logMsgs:
-                    self.write_log('(calib) ' + msg)
-                del logMsgs[:]
-                return True
-            del logMsgs[:]
-        return False
 
     def rejectClicked(self):
         """
@@ -2374,15 +2314,6 @@ class EquatorWindow(QMainWindow):
             self.processFolder()
         elif key == Qt.Key_O:
             self.browseFile()
-
-    def calibrationClicked(self):
-        """
-        Triggered when calibration settings button pressed
-        """
-        success = self.setCalibrationImage(force=True)
-        if self.bioImg is not None and success:
-            self.bioImg.removeInfo()
-            self.processImage()
 
     def setRminClicked(self):
         """
@@ -2817,13 +2748,14 @@ class EquatorWindow(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             unit = "px"
-            if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
-                if 'center' in self.calSettings and self.calSettings['center'] is not None:
-                    center = self.calSettings['center']
+            calSettings = self.workspace.calibration_settings
+            if calSettings is not None and 'scale' in calSettings:
+                if 'center' in calSettings and calSettings['center'] is not None:
+                    center = calSettings['center']
                 else:
                     center = (self.bioImg.info['centerx'], self.bioImg.info['centery'])
                 mouse_distance = np.sqrt((center[0] - x) ** 2 + (center[1] - y) ** 2)
-                scale = self.calSettings['scale']
+                scale = calSettings['scale']
                 d = mouse_distance / scale
                 if (d > 0.01):
                     q = 1.0/d
@@ -2832,11 +2764,8 @@ class EquatorWindow(QMainWindow):
                     q = mouse_distance
         
                 q = f"{q:.4f}"
-                # constant = self.calSettings["silverB"] * self.calSettings["radius"]
-                # calib_distance = mouse_distance * 1.0/constant
-                # calib_distance = f"{calib_distance:.4f}"
             if img is not None and img.shape is not None and x < img.shape[1] and y < img.shape[0]:
-                if self.calSettings is not None and self.calSettings and 'scale' in self.calSettings:
+                if calSettings is not None and 'scale' in calSettings:
                     self.pixel_detail.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x])+ ", distance=" + str(q) + unit)
                 else:
                     mouse_distance = np.sqrt((self.bioImg.center[0] - x) ** 2 + (self.bioImg.center[1] - y) ** 2)
@@ -3122,8 +3051,6 @@ class EquatorWindow(QMainWindow):
         if first_run:
             if 'paramInfo' in self.bioImg.info:
                 self.k_chkbx.setChecked(self.bioImg.info['paramInfo']['k']['fixed'])
-            self.calSettings = None
-        
         # Prepare settings
         if first_run:
             settings = self.getSettings(first_run=(True if 'model' not in self.bioImg.info else False))
@@ -3141,7 +3068,7 @@ class EquatorWindow(QMainWindow):
         
         # First-run specific setup
         if first_run:
-            self.setCalibrationImage()  # Must be after initWidgets
+            self.workspace.show_calibration_dialog(self.workspace._current_image_data, force=False)
             self.setH5Mode()
             self.initProcessExecutor()
             self.uiUpdateTimer.start()
@@ -3520,19 +3447,17 @@ class EquatorWindow(QMainWindow):
         settings['mask_thres'] = self.maskThresSpnBx.value()
         settings['90rotation'] = self.rotation90ChkBx.isChecked()
 
-        if self.calSettings is not None:
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    settings["lambda_sdd"] = self.calSettings["silverB"] * self.calSettings["radius"]
+        calSettings = self.workspace.calibration_settings
+        if calSettings is not None:
+            if 'type' in calSettings:
+                if calSettings["type"] == "img":
+                    settings["lambda_sdd"] = calSettings["silverB"] * calSettings["radius"]
                 else:
-                    settings["lambda_sdd"] = 1. * self.calSettings["lambda"] * self.calSettings["sdd"] / self.calSettings[
-                        "pixel_size"]
-            # Always save calibrated center if available
-            # Whether to USE it is controlled by Persistent Center in main GUI
-            if "center" in self.calSettings:
-                settings["calib_center"] = self.calSettings["center"]
-            if "detector" in self.calSettings and self.calibSettingDialog.manDetector.isChecked():
-                settings["detector"] = self.calSettings["detector"]
+                    settings["lambda_sdd"] = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
+            if "center" in calSettings:
+                settings["calib_center"] = calSettings["center"]
+            if "detector" in calSettings:
+                settings["detector"] = calSettings["detector"]
 
         if self.fixedAngleChkBx.isChecked():
             settings['fixed_angle'] = self.fixedAngle.value()
@@ -3662,8 +3587,6 @@ class EquatorWindow(QMainWindow):
         if self.rotation90ChkBx.isEnabled():
             self.rotation90ChkBx.setChecked('90rotation' in info and info['90rotation'])
 
-        self.calibSettingDialog.centerX.setValue(center[0])
-        self.calibSettingDialog.centerY.setValue(center[1])
         if self.centerChkBx.isChecked():
             # Draw center
             ax.plot([center[0]], [center[1]], 'bo')
@@ -3825,18 +3748,19 @@ class EquatorWindow(QMainWindow):
         else:
             genResults +=  "<b>Model cannot be fit</b>"
 
-        if self.calSettings is not None:
+        calSettings = self.workspace.calibration_settings
+        if calSettings is not None:
             genResults += "<h2>Calibration Settings</h2>"
-            if "center" in self.calSettings:
-                genResults += "<b>Calibration Center : </b>" + str(self.calSettings["center"]) + '<br/><br/>'
-            if 'type' in self.calSettings:
-                if self.calSettings["type"] == "img":
-                    genResults += "<b>S<sub>dd</sub> (in pixel) : </b>" + str(self.calSettings["radius"]) + '<br/><br/>'
-                    genResults += "<b>Calibrant ring d-spacing : </b>" + str(self.calSettings["silverB"]) + '<br/><br/>'
+            if "center" in calSettings:
+                genResults += "<b>Calibration Center : </b>" + str(calSettings["center"]) + '<br/><br/>'
+            if 'type' in calSettings:
+                if calSettings["type"] == "img":
+                    genResults += "<b>S<sub>dd</sub> (in pixel) : </b>" + str(calSettings["radius"]) + '<br/><br/>'
+                    genResults += "<b>Calibrant ring d-spacing : </b>" + str(calSettings["silverB"]) + '<br/><br/>'
                 else:
-                    genResults += "<b>Lambda : </b>" + str(self.calSettings["lambda"]) + '<br/><br/>'
-                    genResults += "<b>S<sub>dd</sub> : </b>" + str(self.calSettings["sdd"]) + '<br/><br/>'
-                    genResults += "<b>Pixel Size : </b>" + str(self.calSettings["pixel_size"]) + '<br/><br/>'
+                    genResults += "<b>Lambda : </b>" + str(calSettings["lambda"]) + '<br/><br/>'
+                    genResults += "<b>S<sub>dd</sub> : </b>" + str(calSettings["sdd"]) + '<br/><br/>'
+                    genResults += "<b>Pixel Size : </b>" + str(calSettings["pixel_size"]) + '<br/><br/>'
 
         if len(genResults) > 0:
             self.generalResults.setText(genResults)
@@ -4191,7 +4115,6 @@ class EquatorWindow(QMainWindow):
         self.editableVars['center'] = self.bioImg.center
         self.left_fitting_tab.init_logging()
         self.right_fitting_tab.init_logging()
-        self.calibSettingDialog.init_logging()
 
     def write_log(self, msg):
         """
