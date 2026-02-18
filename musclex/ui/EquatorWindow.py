@@ -412,6 +412,14 @@ class EquatorWindow(QMainWindow):
         self.image_viewer.display_panel.add_to_bottom_slot(fittingErrorContainer)
 
 
+        qf_checkbox = self.workspace.create_qf_checkbox()
+        self.workspace.right_panel.add_widget(qf_checkbox)
+        self.workspace.right_panel.add_widget(self.workspace._center_widget)
+        self.workspace.right_panel.add_widget(self.workspace._rotation_widget)
+        self.workspace.right_panel.add_widget(self.workspace._blank_mask_widget)
+
+
+
         self.imgProcGrp = QGroupBox("Image Processing")
         self.imgProcGrp.setStyleSheet("QGroupBox { font-weight: bold; }")
         self.imgProcLayout = QGridLayout()
@@ -465,7 +473,6 @@ class EquatorWindow(QMainWindow):
         # NOTE: Blank/mask settings now handled by ProcessingWorkspace
         self.doubleZoom = QCheckBox("Double Zoom")
         self.doubleZoom.setChecked(False)
-        self.quadrantFoldCheckbx = QCheckBox("Quadrant Folded?")
         self.maskThresSpnBx = QDoubleSpinBox()
         self.maskThresSpnBx.setObjectName('maskThresSpnBx')
         self.editableVars[self.maskThresSpnBx.objectName()] = None
@@ -487,7 +494,6 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.setIntAreaB, 1, 0, 1, 4)
         self.imgProcLayout.addWidget(self.brightSpot, 2, 0, 1, 2)
         self.imgProcLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.quadrantFoldCheckbx, 3, 2, 1, 2)
         self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 4, 0, 1, 2)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedAngleChkBx, 5, 0, 1, 2)
@@ -880,7 +886,6 @@ class EquatorWindow(QMainWindow):
         self.fixedRmax.editingFinished.connect(self.fixedRmaxChanged)
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
         self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
-        self.quadrantFoldCheckbx.stateChanged.connect(self.quadrantFoldChecked)
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
         self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
@@ -997,6 +1002,7 @@ class EquatorWindow(QMainWindow):
         self.current_image_data = image_data
         # Trigger the existing processing pipeline
         self.onImageChanged()
+
     
     def _on_status_text_requested(self, text):
         """Update status bar from workspace requests."""
@@ -1308,17 +1314,6 @@ class EquatorWindow(QMainWindow):
                                              center=self.bioImg.info['center'],
                                              is_checked=self.doubleZoom.isChecked())
 
-    def quadrantFoldChecked(self):
-        """
-        Triggered when Quadrant fold toggle is checked
-        """
-        if self.quadrantFoldCheckbx.isChecked():
-            self.bioImg.quadrant_folded = True
-            self.bioImg.initialImgDim = self.bioImg.orig_img.shape
-        else:
-            self.bioImg.quadrant_folded = False
-            self.bioImg.info.pop('rotationAngle')
-        self.processImage()
 
     def blankSettingClicked(self):
         """
@@ -3553,9 +3548,7 @@ class EquatorWindow(QMainWindow):
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         
-        # Update quadrant fold checkbox based on image type
-        self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
-        
+        self.workspace.update_display(self.current_image_data)
         # First-run specific setup
         if first_run:
             if 'paramInfo' in self.bioImg.info:
@@ -3714,69 +3707,6 @@ class EquatorWindow(QMainWindow):
             return True
         return False
 
-    # def getQFFlags(self):
-    #     """
-    #     Get all flags for QuadrantFolder process() from widgets
-    #     :return: flags (dict)
-    #     """
-    #     flags = {}
-    #     flags['orientation_model'] = None
-    #     flags["ignore_folds"] = set()
-    #     flags['bgsub'] = 'None'
-    #     flags["cirmin"] = 0
-    #     flags["cirmax"] = 100
-    #     flags['win_size_x'] = 10
-    #     flags['win_size_y'] = 10
-    #     flags['win_sep_x'] = 10
-    #     flags['win_sep_y'] = 10
-    #     flags["bin_theta"] = 30
-    #     flags['radial_bin'] = 10
-    #     flags['smooth'] = 0.1
-    #     flags['tension'] = 1
-    #     flags["tophat1"] = 5
-    #     flags["tophat2"] = 20
-    #     flags['mask_thres'] = self.maskThresSpnBx.value()
-    #     flags['sigmoid'] = 0.1
-    #     flags['fwhm'] = 10
-    #     flags['boxcar_x'] = 10
-    #     flags['boxcar_y'] = 10
-    #     flags['cycles'] = 5
-    #     flags['blank_mask'] = self.applyBlank.isChecked()
-    #     if self.modeAngleChkBx.isChecked():
-    #         modeOrientation = self.getModeRotation()
-    #         if modeOrientation is not None:
-    #             flags["mode_angle"] = modeOrientation
-    #     flags['rotate'] = False
-    #     return flags
-
-    # def getCenterFromQF(self):
-    #     """
-    #     Give the center from QF
-    #     """
-    #     if self.quadrantFoldCheckbx.isChecked() or ('qfChecked' in self.bioImg.info and self.bioImg.info['qfChecked']):
-    #         self.quadrantFoldCheckbx.setCheckState(Qt.Checked)
-    #         print("Starting QF")
-    #         filename = self.bioImg.filename
-    #         self.quadFold = QuadrantFolder(self.dir_path, filename, self)
-    #         self.newImgDimension = None
-    #         self.quadFold.process(self.getQFFlags())
-    #         print("Finished QF")
-    #         # self.bioImg.orig_img = self.quadFold.imgCache['resultImg']
-    #         _, center = processImageForIntCenter(self.quadFold.imgCache['resultImg'],
-    #                                              getCenter(self.quadFold.imgCache['resultImg']))
-    #         M = self.quadFold.centImgTransMat
-    #         if M is not None:
-    #             M[0, 2] = -1 * M[0, 2]
-    #             M[1, 2] = -1 * M[1, 2]
-    #             center = [center[0], center[1], 1]
-    #             center = np.dot(M, center)
-    #             self.bioImg.removeInfo()
-    #             print(center)
-    #             self.bioImg.info['calib_center'] = (int(center[0]), int(center[1]))
-    #             if 'detector' in self.bioImg.info:
-    #                 self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'], man_det=self.quadFold.info['detector'])
-    #             else:
-    #                 self.bioImg.info['rotationAngle'] = getRotationAngle(self.quadFold.imgCache['resultImg'], getCenter(self.quadFold.imgCache['resultImg']), self.quadFold.info['orientation_model'])
 
     def processImage(self, paramInfo=None):
         """
@@ -3793,19 +3723,6 @@ class EquatorWindow(QMainWindow):
         print("Settings in processImage:")
         print(settings)
         try:
-            # This section was already commented out before multithreading
-            # if self.quadFold.initImg is not None:
-            #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = [True, self.quadFold.initImg.shape]
-            #     self.bioImg.info['qfMetaData'] = [True, self.quadFold.initImg.shape]
-            # else:
-            #     self.bioImg.quadrant_folded, self.bioImg.initialImgDim = self.bioImg.info['qfMetaData']
-            # If QF box checked, get center from QF
-            # self.getCenterFromQF()
-            
-            # if settings['find_oritation']:
-            #     self.brightSpotClicked()
-
-            # self.bioImg.process(settings, paramInfo)
             
             self.addTask(paramInfo)
 
@@ -3822,15 +3739,6 @@ class EquatorWindow(QMainWindow):
             errMsg.exec_()
             raise
 
-        # self.updateParams()
-        # self.csvManager.writeNewData(self.bioImg)
-        # self.csvManager.writeNewData2(self.bioImg)
-        # self.resetUI()
-        # self.refreshStatusbar()
-        # self.quadrantFoldCheckbx.setChecked(self.bioImg.quadrant_folded)
-        # QApplication.restoreOverrideCursor()
-        # self.tabWidget.tabBar().setEnabled(True)
-        # self.tabWidget.tabBar().setToolTip("")
         
     def addTask(self, paramInfo=None):
         self.tasksQueue.put((self.bioImg, self.getSettings(), paramInfo))
