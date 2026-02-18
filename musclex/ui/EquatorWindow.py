@@ -121,7 +121,6 @@ class EquatorWindow(QMainWindow):
         self.fixedIntArea = None
         self.first = True
         self.orientationModel = None
-        self.modeOrientation = None
         self.newImgDimension = None
         self.plot_min = None
         self.stop_process = False
@@ -431,22 +430,12 @@ class EquatorWindow(QMainWindow):
         self.brightSpot = QCheckBox("Find Orientation with Brightest Spots")
         self.brightSpot.setChecked(False)
         self.checkableButtons.extend([self.setIntAreaB, self.setRminB, self.setRmaxB])
-        self.fixedAngleChkBx = QCheckBox("Fixed Angle:")
-        self.fixedAngleChkBx.setChecked(False)
         self.fixedRminChkBx = QCheckBox("Fixed R-min:")
         self.fixedRminChkBx.setChecked(False)
         self.fixedRmaxChkBx = QCheckBox("Fixed R-max:")
         self.fixedRmaxChkBx.setChecked(False)
         self.fixedIntAreaChkBx = QCheckBox("Fixed Box Width")
         self.fixedIntAreaChkBx.setChecked(False)
-        self.modeAngleChkBx = QCheckBox("Mode orientation")
-        self.modeAngleChkBx.setChecked(False)
-        self.fixedAngle = QSpinBox()
-        self.fixedAngle.setObjectName('fixedAngle')
-        self.editableVars[self.fixedAngle.objectName()] = None
-        self.fixedAngle.setKeyboardTracking(False)
-        self.fixedAngle.setRange(-360, 360)
-        self.fixedAngle.setEnabled(False)
         self.fixedRmin = QSpinBox()
         self.fixedRmin.setObjectName('fixedRmin')
         self.editableVars[self.fixedRmin.objectName()] = None
@@ -485,14 +474,11 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 4, 0, 1, 2)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngleChkBx, 5, 0, 1, 2)
-        self.imgProcLayout.addWidget(self.fixedAngle, 5, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 7, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmax, 7, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedIntAreaChkBx, 8, 0, 1, 4)
-        self.imgProcLayout.addWidget(self.modeAngleChkBx, 8, 2, 1, 2)
         self.imgProcLayout.addWidget(QLabel("Orientation Finding:"), 9, 0, 1, 2)
         self.imgProcLayout.addWidget(self.orientationCmbBx, 9, 2, 1, 2)
         self.imgProcLayout.addWidget(self.rotation90ChkBx, 10, 0, 1, 2)
@@ -865,12 +851,9 @@ class EquatorWindow(QMainWindow):
         self.setRmaxB.clicked.connect(self.setRmaxClicked)
         self.setIntAreaB.clicked.connect(self.setIntAreaClicked)
         self.brightSpot.clicked.connect(self.brightSpotClicked)
-        self.fixedAngleChkBx.stateChanged.connect(self.fixedAngleChecked)
         self.fixedRminChkBx.stateChanged.connect(self.fixedRminChecked)
         self.fixedRmaxChkBx.stateChanged.connect(self.fixedRmaxChecked)
         self.fixedIntAreaChkBx.stateChanged.connect(self.fixedIntAreaChecked)
-        self.modeAngleChkBx.clicked.connect(self.modeAngleChecked)
-        self.fixedAngle.editingFinished.connect(self.fixedAngleChanged)
         self.fixedRmin.editingFinished.connect(self.fixedRminChanged)
         self.fixedRmax.editingFinished.connect(self.fixedRmaxChanged)
         self.maskThresSpnBx.editingFinished.connect(self.maskThresChanged)
@@ -1196,8 +1179,6 @@ class EquatorWindow(QMainWindow):
         settings = self.getSettings()
         text += "\nCurrent Settings"
 
-        if 'fixed_angle' in settings:
-            text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
         if 'fixed_rmin' in settings:
             text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
         if 'fixed_rmax' in settings:
@@ -1885,8 +1866,6 @@ class EquatorWindow(QMainWindow):
         text = f'The {description} will be processed using current settings. Make sure to adjust them before processing. \n\n'
         text += "\nCurrent Settings"
 
-        if 'fixed_angle' in settings:
-            text += "\n  - Fixed Angle : " + str(settings["fixed_angle"])
         if 'fixed_rmin' in settings:
             text += "\n  - Fixed R-min : " + str(settings["fixed_rmin"])
         if 'fixed_rmax' in settings:
@@ -2126,7 +2105,6 @@ class EquatorWindow(QMainWindow):
         Remove all processing info from EquatorImage object and re-process with current settings
         """
         if self.bioImg is not None:
-            self.fixedAngleChkBx.setChecked(False)
             self.fixedRminChkBx.setChecked(False)
             self.fixedRmaxChkBx.setChecked(False)
             self.fixedIntAreaChkBx.setChecked(False)
@@ -2403,16 +2381,6 @@ class EquatorWindow(QMainWindow):
         else:
             self.resetUI()
 
-    def fixedAngleChecked(self):
-        """
-        Triggered when fixed angle is checked or unchecked
-        """
-        self.fixedAngle.setEnabled(self.fixedAngleChkBx.isChecked())
-        if not self.fixedAngleChkBx.isChecked() and self.bioImg is not None:
-            self.bioImg.removeInfo("fixed_angle")
-            self.bioImg.delCache()
-            self.processImage()
-
     def fixedRminChecked(self):
         """
         Triggered when fixed R-min is checked or unchecked
@@ -2447,66 +2415,6 @@ class EquatorWindow(QMainWindow):
                 self.processImage()
             else:
                 self.fixedIntArea = self.bioImg.info['int_area']
-
-    def modeAngleChecked(self):
-        """
-        Triggered when mode angle is checked or unchecked
-        """
-        print("Function executed", flush=True)
-
-        if self.bioImg is not None:
-
-            modeOrientation = self.getModeRotation()
-            if modeOrientation is not None:
-                if not self.modeAngleChkBx.isChecked():
-                    self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
-                    self.bioImg.removeInfo("mode_angle")
-                    self.processImage()
-                else:
-                    self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
-                    self.bioImg.info["mode_angle"] = modeOrientation
-                    self.processImage()
-            else:
-                self.modeAngleChkBx.setCheckState(Qt.Unchecked) # executes twice, setChecked executes once but button becomes unresponsive for one click
-
-                msg = QMessageBox()
-                msg.setInformativeText("All images in folder must be processed first, use Process Folder to process all images")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Mode Orientation Failed")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.exec_()
-                return
-
-    def getModeRotation(self):
-        """
-        open images and calculate the mode orientation
-        :param file_list: list of image path (str)
-        :return: mode of orientation of all images in the folder
-        """
-        if self.modeOrientation is not None:
-            return self.modeOrientation
-        print("Calculating mode of angles of images in directory")
-        angles = []
-        for idx, filename in enumerate(self.file_manager.names):
-            img = self.file_manager.get_image_by_index(idx)
-            image_data = self.workspace.create_image_data(img, filename)
-            bioImg = EquatorImage(image_data, self)
-            print(f'Getting angle {filename}')
-
-            angle = bioImg.rotation
-            if angle == 0.0 and not bioImg._image_data.has_manual_rotation and 'rotationAngle' not in bioImg.info:
-                return None
-            angles.append(angle)
-        self.modeOrientation = max(set(angles), key=angles.count)
-        return self.modeOrientation
-
-    def fixedAngleChanged(self):
-        """
-        Triggered when fixed angle spinbox value is changed
-        """
-        if self.bioImg is not None and not self.syncUI:
-            self.bioImg.removeInfo("rotationAngle")
-            self.processImage()
 
     def fixedRminChanged(self):
         """
@@ -2989,11 +2897,6 @@ class EquatorWindow(QMainWindow):
 
         # NOTE: blank_mask checkbox now handled by ProcessingWorkspace
 
-        if 'fixed_angle' in info:
-            self.fixedAngle.setValue(info['fixed_angle'])
-        self.fixedAngleChkBx.setChecked('fixed_angle' in info)
-        self.fixedAngle.setEnabled('fixed_angle' in info)
-
         self.fixedRminChkBx.setChecked('fixed_rmin' in info)
         self.fixedRmin.setEnabled('fixed_rmin' in info)
         if 'fixed_rmin' in info:
@@ -3093,16 +2996,6 @@ class EquatorWindow(QMainWindow):
         # Check fixed rmax
         if self.fixedRmaxChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rmax'):
             self.bioImg.removeInfo('hulls')  # Remove hulls from info dict to make it be re-calculated
-            return True
-
-        # Check fixed Angle
-        if self.fixedAngleChkBx.isChecked() and self.paramChanged(prevInfo, currentInfo, 'rotationAngle'):
-            self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
-            return True
-
-        # Check Mode Angle
-        if (self.modeAngleChkBx.isChecked() and 'mode_angle' not in currentInfo):
-            self.bioImg.removeInfo('rmin')  # Remove R-min from info dict to make it be re-calculated
             return True
 
         # Check fixed int area
@@ -3448,9 +3341,6 @@ class EquatorWindow(QMainWindow):
             if "detector" in calSettings:
                 settings["detector"] = calSettings["detector"]
 
-        if self.fixedAngleChkBx.isChecked():
-            settings['fixed_angle'] = self.fixedAngle.value()
-
         if self.brightSpot.isChecked():
             settings['find_oritation']=True
         else:
@@ -3465,11 +3355,6 @@ class EquatorWindow(QMainWindow):
 
         if self.fixedIntAreaChkBx.isChecked() and self.fixedIntArea is not None:
             settings["fixed_int_area"] = self.fixedIntArea
-
-        if self.modeAngleChkBx.isChecked():
-            modeOrientation = self.getModeRotation()
-            if modeOrientation is not None:
-                settings["mode_angle"] = modeOrientation
 
         # Get blank/mask config from workspace
         blank_mask_config = self.workspace.get_blank_mask_config()
@@ -3522,7 +3407,6 @@ class EquatorWindow(QMainWindow):
         info = self.bioImg.info
         self.left_fitting_tab.syncSpinBoxes(info)
         self.right_fitting_tab.syncSpinBoxes(info)
-        self.fixedAngle.setValue(round(info["rotationAngle"]))
         self.fixedRmin.setValue(info['rmin'])
         if self.fixedRmaxChkBx.isChecked():
             self.fixedRmax.setValue(info['rmax'])
