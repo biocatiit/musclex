@@ -107,9 +107,7 @@ class EquatorImage:
 
     @property
     def rotation(self):
-        """Get rotation: EQ overrides (fixed_angle/mode_angle in info) > ImageData (manual/auto)."""
-        if 'rotationAngle' in self.info:
-            return self.info['rotationAngle']
+        """Get rotation from ImageData (handles manual overrides and auto-detection)."""
         return self._image_data.rotation
 
     def process(self, settings, paramInfo=None):
@@ -126,7 +124,6 @@ class EquatorImage:
         self.updateInfo(settings)
         # Get working image from ImageData (blank/mask already applied)
         self.image = self._image_data.get_working_image()
-        self.getRotationAngle()
         self._applyRotation()
         self.calculateRmin()
         self.getIntegrateArea()
@@ -242,32 +239,6 @@ class EquatorImage:
         Kept for backward compatibility but delegates to ImageData.
         """
         self.image = self._image_data.get_working_image()
-
-    def getRotationAngle(self):
-        """
-        Determine rotation angle. Priority: QF(0) > manual(ImageData) > fixed_angle > mode_angle > auto-detect.
-        Stores result in self.info["rotationAngle"] for EQ-specific overrides (fixed_angle, mode_angle).
-        """
-        if self.quadrant_folded:
-            return
-
-        if self._image_data.has_manual_rotation:
-            return
-
-        if "fixed_angle" in self.info:
-            self.info['rotationAngle'] = self.info["fixed_angle"]
-            print("RotationAngle is fixed as " + str(self.info['fixed_angle']))
-            return
-
-        if 'rotationAngle' not in self.info:
-            self.info['rotationAngle'] = self._image_data.rotation
-            self.removeInfo('rmin')
-
-        if "mode_angle" in self.info:
-            print(f'Using mode orientation {self.info["mode_angle"]}')
-            self.info['rotationAngle'] = self.info["mode_angle"]
-
-        print("Rotation Angle is " + str(self.rotation))
 
     def _applyRotation(self):
         """Apply rotation to self.image in-place (like PT's _preprocess)."""
