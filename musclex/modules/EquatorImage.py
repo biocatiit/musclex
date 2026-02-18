@@ -85,7 +85,6 @@ class EquatorImage:
         if self.quadrant_folded:
             self.initialImgDim = self.orig_img.shape
 
-        self.rotated_img = None
         self.version = __version__
         cache = self.loadCache()
         self.rotMat = None  # store the rotation matrix used so that any point specified in current co-ordinate system can be transformed to the base (original image) co-ordinate system
@@ -108,12 +107,10 @@ class EquatorImage:
 
     @property
     def rotation(self):
-        """Get rotation dynamically: manual (from ImageData) > auto-detected (from info cache) > 0."""
-        if self._image_data.has_manual_rotation:
-            return self._image_data.rotation
+        """Get rotation: EQ overrides (fixed_angle/mode_angle in info) > ImageData (manual/auto)."""
         if 'rotationAngle' in self.info:
             return self.info['rotationAngle']
-        return 0.0
+        return self._image_data.rotation
 
     def process(self, settings, paramInfo=None):
         """
@@ -130,6 +127,7 @@ class EquatorImage:
         # Get working image from ImageData (blank/mask already applied)
         self.image = self._image_data.get_working_image()
         self.getRotationAngle()
+        self._applyRotation()
         self.calculateRmin()
         self.getIntegrateArea()
         self.getHistogram()
@@ -247,18 +245,13 @@ class EquatorImage:
 
     def getRotationAngle(self):
         """
-        Auto-detect rotation angle and store in self.info["rotationAngle"].
-        Manual rotation is handled by the rotation @property (reads from ImageData).
+        Determine rotation angle. Priority: QF(0) > manual(ImageData) > fixed_angle > mode_angle > auto-detect.
+        Stores result in self.info["rotationAngle"] for EQ-specific overrides (fixed_angle, mode_angle).
         """
-        self.parent.statusPrint("Finding Rotation Angle...")
-
         if self.quadrant_folded:
-            print("Quadrant folded image: ignoring rotation angle computation")
-            self.info['rotationAngle'] = 0
             return
 
         if self._image_data.has_manual_rotation:
-            print("Using manual rotation from ImageData: " + str(self.rotation))
             return
 
         if "fixed_angle" in self.info:
@@ -266,21 +259,29 @@ class EquatorImage:
             print("RotationAngle is fixed as " + str(self.info['fixed_angle']))
             return
 
-        print("Rotation Angle is being calculated...")
         if 'rotationAngle' not in self.info:
-            center = self.center
-            img = copy.copy(self.image)
-            if 'detector' in self.info:
-                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'], man_det=self.info['detector'])
-            else:
-                self.info['rotationAngle'] = getRotationAngle(img, center, self.info['orientation_model'])
+            self.info['rotationAngle'] = self._image_data.rotation
             self.removeInfo('rmin')
 
         if "mode_angle" in self.info:
             print(f'Using mode orientation {self.info["mode_angle"]}')
             self.info['rotationAngle'] = self.info["mode_angle"]
 
-        print("Done. Rotation Angle is " + str(self.rotation))
+        print("Rotation Angle is " + str(self.rotation))
+
+    def _applyRotation(self):
+        """Apply rotation to self.image in-place (like PT's _preprocess)."""
+        angle = self.rotation
+        if '90rotation' in self.info and self.info['90rotation'] is True:
+            angle = angle - 90 if angle > 90 else angle + 90
+
+        if not self.quadrant_folded and angle != 0:
+            center = self.center
+            self.rotMat = cv2.getRotationMatrix2D(tuple(center), angle, 1)
+            self.image = rotateImageAboutPoint(self.image, center, angle)
+            print(f"Image rotated by {angle}° around center {center}")
+        else:
+            self.rotMat = None
 
     def calculateRmin(self):
         """
@@ -295,10 +296,7 @@ class EquatorImage:
 
         print("R-min is being calculated...")
         if 'rmin' not in self.info:
-            if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
-                img = copy.copy(self.image)
-            else:
-                img = copy.copy(self.orig_img)
+            img = copy.copy(self.image)
             center = self.center
 
             if 'detector' in self.info:
@@ -317,32 +315,9 @@ class EquatorImage:
 
         print("Done. R-min is " + str(self.info['rmin']))
 
-    def getRotatedImage(self, img=None, angle=None):
-        """
-        Get rotated image by angle. If the input params are not specified. image = original input image, angle = self.info["rotationAngle"]
-        :param img: input image
-        :param angle: rotation angle
-        :return: rotated image
-        """
-
-        if img is None:
-            print("Image is none")
-            img = copy.copy(self.image)
-
-        if angle is None:
-            angle = self.rotation
-        if '90rotation' in self.info and self.info['90rotation'] is True:
-            angle = angle - 90 if angle > 90 else angle + 90
-
-        center = self.center
-        if self.rotated_img is not None:
-            centersNotEq = self.rotated_img[0] != center if type(self.rotated_img[0] != center) == bool else (self.rotated_img[0] != center).any()
-        if self.rotated_img is None or centersNotEq or self.rotated_img[1] != angle or (self.rotated_img[2] != img).any():
-            self.rotMat = cv2.getRotationMatrix2D(tuple(center), angle, 1)
-            rotImg = rotateImageAboutPoint(img, center, angle)
-            self.rotated_img = [center, angle, img, rotImg]
-
-        return self.rotated_img[3]
+    def getRotatedImage(self):
+        """Return the preprocessed (rotated) image. Rotation is applied in _applyRotation()."""
+        return self.image
 
     def getIntegrateArea(self):
         """
@@ -358,13 +333,11 @@ class EquatorImage:
                 self.info['int_area'] = self.info['fixed_int_area']
             else:
                 rmin = self.info['rmin']
-                img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin) # remove center location
-
-                rotate_img = self.getRotatedImage(img) # rotate image
-                init_range = int(round(rmin * 1.5)) # specify initial guess by using 150% or R-min
+                img = getCenterRemovedImage(copy.copy(self.image), tuple(center), rmin)
+                init_range = int(round(rmin * 1.5))
                 top = max(0, int(center[1]) - init_range)
-                bottom = min(int(center[1]) + init_range, rotate_img.shape[0])
-                area = rotate_img[top:bottom, :]
+                bottom = min(int(center[1]) + init_range, img.shape[0])
+                area = img[top:bottom, :]
                 hist = np.sum(area, axis=1)  # Get the horizontal histogram from the initital area
                 hull = convexHull(hist) # Apply convexhull
 
@@ -403,8 +376,7 @@ class EquatorImage:
         print("Getting Histogram...")
         if 'hist' not in self.info:
             int_area = self.info['int_area']
-            img = self.getRotatedImage()
-            self.info['hist'] = np.sum(img[int_area[0]:int_area[1], :], axis=0)
+            self.info['hist'] = np.sum(self.image[int_area[0]:int_area[1], :], axis=0)
             self.removeInfo('hulls')  # Remove background subtracted histogram from info dict to make it be re-calculated
         
         if 'use_smooth_alg' in self.info and self.info['use_smooth_alg'] == True:
@@ -457,24 +429,14 @@ class EquatorImage:
             rmin = self.info['rmin']
             hist = copy.copy(self.info['hist'])
             int_area = self.info['int_area']
-            img = self.getRotatedImage()
-            # remove lines in the box width that are under the -1 value (on the gap)
             k, l = 0, 0
-            while np.sum(img[int_area[0] + k, :]) <= self.info['mask_thres']:
+            while np.sum(self.image[int_area[0] + k, :]) <= self.info['mask_thres']:
                 k += 1
-            while np.sum(img[int_area[1] - l, :]) <= self.info['mask_thres']:
+            while np.sum(self.image[int_area[1] - l, :]) <= self.info['mask_thres']:
                 l += 1
             if int_area[0] + k >= int_area[1] - l:
-                # cancel it and compute hull anyway 
                 k, l = 0, 0
-            img_area = self.getRotatedImage()[int_area[0] + k:int_area[1] - l, :]
-            # min_val = self.orig_img.min()
-            # if self.img_type == "PILATUS":
-            #     histo = np.histogram(self.orig_img, 3, (min_val, min_val+3))
-            #     max_ind = np.argmax(histo[0])
-            #     self.info['mask_thres'] = histo[1][max_ind]
-            # else:
-            #     self.info['mask_thres'] = min_val - 1. #getMaskThreshold(self.orig_img, self.img_type)
+            img_area = self.image[int_area[0] + k:int_area[1] - l, :]
             if 'use_smooth_alg' not in self.info or self.info['use_smooth_alg'] == False:
                 ignore = np.array([any(img_area[:, i] <= (self.info['mask_thres'])) for i in range(img_area.shape[1])])
                 if any(ignore):

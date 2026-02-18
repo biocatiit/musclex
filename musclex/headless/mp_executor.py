@@ -74,9 +74,8 @@ def process_one_image(args):
         # Return results including processed images for UI preview
         return {
             'filename': filename,
-            'info': bioImg.info,  # All results stored here
-            'image': bioImg.image,  # Processed image (with mask applied)
-            'rotated_img': bioImg.getRotatedImage(),  # Rotated image for display
+            'info': bioImg.info,
+            'image': bioImg.image,
             'error': None
         }
     
