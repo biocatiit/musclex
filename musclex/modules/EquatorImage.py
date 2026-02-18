@@ -246,14 +246,18 @@ class EquatorImage:
         print("Center is being calculated...")
         
         # Check for manual center from ImageData first
+        # Match ProjectionProcessor: center is dynamic from ImageData, no stale cache
         if self._image_data.has_manual_center:
             self.info['center'] = self._image_data.center
+            # Manual center is in ORIGINAL image coords (workspace already transformed)
+            self.info['orig_center'] = self.info['center']
             print("Using manual center from ImageData: " + str(self.info['center']))
-            if self.rotMat is not None:
-                center = self.info['center']
-                center = np.dot(cv2.invertAffineTransform(self.rotMat), [center[0], center[1], 1])
-                self.info['orig_center'] = (center[0], center[1])
-                print("Original center is " + str(self.info['orig_center']))
+            # Invalidate dependent cache (like ProjectionProcessor: always read fresh)
+            # rotMat/rotated_img were for OLD center - force fresh rotation
+            self.rotated_img = None
+            self.rotMat = None
+            for k in ('rotationAngle', 'rmin', 'int_area', 'hist', 'hulls', 'tmp_peaks', 'peaks'):
+                self.removeInfo(k)
             print("Done. Center is " + str(self.info['center']))
             return
         
