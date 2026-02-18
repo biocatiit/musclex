@@ -3454,8 +3454,6 @@ class EquatorWindow(QMainWindow):
                     settings["lambda_sdd"] = calSettings["silverB"] * calSettings["radius"]
                 else:
                     settings["lambda_sdd"] = 1. * calSettings["lambda"] * calSettings["sdd"] / calSettings["pixel_size"]
-            if "center" in calSettings:
-                settings["calib_center"] = calSettings["center"]
             if "detector" in calSettings:
                 settings["detector"] = calSettings["detector"]
 

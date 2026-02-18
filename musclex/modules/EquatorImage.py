@@ -103,12 +103,8 @@ class EquatorImage:
 
     @property
     def center(self):
-        """Get center dynamically: manual (from ImageData) > auto-detected (from info cache) > geometric."""
-        if self._image_data.has_manual_center:
-            return self._image_data.center
-        if 'center' in self.info:
-            return self.info['center']
-        return (self.orig_img.shape[1] / 2 - 0.5, self.orig_img.shape[0] / 2 - 0.5)
+        """Get center from ImageData (handles QF, manual, and auto-detection)."""
+        return self._image_data.center
 
     @property
     def rotation(self):
@@ -133,7 +129,6 @@ class EquatorImage:
         self.updateInfo(settings)
         # Get working image from ImageData (blank/mask already applied)
         self.image = self._image_data.get_working_image()
-        self.findCenter()
         self.getRotationAngle()
         self.calculateRmin()
         self.getIntegrateArea()
@@ -249,35 +244,6 @@ class EquatorImage:
         Kept for backward compatibility but delegates to ImageData.
         """
         self.image = self._image_data.get_working_image()
-
-    def findCenter(self):
-        """
-        Auto-detect center of the diffraction and store in self.info["center"].
-        Manual center is handled by the center @property (reads from ImageData).
-        """
-        if self.quadrant_folded:
-            self.info['center'] = self.orig_img.shape[1] / 2, self.orig_img.shape[0] / 2
-            print("QF Center is " + str(self.info['center']))
-            return
-
-        if self._image_data.has_manual_center:
-            print("Using manual center from ImageData: " + str(self.center))
-            return
-
-        self.parent.statusPrint("Finding Center...")
-        print("Center is being calculated...")
-
-        if 'center' not in self.info:
-            if 'calib_center' in self.info:
-                print("Using Calibration Center")
-                self.info['center'] = self.info['calib_center']
-                return
-            if 'fillGapLines' in self.info and self.info['fillGapLines'] == True:
-                self.image, self.info['center'] = processImageForIntCenter(self.image, getCenter(self.image))
-            else:
-                self.orig_img, self.info['center'] = processImageForIntCenter(self.orig_img, getCenter(self.orig_img))
-            self.removeInfo('rotationAngle')
-        print("Done. Center is " + str(self.center))
 
     def getRotationAngle(self):
         """
