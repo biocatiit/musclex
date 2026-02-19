@@ -30,6 +30,9 @@ class GMMParameterEditorDialog(QDialog):
         # Working hull_range - also needs preview support (not part of fit_results)
         self.working_hull_range = box.hull_range if box.hull_range else None
         
+        # Callback invoked after a successful refit (injected by caller)
+        self.on_refit_completed = None
+        
         # Enable preview mode on parent tab
         self.parent_tab.preview_params = self.working_params
         self.parent_tab.preview_hull_range = self.working_hull_range
@@ -640,6 +643,10 @@ class GMMParameterEditorDialog(QDialog):
                 else:
                     sigmas = [result.get(f'sigma{i}', None) for i in range(5) if f'sigma{i}' in result]
                     sigma_info = f"Sigmas (first 5): {[f'{s:.2f}' for s in sigmas if s]}"
+                # Notify caller so folder cache can be updated
+                if callable(self.on_refit_completed):
+                    self.on_refit_completed()
+                
                 QApplication.restoreOverrideCursor()
                 QMessageBox.information(self, "Refit & Save Complete", 
                                       f"✓ Changes saved to fit_results!\n\n"

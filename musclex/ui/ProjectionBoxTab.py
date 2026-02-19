@@ -1298,6 +1298,9 @@ class ProjectionBoxTab(QWidget):
             self.param_editor_active = True
             self.showOverlay()
             
+            # Inject refit callback so folder cache gets updated
+            dialog.on_refit_completed = self._on_refit_completed
+            
             # Connect close signal to cleanup
             dialog.finished.connect(self.onParameterEditorClosed)
             
@@ -1352,6 +1355,10 @@ class ProjectionBoxTab(QWidget):
         # Since param_editor_active is now False, this won't trigger showOverlay()
         self.need_update = True
         self.updateUI()
+    
+    def _on_refit_completed(self):
+        """Callback from GMMParameterEditorDialog after a successful refit."""
+        self.parent._update_folder_cache_from_results()
     
     def closeParameterEditor(self):
         """
