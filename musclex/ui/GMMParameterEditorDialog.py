@@ -648,14 +648,20 @@ class GMMParameterEditorDialog(QDialog):
                     self.on_refit_completed()
                 
                 QApplication.restoreOverrideCursor()
-                QMessageBox.information(self, "Refit & Save Complete", 
-                                      f"✓ Changes saved to fit_results!\n\n"
-                                      f"Mode: {mode}\n"
-                                      f"{sigma_info}\n"
-                                      f"Fit Error: {result.get('error', 0):.6f}\n\n"
-                                      f"You can:\n"
-                                      f"• Continue editing and save again\n"
-                                      f"• Click 'Close' (unsaved edits will be discarded)")
+                if hasattr(self, '_info_msg') and self._info_msg:
+                    self._info_msg.close()
+                msg = QMessageBox(QMessageBox.Information, "Refit & Save Complete",
+                                  f"✓ Changes saved to fit_results!\n\n"
+                                  f"Mode: {mode}\n"
+                                  f"{sigma_info}\n"
+                                  f"Fit Error: {result.get('error', 0):.6f}\n\n"
+                                  f"You can:\n"
+                                  f"• Continue editing and save again\n"
+                                  f"• Click 'Close' (unsaved edits will be discarded)",
+                                  QMessageBox.Ok, self)
+                msg.setWindowModality(Qt.NonModal)
+                self._info_msg = msg
+                msg.show()
         except Exception as e:
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, "Refit Error", str(e))
@@ -819,5 +825,6 @@ class GMMParameterEditorDialog(QDialog):
         The actual cleanup is handled by parent_tab.onParameterEditorClosed() 
         which is triggered by the finished signal when the dialog closes.
         """
-        # Let parent handle all cleanup via onParameterEditorClosed callback
+        if hasattr(self, '_info_msg') and self._info_msg:
+            self._info_msg.close()
         event.accept()
