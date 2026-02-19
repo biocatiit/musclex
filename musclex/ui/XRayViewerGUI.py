@@ -1224,9 +1224,9 @@ class XRayViewerGUI(QMainWindow):
         """
         Reset the status bar
         """
-        if not self.file_manager or not self.file_manager.current_image_name:
+        if not self.file_manager or not getattr(self.file_manager, 'current_image_name', None):
             return
-        
+
         dir_path = self.file_manager.dir_path or ''
         fileFullPath = fullPath(dir_path, self.file_manager.current_image_name)
         total_count = len(self.file_manager.names) if self.file_manager.names else len(self.file_manager.file_list)
@@ -1238,10 +1238,13 @@ class XRayViewerGUI(QMainWindow):
         
         self.imgPathOnStatusBar.setToolTip(status_msg)
         metrics = self.imgPathOnStatusBar.fontMetrics()
-        max_width = max(500, self.statusBar.width() - 100)
+        max_width = max(300, self.statusBar.width() - 700)
         elided = metrics.elidedText(status_msg, Qt.ElideMiddle, max_width)
         self.imgPathOnStatusBar.setText(elided)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.resetStatusbar()
 
     def batchProcBtnToggled(self):
         """
