@@ -1236,7 +1236,11 @@ class XRayViewerGUI(QMainWindow):
         if self.file_manager.current_h5_nframes:
             status_msg += f' ({self.file_manager.current_frame_idx + 1}/{self.file_manager.current_h5_nframes})'
         
-        self.imgPathOnStatusBar.setText(status_msg)
+        self.imgPathOnStatusBar.setToolTip(status_msg)
+        metrics = self.imgPathOnStatusBar.fontMetrics()
+        max_width = max(500, self.statusBar.width() - 100)
+        elided = metrics.elidedText(status_msg, Qt.ElideMiddle, max_width)
+        self.imgPathOnStatusBar.setText(elided)
 
 
     def batchProcBtnToggled(self):
