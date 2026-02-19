@@ -232,13 +232,6 @@ class EquatorImage:
         return np.array(output_image, dtype='float32')
             
 
-    def applyBlankAndMask(self):
-        """
-        Get working image from ImageData (blank/mask preprocessing handled by ImageData).
-        
-        Kept for backward compatibility but delegates to ImageData.
-        """
-        self.image = self._image_data.get_working_image()
 
     def _applyRotation(self):
         """Apply rotation to self.image in-place (like PT's _preprocess)."""
@@ -286,9 +279,6 @@ class EquatorImage:
 
         print("Done. R-min is " + str(self.info['rmin']))
 
-    def getRotatedImage(self):
-        """Return the preprocessed (rotated) image. Rotation is applied in _applyRotation()."""
-        return self.image
 
     def getIntegrateArea(self):
         """
