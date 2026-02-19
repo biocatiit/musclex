@@ -1264,81 +1264,17 @@ class EquatorWindow(QMainWindow):
         self.refitAllButton.setChecked(False)
         self.refitAllButton.setText("Refit current folder")
 
-    def applyBlankChecked(self):
-        """
-        Trigger when Apply Blank Image and Mask is checked or unchecked
-        :return:
-        """
-        self.blankSettings.setEnabled(self.applyBlank.isChecked())
-        if self.bioImg is not None and not self.syncUI:
-            if self.applyBlank.isChecked():
-                self.blankSettingClicked()
-            else:
-                self.resetAll()
 
     def doubleZoomChecked(self):
         """
         Triggered when double zoom toggle is checked
         """
-        self.doubleZoomGUI.doubleZoomChecked(img=self.bioImg.getRotatedImage(),
+        self.doubleZoomGUI.doubleZoomChecked(img=self.bioImg.image,
                                              canv=self.displayImgCanvas,
                                              center=self.bioImg.center,
                                              is_checked=self.doubleZoom.isChecked())
 
 
-    def blankSettingClicked(self):
-        """
-        Trigger when Set Blank Image and Mask clicked
-        """
-        # dlg = BlankImageSettings(self.dir_path)
-        # result = dlg.exec_()
-        # if result == 1 and self.bioImg is not None:
-        #     self.resetAll()
-        
-        isH5 = False
-        if self.file_manager.current_file_type == 'h5':
-            isH5 = True
-
-        img = self.bioImg.getRotatedImage()
-
-        try:
-            fabio.tifimage.tifimage(data=img).write(os.path.join(self.dir_path,'settings/tempMaskFile_eq.tif'))
-        except:
-            print("ERROR WITH SAVING THE IMAGE") 
-
-        max_val =  np.max(np.ravel(img))
-
-        orig_size = self.bioImg.orig_img.shape 
-
-        rotationAngle = self.bioImg.rotation
-
-        trans_x = (img.shape[0] - self.bioImg.orig_img.shape[0]) / 2
-        trans_y = (img.shape[1] - self.bioImg.orig_img.shape[1]) / 2
-
-        trans_mat = np.float32([[1,0,trans_x],[0,1,trans_y]])
-
-        self.imageMaskingTool = ImageMaskerWindow(self.dir_path , 
-                                                  os.path.join(self.dir_path, "settings/tempMaskFile_eq.tif"), 
-                                                  self.minIntSpnBx.value(), 
-                                                  self.maxIntSpnBx.value(), 
-                                                  max_val=max_val, 
-                                                  orig_size=orig_size, 
-                                                  trans_mat=trans_mat, 
-                                                  rot_angle=rotationAngle, 
-                                                  isHDF5=isH5)
-            
-        if self.imageMaskingTool is not None and self.imageMaskingTool.exec_():
-            if os.path.exists(os.path.join(os.path.join(self.dir_path, 'settings'), 'blank_image_settings.json')):
-                with open(os.path.join(os.path.join(self.dir_path, 'settings'), 'blank_image_settings.json'), 'r') as f:
-                    info = json.load(f)
-                    if 'path' in info:
-                        img = fabio.open(info['path']).data
-                        fabio.tifimage.tifimage(data=img).write(os.path.join(os.path.join(self.dir_path, 'settings'),'blank.tif'))    
-            else:
-                if os.path.exists(os.path.join(os.path.join(self.dir_path, 'settings'), 'mask.tif')):
-                    os.rename(os.path.join(os.path.join(self.dir_path, 'settings'), 'mask.tif'), os.path.join(os.path.join(self.dir_path, 'settings'), 'maskonly.tif'))
-                    
-            self.resetAll()
 
     def graphZoomIn(self):
         """
@@ -2330,7 +2266,7 @@ class EquatorWindow(QMainWindow):
             self.displayImgCanvas.draw_idle()
 
             xc, yc = self.bioImg.center
-            im = copy.copy(self.bioImg.getRotatedImage())
+            im = copy.copy(self.bioImg.image)
 
             coordinates, m, b = self.fitb(im, xc, yc)
 
@@ -3445,7 +3381,7 @@ class EquatorWindow(QMainWindow):
         """
         info = copy.copy(self.bioImg.info)
 
-        img = self.bioImg.getRotatedImage()
+        img = self.bioImg.image
         hulls = info['hulls']['all']
         center = self.bioImg.center
         rmin = info['rmin']
