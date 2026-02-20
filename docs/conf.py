@@ -9,7 +9,7 @@ copyright = '2025, BioCAT'
 author = 'BioCAT'
 
 version = '1.27'
-release = '1.27.2'
+release = '1.27.3'
 
 # -- General configuration ---------------------------------------------------
 
