@@ -780,9 +780,8 @@ class EquatorWindow(QMainWindow):
         self.mainLayout.addWidget(self.tabWidget)
         self.setStatusBar(self.statusBar)
 
+        self.centralWidget.setMinimumSize(700, 500)
         self.resize(1400, 1000)
-        # self.setMinimumHeight(1000)
-        # self.setMinimumWidth(1400)
 
     def setAllToolTips(self):
         """
