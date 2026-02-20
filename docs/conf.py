@@ -15,7 +15,8 @@ release = '1.27.3'
 
 extensions = [
     'sphinx.ext.mathjax',
-    'myst_parser'
+    'myst_parser',
+    'sphinx_copybutton'
 ]
 
 myst_enable_extensions = [
