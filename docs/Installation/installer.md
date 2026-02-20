@@ -47,13 +47,22 @@ For older versions (1.23.2 and earlier), macOS builds are not signed, so you may
 
 ## Install via Linux Packages DEB Package
 
+One-line install (removes any existing version, fetches and installs the latest `.deb`):
+
+```bash
+dpkg -s musclex >/dev/null 2>&1 && sudo apt remove -y musclex && sudo apt autoremove -y; tmp=$(mktemp /tmp/musclex_XXXXXX.deb); latest_url=$(curl -s https://api.github.com/repos/biocatiit/musclex/releases | grep browser_download_url | grep linux.deb | head -n 1 | cut -d '"' -f 4) && wget -O "$tmp" "$latest_url" && chmod a+r "$tmp" && sudo apt install -y "$tmp" && rm -f "$tmp"
+```
+
+**Alternative (manual install):**
+
 1. Download the `.deb` file from [GitHub Releases](https://github.com/biocatiit/musclex/releases)
 
 2. In terminal:
 
    ```bash
-   sudo dpkg --install musclex-1.27.0_amd64(linux).deb
+   sudo dpkg --install musclex-1.27.x_amd64(linux).deb
    ```
+   Change '1.27.x' to the real version you download.
 
 
 ## Verify Installation
