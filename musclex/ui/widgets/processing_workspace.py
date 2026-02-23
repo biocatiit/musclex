@@ -1481,7 +1481,9 @@ class ProcessingWorkspace(QWidget):
         if dialog_code == QDialog.Accepted:
             # Update checkbox states
             self._blank_mask_widget.update_from_directory(settings_dir_path)
-            # Note: Cache clearing not needed - fingerprint will auto-detect changes
+            # Invalidate ImageData's blank/mask cache so it reloads from disk
+            if self._current_image_data:
+                self._current_image_data.invalidate_blank_mask_cache()
             self.needsReprocess.emit()
         else:
             # Still update checkbox states in case settings were deleted
@@ -1592,7 +1594,9 @@ class ProcessingWorkspace(QWidget):
         if dialog_code == QDialog.Accepted:
             # Update checkbox states
             self._blank_mask_widget.update_from_directory(settings_dir_path)
-            # Note: Cache clearing not needed - fingerprint will auto-detect changes
+            # Invalidate ImageData's mask cache so it reloads from disk
+            if self._current_image_data:
+                self._current_image_data.invalidate_blank_mask_cache()
             self.needsReprocess.emit()
         else:
             # Still update checkbox states in case settings were deleted

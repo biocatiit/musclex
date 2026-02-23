@@ -559,6 +559,18 @@ class ImageData:
         self._processed_img = None
         self._preprocessing_applied = False
     
+    def invalidate_blank_mask_cache(self):
+        """
+        Clear cached blank/mask so they reload from disk on next use.
+        Call this when mask or blank settings are changed externally (e.g. ImageMaskDialog save).
+        """
+        self._blank_mask_loaded = False
+        self._blank_img = None
+        self._mask = None
+        self._mask_only = None
+        self._processed_img = None
+        self._preprocessing_applied = False
+    
     # ==================== Fingerprint for Cache Validation ====================
     
     def get_fingerprint(self) -> Dict[str, Any]:
