@@ -2562,7 +2562,7 @@ class EquatorWindow(QMainWindow):
         """
         Triggered when mouse hovers on image in image tab
         """
-        if self.bioImg is None or 'rotationAngle' not in self.bioImg.info.keys():
+        if self.bioImg is None or self.bioImg.image is None:
             return
 
         x = event.xdata
