@@ -2993,7 +2993,7 @@ class ProjectionTracesGUI(BaseGUI):
                     peaks=refined_peaks,  # Directly use refined peaks (already first half)
                     merid_bg=proc_box.merid_bg,
                     hull_range=proc_box.hull_range,
-                    param_bounds=proc_box.param_bounds.copy() if proc_box.param_bounds else {},
+                    param_bounds={},
                     use_common_sigma=proc_box.use_common_sigma,
                     peak_tolerance=proc_box.peak_tolerance,
                     sigma_tolerance=proc_box.sigma_tolerance,
@@ -3023,7 +3023,7 @@ class ProjectionTracesGUI(BaseGUI):
                         print(f"  Peak {i}: {old:.2f} → {new:.2f} (Δ{delta:+.3f})")
                 
                 # Update fitting parameters
-                folder_box.param_bounds = proc_box.param_bounds.copy() if proc_box.param_bounds else {}
+                folder_box.param_bounds = {}
                 folder_box.use_common_sigma = proc_box.use_common_sigma
                 folder_box.peak_tolerance = proc_box.peak_tolerance
                 folder_box.sigma_tolerance = proc_box.sigma_tolerance
