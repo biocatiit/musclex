@@ -1479,10 +1479,11 @@ class ProcessingWorkspace(QWidget):
         dialog_code = dialog.exec()
         
         if dialog_code == QDialog.Accepted:
-            # Update checkbox states
+            # Update checkbox states (signals are blocked inside, so stateChanged won't fire)
             self._blank_mask_widget.update_from_directory(settings_dir_path)
-            # Invalidate ImageData's blank/mask cache so it reloads from disk
+            # Sync apply_blank and invalidate cache, since signals were blocked during update
             if self._current_image_data:
+                self._current_image_data.apply_blank = self._blank_mask_widget.applyBlankImageChkBx.isChecked()
                 self._current_image_data.invalidate_blank_mask_cache()
             self.needsReprocess.emit()
         else:
@@ -1592,10 +1593,11 @@ class ProcessingWorkspace(QWidget):
         dialog_code = dialog.exec()
         
         if dialog_code == QDialog.Accepted:
-            # Update checkbox states
+            # Update checkbox states (signals are blocked inside, so stateChanged won't fire)
             self._blank_mask_widget.update_from_directory(settings_dir_path)
-            # Invalidate ImageData's mask cache so it reloads from disk
+            # Sync apply_mask and invalidate cache, since signals were blocked during update
             if self._current_image_data:
+                self._current_image_data.apply_mask = self._blank_mask_widget.applyMaskChkBx.isChecked()
                 self._current_image_data.invalidate_blank_mask_cache()
             self.needsReprocess.emit()
         else:
