@@ -559,7 +559,7 @@ class ProjectionProcessor:
                 init_center = self.center[1] - start_y
 
             init_center = int(round(init_center))
-            params.add('centerX', init_center, min=init_center - 1., max=init_center + 1.)
+            int_vars['centerX'] = init_center
 
             if box.bgsub == 1:
                 # Convex hull has been applied, so we don't need to fit 3 gaussian anymore
