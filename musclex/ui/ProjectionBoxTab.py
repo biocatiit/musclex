@@ -1359,6 +1359,8 @@ class ProjectionBoxTab(QWidget):
     def _on_refit_completed(self):
         """Callback from GMMParameterEditorDialog after a successful refit."""
         self.parent._update_folder_cache_from_results()
+        if self.parent.csvManager is not None:
+            self.parent.csvManager.writeNewData(self.parent.projProc)
     
     def closeParameterEditor(self):
         """
