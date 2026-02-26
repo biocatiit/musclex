@@ -306,6 +306,14 @@ class EditPeakDetailsDialog(QDialog):
                     self.projProc.cacheInfo()
                 except Exception:
                     pass  # Cache errors are non-fatal
+                
+                # Persist to CSV (keep summary.csv in sync with cache)
+                try:
+                    gui = self.parent_tab.parent
+                    if gui.csvManager is not None:
+                        gui.csvManager.writeNewData(gui.projProc)
+                except Exception:
+                    pass  # CSV errors are non-fatal
             
             # Update parent UI
             self.parent_tab.need_update = True
