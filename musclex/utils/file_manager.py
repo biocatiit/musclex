@@ -27,6 +27,8 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import traceback
+from datetime import datetime
 from os.path import split, exists, join
 import numpy as np
 import fabio
@@ -344,6 +346,20 @@ def _dir_signature(dir_path):
     except Exception:
         return None
 
+def _write_error_log(dir_path, error_msg, exception=None):
+    """Write a timestamped error entry to musclex_error.log in dir_path. Safe to call from any thread or subprocess."""
+    try:
+        log_path = os.path.join(dir_path, "musclex_error.log")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_path, "a", encoding="utf-8") as lf:
+            lf.write(f"[{ts}] {error_msg}\n")
+            if exception is not None:
+                tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+                lf.write(tb)
+            lf.write("\n")
+    except Exception:
+        pass
+
 def _h5_nframes(path):
     try:
         f = fabio.open(path)
@@ -353,7 +369,12 @@ def _h5_nframes(path):
         except Exception:
             pass
         return n
-    except Exception:
+    except Exception as e:
+        _write_error_log(
+            os.path.dirname(path),
+            f"Could not open HDF5 file (skipped during scan): {path}",
+            e
+        )
         return 0
 
 def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None):
@@ -449,6 +470,8 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
                     
         for (base, ext, path), nframes in zip(h5_files, nframes_list):
             if nframes <= 0:
+                if progress_dict is not None:
+                    progress_dict.setdefault('skipped_files', []).append(path)
                 continue
             start_idx = len(entries)
             if nframes == 1:
@@ -587,6 +610,7 @@ class FileManager:
         self._scan_thread = None
         self._scan_done = False
         self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Track H5 processing
+        self._scan_errors = []  # HDF5 files skipped due to load errors during background scan
 
     def set_from_file(self, selected_file):
         """
@@ -742,6 +766,7 @@ class FileManager:
 
         self._scan_done = False
         self._h5_progress = {'h5_total': 0, 'h5_done': 0}  # Reset progress
+        self._scan_errors = []  # Reset skipped-file list
 
         def _worker():
             # Get complete list from cache
@@ -749,6 +774,7 @@ class FileManager:
                 self.dir_path,
                 progress_dict=self._h5_progress
             )
+            self._scan_errors = self._h5_progress.get('skipped_files', [])
             
             # Apply failedcases filtering if needed
             if self.failedcases is not None:

@@ -609,6 +609,20 @@ class ImageNavigatorWidget(QWidget):
                     self.file_manager.current_image_name,
                     self.file_manager.dir_path
                 )
+            
+            # Show a single summary popup if any HDF5 files were skipped during scan
+            skipped = getattr(self.file_manager, '_scan_errors', [])
+            if skipped:
+                names = "\n".join(os.path.basename(p) for p in skipped)
+                msg_box = QMessageBox(self)
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setWindowTitle("HDF5 Scan Warning")
+                msg_box.setText(f"{len(skipped)} HDF5 file(s) could not be opened and were skipped.")
+                msg_box.setInformativeText(
+                    f"Files:\n{names}\n\nSee musclex_error.log in the folder for details."
+                )
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                msg_box.exec()
     
     # ===== Property Accessors (for convenience) =====
     
