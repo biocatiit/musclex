@@ -26,7 +26,11 @@ the sale, use or other dealings in this Software without prior written
 authorization from Illinois Institute of Technology.
 """
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+import os
+import traceback
+from datetime import datetime
+
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PySide6.QtCore import Signal, QTimer
 
 from musclex.ui.widgets.collapsible_right_panel import CollapsibleRightPanel
@@ -288,8 +292,11 @@ class ImageNavigatorWidget(QWidget):
                 
         except Exception as e:
             error_msg = f"Failed to load file: {str(e)}"
-            self.navigationError.emit(error_msg)
-            print(f"ImageNavigatorWidget: {error_msg}")
+            self._report_error(
+                error_msg=error_msg,
+                fallback_filepath=filepath,
+                exception=e
+            )
     
     def browse_file(self):
         """
@@ -444,7 +451,10 @@ class ImageNavigatorWidget(QWidget):
             dir_path = self.file_manager.dir_path
             
             if img is None:
-                self.navigationError.emit(f"Failed to load image: {filename}")
+                self._report_error(
+                    error_msg=f"Failed to load image: {filename}",
+                    fallback_filepath=dir_path
+                )
                 return
             
             # Check if this is a NEW image (filename changed)
@@ -476,8 +486,62 @@ class ImageNavigatorWidget(QWidget):
             
         except Exception as e:
             error_msg = f"Error loading image: {str(e)}"
-            self.navigationError.emit(error_msg)
-            print(f"ImageNavigatorWidget: {error_msg}")
+            self._report_error(
+                error_msg=error_msg,
+                fallback_filepath=dir_path,
+                exception=e
+            )
+
+    def _report_error(self, error_msg: str, fallback_filepath: str = "", exception: Exception = None):
+        """
+        Report a navigation/file loading error consistently.
+
+        Behavior:
+        - Emit navigationError signal
+        - Show popup dialog
+        - Append error details to a log file in the current file-manager directory
+        """
+        self.navigationError.emit(error_msg)
+        print(f"ImageNavigatorWidget: {error_msg}")
+        self._show_error_popup(error_msg)
+        self._append_error_log(error_msg, fallback_filepath=fallback_filepath, exception=exception)
+
+    def _show_error_popup(self, error_msg: str):
+        """Display an error popup for file/image loading failures."""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setWindowTitle("Load Error")
+        msg_box.setText("Failed to load file/image.")
+        msg_box.setInformativeText(error_msg)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.exec()
+
+    def _append_error_log(self, error_msg: str, fallback_filepath: str = "", exception: Exception = None):
+        """Append error details to a log file in the opened directory."""
+        target_dir = getattr(self.file_manager, "dir_path", "") or ""
+
+        if not target_dir and fallback_filepath:
+            fallback = str(fallback_filepath)
+            if os.path.isdir(fallback):
+                target_dir = fallback
+            else:
+                target_dir = os.path.dirname(fallback)
+
+        if not target_dir:
+            return
+
+        log_path = os.path.join(target_dir, "musclex_error.log")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        try:
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write(f"[{ts}] {error_msg}\n")
+                if exception is not None:
+                    tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+                    log_file.write(tb)
+                log_file.write("\n")
+        except Exception as log_exc:
+            print(f"ImageNavigatorWidget: Failed to write error log to {log_path}: {log_exc}")
     
     def _on_filename_changed(self):
         """Handle filename line edit changes (user typed a filename)."""
