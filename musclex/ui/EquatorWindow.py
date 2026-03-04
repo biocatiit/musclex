@@ -85,6 +85,11 @@ class Worker(QRunnable):
     @Slot()
     def run(self):
         try:
+            import pydevd
+            pydevd.settrace(suspend=False, trace_only_current_thread=True)
+        except Exception:
+            pass
+        try:
             self.bioImg.process(self.settings, self.paramInfo)
         except:
             traceback.print_exc()
@@ -2404,10 +2409,12 @@ class EquatorWindow(QMainWindow):
     def inpaintChecked(self):
         """
         Toggle inpainting and reprocess the current image.
-        Updates workspace flag and triggers full reprocess so that
-        ImageData.apply_preprocessing() runs with the new setting.
         """
-        self.workspace.inpaint_enabled = self.inpaintChkBx.isChecked()
+        enabled = self.inpaintChkBx.isChecked()
+        self.workspace.inpaint_enabled = enabled
+        if self.current_image_data is not None:
+            self.current_image_data.inpaint = enabled
+            self.current_image_data.reset_preprocessing()
         if self.bioImg is not None:
             self.onImageChanged()
 

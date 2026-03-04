@@ -1127,10 +1127,18 @@ class EquatorImage:
         if exists(cache_path) and isfile(cache_file):
             cinfo = pickle.load(open(cache_file, "rb"))
             if cinfo is not None:
-                if cinfo['program_version'] == self.version:
-                    return cinfo
-                print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
-                print("Invalidating cache and reprocessing the image")
+                if cinfo['program_version'] != self.version:
+                    print("Cache version " + cinfo['program_version'] + " did not match with Program version " + self.version)
+                    print("Invalidating cache and reprocessing the image")
+                    return None
+                # Validate preprocessing fingerprint so that changes to blank/mask/inpaint
+                # settings invalidate the cached histogram and all downstream results
+                saved_fp = cinfo.get('_image_data_fingerprint')
+                current_fp = self._image_data.get_fingerprint()
+                if saved_fp != current_fp:
+                    print("Preprocessing settings changed — invalidating cache and reprocessing the image")
+                    return None
+                return cinfo
         return None
 
     def saveCache(self):
@@ -1146,6 +1154,7 @@ class EquatorImage:
             makedirs(cache_path)
 
         self.info['program_version'] = self.version
+        self.info['_image_data_fingerprint'] = self._image_data.get_fingerprint()
         pickle.dump(self.info, open(cache_file, "wb"))
 
     def delCache(self):

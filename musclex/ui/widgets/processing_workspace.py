@@ -1529,9 +1529,7 @@ class ProcessingWorkspace(QWidget):
         # Update ImageData's apply_blank flag
         if self._current_image_data:
             self._current_image_data.apply_blank = is_checked
-            # Clear cached images so they'll be regenerated
-            self._current_image_data._processed_img = None
-            self._current_image_data._preprocessing_applied = False
+            self._current_image_data.reset_preprocessing()
             print(f"Updated ImageData.apply_blank = {is_checked}")
         
         # QuadrantFolder.updateInfo() will get fresh image from ImageData on next process()
@@ -1565,9 +1563,7 @@ class ProcessingWorkspace(QWidget):
         # Update ImageData's apply_mask flag
         if self._current_image_data:
             self._current_image_data.apply_mask = is_checked
-            # Clear cached images so they'll be regenerated
-            self._current_image_data._processed_img = None
-            self._current_image_data._preprocessing_applied = False
+            self._current_image_data.reset_preprocessing()
             print(f"Updated ImageData.apply_mask = {is_checked}")
         
         # QuadrantFolder.updateInfo() will get fresh image from ImageData on next process()
