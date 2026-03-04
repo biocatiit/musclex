@@ -1369,6 +1369,17 @@ class ProcessingWorkspace(QWidget):
         settings_dir = Path(self._settings_dir) / "settings"
         self._blank_mask_widget.update_from_directory(settings_dir)
     
+    # ==================== Public API for Inpainting ====================
+
+    @property
+    def inpaint_enabled(self) -> bool:
+        """Whether inpainting is enabled (set by GUI via inpaint checkbox)."""
+        return getattr(self, '_inpaint_enabled', False)
+
+    @inpaint_enabled.setter
+    def inpaint_enabled(self, value: bool):
+        self._inpaint_enabled = value
+
     # ==================== Public API for Quadrant Folded (PT-specific) ====================
     
     def create_qf_checkbox(self):

@@ -77,6 +77,7 @@ class ImageData:
         detector: Optional[str] = None,
         invalid_pixel_threshold: float = -1.0,
         quadrant_folded: bool = False,
+        inpaint: bool = False,
         **kwargs
     ):
         """
@@ -97,6 +98,7 @@ class ImageData:
         :param detector: Detector type for pyFAI integration
         :param invalid_pixel_threshold: Value to set for masked pixels
         :param quadrant_folded: Whether this is a quadrant folded image (PT specific)
+        :param inpaint: Whether to fill invalid/masked pixels via pyFAI inpainting
         :param kwargs: Additional metadata
         """
         # Raw data (immutable)
@@ -120,6 +122,7 @@ class ImageData:
         self.orientation_model = orientation_model
         self.detector = detector
         self.quadrant_folded = quadrant_folded
+        self.inpaint = inpaint
         
         # Lazy-loaded preprocessing data
         self._processed_img: Optional[np.ndarray] = None
@@ -207,6 +210,9 @@ class ImageData:
                 # If can't read metadata, assume not quadrant folded
                 print(f"Could not read TIFF metadata from {img_name}: {e}")
         
+        # Get inpaint flag from panel (if available)
+        inpaint = getattr(settings_panel, 'inpaint_enabled', False)
+        
         # Create and return ImageData
         return cls(
             img=img,
@@ -218,7 +224,8 @@ class ImageData:
             apply_blank=blank_mask_config['apply_blank'],
             apply_mask=blank_mask_config['apply_mask'],
             blank_weight=blank_mask_config['blank_weight'],
-            quadrant_folded=quadrant_folded
+            quadrant_folded=quadrant_folded,
+            inpaint=inpaint
         )
     
     # ==================== Properties ====================
@@ -506,7 +513,7 @@ class ImageData:
     
     def apply_preprocessing(self, force: bool = False) -> np.ndarray:
         """
-        Apply blank image subtraction and mask.
+        Apply blank image subtraction, mask, and inpainting.
         
         :param force: Force reprocessing even if already applied
         :return: Processed image
@@ -517,7 +524,7 @@ class ImageData:
         img = self._raw_img.copy()
         
         # Skip if nothing to apply
-        if not self.apply_blank and not self.apply_mask:
+        if not self.apply_blank and not self.apply_mask and not self.inpaint:
             self._processed_img = img
             self._preprocessing_applied = True
             return img
@@ -539,6 +546,12 @@ class ImageData:
             if self._mask_only is not None:
                 img[self._mask_only == 0] = self.invalid_pixel_threshold
                 print("Applied mask-only")
+        
+        # Apply inpainting (after mask so all invalid pixels are filled)
+        if self.inpaint:
+            from .image_processor import inpaint_img
+            print("Applying inpainting...")
+            img = inpaint_img(img)
         
         self._processed_img = img
         self._preprocessing_applied = True
@@ -623,6 +636,7 @@ class ImageData:
         fingerprint['apply_blank'] = self.apply_blank
         fingerprint['apply_mask'] = self.apply_mask
         fingerprint['blank_weight'] = self.blank_weight
+        fingerprint['inpaint'] = self.inpaint
         
         return fingerprint
     

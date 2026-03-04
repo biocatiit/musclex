@@ -464,6 +464,11 @@ class EquatorWindow(QMainWindow):
         self.rotation90ChkBx = QCheckBox("Rotate 90")
         self.forceRot90ChkBx = QCheckBox("Persist Rotation")
 
+        self.inpaintChkBx = QCheckBox("Inpainting")
+        self.inpaintChkBx.setToolTip(
+            "Fill invalid/masked pixels using pyFAI inpainting before processing.\n"
+            "Warning: for visualization only — do not use for quantitative results."
+        )
         self.resetAllB = QPushButton("Reset All")
         # NOTE: Center/rotation/blank/mask buttons removed from this layout
         # They are now part of ProcessingWorkspace's right panel
@@ -474,6 +479,7 @@ class EquatorWindow(QMainWindow):
         self.imgProcLayout.addWidget(self.doubleZoom, 3, 0, 1, 2)
         self.imgProcLayout.addWidget(QLabel("Mask Threshold:"), 4, 0, 1, 2)
         self.imgProcLayout.addWidget(self.maskThresSpnBx, 4, 2, 1, 2)
+        self.imgProcLayout.addWidget(self.inpaintChkBx, 5, 0, 1, 4)
         self.imgProcLayout.addWidget(self.fixedRminChkBx, 6, 0, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmin, 6, 2, 1, 2)
         self.imgProcLayout.addWidget(self.fixedRmaxChkBx, 7, 0, 1, 2)
@@ -860,6 +866,7 @@ class EquatorWindow(QMainWindow):
         self.orientationCmbBx.currentIndexChanged.connect(self.orientationModelChanged)
         self.rotation90ChkBx.stateChanged.connect(self.rotation90Checked)
         self.forceRot90ChkBx.stateChanged.connect(self.forceRot90Checked)
+        self.inpaintChkBx.stateChanged.connect(self.inpaintChecked)
         self.resetAllB.clicked.connect(self.resetAll)
 
         # NOTE: prev/next/filename navigation now handled by ProcessingWorkspace's navigator
@@ -2393,6 +2400,16 @@ class EquatorWindow(QMainWindow):
             self.rotation90ChkBx.setEnabled(False)
         else:
             self.rotation90ChkBx.setEnabled(True)
+
+    def inpaintChecked(self):
+        """
+        Toggle inpainting and reprocess the current image.
+        Updates workspace flag and triggers full reprocess so that
+        ImageData.apply_preprocessing() runs with the new setting.
+        """
+        self.workspace.inpaint_enabled = self.inpaintChkBx.isChecked()
+        if self.bioImg is not None:
+            self.onImageChanged()
 
     def inrec(self, x, y, xmin, ymin, xmax, ymax):
         """
