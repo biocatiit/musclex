@@ -98,19 +98,13 @@ def main(arguments=None):
             app.setStyleSheet(stylesheet.stylesheet)
             myapp = ProjectionTracesGUI()
             sys.exit(app.exec_())
-        # elif prog == 'aise':
-        #     from musclex.ui.AddIntensitiesSingleExp import AddIntensitiesSingleExp
-        #     app = QApplication(sys.argv)
-        #     app.setStyleSheet(stylesheet.stylesheet)
-        #     myapp = AddIntensitiesSingleExp()
-        #     sys.exit(app.exec_())
-        # elif prog == 'aime':
-        #     from musclex.ui.AddIntensitiesMultExp import AddIntensitiesMultExp
-        #     app = QApplication(sys.argv)
-        #     app.setStyleSheet(stylesheet.stylesheet)
-        #     myapp = AddIntensitiesMultExp()
-        #     sys.exit(app.exec_())
-        elif prog =='aisme':
+        elif prog == 'aise':
+            from musclex.ui.AddIntensitiesSingleExp import AddIntensitiesSingleExp
+            app = QApplication(sys.argv)
+            app.setStyleSheet(stylesheet.stylesheet)
+            myapp = AddIntensitiesSingleExp()
+            sys.exit(app.exec_())
+        elif prog == 'aisme':
             from musclex.ui.AddIntensitiesExp import AIStartWindow
             app = QApplication(sys.argv)
             app.setStyleSheet(stylesheet.stylesheet)
@@ -395,7 +389,7 @@ def main(arguments=None):
                     proc.join()
                     sys.exit()
 
-    elif len(arguments) >= 5 and arguments[1]=='aisme' and arguments[2]=='-h':
+    elif len(arguments) >= 5 and (arguments[1] == 'aise' or arguments[1] == 'aisme') and arguments[2]=='-h':
         i = 3
         run = True
         type = ''
@@ -440,6 +434,7 @@ def main(arguments=None):
         print("          qf [<-h>] - Quadrant Folding (-h for headless version)")
         print("          pt [<-h>] - Projection Traces (-h for headless version)")
         print("          ddf - DDF Processor")
+        print("          aise  - Add Intensities Single Experiment")
         print("          aisme - Add Intensities Single/Multiple Experiment(s)")
         print("          dc - Diffraction Centroids (DEPRECATED)")
         print("")
