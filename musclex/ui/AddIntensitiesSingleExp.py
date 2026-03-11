@@ -44,6 +44,8 @@ import matplotlib.patches as patches
 from matplotlib.colors import LogNorm, Normalize
 from PIL import Image
 import fabio
+
+from musclex.ui.widgets import ProcessingWorkspace
 #from .image_masker import image_masker
 
 from .AISEImageSelectionWindow import AISEImageSelectionWindow
@@ -105,13 +107,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.center_before_rotation = None
         self.img_zoom = None # zoom location of original image (x,y range)
         self.default_img_zoom = None # default zoom calculated after processing image
-        self.doubleZoomMode = False
-        self.dontShowAgainDoubleZoomMessageResult = False
-        self.doubleZoomPt = (0, 0)
-        self.doubleZoomAxes = None
         self.isHdf5 = False
-        self.chordLines = []      
-        
+        self.chordLines = []     
+        self.workspace = ProcessingWorkspace(settings_dir="")  
+        self.navigator = self.workspace.navigator
         self.initUI()
         self.setConnections()
 
@@ -148,73 +147,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.verImgLayout.setContentsMargins(0, 0, 0, 0)
         self.verImgLayout.setAlignment(Qt.AlignCenter)
 
-        self.browseFileButton = QPushButton("Select an H5 File...")
-        self.verImgLayout.addWidget(self.browseFileButton)
-        self.browseFileButton.setFixedHeight(100)
-        self.browseFileButton.setFixedWidth(300)
 
-        self.browseFolderButton = QPushButton("Select a Folder...")
-        self.verImgLayout.addWidget(self.browseFolderButton)
-        self.browseFolderButton.setFixedHeight(100)
-        self.browseFolderButton.setFixedWidth(300)
+        self.imageTabLayout.addWidget(self.workspace, 1)
 
-        self.imageFigure = plt.figure()
-        # self.imageAxes = self.imageFigure.add_subplot(111)
-        self.imageCanvas = FigureCanvas(self.imageFigure)
-
-        self.imageCanvas.setHidden(True)
-        self.imageTabLayout.addLayout(self.verImgLayout)
-        self.imageTabLayout.addWidget(self.imageCanvas)
-
-        # Options Menu on the Right
-
-        # Main Layout to add GrpBoxes To
-        self.optionsLayout = QVBoxLayout()
-        self.optionsLayout.setAlignment(Qt.AlignCenter)
-
-        # Display Options
-        self.displayOptGrpBx = QGroupBox()
-        self.displayOptGrpBx.setTitle("Display Options")
-        self.displayOptGrpBx.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        self.displayOptGrpBx.setStyleSheet("QGroupBox {font-weight: bold;}")
-        self.dispOptLayout = QGridLayout()
-
-        self.spminInt = QDoubleSpinBox()
-        self.spminInt.setToolTip("Reduction in the maximal intensity shown \
-            to allow for more details in the image.")
-        self.spminInt.setKeyboardTracking(False)
-        self.spminInt.setSingleStep(5)
-        self.spminInt.setDecimals(0)
-        self.spmaxInt = QDoubleSpinBox()
-        self.spmaxInt.setToolTip("Increase in the minimal intensity shown \
-            to allow for more details in the image.")
-        self.spmaxInt.setKeyboardTracking(False)
-        self.spmaxInt.setSingleStep(5)
-        self.spmaxInt.setDecimals(0)
-        self.logScaleIntChkBx = QCheckBox("Log scale intensity")
-        self.persistIntensity = QCheckBox("Persist intensities")
-
-        self.imgZoomInB = QPushButton("Zoom in")
-        self.imgZoomInB.setCheckable(True)
-        self.imgZoomOutB = QPushButton("Full")
-        
-        self.doubleZoom = QCheckBox("Double Zoom")
-        self.dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-
-        self.minIntLabel = QLabel('Min Intensity')
-        self.maxIntLabel = QLabel('Max Intensity')
-        self.showSeparator = QCheckBox("Show Quadrant Separator")
-        self.dispOptLayout.addWidget(self.minIntLabel, 1, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.spminInt, 1, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.maxIntLabel, 2, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.spmaxInt, 2, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomInB, 3, 0, 1, 1)
-        self.dispOptLayout.addWidget(self.imgZoomOutB, 3, 1, 1, 1)
-        self.dispOptLayout.addWidget(self.logScaleIntChkBx, 4, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.persistIntensity, 5, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.doubleZoom, 6, 0, 1, 2)
-        self.dispOptLayout.addWidget(self.showSeparator, 7, 0, 1, 2)
-        self.displayOptGrpBx.setLayout(self.dispOptLayout)
+        ##  Right Panel
 
         # Image Operations Group Box
 
@@ -286,24 +222,15 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.reviewImageLayout.addWidget(self.prevButton, 2, 0, 1, 1)
         self.reviewImageLayout.addWidget(self.nextButton, 2, 1, 1, 1)
         
-        self.processFolderButton = QPushButton("Sum Images")
-        self.processFolderButton.setStyleSheet(pfss)
-        self.processFolderButton.setCheckable(True)
-
-        self.optionsLayout.addWidget(self.displayOptGrpBx)
-        self.optionsLayout.addSpacing(5)
-        self.optionsLayout.addWidget(self.imgOperationGrp)
-        self.optionsLayout.addSpacing(5)
-        self.optionsLayout.addWidget(self.operationGroup)
-        self.optionsLayout.addSpacing(5)
-        self.optionsLayout.addWidget(self.reviewImageGroup)
-        self.optionsLayout.addSpacing(5)
-        self.optionsLayout.addWidget(self.processFolderButton)
-
-        self.frameOfKeys = QFrame()
-        self.frameOfKeys.setFixedWidth(350)
-        self.frameOfKeys.setLayout(self.optionsLayout)
-        self.imageTabLayout.addWidget(self.frameOfKeys)
+        self.nav_controls = self.navigator.nav_controls
+        self.processFolderButton = self.nav_controls.processFolderButton
+        self.processFolderButton.setText("Sum Images")
+        self.nav_controls.setNavMode('no_h5')
+        self.right_panel = self.workspace.right_panel
+        self.right_panel.add_widget(self.imgOperationGrp)
+        self.right_panel.add_widget(self.operationGroup)
+        self.right_panel.add_widget(self.reviewImageGroup)
+        self.right_panel.add_widget(self.processFolderButton)
 
         ##### Result Tab #####
         self.resultTab = QWidget()
@@ -423,8 +350,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         helpMenu = menubar.addMenu('&Help')
         helpMenu.addAction(aboutAct)
         
-        self.imageAxes = self.imageFigure.add_subplot(111)
-        
 
         self.show()
         # self.setMinimumHeight(900)
@@ -432,14 +357,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.resize(1500, 900)
         
     def setConnections(self):
-        self.browseFileButton.clicked.connect(self.browseFile)
-        self.browseFolderButton.clicked.connect(self.browseFolder)
-        self.imgZoomInB.clicked.connect(self.imageZoomIn)
-        self.imgZoomOutB.clicked.connect(self.imageZoomOut)
-        self.spminInt.valueChanged.connect(self.refreshImageTab)
-        self.spmaxInt.valueChanged.connect(self.refreshImageTab)
-        self.logScaleIntChkBx.stateChanged.connect(self.refreshImageTab)
-        self.doubleZoom.stateChanged.connect(self.doubleZoomChecked)
         self.processFolderButton.toggled.connect(self.batchProcBtnToggled)
         self.nextButton.clicked.connect(self.nextClicked)
         self.prevButton.clicked.connect(self.prevClicked)
@@ -447,7 +364,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.compressChkBx.stateChanged.connect(self.avgInsteadOfSumChanged)
         self.calibrationChkBx.clicked.connect(self.setCalibrationActive)
         self.checkImagesButton.clicked.connect(self.checkImages)
-        self.showSeparator.stateChanged.connect(self.refreshImageTab)
         self.selectImageChkBx.clicked.connect(self.selectImageChecked)
         self.sumImagesButton.clicked.connect(self.selectImageSequence)
         self.specifyCenterAndOrientationButton.clicked.connect(self.specifyCenterAndOrientationClicked)
@@ -455,11 +371,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.frameNb.valueChanged.connect(self.frameNbChanged)
         self.frameSteppingSelection.currentTextChanged.connect(self.stepComboBoxChanged)
             
-        self.imageFigure.canvas.mpl_connect('button_press_event', self.imageClicked)
-        self.imageFigure.canvas.mpl_connect('motion_notify_event', self.imageOnMotion)
-        self.imageFigure.canvas.mpl_connect('button_release_event', self.imageReleased)
-        self.imageFigure.canvas.mpl_connect('scroll_event', self.imgScrolled)
-        
         self.resultZoomInB.clicked.connect(self.resultZoomIn)
         self.resultZoomOutB.clicked.connect(self.imageZoomOut)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
@@ -1232,47 +1143,8 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         return final_rotImg
     
-    def doubleZoomChecked(self):
-        """
-        Triggered when double zoom is checked
-        """
-        if self.doubleZoom.isChecked():
-            print("Double zoom checked")
-            self.doubleZoomAxes = self.imageFigure.add_subplot(333)
-            self.doubleZoomAxes.axes.xaxis.set_visible(False)
-            self.doubleZoomAxes.axes.yaxis.set_visible(False)
-            self.doubleZoomMode = True
+ 
 
-            img = self.orig_imgs[self.currentFrameNumber]
-            ax1 = self.doubleZoomAxes
-            x,y = (0, 0)
-            imgCropped = img[y - 10:y + 10, x - 10:x + 10]
-            if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                self.doubleZoomPt = (x, y)
-                ax1.imshow(imgScaled)
-                # y, x = imgScaled.shape
-                # cy, cx = y // 2, x // 2
-                if len(ax1.lines) > 0:
-                    for i in range(len(ax1.lines)-1,-1,-1):
-                        ax1.lines[i].remove()
-                for i in range(len(ax1.patches)-1,-1,-1):
-                    ax1.patches[i].remove()
-        else:
-            self.imageFigure.delaxes(self.doubleZoomAxes)
-            self.doubleZoomMode = False
-        self.imageCanvas.draw_idle()
-        
-    def doubleZoomToOrigCoord(self, x, y):
-        """
-        Compute the new x and y for double zoom to orig coord
-        """
-        M = [[1/10, 0, 0], [0, 1/10, 0],[0, 0, 1]]
-        dzx, dzy = self.doubleZoomPt
-        x, y, _ = np.dot(M, [x, y, 1])
-        newX = dzx -10 + x
-        newY = dzy - 10 + y
-        return (newX, newY)
 
     def updateUI(self):
         """
@@ -1326,10 +1198,6 @@ class AddIntensitiesSingleExp(QMainWindow):
                     _, center = self.getExtentAndCenter(self.orig_imgs[self.currentFrameNumber])
                     self.calSettingsDialog.centerX.setValue(center[0])
                     self.calSettingsDialog.centerY.setValue(center[1])
-
-            self.imageFigure.tight_layout()
-            self.imageCanvas.draw()
-
 
             self.updated['img'] = True
             self.uiUpdating = False
@@ -1492,20 +1360,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         
         ax = self.imageAxes
                 
-        if self.doubleZoomMode:
-            if not self.dontShowAgainDoubleZoomMessageResult:
-                msg = QMessageBox()
-                msg.setInformativeText(
-                    "Please click on zoomed window on the top right")
-                dontShowAgainDoubleZoomMessage = QCheckBox("Do not show this message again")
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.setWindowTitle("Double Zoom Guide")
-                msg.setStyleSheet("QLabel{min-width: 500px;}")
-                msg.setCheckBox(dontShowAgainDoubleZoomMessage)
-                msg.exec_()
-                self.dontShowAgainDoubleZoomMessageResult = dontShowAgainDoubleZoomMessage.isChecked()
-            self.doubleZoomMode = False
-            return
         
         if x is None or y is None:
             self.imgCoordOnStatusBar.setText("")
@@ -1525,10 +1379,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             x = int(round(x))
             y = int(round(y))
             
-        if self.doubleZoom.isChecked() and not self.doubleZoomMode:
-            x, y = self.doubleZoomToOrigCoord(x, y)
-            self.doubleZoomMode = True
-
         # Provide different behavior depending on current active function
         if self.function is None:
             self.function = ["im_move", (x, y)]
@@ -1565,19 +1415,6 @@ class AddIntensitiesSingleExp(QMainWindow):
             y = int(round(y))
             if x < img.shape[1] and y < img.shape[0]:
                 self.imgCoordOnStatusBar.setText("x=" + str(x) + ', y=' + str(y) + ", value=" + str(img[y][x]))
-                if self.doubleZoom.isChecked() and self.doubleZoomMode and x>10 and x<img.shape[1]-10 and y>10 and y<img.shape[0]-10:
-                    ax1 = self.doubleZoomAxes
-                    imgCropped = img[int(y - 10):int(y + 10), int(x - 10):int(x + 10)]
-                    if len(imgCropped) != 0 or imgCropped.shape[0] != 0 or imgCropped.shape[1] != 0:
-                        imgScaled = cv2.resize(imgCropped.astype("float32"), (0, 0), fx=10, fy=10)
-                        self.doubleZoomPt = (x,y)
-                        ax1.imshow(imgScaled)
-                        if len(ax1.lines) > 0:
-                            for i in range(len(ax1.lines)-1,-1,-1):
-                                ax1.lines[i].remove()
-                        for i in range(len(ax1.patches)-1,-1,-1):
-                            ax1.patches[i].remove()
-                        self.imageCanvas.draw_idle()
 
         # Calculate new x,y if cursor is outside figure
         if x is None or y is None:

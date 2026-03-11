@@ -171,10 +171,11 @@ class ProcessingWorkspace(QWidget):
     
     def _setup_components(self):
         """Create settings widgets (image_viewer is external)."""
-        # Settings widgets
-        self._center_widget = CenterSettingsWidget(parent=self)
-        self._rotation_widget = RotationSettingsWidget(parent=self)
-        self._blank_mask_widget = BlankMaskSettingsWidget(parent=self)
+        # Create these unattached so modules that do not add them to a layout
+        # do not get stray group-box titles painted at the workspace origin.
+        self._center_widget = CenterSettingsWidget(parent=None)
+        self._rotation_widget = RotationSettingsWidget(parent=None)
+        self._blank_mask_widget = BlankMaskSettingsWidget(parent=None)
         
         # Register tools to the external image viewer's tool manager
         self._register_tools()
