@@ -48,7 +48,7 @@ class QF_CSVManager:
         if not exists(result_path):
             makedirs(result_path)
         self.filename = fullPath(result_path, 'summary.csv')
-        self.colnames = ['Filename', 'centerX', 'centerY', 'rotationAngle', 'hash', 'comment']
+        self.colnames = ['Filename', 'centerX', 'centerY', 'rotationAngle', 'backgroundMethod', 'parameters', 'optimized', 'loss', 'bgSum', 'hash', 'comment']
         self.loadFailedCases(dir_path)
         self.loadSummary()
 
@@ -74,6 +74,7 @@ class QF_CSVManager:
             self.dataframe = pd.DataFrame(columns = self.colnames)
         else:
             self.dataframe = pd.read_csv(self.filename)
+
 
     def writeNewData(self, quadFold):
         """
@@ -115,6 +116,13 @@ class QF_CSVManager:
             except:
                 print('Hash not generated, array not C-contiguous')
                 data['hash'] = '-'
+
+            data['backgroundMethod'] = quadFold.info['result_bg'].get('method', '-')
+            data['parameters'] = quadFold.info['result_bg'].get('final_params', '-')
+            data['optimized'] = quadFold.info['result_bg'].get('optimized', '-')
+            data['loss'] = quadFold.info['result_bg'].get('loss', '-')
+            data['bgSum'] = quadFold.info['result_bg'].get('intensity', '-')
+
 
             if failed:
                 self.failedcases.add(img_name)

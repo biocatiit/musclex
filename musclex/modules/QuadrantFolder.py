@@ -292,8 +292,8 @@ class QuadrantFolder:
         if 'inv_transform' in self.info:
             del self.info['inv_transform']
 
-        if 'best_bg_params' not in self.info:
-            self.info['best_bg_params'] = []
+        if 'result_bg' not in self.info:
+            self.info['result_bg'] = {}
 
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
@@ -1097,7 +1097,7 @@ class QuadrantFolder:
         """
         
         # self.info['methods'] = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
-        # self.info['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric', 'Smoothed-Boxcar']
+        # self.info['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric'] #, 'Smoothed-BoxCar']
         # self.info['methods'] = ['White-top-hats']
         # self.info['steps']  = [50, 30, 10, 7, 5, 3, 1]
         # self.info['early_stop'] = 0.0007
@@ -1107,6 +1107,11 @@ class QuadrantFolder:
 
         if 'optimize' in self.info and self.info['optimize']:
             print(f"Background subtraction methods to optimize: {self.info['methods']}")
+
+            print(f"Looking through historical data for optimization...")
+
+
+
             print(f"Optimization steps: {self.info['steps']}. Early stop threshold: {self.info['early_stop']}. Max iterations: {self.info['max_iterations']}.")
 
             n_proc = mp.cpu_count()
@@ -1157,7 +1162,7 @@ class QuadrantFolder:
                     best_params = params
                     best_method = method
             
-            print(f"Best params: {best_params}. Loss: {best_loss} for method {best_method}")
+            print(f"Best params: {best_params}.  {best_loss} for method {best_method}")
 
             # for method in self.info['methods']:
             #     best_params, best_loss, all_results = optimize(method, **kwargs)  # test run
@@ -1171,12 +1176,22 @@ class QuadrantFolder:
             # best_method = [method for method in outputs if outputs[method][1] == best_loss][0]
             # print(f"Best method: {best_method} with loss: {best_loss} and params: {outputs[best_method][0]}")
             
-            self.info['best_bg_params'].append((best_method, best_params))
-            self.info['optimize'] = False
-            self.info["bgsub"] = best_method
+            self.info['result_bg']['final_params'] = best_params
+            self.info['result_bg']['optimized'] = True
+            self.info['result_bg']['method'] = best_method
+            self.info['bgsub'] = best_method
 
 
-        # else:
+        else:
+            self.info['result_bg']['optimized'] = False
+            self.info['result_bg']['method'] = self.info['bgsub']
+
+            params_keys = list(method_params[self.info['bgsub']].keys())
+            params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
+    
+            self.info['result_bg']['final_params'] = params
+
+        
         print("Background subtraction is being processed...")
         self.applyBackgroundSubtraction()
         self.applyBackgroundSubtractionSynthetic()
@@ -1231,6 +1246,7 @@ class QuadrantFolder:
             else:
                 result = avg_fold
             self.info["bgimg"] = result
+            self.info['result_bg']['intensity'] = np.sum(result)
         
         self.imgCache['BgSubFold'] = copy.copy(self.info["bgimg"])
         self.deleteFromDict(self.imgCache, "resultImg")
@@ -1333,8 +1349,8 @@ class QuadrantFolder:
             'syn_mask': syn_mask,
             'gen_mask': self.info['mask'],
         }
-        evaluate_loss(**kwargs)
-
+        loss = evaluate_loss(**kwargs)
+        self.info['result_bg']['loss'] = loss
 
 
 

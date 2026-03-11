@@ -74,6 +74,7 @@ from .widgets.rotation_settings_widget import RotationSettingsWidget
 from .widgets.blank_mask_settings_widget import BlankMaskSettingsWidget
 from .widgets import ProcessingWorkspace
 from .base_gui import BaseGUI
+from ..utils.background_search import makeFullImage
 import time
 import random
 
@@ -167,7 +168,7 @@ class Worker(QRunnable):
         print("result shape: ")
         print(result.shape)
         background = avg_fold-result
-        resultImg = self.quadFold.makeFullImage(background)
+        resultImg = makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
             #pass
@@ -2386,7 +2387,7 @@ class QuadrantFoldingGUI(BaseGUI):
         print("result shape: ")
         print(result.shape)
         background = avg_fold-result
-        resultImg = self.quadFold.makeFullImage(background)
+        resultImg = makeFullImage(background)
 
         if 'rotate' in info and info['rotate']:
             #pass

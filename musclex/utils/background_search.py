@@ -457,6 +457,7 @@ def evaluate_loss(dimg, dbg, syn_img, syn_srt, syn_mask, gen_mask, baseline):
     print("Evaluation Metrics:")
     for key, value in metrics.items():
         print(f"{key}: {value:.4f}")
+    return metrics["Loss"]
 
 # ========================= Background Removal ==========================
 

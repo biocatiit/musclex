@@ -332,7 +332,7 @@ class QuadrantFoldingh:
         flags['downsample'] = 2
         flags['smooth_image'] = False
         flags['optimize'] = True
-        flags['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric', 'Smoothed-Boxcar']
+        flags['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric'] #, 'Smoothed-BoxCar']
         flags['steps']  = [50, 30, 10, 7, 5, 3, 1]
         flags['early_stop'] = 0.0007
         flags['max_iterations'] = 10
