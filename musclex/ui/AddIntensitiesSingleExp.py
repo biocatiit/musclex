@@ -50,6 +50,7 @@ from musclex.ui.widgets import ProcessingWorkspace
 
 from .AISEImageSelectionWindow import AISEImageSelectionWindow
 from .UnalignedImagesDialog import UnalignedImagesDialog
+from .DetectMisalignedDialog import DetectMisalignedDialog
 from .ImageMaskTool import ImageMaskerWindow
 from .CalibrationDialog import CalibrationDialog
 from musclex import __version__
@@ -92,6 +93,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.dir_path = ""
         self.stop_process = False
         self.unalignedImagesDialog = None
+        self.detectMisalignedDialog = None
         self.imageAxes = None
         self.resultAxes = None
         
@@ -178,7 +180,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         
         self.checkImagesButton = QPushButton("Detect Misaligned Images")
         self.checkImagesButton.setToolTip("Check all images for misalignment")
-        self.checkImagesButton.setEnabled(False)
+
         
         self.imgOperationLayout.addWidget(self.factorBx, 0, 0, 1, 2)
         self.imgOperationLayout.addWidget(self.frameNb, 0, 3, 1, 2)
@@ -1765,6 +1767,15 @@ class AddIntensitiesSingleExp(QMainWindow):
         return None
         
     def checkImages(self):
+        fm = self.workspace.navigator.file_manager
+        self.detectMisalignedDialog = DetectMisalignedDialog(
+            img_list=fm.names,
+            dir_path=fm.dir_path,
+            parent=self,
+        )
+        self.detectMisalignedDialog.exec_()
+        return
+
         if self.unalignedImagesDialog is None:
             self.unalignedImagesDialog = UnalignedImagesDialog()
         if self.unalignedImagesDialog.exec_():
