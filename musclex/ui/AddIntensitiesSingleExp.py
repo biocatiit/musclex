@@ -1767,10 +1767,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         return None
         
     def checkImages(self):
-        fm = self.workspace.navigator.file_manager
         self.detectMisalignedDialog = DetectMisalignedDialog(
-            img_list=fm.names,
-            dir_path=fm.dir_path,
+            workspace=self.workspace,
             parent=self,
         )
         self.detectMisalignedDialog.exec_()

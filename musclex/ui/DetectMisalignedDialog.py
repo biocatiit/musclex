@@ -47,29 +47,21 @@ class DetectMisalignedDialog(QDialog):
     _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
     _GROUP_FG = QColor(255, 255, 255)
 
-    def __init__(self, img_list, dir_path="", misaligned_names=None,
-                 items_data=None, parent=None):
+    def __init__(self, workspace, parent=None):
         """
         Parameters
         ----------
-        img_list : list[str]
-            All image file names (base names for tiff, full names for hdf5).
-        dir_path : str
-            Directory path (used for display only, not loading).
-        misaligned_names : set[str] | None
-            Names of images flagged as misaligned; highlighted in red.
-        items_data : list[dict] | None
-            Per-image metric dicts with keys:
-            'name', 'center', 'center_dist', 'angle', 'angle_dist', 'image_diff'
-            If None, only the Frame column is populated.
+        workspace : ProcessingWorkspace
+            The main processing workspace; image list is read from
+            ``workspace.navigator.file_manager.names``.
         parent : QWidget | None
         """
         super().__init__(parent)
         self.setWindowTitle("Detect Misaligned Images")
-        self.img_list = img_list or []
-        self.dir_path = dir_path
-        self.misaligned_names = set(misaligned_names) if misaligned_names else set()
-        self.items_data = items_data
+        self.workspace = workspace
+        self.img_list = list(workspace.navigator.file_manager.names) if workspace else []
+        self.misaligned_names = set()
+        self.items_data = None
 
         # Each entry: {'start': int, 'count': int, 'number': int}
         self._groups = []
