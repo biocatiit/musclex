@@ -1,8 +1,8 @@
 import os
 from PySide6.QtWidgets import (
-    QDialog, QGridLayout, QGroupBox, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
+    QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
-    QSizePolicy
+    QSizePolicy, QMenu
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
@@ -12,21 +12,28 @@ from musclex.ui.widgets.collapsible_right_panel import CollapsibleRightPanel
 class DetectMisalignedDialog(QDialog):
     """
     Dialog that lists all images from the file manager in a table.
-    Columns: Frame, Original Center, Center Mode Distance,
+    Columns: Group, Frame, Original Center, Center Mode Distance,
              Rotation, Rotation Mode Distance, Image Difference.
     Rows for misaligned images are highlighted in red when detection data
     is provided.
+
+    Grouping: drag-select multiple rows, right-click → "Group" to assign a
+    sequential group number shown as a merged cell in the Group column.
+    Right-click on a group number cell → "Ungroup" to remove the group and
+    renumber the remaining groups to stay sequential.
     """
 
     # Column indices
-    COL_FRAME = 0
-    COL_CENTER = 1
-    COL_CENTER_DIST = 2
-    COL_ROTATION = 3
-    COL_ROTATION_DIST = 4
-    COL_IMAGE_DIFF = 5
+    COL_GROUP = 0
+    COL_FRAME = 1
+    COL_CENTER = 2
+    COL_CENTER_DIST = 3
+    COL_ROTATION = 4
+    COL_ROTATION_DIST = 5
+    COL_IMAGE_DIFF = 6
 
     HEADERS = [
+        "Group",
         "Frame",
         "Original Center",
         "Center Mode Distance",
@@ -34,6 +41,10 @@ class DetectMisalignedDialog(QDialog):
         "Rotation Mode",
         "Image Difference",
     ]
+
+    # Visual style for group cells
+    _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
+    _GROUP_FG = QColor(255, 255, 255)
 
     def __init__(self, img_list, dir_path="", misaligned_names=None,
                  items_data=None, parent=None):
@@ -57,7 +68,10 @@ class DetectMisalignedDialog(QDialog):
         self.img_list = img_list or []
         self.dir_path = dir_path
         self.misaligned_names = set(misaligned_names) if misaligned_names else set()
-        self.items_data = items_data  # None until detection is run
+        self.items_data = items_data
+
+        # Each entry: {'start': int, 'count': int, 'number': int}
+        self._groups = []
 
         self._build_ui()
         self.resize(900, 600)
@@ -92,9 +106,15 @@ class DetectMisalignedDialog(QDialog):
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         header = self.table.horizontalHeader()
+        header.setSectionResizeMode(self.COL_GROUP, QHeaderView.Fixed)
+        self.table.setColumnWidth(self.COL_GROUP, 52)
         header.setSectionResizeMode(self.COL_FRAME, QHeaderView.Stretch)
-        for col in range(1, len(self.HEADERS)):
+        for col in range(2, len(self.HEADERS)):
             header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+
+        # Context menu for grouping / ungrouping
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._on_context_menu)
 
         # Right panel
         self.right_panel = CollapsibleRightPanel(
@@ -112,9 +132,7 @@ class DetectMisalignedDialog(QDialog):
         root.addLayout(content_layout)
 
         self.start_detection_btn = QPushButton("Start Detection")
-    
         self.right_panel.add_widget(self.start_detection_btn)
-
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -134,6 +152,7 @@ class DetectMisalignedDialog(QDialog):
 
     def populate(self):
         """Fill the table from img_list / items_data."""
+        self._groups = []
         self.table.setRowCount(0)
 
         if self.items_data:
@@ -187,18 +206,116 @@ class DetectMisalignedDialog(QDialog):
             self._apply_misaligned_highlight(row, name)
 
     def _apply_misaligned_highlight(self, row, name):
-        """Colour the whole row red if the image is in misaligned_names."""
+        """Colour the data columns red if the image is in misaligned_names.
+        COL_GROUP is intentionally skipped to keep group cell appearance intact."""
         if not self.misaligned_names:
             return
         base = os.path.basename(name)
         if name in self.misaligned_names or base in self.misaligned_names:
             highlight = QBrush(QColor(255, 120, 120))
-            for col in range(self.table.columnCount()):
+            for col in range(1, self.table.columnCount()):   # skip COL_GROUP
                 item = self.table.item(row, col)
                 if item is None:
                     item = QTableWidgetItem("")
                     self.table.setItem(row, col, item)
                 item.setBackground(highlight)
+
+    # ------------------------------------------------------------------
+    # Grouping helpers
+    # ------------------------------------------------------------------
+
+    def _find_group_at_row(self, row):
+        """Return the group dict that contains *row*, or None."""
+        for group in self._groups:
+            if group['start'] <= row < group['start'] + group['count']:
+                return group
+        return None
+
+    def _render_groups(self):
+        """Clear all group-column spans then re-render from self._groups."""
+        # Reset every cell in the Group column to 1×1 span and clear text/colour
+        for row in range(self.table.rowCount()):
+            self.table.setSpan(row, self.COL_GROUP, 1, 1)
+            item = self.table.item(row, self.COL_GROUP)
+            if item:
+                item.setText("")
+                item.setBackground(QBrush())
+                item.setForeground(QBrush())
+
+        # Paint each group
+        for group in self._groups:
+            start = group['start']
+            count = group['count']
+            if count > 1:
+                self.table.setSpan(start, self.COL_GROUP, count, 1)
+            item = self.table.item(start, self.COL_GROUP)
+            if item is None:
+                item = QTableWidgetItem()
+                self.table.setItem(start, self.COL_GROUP, item)
+            item.setText(str(group['number']))
+            item.setTextAlignment(Qt.AlignCenter)
+            item.setBackground(QBrush(self._GROUP_BG))
+            item.setForeground(QBrush(self._GROUP_FG))
+
+    def _renumber_groups(self):
+        """Sort groups by row position and assign sequential numbers (1, 2, 3…),
+        then re-render."""
+        self._groups.sort(key=lambda g: g['start'])
+        for i, group in enumerate(self._groups):
+            group['number'] = i + 1
+        self._render_groups()
+
+    def _group_rows(self, selected_rows):
+        """Create a new group covering min…max of *selected_rows*.
+        Any existing groups that overlap the new range are removed first."""
+        start = min(selected_rows)
+        end = max(selected_rows)
+        count = end - start + 1
+
+        # Remove overlapping groups
+        self._groups = [
+            g for g in self._groups
+            if not (g['start'] <= end and g['start'] + g['count'] > start)
+        ]
+
+        self._groups.append({'start': start, 'count': count, 'number': 0})
+        self._renumber_groups()
+
+    def _ungroup(self, group):
+        """Remove *group* and renumber remaining groups."""
+        self._groups.remove(group)
+        self._renumber_groups()
+
+    # ------------------------------------------------------------------
+    # Context menu
+    # ------------------------------------------------------------------
+
+    def _on_context_menu(self, pos):
+        row = self.table.rowAt(pos.y())
+        col = self.table.columnAt(pos.x())
+        if row < 0:
+            return
+
+        global_pos = self.table.viewport().mapToGlobal(pos)
+        menu = QMenu(self)
+
+        # Right-click on the Group column: offer Ungroup if the row is grouped
+        if col == self.COL_GROUP:
+            group = self._find_group_at_row(row)
+            if group is not None:
+                ungroup_act = menu.addAction(f"Ungroup  (Group {group['number']})")
+                chosen = menu.exec(global_pos)
+                if chosen == ungroup_act:
+                    self._ungroup(group)
+            return
+
+        # Right-click elsewhere: offer Group when ≥2 rows are selected
+        selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
+        if len(selected_rows) >= 2:
+            group_act = menu.addAction("Group")
+            chosen = menu.exec(global_pos)
+            if chosen == group_act:
+                self._group_rows(selected_rows)
 
     # ------------------------------------------------------------------
     # Public helpers for updating the dialog after detection
