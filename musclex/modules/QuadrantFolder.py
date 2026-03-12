@@ -874,7 +874,8 @@ class QuadrantFolder:
         Create a mask for the image based on the rmin and rmax values. The mask is stored in self.info['mask'].
         """
 
-        mask = self._rminrmax_mask() * self._equator_peaks_mask() * self._equator_center_beam_mask() * self._equator_mask() 
+        mask = self._rminrmax_mask() * self._equator_peaks_mask() * \
+            self._equator_center_beam_mask() * self._equator_mask() * self._layer_lines_mask()
         
         self.info['mask'] = mask.astype(int)
 
@@ -891,12 +892,12 @@ class QuadrantFolder:
         eq_fwhm = int(find_fwhm(meridian, rel_height=0.5))
 
         m1_peak = find_m_peak_auto(self.orig_img, m=1, rmin=self.info['rmin'])
-        auto_y_length = ((m1_peak * 2 - 10) +  eq_fwhm) //2
-        auto_y_length = max(30, auto_y_length)
-        y_length = int(self.info.get('equator_y_length', auto_y_length))
-        self.info['equator_y_length'] = y_length
-        self.parent.statusPrint(f"Equator width for eval mask: {y_length}.")
-        mask = create_rectangle_mask(self.orig_img.shape[0], self.orig_img.shape[1], x_length=self.orig_img.shape[1], y_length=y_length)
+        auto_y_height = ((m1_peak * 2) +  eq_fwhm) //2
+        auto_y_height = max(30, auto_y_height)
+        y_height = int(self.info.get('equator_y_height', auto_y_height))
+        self.info['equator_y_height'] = y_height
+        self.parent.statusPrint(f"Equator width for eval mask: {y_height}.")
+        mask = create_rectangle_mask(self.orig_img.shape[0], self.orig_img.shape[1], x_length=self.orig_img.shape[1], y_height=y_height)
         return mask.astype(int)
     
     def _equator_peaks_mask(self):
@@ -929,6 +930,37 @@ class QuadrantFolder:
 
         mask = create_circular_mask(height, width, inside=False, radius=beam_width)
         return mask.astype(int)
+    
+
+    def _layer_lines_mask(self):
+        height, width = self.orig_img.shape
+
+        m1_peak = int(self.info.get('m1', 0) or 0)
+        if m1_peak <= 0:
+            m1_peak = find_m_peak_auto(self.orig_img, m=1, rmin=self.info['rmin'])
+        self.info['m1'] = m1_peak
+        layer_lines = get_layer_lines(m1_peak, num_lines=9)
+
+        if isinstance(self.info.get('layer_line_width', None), (int, float)) and self.info.get('layer_line_width'):
+            mask_width = int(self.info['layer_line_width'])
+        else:
+            mask_width = max(5, max(fwhm_values) if len(fwhm_values) > 0 else 5)
+            fwhm_values = []
+            meridian = get_projection(self.orig_img, orientation=1, gap=2, half=True)
+
+            peaks = find_n_most_prominent_peaks(meridian, n=len(layer_lines))
+
+            for i in range(min(len(layer_lines), len(peaks))):
+                fwhm1 = find_fwhm(meridian, peak_index= layer_lines[i], rel_height=0.5)
+                fwhm2 = find_fwhm(meridian, peak_index= peaks[i], rel_height=0.5)
+                print(f"Layer line {i+1} at position {layer_lines[i]} has FWHM from layer line: {fwhm1} and FWHM from peak: {fwhm2}")
+                fwhm = int(max(fwhm1, fwhm2))
+                fwhm_values.append(fwhm)
+                
+        self.info['layer_line_width'] = mask_width
+        mask = create_layer_lines_mask(height, width, layer_lines=layer_lines, width_line=mask_width)
+        return mask
+
 
     def createArtificialData(self):
         AMP = 0.01
@@ -1305,7 +1337,7 @@ class QuadrantFolder:
                     done = sum(1 for ar in async_results if ar.ready())
                     now = time.time()
                     # Throttle status updates to avoid flooding
-                    if now - last_report_t > 10:
+                    if now - last_report_t > 5:
                         self.parent.statusPrint(
                             f"Optimizing background subtraction... {done}/{total} method(s) complete. Time: {int(now - start)}s"
                         )

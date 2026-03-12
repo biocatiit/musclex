@@ -133,17 +133,22 @@ def find_i0_i1_peaks(equator_half, rmin=10):
     i1 = peaks[sorted_indices[1]]
     return i0, i1
 
+def get_layer_lines(m1, start_num=0, num_lines=5):
+    layer_lines = [m1 * (i+1) for i in range(start_num, start_num + num_lines)]
+    return layer_lines
+
+
 # ========================= Masks ==========================
 
 
-def create_rectangle_mask(height, width, x_length=None, y_length=None):
+def create_rectangle_mask(height, width, x_length=None, y_height=None):
     center_x = width//2
     center_y = height//2
 
     x_length = width if x_length is None else x_length
-    y_length = height if y_length is None else y_length
+    y_height = height if y_height is None else y_height
     mask = np.ones(shape=(height, width))
-    mask[center_y-y_length//2:center_y+y_length//2, center_x-x_length//2:center_x+x_length//2] = 0
+    mask[center_y-y_height//2:center_y+y_height//2, center_x-x_length//2:center_x+x_length//2] = 0
     return mask.astype(int)
 
 def create_circular_mask(height, width, inside=True, diameter=None, radius=None):
@@ -168,7 +173,20 @@ def create_circular_mask(height, width, inside=True, diameter=None, radius=None)
     return mask
 
 
-
+def create_layer_lines_mask(height, width, layer_lines=[], width_line=5):
+    y, x = np.ogrid[:height, :width]
+    center_x = width // 2
+    center_y = height // 2
+    mask = np.ones(shape=(height, width))
+    for i in range(len(layer_lines)):
+        line = layer_lines[i]
+        if isinstance(width_line, list):
+            width_line_i = width_line[i]
+        else:
+            width_line_i = width_line
+        mask[center_y-line-width_line_i:center_y-line+width_line_i, :] = 0
+        mask[center_y+line-width_line_i:center_y+line+width_line_i, :] = 0
+    return mask.astype(int)
 
 # ======================== Synthetic Structure ==========================
 class ArtificialData:

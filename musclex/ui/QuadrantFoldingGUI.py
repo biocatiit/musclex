@@ -641,6 +641,7 @@ class QuadrantFoldingGUI(BaseGUI):
             'downsampleLabel', 'downsampleCB', 'smoothImageChkbx',
             'showResultMaskChkBx', 'showRminRmaxChkBx', 'fixedRadiusRangeChkBx',
             'equatorYLengthSpnBx', 'equatorCenterBeamSpnBx',
+            'm1SpnBx', 'layerLineWidthSpnBx',
             'gaussFWHMLabel', 'gaussFWHM',
             'boxcarLabel', 'boxcarX', 'boxcarY',
             'cycleLabel', 'cycle',
@@ -919,7 +920,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.spResultmaxInt.valueChanged.connect(self.refreshResultTab)
         self.spResultminInt.valueChanged.connect(self.refreshResultTab)
         self.resLogScaleIntChkBx.stateChanged.connect(self.refreshResultTab)
-        self.showBackgroundBtn.toggled.connect(self.refreshResultTab)
+        self.showBackgroundBtn.toggled.connect(self._on_show_background_toggled)
         self.toggleFoldImage.stateChanged.connect(self.onFoldChkBoxToggled)
         self.cropFoldedImageChkBx.stateChanged.connect(self.cropFoldedImageChanged)
         self.compressFoldedImageChkBx.stateChanged.connect(self.compressFoldedImageChanged)
@@ -931,6 +932,8 @@ class QuadrantFoldingGUI(BaseGUI):
         self.showResultMaskChkBx.stateChanged.connect(self.refreshResultTab)
         self.equatorYLengthSpnBx.valueChanged.connect(self.equatorYLengthChanged)
         self.equatorCenterBeamSpnBx.valueChanged.connect(self.equatorCenterBeamChanged)
+        self.m1SpnBx.valueChanged.connect(self.m1Changed)
+        self.layerLineWidthSpnBx.valueChanged.connect(self.layerLineWidthChanged)
 
         # self.expandImage.stateChanged.connect(self.expandImageChecked)
 
@@ -1018,6 +1021,20 @@ class QuadrantFoldingGUI(BaseGUI):
         self.downsampleCB.currentIndexChanged.connect(self.highlightApply)
 
         self._update_optimization_summary()
+
+        self._update_show_background_button_text()
+
+    def _on_show_background_toggled(self, checked):
+        self._update_show_background_button_text()
+        self.refreshResultTab()
+
+    def _update_show_background_button_text(self):
+        if not hasattr(self, 'showBackgroundBtn'):
+            return
+        if self.showBackgroundBtn.isChecked():
+            self.showBackgroundBtn.setText("Show Pattern")
+        else:
+            self.showBackgroundBtn.setText("Show Background")
 
 
     # NOTE: updateCurrentCenter removed - use workspace.update_display() instead
@@ -1439,7 +1456,7 @@ class QuadrantFoldingGUI(BaseGUI):
         self.highlightApply()
 
         if self.quadFold is not None:
-            self.quadFold.info['equator_y_length'] = self.equatorYLengthSpnBx.value()
+            self.quadFold.info['equator_y_height'] = self.equatorYLengthSpnBx.value()
 
         if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
             self.refreshResultTab()
@@ -1453,6 +1470,32 @@ class QuadrantFoldingGUI(BaseGUI):
 
         if self.quadFold is not None:
             self.quadFold.info['equator_center_beam_width'] = self.equatorCenterBeamSpnBx.value()
+
+        if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
+            self.refreshResultTab()
+
+    def m1Changed(self):
+        """Triggered when M1 spacing changes."""
+        if self.uiUpdating:
+            return
+
+        self.highlightApply()
+
+        if self.quadFold is not None:
+            self.quadFold.info['m1'] = self.m1SpnBx.value()
+
+        if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
+            self.refreshResultTab()
+
+    def layerLineWidthChanged(self):
+        """Triggered when layer line width changes."""
+        if self.uiUpdating:
+            return
+
+        self.highlightApply()
+
+        if self.quadFold is not None:
+            self.quadFold.info['layer_line_width'] = self.layerLineWidthSpnBx.value()
 
         if self.showResultMaskChkBx.isChecked() and self.ableToProcess():
             self.refreshResultTab()
@@ -1951,10 +1994,14 @@ class QuadrantFoldingGUI(BaseGUI):
 
                     if 'optimize' in info:
                         self.optimizeChkBx.setChecked(bool(info['optimize']))
-                    if 'equator_y_length' in info:
-                        self.equatorYLengthSpnBx.setValue(int(info['equator_y_length']))
+                    if 'equator_y_height' in info:
+                        self.equatorYLengthSpnBx.setValue(int(info['equator_y_height']))
                     if 'equator_center_beam_width' in info:
                         self.equatorCenterBeamSpnBx.setValue(int(info['equator_center_beam_width']))
+                    if 'm1' in info:
+                        self.m1SpnBx.setValue(int(info['m1']))
+                    if 'layer_line_width' in info:
+                        self.layerLineWidthSpnBx.setValue(int(info['layer_line_width']))
                     if 'steps' in info and isinstance(info['steps'], (list, tuple)):
                         self.stepsLineEdit.setText(", ".join([str(v) for v in info['steps']]))
                     if 'max_iterations' in info:
@@ -2661,8 +2708,10 @@ class QuadrantFoldingGUI(BaseGUI):
         flags['boxcar_y'] = self.boxcarY.value()
         flags['cycles'] = self.cycle.value()
         flags['degree'] = float(self.deg1CB.currentText())
-        flags['equator_y_length'] = self.equatorYLengthSpnBx.value()
+        flags['equator_y_height'] = self.equatorYLengthSpnBx.value()
         flags['equator_center_beam_width'] = self.equatorCenterBeamSpnBx.value()
+        flags['m1'] = self.m1SpnBx.value()
+        flags['layer_line_width'] = self.layerLineWidthSpnBx.value()
 
         # bg optimization (automated processing)
         flags['optimize'] = self.optimizeChkBx.isChecked()

@@ -102,6 +102,18 @@ class BackgroundSubtractionDialog(QDialog):
         self.equatorCenterBeamSpnBx.setValue(20)
         self.equatorCenterBeamSpnBx.setKeyboardTracking(False)
 
+        self.m1Label = QLabel("M1 (Layer line spacing) : ")
+        self.m1SpnBx = QSpinBox()
+        self.m1SpnBx.setRange(1, 10000)
+        self.m1SpnBx.setValue(50)
+        self.m1SpnBx.setKeyboardTracking(False)
+
+        self.layerLineWidthLabel = QLabel("Layer line width : ")
+        self.layerLineWidthSpnBx = QSpinBox()
+        self.layerLineWidthSpnBx.setRange(1, 10000)
+        self.layerLineWidthSpnBx.setValue(5)
+        self.layerLineWidthSpnBx.setKeyboardTracking(False)
+
         # ===== Background Parameters =====
         self.gaussFWHMLabel = QLabel("Gaussian FWHM : ")
         self.gaussFWHM = QSpinBox()
@@ -374,6 +386,10 @@ class BackgroundSubtractionDialog(QDialog):
         self.maskSettingsLayout.addWidget(self.equatorYLengthSpnBx, 1, 1, 1, 1)
         self.maskSettingsLayout.addWidget(self.equatorCenterBeamLabel, 1, 2, 1, 1)
         self.maskSettingsLayout.addWidget(self.equatorCenterBeamSpnBx, 1, 3, 1, 1)
+        self.maskSettingsLayout.addWidget(self.m1Label, 2, 0, 1, 1)
+        self.maskSettingsLayout.addWidget(self.m1SpnBx, 2, 1, 1, 1)
+        self.maskSettingsLayout.addWidget(self.layerLineWidthLabel, 2, 2, 1, 1)
+        self.maskSettingsLayout.addWidget(self.layerLineWidthSpnBx, 2, 3, 1, 1)
 
         self.optimizeChkBx.stateChanged.connect(self._update_optimization_widgets_state)
         self.processingModeCB.currentIndexChanged.connect(self._update_processing_mode_visibility)
