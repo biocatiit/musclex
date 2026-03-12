@@ -2,7 +2,7 @@ import os
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
-    QSizePolicy, QMenu
+    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
@@ -74,7 +74,7 @@ class DetectMisalignedDialog(QDialog):
         self._groups = []
 
         self._build_ui()
-        self.resize(900, 600)
+        self.resize(1400, 800)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -122,7 +122,7 @@ class DetectMisalignedDialog(QDialog):
             settings_key="detect_misaligned/right_panel",
             start_visible=True,
         )
-        self.right_panel.setFixedWidth(220)
+        self.right_panel.setFixedWidth(300)
 
         content_layout = QHBoxLayout()
         content_layout.setContentsMargins(0, 0, 0, 0)
@@ -133,6 +133,30 @@ class DetectMisalignedDialog(QDialog):
 
         self.start_detection_btn = QPushButton("Start Detection")
         self.right_panel.add_widget(self.start_detection_btn)
+
+        # Grouping mode selector
+        self.radio_manual = QRadioButton("Select Group Manually")
+        self.radio_manual.setChecked(True)
+        self.right_panel.add_widget(self.radio_manual)
+
+        self.radio_same_frame = QRadioButton("Same Frame Number")
+        self.right_panel.add_widget(self.radio_same_frame)
+
+        # Binning factor row (shown only when Same Frame Number is selected)
+        self._binning_row = QWidget()
+        binning_layout = QHBoxLayout(self._binning_row)
+        binning_layout.setContentsMargins(16, 0, 0, 0)
+        binning_layout.setSpacing(6)
+        binning_layout.addWidget(QLabel("Binning factor:"))
+        self.binning_spin = QSpinBox()
+        self.binning_spin.setMinimum(1)
+        self.binning_spin.setMaximum(256)
+        self.binning_spin.setValue(1)
+        binning_layout.addWidget(self.binning_spin)
+        self._binning_row.setVisible(False)
+        self.right_panel.add_widget(self._binning_row)
+
+        self.radio_same_frame.toggled.connect(self._binning_row.setVisible)
 
         # Buttons
         btn_layout = QHBoxLayout()
