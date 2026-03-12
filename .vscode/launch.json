@@ -134,6 +134,18 @@
             }
         },
         {
+            "name": "MuscleX - Add Intensities Single Exp",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/musclex/main.py",
+            "args": ["aise"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "MuscleX - Total Display Intensity",
             "type": "python",
             "request": "launch",

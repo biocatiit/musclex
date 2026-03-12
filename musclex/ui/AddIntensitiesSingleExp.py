@@ -1,26 +1,17 @@
 import os
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
+    QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
-    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter, QScrollArea, QFrame
+    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
+    QScrollArea, QFrame, QStackedWidget
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
+from musclex import __version__
+from musclex.ui.widgets import ProcessingWorkspace
 
 
-class DetectMisalignedDialog(QDialog):
-    """
-    Dialog that lists all images from the file manager in a table.
-    Columns: Group, Frame, Original Center, Center Mode Distance,
-             Rotation, Rotation Mode Distance, Image Difference.
-    Rows for misaligned images are highlighted in red when detection data
-    is provided.
-
-    Grouping: drag-select multiple rows, right-click → "Group" to assign a
-    sequential group number shown as a merged cell in the Group column.
-    Right-click on a group number cell → "Ungroup" to remove the group and
-    renumber the remaining groups to stay sequential.
-    """
+class AddIntensitiesSingleExp(QMainWindow):
 
     # Column indices
     COL_GROUP = 0
@@ -47,19 +38,11 @@ class DetectMisalignedDialog(QDialog):
     _GROUP_BG = QColor(100, 149, 237)   # cornflower blue
     _GROUP_FG = QColor(255, 255, 255)
 
-    def __init__(self, workspace, parent=None):
-        """
-        Parameters
-        ----------
-        workspace : ProcessingWorkspace
-            The main processing workspace; image list is read from
-            ``workspace.navigator.file_manager.names``.
-        parent : QWidget | None
-        """
-        super().__init__(parent)
-        self.setWindowTitle("Detect Misaligned Images")
-        self.workspace = workspace
-        self.img_list = list(workspace.navigator.file_manager.names) if workspace else []
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Muscle X Add Intensities Single Experiment v." + __version__)
+        self.workspace = ProcessingWorkspace(settings_dir="")
+        self.img_list = []
         self.misaligned_names = set()
         self.items_data = None
 
@@ -68,13 +51,16 @@ class DetectMisalignedDialog(QDialog):
 
         self._build_ui()
         self.resize(1400, 800)
+        self.show()
 
     # ------------------------------------------------------------------
     # UI construction
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
+        central = QWidget()
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
 
@@ -109,6 +95,14 @@ class DetectMisalignedDialog(QDialog):
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._on_context_menu)
 
+        # Left side of splitter: select_panel (before load) / table (after load)
+        self._left_stack = QStackedWidget()
+        self._left_stack.addWidget(self.workspace.navigator.select_panel)  # index 0
+        self._left_stack.addWidget(self.table)                              # index 1
+        self._left_stack.setCurrentIndex(0)
+        self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
+        self.workspace.navigator.scanComplete.connect(self._on_scan_complete)
+
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
         self.right_panel.setWidgetResizable(True)
@@ -124,7 +118,7 @@ class DetectMisalignedDialog(QDialog):
         self.right_panel.setWidget(self._right_panel_content)
 
         self.splitter = QSplitter(Qt.Horizontal)
-        self.splitter.addWidget(self.table)
+        self.splitter.addWidget(self._left_stack)
         self.splitter.addWidget(self.right_panel)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
@@ -165,9 +159,21 @@ class DetectMisalignedDialog(QDialog):
         btn_layout.addWidget(self.closeButton)
         root.addLayout(btn_layout)
 
-        self.closeButton.clicked.connect(self.accept)
+    # ------------------------------------------------------------------
+    # Folder loaded → switch to table view
+    # ------------------------------------------------------------------
 
-        # Populate with whatever data is already available
+    def _on_folder_loaded(self, dir_path):
+        """Switch to table view with the initial file list (scan may still be running)."""
+        self.img_list = list(self.workspace.navigator.file_manager.names)
+        self.items_data = None
+        self.misaligned_names = set()
+        self.populate()
+        self._left_stack.setCurrentIndex(1)
+
+    def _on_scan_complete(self):
+        """Refresh the file list once the background scan finishes."""
+        self.img_list = list(self.workspace.navigator.file_manager.names)
         self.populate()
 
     # ------------------------------------------------------------------
