@@ -27,16 +27,18 @@ class DetectMisalignedDialog(QDialog):
     COL_GROUP = 0
     COL_FRAME = 1
     COL_CENTER = 2
-    COL_CENTER_DIST = 3
-    COL_ROTATION = 4
-    COL_ROTATION_DIST = 5
-    COL_IMAGE_DIFF = 6
+    COL_CENTER_MODE = 3
+    COL_CENTER_DIST = 4
+    COL_ROTATION = 5
+    COL_ROTATION_MODE = 6
+    COL_IMAGE_DIFF = 7
 
     HEADERS = [
         "Group",
         "Frame",
         "Original Center",
-        "Center Mode Distance",
+        "Center Mode",
+        "distance",
         "Rotation",
         "Rotation Mode",
         "Image Difference",
@@ -211,6 +213,9 @@ class DetectMisalignedDialog(QDialog):
             center_text = f"({cx:.1f}, {cy:.1f})" if cx is not None else ""
             self.table.setItem(row, self.COL_CENTER, cell(center_text))
 
+            self.table.setItem(row, self.COL_CENTER_MODE,
+                               cell(d.get("center_mode", "")))
+
             cd = d.get("center_dist")
             self.table.setItem(row, self.COL_CENTER_DIST,
                                cell(f"{cd:.4f}" if cd is not None else ""))
@@ -219,9 +224,8 @@ class DetectMisalignedDialog(QDialog):
             self.table.setItem(row, self.COL_ROTATION,
                                cell(f"{ang:.4f}" if ang is not None else ""))
 
-            ad = d.get("angle_dist")
-            self.table.setItem(row, self.COL_ROTATION_DIST,
-                               cell(f"{ad:.4f}" if ad is not None else ""))
+            self.table.setItem(row, self.COL_ROTATION_MODE,
+                               cell(d.get("rotation_mode", "")))
 
             img_diff = d.get("image_diff")
             self.table.setItem(row, self.COL_IMAGE_DIFF,
