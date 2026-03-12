@@ -2,11 +2,10 @@ import os
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
-    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget
+    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter, QScrollArea, QFrame
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
-from musclex.ui.widgets.collapsible_right_panel import CollapsibleRightPanel
 
 
 class DetectMisalignedDialog(QDialog):
@@ -118,31 +117,38 @@ class DetectMisalignedDialog(QDialog):
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._on_context_menu)
 
-        # Right panel
-        self.right_panel = CollapsibleRightPanel(
-            title="Options",
-            settings_key="detect_misaligned/right_panel",
-            start_visible=True,
-        )
-        self.right_panel.setFixedWidth(300)
+        # Right panel (plain scrollable panel)
+        self.right_panel = QScrollArea()
+        self.right_panel.setWidgetResizable(True)
+        self.right_panel.setFrameShape(QFrame.NoFrame)
+        self.right_panel.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.right_panel.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-        content_layout = QHBoxLayout()
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(4)
-        content_layout.addWidget(self.table, 1)
-        content_layout.addWidget(self.right_panel, 0)
-        root.addLayout(content_layout)
+        self._right_panel_content = QWidget()
+        self._right_panel_layout = QVBoxLayout(self._right_panel_content)
+        self._right_panel_layout.setContentsMargins(6, 6, 6, 6)
+        self._right_panel_layout.setSpacing(6)
+        self._right_panel_layout.addStretch()
+        self.right_panel.setWidget(self._right_panel_content)
+
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.table)
+        self.splitter.addWidget(self.right_panel)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 0)
+        self.splitter.setSizes([1100, 300])
+        root.addWidget(self.splitter)
 
         self.start_detection_btn = QPushButton("Start Detection")
-        self.right_panel.add_widget(self.start_detection_btn)
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.start_detection_btn)
 
         # Grouping mode selector
         self.radio_manual = QRadioButton("Select Group Manually")
         self.radio_manual.setChecked(True)
-        self.right_panel.add_widget(self.radio_manual)
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.radio_manual)
 
         self.radio_same_frame = QRadioButton("Same Frame Number")
-        self.right_panel.add_widget(self.radio_same_frame)
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.radio_same_frame)
 
         # Binning factor row (shown only when Same Frame Number is selected)
         self._binning_row = QWidget()
@@ -156,7 +162,7 @@ class DetectMisalignedDialog(QDialog):
         self.binning_spin.setValue(1)
         binning_layout.addWidget(self.binning_spin)
         self._binning_row.setVisible(False)
-        self.right_panel.add_widget(self._binning_row)
+        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self._binning_row)
 
         self.radio_same_frame.toggled.connect(self._binning_row.setVisible)
 
