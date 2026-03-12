@@ -27,7 +27,9 @@ authorization from Illinois Institute of Technology.
 """
 
 import os
+import json
 import pickle
+import time
 import multiprocessing as mp
 from scipy.ndimage.filters import gaussian_filter, convolve1d
 from scipy.interpolate import UnivariateSpline
@@ -44,6 +46,7 @@ try:
     from ..utils.image_processor import *
     from ..utils.background_search import *
     from ..utils.image_data import ImageData
+    from ..utils.optimization_cache import get_cached_best_result, publish_optimization_result, update_optimization_cache, should_rerun_optimization
 except: # for coverage
     from modules import QF_utilities as qfu
     from utils.file_manager import fullPath, createFolder, getBlankImageAndMask, getMaskOnly
@@ -51,6 +54,7 @@ except: # for coverage
     from utils.image_processor import *
     from utils.background_search import *
     from utils.image_data import ImageData
+    from utils.optimization_cache import get_cached_best_result, publish_optimization_result, update_optimization_cache, should_rerun_optimization
 
 # Make sure the cython part is compiled
 # from subprocess import call
@@ -65,7 +69,7 @@ class QuadrantFolder:
     """
     A class for Quadrant Folding processing - go to process() to see all processing steps
     """
-    def __init__(self, image_data: ImageData, parent=None):
+    def __init__(self, image_data: ImageData, parent=None, optimization_results_queue=None, optimization_cache_min_images=3):
         """
         Initialize QuadrantFolder with ImageData container.
         
@@ -126,6 +130,22 @@ class QuadrantFolder:
 
         #This is what all transformations will be done on
         self.start_img = copy.copy(self.orig_img)
+        self._optimization_results_queue = optimization_results_queue
+        self._optimization_cache_min_images = int(optimization_cache_min_images)
+
+    def _get_optimization_cache_key(self):
+        key_data = {
+            'methods': self.info.get('methods', []),
+            'steps': self.info.get('steps', []),
+            'early_stop': self.info.get('early_stop', 0.0),
+            'max_iterations': self.info.get('max_iterations', 10),
+            'mean_metric_values': self.info.get('mean_metric_values', None),
+            'metric_weights': self.info.get('metric_weights', None),
+            'downsample': self.info.get('downsample', 1),
+            'detector': self.info.get('detector', None),
+            'orientation_model': self.info.get('orientation_model', None),
+        }
+        return json.dumps(key_data, sort_keys=True)
 
     def cacheInfo(self):
         """
@@ -294,6 +314,14 @@ class QuadrantFolder:
 
         if 'result_bg' not in self.info:
             self.info['result_bg'] = {}
+            self.info['result_bg'].setdefault('method', None)
+            self.info['result_bg'].setdefault('final_params', None)
+            self.info['result_bg'].setdefault('optimized', None)
+            self.info['result_bg'].setdefault('reused_cache', None)
+            self.info['result_bg'].setdefault('downsampled', None)
+            self.info['result_bg'].setdefault('loss', None)
+            self.info['result_bg'].setdefault('metrics_normalized', None)
+            self.info['result_bg'].setdefault('metrics_raw', None)
 
         if flags['orientation_model'] is None:
             if 'orientation_model' not in self.info:
@@ -474,6 +502,7 @@ class QuadrantFolder:
         self.info['_rmax'] = self.info['rmax'] // self.info['downsample'] if 'downsample' in self.info else self.info['rmax']
         self.info['_center'] = (self.center[0] // self.info['downsample'], self.center[1] // self.info['downsample']) if 'downsample' in self.info else self.center
         
+        self.info['result_bg']['downsampled'] = self.info['downsample'] if 'downsample' in self.info else 1
 
         if 'downsample' in self.info and self.info['downsample'] > 1:
             factor = self.info['downsample']
@@ -862,10 +891,11 @@ class QuadrantFolder:
         eq_fwhm = int(find_fwhm(meridian, rel_height=0.5))
 
         m1_peak = find_m_peak_auto(self.orig_img, m=1, rmin=self.info['rmin'])
-        y_length = ((m1_peak * 2 - 10) +  eq_fwhm) //2
-        y_length = max(30, y_length)
-        print(f'Equator rectangle mask. M1 {m1_peak}. EQ FWHM: {eq_fwhm}. Average EQ Mask length {y_length}.')
-
+        auto_y_length = ((m1_peak * 2 - 10) +  eq_fwhm) //2
+        auto_y_length = max(30, auto_y_length)
+        y_length = int(self.info.get('equator_y_length', auto_y_length))
+        self.info['equator_y_length'] = y_length
+        self.parent.statusPrint(f"Equator width for eval mask: {y_length}.")
         mask = create_rectangle_mask(self.orig_img.shape[0], self.orig_img.shape[1], x_length=self.orig_img.shape[1], y_length=y_length)
         return mask.astype(int)
     
@@ -883,7 +913,7 @@ class QuadrantFolder:
         else:
             peak_width = 30
 
-        print(f'Equator peaks mask. Peak positions: {peak_positions}. Average FWHM: {peak_width//2}.')
+        self.parent.statusPrint(f"Equator peaks for eval mask: {peak_positions}.")
         mask = create_peak_mask(self.orig_img.shape, peak_positions=peak_positions, peak_width=peak_width)
         return mask
     
@@ -891,9 +921,11 @@ class QuadrantFolder:
         height, width = self.orig_img.shape
 
         equator = get_projection(self.orig_img, gap=2, orientation=0, half=True)
-        beam_width = find_first_valley(equator, start=self.info['rmin']+5) # TODO
-        beam_width = 20 if not beam_width else beam_width
-        print(f'Equator center beamstop mask width: {beam_width}')
+        auto_beam_width = find_first_valley(equator, start=self.info['rmin']+5) # TODO
+        auto_beam_width = 20 if not auto_beam_width else auto_beam_width
+        beam_width = int(self.info.get('equator_center_beam_width', auto_beam_width))
+        self.info['equator_center_beam_width'] = beam_width
+        self.parent.statusPrint(f'Equator center beamstop mask width: {beam_width}')
 
         mask = create_circular_mask(height, width, inside=False, radius=beam_width)
         return mask.astype(int)
@@ -1095,56 +1127,192 @@ class QuadrantFolder:
         """
         Search for background subtraction method and apply it to average fold.
         """
-        
-        # self.info['methods'] = ['Circularly-symmetric', 'White-top-hats', 'Smoothed-Gaussian']
-        # self.info['methods'] = ['White-top-hats', 'Smoothed-Gaussian','Circularly-symmetric'] #, 'Smoothed-BoxCar']
-        # self.info['methods'] = ['White-top-hats']
-        # self.info['steps']  = [50, 30, 10, 7, 5, 3, 1]
-        # self.info['early_stop'] = 0.0007
-        self.info['max_iterations'] = 2
+
+        result_path = fullPath(self.img_path, "qf_cache")
+        createFolder(result_path)
+        cache_file = fullPath(result_path, 'background_cache.json')
+        cache_key = self._get_optimization_cache_key()
+
+        kwargs = {
+            # 'steps': self.info['steps'],
+            # 'early_stop': self.info['early_stop'],
+            'max_iterations': self.info['max_iterations'],
+            'refine_params': -1,
+            'integers': True,
+            'tmp_avg_fold': self.info['_avg_fold'],
+            'avg_fold': self.info['avg_fold'],
+            'tmp_rmin': self.info['_rmin'],
+            'rmin': self.info['rmin'],
+            'tmp_center': self.info['_center'],
+            'tmp_avg_fold_with_syn': self.info['_avg_fold_with_syn'],
+            'avg_fold_with_syn': self.info['avg_fold_with_syn'],
+            'orig_img': self.orig_img,
+            'rmax': self.info['rmax'],
+            'mask': self.info['mask'],
+            'synthetic_data': self.info['synthetic_data'],
+            'synthetic_mask': self.info['synthetic_mask'],
+            'downsample_factor': self.info['downsample'],
+            'mean_metric_values': self.info.get('mean_metric_values', None),
+            'metric_weights': self.info.get('metric_weights', None),
+        }
+
+        def _values_from_params(method, params):
+            param_keys = list(method_params[method].keys())
+            ordered_values = [None] * len(param_keys)
+            for idx, key in enumerate(param_keys):
+                pos = method_order[method].index(idx)
+                ordered_values[pos] = params[key]
+            return ordered_values
 
 
 
         if 'optimize' in self.info and self.info['optimize']:
-            print(f"Background subtraction methods to optimize: {self.info['methods']}")
+            self.parent.statusPrint(f"Background subtraction methods to optimize: {self.info['methods']}")
+            self.parent.statusPrint(f"Looking through historical data for optimization...")
+            cached_best = get_cached_best_result(
+                cache_file,
+                cache_key,
+                min_samples=self._optimization_cache_min_images,
+            )
+            if cached_best is not None:
+                sample_size = cached_best.get('n', 0)
+                candidates = []
+                if cached_best.get('best_method') is not None and cached_best.get('best_params') is not None:
+                    candidates.append({
+                        'label': 'best',
+                        'method': cached_best.get('best_method'),
+                        'params': cached_best.get('best_params', {}),
+                        'cached_loss': cached_best.get('best_loss', np.inf),
+                    })
+                if cached_best.get('second_best_method') is not None and cached_best.get('second_best_params') is not None:
+                    candidates.append({
+                        'label': 'second-best',
+                        'method': cached_best.get('second_best_method'),
+                        'params': cached_best.get('second_best_params', {}),
+                        'cached_loss': cached_best.get('second_best_loss', np.inf),
+                    })
 
-            print(f"Looking through historical data for optimization...")
+                if len(candidates) > 0:
+                    cand_text = ", ".join([
+                        f"{c['label']}={c['method']} (loss={c['cached_loss']})" for c in candidates
+                    ])
+                    print(f"Found shared optimization cache from {sample_size} images: {cand_text}")
+
+                candidate_results = []
+                for candidate in candidates:
+                    method_name = candidate['method']
+                    params = candidate['params']
+                    try:
+                        cached_values = _values_from_params(method_name, params)
+                        current_loss, _ = process_file(cached_values, method=method_name, **kwargs)
+                        if not np.isfinite(current_loss):
+                            print(f"{candidate['label'].capitalize()} cached candidate produced non-finite loss ({current_loss}); skipping.")
+                            continue
+                        print(f"{candidate['label'].capitalize()} cached candidate evaluated: {method_name}, loss={current_loss:.4f}.")
+                        candidate_results.append((current_loss, method_name, params, candidate['label']))
+                    except Exception:
+                        print(f"Failed to evaluate {candidate['label']} cached candidate ({method_name}).")
 
 
+                accepted_candidate = None
+                if len(candidate_results) > 0:
+                    candidate_results.sort(key=lambda x: x[0])
+                    best_candidate_loss, best_method, best_params, best_label = candidate_results[0]
+                    print(f"Selected lowest-loss cached candidate: {best_label}={best_method}, loss={best_candidate_loss:.4f}.")
 
-            print(f"Optimization steps: {self.info['steps']}. Early stop threshold: {self.info['early_stop']}. Max iterations: {self.info['max_iterations']}.")
+                    should_rerun, stats = should_rerun_optimization(
+                        cache_file,
+                        cache_key,
+                        best_candidate_loss,
+                        min_samples=self._optimization_cache_min_images,
+                        stddev_multiplier=2.0,
+                    )
+
+                    if should_rerun:
+                        if stats is not None:
+                            print(
+                                f"Selected cached candidate rejected ({best_candidate_loss:.4f} > avg+2*std {stats['threshold_loss']:.4f}); rerunning optimization."
+                            )
+                        else:
+                            print(f"Selected cached candidate rejected ({best_candidate_loss:.4f}); rerunning optimization.")
+                    else:
+                        if stats is not None:
+                            print(
+                                f"Selected cached candidate accepted: {best_method}, loss={best_candidate_loss:.4f}, threshold={stats['threshold_loss']:.4f}."
+                            )
+                        else:
+                            print(
+                                f"Selected cached candidate accepted: {best_method}, loss={best_candidate_loss:.4f}."
+                            )
+                        accepted_candidate = (best_method, best_params, best_candidate_loss)
+                        if self._optimization_results_queue is not None:
+                            publish_optimization_result(
+                                self._optimization_results_queue,
+                                {
+                                    'cache_path': cache_file,
+                                    'cache_key': cache_key,
+                                    'method': best_method,
+                                    'params': best_params,
+                                    'loss': best_candidate_loss,
+                                },
+                            )
+                        else:
+                            update_optimization_cache(
+                                cache_file,
+                                cache_key,
+                                best_method,
+                                best_params,
+                                best_candidate_loss,
+                            )
+
+                if accepted_candidate is not None:
+                    self.parent.statusPrint(f"Using cached candidate for background subtraction: {best_method}...")
+                    best_method, best_params, _ = accepted_candidate
+                    for key, value in best_params.items():
+                        self.info[f"{key}"] = value
+
+                    self.info['result_bg']['final_params'] = best_params
+                    self.info['result_bg']['optimized'] = False
+                    self.info['result_bg']['reused_cache'] = True
+                    self.info['result_bg']['method'] = best_method
+                    self.info['bgsub'] = best_method
+                        
+                    self.applyBackgroundSubtraction()
+                    self.applyBackgroundSubtractionSynthetic()
+                    return
+
+                self.parent.statusPrint(f"Cached candidates not suitable.")
+
+            self.parent.statusPrint(f"Running optimization...")
 
             n_proc = mp.cpu_count()
             n_proc = len(self.info['methods']) if len(self.info['methods']) < n_proc else n_proc
                 
-            print(f"Optimizing background subtraction method among {self.info['methods']} by multiprocessing with {n_proc} processes...")
 
-            kwargs = {
-                'steps': self.info['steps'],
-                'early_stop': self.info['early_stop'],
-                'max_iterations': self.info['max_iterations'],
-                'refine_params': -1,
-                'integers': True,
-                'tmp_avg_fold': self.info['_avg_fold'],
-                'avg_fold': self.info['avg_fold'],
-                'tmp_rmin': self.info['_rmin'],
-                'rmin': self.info['rmin'],
-                'tmp_center': self.info['_center'],
-                'tmp_avg_fold_with_syn': self.info['_avg_fold_with_syn'],
-                'avg_fold_with_syn': self.info['avg_fold_with_syn'],
-                'orig_img': self.orig_img,
-                'rmax': self.info['rmax'],
-                'mask': self.info['mask'],
-                'synthetic_data': self.info['synthetic_data'],
-                'synthetic_mask': self.info['synthetic_mask'],
-                'downsample_factor': self.info['downsample'],
-
-            }
             from functools import partial
-            outputs = {}
+            outputs = []
             func = partial(optimize_mp_wrapper, **kwargs)
+            methods = list(self.info['methods'])
             with mp.Pool(processes=n_proc) as pool:
-                outputs = pool.map(func, self.info['methods'])
+                async_results = [pool.apply_async(func, (method,)) for method in methods]
+
+                total = len(async_results)
+                done = 0
+                last_report_t = 0.0
+                start = time.time()
+
+                while done < total:
+                    done = sum(1 for ar in async_results if ar.ready())
+                    now = time.time()
+                    # Throttle status updates to avoid flooding
+                    if now - last_report_t > 10:
+                        self.parent.statusPrint(
+                            f"Optimizing background subtraction... {done}/{total} method(s) complete. Time: {int(now - start)}s"
+                        )
+                        last_report_t = now
+                    time.sleep(0.5)
+
+                outputs = [ar.get() for ar in async_results]
     
 
             best_loss = np.inf
@@ -1164,35 +1332,54 @@ class QuadrantFolder:
             
             print(f"Best params: {best_params}.  {best_loss} for method {best_method}")
 
-            # for method in self.info['methods']:
-            #     best_params, best_loss, all_results = optimize(method, **kwargs)  # test run
-            #     outputs[method] = (best_params, best_loss, all_results)
-            #     print(f"Best params: {best_params}. Loss: {best_loss} for method {method}")
-            #     self.info["bgsub_params"] = best_params
-            #     for key, value in best_params.items():
-            #         self.info[f"{key}"] = value
-
-            # best_loss = min([outputs[method][1] for method in outputs])
-            # best_method = [method for method in outputs if outputs[method][1] == best_loss][0]
-            # print(f"Best method: {best_method} with loss: {best_loss} and params: {outputs[best_method][0]}")
             
             self.info['result_bg']['final_params'] = best_params
             self.info['result_bg']['optimized'] = True
+            self.info['result_bg']['reused_cache'] = False
             self.info['result_bg']['method'] = best_method
             self.info['bgsub'] = best_method
 
+            if self._optimization_results_queue is not None:
+                publish_optimization_result(
+                    self._optimization_results_queue,
+                    {
+                        'cache_path': cache_file,
+                        'cache_key': cache_key,
+                        'method': best_method,
+                        'params': best_params,
+                        'loss': best_loss,
+                    },
+                )
+            else:
+                update_optimization_cache(
+                    cache_file,
+                    cache_key,
+                    best_method,
+                    best_params,
+                    best_loss,
+                )
+
 
         else:
-            self.info['result_bg']['optimized'] = False
-            self.info['result_bg']['method'] = self.info['bgsub']
+            if self.info['result_bg']['method'] is not None and self.info['result_bg']['final_params'] is not None:
+                method = self.info['result_bg']['method']
+                params = self.info['result_bg']['final_params']
+                print(f"Using previously optimized background subtraction method: {method} with params: {params}")
+                for key, value in params.items():
+                    self.info[f"{key}"] = value
+                self.info['bgsub'] = method
+            else:
+                self.info['result_bg']['optimized'] = False
+                self.info['result_bg']['reused_cache'] = False
+                self.info['result_bg']['method'] = self.info['bgsub']
 
-            params_keys = list(method_params[self.info['bgsub']].keys())
-            params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
-    
-            self.info['result_bg']['final_params'] = params
+                params_keys = list(method_params[self.info['bgsub']].keys())
+                params = {params_keys[i]: self.info[f"{params_keys[i]}"] for i in range(len(params_keys))}
 
-        
-        print("Background subtraction is being processed...")
+                self.info['result_bg']['final_params'] = params
+
+
+        self.parent.statusPrint("Background subtraction is being processed...")
         self.applyBackgroundSubtraction()
         self.applyBackgroundSubtractionSynthetic()
 
@@ -1246,7 +1433,6 @@ class QuadrantFolder:
             else:
                 result = avg_fold
             self.info["bgimg"] = result
-            self.info['result_bg']['intensity'] = np.sum(result)
         
         self.imgCache['BgSubFold'] = copy.copy(self.info["bgimg"])
         self.deleteFromDict(self.imgCache, "resultImg")
@@ -1349,8 +1535,11 @@ class QuadrantFolder:
             'syn_mask': syn_mask,
             'gen_mask': self.info['mask'],
         }
-        loss = evaluate_loss(**kwargs)
-        self.info['result_bg']['loss'] = loss
+        eval_result = evaluate_loss(**kwargs, return_details=True)
+        self.info['result_bg']['loss'] = eval_result.get('loss', None)
+        self.info['result_bg']['metrics_normalized'] = eval_result.get('metrics_normalized', {})
+        self.info['result_bg']['metrics_raw'] = eval_result.get('metrics_raw', {})
+        self.info['result_bg']['intensity'] = np.sum(bg)
 
 
 

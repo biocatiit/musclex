@@ -53,7 +53,7 @@ class QuadrantFoldingh:
     Window displaying all information of a selected image.
     This window contains 2 tabs : image, and result
     """
-    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'qfsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None):
+    def __init__(self, filename, inputsettings, delcache, settingspath=os.path.join('musclex', 'settings', 'qfsettings.json'), lock=None, dir_path=None, imgList=None, currentFileNumber=None, fileList=None, ext=None, optimization_results_queue=None, optimization_cache_min_images=3):
         """
         :param filename: selected file name
         :param inputsettings: flag for input setting file
@@ -76,6 +76,8 @@ class QuadrantFoldingh:
         self.modeOrientation = None
         self.newImgDimension = None
         self.lock = lock
+        self.optimization_results_queue = optimization_results_queue
+        self.optimization_cache_min_images = optimization_cache_min_images
         if dir_path is not None:
             self.dir_path, self.imgList, self.currentFileNumber, self.fileList, self.ext = dir_path, imgList, currentFileNumber, fileList, ext
         else:
@@ -116,7 +118,12 @@ class QuadrantFoldingh:
         image_data = ImageData(img, self.dir_path, fileName, center=center)
         
         # Create QuadrantFolder with ImageData
-        self.quadFold = QuadrantFolder(image_data, self)
+        self.quadFold = QuadrantFolder(
+            image_data,
+            self,
+            optimization_results_queue=self.optimization_results_queue,
+            optimization_cache_min_images=self.optimization_cache_min_images,
+        )
 
         self.onImageChanged()
 
@@ -324,7 +331,7 @@ class QuadrantFoldingh:
         flags['fwhm'] = 15
         flags['boxcar_x'] = 15
         flags['boxcar_y'] = 15
-        flags['cycles'] = 250
+        flags['cycles'] = 200
         flags['degree'] = 1
         flags['blank_mask'] = False
         flags['rotate'] = False

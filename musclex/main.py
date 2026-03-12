@@ -296,40 +296,48 @@ def main(arguments=None):
             if is_file and os.path.splitext(str(filename))[1] not in h5_types:
                 QuadrantFoldingh(filename, inputsetting, delcache, settingspath)
             else:
-                from multiprocessing import Lock, Process, cpu_count
+                from multiprocessing import Lock, Process, Queue, cpu_count
+                from musclex.utils.optimization_cache import optimization_cache_writer
                 lock = Lock()
+                optimization_queue = Queue(maxsize=1000)
+                optimization_cache_min_images = 3
+                writer_proc = Process(target=optimization_cache_writer, args=(optimization_queue,))
+                writer_proc.start()
                 procs = []
-                max_procs = min(16, cpu_count()-4)
+                max_procs = min(8, (cpu_count()-2)//3)
                 imgList = os.listdir(filename) if not is_file else [filename]
                 imgList.sort()
-                for image in imgList:
-                    file_name=os.path.join(filename,image) if not is_file else filename
-                    if os.path.isfile(file_name):
-                        _, ext = os.path.splitext(str(file_name))
-                        if ext in in_types:
-                            print("filename is", file_name)
-                            # QuadrantFoldingh(file_name, inputsetting, delcache, settingspath)
-                            proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock,))
-                            procs.append(proc)
-                            proc.start()
-                        elif ext in h5_types:
-                            hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
-                            for ind in range(len(himgList)):
-                                print("filename is", himgList[ind])
-                                proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext,))
+                try:
+                    for image in imgList:
+                        file_name=os.path.join(filename,image) if not is_file else filename
+                        if os.path.isfile(file_name):
+                            _, ext = os.path.splitext(str(file_name))
+                            if ext in in_types:
+                                print("filename is", file_name)
+                                proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, None, None, None, None, None, optimization_queue, optimization_cache_min_images,))
                                 procs.append(proc)
                                 proc.start()
-                                if len(procs) >= max_procs:
-                                    for proc in procs:
-                                        proc.join()
-                                    procs = []
-                    if len(procs) >= max_procs:
-                        for proc in procs:
-                            proc.join()
-                        procs = []
-                for proc in procs:
-                    proc.join()
-                    sys.exit()
+                            elif ext in h5_types:
+                                hdir_path, himgList, _, hfileList, _ = getImgFiles(str(file_name), headless=True)
+                                for ind in range(len(himgList)):
+                                    print("filename is", himgList[ind])
+                                    proc = Process(target=QuadrantFoldingh, args=(file_name, inputsetting, delcache, settingspath, lock, hdir_path, himgList, ind, hfileList, ext, optimization_queue, optimization_cache_min_images,))
+                                    procs.append(proc)
+                                    proc.start()
+                                    if len(procs) >= max_procs:
+                                        for proc in procs:
+                                            proc.join()
+                                        procs = []
+                        if len(procs) >= max_procs:
+                            for proc in procs:
+                                proc.join()
+                            procs = []
+                    for proc in procs:
+                        proc.join()
+                finally:
+                    optimization_queue.put(None)
+                    writer_proc.join()
+                sys.exit()
     elif len(arguments) >= 5 and arguments[1]=='pt' and arguments[2]=='-h':
         inputsetting=False
         delcache=False
