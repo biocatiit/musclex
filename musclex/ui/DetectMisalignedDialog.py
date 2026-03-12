@@ -1,11 +1,12 @@
 import os
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
+    QDialog, QGridLayout, QGroupBox, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
+from musclex.ui.widgets.collapsible_right_panel import CollapsibleRightPanel
 
 
 class DetectMisalignedDialog(QDialog):
@@ -95,7 +96,25 @@ class DetectMisalignedDialog(QDialog):
         for col in range(1, len(self.HEADERS)):
             header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
 
-        root.addWidget(self.table)
+        # Right panel
+        self.right_panel = CollapsibleRightPanel(
+            title="Options",
+            settings_key="detect_misaligned/right_panel",
+            start_visible=True,
+        )
+        self.right_panel.setFixedWidth(220)
+
+        content_layout = QHBoxLayout()
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(4)
+        content_layout.addWidget(self.table, 1)
+        content_layout.addWidget(self.right_panel, 0)
+        root.addLayout(content_layout)
+
+        self.start_detection_btn = QPushButton("Start Detection")
+    
+        self.right_panel.add_widget(self.start_detection_btn)
+
 
         # Buttons
         btn_layout = QHBoxLayout()
