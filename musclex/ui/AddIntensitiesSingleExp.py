@@ -202,19 +202,30 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._apply_misaligned_highlight(row, name)
 
     def _fill_center_columns(self, row, name):
-        """Fill COL_CENTER and COL_CENTER_MODE from workspace center settings."""
-        center_settings = self.workspace._center_settings
+        """Fill COL_CENTER and COL_CENTER_MODE from workspace settings manager."""
+        sm = self.workspace.settings_manager
         base = os.path.basename(name)
-        data = center_settings.get(base) or center_settings.get(name)
-        if data and 'center' in data:
-            cx, cy = data['center']
+        key = base if sm.has_manual_center(base) else name
+
+        manual = sm.get_center(key)
+        if manual is not None:
+            cx, cy = manual
             self.table.setItem(row, self.COL_CENTER,
                                QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
             self.table.setItem(row, self.COL_CENTER_MODE,
                                QTableWidgetItem("Manual"))
+            return
+
+        auto = sm.get_auto_center(key) or sm.get_auto_center(base)
+        if auto is not None:
+            cx, cy = auto
+            self.table.setItem(row, self.COL_CENTER,
+                               QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
+            self.table.setItem(row, self.COL_CENTER_MODE,
+                               QTableWidgetItem("Auto"))
         else:
             self.table.setItem(row, self.COL_CENTER, QTableWidgetItem(""))
-            self.table.setItem(row, self.COL_CENTER_MODE, QTableWidgetItem("Auto"))
+            self.table.setItem(row, self.COL_CENTER_MODE, QTableWidgetItem(""))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
