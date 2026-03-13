@@ -33,6 +33,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDialog
 from PySide6.QtCore import Signal
 
 from ...utils.image_data import ImageData
+from ...utils.settings_manager import SettingsManager
 from .image_navigator_widget import ImageNavigatorWidget
 from .collapsible_right_panel import CollapsibleRightPanel
 from .center_settings_widget import CenterSettingsWidget
@@ -134,9 +135,8 @@ class ProcessingWorkspace(QWidget):
         self._orientation_model = 0  # Default: Max Intensity
         self._mode_rotation = None  # Cached mode rotation value
         
-        # Settings data (persisted to JSON)
-        self._center_settings = {}     # {"filename": {"center": [x,y], "source": "..."}}
-        self._rotation_settings = {}   # {"filename": {"rotation": angle, "source": "..."}}
+        # Centralized settings I/O
+        self.settings_manager = SettingsManager(settings_dir)
         
         # Track first image in folder for notification
         self._first_image_in_folder = True
@@ -165,10 +165,18 @@ class ProcessingWorkspace(QWidget):
         
         # Connect all internal signals
         self._connect_signals()
-        
-        # Load persisted settings
-        self._load_settings()
     
+    # Backward-compatible properties – external code (QuadrantFoldingGUI,
+    # AddIntensitiesSingleExp, etc.) may still read these directly.
+
+    @property
+    def _center_settings(self) -> dict:
+        return self.settings_manager.center_settings
+
+    @property
+    def _rotation_settings(self) -> dict:
+        return self.settings_manager.rotation_settings
+
     def _setup_components(self):
         """Create settings widgets (image_viewer is external)."""
         # Create these unattached so modules that do not add them to a layout
@@ -506,13 +514,11 @@ class ProcessingWorkspace(QWidget):
             print(f"  Transformed center to original coordinates: {center}")
         
         # 2. Save to settings (now in original coordinates)
-        self._center_settings[self._current_filename] = {
-            'center': list(center),
-            'source': source
-        }
-        self._save_center_settings()
+        self.settings_manager.set_center(self._current_filename, center, source)
+        self.settings_manager.save_center()
+        self._after_center_save()
         
-        # 2. Update ImageData
+        # 3. Update ImageData
         if self._current_image_data:
             self._current_image_data.update_manual_center(center)
         
@@ -553,11 +559,9 @@ class ProcessingWorkspace(QWidget):
         new_rotation = current_rotation + angle
         
         # 1. Save to settings
-        self._rotation_settings[self._current_filename] = {
-            'rotation': new_rotation,
-            'source': source
-        }
-        self._save_rotation_settings()
+        self.settings_manager.set_rotation(self._current_filename, new_rotation, source)
+        self.settings_manager.save_rotation()
+        self._after_rotation_save()
         
         # 2. Update ImageData
         if self._current_image_data:
@@ -611,11 +615,9 @@ class ProcessingWorkspace(QWidget):
             print(f"  Transformed center to original coordinates: {center}")
         
         # 1. Save center settings
-        self._center_settings[self._current_filename] = {
-            'center': list(center),
-            'source': 'center_rotate'
-        }
-        self._save_center_settings()
+        self.settings_manager.set_center(self._current_filename, center, 'center_rotate')
+        self.settings_manager.save_center()
+        self._after_center_save()
         
         # 2. Update center in ImageData
         if self._current_image_data:
@@ -736,15 +738,9 @@ class ProcessingWorkspace(QWidget):
             source: Description of where this center came from (e.g., "calibration", "SetCentDialog")
         """
         if center is None:
-            # Remove manual center setting
-            if filename in self._center_settings:
-                del self._center_settings[filename]
+            self.settings_manager.clear_center(filename)
         else:
-            # Set manual center
-            self._center_settings[filename] = {
-                'center': list(center),
-                'source': source
-            }
+            self.settings_manager.set_center(filename, center, source)
         self.save_settings()
         
         # Update ImageData if it's the current image
@@ -767,8 +763,7 @@ class ProcessingWorkspace(QWidget):
         """
         if rotation_increment is None:
             # Remove manual rotation setting
-            if filename in self._rotation_settings:
-                del self._rotation_settings[filename]
+            self.settings_manager.clear_rotation(filename)
         else:
             # Get current rotation from ImageData
             current_rotation = 0.0
@@ -777,12 +772,7 @@ class ProcessingWorkspace(QWidget):
             
             # Calculate new absolute rotation
             new_rotation = current_rotation + rotation_increment
-            
-            # Set manual rotation
-            self._rotation_settings[filename] = {
-                'rotation': new_rotation,
-                'source': source
-            }
+            self.settings_manager.set_rotation(filename, new_rotation, source)
         
         self.save_settings()
         
@@ -791,7 +781,7 @@ class ProcessingWorkspace(QWidget):
             if rotation_increment is None:
                 self._current_image_data.update_manual_rotation(None)
             else:
-                new_rotation = self._rotation_settings[filename]['rotation']
+                new_rotation = self.settings_manager.get_rotation(filename)
                 self._current_image_data.update_manual_rotation(new_rotation)
             self.update_display(self._current_image_data)
     
@@ -806,26 +796,16 @@ class ProcessingWorkspace(QWidget):
             Tuple of (manual_center, manual_rotation)
             Both can be None if not manually set
         """
-        # Get manual center
-        center = None
-        if filename in self._center_settings:
-            center_data = self._center_settings[filename]
-            if 'center' in center_data:
-                center = tuple(center_data['center'])
-        
-        # Get manual rotation
-        rotation = None
-        if filename in self._rotation_settings:
-            rotation_data = self._rotation_settings[filename]
-            if 'rotation' in rotation_data:
-                rotation = rotation_data['rotation']
-        
+        center = self.settings_manager.get_center(filename)
+        rotation = self.settings_manager.get_rotation(filename)
         return center, rotation
     
     def save_settings(self):
         """Save all settings to JSON files."""
-        self._save_center_settings()
-        self._save_rotation_settings()
+        self.settings_manager.save_center()
+        self._after_center_save()
+        self.settings_manager.save_rotation()
+        self._after_rotation_save()
     
     def _update_mode_statistics_internal(self):
         """Internal method to update mode statistics using file_manager."""
@@ -876,9 +856,9 @@ class ProcessingWorkspace(QWidget):
             self._current_image_data.update_manual_rotation(None)
             
             # Remove from settings
-            if self._current_filename in self._rotation_settings:
-                del self._rotation_settings[self._current_filename]
-                self._save_rotation_settings()
+            self.settings_manager.clear_rotation(self._current_filename)
+            self.settings_manager.save_rotation()
+            self._after_rotation_save()
             
             # Update UI
             self._rotation_widget.update_mode_indicator(is_manual=False)
@@ -917,7 +897,8 @@ class ProcessingWorkspace(QWidget):
             img_data = ImageData(
                 img=img,
                 img_path=self._settings_dir,
-                img_name=filename
+                img_name=filename,
+                settings_manager=self.settings_manager,
             )
             
             # Get rotation from ImageData (triggers auto-calculation via lazy loading)
@@ -1027,13 +1008,11 @@ class ProcessingWorkspace(QWidget):
         # Apply manual center to selected images
         for idx in indices:
             filename = file_list[idx]
-            self._center_settings[filename] = {
-                'center': list(center),
-                'source': 'propagated'
-            }
+            self.settings_manager.set_center(filename, center, 'propagated')
         
         # Save settings
-        self._save_center_settings()
+        self.settings_manager.save_center()
+        self._after_center_save()
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
@@ -1067,9 +1046,7 @@ class ProcessingWorkspace(QWidget):
         
         # Remove manual settings for selected images
         for idx in indices:
-            filename = file_list[idx]
-            if filename in self._center_settings:
-                del self._center_settings[filename]
+            self.settings_manager.clear_center(file_list[idx])
         
         # If current image is in scope, update ImageData and UI
         if current_idx in indices:
@@ -1080,7 +1057,8 @@ class ProcessingWorkspace(QWidget):
             self.needsReprocess.emit()
         
         # Save settings
-        self._save_center_settings()
+        self.settings_manager.save_center()
+        self._after_center_save()
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
@@ -1113,14 +1091,11 @@ class ProcessingWorkspace(QWidget):
         
         # Apply manual rotation to selected images
         for idx in indices:
-            filename = file_list[idx]
-            self._rotation_settings[filename] = {
-                'rotation': rotation,
-                'source': 'propagated'
-            }
+            self.settings_manager.set_rotation(file_list[idx], rotation, 'propagated')
         
         # Save settings
-        self._save_rotation_settings()
+        self.settings_manager.save_rotation()
+        self._after_rotation_save()
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
@@ -1154,9 +1129,7 @@ class ProcessingWorkspace(QWidget):
         
         # Remove manual settings for selected images
         for idx in indices:
-            filename = file_list[idx]
-            if filename in self._rotation_settings:
-                del self._rotation_settings[filename]
+            self.settings_manager.clear_rotation(file_list[idx])
         
         # If current image is in scope, update ImageData and UI
         if current_idx in indices:
@@ -1167,7 +1140,8 @@ class ProcessingWorkspace(QWidget):
             self.needsReprocess.emit()
         
         # Save settings
-        self._save_rotation_settings()
+        self.settings_manager.save_rotation()
+        self._after_rotation_save()
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
@@ -1182,17 +1156,8 @@ class ProcessingWorkspace(QWidget):
             new_settings_dir: New directory path for settings
         """
         if new_settings_dir != self._settings_dir:
-            # Save current settings before switching
-            if self._settings_dir:
-                self.save_settings()
-            
-            # Update directory
             self._settings_dir = new_settings_dir
-            
-            # Reload settings from new directory
-            self._load_settings()
-            
-            print(f"Settings directory updated to: {new_settings_dir}")
+            self.settings_manager.switch_dir(new_settings_dir)
     
     # ==================== Internal Helper Methods ====================
     
@@ -1241,80 +1206,17 @@ class ProcessingWorkspace(QWidget):
                     self._rotation_widget.update_rotation_display(auto_rotation)
             self._rotation_widget.update_mode_indicator(is_manual=False)
     
-    # ==================== Settings Persistence ====================
-    
-    def _load_settings(self):
-        """Load all settings from JSON files."""
-        self._load_center_settings()
-        self._load_rotation_settings()
-    
-    def _load_center_settings(self):
-        """Load center settings from JSON."""
-        settings_path = Path(self._settings_dir) / "settings" / "center_settings.json"
-        if settings_path.exists():
-            try:
-                with open(settings_path, 'r') as f:
-                    self._center_settings = json.load(f)
-                print(f"Loaded center settings for {len(self._center_settings)} images")
-            except Exception as e:
-                print(f"Error loading center settings: {e}")
-                self._center_settings = {}
-        else:
-            print("No center settings file found")
-    
-    def _save_center_settings(self):
-        """Save center settings to JSON and update mode statistics."""
-        if not self._settings_dir:
-            return
-        
-        settings_dir = Path(self._settings_dir) / "settings"
-        settings_dir.mkdir(exist_ok=True)
-        
-        settings_path = settings_dir / "center_settings.json"
-        try:
-            with open(settings_path, 'w') as f:
-                json.dump(self._center_settings, f, indent=2)
-            print(f"Saved center settings for {len(self._center_settings)} images")
-            
-            # Auto-update mode statistics after saving
-            if self._file_manager and self._file_manager.names:
-                self._update_mode_statistics_internal()
-        except Exception as e:
-            print(f"Error saving center settings: {e}")
-    
-    def _load_rotation_settings(self):
-        """Load rotation settings from JSON."""
-        settings_path = Path(self._settings_dir) / "settings" / "rotation_settings.json"
-        if settings_path.exists():
-            try:
-                with open(settings_path, 'r') as f:
-                    self._rotation_settings = json.load(f)
-                print(f"Loaded rotation settings for {len(self._rotation_settings)} images")
-            except Exception as e:
-                print(f"Error loading rotation settings: {e}")
-                self._rotation_settings = {}
-        else:
-            print("No rotation settings file found")
-    
-    def _save_rotation_settings(self):
-        """Save rotation settings to JSON and update mode statistics."""
-        if not self._settings_dir:
-            return
-        
-        settings_dir = Path(self._settings_dir) / "settings"
-        settings_dir.mkdir(exist_ok=True)
-        
-        settings_path = settings_dir / "rotation_settings.json"
-        try:
-            with open(settings_path, 'w') as f:
-                json.dump(self._rotation_settings, f, indent=2)
-            print(f"Saved rotation settings for {len(self._rotation_settings)} images")
-            
-            # Auto-update mode statistics after saving
-            if self._file_manager and self._file_manager.names:
-                self._update_mode_statistics_internal()
-        except Exception as e:
-            print(f"Error saving rotation settings: {e}")
+    # ==================== Settings Persistence Hooks ====================
+
+    def _after_center_save(self):
+        """Update mode statistics after center settings change."""
+        if self._file_manager and self._file_manager.names:
+            self._update_mode_statistics_internal()
+
+    def _after_rotation_save(self):
+        """Update mode statistics after rotation settings change."""
+        if self._file_manager and self._file_manager.names:
+            self._update_mode_statistics_internal()
     
     # ==================== Public API for Blank/Mask Settings ====================
     
@@ -1625,11 +1527,8 @@ class ProcessingWorkspace(QWidget):
         Args:
             dir_path: Directory path of the loaded file/folder
         """
-        # Update settings directory
+        # Update settings directory (triggers load via settings_manager)
         self.set_settings_dir(dir_path)
-        
-        # Reload center and rotation settings from new directory
-        self._load_settings()
         
         # Update blank/mask checkbox states based on new directory
         self.update_blank_mask_states()

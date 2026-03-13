@@ -78,6 +78,7 @@ class ImageData:
         invalid_pixel_threshold: float = -1.0,
         quadrant_folded: bool = False,
         inpaint: bool = False,
+        settings_manager=None,
         **kwargs
     ):
         """
@@ -99,6 +100,7 @@ class ImageData:
         :param invalid_pixel_threshold: Value to set for masked pixels
         :param quadrant_folded: Whether this is a quadrant folded image (PT specific)
         :param inpaint: Whether to fill invalid/masked pixels via pyFAI inpainting
+        :param settings_manager: Optional SettingsManager for centralized cache I/O
         :param kwargs: Additional metadata
         """
         # Raw data (immutable)
@@ -136,6 +138,9 @@ class ImageData:
         
         # Additional metadata
         self.metadata: Dict[str, Any] = kwargs
+        
+        # Optional centralized settings manager (preferred over file I/O)
+        self._settings_manager = settings_manager
         
         # Load auto-calculated geometry from cache (if available)
         self._load_auto_cache()
@@ -213,7 +218,9 @@ class ImageData:
         # Get inpaint flag from panel (if available)
         inpaint = getattr(settings_panel, 'inpaint_enabled', False)
         
-        # Create and return ImageData
+        # Pass settings_manager if available on the panel
+        sm = getattr(settings_panel, 'settings_manager', None)
+
         return cls(
             img=img,
             img_path=img_path,
@@ -225,7 +232,8 @@ class ImageData:
             apply_mask=blank_mask_config['apply_mask'],
             blank_weight=blank_mask_config['blank_weight'],
             quadrant_folded=quadrant_folded,
-            inpaint=inpaint
+            inpaint=inpaint,
+            settings_manager=sm,
         )
     
     # ==================== Properties ====================
@@ -357,60 +365,26 @@ class ImageData:
     # ==================== Cache Management ====================
     
     def _load_auto_cache(self):
-        """
-        Load auto-calculated geometry from cache.
-        Cache file: settings/auto_geometry_cache.json
-        """
-        cache_file = self.img_path / "settings" / "auto_geometry_cache.json"
-        if not cache_file.exists():
+        """Load auto-calculated geometry from cache via SettingsManager."""
+        if self._settings_manager is None:
             return
-        
-        try:
-            import json
-            with open(cache_file) as f:
-                cache = json.load(f)
-            
-            if self.img_name in cache:
-                data = cache[self.img_name]
-                if 'center' in data and data['center']:
-                    self._computed_center = tuple(data['center'])
-                if 'rotation' in data and data['rotation'] is not None:
-                    self._computed_rotation = data['rotation']
-                print(f"Loaded auto geometry from cache: center={self._computed_center}, rotation={self._computed_rotation}")
-        except Exception as e:
-            print(f"Error loading auto geometry cache: {e}")
-    
+        c = self._settings_manager.get_auto_center(self.img_name)
+        r = self._settings_manager.get_auto_rotation(self.img_name)
+        if c is not None:
+            self._computed_center = c
+        if r is not None:
+            self._computed_rotation = r
+        if c or r is not None:
+            print(f"Loaded auto geometry from cache: center={self._computed_center}, rotation={self._computed_rotation}")
+
     def _save_auto_cache(self):
-        """
-        Save auto-calculated geometry to cache.
-        Cache file: settings/auto_geometry_cache.json
-        """
-        import json
-        cache_file = self.img_path / "settings" / "auto_geometry_cache.json"
-        
-        # Load existing cache
-        cache = {}
-        if cache_file.exists():
-            try:
-                with open(cache_file) as f:
-                    cache = json.load(f)
-            except:
-                cache = {}
-        
-        # Update with current values
-        cache[self.img_name] = {
-            'center': list(self._computed_center) if self._computed_center else None,
-            'rotation': self._computed_rotation if self._computed_rotation is not None else None
-        }
-        
-        # Save
-        try:
-            cache_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(cache_file, 'w') as f:
-                json.dump(cache, f, indent=2)
-            print(f"Saved auto geometry to cache: {cache[self.img_name]}")
-        except Exception as e:
-            print(f"Error saving auto geometry cache: {e}")
+        """Save auto-calculated geometry to cache via SettingsManager."""
+        if self._settings_manager is None:
+            return
+        self._settings_manager.set_auto_cache(
+            self.img_name, self._computed_center, self._computed_rotation
+        )
+        self._settings_manager.save_auto_cache()
     
     # ==================== Auto Calculation ====================
     
