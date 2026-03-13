@@ -89,6 +89,7 @@ class ProcessingBox:
     subtracted_hist: Optional[np.ndarray] = None
     baselines: Optional[List[float]] = None
     centroids: Optional[np.ndarray] = None
+    centroids_corrected: Optional[np.ndarray] = None
     widths: Optional[List[float]] = None
     areas: Optional[List[float]] = None
     
@@ -101,12 +102,12 @@ class ProcessingBox:
         """
         stages = {
             'hist': ['hist', 'hist2', 'fit_results', 'moved_peaks', 
-                    'subtracted_hist', 'baselines', 'centroids', 'widths', 'areas'],
+                    'subtracted_hist', 'baselines', 'centroids', 'centroids_corrected', 'widths', 'areas'],
             'hist2': ['hist2', 'fit_results', 'moved_peaks', 
-                     'subtracted_hist', 'baselines', 'centroids', 'widths', 'areas'],
+                     'subtracted_hist', 'baselines', 'centroids', 'centroids_corrected', 'widths', 'areas'],
             'fit': ['fit_results', 'moved_peaks', 'subtracted_hist', 
-                   'baselines', 'centroids', 'widths', 'areas'],
-            'peaks': ['moved_peaks', 'baselines', 'centroids', 'widths', 'areas']
+                   'baselines', 'centroids', 'centroids_corrected', 'widths', 'areas'],
+            'peaks': ['moved_peaks', 'baselines', 'centroids', 'centroids_corrected', 'widths', 'areas']
         }
         
         list_attrs = ['peaks', 'moved_peaks', 'baselines', 'widths', 'areas']
@@ -558,7 +559,9 @@ class ProjectionProcessor:
             else:
                 init_center = self.center[1] - start_y
 
+            float_center = init_center
             init_center = int(round(init_center))
+            center_delta = float_center - init_center
             int_vars['centerX'] = init_center
 
             if box.bgsub == 1:
@@ -844,6 +847,13 @@ class ProjectionProcessor:
                     if main_info.get('center_amplitude2_lock', False):
                         result_dict['center_amplitude2'] = main_info['center_amplitude2']
                 
+                # Sub-pixel correction: store delta and corrected peak positions
+                result_dict['center_delta'] = center_delta
+                for j in range(len(peaks)):
+                    key = f'p_{j}'
+                    if key in result_dict:
+                        result_dict[f'{key}_corrected'] = result_dict[key] - center_delta
+
                 # Save fit results to box
                 box.fit_results = result_dict
                 box.subtracted_hist = None  # Clear downstream results
@@ -938,6 +948,8 @@ class ProjectionProcessor:
             if box.centroids is None:
                 results = getPeakInformations(hist, peaks, baselines)
                 box.centroids = np.array(results['centroids']) - model['centerX']
+                delta = model.get('center_delta', 0.0)
+                box.centroids_corrected = box.centroids - delta
                 box.widths = results['widths']
                 box.areas = results['areas']
                 print("Box : "+ str(name))

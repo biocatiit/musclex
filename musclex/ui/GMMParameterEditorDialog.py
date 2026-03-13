@@ -235,6 +235,19 @@ class GMMParameterEditorDialog(QDialog):
             
             i += 1
         
+        # Corrected peak positions (read-only display)
+        i = 0
+        while f'p_{i}_corrected' in fit_result:
+            params_to_show[f'p_{i}_corrected'] = {
+                'val': fit_result[f'p_{i}_corrected'],
+                'min': 0, 'max': 0,
+                'fixed': False,
+                'enabled': False,
+                'bounds_enabled': False,
+                'readonly': True,
+            }
+            i += 1
+        
         # Fill table
         self.paramTable.setRowCount(len(params_to_show))
         
@@ -242,9 +255,12 @@ class GMMParameterEditorDialog(QDialog):
         for param_name in sorted(params_to_show.keys()):
             pdict = params_to_show[param_name]
             
-            # Fixed checkbox
+            # Fixed checkbox (non-interactive for readonly rows)
             chkItem = QTableWidgetItem()
-            chkItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            if pdict.get('readonly', False):
+                chkItem.setFlags(Qt.ItemIsEnabled)
+            else:
+                chkItem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             chkItem.setCheckState(Qt.Checked if pdict['fixed'] else Qt.Unchecked)
             self.paramTable.setItem(row, 0, chkItem)
             
@@ -568,6 +584,8 @@ class GMMParameterEditorDialog(QDialog):
         
         for row in range(self.paramTable.rowCount()):
             param_name = self.paramTable.item(row, 1).text()
+            if '_corrected' in param_name:
+                continue
             fixed_item = self.paramTable.item(row, 0)
             
             params_info[param_name] = {

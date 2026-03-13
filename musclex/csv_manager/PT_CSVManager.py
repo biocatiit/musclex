@@ -65,8 +65,6 @@ class PT_CSVManager:
                 self.colnames.append("Box " + str(box_name) + " Meridian Area")
                 for i in range(len(box.peaks)):
                     side = " right" if i%2 == 0 else " left"
-                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (Pixel)")
-                    self.colnames.append("Box " + str(box_name) + " Maximum Point " + str(i//2) + side + " (nm)")
                     self.colnames.append("Box " + str(box_name) + " Centroid " + str(i//2) + side + " (Pixel)")
                     self.colnames.append("Box " + str(box_name) + " Centroid " + str(i//2) + side + " (nm)")
                     self.colnames.append("Box " + str(box_name) + " Centroid Area " + str(i//2) + side)
@@ -119,24 +117,22 @@ class PT_CSVManager:
                 new_data['Box ' + str(bn) + ' Meridian Sigma'] = model['center_sigma2']
                 new_data['Box ' + str(bn) + ' Meridian Area'] = model['center_amplitude2']
                 if box.centroids is not None:
-                    centroids = box.centroids
-                    moved_peaks = np.array(box.moved_peaks) - model['centerX']
-                    n_peaks = len(centroids)
+                    centroids_corr = box.centroids_corrected
+                    n_peaks = len(centroids_corr)
                     n_per_side = n_peaks // 2  # First half = right, second half = left (from _expand_peaks_mirrored)
-                    for i, c in enumerate(centroids):
+                    for i, c in enumerate(centroids_corr):
                         is_right = i < n_per_side
                         side = " right" if is_right else " left"
                         peak_num = i if is_right else (i - n_per_side)
-                        new_data["Box " + str(bn) + " Maximum Point " + str(peak_num) + side + " (Pixel)"] = moved_peaks[i]
+                        gauss_corrected = model['p_'+str(i)+'_corrected']
                         new_data["Box " + str(bn) + " Centroid " + str(peak_num) + side + " (Pixel)"] = c
                         new_data["Box " + str(bn) + " Centroid Area " + str(peak_num) + side] = box.areas[i]
-                        new_data["Box " + str(bn) + " Gaussian Peak " + str(peak_num) + side + " (Pixel)"] = model['p_'+str(i)]
+                        new_data["Box " + str(bn) + " Gaussian Peak " + str(peak_num) + side + " (Pixel)"] = gauss_corrected
                         new_data["Box " + str(bn) + " Gaussian Sigma " + str(peak_num) + side] = model['sigma'+str(i)]
                         new_data["Box " + str(bn) + " Gaussian Area " + str(peak_num) + side] = model['amplitude'+str(i)]
                         if projProc.state.lambda_sdd is not None:
-                            new_data["Box " + str(bn) + " Maximum Point " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd/moved_peaks[i]
-                            new_data["Box " + str(bn) + " Centroid " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd/c
-                            new_data["Box " + str(bn) + " Gaussian Peak " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd / model['p_' + str(i)]
+                            new_data["Box " + str(bn) + " Centroid " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd / c
+                            new_data["Box " + str(bn) + " Gaussian Peak " + str(peak_num) + side + " (nm)"] = projProc.state.lambda_sdd / gauss_corrected
                         if not is_right:
                             mirror_idx = peak_num  # Right peak at same peak_num
                             new_data["Box " + str(bn) + " Average Centroid Area " + str(peak_num)] = (box.areas[i] + box.areas[mirror_idx])/2
