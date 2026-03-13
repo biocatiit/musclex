@@ -1,9 +1,10 @@
 import os
+import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
-    QScrollArea, QFrame, QStackedWidget
+    QScrollArea, QFrame, QStackedWidget, QCheckBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
@@ -44,6 +45,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.workspace = ProcessingWorkspace(settings_dir="")
         self.img_list = []
         self.misaligned_names = set()
+        self._current_center = None
 
         # Each entry: {'start': int, 'count': int, 'number': int}
         self._groups = []
@@ -127,6 +129,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.image_viewer = self.workspace.navigator.image_viewer
         self._right_panel_layout.addWidget(self.image_viewer)
         self._right_panel_layout.addWidget(self.image_viewer.display_panel)
+
+        self.centerChkBx = QCheckBox("Center")
+        self.centerChkBx.setChecked(False)
+        self.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
+        self.centerChkBx.stateChanged.connect(self._redraw_overlays)
 
 
 
@@ -354,7 +361,20 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _on_image_data_ready(self, image_data):
         """Called when workspace has loaded and configured a new image."""
         self.image_viewer.display_image(image_data.img)
+        self._current_center = image_data.center  # trigger lazy load + cache
+        self._redraw_overlays()
         self.populate()
+
+    def _redraw_overlays(self):
+        """Draw center circle if checkbox is checked; clear it otherwise."""
+        ax = self.image_viewer.axes
+        for patch in list(ax.patches):
+            patch.remove()
+        if self.centerChkBx.isChecked() and self._current_center is not None:
+            cx, cy = self._current_center
+            circle = mpatches.Circle((cx, cy), 10, color='g', fill=False, linewidth=1.5)
+            ax.add_patch(circle)
+        self.image_viewer.canvas.draw_idle()
 
     def setStatus(self, text):
         self.statusLabel.setText(text)
