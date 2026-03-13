@@ -44,7 +44,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.workspace = ProcessingWorkspace(settings_dir="")
         self.img_list = []
         self.misaligned_names = set()
-        self.items_data = None
 
         # Each entry: {'start': int, 'count': int, 'number': int}
         self._groups = []
@@ -102,6 +101,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._left_stack.setCurrentIndex(0)
         self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
         self.workspace.navigator.scanComplete.connect(self._on_scan_complete)
+        self.workspace.imageDataReady.connect(self._on_image_data_ready)
 
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
@@ -114,7 +114,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout = QVBoxLayout(self._right_panel_content)
         self._right_panel_layout.setContentsMargins(6, 6, 6, 6)
         self._right_panel_layout.setSpacing(6)
-        self._right_panel_layout.addStretch()
         self.right_panel.setWidget(self._right_panel_content)
 
         self.splitter = QSplitter(Qt.Horizontal)
@@ -125,18 +124,24 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.splitter.setSizes([1100, 300])
         root.addWidget(self.splitter)
 
+        self.image_viewer = self.workspace.navigator.image_viewer
+        self._right_panel_layout.addWidget(self.image_viewer)
+        self._right_panel_layout.addWidget(self.image_viewer.display_panel)
+
+
+
         self.start_detection_btn = QPushButton("Start Detection")
-        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.start_detection_btn)
+        self._right_panel_layout.addWidget(self.start_detection_btn)
 
         # Grouping mode selector
         self.radio_manual = QRadioButton("Select Group Manually")
         self.radio_manual.setChecked(True)
-        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.radio_manual)
+        self._right_panel_layout.addWidget(self.radio_manual)
 
-        self.radio_same_frame = QRadioButton("Same Frame Number")
-        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self.radio_same_frame)
+        self.radio_bin_images = QRadioButton("Bin Images")
+        self._right_panel_layout.addWidget(self.radio_bin_images)
 
-        # Binning factor row (shown only when Same Frame Number is selected)
+        # Binning factor row (shown only when Bin Images is selected)
         self._binning_row = QWidget()
         binning_layout = QHBoxLayout(self._binning_row)
         binning_layout.setContentsMargins(16, 0, 0, 0)
@@ -148,9 +153,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.binning_spin.setValue(1)
         binning_layout.addWidget(self.binning_spin)
         self._binning_row.setVisible(False)
-        self._right_panel_layout.insertWidget(self._right_panel_layout.count() - 1, self._binning_row)
+        self._right_panel_layout.addWidget(self._binning_row)
+        self._right_panel_layout.addStretch()
 
-        self.radio_same_frame.toggled.connect(self._binning_row.setVisible)
+        self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -166,7 +172,6 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _on_folder_loaded(self, dir_path):
         """Switch to table view with the initial file list (scan may still be running)."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
-        self.items_data = None
         self.misaligned_names = set()
         self.populate()
         self._left_stack.setCurrentIndex(1)
@@ -181,61 +186,35 @@ class AddIntensitiesSingleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def populate(self):
-        """Fill the table from img_list / items_data."""
+        """Fill the table from img_list."""
         self._groups = []
         self.table.setRowCount(0)
-
-        if self.items_data:
-            self._populate_from_items_data()
-        else:
-            self._populate_names_only()
+        self._populate_names_only()
 
     def _populate_names_only(self):
-        """Populate only the Frame column from img_list."""
+        """Populate the Frame and center columns from img_list."""
         self.table.setRowCount(len(self.img_list))
         for row, name in enumerate(self.img_list):
             item = QTableWidgetItem(os.path.basename(name))
             item.setToolTip(name)
             self.table.setItem(row, self.COL_FRAME, item)
+            self._fill_center_columns(row, name)
             self._apply_misaligned_highlight(row, name)
 
-    def _populate_from_items_data(self):
-        """Populate all columns from items_data dicts."""
-        self.table.setRowCount(len(self.items_data))
-        for row, d in enumerate(self.items_data):
-            name = d.get("name", "")
-            base = os.path.basename(name)
-
-            def cell(text):
-                return QTableWidgetItem(str(text))
-
-            frame_item = QTableWidgetItem(base)
-            frame_item.setToolTip(name)
-            self.table.setItem(row, self.COL_FRAME, frame_item)
-
-            cx, cy = d.get("center", (None, None))
-            center_text = f"({cx:.1f}, {cy:.1f})" if cx is not None else ""
-            self.table.setItem(row, self.COL_CENTER, cell(center_text))
-
+    def _fill_center_columns(self, row, name):
+        """Fill COL_CENTER and COL_CENTER_MODE from workspace center settings."""
+        center_settings = self.workspace._center_settings
+        base = os.path.basename(name)
+        data = center_settings.get(base) or center_settings.get(name)
+        if data and 'center' in data:
+            cx, cy = data['center']
+            self.table.setItem(row, self.COL_CENTER,
+                               QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
             self.table.setItem(row, self.COL_CENTER_MODE,
-                               cell(d.get("center_mode", "")))
-
-            cd = d.get("center_dist")
-            self.table.setItem(row, self.COL_CENTER_DIST,
-                               cell(f"{cd:.4f}" if cd is not None else ""))
-
-            ang = d.get("angle")
-            self.table.setItem(row, self.COL_ROTATION,
-                               cell(f"{ang:.4f}" if ang is not None else ""))
-
-            self.table.setItem(row, self.COL_ROTATION_MODE,
-                               cell(d.get("rotation_mode", "")))
-
-            img_diff = d.get("image_diff")
-            self.table.setItem(row, self.COL_IMAGE_DIFF,
-                               cell(f"{img_diff:.4f}" if img_diff is not None else ""))
-
-            self._apply_misaligned_highlight(row, name)
+                               QTableWidgetItem("Manual"))
+        else:
+            self.table.setItem(row, self.COL_CENTER, QTableWidgetItem(""))
+            self.table.setItem(row, self.COL_CENTER_MODE, QTableWidgetItem("Auto"))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
@@ -350,15 +329,20 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self._group_rows(selected_rows)
 
     # ------------------------------------------------------------------
-    # Public helpers for updating the dialog after detection
+    # Public helpers
     # ------------------------------------------------------------------
 
     def setMisalignedNames(self, misaligned_names):
         self.misaligned_names = set(misaligned_names)
         self.populate()
 
-    def setItemsData(self, items_data):
-        self.items_data = items_data
+    # ------------------------------------------------------------------
+    # Image data ready → display image and refresh table
+    # ------------------------------------------------------------------
+
+    def _on_image_data_ready(self, image_data):
+        """Called when workspace has loaded and configured a new image."""
+        self.image_viewer.display_image(image_data.img)
         self.populate()
 
     def setStatus(self, text):
