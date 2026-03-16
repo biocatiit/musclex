@@ -183,12 +183,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.misaligned_names = set()
         self.populate()
+        self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
 
     def _on_scan_complete(self):
         """Refresh the file list once the background scan finishes."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.populate()
+        self._sync_table_selection()
 
     # ------------------------------------------------------------------
     # Data population
