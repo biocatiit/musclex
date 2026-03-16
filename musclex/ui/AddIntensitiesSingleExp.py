@@ -180,33 +180,38 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Switch to table view with the initial file list (scan may still be running)."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.misaligned_names = set()
-        self.populate()
+        self._init_table()
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
 
     def _on_scan_complete(self):
         """Refresh the file list once the background scan finishes."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
-        self.populate()
+        self._init_table()
         self._sync_table_selection()
 
     # ------------------------------------------------------------------
     # Data population
     # ------------------------------------------------------------------
 
-    def populate(self):
-        """Fill the table from img_list."""
+    def _init_table(self):
+        """Fully rebuild the table from img_list (resets rows and groups)."""
         self._groups = []
         self.table.setRowCount(0)
-        self._populate_rows()
-
-    def _populate_rows(self):
-        """Populate the Frame, center, and rotation columns from img_list."""
         self.table.setRowCount(len(self.img_list))
         for row, name in enumerate(self.img_list):
             item = QTableWidgetItem(os.path.basename(name))
             item.setToolTip(name)
             self.table.setItem(row, self.COL_FRAME, item)
+            self._fill_center_columns(row, name)
+            self._fill_rotation_columns(row, name)
+            self._apply_misaligned_highlight(row, name)
+
+    def _update_table_data(self):
+        """Refresh center/rotation data columns for all existing rows (preserves selection and groups)."""
+        for row, name in enumerate(self.img_list):
+            if row >= self.table.rowCount():
+                break
             self._fill_center_columns(row, name)
             self._fill_rotation_columns(row, name)
             self._apply_misaligned_highlight(row, name)
@@ -381,7 +386,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def setMisalignedNames(self, misaligned_names):
         self.misaligned_names = set(misaligned_names)
-        self.populate()
+        self._init_table()
 
     # ------------------------------------------------------------------
     # Table selection → navigate to image
@@ -410,10 +415,10 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _on_image_data_ready(self, image_data):
         """Called when workspace has loaded and configured a new image."""
         self.image_viewer.display_image(image_data.img)
-        self._current_center = image_data.center  # trigger lazy load + cache
-        self._current_rotation = image_data.rotation  # trigger lazy load + cache
+        self._current_center = image_data.center
+        self._current_rotation = image_data.rotation
         self._redraw_overlays()
-        self.populate()
+        self._update_table_data()
 
     def _sync_table_selection(self):
         """Highlight the table row that matches the navigator's current image index."""
