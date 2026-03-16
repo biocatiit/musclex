@@ -248,10 +248,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         for row, name in enumerate(self.img_list):
             if row >= self.table.rowCount():
                 break
-            self._fill_center_columns(row, name)
-            self._fill_rotation_columns(row, name)
-            self._apply_misaligned_highlight(row, name)
-            self._apply_base_marker(row, name)
+            self._update_row_data(row, name)
+
+    def _update_row_data(self, row, name):
+        """Refresh center/rotation data columns for a single row."""
+        if row < 0 or row >= self.table.rowCount():
+            return
+        self._fill_center_columns(row, name)
+        self._fill_rotation_columns(row, name)
+        self._apply_misaligned_highlight(row, name)
+        self._apply_base_marker(row, name)
 
     def _fill_center_columns(self, row, name):
         """Fill COL_CENTER and COL_CENTER_MODE from workspace settings manager."""
@@ -473,7 +479,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._current_center = image_data.center
         self._current_rotation = image_data.rotation
         self._redraw_overlays()
-        self._update_table_data()
+        row = self.workspace.navigator.current_index
+        if 0 <= row < len(self.img_list):
+            self._update_row_data(row, self.img_list[row])
 
     def _sync_table_selection(self):
         """Highlight the table row that matches the navigator's current image index."""
