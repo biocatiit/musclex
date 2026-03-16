@@ -1545,7 +1545,8 @@ class ProcessingWorkspace(QWidget):
         1. Creates ImageData with workspace settings
         2. Syncs PT-specific quadrant folded state to checkbox
         3. Shows center and rotation status notification on first image load
-        4. Emits imageDataReady signal for GUI to process
+        4. Syncs internal state (``_current_image_data``, settings widgets)
+        5. Emits imageDataReady signal for GUI to process
         
         Args:
             img: Image array (numpy ndarray)
@@ -1572,12 +1573,12 @@ class ProcessingWorkspace(QWidget):
             self._first_image_in_folder = False
             self._show_first_image_settings_notification(filename)
 
-        # Emit high-level signal with ImageData (delayed to allow UI paint)
-        # GUIs should listen to this instead of imageChanged
-        QTimer.singleShot(
-            30,
-            lambda d=image_data: self.imageDataReady.emit(d),
-        )
+        def _emit(d=image_data):
+            self.update_display(d)
+            self.imageDataReady.emit(d)
+
+        # Sync internal state and emit signal (delayed to allow UI paint)
+        QTimer.singleShot(30, _emit)
     
     def _show_first_image_settings_notification(self, filename: str):
         """

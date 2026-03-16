@@ -2906,7 +2906,6 @@ class EquatorWindow(QMainWindow):
         self.bioImg.skeletalVarsNotSet = not ('isSkeletal' in self.bioImg.info and self.bioImg.info['isSkeletal'])
         self.bioImg.extraPeakVarsNotSet = not ('isExtraPeak' in self.bioImg.info and self.bioImg.info['isExtraPeak'])
         
-        self.workspace.update_display(self.current_image_data)
         # First-run specific setup
         if first_run:
             if 'paramInfo' in self.bioImg.info:
