@@ -46,6 +46,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = []
         self.misaligned_names = set()
         self._current_center = None
+        self._navigating_from_table = False  # guard against re-entrant navigation
 
         # Each entry: {'start': int, 'count': int, 'number': int}
         self._groups = []
@@ -95,6 +96,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         # Context menu for grouping / ungrouping
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._on_context_menu)
+        self.table.itemSelectionChanged.connect(self._on_table_selection_changed)
 
         # Left side of splitter: select_panel (before load) / table (after load)
         self._left_stack = QStackedWidget()
@@ -355,6 +357,26 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.populate()
 
     # ------------------------------------------------------------------
+    # Table selection → navigate to image
+    # ------------------------------------------------------------------
+
+    def _on_table_selection_changed(self):
+        """Navigate navigator to the image corresponding to the selected table row."""
+        if self._navigating_from_table:
+            return
+        selected = self.table.selectedItems()
+        if not selected:
+            return
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self.img_list):
+            return
+        self._navigating_from_table = True
+        try:
+            self.workspace.navigator.switch_to_image_by_index(row)
+        finally:
+            self._navigating_from_table = False
+
+    # ------------------------------------------------------------------
     # Image data ready → display image and refresh table
     # ------------------------------------------------------------------
 
@@ -364,6 +386,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._current_center = image_data.center  # trigger lazy load + cache
         self._redraw_overlays()
         self.populate()
+        self._sync_table_selection()
+
+    def _sync_table_selection(self):
+        """Highlight the table row that matches the navigator's current image index."""
+        idx = self.workspace.navigator.current_index
+        if 0 <= idx < self.table.rowCount():
+            self.table.blockSignals(True)
+            self.table.selectRow(idx)
+            self.table.scrollTo(self.table.model().index(idx, 0))
+            self.table.blockSignals(False)
 
     def _redraw_overlays(self):
         """Draw center circle if checkbox is checked; clear it otherwise."""
