@@ -110,21 +110,26 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.workspace.navigator.fileLoaded.connect(self._on_folder_loaded)
         self.workspace.navigator.scanComplete.connect(self._on_scan_complete)
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
-
+        self.workspace.needsReprocess.connect(
+            lambda: self._on_image_data_ready(self.workspace._current_image_data)
+            if self.workspace._current_image_data is not None else None
+        )
         # Right panel container (global settings group box + scrollable panel)
         right_container = QWidget()
         right_container_layout = QVBoxLayout(right_container)
         right_container_layout.setContentsMargins(0, 0, 0, 0)
         right_container_layout.setSpacing(4)
 
-        # Global settings group box
-        self.global_settings_group = QGroupBox("Global Settings")
-        global_settings_layout = QHBoxLayout(self.global_settings_group)
-        global_settings_layout.setContentsMargins(8, 6, 8, 6)
+        # Misaligned Detection group box
+        self.misaligned_detection_group = QGroupBox("Misaligned Detection")
+        misaligned_detection_layout = QHBoxLayout(self.misaligned_detection_group)
+        misaligned_detection_layout.setContentsMargins(8, 6, 8, 6)
         self.global_settings_btn = QPushButton("Global Settings")
-        global_settings_layout.addWidget(self.global_settings_btn)
-        global_settings_layout.addStretch()
-        right_container_layout.addWidget(self.global_settings_group)
+        misaligned_detection_layout.addWidget(self.global_settings_btn)
+        self.start_detection_btn = QPushButton("Start Detection")
+        misaligned_detection_layout.addWidget(self.start_detection_btn)
+        misaligned_detection_layout.addStretch()
+        right_container_layout.addWidget(self.misaligned_detection_group)
 
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
@@ -150,8 +155,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         root.addWidget(self.splitter)
 
         self.image_viewer = self.workspace.navigator.image_viewer
-        self._right_panel_layout.addWidget(self.image_viewer)
+        # Keep viewer visible when additional settings widgets are inserted below.
+        # Without this, initial layout inside the scroll area can shrink viewer
+        # to zero height, and matplotlib draw() fails on zero-sized canvas.
+        self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.image_viewer.setMinimumHeight(500)
+        self._right_panel_layout.addWidget(self.image_viewer, 1)
         self._right_panel_layout.addWidget(self.image_viewer.display_panel)
+        self._right_panel_layout.addWidget(self.workspace._center_widget)
+        self._right_panel_layout.addWidget(self.workspace._rotation_widget)
+        self._right_panel_layout.addWidget(self.workspace._blank_mask_widget)
 
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
@@ -160,8 +173,8 @@ class AddIntensitiesSingleExp(QMainWindow):
 
 
 
-        self.start_detection_btn = QPushButton("Start Detection")
-        self._right_panel_layout.addWidget(self.start_detection_btn)
+
+
 
         # Grouping mode selector
         self.radio_manual = QRadioButton("Select Group Manually")
