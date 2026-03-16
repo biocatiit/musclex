@@ -127,7 +127,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.splitter.addWidget(self.right_panel)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
-        self.splitter.setSizes([1100, 300])
+        self.splitter.setSizes([900, 500])
+        self.right_panel.setMinimumWidth(400)
         root.addWidget(self.splitter)
 
         self.image_viewer = self.workspace.navigator.image_viewer
