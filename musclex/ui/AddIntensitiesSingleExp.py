@@ -22,7 +22,8 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_CENTER_DIST = 4
     COL_ROTATION = 5
     COL_ROTATION_MODE = 6
-    COL_IMAGE_DIFF = 7
+    COL_DEVIATION = 7
+    COL_IMAGE_DIFF = 8
 
     HEADERS = [
         "Group",
@@ -32,6 +33,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         "distance",
         "Rotation",
         "Rotation Mode",
+        "Deviation",
         "Image Difference",
     ]
 
@@ -167,12 +169,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
 
-        # Buttons
-        btn_layout = QHBoxLayout()
-        self.closeButton = QPushButton("Close")
-        btn_layout.addStretch()
-        btn_layout.addWidget(self.closeButton)
-        root.addLayout(btn_layout)
+
 
     # ------------------------------------------------------------------
     # Folder loaded → switch to table view
@@ -262,6 +259,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         else:
             self.table.setItem(row, self.COL_ROTATION, QTableWidgetItem(""))
             self.table.setItem(row, self.COL_ROTATION_MODE, QTableWidgetItem(""))
+
+        self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
