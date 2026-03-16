@@ -25,16 +25,14 @@ class GlobalSettingsDialog(QDialog):
         self._workspace = workspace
         self._image_data = image_data
 
-        existing = workspace.settings_manager.get_global_base()
-        if existing.get('center'):
-            self._pending_center = tuple(existing['center'])
-        else:
-            self._pending_center = image_data.center
+        self._pending_center = image_data.center
+        sm = workspace.settings_manager
+        center_data = sm.get_center_data(image_data.img_name)
+        self._pending_center_source = center_data['source'] if center_data else ''
 
-        if existing.get('rotation') is not None:
-            self._pending_rotation = existing['rotation']
-        else:
-            self._pending_rotation = image_data.rotation or 0.0
+        self._pending_rotation = image_data.rotation or 0.0
+        rotation_data = sm.get_rotation_data(image_data.img_name)
+        self._pending_rotation_source = rotation_data['source'] if rotation_data else ''
 
         self._build_ui()
         self._register_tools()
@@ -138,14 +136,18 @@ class GlobalSettingsDialog(QDialog):
     def _dispatch_result(self, tool_name, result):
         if tool_name in ('chords', 'perpendiculars'):
             self._pending_center = (float(result[0]), float(result[1]))
+            self._pending_center_source = tool_name
             self._center_widget.setCentByChords.setChecked(False)
             self._center_widget.setCentByPerp.setChecked(False)
         elif tool_name == 'rotation':
             self._pending_rotation = (self._pending_rotation or 0.0) + float(result)
+            self._pending_rotation_source = 'rotation_tool'
             self._rotation_widget.setRotationButton.setChecked(False)
         elif tool_name == 'center_rotate':
             self._pending_center = (float(result['center'][0]), float(result['center'][1]))
+            self._pending_center_source = 'center_rotate'
             self._pending_rotation = (self._pending_rotation or 0.0) + float(result['angle'])
+            self._pending_rotation_source = 'center_rotate'
             self._center_widget.setCenterRotationButton.setChecked(False)
         self._update_labels()
         self._redraw_overlays()
@@ -169,6 +171,7 @@ class GlobalSettingsDialog(QDialog):
             cal_settings = cal_dialog.getValues()
             if cal_settings and 'center' in cal_settings:
                 self._pending_center = tuple(cal_settings['center'])
+                self._pending_center_source = 'calibration'
                 self._update_labels()
                 self._redraw_overlays()
 
@@ -185,6 +188,7 @@ class GlobalSettingsDialog(QDialog):
         )
         if dlg.exec():
             self._pending_center = dlg.center
+            self._pending_center_source = 'SetCentDialog'
             self._update_labels()
             self._redraw_overlays()
 
@@ -203,6 +207,7 @@ class GlobalSettingsDialog(QDialog):
         )
         if dlg.exec():
             self._pending_rotation = (self._pending_rotation or 0.0) + dlg.get_angle()
+            self._pending_rotation_source = 'SetAngleDialog'
             self._update_labels()
 
     # ----------------------------------------------------------------
@@ -241,11 +246,30 @@ class GlobalSettingsDialog(QDialog):
 
     def _on_apply(self):
         sm = self._workspace.settings_manager
+        filename = self._image_data.img_name
+
         sm.set_global_base(
             self._pending_center,
             self._pending_rotation,
-            self._image_data.img_name,
+            filename,
+            center_source=self._pending_center_source,
+            rotation_source=self._pending_rotation_source,
         )
         sm.save_global_base()
+
+        # Only write back to per-image lists and ImageData when a manual source exists
+        needs_save = False
+        if self._pending_center is not None and self._pending_center_source:
+            sm.set_center(filename, self._pending_center, self._pending_center_source)
+            self._image_data.update_manual_center(self._pending_center)
+            needs_save = True
+        if self._pending_rotation is not None and self._pending_rotation_source:
+            sm.set_rotation(filename, self._pending_rotation, self._pending_rotation_source)
+            self._image_data.update_manual_rotation(self._pending_rotation)
+            needs_save = True
+        if needs_save:
+            self._workspace.save_settings()
+        self._workspace.update_display(self._image_data)
+
         self.globalBaseChanged.emit()
         self.accept()
