@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
-    QScrollArea, QFrame, QStackedWidget, QCheckBox
+    QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush
@@ -109,6 +109,21 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.workspace.navigator.scanComplete.connect(self._on_scan_complete)
         self.workspace.imageDataReady.connect(self._on_image_data_ready)
 
+        # Right panel container (global settings group box + scrollable panel)
+        right_container = QWidget()
+        right_container_layout = QVBoxLayout(right_container)
+        right_container_layout.setContentsMargins(0, 0, 0, 0)
+        right_container_layout.setSpacing(4)
+
+        # Global settings group box
+        self.global_settings_group = QGroupBox("Global Settings")
+        global_settings_layout = QHBoxLayout(self.global_settings_group)
+        global_settings_layout.setContentsMargins(8, 6, 8, 6)
+        self.global_settings_btn = QPushButton("Global Settings")
+        global_settings_layout.addWidget(self.global_settings_btn)
+        global_settings_layout.addStretch()
+        right_container_layout.addWidget(self.global_settings_group)
+
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
         self.right_panel.setWidgetResizable(True)
@@ -121,14 +136,15 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.setContentsMargins(6, 6, 6, 6)
         self._right_panel_layout.setSpacing(6)
         self.right_panel.setWidget(self._right_panel_content)
+        right_container_layout.addWidget(self.right_panel)
 
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.addWidget(self._left_stack)
-        self.splitter.addWidget(self.right_panel)
+        self.splitter.addWidget(right_container)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([900, 500])
-        self.right_panel.setMinimumWidth(400)
+        right_container.setMinimumWidth(400)
         root.addWidget(self.splitter)
 
         self.image_viewer = self.workspace.navigator.image_viewer
