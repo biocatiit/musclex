@@ -200,9 +200,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Fill the table from img_list."""
         self._groups = []
         self.table.setRowCount(0)
-        self._populate_names_only()
+        self._populate_rows()
 
-    def _populate_names_only(self):
+    def _populate_rows(self):
         """Populate the Frame and center columns from img_list."""
         self.table.setRowCount(len(self.img_list))
         for row, name in enumerate(self.img_list):
