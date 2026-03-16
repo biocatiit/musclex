@@ -7,9 +7,10 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QBrush
+from PySide6.QtGui import QColor, QBrush, QFont
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace
+from musclex.ui.GlobalSettingsDialog import GlobalSettingsDialog
 
 
 class AddIntensitiesSingleExp(QMainWindow):
@@ -48,6 +49,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = []
         self.misaligned_names = set()
         self._current_center = None
+        self._base_image_filename = None
         self._navigating_from_table = False  # guard against re-entrant navigation
 
         # Each entry: {'start': int, 'count': int, 'number': int}
@@ -186,7 +188,24 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
 
+        self.global_settings_btn.clicked.connect(self._open_global_settings)
 
+    # ------------------------------------------------------------------
+    # Global settings dialog
+    # ------------------------------------------------------------------
+
+    def _open_global_settings(self):
+        image_data = self.workspace._current_image_data
+        if image_data is None:
+            return
+        dlg = GlobalSettingsDialog(self, self.workspace, image_data)
+        dlg.globalBaseChanged.connect(self._on_global_base_changed)
+        dlg.exec()
+
+    def _on_global_base_changed(self):
+        base = self.workspace.settings_manager.get_global_base()
+        self._base_image_filename = base.get('base_image')
+        self._update_table_data()
 
     # ------------------------------------------------------------------
     # Folder loaded → switch to table view
@@ -222,6 +241,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_center_columns(row, name)
             self._fill_rotation_columns(row, name)
             self._apply_misaligned_highlight(row, name)
+            self._apply_base_marker(row, name)
 
     def _update_table_data(self):
         """Refresh center/rotation data columns for all existing rows (preserves selection and groups)."""
@@ -231,6 +251,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_center_columns(row, name)
             self._fill_rotation_columns(row, name)
             self._apply_misaligned_highlight(row, name)
+            self._apply_base_marker(row, name)
 
     def _fill_center_columns(self, row, name):
         """Fill COL_CENTER and COL_CENTER_MODE from workspace settings manager."""
@@ -298,6 +319,24 @@ class AddIntensitiesSingleExp(QMainWindow):
                     item = QTableWidgetItem("")
                     self.table.setItem(row, col, item)
                 item.setBackground(highlight)
+
+    def _apply_base_marker(self, row, name):
+        """Prefix the Frame cell with a star if this image is the global base."""
+        item = self.table.item(row, self.COL_FRAME)
+        if item is None:
+            return
+        base = os.path.basename(name)
+        base_name = self._base_image_filename or ''
+        is_base = (base == os.path.basename(base_name)) if base_name else False
+        display = os.path.basename(name)
+        if is_base:
+            item.setText(f"\u2605 {display}")
+            bold = QFont()
+            bold.setBold(True)
+            item.setFont(bold)
+        else:
+            item.setText(display)
+            item.setFont(QFont())
 
     # ------------------------------------------------------------------
     # Grouping helpers

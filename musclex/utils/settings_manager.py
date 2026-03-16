@@ -57,6 +57,8 @@ class SettingsManager:
         self._rotation: dict = {}
         # Auto cache       {"filename": {"center": [x,y], "rotation": angle}}
         self._auto_cache: dict = {}
+        # Global base      {"center": [x,y], "rotation": angle, "base_image": filename}
+        self._global_base: dict = {}
 
         if settings_dir:
             self.load()
@@ -148,6 +150,22 @@ class SettingsManager:
             'rotation': rotation if rotation is not None else None,
         }
 
+    # ===== Global base =====
+
+    def get_global_base(self) -> dict:
+        """Return the global base dict (may be empty)."""
+        return self._global_base
+
+    def set_global_base(self, center, rotation, base_filename: str):
+        self._global_base = {
+            'center': list(center) if center else None,
+            'rotation': rotation,
+            'base_image': base_filename,
+        }
+
+    def clear_global_base(self):
+        self._global_base = {}
+
     # ===== I/O =====
 
     def _settings_path(self) -> Path:
@@ -158,6 +176,7 @@ class SettingsManager:
         self._load_center()
         self._load_rotation()
         self._load_auto_cache()
+        self._load_global_base()
 
     def _load_center(self):
         path = self._settings_path() / "center_settings.json"
@@ -197,6 +216,18 @@ class SettingsManager:
         else:
             self._auto_cache = {}
 
+    def _load_global_base(self):
+        path = self._settings_path() / "global_base.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    self._global_base = json.load(f)
+            except Exception as e:
+                print(f"Error loading global base settings: {e}")
+                self._global_base = {}
+        else:
+            self._global_base = {}
+
     def save_center(self):
         if not self._settings_dir:
             return
@@ -232,10 +263,22 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving auto geometry cache: {e}")
 
+    def save_global_base(self):
+        if not self._settings_dir:
+            return
+        d = self._settings_path()
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "global_base.json", 'w') as f:
+                json.dump(self._global_base, f, indent=2)
+        except Exception as e:
+            print(f"Error saving global base settings: {e}")
+
     def save_all(self):
         self.save_center()
         self.save_rotation()
         self.save_auto_cache()
+        self.save_global_base()
 
     # ===== Directory switching =====
 
@@ -252,4 +295,5 @@ class SettingsManager:
             self._center = {}
             self._rotation = {}
             self._auto_cache = {}
+            self._global_base = {}
         print(f"Settings directory updated to: {new_settings_dir}")
