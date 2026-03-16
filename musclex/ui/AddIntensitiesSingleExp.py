@@ -203,13 +203,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._populate_rows()
 
     def _populate_rows(self):
-        """Populate the Frame and center columns from img_list."""
+        """Populate the Frame, center, and rotation columns from img_list."""
         self.table.setRowCount(len(self.img_list))
         for row, name in enumerate(self.img_list):
             item = QTableWidgetItem(os.path.basename(name))
             item.setToolTip(name)
             self.table.setItem(row, self.COL_FRAME, item)
             self._fill_center_columns(row, name)
+            self._fill_rotation_columns(row, name)
             self._apply_misaligned_highlight(row, name)
 
     def _fill_center_columns(self, row, name):
@@ -237,6 +238,30 @@ class AddIntensitiesSingleExp(QMainWindow):
         else:
             self.table.setItem(row, self.COL_CENTER, QTableWidgetItem(""))
             self.table.setItem(row, self.COL_CENTER_MODE, QTableWidgetItem(""))
+
+    def _fill_rotation_columns(self, row, name):
+        """Fill COL_ROTATION and COL_ROTATION_MODE from workspace settings manager."""
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        key = base if sm.has_manual_rotation(base) else name
+
+        manual = sm.get_rotation(key)
+        if manual is not None:
+            self.table.setItem(row, self.COL_ROTATION,
+                               QTableWidgetItem(f"{manual:.2f}°"))
+            self.table.setItem(row, self.COL_ROTATION_MODE,
+                               QTableWidgetItem("Manual"))
+            return
+
+        auto = sm.get_auto_rotation(key) or sm.get_auto_rotation(base)
+        if auto is not None:
+            self.table.setItem(row, self.COL_ROTATION,
+                               QTableWidgetItem(f"{auto:.2f}°"))
+            self.table.setItem(row, self.COL_ROTATION_MODE,
+                               QTableWidgetItem("Auto"))
+        else:
+            self.table.setItem(row, self.COL_ROTATION, QTableWidgetItem(""))
+            self.table.setItem(row, self.COL_ROTATION_MODE, QTableWidgetItem(""))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
@@ -386,6 +411,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Called when workspace has loaded and configured a new image."""
         self.image_viewer.display_image(image_data.img)
         self._current_center = image_data.center  # trigger lazy load + cache
+        self._current_rotation = image_data.rotation  # trigger lazy load + cache
         self._redraw_overlays()
         self.populate()
         self._sync_table_selection()
