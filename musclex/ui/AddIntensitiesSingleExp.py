@@ -414,7 +414,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._current_rotation = image_data.rotation  # trigger lazy load + cache
         self._redraw_overlays()
         self.populate()
-        self._sync_table_selection()
 
     def _sync_table_selection(self):
         """Highlight the table row that matches the navigator's current image index."""
