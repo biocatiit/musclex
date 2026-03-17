@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
-    QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar
+    QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar,
+    QProgressDialog,
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
@@ -126,6 +127,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.taskManager = ProcessingTaskManager()
         self.processExecutor = None
         self._in_batch = False
+        self.stop_process = False
 
         self._build_ui()
         self.resize(1400, 800)
@@ -200,6 +202,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.global_settings_btn = QPushButton("Global Settings")
         misaligned_detection_layout.addWidget(self.global_settings_btn)
         self.start_detection_btn = QPushButton("Start Detection")
+        self.start_detection_btn.setCheckable(True)
         misaligned_detection_layout.addWidget(self.start_detection_btn)
         misaligned_detection_layout.addStretch()
         right_container_layout.addWidget(self.misaligned_detection_group)
@@ -277,7 +280,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
 
         self.global_settings_btn.clicked.connect(self._open_global_settings)
-        self.start_detection_btn.clicked.connect(self._start_detection)
+        self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
 
     # ------------------------------------------------------------------
     # Global settings dialog
@@ -743,6 +746,46 @@ class AddIntensitiesSingleExp(QMainWindow):
             print(f"Failed to create process pool: {e}")
             self.processExecutor = None
 
+    def _on_detection_btn_toggled(self, checked):
+        """Handle the Start Detection / Stop toggle button."""
+        if checked:
+            if not self._in_batch:
+                self.start_detection_btn.setText("Stop")
+                self._start_detection()
+        else:
+            self.stopProcess()
+
+    def stopProcess(self):
+        """Cancel the running batch and wait for in-flight workers to finish."""
+        self.stop_process = True
+        if self.processExecutor:
+            self.processExecutor.shutdown(wait=False, cancel_futures=True)
+        running_count = self.taskManager.get_running_count()
+
+        msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
+        self._stopProgress = QProgressDialog(msg, None, 0, 0, self)
+        self._stopProgress.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self._stopProgress.setModal(False)
+        self._stopProgress.show()
+
+        self._stopMsgTimer = QTimer(self)
+        self._stopMsgTimer.setInterval(300)
+        self._stopMsgTimer.timeout.connect(self._updateStopProgress)
+        self._stopMsgTimer.start()
+
+    def _updateStopProgress(self):
+        if not hasattr(self, '_stopProgress') or self._stopProgress is None:
+            return
+        running_count = self.taskManager.get_running_count()
+        msg = f"Stopping Batch Processing\n\nWaiting for {running_count} tasks to complete..."
+        self._stopProgress.setLabelText(msg)
+
+        if running_count == 0:
+            self._stopMsgTimer.stop()
+            self._stopProgress.close()
+            self._stopProgress = None
+            self._on_batch_complete(stopped=True)
+
     def _start_detection(self):
         """Submit all images to the process pool for center/rotation calculation.
 
@@ -764,7 +807,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
 
         self._in_batch = True
-        self.start_detection_btn.setEnabled(False)
+        self.stop_process = False
         self.taskManager.clear()
 
         n = len(self.img_list)
@@ -812,6 +855,9 @@ class AddIntensitiesSingleExp(QMainWindow):
             if task is None:
                 return
 
+            if self.stop_process:
+                return
+
             if error:
                 print(f"Detection error for {task.filename}: {error}")
             else:
@@ -838,24 +884,36 @@ class AddIntensitiesSingleExp(QMainWindow):
             print(f"Batch result callback error: {e}")
             traceback.print_exc()
 
-    def _on_batch_complete(self):
-        """Clean up after all batch tasks have finished."""
+    def _on_batch_complete(self, stopped=False):
+        """Clean up after all batch tasks have finished or been stopped."""
         stats = self.taskManager.get_statistics()
 
-        self.workspace.settings_manager.save_auto_cache()
+        if not stopped:
+            self.workspace.settings_manager.save_auto_cache()
 
         if self.processExecutor:
             self.processExecutor.shutdown(wait=False)
             self.processExecutor = None
 
         self._in_batch = False
+        self.stop_process = False
         self.progressBar.setVisible(False)
-        self.start_detection_btn.setEnabled(True)
 
-        msg = (
-            f"Detection complete: {stats['completed']}/{stats['total']} succeeded, "
-            f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/image"
-        )
+        self.start_detection_btn.blockSignals(True)
+        self.start_detection_btn.setChecked(False)
+        self.start_detection_btn.setText("Start Detection")
+        self.start_detection_btn.blockSignals(False)
+
+        if stopped:
+            msg = (
+                f"Detection stopped: {stats['completed']}/{stats['total']} completed, "
+                f"{stats['failed']} failed"
+            )
+        else:
+            msg = (
+                f"Detection complete: {stats['completed']}/{stats['total']} succeeded, "
+                f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/image"
+            )
         self.statusLabel.setText(msg)
         print(msg)
 
