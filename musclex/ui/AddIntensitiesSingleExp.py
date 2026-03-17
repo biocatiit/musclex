@@ -304,7 +304,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Switch to table view with the initial file list (scan may still be running)."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.misaligned_names = set()
-        self._img_sizes = {}
+        self._img_sizes = self.workspace.navigator.file_manager.image_sizes
         self._init_table()
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
@@ -312,6 +312,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _on_scan_complete(self):
         """Refresh the file list once the background scan finishes."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
+        self._img_sizes = self.workspace.navigator.file_manager.image_sizes
         self._init_table()
         self._sync_table_selection()
 
@@ -689,14 +690,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.image_viewer.display_image(image_data.img)
         self._redraw_overlays()
         row = self.workspace.navigator.current_index
-        # Cache image size
-        if image_data.img is not None:
-            h, w = image_data.img.shape[:2]
-            size_str = f"{w}×{h}"
-            name = self.img_list[row] if 0 <= row < len(self.img_list) else None
-            if name:
-                self._img_sizes[name] = size_str
-                self._img_sizes[os.path.basename(name)] = size_str
         worker = _GeometryWorker(image_data, row)
         worker.signals.done.connect(
             lambda c, r, i, d=image_data: self._on_geometry_ready(c, r, i, d)

@@ -361,58 +361,99 @@ def _write_error_log(dir_path, error_msg, exception=None):
         pass
 
 def _h5_nframes(path):
+    """Return (nframes, (height, width)) for an HDF5 file, or (0, None) on error."""
     try:
         f = fabio.open(path)
         n = getattr(f, 'nframes', 1)
+        shape = None
+        try:
+            data = f.data
+            if data is not None:
+                shape = data.shape[:2]  # (height, width)
+        except Exception:
+            pass
         try:
             f.close()
         except Exception:
             pass
-        return n
+        return n, shape
     except Exception as e:
         _write_error_log(
             os.path.dirname(path),
             f"Could not open HDF5 file (skipped during scan): {path}",
             e
         )
-        return 0
+        return 0, None
+
+def _tiff_size(path):
+    """Return (height, width) for a TIFF/image file by reading only the header. Returns None on error."""
+    try:
+        from PIL import Image as _PILImage
+        with _PILImage.open(path) as im:
+            w, h = im.size  # PIL lazy-loads: only header is read
+            return (h, w)
+    except Exception:
+        pass
+    try:
+        # Fallback: fabio header only (some formats expose shape without .data)
+        f = fabio.open(path)
+        if hasattr(f, 'shape') and f.shape:
+            return f.shape[:2]
+        try:
+            f.close()
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return None
+
 
 def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None):
     """
-    Scan a directory for TIFF and HDF5 images and return unified (imgList, loader_specs, h5_index_map).
+    Scan a directory for TIFF and HDF5 images and return unified
+    (imgList, loader_specs, h5_index_map, size_map).
     Uses a cache keyed by directory content signature. HDF5 frame counts are computed
     in parallel using processes. Frames are NOT loaded.
-    
+
     NOTE: This function always returns the COMPLETE list of images in the directory.
     Filtering by failedcases should be done by the caller after getting the full list.
-    
+
     Args:
         max_workers: Number of workers for parallel HDF5 frame counting
         progress_dict: Optional dict to track progress. Will set 'h5_total' and 'h5_done'
-    
+
     Returns:
-        imgList: List of ALL display names (complete list)
-        specs: List of ALL loader specs (tuples)
+        imgList:     List of ALL display names (complete list)
+        specs:       List of ALL loader specs (tuples)
         h5_index_map: Dict mapping HDF5 file path -> (start_index, end_index) in imgList
+        size_map:    Dict mapping display name -> "WxH" string (empty string if unknown)
     """
     sig = _dir_signature(dir_path)
     if sig is not None:
         # check in-memory cache first
         if dir_path in _SCAN_CACHE and _SCAN_CACHE[dir_path][0] == sig:
-            return _SCAN_CACHE[dir_path][1]
+            cached = _SCAN_CACHE[dir_path][1]
+            # Support old 3-tuple caches transparently
+            if len(cached) == 3:
+                return cached + ({},)
+            return cached
         # try disk cache
         disk_payload = _load_scan_cache_from_disk(dir_path, sig)
         if disk_payload is not None:
             _SCAN_CACHE[dir_path] = (sig, disk_payload)
+            if len(disk_payload) == 3:
+                return disk_payload + ({},)
             return disk_payload
 
     entries = []
     h5_files = []
+    # Maps display_name -> "WxH" accumulated during scan
+    size_map = {}
 
     try:
         file_names = os.listdir(dir_path)
     except Exception:
-        return [], [], {}
+        return [], [], {}, {}
 
     for f in file_names:
         full_file_name = fullPath(dir_path, f)
@@ -424,6 +465,10 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
         elif isImg(full_file_name) and ext.lower() not in ('.hdf5', '.h5'):
             # Add all TIFF files (no filtering here)
             entries.append((f, ("tiff", full_file_name)))
+            # Read header-only size (very cheap, no pixel data decoded)
+            shape = _tiff_size(full_file_name)
+            if shape is not None:
+                size_map[f] = f"{shape[1]}×{shape[0]}"
 
     # Filter out data HDF5 files if a corresponding master exists
     if h5_files:
@@ -443,44 +488,50 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
             filtered_h5.append((base, ext, path))
         h5_files = filtered_h5
 
-    # Count HDF5 frames in parallel and track positions
+    # Count HDF5 frames (and capture shape) in parallel
     h5_positions = {}  # Will map path -> (start, end) before sorting
+    # Maps h5 path -> shape tuple captured from _h5_nframes
+    h5_shapes = {}
     if h5_files:
         if max_workers is None:
             try:
                 max_workers = max(2, min(8, os.cpu_count() or 2))
             except Exception:
                 max_workers = 2
-        
+
         # Track progress if progress_dict provided
         if progress_dict is not None:
             progress_dict['h5_total'] = len(h5_files)
             progress_dict['h5_done'] = 0
-        
+
         with ProcessPoolExecutor(max_workers=max_workers) as pool:
             paths = [p for _, _, p in h5_files]
-            # Use submit instead of map to track progress
             futures = [pool.submit(_h5_nframes, path) for path in paths]
-            nframes_list = []
+            nframes_shape_list = []
             for i, future in enumerate(futures):
-                nframes_list.append(future.result())
-                # Update progress after each file completes
+                nframes_shape_list.append(future.result())
                 if progress_dict is not None:
                     progress_dict['h5_done'] = i + 1
-                    
-        for (base, ext, path), nframes in zip(h5_files, nframes_list):
+
+        for (base, ext, path), (nframes, shape) in zip(h5_files, nframes_shape_list):
             if nframes <= 0:
                 if progress_dict is not None:
                     progress_dict.setdefault('skipped_files', []).append(path)
                 continue
+            if shape is not None:
+                h5_shapes[path] = shape
             start_idx = len(entries)
             if nframes == 1:
                 disp = f"{base}_00001{ext}"
                 entries.append((disp, ("h5", path, 0)))
+                if shape is not None:
+                    size_map[disp] = f"{shape[1]}×{shape[0]}"
             else:
                 for i in range(nframes):
                     disp = f"{base}_{i+1:05d}{ext}"
                     entries.append((disp, ("h5", path, i)))
+                    if shape is not None:
+                        size_map[disp] = f"{shape[1]}×{shape[0]}"
             end_idx = len(entries) - 1
             h5_positions[path] = (start_idx, end_idx)
 
@@ -491,18 +542,17 @@ def scan_directory_images_cached(dir_path, max_workers=None, progress_dict=None)
     # Build final h5_index_map after sorting
     h5_index_map = {}
     for path in h5_positions.keys():
-        # Find actual indices after sorting
-        indices = [i for i, spec in enumerate(specs) 
+        indices = [i for i, spec in enumerate(specs)
                    if isinstance(spec, tuple) and len(spec) >= 2 and spec[1] == path]
         if indices:
             h5_index_map[path] = (min(indices), max(indices))
 
     if sig is not None:
-        payload = (imgList, specs, h5_index_map)
+        payload = (imgList, specs, h5_index_map, size_map)
         _SCAN_CACHE[dir_path] = (sig, payload)
         _save_scan_cache_to_disk(dir_path, sig, payload)
 
-    return imgList, specs, h5_index_map
+    return imgList, specs, h5_index_map, size_map
 # --------------------- Unified image loader for GUI specs ---------------------
 def load_image_via_spec(file_path, display_name, source):
     """
@@ -606,6 +656,8 @@ class FileManager:
         self._h5_frames = {}  # {full_path: nframes}
         self.h5_index_map = {}  # {h5_path: (start_idx, end_idx)} in imgList
         self._path_to_file_idx = {}  # {full_path: file_idx} for fast reverse lookup
+        # Image sizes captured during scan: display_name -> "WxH"
+        self.image_sizes: dict = {}
         # Async scan state
         self._scan_thread = None
         self._scan_done = False
@@ -720,7 +772,7 @@ class FileManager:
         self.specs = specs
         self.current = self.current_file_idx if self.current_file_idx < len(names) else 0
 
-    def set_directory_listing(self, dir_path, names, specs, h5_index_map=None, preserve_current_name=True):
+    def set_directory_listing(self, dir_path, names, specs, h5_index_map=None, preserve_current_name=True, size_map=None):
         """
         Set complete image list (from async scan, HDF5 expanded).
         Preserves currently selected file and frame.
@@ -738,6 +790,8 @@ class FileManager:
         self.names = names
         self.specs = specs
         self.h5_index_map = h5_index_map if h5_index_map is not None else {}
+        if size_map:
+            self.image_sizes.update(size_map)
         
         # Locate current image
         if prev_file_path:
@@ -770,7 +824,7 @@ class FileManager:
 
         def _worker():
             # Get complete list from cache
-            imgList, specs, h5_index_map = scan_directory_images_cached(
+            imgList, specs, h5_index_map, size_map = scan_directory_images_cached(
                 self.dir_path,
                 progress_dict=self._h5_progress
             )
@@ -790,7 +844,8 @@ class FileManager:
             
             try:
                 # Update internal listing preserving current selection when possible
-                self.set_directory_listing(self.dir_path, imgList, specs, h5_index_map, preserve_current_name=True)
+                self.set_directory_listing(self.dir_path, imgList, specs, h5_index_map,
+                                           preserve_current_name=True, size_map=size_map)
             finally:
                 # Signal completion regardless of success
                 self._scan_done = True
