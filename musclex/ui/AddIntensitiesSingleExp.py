@@ -320,6 +320,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.setItem(row, self.COL_FRAME, item)
             self._fill_center_columns(row, name)
             self._fill_rotation_columns(row, name)
+            self._fill_distance_deviation(row, name)
             self._apply_misaligned_highlight(row, name)
             self._apply_base_marker(row, name)
 
@@ -336,6 +337,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         self._fill_center_columns(row, name)
         self._fill_rotation_columns(row, name)
+        self._fill_distance_deviation(row, name)
         self._apply_misaligned_highlight(row, name)
         self._apply_base_marker(row, name)
 
@@ -390,6 +392,53 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.setItem(row, self.COL_ROTATION_MODE, QTableWidgetItem(""))
 
         self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
+
+    def _get_effective_center(self, name):
+        """Return (cx, cy) for *name* — manual if present, else auto, else None."""
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        key = base if sm.has_manual_center(base) else name
+        return sm.get_center(key) or sm.get_auto_center(key) or sm.get_auto_center(base)
+
+    def _get_effective_rotation(self, name):
+        """Return rotation angle for *name* — manual if present, else auto, else None."""
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        key = base if sm.has_manual_rotation(base) else name
+        return sm.get_rotation(key) or sm.get_auto_rotation(key) or sm.get_auto_rotation(base)
+
+    def _fill_distance_deviation(self, row, name):
+        """Fill COL_CENTER_DIST and COL_DEVIATION relative to the global base."""
+        base_info = self.workspace.settings_manager.get_global_base()
+        base_center = base_info.get('center')
+        base_rotation = base_info.get('rotation')
+
+        # --- distance ---
+        if base_center:
+            img_center = self._get_effective_center(name)
+            if img_center is not None:
+                import math
+                dx = img_center[0] - base_center[0]
+                dy = img_center[1] - base_center[1]
+                dist = math.hypot(dx, dy)
+                self.table.setItem(row, self.COL_CENTER_DIST,
+                                   QTableWidgetItem(f"{dist:.2f}"))
+            else:
+                self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
+        else:
+            self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
+
+        # --- deviation ---
+        if base_rotation is not None:
+            img_rotation = self._get_effective_rotation(name)
+            if img_rotation is not None:
+                deviation = img_rotation - base_rotation
+                self.table.setItem(row, self.COL_DEVIATION,
+                                   QTableWidgetItem(f"{deviation:.2f}°"))
+            else:
+                self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
+        else:
+            self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
