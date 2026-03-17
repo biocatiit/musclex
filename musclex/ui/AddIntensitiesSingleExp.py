@@ -573,13 +573,17 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._redraw_overlays()
         row = self.workspace.navigator.current_index
         worker = _GeometryWorker(image_data, row)
-        worker.signals.done.connect(self._on_geometry_ready)
+        worker.signals.done.connect(
+            lambda c, r, i, d=image_data: self._on_geometry_ready(c, r, i, d)
+        )
         self._threadPool.start(worker)
 
-    def _on_geometry_ready(self, center, rotation, row):
+    def _on_geometry_ready(self, center, rotation, row, image_data=None):
         """Callback (main thread) after background geometry calculation finishes."""
         self._current_center = center
         self._current_rotation = rotation
+        if image_data is not None:
+            self.workspace.update_display(image_data)
         self._redraw_overlays()
         if 0 <= row < len(self.img_list):
             self._update_row_data(row, self.img_list[row])
