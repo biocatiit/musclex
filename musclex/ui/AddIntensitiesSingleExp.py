@@ -168,7 +168,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(self.COL_GROUP, QHeaderView.Fixed)
         self.table.setColumnWidth(self.COL_GROUP, 52)
-        header.setSectionResizeMode(self.COL_FRAME, QHeaderView.Stretch)
+        header.setSectionResizeMode(self.COL_FRAME, QHeaderView.ResizeToContents)
         for col in range(2, len(self.HEADERS)):
             header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
 
