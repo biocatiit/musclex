@@ -65,7 +65,8 @@ def process_one_image(args):
         # Create ImageData and EquatorImage with minimal parent
         from musclex.utils.image_data import ImageData
         from musclex.modules.EquatorImage import EquatorImage
-        image_data = ImageData(img=img, img_path=dir_path, img_name=filename)
+        inpaint = settings.get('inpaint', False)
+        image_data = ImageData(img=img, img_path=dir_path, img_name=filename, inpaint=inpaint)
         bioImg = EquatorImage(image_data, parent)
         
         # Process the image

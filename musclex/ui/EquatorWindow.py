@@ -1827,6 +1827,7 @@ class EquatorWindow(QMainWindow):
             text += "\n  - Fixed Box Width : " + str(settings["fixed_int_area"])
 
         text += "\n  - Orientation Finding : " + str(self.orientationCmbBx.currentText())
+        text += "\n  - Inpainting : " + str(settings.get("inpaint", False))
         text += "\n  - Skeletal Muscle : " + str(settings["isSkeletal"])
         text += "\n  - Extra Peak : " + str(settings["isExtraPeak"])
         text += "\n  - Number of Peaks on each side : " + str(settings["nPeaks"])
@@ -3332,6 +3333,8 @@ class EquatorWindow(QMainWindow):
 
         if self.k_chkbx.isChecked():
             settings['fix_k'] = self.k_spnbx.value()
+
+        settings['inpaint'] = self.inpaintChkBx.isChecked()
 
         return settings
 
