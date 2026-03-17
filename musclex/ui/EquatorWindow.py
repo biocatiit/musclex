@@ -217,15 +217,21 @@ class EquatorWindow(QMainWindow):
         from concurrent.futures import ProcessPoolExecutor
         from ..headless.mp_executor import init_worker
         import os
+        import multiprocessing as _mp
         
         worker_count = int(os.environ.get('MUSCLEX_WORKERS', max(1, os.cpu_count() - 2)))
         
         try:
+            # Use 'spawn' context to avoid Qt fork-safety issues.
+            # 'fork' (Linux default) copies Qt's mutexes/file-descriptors into the
+            # child, causing workers to crash immediately.
+            mp_ctx = _mp.get_context('spawn')
             self.processExecutor = ProcessPoolExecutor(
                 max_workers=worker_count,
-                initializer=init_worker
+                initializer=init_worker,
+                mp_context=mp_ctx,
             )
-            print(f"✓ Initialized process pool with {worker_count} workers")
+            print(f"✓ Initialized process pool with {worker_count} workers (spawn)")
         except Exception as e:
             print(f"⚠ Failed to create process pool: {e}")
             print("  Falling back to single-process mode")
@@ -3144,9 +3150,14 @@ class EquatorWindow(QMainWindow):
         Runs in main thread via Qt's callback mechanism.
         """
         try:
-            # Retrieve result from future
-            result = future.result()
-            error = result.get('error')
+            # Retrieve result from future — may raise if worker process crashed
+            try:
+                result = future.result()
+                error = result.get('error')
+            except Exception as fut_exc:
+                # Worker process terminated abruptly (BrokenProcessPool, etc.)
+                error = str(fut_exc)
+                result = {'filename': None, 'info': None, 'error': error}
             
             # Organize result via task manager
             task = self.taskManager.complete_task(future, result, error)
