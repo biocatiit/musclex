@@ -197,14 +197,32 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         # Misaligned Detection group box
         self.misaligned_detection_group = QGroupBox("Misaligned Detection")
-        misaligned_detection_layout = QHBoxLayout(self.misaligned_detection_group)
+        misaligned_detection_layout = QVBoxLayout(self.misaligned_detection_group)
         misaligned_detection_layout.setContentsMargins(8, 6, 8, 6)
+        misaligned_detection_layout.setSpacing(4)
+
+        # Row 1: Global Settings button + live center/rotation readout
+        global_row = QHBoxLayout()
+        global_row.setSpacing(8)
         self.global_settings_btn = QPushButton("Global Settings")
-        misaligned_detection_layout.addWidget(self.global_settings_btn)
+        global_row.addWidget(self.global_settings_btn)
+        self._global_center_label = QLabel("Center: —")
+        self._global_center_label.setStyleSheet("font-size: 11px;")
+        global_row.addWidget(self._global_center_label)
+        self._global_rotation_label = QLabel("Rotation: —")
+        self._global_rotation_label.setStyleSheet("font-size: 11px;")
+        global_row.addWidget(self._global_rotation_label)
+        global_row.addStretch()
+        misaligned_detection_layout.addLayout(global_row)
+
+        # Row 2: Start Detection button
+        detection_row = QHBoxLayout()
         self.start_detection_btn = QPushButton("Start Detection")
         self.start_detection_btn.setCheckable(True)
-        misaligned_detection_layout.addWidget(self.start_detection_btn)
-        misaligned_detection_layout.addStretch()
+        detection_row.addWidget(self.start_detection_btn)
+        detection_row.addStretch()
+        misaligned_detection_layout.addLayout(detection_row)
+
         right_container_layout.addWidget(self.misaligned_detection_group)
 
         # Image viewer placed directly below the misaligned group box (outside scroll area)
@@ -295,9 +313,26 @@ class AddIntensitiesSingleExp(QMainWindow):
         dlg.exec()
 
     def _on_global_base_changed(self):
+        self._sync_global_settings_state()
+        self._update_table_data()
+
+    def _sync_global_settings_state(self):
+        """Read the saved global base and update _base_image_filename + UI labels."""
         base = self.workspace.settings_manager.get_global_base()
         self._base_image_filename = base.get('base_image')
-        self._update_table_data()
+
+        center = base.get('center')
+        rotation = base.get('rotation')
+
+        if center is not None:
+            self._global_center_label.setText(f"Center: ({center[0]:.1f}, {center[1]:.1f})")
+        else:
+            self._global_center_label.setText("Center: —")
+
+        if rotation is not None:
+            self._global_rotation_label.setText(f"Rotation: {rotation:.2f}°")
+        else:
+            self._global_rotation_label.setText("Rotation: —")
 
     # ------------------------------------------------------------------
     # Folder loaded → switch to table view
@@ -308,6 +343,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.misaligned_names = set()
         self._img_sizes = self.workspace.navigator.file_manager.image_sizes
+        self._sync_global_settings_state()
         self._init_table()
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
@@ -316,6 +352,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Refresh the file list once the background scan finishes."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self._img_sizes = self.workspace.navigator.file_manager.image_sizes
+        self._sync_global_settings_state()
         self._init_table()
         self._sync_table_selection()
 
