@@ -1,4 +1,5 @@
 import os
+import traceback
 import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
@@ -6,11 +7,59 @@ from PySide6.QtWidgets import (
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace
 from musclex.ui.GlobalSettingsDialog import GlobalSettingsDialog
+from musclex.utils.task_manager import ProcessingTaskManager
+
+
+def _compute_geometry(args):
+    """Top-level function for subprocess: load image, compute center and rotation."""
+    dir_path, img_name, loader_spec, manual_center, manual_rotation, orientation_model = args
+    try:
+        from musclex.utils.file_manager import load_image_via_spec
+        from musclex.utils.image_data import ImageData
+
+        img = load_image_via_spec(dir_path, img_name, loader_spec)
+        image_data = ImageData(
+            img=img, img_path=dir_path, img_name=img_name,
+            center=manual_center, rotation=manual_rotation,
+            orientation_model=orientation_model,
+        )
+        return {
+            'img_name': img_name,
+            'center': image_data.center,
+            'rotation': image_data.rotation,
+            'error': None,
+        }
+    except Exception as e:
+        traceback.print_exc()
+        return {'img_name': img_name, 'center': None, 'rotation': None, 'error': str(e)}
+
+
+class _GeometryWorkerSignals(QObject):
+    done = Signal(object, object, int)  # center, rotation, row_index
+
+
+class _GeometryWorker(QRunnable):
+    """Background thread worker for single-image center/rotation calculation."""
+
+    def __init__(self, image_data, row):
+        super().__init__()
+        self.image_data = image_data
+        self.row = row
+        self.signals = _GeometryWorkerSignals()
+
+    def run(self):
+        try:
+            center = self.image_data.center
+            rotation = self.image_data.rotation
+            self.signals.done.emit(center, rotation, self.row)
+        except Exception:
+            traceback.print_exc()
+            self.signals.done.emit(None, None, self.row)
 
 
 class AddIntensitiesSingleExp(QMainWindow):
@@ -49,11 +98,21 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = []
         self.misaligned_names = set()
         self._current_center = None
+        self._current_rotation = None
         self._base_image_filename = None
         self._navigating_from_table = False  # guard against re-entrant navigation
 
         # Each entry: {'start': int, 'count': int, 'number': int}
         self._groups = []
+
+        # Background thread pool for single-image geometry (keeps UI responsive)
+        self._threadPool = QThreadPool()
+        self._threadPool.setMaxThreadCount(1)
+
+        # Multiprocessing batch detection
+        self.taskManager = ProcessingTaskManager()
+        self.processExecutor = None
+        self._in_batch = False
 
         self._build_ui()
         self.resize(1400, 800)
@@ -202,6 +261,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
 
         self.global_settings_btn.clicked.connect(self._open_global_settings)
+        self.start_detection_btn.clicked.connect(self._start_detection)
 
     # ------------------------------------------------------------------
     # Global settings dialog
@@ -487,12 +547,23 @@ class AddIntensitiesSingleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_image_data_ready(self, image_data):
-        """Called when workspace has loaded and configured a new image."""
+        """Called when workspace has loaded and configured a new image.
+
+        Shows the image immediately, then offloads the heavy center/rotation
+        calculation to a background thread so the UI stays responsive.
+        """
         self.image_viewer.display_image(image_data.img)
-        self._current_center = image_data.center
-        self._current_rotation = image_data.rotation
         self._redraw_overlays()
         row = self.workspace.navigator.current_index
+        worker = _GeometryWorker(image_data, row)
+        worker.signals.done.connect(self._on_geometry_ready)
+        self._threadPool.start(worker)
+
+    def _on_geometry_ready(self, center, rotation, row):
+        """Callback (main thread) after background geometry calculation finishes."""
+        self._current_center = center
+        self._current_rotation = rotation
+        self._redraw_overlays()
         if 0 <= row < len(self.img_list):
             self._update_row_data(row, self.img_list[row])
 
@@ -515,6 +586,138 @@ class AddIntensitiesSingleExp(QMainWindow):
             circle = mpatches.Circle((cx, cy), 10, color='g', fill=False, linewidth=1.5)
             ax.add_patch(circle)
         self.image_viewer.canvas.draw_idle()
+
+    # ------------------------------------------------------------------
+    # Batch detection (multiprocessing)
+    # ------------------------------------------------------------------
+
+    def _init_process_executor(self):
+        """Create a persistent ProcessPoolExecutor for batch detection."""
+        from concurrent.futures import ProcessPoolExecutor
+        worker_count = max(1, (os.cpu_count() or 2) - 2)
+        try:
+            self.processExecutor = ProcessPoolExecutor(max_workers=worker_count)
+            print(f"Process pool initialised with {worker_count} workers")
+        except Exception as e:
+            print(f"Failed to create process pool: {e}")
+            self.processExecutor = None
+
+    def _start_detection(self):
+        """Submit all images to the process pool for center/rotation calculation.
+
+        Only lightweight metadata (file specs) is sent to workers — images are
+        loaded inside each subprocess to keep the main thread responsive.
+        """
+        if self._in_batch:
+            return
+        if not self.img_list:
+            return
+
+        fm = self.workspace.navigator.file_manager
+        if fm is None or not fm.specs:
+            return
+
+        if self.processExecutor is None:
+            self._init_process_executor()
+        if self.processExecutor is None:
+            return
+
+        self._in_batch = True
+        self.start_detection_btn.setEnabled(False)
+        self.taskManager.clear()
+
+        n = len(self.img_list)
+        self.progressBar.setMaximum(n)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setValue(0)
+        self.progressBar.setVisible(True)
+        self.statusLabel.setText("Detecting center/rotation...")
+        self.statusLabel.setVisible(True)
+
+        orientation_model = getattr(self.workspace, '_orientation_model', 0)
+        dir_path = str(fm.dir_path)
+
+        for i, img_name in enumerate(self.img_list):
+            base = os.path.basename(img_name)
+            spec = fm.specs[i] if i < len(fm.specs) else None
+            manual_center, manual_rotation = self.workspace.get_manual_settings(base)
+            job_args = (
+                dir_path,
+                base,
+                spec,
+                manual_center,
+                manual_rotation,
+                orientation_model,
+            )
+            future = self.processExecutor.submit(_compute_geometry, job_args)
+            self.taskManager.submit_task(img_name, i, future)
+            future.add_done_callback(self._on_future_done)
+
+        print(f"Batch detection started: {n} images submitted")
+
+    def _on_future_done(self, future):
+        """Route future callback to the main thread via QTimer."""
+        QTimer.singleShot(0, self, lambda f=future: self._on_batch_result(f))
+
+    def _on_batch_result(self, future):
+        """Handle a single completed future in the main thread."""
+        try:
+            result = future.result()
+            error = result.get('error')
+            task = self.taskManager.complete_task(future, result, error)
+            if task is None:
+                return
+
+            if error:
+                print(f"Detection error for {task.filename}: {error}")
+            else:
+                sm = self.workspace.settings_manager
+                sm.set_auto_cache(
+                    os.path.basename(task.filename),
+                    result['center'],
+                    result['rotation'],
+                )
+
+            stats = self.taskManager.get_statistics()
+            self.progressBar.setValue(stats['completed'] + stats['failed'])
+            self.statusLabel.setText(
+                f"Detecting: {stats['completed'] + stats['failed']}/{stats['total']}"
+            )
+
+            if 0 <= task.job_index < len(self.img_list):
+                self._update_row_data(task.job_index, self.img_list[task.job_index])
+
+            if stats['pending'] == 0:
+                self._on_batch_complete()
+
+        except Exception as e:
+            print(f"Batch result callback error: {e}")
+            traceback.print_exc()
+
+    def _on_batch_complete(self):
+        """Clean up after all batch tasks have finished."""
+        stats = self.taskManager.get_statistics()
+
+        self.workspace.settings_manager.save_auto_cache()
+
+        if self.processExecutor:
+            self.processExecutor.shutdown(wait=False)
+            self.processExecutor = None
+
+        self._in_batch = False
+        self.progressBar.setVisible(False)
+        self.start_detection_btn.setEnabled(True)
+
+        msg = (
+            f"Detection complete: {stats['completed']}/{stats['total']} succeeded, "
+            f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/image"
+        )
+        self.statusLabel.setText(msg)
+        print(msg)
+
+    # ------------------------------------------------------------------
+    # Misc
+    # ------------------------------------------------------------------
 
     def setStatus(self, text):
         self.statusLabel.setText(text)
