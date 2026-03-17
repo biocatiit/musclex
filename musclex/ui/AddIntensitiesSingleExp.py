@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
-    QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox
+    QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
@@ -142,15 +142,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
 
-        # Status label
+        # Status bar at the bottom of the window (like EquatorWindow)
+        self._statusBar = QStatusBar()
         self.statusLabel = QLabel("")
-        self.statusLabel.setVisible(False)
-        root.addWidget(self.statusLabel)
-
-        # Progress bar (hidden until needed)
         self.progressBar = QProgressBar()
+        self.progressBar.setFixedWidth(300)
+        self.progressBar.setTextVisible(True)
         self.progressBar.setVisible(False)
-        root.addWidget(self.progressBar)
+        self._statusBar.addWidget(self.statusLabel)
+        self._statusBar.addPermanentWidget(self.progressBar)
+        self.setStatusBar(self._statusBar)
 
         # Table
         self.table = QTableWidget()
@@ -777,7 +778,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.progressBar.setValue(0)
         self.progressBar.setVisible(True)
         self.statusLabel.setText("Detecting center/rotation...")
-        self.statusLabel.setVisible(True)
 
         orientation_model = getattr(self.workspace, '_orientation_model', 0)
         dir_path = str(fm.dir_path)
@@ -866,4 +866,3 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def setStatus(self, text):
         self.statusLabel.setText(text)
-        self.statusLabel.setVisible(bool(text))
