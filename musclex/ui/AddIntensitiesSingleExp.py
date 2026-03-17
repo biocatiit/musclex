@@ -109,6 +109,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._threadPool = QThreadPool()
         self._threadPool.setMaxThreadCount(1)
 
+        # Debounce timer: delays image loading after selection changes (avoids
+        # blocking the main thread on every intermediate row during drag-select)
+        self._nav_debounce_timer = QTimer(self)
+        self._nav_debounce_timer.setSingleShot(True)
+        self._nav_debounce_timer.setInterval(120)
+        self._nav_debounce_timer.timeout.connect(self._do_navigate_to_selected_row)
+
         # Multiprocessing batch detection
         self.taskManager = ProcessingTaskManager()
         self.processExecutor = None
@@ -527,11 +534,21 @@ class AddIntensitiesSingleExp(QMainWindow):
     # ------------------------------------------------------------------
 
     def _on_table_selection_changed(self):
-        """Navigate navigator to the image corresponding to the selected table row."""
+        """Restart debounce timer on every selection change.
+
+        The actual navigation fires 120 ms after the last change, so rapid
+        drag-select passes through intermediate rows without triggering I/O.
+        """
         if self._navigating_from_table:
             return
-        selected = self.table.selectedItems()
-        if not selected:
+        self._nav_debounce_timer.start()
+
+    def _do_navigate_to_selected_row(self):
+        """Called by debounce timer: navigate only when exactly 1 row is selected."""
+        if self._navigating_from_table:
+            return
+        selected_rows = set(idx.row() for idx in self.table.selectedIndexes())
+        if len(selected_rows) != 1:
             return
         row = self.table.currentRow()
         if row < 0 or row >= len(self.img_list):
