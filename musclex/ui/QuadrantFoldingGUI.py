@@ -3399,6 +3399,9 @@ class QuadrantFoldingGUI(BaseGUI):
             # Handle crop checkbox
             if 'saveCroppedImage' not in self.quadFold.info:
                 self.quadFold.info['saveCroppedImage'] = self.cropFoldedImageChkBx.isChecked()
+        
+        # Update workspace display (includes blank/mask states)
+        self.workspace.update_display(self.current_image_data)
 
     def statusPrint(self, text):
         """

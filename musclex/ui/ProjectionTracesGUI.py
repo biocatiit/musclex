@@ -2194,6 +2194,9 @@ class ProjectionTracesGUI(BaseGUI):
                     if name not in self.boxes_on_img:
                         self.boxes_on_img[name] = self.genBoxArtists(name, box.coordinates, box.type)
             
+            # Update ProcessingWorkspace display
+            self.workspace.update_display(image_data)
+            
             # Initialize non-view UI for new image
             self.initMaskThreshold(self.projProc)
             self.refreshStatusbar()
