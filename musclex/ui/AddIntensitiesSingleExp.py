@@ -197,6 +197,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         misaligned_detection_layout.addStretch()
         right_container_layout.addWidget(self.misaligned_detection_group)
 
+        # Image viewer placed directly below the misaligned group box (outside scroll area)
+        self.image_viewer = self.workspace.navigator.image_viewer
+        self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.image_viewer.setMinimumHeight(200)
+        right_container_layout.addWidget(self.image_viewer, 0)
+
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
         self.right_panel.setWidgetResizable(True)
@@ -209,7 +215,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.setContentsMargins(6, 6, 6, 6)
         self._right_panel_layout.setSpacing(6)
         self.right_panel.setWidget(self._right_panel_content)
-        right_container_layout.addWidget(self.right_panel)
+        right_container_layout.addWidget(self.right_panel, 1)
 
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.addWidget(self._left_stack)
@@ -219,14 +225,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.splitter.setSizes([900, 500])
         right_container.setMinimumWidth(400)
         root.addWidget(self.splitter)
-
-        self.image_viewer = self.workspace.navigator.image_viewer
-        # Keep viewer visible when additional settings widgets are inserted below.
-        # Without this, initial layout inside the scroll area can shrink viewer
-        # to zero height, and matplotlib draw() fails on zero-sized canvas.
-        self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.image_viewer.setMinimumHeight(500)
-        self._right_panel_layout.addWidget(self.image_viewer, 1)
         self._right_panel_layout.addWidget(self.image_viewer.display_panel)
         self._right_panel_layout.addWidget(self.workspace._center_widget)
         self._right_panel_layout.addWidget(self.workspace._rotation_widget)
