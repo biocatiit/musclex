@@ -73,7 +73,8 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_ROTATION = 5
     COL_ROTATION_MODE = 6
     COL_DEVIATION = 7
-    COL_IMAGE_DIFF = 8
+    COL_SIZE = 8
+    COL_IMAGE_DIFF = 9
 
     HEADERS = [
         "Group",
@@ -84,6 +85,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Rotation",
         "Rotation Mode",
         "Deviation",
+        "Size",
         "Image Difference",
     ]
 
@@ -97,6 +99,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.workspace = ProcessingWorkspace(settings_dir="")
         self.img_list = []
         self.misaligned_names = set()
+        self._img_sizes: dict = {}  # img_name -> "WxH" string
         self._current_center = None
         self._current_rotation = None
         self._base_image_filename = None
@@ -104,6 +107,9 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         # Each entry: {'start': int, 'count': int, 'number': int}
         self._groups = []
+
+        # Track rows that have been ignored
+        self._ignored_rows: set = set()
 
         # Background thread pool for single-image geometry (keeps UI responsive)
         self._threadPool = QThreadPool()
@@ -263,6 +269,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.addWidget(self._binning_row)
         self._right_panel_layout.addStretch()
 
+        self.sum_images_btn = QPushButton("Sum Images")
+        self.sum_images_btn.setMinimumHeight(32)
+        self._right_panel_layout.addWidget(self.sum_images_btn)
+
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
 
         self.global_settings_btn.clicked.connect(self._open_global_settings)
@@ -293,6 +303,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Switch to table view with the initial file list (scan may still be running)."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.misaligned_names = set()
+        self._img_sizes = {}
         self._init_table()
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
@@ -310,6 +321,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _init_table(self):
         """Fully rebuild the table from img_list (resets rows and groups)."""
         self._groups = []
+        self._ignored_rows = set()
         self.table.setRowCount(0)
         self.table.setRowCount(len(self.img_list))
         for row, name in enumerate(self.img_list):
@@ -319,6 +331,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_center_columns(row, name)
             self._fill_rotation_columns(row, name)
             self._fill_distance_deviation(row, name)
+            self._fill_size_column(row, name)
             self._apply_misaligned_highlight(row, name)
             self._apply_base_marker(row, name)
 
@@ -336,6 +349,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_center_columns(row, name)
         self._fill_rotation_columns(row, name)
         self._fill_distance_deviation(row, name)
+        self._fill_size_column(row, name)
         self._apply_misaligned_highlight(row, name)
         self._apply_base_marker(row, name)
 
@@ -437,6 +451,12 @@ class AddIntensitiesSingleExp(QMainWindow):
                 self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
         else:
             self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
+
+    def _fill_size_column(self, row, name):
+        """Fill COL_SIZE with cached image dimensions (WxH) if available."""
+        base = os.path.basename(name)
+        size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
+        self.table.setItem(row, self.COL_SIZE, QTableWidgetItem(size_str))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
@@ -560,13 +580,62 @@ class AddIntensitiesSingleExp(QMainWindow):
                     self._ungroup(group)
             return
 
-        # Right-click elsewhere: offer Group when ≥2 rows are selected
         selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
+
+        # Group action (≥2 rows selected)
+        group_act = None
         if len(selected_rows) >= 2:
             group_act = menu.addAction("Group")
-            chosen = menu.exec(global_pos)
-            if chosen == group_act:
-                self._group_rows(selected_rows)
+            menu.addSeparator()
+
+        # Correct / Ignore actions (any selection)
+        n = len(selected_rows)
+        label_suffix = f" ({n} images)" if n > 1 else ""
+        correct_act = menu.addAction(f"Correct{label_suffix}")
+        ignore_act = menu.addAction(f"Ignore{label_suffix}")
+
+        chosen = menu.exec(global_pos)
+        if chosen is None:
+            return
+        if chosen == group_act:
+            self._group_rows(selected_rows)
+        elif chosen == correct_act:
+            for r in selected_rows:
+                self._apply_correct(r)
+        elif chosen == ignore_act:
+            for r in selected_rows:
+                self._apply_ignore(r)
+
+    def _apply_correct(self, row):
+        """Mark row as corrected: restore default text colour and remove from ignored set."""
+        if row < 0 or row >= len(self.img_list):
+            return
+        was_ignored = row in self._ignored_rows
+        self._ignored_rows.discard(row)
+        if was_ignored:
+            for col in range(1, self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item is not None:
+                    item.setForeground(QBrush())
+        name = self.img_list[row]
+        print(f"Correct: {os.path.basename(name)}")
+        # Navigate only when a single row is corrected (multi-row: user can navigate manually)
+        self.workspace.navigator.switch_to_image_by_index(row)
+
+    def _apply_ignore(self, row):
+        """Mark row as ignored: dim its text and add to ignored set."""
+        if row < 0 or row >= len(self.img_list):
+            return
+        self._ignored_rows.add(row)
+        name = self.img_list[row]
+        print(f"Ignore: {os.path.basename(name)}")
+        dim = QBrush(QColor(160, 160, 160))
+        for col in range(1, self.table.columnCount()):
+            item = self.table.item(row, col)
+            if item is None:
+                item = QTableWidgetItem("")
+                self.table.setItem(row, col, item)
+            item.setForeground(dim)
 
     # ------------------------------------------------------------------
     # Public helpers
@@ -619,6 +688,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.image_viewer.display_image(image_data.img)
         self._redraw_overlays()
         row = self.workspace.navigator.current_index
+        # Cache image size
+        if image_data.img is not None:
+            h, w = image_data.img.shape[:2]
+            size_str = f"{w}×{h}"
+            name = self.img_list[row] if 0 <= row < len(self.img_list) else None
+            if name:
+                self._img_sizes[name] = size_str
+                self._img_sizes[os.path.basename(name)] = size_str
         worker = _GeometryWorker(image_data, row)
         worker.signals.done.connect(
             lambda c, r, i, d=image_data: self._on_geometry_ready(c, r, i, d)
