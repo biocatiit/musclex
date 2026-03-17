@@ -733,10 +733,12 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _init_process_executor(self):
         """Create a persistent ProcessPoolExecutor for batch detection."""
         from concurrent.futures import ProcessPoolExecutor
+        import multiprocessing as _mp
         worker_count = max(1, (os.cpu_count() or 2) - 2)
         try:
-            self.processExecutor = ProcessPoolExecutor(max_workers=worker_count)
-            print(f"Process pool initialised with {worker_count} workers")
+            mp_ctx = _mp.get_context('spawn')
+            self.processExecutor = ProcessPoolExecutor(max_workers=worker_count, mp_context=mp_ctx)
+            print(f"Process pool initialised with {worker_count} workers (spawn)")
         except Exception as e:
             print(f"Failed to create process pool: {e}")
             self.processExecutor = None
@@ -800,8 +802,12 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _on_batch_result(self, future):
         """Handle a single completed future in the main thread."""
         try:
-            result = future.result()
-            error = result.get('error')
+            try:
+                result = future.result()
+                error = result.get('error')
+            except Exception as fut_exc:
+                error = str(fut_exc)
+                result = {'img_name': None, 'center': None, 'rotation': None, 'error': error}
             task = self.taskManager.complete_task(future, result, error)
             if task is None:
                 return
