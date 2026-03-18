@@ -672,10 +672,19 @@ class AddIntensitiesSingleExp(QMainWindow):
             group_act = menu.addAction("Group")
             menu.addSeparator()
 
-        # Transform / Ignore actions (any selection)
+        # Need Transform / Don't Transform / Ignore actions (any selection)
         n = len(selected_rows)
         label_suffix = f" ({n} images)" if n > 1 else ""
-        transform_act = menu.addAction(f"Transform{label_suffix}")
+        sm = self.workspace.settings_manager
+        # If ALL selected rows are already flagged, offer "Don't Transform"; otherwise "Need Transform"
+        all_flagged = all(
+            sm.has_transform(os.path.basename(self.img_list[r]))
+            for r in selected_rows if r < len(self.img_list)
+        )
+        if all_flagged:
+            transform_act = menu.addAction(f"Don't Transform{label_suffix}")
+        else:
+            transform_act = menu.addAction(f"Need Transform{label_suffix}")
         ignore_act = menu.addAction(f"Ignore{label_suffix}")
 
         chosen = menu.exec(global_pos)
@@ -684,8 +693,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         if chosen == group_act:
             self._group_rows(selected_rows)
         elif chosen == transform_act:
-            for r in selected_rows:
-                self._apply_transform(r)
+            if all_flagged:
+                for r in selected_rows:
+                    self._clear_transform(r)
+            else:
+                for r in selected_rows:
+                    self._apply_transform(r)
         elif chosen == ignore_act:
             for r in selected_rows:
                 self._apply_ignore(r)
@@ -701,6 +714,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         sm.save_transform()
         self._fill_transform_column(row, name)
         print(f"Marked for transform: {base}")
+
+    def _clear_transform(self, row):
+        """Remove the transform flag from the image."""
+        if row < 0 or row >= len(self.img_list):
+            return
+        name = self.img_list[row]
+        base = os.path.basename(name)
+        sm = self.workspace.settings_manager
+        sm.clear_transform(base)
+        sm.save_transform()
+        self._fill_transform_column(row, name)
+        print(f"Transform cleared: {base}")
 
     def _apply_ignore(self, row):
         """Mark row as ignored: dim its text and add to ignored set."""
