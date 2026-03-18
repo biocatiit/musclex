@@ -285,9 +285,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         binning_layout.setSpacing(6)
         binning_layout.addWidget(QLabel("Binning factor:"))
         self.binning_spin = QSpinBox()
-        self.binning_spin.setMinimum(1)
+        self.binning_spin.setMinimum(2)
         self.binning_spin.setMaximum(256)
-        self.binning_spin.setValue(1)
+        self.binning_spin.setValue(2)
         binning_layout.addWidget(self.binning_spin)
         self._binning_row.setVisible(False)
         self._right_panel_layout.addWidget(self._binning_row)
@@ -298,6 +298,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.addWidget(self.sum_images_btn)
 
         self.radio_bin_images.toggled.connect(self._binning_row.setVisible)
+        self.radio_bin_images.toggled.connect(self._on_bin_images_toggled)
+        self.binning_spin.valueChanged.connect(self._on_binning_factor_changed)
 
         self.global_settings_btn.clicked.connect(self._open_global_settings)
         self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
@@ -551,6 +553,29 @@ class AddIntensitiesSingleExp(QMainWindow):
     # ------------------------------------------------------------------
     # Grouping helpers
     # ------------------------------------------------------------------
+
+    def _on_bin_images_toggled(self, checked):
+        """Apply or clear automatic bin-grouping when the radio button is toggled."""
+        if checked:
+            self._apply_bin_grouping()
+        else:
+            self._groups = []
+            self._render_groups()
+
+    def _on_binning_factor_changed(self):
+        """Re-apply bin-grouping when the factor spinbox changes (only in bin mode)."""
+        if self.radio_bin_images.isChecked():
+            self._apply_bin_grouping()
+
+    def _apply_bin_grouping(self):
+        """Split the image list into sequential groups of *binning_spin* size."""
+        factor = self.binning_spin.value()
+        n = len(self.img_list)
+        self._groups = []
+        for i in range(0, n, factor):
+            count = min(factor, n - i)
+            self._groups.append({'start': i, 'count': count, 'number': 0})
+        self._renumber_groups()
 
     def _find_group_at_row(self, row):
         """Return the group dict that contains *row*, or None."""
