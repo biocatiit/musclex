@@ -509,13 +509,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.table.setItem(row, self.COL_SIZE, QTableWidgetItem(size_str))
 
     def _fill_transform_column(self, row, name):
-        """Fill COL_TRANSFORM with a checkmark when the image has any manual setting."""
+        """Fill COL_TRANSFORM with a checkmark when the image is flagged for transform."""
         sm = self.workspace.settings_manager
         base = os.path.basename(name)
-        is_transformed = sm.has_manual_center(base) or sm.has_manual_rotation(base)
-        item = QTableWidgetItem("\u2714" if is_transformed else "")
+        needs_transform = sm.has_transform(base)
+        item = QTableWidgetItem("\u2714" if needs_transform else "")
         item.setTextAlignment(Qt.AlignCenter)
-        if is_transformed:
+        if needs_transform:
             item.setForeground(QBrush(QColor(0, 160, 0)))
         self.table.setItem(row, self.COL_TRANSFORM, item)
 
@@ -672,10 +672,10 @@ class AddIntensitiesSingleExp(QMainWindow):
             group_act = menu.addAction("Group")
             menu.addSeparator()
 
-        # Correct / Ignore actions (any selection)
+        # Transform / Ignore actions (any selection)
         n = len(selected_rows)
         label_suffix = f" ({n} images)" if n > 1 else ""
-        correct_act = menu.addAction(f"Correct{label_suffix}")
+        transform_act = menu.addAction(f"Transform{label_suffix}")
         ignore_act = menu.addAction(f"Ignore{label_suffix}")
 
         chosen = menu.exec(global_pos)
@@ -683,28 +683,24 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         if chosen == group_act:
             self._group_rows(selected_rows)
-        elif chosen == correct_act:
+        elif chosen == transform_act:
             for r in selected_rows:
-                self._apply_correct(r)
+                self._apply_transform(r)
         elif chosen == ignore_act:
             for r in selected_rows:
                 self._apply_ignore(r)
 
-    def _apply_correct(self, row):
-        """Mark row as corrected: restore default text colour and remove from ignored set."""
+    def _apply_transform(self, row):
+        """Flag the image to be transformed during future calculations."""
         if row < 0 or row >= len(self.img_list):
             return
-        was_ignored = row in self._ignored_rows
-        self._ignored_rows.discard(row)
-        if was_ignored:
-            for col in range(1, self.table.columnCount()):
-                item = self.table.item(row, col)
-                if item is not None:
-                    item.setForeground(QBrush())
         name = self.img_list[row]
-        print(f"Correct: {os.path.basename(name)}")
-        # Navigate only when a single row is corrected (multi-row: user can navigate manually)
-        self.workspace.navigator.switch_to_image_by_index(row)
+        base = os.path.basename(name)
+        sm = self.workspace.settings_manager
+        sm.set_transform(base)
+        sm.save_transform()
+        self._fill_transform_column(row, name)
+        print(f"Marked for transform: {base}")
 
     def _apply_ignore(self, row):
         """Mark row as ignored: dim its text and add to ignored set."""

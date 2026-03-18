@@ -59,6 +59,8 @@ class SettingsManager:
         self._auto_cache: dict = {}
         # Global base      {"center": [x,y], "rotation": angle, "base_image": filename}
         self._global_base: dict = {}
+        # Transform flags  {"filename": true}  — images marked to be transformed in calculation
+        self._transform: dict = {}
 
         if settings_dir:
             self.load()
@@ -130,6 +132,17 @@ class SettingsManager:
     def has_manual_rotation(self, filename: str) -> bool:
         return filename in self._rotation
 
+    # ===== Transform flags =====
+
+    def has_transform(self, filename: str) -> bool:
+        return bool(self._transform.get(filename))
+
+    def set_transform(self, filename: str):
+        self._transform[filename] = True
+
+    def clear_transform(self, filename: str):
+        self._transform.pop(filename, None)
+
     # ===== Auto-geometry cache =====
 
     def get_auto_center(self, filename: str) -> Optional[Tuple[float, float]]:
@@ -180,6 +193,7 @@ class SettingsManager:
         self._load_rotation()
         self._load_auto_cache()
         self._load_global_base()
+        self._load_transform()
 
     def _load_center(self):
         path = self._settings_path() / "center_settings.json"
@@ -277,11 +291,35 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving global base settings: {e}")
 
+    def _load_transform(self):
+        path = self._settings_path() / "transform_settings.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    self._transform = json.load(f)
+            except Exception as e:
+                print(f"Error loading transform settings: {e}")
+                self._transform = {}
+        else:
+            self._transform = {}
+
+    def save_transform(self):
+        if not self._settings_dir:
+            return
+        d = self._settings_path()
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "transform_settings.json", 'w') as f:
+                json.dump(self._transform, f, indent=2)
+        except Exception as e:
+            print(f"Error saving transform settings: {e}")
+
     def save_all(self):
         self.save_center()
         self.save_rotation()
         self.save_auto_cache()
         self.save_global_base()
+        self.save_transform()
 
     # ===== Directory switching =====
 
@@ -299,4 +337,5 @@ class SettingsManager:
             self._rotation = {}
             self._auto_cache = {}
             self._global_base = {}
+            self._transform = {}
         print(f"Settings directory updated to: {new_settings_dir}")
