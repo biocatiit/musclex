@@ -1,5 +1,6 @@
 import os
 import traceback
+import numpy as np
 import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
@@ -14,6 +15,7 @@ from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace
 from musclex.ui.GlobalSettingsDialog import GlobalSettingsDialog
 from musclex.utils.task_manager import ProcessingTaskManager
+from musclex.utils.image_processor import rotateImageAboutPoint
 
 
 def _compute_geometry(args):
@@ -764,11 +766,10 @@ class AddIntensitiesSingleExp(QMainWindow):
     def _on_image_data_ready(self, image_data):
         """Called when workspace has loaded and configured a new image.
 
-        Shows the image immediately, then offloads the heavy center/rotation
-        calculation to a background thread so the UI stays responsive.
+        Offloads center/rotation calculation to a background thread; the
+        rotated display copy is shown in _on_geometry_ready once geometry
+        is known.
         """
-        self.image_viewer.display_image(image_data.img)
-        self._redraw_overlays()
         row = self.workspace.navigator.current_index
         worker = _GeometryWorker(image_data, row)
         worker.signals.done.connect(
@@ -782,6 +783,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._current_rotation = rotation
         if image_data is not None:
             self.workspace.update_display(image_data)
+            display_img = np.copy(image_data.img)
+            if center is not None and rotation is not None and rotation != 0:
+                display_img = rotateImageAboutPoint(display_img, center, rotation)
+            self.image_viewer.display_image(display_img)
         self._redraw_overlays()
         if 0 <= row < len(self.img_list):
             self._update_row_data(row, self.img_list[row])
