@@ -77,7 +77,7 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_ROTATION_MODE = 6
     COL_DEVIATION = 7
     COL_SIZE = 8
-    COL_FIXED = 9
+    COL_TRANSFORM = 9
     COL_IMAGE_DIFF = 10
 
     HEADERS = [
@@ -90,7 +90,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Rotation Mode",
         "Deviation",
         "Size",
-        "Fixed",
+        "Transform",
         "Image Difference",
     ]
 
@@ -380,7 +380,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_rotation_columns(row, name)
             self._fill_distance_deviation(row, name)
             self._fill_size_column(row, name)
-            self._fill_fixed_column(row, name)
+            self._fill_transform_column(row, name)
             self._apply_misaligned_highlight(row, name)
             self._apply_base_marker(row, name)
 
@@ -399,7 +399,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_rotation_columns(row, name)
         self._fill_distance_deviation(row, name)
         self._fill_size_column(row, name)
-        self._fill_fixed_column(row, name)
+        self._fill_transform_column(row, name)
         self._apply_misaligned_highlight(row, name)
         self._apply_base_marker(row, name)
 
@@ -508,16 +508,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
         self.table.setItem(row, self.COL_SIZE, QTableWidgetItem(size_str))
 
-    def _fill_fixed_column(self, row, name):
-        """Fill COL_FIXED with a checkmark when the image has any manual setting."""
+    def _fill_transform_column(self, row, name):
+        """Fill COL_TRANSFORM with a checkmark when the image has any manual setting."""
         sm = self.workspace.settings_manager
         base = os.path.basename(name)
-        is_fixed = sm.has_manual_center(base) or sm.has_manual_rotation(base)
-        item = QTableWidgetItem("\u2714" if is_fixed else "")
+        is_transformed = sm.has_manual_center(base) or sm.has_manual_rotation(base)
+        item = QTableWidgetItem("\u2714" if is_transformed else "")
         item.setTextAlignment(Qt.AlignCenter)
-        if is_fixed:
+        if is_transformed:
             item.setForeground(QBrush(QColor(0, 160, 0)))
-        self.table.setItem(row, self.COL_FIXED, item)
+        self.table.setItem(row, self.COL_TRANSFORM, item)
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
