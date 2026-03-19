@@ -194,6 +194,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._dist_threshold = 5.0
         self._dev_threshold_enabled = False
         self._dev_threshold = 2.0
+        self._diff_percentile_threshold: float = None  # 80th pct of all diff values
 
         self._build_ui()
         self.resize(1400, 800)
@@ -291,6 +292,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         detection_row.addWidget(self.calc_diff_btn)
         detection_row.addStretch()
         misaligned_detection_layout.addLayout(detection_row)
+
+        # Row 2b: Auto diff threshold readout (80th percentile)
+        diff_thresh_row = QHBoxLayout()
+        diff_thresh_row.setSpacing(6)
+        diff_thresh_row.addWidget(QLabel("Image diff threshold (80th pct):"))
+        self._diff_thresh_label = QLabel("—")
+        self._diff_thresh_label.setStyleSheet("font-size: 11px; color: #555;")
+        diff_thresh_row.addWidget(self._diff_thresh_label)
+        diff_thresh_row.addStretch()
+        misaligned_detection_layout.addLayout(diff_thresh_row)
 
         # Row 3: Distance threshold
         dist_thresh_row = QHBoxLayout()
@@ -457,6 +468,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.misaligned_names = set()
         self._img_sizes = self.workspace.navigator.file_manager.image_sizes
         self._compute_most_common_size()
+        self._compute_diff_percentile_threshold()
         self._sync_global_settings_state()
         self._init_table()
         self._sync_table_selection()
@@ -467,6 +479,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self._img_sizes = self.workspace.navigator.file_manager.image_sizes
         self._compute_most_common_size()
+        self._compute_diff_percentile_threshold()
         self._sync_global_settings_state()
         self._init_table()
         self._sync_table_selection()
@@ -626,6 +639,22 @@ class AddIntensitiesSingleExp(QMainWindow):
         counts = Counter(s for s in self._img_sizes.values() if s)
         self._most_common_size = counts.most_common(1)[0][0] if counts else ""
 
+    def _compute_diff_percentile_threshold(self):
+        """Compute the 80th-percentile of all cached diff values (mirrors old detectImages logic).
+        Updates self._diff_percentile_threshold and the UI label."""
+        sm = self.workspace.settings_manager
+        values = [
+            sm.get_image_diff(os.path.basename(name))
+            for name in self.img_list
+        ]
+        values = [v for v in values if v is not None]
+        if len(values) >= 2:
+            self._diff_percentile_threshold = float(np.percentile(values, 80))
+            self._diff_thresh_label.setText(f"{self._diff_percentile_threshold:.4f}")
+        else:
+            self._diff_percentile_threshold = None
+            self._diff_thresh_label.setText("—")
+
     def _fill_size_column(self, row, name):
         """Fill COL_SIZE with cached image dimensions (WxH) if available.
         Text is coloured red when the size differs from the most common size."""
@@ -649,11 +678,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.table.setItem(row, self.COL_TRANSFORM, item)
 
     def _fill_diff_column(self, row, name):
-        """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available)."""
+        """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available).
+        Cells whose value exceeds the 80th-percentile threshold are highlighted red."""
         sm = self.workspace.settings_manager
         val = sm.get_image_diff(os.path.basename(name))
         text = f"{val:.4f}" if val is not None else ""
-        self.table.setItem(row, self.COL_IMAGE_DIFF, QTableWidgetItem(text))
+        item = QTableWidgetItem(text)
+        if (val is not None
+                and self._diff_percentile_threshold is not None
+                and val > self._diff_percentile_threshold):
+            item.setBackground(QBrush(QColor(255, 100, 100)))
+            item.setForeground(QBrush(QColor(255, 255, 255)))
+        self.table.setItem(row, self.COL_IMAGE_DIFF, item)
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
@@ -1395,6 +1431,10 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         if not stopped:
             self.workspace.settings_manager.save_image_diff()
+            self._compute_diff_percentile_threshold()
+            for row, name in enumerate(self.img_list):
+                if row < self.table.rowCount():
+                    self._fill_diff_column(row, name)
 
         if self.diffExecutor:
             self.diffExecutor.shutdown(wait=False)
