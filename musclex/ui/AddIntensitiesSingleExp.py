@@ -101,18 +101,49 @@ def _compute_geometry(args):
 def _sum_group_worker(args):
     """Top-level function for subprocess: load, sum/average images in one group, save to disk."""
     (group_num, dir_path, img_names, specs,
+     per_img_transforms, base_center, base_rotation,
+     blank_img, blank_weight, apply_blank,
      do_average, output_path, compress) = args
     try:
         from musclex.utils.file_manager import load_image_via_spec
+        import cv2 as _cv2
         import numpy as _np
         import fabio as _fabio
 
+        def _transform_img(img, center, rotation, b_center, b_rotation):
+            h, w = img.shape[:2]
+            if center is not None and b_center is not None:
+                tx = b_center[0] - center[0]
+                ty = b_center[1] - center[1]
+                if tx != 0 or ty != 0:
+                    M = _np.float32([[1, 0, tx], [0, 1, ty]])
+                    img = _cv2.warpAffine(img, M, (w, h))
+            deviation = (rotation or 0) - (b_rotation or 0)
+            if deviation != 0 and b_center is not None:
+                M2 = _cv2.getRotationMatrix2D(tuple(b_center), deviation, 1)
+                img = _cv2.warpAffine(img, M2, (w, h))
+            return img
+
+        blank_f = None
+        if apply_blank and blank_img is not None:
+            blank_f = blank_img.astype(_np.float32) * blank_weight
+
         images = []
-        for name, spec in zip(img_names, specs):
+        for i, (name, spec) in enumerate(zip(img_names, specs)):
             try:
-                images.append(load_image_via_spec(dir_path, name, spec).astype(_np.float32))
+                img = load_image_via_spec(dir_path, name, spec).astype(_np.float32)
             except Exception as e:
                 print(f"Error loading {name}: {e}")
+                continue
+
+            if blank_f is not None:
+                img = _np.clip(img - blank_f, 0, None)
+
+            center, rotation, has_transform = per_img_transforms[i]
+            if has_transform:
+                img = _transform_img(img, center, rotation, base_center, base_rotation)
+
+            images.append(img)
 
         if not images:
             return {'group_num': group_num, 'output_path': None,
@@ -1610,6 +1641,21 @@ class AddIntensitiesSingleExp(QMainWindow):
         do_average = self.avg_instead_of_sum_chk.isChecked()
         compress = self.compress_chk.isChecked()
 
+        # Blank config (loaded once, shared across all groups)
+        blank_mask_config = self.workspace.get_blank_mask_config()
+        apply_blank = blank_mask_config['apply_blank']
+        blank_weight = blank_mask_config['blank_weight']
+        blank_img = None
+        if apply_blank:
+            from musclex.utils.file_manager import getBlankImageAndMask
+            blank_img, _, _ = getBlankImageAndMask(dir_path, return_weight=True)
+
+        # Transform base
+        sm = self.workspace.settings_manager
+        base_info = sm.get_global_base()
+        base_center = list(base_info['center']) if base_info.get('center') else None
+        base_rotation = base_info.get('rotation')
+
         self._in_sum_batch = True
         self.sumTaskManager.clear()
 
@@ -1632,6 +1678,19 @@ class AddIntensitiesSingleExp(QMainWindow):
             img_names = [os.path.basename(self.img_list[r]) for r in active_rows]
             specs = [fm.specs[r] if r < len(fm.specs) else None for r in active_rows]
 
+            per_img_transforms = []
+            for r in active_rows:
+                name = self.img_list[r]
+                base = os.path.basename(name)
+                center = self._get_effective_center(name)
+                rotation = self._get_effective_rotation(name)
+                has_transform = sm.has_transform(base)
+                per_img_transforms.append((
+                    list(center) if center else None,
+                    rotation,
+                    has_transform,
+                ))
+
             # Mirror AddIntensitiesExp AISE filename convention:
             # {prefix}_{firstNum}_{lastNum}.tif  or  group_{num:05d}.tif
             first = img_names[0]
@@ -1650,6 +1709,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             output_path = os.path.join(output_dir, filename)
 
             job_args = (group_num, dir_path, img_names, specs,
+                        per_img_transforms, base_center, base_rotation,
+                        blank_img, blank_weight, apply_blank,
                         do_average, output_path, compress)
             future = self.sumExecutor.submit(_sum_group_worker, job_args)
             self.sumTaskManager.submit_task(filename, group_num, future)
