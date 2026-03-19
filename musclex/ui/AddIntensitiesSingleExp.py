@@ -510,6 +510,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.addWidget(self.compress_chk)
 
         self.sum_images_btn = QPushButton("Sum Images")
+        self.sum_images_btn.setCheckable(True)
         self.sum_images_btn.setMinimumHeight(32)
         self._right_panel_layout.addWidget(self.sum_images_btn)
 
@@ -520,7 +521,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.global_settings_btn.clicked.connect(self._open_global_settings)
         self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
         self.calc_diff_btn.clicked.connect(self._on_calc_diff_btn_clicked)
-        self.sum_images_btn.clicked.connect(self._on_sum_images_clicked)
+        self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
 
     # ------------------------------------------------------------------
     # Global settings dialog
@@ -1616,6 +1617,45 @@ class AddIntensitiesSingleExp(QMainWindow):
             print(f"Failed to create sum process pool: {e}")
             self.sumExecutor = None
 
+    def _on_sum_btn_toggled(self, checked):
+        if checked:
+            if not self._in_sum_batch:
+                self.sum_images_btn.setText("Stop")
+                self._on_sum_images_clicked()
+        else:
+            self._stop_sum()
+
+    def _stop_sum(self):
+        """Cancel the running sum batch."""
+        self.stop_process = True
+        if self.sumExecutor:
+            self.sumExecutor.shutdown(wait=False, cancel_futures=True)
+        running_count = self.sumTaskManager.get_running_count()
+
+        msg = f"Stopping Sum\n\nWaiting for {running_count} tasks to complete..."
+        self._sumStopProgress = QProgressDialog(msg, None, 0, 0, self)
+        self._sumStopProgress.setWindowFlags(
+            Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self._sumStopProgress.setModal(False)
+        self._sumStopProgress.show()
+
+        self._sumStopTimer = QTimer(self)
+        self._sumStopTimer.setInterval(300)
+        self._sumStopTimer.timeout.connect(self._update_sum_stop_progress)
+        self._sumStopTimer.start()
+
+    def _update_sum_stop_progress(self):
+        if not hasattr(self, '_sumStopProgress') or self._sumStopProgress is None:
+            return
+        running_count = self.sumTaskManager.get_running_count()
+        self._sumStopProgress.setLabelText(
+            f"Stopping Sum\n\nWaiting for {running_count} tasks to complete...")
+        if running_count == 0:
+            self._sumStopTimer.stop()
+            self._sumStopProgress.close()
+            self._sumStopProgress = None
+            self._on_sum_batch_complete(stopped=True)
+
     def _on_sum_images_clicked(self):
         if self._in_sum_batch:
             return
@@ -1722,6 +1762,10 @@ class AddIntensitiesSingleExp(QMainWindow):
             if self.sumExecutor:
                 self.sumExecutor.shutdown(wait=False)
                 self.sumExecutor = None
+            self.sum_images_btn.blockSignals(True)
+            self.sum_images_btn.setChecked(False)
+            self.sum_images_btn.setText("Sum Images")
+            self.sum_images_btn.blockSignals(False)
             QMessageBox.information(self, "Sum Images",
                                     "All groups have every image ignored — nothing to sum.")
             return
@@ -1730,7 +1774,6 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.progressBar.setMinimum(0)
         self.progressBar.setValue(0)
         self.progressBar.setVisible(True)
-        self.sum_images_btn.setEnabled(False)
         op = "Averaging" if do_average else "Summing"
         self.statusLabel.setText(f"{op} images: 0/{jobs_submitted} groups...")
         print(f"Sum batch started: {jobs_submitted} group(s) submitted")
@@ -1752,6 +1795,9 @@ class AddIntensitiesSingleExp(QMainWindow):
             if task is None:
                 return
 
+            if self.stop_process:
+                return
+
             if error:
                 print(f"Sum error for group {result.get('group_num')}: {error}")
             else:
@@ -1771,7 +1817,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             print(f"Sum batch result callback error: {e}")
             traceback.print_exc()
 
-    def _on_sum_batch_complete(self):
+    def _on_sum_batch_complete(self, stopped=False):
         stats = self.sumTaskManager.get_statistics()
 
         if self.sumExecutor:
@@ -1779,12 +1825,21 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.sumExecutor = None
 
         self._in_sum_batch = False
+        self.stop_process = False
         self.progressBar.setVisible(False)
-        self.sum_images_btn.setEnabled(True)
+
+        self.sum_images_btn.blockSignals(True)
+        self.sum_images_btn.setChecked(False)
+        self.sum_images_btn.setText("Sum Images")
+        self.sum_images_btn.blockSignals(False)
 
         op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"
-        msg = (f"{op} complete: {stats['completed']}/{stats['total']} group(s) saved, "
-               f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/group")
+        if stopped:
+            msg = (f"{op} stopped: {stats['completed']}/{stats['total']} group(s) saved, "
+                   f"{stats['failed']} failed")
+        else:
+            msg = (f"{op} complete: {stats['completed']}/{stats['total']} group(s) saved, "
+                   f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/group")
         self.statusLabel.setText(msg)
         print(msg)
 
