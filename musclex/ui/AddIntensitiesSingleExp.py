@@ -863,7 +863,11 @@ class AddIntensitiesSingleExp(QMainWindow):
             transform_act = menu.addAction(f"Don't Transform{label_suffix}")
         else:
             transform_act = menu.addAction(f"Need Transform{label_suffix}")
-        ignore_act = menu.addAction(f"Ignore{label_suffix}")
+        all_ignored = all(r in self._ignored_rows for r in selected_rows)
+        if all_ignored:
+            ignore_act = menu.addAction(f"Cancel Ignore{label_suffix}")
+        else:
+            ignore_act = menu.addAction(f"Ignore{label_suffix}")
 
         chosen = menu.exec(global_pos)
         if chosen is None:
@@ -881,8 +885,12 @@ class AddIntensitiesSingleExp(QMainWindow):
             if current in selected_rows:
                 self._refresh_current_display()
         elif chosen == ignore_act:
-            for r in selected_rows:
-                self._apply_ignore(r)
+            if all_ignored:
+                for r in selected_rows:
+                    self._clear_ignore(r)
+            else:
+                for r in selected_rows:
+                    self._apply_ignore(r)
 
     def _refresh_current_display(self):
         """Re-render the currently displayed image using cached geometry.
@@ -944,6 +952,19 @@ class AddIntensitiesSingleExp(QMainWindow):
                 item = QTableWidgetItem("")
                 self.table.setItem(row, col, item)
             item.setForeground(dim)
+
+    def _clear_ignore(self, row):
+        """Remove the ignore flag from the row and restore normal text colour."""
+        if row < 0 or row >= len(self.img_list):
+            return
+        self._ignored_rows.discard(row)
+        name = self.img_list[row]
+        print(f"Cancel Ignore: {os.path.basename(name)}")
+        normal = QBrush(self.table.palette().color(self.table.foregroundRole()))
+        for col in range(1, self.table.columnCount()):
+            item = self.table.item(row, col)
+            if item is not None:
+                item.setForeground(normal)
 
     # ------------------------------------------------------------------
     # Public helpers
