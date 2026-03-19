@@ -500,6 +500,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._ignored_rows = set()
         self.table.setRowCount(0)
         self.table.setRowCount(len(self.img_list))
+        sm = self.workspace.settings_manager
         for row, name in enumerate(self.img_list):
             item = QTableWidgetItem(os.path.basename(name))
             item.setToolTip(name)
@@ -512,6 +513,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_diff_column(row, name)
             self._apply_misaligned_highlight(row, name)
             self._apply_base_marker(row, name)
+            if sm.has_ignore(os.path.basename(name)):
+                self._apply_ignore(row)
         self.table.resizeColumnsToContents()
 
     def _update_table_data(self):
@@ -944,7 +947,11 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         self._ignored_rows.add(row)
         name = self.img_list[row]
-        print(f"Ignore: {os.path.basename(name)}")
+        base = os.path.basename(name)
+        sm = self.workspace.settings_manager
+        sm.set_ignore(base)
+        sm.save_ignore()
+        print(f"Ignore: {base}")
         dim = QBrush(QColor(160, 160, 160))
         for col in range(1, self.table.columnCount()):
             item = self.table.item(row, col)
@@ -959,7 +966,11 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         self._ignored_rows.discard(row)
         name = self.img_list[row]
-        print(f"Cancel Ignore: {os.path.basename(name)}")
+        base = os.path.basename(name)
+        sm = self.workspace.settings_manager
+        sm.clear_ignore(base)
+        sm.save_ignore()
+        print(f"Cancel Ignore: {base}")
         normal = QBrush(self.table.palette().color(self.table.foregroundRole()))
         for col in range(1, self.table.columnCount()):
             item = self.table.item(row, col)

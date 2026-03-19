@@ -61,6 +61,8 @@ class SettingsManager:
         self._global_base: dict = {}
         # Transform flags  {"filename": true}  — images marked to be transformed in calculation
         self._transform: dict = {}
+        # Ignore flags  {"filename": true}  — images excluded from alignment calculations
+        self._ignore: dict = {}
         # Image diff cache  {"filename": float}  — mean abs diff vs previous image
         self._image_diff: dict = {}
 
@@ -145,6 +147,17 @@ class SettingsManager:
     def clear_transform(self, filename: str):
         self._transform.pop(filename, None)
 
+    # ===== Ignore flags =====
+
+    def has_ignore(self, filename: str) -> bool:
+        return bool(self._ignore.get(filename))
+
+    def set_ignore(self, filename: str):
+        self._ignore[filename] = True
+
+    def clear_ignore(self, filename: str):
+        self._ignore.pop(filename, None)
+
     # ===== Image diff cache =====
 
     def get_image_diff(self, filename: str) -> Optional[float]:
@@ -210,6 +223,7 @@ class SettingsManager:
         self._load_auto_cache()
         self._load_global_base()
         self._load_transform()
+        self._load_ignore()
         self._load_image_diff()
 
     def _load_center(self):
@@ -331,6 +345,30 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving transform settings: {e}")
 
+    def _load_ignore(self):
+        path = self._settings_path() / "ignore_settings.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    self._ignore = json.load(f)
+                print(f"Loaded ignore settings for {len(self._ignore)} images")
+            except Exception as e:
+                print(f"Error loading ignore settings: {e}")
+                self._ignore = {}
+        else:
+            self._ignore = {}
+
+    def save_ignore(self):
+        if not self._settings_dir:
+            return
+        d = self._settings_path()
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "ignore_settings.json", 'w') as f:
+                json.dump(self._ignore, f, indent=2)
+        except Exception as e:
+            print(f"Error saving ignore settings: {e}")
+
     def _load_image_diff(self):
         path = self._settings_path() / "image_diff_cache.json"
         if path.exists():
@@ -360,6 +398,7 @@ class SettingsManager:
         self.save_auto_cache()
         self.save_global_base()
         self.save_transform()
+        self.save_ignore()
         self.save_image_diff()
 
     # ===== Directory switching =====
@@ -379,5 +418,6 @@ class SettingsManager:
             self._auto_cache = {}
             self._global_base = {}
             self._transform = {}
+            self._ignore = {}
             self._image_diff = {}
         print(f"Settings directory updated to: {new_settings_dir}")
