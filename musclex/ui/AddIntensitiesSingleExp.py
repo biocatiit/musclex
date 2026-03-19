@@ -529,6 +529,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_diff_column(row, name)
         self._apply_misaligned_highlight(row, name)
         self._apply_base_marker(row, name)
+        if row in self._ignored_rows:
+            self._dim_row(row)
 
     def _fill_center_columns(self, row, name):
         """Fill COL_CENTER and COL_CENTER_MODE from workspace settings manager."""
@@ -934,6 +936,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_transform_column(row, name)
         print(f"Transform cleared: {base}")
 
+    def _dim_row(self, row):
+        """Apply grey foreground to all data columns of a row (visual only)."""
+        dim = QBrush(QColor(160, 160, 160))
+        for col in range(1, self.table.columnCount()):
+            item = self.table.item(row, col)
+            if item is None:
+                item = QTableWidgetItem("")
+                self.table.setItem(row, col, item)
+            item.setForeground(dim)
+
     def _apply_ignore(self, row):
         """Mark row as ignored: dim its text and add to ignored set."""
         if row < 0 or row >= len(self.img_list):
@@ -945,13 +957,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         sm.set_ignore(base)
         sm.save_ignore()
         print(f"Ignore: {base}")
-        dim = QBrush(QColor(160, 160, 160))
-        for col in range(1, self.table.columnCount()):
-            item = self.table.item(row, col)
-            if item is None:
-                item = QTableWidgetItem("")
-                self.table.setItem(row, col, item)
-            item.setForeground(dim)
+        self._dim_row(row)
 
     def _clear_ignore(self, row):
         """Remove the ignore flag from the row and restore normal text colour."""
