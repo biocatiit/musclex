@@ -19,6 +19,43 @@ from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
 
 
+def _compute_image_diff(args):
+    """Top-level function for subprocess: compute mean abs diff between two transformed images."""
+    (dir_path, img_name_a, img_name_b,
+     spec_a, spec_b,
+     center_a, rotation_a,
+     center_b, rotation_b,
+     base_center, base_rotation, pair_index) = args
+    try:
+        import cv2 as _cv2
+        import numpy as _np
+        from musclex.utils.file_manager import load_image_via_spec
+
+        def _transform_img(img, center, rotation, b_center, b_rotation):
+            h, w = img.shape[:2]
+            if center is not None and b_center is not None:
+                tx = b_center[0] - center[0]
+                ty = b_center[1] - center[1]
+                if tx != 0 or ty != 0:
+                    M = _np.float32([[1, 0, tx], [0, 1, ty]])
+                    img = _cv2.warpAffine(img, M, (w, h))
+            deviation = (rotation or 0) - (b_rotation or 0)
+            if deviation != 0 and b_center is not None:
+                M2 = _cv2.getRotationMatrix2D(tuple(b_center), deviation, 1)
+                img = _cv2.warpAffine(img, M2, (w, h))
+            return img.astype(_np.float32)
+
+        img_a = load_image_via_spec(dir_path, img_name_a, spec_a)
+        img_b = load_image_via_spec(dir_path, img_name_b, spec_b)
+        ta = _transform_img(img_a, center_a, rotation_a, base_center, base_rotation)
+        tb = _transform_img(img_b, center_b, rotation_b, base_center, base_rotation)
+        diff = float(_np.mean(_np.abs(ta - tb)))
+        return {'pair_index': pair_index, 'diff': diff, 'error': None}
+    except Exception as e:
+        traceback.print_exc()
+        return {'pair_index': pair_index, 'diff': None, 'error': str(e)}
+
+
 def _compute_geometry(args):
     """Top-level function for subprocess: load image, compute center and rotation."""
     dir_path, img_name, loader_spec, manual_center, manual_rotation, orientation_model = args
@@ -134,6 +171,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._in_batch = False
         self.stop_process = False
 
+        # Multiprocessing image-diff calculation
+        self.diffTaskManager = ProcessingTaskManager()
+        self.diffExecutor = None
+        self._in_diff_batch = False
+
         self._build_ui()
         self.resize(1400, 800)
         self.show()
@@ -220,11 +262,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         global_row.addStretch()
         misaligned_detection_layout.addLayout(global_row)
 
-        # Row 2: Start Detection button
+        # Row 2: Start Detection button + Calculate Image Difference button
         detection_row = QHBoxLayout()
         self.start_detection_btn = QPushButton("Start Detection")
         self.start_detection_btn.setCheckable(True)
         detection_row.addWidget(self.start_detection_btn)
+        self.calc_diff_btn = QPushButton("Calculate Image Difference")
+        detection_row.addWidget(self.calc_diff_btn)
         detection_row.addStretch()
         misaligned_detection_layout.addLayout(detection_row)
 
@@ -306,6 +350,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         self.global_settings_btn.clicked.connect(self._open_global_settings)
         self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
+        self.calc_diff_btn.clicked.connect(self._on_calc_diff_btn_clicked)
 
     # ------------------------------------------------------------------
     # Global settings dialog
@@ -382,6 +427,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_distance_deviation(row, name)
             self._fill_size_column(row, name)
             self._fill_transform_column(row, name)
+            self._fill_diff_column(row, name)
             self._apply_misaligned_highlight(row, name)
             self._apply_base_marker(row, name)
 
@@ -401,6 +447,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._fill_distance_deviation(row, name)
         self._fill_size_column(row, name)
         self._fill_transform_column(row, name)
+        self._fill_diff_column(row, name)
         self._apply_misaligned_highlight(row, name)
         self._apply_base_marker(row, name)
 
@@ -519,6 +566,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         if needs_transform:
             item.setForeground(QBrush(QColor(0, 160, 0)))
         self.table.setItem(row, self.COL_TRANSFORM, item)
+
+    def _fill_diff_column(self, row, name):
+        """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available)."""
+        sm = self.workspace.settings_manager
+        val = sm.get_image_diff(os.path.basename(name))
+        text = f"{val:.4f}" if val is not None else ""
+        self.table.setItem(row, self.COL_IMAGE_DIFF, QTableWidgetItem(text))
 
     def _apply_misaligned_highlight(self, row, name):
         """Colour the data columns red if the image is in misaligned_names.
@@ -1068,6 +1122,158 @@ class AddIntensitiesSingleExp(QMainWindow):
             msg = (
                 f"Detection complete: {stats['completed']}/{stats['total']} succeeded, "
                 f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/image"
+            )
+        self.statusLabel.setText(msg)
+        print(msg)
+
+    # ------------------------------------------------------------------
+    # Image difference batch calculation (multiprocessing)
+    # ------------------------------------------------------------------
+
+    def _on_calc_diff_btn_clicked(self):
+        if self._in_diff_batch:
+            return
+        self._start_image_diff_calc()
+
+    def _init_diff_executor(self):
+        from concurrent.futures import ProcessPoolExecutor
+        import multiprocessing as _mp
+        worker_count = max(1, (os.cpu_count() or 2) - 2)
+        try:
+            mp_ctx = _mp.get_context('spawn')
+            self.diffExecutor = ProcessPoolExecutor(max_workers=worker_count, mp_context=mp_ctx)
+            print(f"Diff process pool initialised with {worker_count} workers (spawn)")
+        except Exception as e:
+            print(f"Failed to create diff process pool: {e}")
+            self.diffExecutor = None
+
+    def _start_image_diff_calc(self):
+        """Submit consecutive image pairs for diff calculation."""
+        if self._in_diff_batch:
+            return
+        n = len(self.img_list)
+        if n < 2:
+            return
+
+        fm = self.workspace.navigator.file_manager
+        if fm is None or not fm.specs:
+            return
+
+        if self.diffExecutor is None:
+            self._init_diff_executor()
+        if self.diffExecutor is None:
+            return
+
+        self._in_diff_batch = True
+        self.stop_process = False
+        self.diffTaskManager.clear()
+
+        pair_count = n - 1
+        self.progressBar.setMaximum(pair_count)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setValue(0)
+        self.progressBar.setVisible(True)
+        self.statusLabel.setText("Calculating image differences...")
+        self.calc_diff_btn.setEnabled(False)
+
+        sm = self.workspace.settings_manager
+        base_info = sm.get_global_base()
+        base_center = base_info.get('center')
+        base_rotation = base_info.get('rotation')
+        dir_path = str(fm.dir_path)
+
+        for i in range(pair_count):
+            name_a = self.img_list[i]
+            name_b = self.img_list[i + 1]
+            base_a = os.path.basename(name_a)
+            base_b = os.path.basename(name_b)
+            spec_a = fm.specs[i] if i < len(fm.specs) else None
+            spec_b = fm.specs[i + 1] if (i + 1) < len(fm.specs) else None
+            center_a = self._get_effective_center(name_a)
+            center_b = self._get_effective_center(name_b)
+            rotation_a = self._get_effective_rotation(name_a)
+            rotation_b = self._get_effective_rotation(name_b)
+
+            job_args = (
+                dir_path,
+                base_a, base_b,
+                spec_a, spec_b,
+                center_a, rotation_a,
+                center_b, rotation_b,
+                list(base_center) if base_center else None,
+                base_rotation,
+                i + 1,
+            )
+            future = self.diffExecutor.submit(_compute_image_diff, job_args)
+            self.diffTaskManager.submit_task(base_b, i + 1, future)
+            future.add_done_callback(self._on_diff_future_done)
+
+        print(f"Image diff calculation started: {pair_count} pairs submitted")
+
+    def _on_diff_future_done(self, future):
+        QTimer.singleShot(0, self, lambda f=future: self._on_diff_batch_result(f))
+
+    def _on_diff_batch_result(self, future):
+        try:
+            try:
+                result = future.result()
+                error = result.get('error')
+            except Exception as fut_exc:
+                error = str(fut_exc)
+                result = {'pair_index': None, 'diff': None, 'error': error}
+
+            task = self.diffTaskManager.complete_task(future, result, error)
+            if task is None:
+                return
+
+            if self.stop_process:
+                return
+
+            if error:
+                print(f"Diff error for {task.filename}: {error}")
+            else:
+                sm = self.workspace.settings_manager
+                sm.set_image_diff(os.path.basename(task.filename), result['diff'])
+
+            stats = self.diffTaskManager.get_statistics()
+            self.progressBar.setValue(stats['completed'] + stats['failed'])
+            self.statusLabel.setText(
+                f"Calculating diff: {stats['completed'] + stats['failed']}/{stats['total']}"
+            )
+
+            if 0 <= task.job_index < len(self.img_list):
+                self._fill_diff_column(task.job_index, self.img_list[task.job_index])
+
+            if stats['pending'] == 0:
+                self._on_diff_batch_complete()
+
+        except Exception as e:
+            print(f"Diff batch result callback error: {e}")
+            traceback.print_exc()
+
+    def _on_diff_batch_complete(self, stopped=False):
+        stats = self.diffTaskManager.get_statistics()
+
+        if not stopped:
+            self.workspace.settings_manager.save_image_diff()
+
+        if self.diffExecutor:
+            self.diffExecutor.shutdown(wait=False)
+            self.diffExecutor = None
+
+        self._in_diff_batch = False
+        self.progressBar.setVisible(False)
+        self.calc_diff_btn.setEnabled(True)
+
+        if stopped:
+            msg = (
+                f"Diff stopped: {stats['completed']}/{stats['total']} completed, "
+                f"{stats['failed']} failed"
+            )
+        else:
+            msg = (
+                f"Diff complete: {stats['completed']}/{stats['total']} succeeded, "
+                f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/pair"
             )
         self.statusLabel.setText(msg)
         print(msg)

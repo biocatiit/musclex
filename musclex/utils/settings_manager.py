@@ -61,6 +61,8 @@ class SettingsManager:
         self._global_base: dict = {}
         # Transform flags  {"filename": true}  — images marked to be transformed in calculation
         self._transform: dict = {}
+        # Image diff cache  {"filename": float}  — mean abs diff vs previous image
+        self._image_diff: dict = {}
 
         if settings_dir:
             self.load()
@@ -143,6 +145,20 @@ class SettingsManager:
     def clear_transform(self, filename: str):
         self._transform.pop(filename, None)
 
+    # ===== Image diff cache =====
+
+    def get_image_diff(self, filename: str) -> Optional[float]:
+        return self._image_diff.get(filename)
+
+    def has_image_diff(self, filename: str) -> bool:
+        return filename in self._image_diff
+
+    def set_image_diff(self, filename: str, value: float):
+        self._image_diff[filename] = value
+
+    def clear_image_diff(self, filename: str):
+        self._image_diff.pop(filename, None)
+
     # ===== Auto-geometry cache =====
 
     def get_auto_center(self, filename: str) -> Optional[Tuple[float, float]]:
@@ -194,6 +210,7 @@ class SettingsManager:
         self._load_auto_cache()
         self._load_global_base()
         self._load_transform()
+        self._load_image_diff()
 
     def _load_center(self):
         path = self._settings_path() / "center_settings.json"
@@ -314,12 +331,36 @@ class SettingsManager:
         except Exception as e:
             print(f"Error saving transform settings: {e}")
 
+    def _load_image_diff(self):
+        path = self._settings_path() / "image_diff_cache.json"
+        if path.exists():
+            try:
+                with open(path, 'r') as f:
+                    self._image_diff = json.load(f)
+            except Exception as e:
+                print(f"Error loading image diff cache: {e}")
+                self._image_diff = {}
+        else:
+            self._image_diff = {}
+
+    def save_image_diff(self):
+        if not self._settings_dir:
+            return
+        d = self._settings_path()
+        d.mkdir(exist_ok=True)
+        try:
+            with open(d / "image_diff_cache.json", 'w') as f:
+                json.dump(self._image_diff, f, indent=2)
+        except Exception as e:
+            print(f"Error saving image diff cache: {e}")
+
     def save_all(self):
         self.save_center()
         self.save_rotation()
         self.save_auto_cache()
         self.save_global_base()
         self.save_transform()
+        self.save_image_diff()
 
     # ===== Directory switching =====
 
@@ -338,4 +379,5 @@ class SettingsManager:
             self._auto_cache = {}
             self._global_base = {}
             self._transform = {}
+            self._image_diff = {}
         print(f"Settings directory updated to: {new_settings_dir}")
