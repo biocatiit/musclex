@@ -1349,7 +1349,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.stop_process = False
         self.diffTaskManager.clear()
 
-        pair_count = n - 1
+        # Build list of active (non-ignored) image indices so that ignored
+        # images are skipped and their neighbours are compared directly,
+        # e.g. if index 1 is ignored the pair (0, 2) is compared instead of
+        # (0, 1) and (1, 2).
+        active_indices = [i for i in range(n) if i not in self._ignored_rows]
+        pair_count = len(active_indices) - 1
+        if pair_count < 1:
+            self._in_diff_batch = False
+            return
+
         self.progressBar.setMaximum(pair_count)
         self.progressBar.setMinimum(0)
         self.progressBar.setValue(0)
@@ -1363,13 +1372,14 @@ class AddIntensitiesSingleExp(QMainWindow):
         base_rotation = base_info.get('rotation')
         dir_path = str(fm.dir_path)
 
-        for i in range(pair_count):
-            name_a = self.img_list[i]
-            name_b = self.img_list[i + 1]
+        for pair_idx, (idx_a, idx_b) in enumerate(
+                zip(active_indices, active_indices[1:]), start=1):
+            name_a = self.img_list[idx_a]
+            name_b = self.img_list[idx_b]
             base_a = os.path.basename(name_a)
             base_b = os.path.basename(name_b)
-            spec_a = fm.specs[i] if i < len(fm.specs) else None
-            spec_b = fm.specs[i + 1] if (i + 1) < len(fm.specs) else None
+            spec_a = fm.specs[idx_a] if idx_a < len(fm.specs) else None
+            spec_b = fm.specs[idx_b] if idx_b < len(fm.specs) else None
             center_a = self._get_effective_center(name_a)
             center_b = self._get_effective_center(name_b)
             rotation_a = self._get_effective_rotation(name_a)
@@ -1386,13 +1396,14 @@ class AddIntensitiesSingleExp(QMainWindow):
                 list(base_center) if base_center else None,
                 base_rotation,
                 has_transform_a, has_transform_b,
-                i + 1,
+                pair_idx,
             )
             future = self.diffExecutor.submit(_compute_image_diff, job_args)
-            self.diffTaskManager.submit_task(base_b, i + 1, future)
+            self.diffTaskManager.submit_task(base_b, pair_idx, future)
             future.add_done_callback(self._on_diff_future_done)
 
-        print(f"Image diff calculation started: {pair_count} pairs submitted")
+        print(f"Image diff calculation started: {pair_count} pairs submitted "
+              f"({n - len(active_indices)} image(s) ignored)")
 
     def _on_diff_future_done(self, future):
         QTimer.singleShot(0, self, lambda f=future: self._on_diff_batch_result(f))
