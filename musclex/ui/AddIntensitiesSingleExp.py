@@ -32,12 +32,16 @@ class _ElideMiddleDelegate(QStyledItemDelegate):
 
 
 def _compute_image_diff(args):
-    """Top-level function for subprocess: compute mean abs diff between two transformed images."""
+    """Top-level function for subprocess: compute mean abs diff between two images.
+    Each image is aligned to the base center/rotation only when its has_transform flag is True.
+    """
     (dir_path, img_name_a, img_name_b,
      spec_a, spec_b,
      center_a, rotation_a,
      center_b, rotation_b,
-     base_center, base_rotation, pair_index) = args
+     base_center, base_rotation,
+     has_transform_a, has_transform_b,
+     pair_index) = args
     try:
         import cv2 as _cv2
         import numpy as _np
@@ -59,8 +63,10 @@ def _compute_image_diff(args):
 
         img_a = load_image_via_spec(dir_path, img_name_a, spec_a)
         img_b = load_image_via_spec(dir_path, img_name_b, spec_b)
-        ta = _transform_img(img_a, center_a, rotation_a, base_center, base_rotation)
-        tb = _transform_img(img_b, center_b, rotation_b, base_center, base_rotation)
+        ta = (_transform_img(img_a, center_a, rotation_a, base_center, base_rotation)
+              if has_transform_a else img_a.astype(_np.float32))
+        tb = (_transform_img(img_b, center_b, rotation_b, base_center, base_rotation)
+              if has_transform_b else img_b.astype(_np.float32))
         diff = float(_np.mean(_np.abs(ta - tb)))
         return {'pair_index': pair_index, 'diff': diff, 'error': None}
     except Exception as e:
@@ -1368,6 +1374,8 @@ class AddIntensitiesSingleExp(QMainWindow):
             center_b = self._get_effective_center(name_b)
             rotation_a = self._get_effective_rotation(name_a)
             rotation_b = self._get_effective_rotation(name_b)
+            has_transform_a = sm.has_transform(base_a)
+            has_transform_b = sm.has_transform(base_b)
 
             job_args = (
                 dir_path,
@@ -1377,6 +1385,7 @@ class AddIntensitiesSingleExp(QMainWindow):
                 center_b, rotation_b,
                 list(base_center) if base_center else None,
                 base_rotation,
+                has_transform_a, has_transform_b,
                 i + 1,
             )
             future = self.diffExecutor.submit(_compute_image_diff, job_args)
