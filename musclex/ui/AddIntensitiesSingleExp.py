@@ -633,7 +633,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
         item = QTableWidgetItem(size_str)
         if size_str and self._most_common_size and size_str != self._most_common_size:
-            item.setForeground(QBrush(QColor(200, 0, 0)))
+            item.setBackground(QBrush(QColor(255, 100, 100)))
+            item.setForeground(QBrush(QColor(255, 255, 255)))
         self.table.setItem(row, self.COL_SIZE, item)
 
     def _fill_transform_column(self, row, name):
