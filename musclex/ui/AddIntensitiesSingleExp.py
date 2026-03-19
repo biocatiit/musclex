@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar,
-    QProgressDialog,
+    QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem,
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
@@ -17,6 +17,18 @@ from musclex.ui.widgets import ProcessingWorkspace
 from musclex.ui.GlobalSettingsDialog import GlobalSettingsDialog
 from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
+
+
+class _ElideMiddleDelegate(QStyledItemDelegate):
+    """Delegate that elides text in the middle when it exceeds the cell width."""
+
+    def paint(self, painter, option, index):
+        text = index.data(Qt.DisplayRole) or ""
+        elided = option.fontMetrics.elidedText(text, Qt.ElideMiddle, option.rect.width() - 6)
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        opt.text = elided
+        super().paint(painter, opt, index)
 
 
 def _compute_image_diff(args):
@@ -215,9 +227,10 @@ class AddIntensitiesSingleExp(QMainWindow):
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(self.COL_GROUP, QHeaderView.Fixed)
         self.table.setColumnWidth(self.COL_GROUP, 52)
-        header.setSectionResizeMode(self.COL_FRAME, QHeaderView.ResizeToContents)
-        for col in range(2, len(self.HEADERS)):
-            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        for col in range(1, len(self.HEADERS)):
+            header.setSectionResizeMode(col, QHeaderView.Interactive)
+        self.table.setColumnWidth(self.COL_FRAME, 200)
+        self.table.setItemDelegateForColumn(self.COL_FRAME, _ElideMiddleDelegate(self.table))
 
         # Context menu for grouping / ungrouping
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -430,6 +443,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             self._fill_diff_column(row, name)
             self._apply_misaligned_highlight(row, name)
             self._apply_base_marker(row, name)
+        self.table.resizeColumnsToContents()
 
     def _update_table_data(self):
         """Refresh center/rotation data columns for all existing rows (preserves selection and groups)."""
