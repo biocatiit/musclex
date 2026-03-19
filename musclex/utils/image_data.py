@@ -35,7 +35,7 @@ from typing import Optional, Tuple, Dict, Any
 from pathlib import Path
 
 from .file_manager import getBlankImageAndMask, getMaskOnly
-from .image_processor import getCenter, processImageForIntCenter, getRotationAngle
+from .image_processor import getCenter, getRotationAngle
 
 
 class ImageData:
@@ -405,17 +405,12 @@ class ImageData:
             print(f"Using cached computed center: {self._computed_center}")
             return self._computed_center
         
-        # Calculate new center
+        # Calculate new center using preprocessed image (blank/mask applied),
+        # consistent with v1.25.1.1 which called applyBlankImageAndMask() before findCenter().
         print("Auto-calculating center...")
-        img = self._processed_img if self._processed_img is not None else self._raw_img
-        
+        img = self.get_working_image()
         center = getCenter(img)
-        processed_img, center = processImageForIntCenter(img, center)
-        
-        # Update raw image if we processed it
-        if self._processed_img is None:
-            self._raw_img = processed_img
-        
+
         self._computed_center = center
         print(f"Center calculated: {center}")
         
@@ -444,9 +439,10 @@ class ImageData:
         # Ensure center exists first
         center = self.ensure_center()
         
-        # Calculate rotation
+        # Calculate rotation using preprocessed image (blank/mask applied),
+        # consistent with v1.25.1.1 which called applyBlankImageAndMask() before getRotationAngle().
         print("Auto-calculating rotation...")
-        img = self._processed_img if self._processed_img is not None else self._raw_img
+        img = self.get_working_image()
         
         if self.detector:
             rotation = getRotationAngle(
