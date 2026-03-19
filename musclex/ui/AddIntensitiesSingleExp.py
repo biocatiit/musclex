@@ -155,6 +155,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = []
         self.misaligned_names = set()
         self._img_sizes: dict = {}  # img_name -> "WxH" string
+        self._most_common_size: str = ""  # most frequent size across all images
         self._current_center = None
         self._current_rotation = None
         self._base_image_filename = None
@@ -408,6 +409,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self.misaligned_names = set()
         self._img_sizes = self.workspace.navigator.file_manager.image_sizes
+        self._compute_most_common_size()
         self._sync_global_settings_state()
         self._init_table()
         self._sync_table_selection()
@@ -417,6 +419,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Refresh the file list once the background scan finishes."""
         self.img_list = list(self.workspace.navigator.file_manager.names)
         self._img_sizes = self.workspace.navigator.file_manager.image_sizes
+        self._compute_most_common_size()
         self._sync_global_settings_state()
         self._init_table()
         self._sync_table_selection()
@@ -564,11 +567,21 @@ class AddIntensitiesSingleExp(QMainWindow):
         else:
             self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
 
+    def _compute_most_common_size(self):
+        """Count image sizes and cache the most frequent one."""
+        from collections import Counter
+        counts = Counter(s for s in self._img_sizes.values() if s)
+        self._most_common_size = counts.most_common(1)[0][0] if counts else ""
+
     def _fill_size_column(self, row, name):
-        """Fill COL_SIZE with cached image dimensions (WxH) if available."""
+        """Fill COL_SIZE with cached image dimensions (WxH) if available.
+        Text is coloured red when the size differs from the most common size."""
         base = os.path.basename(name)
         size_str = self._img_sizes.get(name) or self._img_sizes.get(base, "")
-        self.table.setItem(row, self.COL_SIZE, QTableWidgetItem(size_str))
+        item = QTableWidgetItem(size_str)
+        if size_str and self._most_common_size and size_str != self._most_common_size:
+            item.setForeground(QBrush(QColor(200, 0, 0)))
+        self.table.setItem(row, self.COL_SIZE, item)
 
     def _fill_transform_column(self, row, name):
         """Fill COL_TRANSFORM with a checkmark when the image is flagged for transform."""
