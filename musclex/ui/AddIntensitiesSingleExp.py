@@ -1,6 +1,7 @@
 import os
 import traceback
 import numpy as np
+import cv2
 import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
@@ -699,9 +700,34 @@ class AddIntensitiesSingleExp(QMainWindow):
             else:
                 for r in selected_rows:
                     self._apply_transform(r)
+            current = self.workspace.navigator.current_index
+            if current in selected_rows:
+                self._refresh_current_display()
         elif chosen == ignore_act:
             for r in selected_rows:
                 self._apply_ignore(r)
+
+    def _refresh_current_display(self):
+        """Re-render the currently displayed image using cached geometry.
+
+        Called after transform flags change so the viewer immediately reflects
+        whether the center-shift is applied, without reloading from disk.
+        """
+        image_data = self.workspace._current_image_data
+        if image_data is None:
+            return
+        row = self.workspace.navigator.current_index
+        center = self._current_center
+        rotation = self._current_rotation
+        display_img = np.copy(image_data.img)
+        if center is not None and rotation is not None and rotation != 0:
+            display_img = rotateImageAboutPoint(display_img, center, rotation)
+        if 0 <= row < len(self.img_list):
+            display_img = self._apply_center_shift_if_needed(
+                display_img, center, self.img_list[row]
+            )
+        self.image_viewer.display_image(display_img)
+        self._redraw_overlays()
 
     def _apply_transform(self, row):
         """Flag the image to be transformed during future calculations."""
@@ -807,6 +833,10 @@ class AddIntensitiesSingleExp(QMainWindow):
             display_img = np.copy(image_data.img)
             if center is not None and rotation is not None and rotation != 0:
                 display_img = rotateImageAboutPoint(display_img, center, rotation)
+            if 0 <= row < len(self.img_list):
+                display_img = self._apply_center_shift_if_needed(
+                    display_img, center, self.img_list[row]
+                )
             self.image_viewer.display_image(display_img)
         self._redraw_overlays()
         if 0 <= row < len(self.img_list):
@@ -820,6 +850,28 @@ class AddIntensitiesSingleExp(QMainWindow):
             self.table.selectRow(idx)
             self.table.scrollTo(self.table.model().index(idx, 0))
             self.table.blockSignals(False)
+
+    def _apply_center_shift_if_needed(self, img, center, img_name):
+        """If the image is flagged for transform, translate it so its center
+        aligns with the global base center (same approach as QuadrantFolder.transformImage).
+        Returns the (possibly shifted) image array."""
+        if center is None:
+            return img
+        sm = self.workspace.settings_manager
+        base = os.path.basename(img_name)
+        if not sm.has_transform(base):
+            return img
+        base_info = sm.get_global_base()
+        base_center = base_info.get('center')
+        if base_center is None:
+            return img
+        tx = base_center[0] - center[0]
+        ty = base_center[1] - center[1]
+        if tx == 0 and ty == 0:
+            return img
+        h, w = img.shape[:2]
+        M = np.float32([[1, 0, tx], [0, 1, ty]])
+        return cv2.warpAffine(img, M, (w, h))
 
     def _redraw_overlays(self):
         """Draw center circle if checkbox is checked; clear it otherwise."""
