@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar,
-    QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem,
+    QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem, QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
@@ -96,6 +96,56 @@ def _compute_geometry(args):
     except Exception as e:
         traceback.print_exc()
         return {'img_name': img_name, 'center': None, 'rotation': None, 'error': str(e)}
+
+
+def _sum_group_worker(args):
+    """Top-level function for subprocess: load, sum/average images in one group, save to disk."""
+    (group_num, dir_path, img_names, specs,
+     do_average, output_path, compress) = args
+    try:
+        from musclex.utils.file_manager import load_image_via_spec
+        import numpy as _np
+        import fabio as _fabio
+
+        images = []
+        for name, spec in zip(img_names, specs):
+            try:
+                images.append(load_image_via_spec(dir_path, name, spec).astype(_np.float32))
+            except Exception as e:
+                print(f"Error loading {name}: {e}")
+
+        if not images:
+            return {'group_num': group_num, 'output_path': None,
+                    'n_images': 0, 'error': 'No images loaded'}
+
+        result = images[0].copy()
+        for img in images[1:]:
+            if img.shape != result.shape:
+                max_h = max(img.shape[0], result.shape[0])
+                max_w = max(img.shape[1], result.shape[1])
+                p = _np.zeros((max_h, max_w), dtype=result.dtype)
+                p[:result.shape[0], :result.shape[1]] = result
+                result = p
+                q = _np.zeros((max_h, max_w), dtype=img.dtype)
+                q[:img.shape[0], :img.shape[1]] = img
+                img = q
+            result += img
+
+        if do_average:
+            result /= len(images)
+
+        if compress:
+            from PIL import Image as _Image
+            _Image.fromarray(result).save(output_path, compression='tiff_lzw')
+        else:
+            _fabio.tifimage.tifimage(data=result).write(output_path)
+
+        return {'group_num': group_num, 'output_path': output_path,
+                'n_images': len(images), 'error': None}
+    except Exception as e:
+        traceback.print_exc()
+        return {'group_num': group_num, 'output_path': None,
+                'n_images': 0, 'error': str(e)}
 
 
 class _GeometryWorkerSignals(QObject):
@@ -194,6 +244,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.diffTaskManager = ProcessingTaskManager()
         self.diffExecutor = None
         self._in_diff_batch = False
+
+        # Multiprocessing sum-images
+        self.sumTaskManager = ProcessingTaskManager()
+        self.sumExecutor = None
+        self._in_sum_batch = False
 
         # Threshold highlighting
         self._dist_threshold_enabled = False
@@ -418,6 +473,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.addWidget(self._binning_row)
         self._right_panel_layout.addStretch()
 
+        self.avg_instead_of_sum_chk = QCheckBox("Compute Average Instead of Sum")
+        self.compress_chk = QCheckBox("Compress the Resulting Images")
+        self._right_panel_layout.addWidget(self.avg_instead_of_sum_chk)
+        self._right_panel_layout.addWidget(self.compress_chk)
+
         self.sum_images_btn = QPushButton("Sum Images")
         self.sum_images_btn.setMinimumHeight(32)
         self._right_panel_layout.addWidget(self.sum_images_btn)
@@ -429,6 +489,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.global_settings_btn.clicked.connect(self._open_global_settings)
         self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
         self.calc_diff_btn.clicked.connect(self._on_calc_diff_btn_clicked)
+        self.sum_images_btn.clicked.connect(self._on_sum_images_clicked)
 
     # ------------------------------------------------------------------
     # Global settings dialog
@@ -1505,6 +1566,164 @@ class AddIntensitiesSingleExp(QMainWindow):
                 f"Diff complete: {stats['completed']}/{stats['total']} succeeded, "
                 f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/pair"
             )
+        self.statusLabel.setText(msg)
+        print(msg)
+
+    # ------------------------------------------------------------------
+    # Sum images (multiprocessing)
+    # ------------------------------------------------------------------
+
+    def _init_sum_executor(self):
+        from concurrent.futures import ProcessPoolExecutor
+        import multiprocessing as _mp
+        worker_count = max(1, (os.cpu_count() or 2) - 2)
+        try:
+            mp_ctx = _mp.get_context('spawn')
+            self.sumExecutor = ProcessPoolExecutor(max_workers=worker_count, mp_context=mp_ctx)
+            print(f"Sum process pool initialised with {worker_count} workers (spawn)")
+        except Exception as e:
+            print(f"Failed to create sum process pool: {e}")
+            self.sumExecutor = None
+
+    def _on_sum_images_clicked(self):
+        if self._in_sum_batch:
+            return
+        if not self._groups:
+            QMessageBox.information(self, "Sum Images",
+                                    "No groups defined. Please create groups first.")
+            return
+
+        fm = self.workspace.navigator.file_manager
+        if fm is None or not fm.specs:
+            QMessageBox.warning(self, "Sum Images", "No folder loaded.")
+            return
+
+        dir_path = str(fm.dir_path)
+        output_dir = os.path.join(dir_path, "aise_results")
+        os.makedirs(output_dir, exist_ok=True)
+
+        if self.sumExecutor is None:
+            self._init_sum_executor()
+        if self.sumExecutor is None:
+            return
+
+        do_average = self.avg_instead_of_sum_chk.isChecked()
+        compress = self.compress_chk.isChecked()
+
+        self._in_sum_batch = True
+        self.sumTaskManager.clear()
+
+        sorted_groups = sorted(self._groups, key=lambda g: g['start'])
+        jobs_submitted = 0
+
+        for group in sorted_groups:
+            start = group['start']
+            count = group['count']
+            group_num = group['number']
+
+            active_rows = [
+                r for r in range(start, start + count)
+                if r not in self._ignored_rows
+            ]
+            if not active_rows:
+                print(f"Group {group_num}: all images ignored, skipping.")
+                continue
+
+            img_names = [os.path.basename(self.img_list[r]) for r in active_rows]
+            specs = [fm.specs[r] if r < len(fm.specs) else None for r in active_rows]
+
+            # Mirror AddIntensitiesExp AISE filename convention:
+            # {prefix}_{firstNum}_{lastNum}.tif  or  group_{num:05d}.tif
+            first = img_names[0]
+            last = img_names[-1]
+            f_ind1 = first.rfind('_')
+            f_ind2 = first.rfind('.')
+            l_ind1 = last.rfind('_')
+            l_ind2 = last.rfind('.')
+            if (f_ind1 == -1 or f_ind2 == -1 or l_ind1 == -1 or l_ind2 == -1
+                    or first[:f_ind1] != last[:l_ind1]):
+                filename = "group_" + str(group_num).zfill(5) + '.tif'
+            else:
+                filename = (first[:f_ind1] + "_"
+                            + first[f_ind1 + 1:f_ind2] + "_"
+                            + last[l_ind1 + 1:l_ind2] + '.tif')
+            output_path = os.path.join(output_dir, filename)
+
+            job_args = (group_num, dir_path, img_names, specs,
+                        do_average, output_path, compress)
+            future = self.sumExecutor.submit(_sum_group_worker, job_args)
+            self.sumTaskManager.submit_task(filename, group_num, future)
+            future.add_done_callback(self._on_sum_future_done)
+            jobs_submitted += 1
+
+        if jobs_submitted == 0:
+            self._in_sum_batch = False
+            if self.sumExecutor:
+                self.sumExecutor.shutdown(wait=False)
+                self.sumExecutor = None
+            QMessageBox.information(self, "Sum Images",
+                                    "All groups have every image ignored — nothing to sum.")
+            return
+
+        self.progressBar.setMaximum(jobs_submitted)
+        self.progressBar.setMinimum(0)
+        self.progressBar.setValue(0)
+        self.progressBar.setVisible(True)
+        self.sum_images_btn.setEnabled(False)
+        op = "Averaging" if do_average else "Summing"
+        self.statusLabel.setText(f"{op} images: 0/{jobs_submitted} groups...")
+        print(f"Sum batch started: {jobs_submitted} group(s) submitted")
+
+    def _on_sum_future_done(self, future):
+        QTimer.singleShot(0, self, lambda f=future: self._on_sum_batch_result(f))
+
+    def _on_sum_batch_result(self, future):
+        try:
+            try:
+                result = future.result()
+                error = result.get('error')
+            except Exception as fut_exc:
+                error = str(fut_exc)
+                result = {'group_num': None, 'output_path': None,
+                          'n_images': 0, 'error': error}
+
+            task = self.sumTaskManager.complete_task(future, result, error)
+            if task is None:
+                return
+
+            if error:
+                print(f"Sum error for group {result.get('group_num')}: {error}")
+            else:
+                print(f"Group {result['group_num']}: {result['n_images']} image(s) "
+                      f"→ {result['output_path']}")
+
+            stats = self.sumTaskManager.get_statistics()
+            done = stats['completed'] + stats['failed']
+            self.progressBar.setValue(done)
+            op = "Averaging" if self.avg_instead_of_sum_chk.isChecked() else "Summing"
+            self.statusLabel.setText(f"{op} images: {done}/{stats['total']} groups...")
+
+            if stats['pending'] == 0:
+                self._on_sum_batch_complete()
+
+        except Exception as e:
+            print(f"Sum batch result callback error: {e}")
+            traceback.print_exc()
+
+    def _on_sum_batch_complete(self):
+        stats = self.sumTaskManager.get_statistics()
+
+        if self.sumExecutor:
+            self.sumExecutor.shutdown(wait=False)
+            self.sumExecutor = None
+
+        self._in_sum_batch = False
+        self.progressBar.setVisible(False)
+        self.sum_images_btn.setEnabled(True)
+
+        op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"
+        msg = (f"{op} complete: {stats['completed']}/{stats['total']} group(s) saved, "
+               f"{stats['failed']} failed, avg {stats['avg_time']:.2f}s/group")
         self.statusLabel.setText(msg)
         print(msg)
 
