@@ -1099,7 +1099,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._current_rotation = rotation
         if image_data is not None:
             self.workspace.update_display(image_data)
-            display_img = np.copy(image_data.img)
+            display_img = image_data.get_working_image()
             if center is not None and rotation is not None and rotation != 0:
                 display_img = rotateImageAboutPoint(display_img, center, rotation)
             if 0 <= row < len(self.img_list):
