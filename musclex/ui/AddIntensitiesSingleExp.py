@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
-    QSizePolicy, QMenu, QRadioButton, QSpinBox, QWidget, QSplitter,
+    QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar,
     QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem,
 )
@@ -189,6 +189,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.diffExecutor = None
         self._in_diff_batch = False
 
+        # Threshold highlighting
+        self._dist_threshold_enabled = False
+        self._dist_threshold = 5.0
+        self._dev_threshold_enabled = False
+        self._dev_threshold = 2.0
+
         self._build_ui()
         self.resize(1400, 800)
         self.show()
@@ -285,6 +291,47 @@ class AddIntensitiesSingleExp(QMainWindow):
         detection_row.addWidget(self.calc_diff_btn)
         detection_row.addStretch()
         misaligned_detection_layout.addLayout(detection_row)
+
+        # Row 3: Distance threshold
+        dist_thresh_row = QHBoxLayout()
+        dist_thresh_row.setSpacing(6)
+        self._dist_thresh_chk = QCheckBox("Distance threshold:")
+        self._dist_thresh_chk.setChecked(False)
+        dist_thresh_row.addWidget(self._dist_thresh_chk)
+        self._dist_thresh_spin = QDoubleSpinBox()
+        self._dist_thresh_spin.setRange(0.0, 10000.0)
+        self._dist_thresh_spin.setDecimals(2)
+        self._dist_thresh_spin.setSingleStep(0.5)
+        self._dist_thresh_spin.setValue(self._dist_threshold)
+        self._dist_thresh_spin.setSuffix(" px")
+        self._dist_thresh_spin.setEnabled(False)
+        self._dist_thresh_spin.setFixedWidth(100)
+        dist_thresh_row.addWidget(self._dist_thresh_spin)
+        dist_thresh_row.addStretch()
+        misaligned_detection_layout.addLayout(dist_thresh_row)
+
+        # Row 4: Deviation threshold
+        dev_thresh_row = QHBoxLayout()
+        dev_thresh_row.setSpacing(6)
+        self._dev_thresh_chk = QCheckBox("Deviation threshold:")
+        self._dev_thresh_chk.setChecked(False)
+        dev_thresh_row.addWidget(self._dev_thresh_chk)
+        self._dev_thresh_spin = QDoubleSpinBox()
+        self._dev_thresh_spin.setRange(0.0, 360.0)
+        self._dev_thresh_spin.setDecimals(2)
+        self._dev_thresh_spin.setSingleStep(0.5)
+        self._dev_thresh_spin.setValue(self._dev_threshold)
+        self._dev_thresh_spin.setSuffix(" °")
+        self._dev_thresh_spin.setEnabled(False)
+        self._dev_thresh_spin.setFixedWidth(100)
+        dev_thresh_row.addWidget(self._dev_thresh_spin)
+        dev_thresh_row.addStretch()
+        misaligned_detection_layout.addLayout(dev_thresh_row)
+
+        self._dist_thresh_chk.toggled.connect(self._on_dist_threshold_toggled)
+        self._dist_thresh_spin.valueChanged.connect(self._on_dist_threshold_changed)
+        self._dev_thresh_chk.toggled.connect(self._on_dev_threshold_toggled)
+        self._dev_thresh_spin.valueChanged.connect(self._on_dev_threshold_changed)
 
         right_container_layout.addWidget(self.misaligned_detection_group)
 
@@ -548,8 +595,11 @@ class AddIntensitiesSingleExp(QMainWindow):
                 dx = img_center[0] - base_center[0]
                 dy = img_center[1] - base_center[1]
                 dist = math.hypot(dx, dy)
-                self.table.setItem(row, self.COL_CENTER_DIST,
-                                   QTableWidgetItem(f"{dist:.2f}"))
+                item = QTableWidgetItem(f"{dist:.2f}")
+                if self._dist_threshold_enabled and dist > self._dist_threshold:
+                    item.setBackground(QBrush(QColor(255, 100, 100)))
+                    item.setForeground(QBrush(QColor(255, 255, 255)))
+                self.table.setItem(row, self.COL_CENTER_DIST, item)
             else:
                 self.table.setItem(row, self.COL_CENTER_DIST, QTableWidgetItem(""))
         else:
@@ -560,8 +610,11 @@ class AddIntensitiesSingleExp(QMainWindow):
             img_rotation = self._get_effective_rotation(name)
             if img_rotation is not None:
                 deviation = img_rotation - base_rotation
-                self.table.setItem(row, self.COL_DEVIATION,
-                                   QTableWidgetItem(f"{deviation:.2f}°"))
+                item = QTableWidgetItem(f"{deviation:.2f}°")
+                if self._dev_threshold_enabled and abs(deviation) > self._dev_threshold:
+                    item.setBackground(QBrush(QColor(255, 100, 100)))
+                    item.setForeground(QBrush(QColor(255, 255, 255)))
+                self.table.setItem(row, self.COL_DEVIATION, item)
             else:
                 self.table.setItem(row, self.COL_DEVIATION, QTableWidgetItem(""))
         else:
@@ -981,6 +1034,64 @@ class AddIntensitiesSingleExp(QMainWindow):
         except Exception as e:
             print(f"Failed to create process pool: {e}")
             self.processExecutor = None
+
+    # ------------------------------------------------------------------
+    # Threshold highlighting
+    # ------------------------------------------------------------------
+
+    def _on_dist_threshold_toggled(self, checked):
+        self._dist_thresh_spin.setEnabled(checked)
+        self._dist_threshold_enabled = checked
+        self._apply_threshold_highlighting()
+
+    def _on_dist_threshold_changed(self, value):
+        self._dist_threshold = value
+        if self._dist_threshold_enabled:
+            self._apply_threshold_highlighting()
+
+    def _on_dev_threshold_toggled(self, checked):
+        self._dev_thresh_spin.setEnabled(checked)
+        self._dev_threshold_enabled = checked
+        self._apply_threshold_highlighting()
+
+    def _on_dev_threshold_changed(self, value):
+        self._dev_threshold = value
+        if self._dev_threshold_enabled:
+            self._apply_threshold_highlighting()
+
+    def _apply_threshold_highlighting(self):
+        """Re-apply (or clear) red highlighting for distance and deviation columns."""
+        _red_bg = QBrush(QColor(255, 100, 100))
+        _red_fg = QBrush(QColor(255, 255, 255))
+
+        for row in range(self.table.rowCount()):
+            # --- distance ---
+            dist_item = self.table.item(row, self.COL_CENTER_DIST)
+            if dist_item and dist_item.text():
+                try:
+                    val = float(dist_item.text())
+                    if self._dist_threshold_enabled and val > self._dist_threshold:
+                        dist_item.setBackground(_red_bg)
+                        dist_item.setForeground(_red_fg)
+                    else:
+                        dist_item.setData(Qt.BackgroundRole, None)
+                        dist_item.setData(Qt.ForegroundRole, None)
+                except ValueError:
+                    pass
+
+            # --- deviation ---
+            dev_item = self.table.item(row, self.COL_DEVIATION)
+            if dev_item and dev_item.text():
+                try:
+                    val = abs(float(dev_item.text().rstrip("°")))
+                    if self._dev_threshold_enabled and val > self._dev_threshold:
+                        dev_item.setBackground(_red_bg)
+                        dev_item.setForeground(_red_fg)
+                    else:
+                        dev_item.setData(Qt.BackgroundRole, None)
+                        dev_item.setData(Qt.ForegroundRole, None)
+                except ValueError:
+                    pass
 
     def _on_detection_btn_toggled(self, checked):
         """Handle the Start Detection / Stop toggle button."""
