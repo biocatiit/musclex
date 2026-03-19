@@ -172,7 +172,8 @@ def _sum_group_worker(args):
             _fabio.tifimage.tifimage(data=result).write(output_path)
 
         return {'group_num': group_num, 'output_path': output_path,
-                'n_images': len(images), 'error': None}
+                'n_images': len(images), 'total_intensity': float(_np.sum(result)),
+                'error': None}
     except Exception as e:
         traceback.print_exc()
         return {'group_num': group_num, 'output_path': None,
@@ -280,6 +281,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sumTaskManager = ProcessingTaskManager()
         self.sumExecutor = None
         self._in_sum_batch = False
+        self._sum_csv_rows = []
+        self._sum_nonmasked_pixels = 0
+        self._sum_blank_weight = 1.0
 
         # Threshold highlighting
         self._dist_threshold_enabled = False
@@ -1686,9 +1690,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         apply_blank = blank_mask_config['apply_blank']
         blank_weight = blank_mask_config['blank_weight']
         blank_img = None
+        mask_for_csv = None
+        from musclex.utils.file_manager import getBlankImageAndMask
         if apply_blank:
-            from musclex.utils.file_manager import getBlankImageAndMask
-            blank_img, _, _ = getBlankImageAndMask(dir_path, return_weight=True)
+            blank_img, mask_for_csv, _ = getBlankImageAndMask(dir_path, return_weight=True)
+        else:
+            _, mask_for_csv, _ = getBlankImageAndMask(dir_path, return_weight=True)
+
+        self._sum_blank_weight = blank_weight if apply_blank else 0.0
+        self._sum_nonmasked_pixels = (
+            int(np.sum(mask_for_csv == 1)) if mask_for_csv is not None else 0
+        )
+        self._sum_csv_rows = []
 
         # Transform base
         sm = self.workspace.settings_manager
@@ -1803,6 +1816,22 @@ class AddIntensitiesSingleExp(QMainWindow):
             else:
                 print(f"Group {result['group_num']}: {result['n_images']} image(s) "
                       f"→ {result['output_path']}")
+                from datetime import datetime as _dt
+                total_intensity = result.get('total_intensity', 0.0)
+                nonmasked = self._sum_nonmasked_pixels
+                avg_mask = (total_intensity / nonmasked) if nonmasked > 0 else 0.0
+                self._sum_csv_rows.append([
+                    os.path.basename(result['output_path']),
+                    _dt.now().strftime("%m/%d/%Y %H:%M:%S"),
+                    total_intensity,       # Original Image Intensity (Total)
+                    total_intensity,       # Masked Image Intensity (Total)
+                    nonmasked,             # Number of Pixels Not Masked
+                    avg_mask,              # Masked Image Intensity (Average)
+                    self._sum_blank_weight,
+                    result['n_images'],    # Binning Factor
+                    False,                 # Drawn Mask (matches old code default)
+                    False,                 # Computed Mask (matches old code default)
+                ])
 
             stats = self.sumTaskManager.get_statistics()
             done = stats['completed'] + stats['failed']
@@ -1816,6 +1845,30 @@ class AddIntensitiesSingleExp(QMainWindow):
         except Exception as e:
             print(f"Sum batch result callback error: {e}")
             traceback.print_exc()
+
+    def _write_sum_csv(self, output_dir):
+        """Write accumulated CSV statistics to aise_results/intensities.csv."""
+        if not self._sum_csv_rows:
+            return
+        import csv as _csv
+        csv_path = os.path.join(output_dir, 'intensities.csv')
+        write_header = not os.path.exists(csv_path)
+        with open(csv_path, 'a', newline='') as f:
+            writer = _csv.writer(f)
+            if write_header:
+                writer.writerow([
+                    'Filename', 'Date',
+                    'Original Image Intensity (Total)',
+                    'Masked Image Intensity (Total)',
+                    'Number of Pixels Not Masked',
+                    'Masked Image Intensity (Average)',
+                    'Blank Image Weight', 'Binning Factor',
+                    'Drawn Mask', 'Computed Mask',
+                ])
+            for row in self._sum_csv_rows:
+                writer.writerow(row)
+        print(f"CSV written: {csv_path} ({len(self._sum_csv_rows)} rows)")
+        self._sum_csv_rows = []
 
     def _on_sum_batch_complete(self, stopped=False):
         stats = self.sumTaskManager.get_statistics()
@@ -1832,6 +1885,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sum_images_btn.setChecked(False)
         self.sum_images_btn.setText("Sum Images")
         self.sum_images_btn.blockSignals(False)
+
+        fm = self.workspace.navigator.file_manager
+        if fm is not None and self._sum_csv_rows:
+            output_dir = os.path.join(str(fm.dir_path), "aise_results")
+            self._write_sum_csv(output_dir)
 
         op = "Average" if self.avg_instead_of_sum_chk.isChecked() else "Sum"
         if stopped:
