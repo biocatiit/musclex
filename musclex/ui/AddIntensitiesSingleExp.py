@@ -210,19 +210,21 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_FRAME = 1
     COL_CENTER = 2
     COL_CENTER_MODE = 3
-    COL_CENTER_DIST = 4
-    COL_ROTATION = 5
-    COL_ROTATION_MODE = 6
-    COL_DEVIATION = 7
-    COL_SIZE = 8
-    COL_TRANSFORM = 9
-    COL_IMAGE_DIFF = 10
+    COL_AUTO_CENTER = 4
+    COL_CENTER_DIST = 5
+    COL_ROTATION = 6
+    COL_ROTATION_MODE = 7
+    COL_DEVIATION = 8
+    COL_SIZE = 9
+    COL_TRANSFORM = 10
+    COL_IMAGE_DIFF = 11
 
     HEADERS = [
         "Group",
         "Frame",
         "Original Center",
         "Center Mode",
+        "Auto Center",
         "distance",
         "Rotation",
         "Rotation Mode",
@@ -630,6 +632,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         if row < 0 or row >= self.table.rowCount():
             return
         self._fill_center_columns(row, name)
+        self._fill_auto_center_column(row, name)
         self._fill_rotation_columns(row, name)
         self._fill_distance_deviation(row, name)
         self._fill_size_column(row, name)
@@ -665,6 +668,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         else:
             self.table.setItem(row, self.COL_CENTER, QTableWidgetItem(""))
             self.table.setItem(row, self.COL_CENTER_MODE, QTableWidgetItem(""))
+
+    def _fill_auto_center_column(self, row, name):
+        """Fill COL_AUTO_CENTER with the raw auto-detected center (before any manual override)."""
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        auto = sm.get_auto_center(name) or sm.get_auto_center(base)
+        if auto is not None:
+            cx, cy = auto
+            self.table.setItem(row, self.COL_AUTO_CENTER,
+                               QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
+        else:
+            self.table.setItem(row, self.COL_AUTO_CENTER, QTableWidgetItem(""))
 
     def _fill_rotation_columns(self, row, name):
         """Fill COL_ROTATION and COL_ROTATION_MODE from workspace settings manager."""
