@@ -210,22 +210,24 @@ class AddIntensitiesSingleExp(QMainWindow):
     COL_FRAME = 1
     COL_CENTER = 2
     COL_CENTER_MODE = 3
-    COL_AUTO_CENTER = 4
-    COL_CENTER_DIST = 5
-    COL_ROTATION = 6
-    COL_ROTATION_MODE = 7
-    COL_DEVIATION = 8
-    COL_SIZE = 9
-    COL_TRANSFORM = 10
-    COL_IMAGE_DIFF = 11
+    COL_CENTER_DIST = 4
+    COL_AUTO_CENTER = 5
+    COL_AUTO_MANUAL_DIST = 6
+    COL_ROTATION = 7
+    COL_ROTATION_MODE = 8
+    COL_DEVIATION = 9
+    COL_SIZE = 10
+    COL_TRANSFORM = 11
+    COL_IMAGE_DIFF = 12
 
     HEADERS = [
         "Group",
         "Frame",
         "Original Center",
         "Center Mode",
-        "Auto Center",
         "distance",
+        "Auto Center",
+        "Auto-Manual Distance",
         "Rotation",
         "Rotation Mode",
         "Deviation",
@@ -633,6 +635,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             return
         self._fill_center_columns(row, name)
         self._fill_auto_center_column(row, name)
+        self._fill_auto_manual_dist_column(row, name)
         self._fill_rotation_columns(row, name)
         self._fill_distance_deviation(row, name)
         self._fill_size_column(row, name)
@@ -680,6 +683,24 @@ class AddIntensitiesSingleExp(QMainWindow):
                                QTableWidgetItem(f"({cx:.1f}, {cy:.1f})"))
         else:
             self.table.setItem(row, self.COL_AUTO_CENTER, QTableWidgetItem(""))
+
+    def _fill_auto_manual_dist_column(self, row, name):
+        """Fill COL_AUTO_MANUAL_DIST with the distance between auto center and manual center.
+        Left empty when either value is unavailable."""
+        import math
+        sm = self.workspace.settings_manager
+        base = os.path.basename(name)
+        auto = sm.get_auto_center(name) or sm.get_auto_center(base)
+        manual_key = base if sm.has_manual_center(base) else name
+        manual = sm.get_center(manual_key)
+        if auto is not None and manual is not None:
+            dx = auto[0] - manual[0]
+            dy = auto[1] - manual[1]
+            dist = math.hypot(dx, dy)
+            self.table.setItem(row, self.COL_AUTO_MANUAL_DIST,
+                               QTableWidgetItem(f"{dist:.2f}"))
+        else:
+            self.table.setItem(row, self.COL_AUTO_MANUAL_DIST, QTableWidgetItem(""))
 
     def _fill_rotation_columns(self, row, name):
         """Fill COL_ROTATION and COL_ROTATION_MODE from workspace settings manager."""
