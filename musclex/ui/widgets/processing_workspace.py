@@ -101,6 +101,7 @@ class ProcessingWorkspace(QWidget):
     scanProgressChanged = Signal(int, int)  # Forwarded from navigator
     needsReprocess = Signal()  # Settings changed, need to reprocess
     statusTextRequested = Signal(str)  # Request GUI to update status bar text
+    batchSettingsChanged = Signal()  # Emitted after batch apply/restore of center or rotation
     
     def __init__(self, settings_dir: str, coord_transform_func=None, get_display_center_func=None):
         """
@@ -1016,6 +1017,15 @@ class ProcessingWorkspace(QWidget):
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
+        
+        # If current image is in scope, trigger reprocess
+        if current_idx in indices:
+            if self._current_image_data:
+                self._current_image_data.update_manual_center(center)
+            self._center_widget.update_mode_indicator(is_manual=True)
+            self.needsReprocess.emit()
+        
+        self.batchSettingsChanged.emit()
     
     def restore_auto_center_for_batch(self, scope: str):
         """
@@ -1062,6 +1072,8 @@ class ProcessingWorkspace(QWidget):
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
+        
+        self.batchSettingsChanged.emit()
     
     def apply_rotation_to_batch(self, rotation: float, scope: str):
         """
@@ -1099,6 +1111,15 @@ class ProcessingWorkspace(QWidget):
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
+        
+        # If current image is in scope, trigger reprocess
+        if current_idx in indices:
+            if self._current_image_data:
+                self._current_image_data.update_manual_rotation(rotation)
+            self._rotation_widget.update_mode_indicator(is_manual=True)
+            self.needsReprocess.emit()
+        
+        self.batchSettingsChanged.emit()
     
     def restore_auto_rotation_for_batch(self, scope: str):
         """
@@ -1145,6 +1166,8 @@ class ProcessingWorkspace(QWidget):
         
         # Update statistics display
         self.update_mode_statistics(len(file_list))
+        
+        self.batchSettingsChanged.emit()
     
     def set_settings_dir(self, new_settings_dir: str):
         """

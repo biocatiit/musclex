@@ -353,6 +353,7 @@ class AddIntensitiesSingleExp(QMainWindow):
             lambda: self._on_image_data_ready(self.workspace._current_image_data)
             if self.workspace._current_image_data is not None else None
         )
+        self.workspace.batchSettingsChanged.connect(self._update_table_data)
         # Right panel container (global settings group box + scrollable panel)
         right_container = QWidget()
         right_container_layout = QVBoxLayout(right_container)
