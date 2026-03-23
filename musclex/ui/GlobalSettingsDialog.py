@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib.patches as mpatches
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -12,6 +13,7 @@ from musclex.ui.tools.chords_center_tool import ChordsCenterTool
 from musclex.ui.tools.perpendiculars_center_tool import PerpendicularsCenterTool
 from musclex.ui.tools.rotation_tool import RotationTool
 from musclex.ui.tools.center_rotate_tool import CenterRotateTool
+from musclex.utils.image_processor import rotateImageAboutPoint
 
 
 class GlobalSettingsDialog(QDialog):
@@ -38,7 +40,12 @@ class GlobalSettingsDialog(QDialog):
         self._register_tools()
         self._connect_signals()
 
-        self.viewer.display_image(image_data.img)
+        display_img = np.copy(image_data.img)
+        center = self._pending_center
+        rotation = self._pending_rotation
+        if center is not None and rotation is not None and rotation != 0:
+            display_img = rotateImageAboutPoint(display_img, center, rotation)
+        self.viewer.display_image(display_img)
         self._update_labels()
         self._redraw_overlays()
         self.resize(1000, 700)
