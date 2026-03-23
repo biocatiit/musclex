@@ -157,6 +157,7 @@ class GlobalSettingsDialog(QDialog):
             self._pending_rotation_source = 'center_rotate'
             self._center_widget.setCenterRotationButton.setChecked(False)
         self._update_labels()
+        self._refresh_display()
         self._redraw_overlays()
 
     # ----------------------------------------------------------------
@@ -180,6 +181,7 @@ class GlobalSettingsDialog(QDialog):
                 self._pending_center = tuple(cal_settings['center'])
                 self._pending_center_source = 'calibration'
                 self._update_labels()
+                self._refresh_display()
                 self._redraw_overlays()
 
     def _on_set_center_manually(self):
@@ -197,6 +199,7 @@ class GlobalSettingsDialog(QDialog):
             self._pending_center = dlg.center
             self._pending_center_source = 'SetCentDialog'
             self._update_labels()
+            self._refresh_display()
             self._redraw_overlays()
 
     def _on_set_angle_manually(self):
@@ -216,6 +219,8 @@ class GlobalSettingsDialog(QDialog):
             self._pending_rotation = (self._pending_rotation or 0.0) + dlg.get_angle()
             self._pending_rotation_source = 'SetAngleDialog'
             self._update_labels()
+            self._refresh_display()
+            self._redraw_overlays()
 
     # ----------------------------------------------------------------
     # Helpers
@@ -234,6 +239,15 @@ class GlobalSettingsDialog(QDialog):
         if self._pending_rotation is not None:
             self._rotation_widget.update_rotation_display(self._pending_rotation)
             self._rotation_widget.update_mode_indicator(is_manual=True)
+
+    def _refresh_display(self):
+        """Re-render the image with the current pending center/rotation applied."""
+        display_img = np.copy(self._image_data.img)
+        center = self._pending_center
+        rotation = self._pending_rotation
+        if center is not None and rotation is not None and rotation != 0:
+            display_img = rotateImageAboutPoint(display_img, center, rotation)
+        self.viewer.display_image(display_img)
 
     def _redraw_overlays(self):
         ax = self.viewer.axes
