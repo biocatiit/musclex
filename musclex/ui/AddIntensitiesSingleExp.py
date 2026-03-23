@@ -75,7 +75,13 @@ def _compute_image_diff(args):
 
 
 def _compute_geometry(args):
-    """Top-level function for subprocess: load image, compute center and rotation."""
+    """Top-level function for subprocess: load image, compute center and rotation.
+
+    manual_center / manual_rotation are intentionally NOT passed to ImageData so
+    that the auto-detection always runs on the raw image.  The caller stores the
+    result in the auto-geometry cache; the manual values are applied separately
+    when the effective (final) center/rotation is needed.
+    """
     dir_path, img_name, loader_spec, manual_center, manual_rotation, orientation_model = args
     try:
         from musclex.utils.file_manager import load_image_via_spec
@@ -84,7 +90,7 @@ def _compute_geometry(args):
         img = load_image_via_spec(dir_path, img_name, loader_spec)
         image_data = ImageData(
             img=img, img_path=dir_path, img_name=img_name,
-            center=manual_center, rotation=manual_rotation,
+            center=None, rotation=None,
             orientation_model=orientation_model,
         )
         return {
@@ -676,7 +682,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         """Fill COL_AUTO_CENTER with the raw auto-detected center (before any manual override)."""
         sm = self.workspace.settings_manager
         base = os.path.basename(name)
-        auto = sm.get_auto_center(name) or sm.get_auto_center(base)
+        auto = sm.get_auto_center(base) or sm.get_auto_center(name)
         if auto is not None:
             cx, cy = auto
             self.table.setItem(row, self.COL_AUTO_CENTER,
@@ -690,7 +696,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         import math
         sm = self.workspace.settings_manager
         base = os.path.basename(name)
-        auto = sm.get_auto_center(name) or sm.get_auto_center(base)
+        auto = sm.get_auto_center(base) or sm.get_auto_center(name)
         manual_key = base if sm.has_manual_center(base) else name
         manual = sm.get_center(manual_key)
         if auto is not None and manual is not None:
