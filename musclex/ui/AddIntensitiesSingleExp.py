@@ -372,6 +372,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         right_container_layout.setContentsMargins(0, 0, 0, 0)
         right_container_layout.setSpacing(4)
 
+        # Image viewer in a container (allows reparenting to dialog)
+        self.image_viewer = self.workspace.navigator.image_viewer
+        self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.image_viewer.setMinimumHeight(200)
+        self._viewer_container = QWidget()
+        self._viewer_container_layout = QVBoxLayout(self._viewer_container)
+        self._viewer_container_layout.setContentsMargins(0, 0, 0, 0)
+        self._viewer_container_layout.addWidget(self.image_viewer)
+        right_container_layout.addWidget(self._viewer_container, 0)
+
         # Misaligned Detection group box
         self.misaligned_detection_group = CollapsibleGroupBox("Misaligned Detection")
         misaligned_detection_layout = QVBoxLayout()
@@ -454,17 +464,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._dev_thresh_spin.valueChanged.connect(self._on_dev_threshold_changed)
 
         self.misaligned_detection_group.set_content_layout(misaligned_detection_layout)
-        right_container_layout.addWidget(self.misaligned_detection_group)
 
-        # Image viewer in a container (allows reparenting to dialog)
-        self.image_viewer = self.workspace.navigator.image_viewer
-        self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.image_viewer.setMinimumHeight(200)
-        self._viewer_container = QWidget()
-        self._viewer_container_layout = QVBoxLayout(self._viewer_container)
-        self._viewer_container_layout.setContentsMargins(0, 0, 0, 0)
-        self._viewer_container_layout.addWidget(self.image_viewer)
-        right_container_layout.addWidget(self._viewer_container, 0)
+
 
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
@@ -479,6 +480,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.setSpacing(6)
         self.right_panel.setWidget(self._right_panel_content)
         right_container_layout.addWidget(self.right_panel, 1)
+
+
 
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.addWidget(self._left_stack)
@@ -495,6 +498,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._movable_settings_layout.addWidget(self.workspace._blank_mask_widget)
         self._right_panel_layout.addWidget(self._movable_settings_container)
 
+        self._right_panel_layout.addWidget(self.misaligned_detection_group)
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
         self.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
