@@ -302,6 +302,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._dev_threshold = 2.0
         self._diff_percentile_threshold: float = None  # 80th pct of all diff values
 
+        self._cr_dialog = None
+
         self._build_ui()
         self.resize(1400, 800)
         self.show()
@@ -453,11 +455,15 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         right_container_layout.addWidget(self.misaligned_detection_group)
 
-        # Image viewer placed directly below the misaligned group box (outside scroll area)
+        # Image viewer in a container (allows reparenting to dialog)
         self.image_viewer = self.workspace.navigator.image_viewer
         self.image_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.image_viewer.setMinimumHeight(200)
-        right_container_layout.addWidget(self.image_viewer, 0)
+        self._viewer_container = QWidget()
+        self._viewer_container_layout = QVBoxLayout(self._viewer_container)
+        self._viewer_container_layout.setContentsMargins(0, 0, 0, 0)
+        self._viewer_container_layout.addWidget(self.image_viewer)
+        right_container_layout.addWidget(self._viewer_container, 0)
 
         # Right panel (plain scrollable panel)
         self.right_panel = QScrollArea()
@@ -481,10 +487,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.splitter.setSizes([900, 500])
         right_container.setMinimumWidth(400)
         root.addWidget(self.splitter)
-        self._right_panel_layout.addWidget(self.image_viewer.display_panel)
-        self._right_panel_layout.addWidget(self.workspace._center_widget)
-        self._right_panel_layout.addWidget(self.workspace._rotation_widget)
-        self._right_panel_layout.addWidget(self.workspace._blank_mask_widget)
+        self._movable_settings_container = QWidget()
+        self._movable_settings_layout = QVBoxLayout(self._movable_settings_container)
+        self._movable_settings_layout.setContentsMargins(0, 0, 0, 0)
+        self._movable_settings_layout.addWidget(self.image_viewer.display_panel)
+        self._movable_settings_layout.addWidget(self.workspace._blank_mask_widget)
+        self._right_panel_layout.addWidget(self._movable_settings_container)
 
         self.centerChkBx = QCheckBox("Center")
         self.centerChkBx.setChecked(False)
@@ -992,6 +1000,12 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
 
+        # Set Center and Rotation (single row only)
+        set_cr_act = None
+        if len(selected_rows) == 1:
+            set_cr_act = menu.addAction("Set Center and Rotation")
+            menu.addSeparator()
+
         # Group action (≥2 rows selected)
         group_act = None
         if len(selected_rows) >= 2:
@@ -1039,6 +1053,70 @@ class AddIntensitiesSingleExp(QMainWindow):
             else:
                 for r in selected_rows:
                     self._apply_ignore(r)
+        elif chosen == set_cr_act:
+            self._open_center_rotation_dialog(selected_rows[0])
+
+    # ------------------------------------------------------------------
+    # Center/Rotation dialog (reparent viewer + settings into popup)
+    # ------------------------------------------------------------------
+
+    def _open_center_rotation_dialog(self, row):
+        """Open a non-modal dialog with image viewer and center/rotation settings."""
+        if self._cr_dialog is not None and self._cr_dialog.isVisible():
+            self._cr_dialog.raise_()
+            return
+
+        if row != self.workspace.navigator.current_index:
+            self.workspace.navigator.switch_to_image_by_index(row)
+
+        from PySide6.QtWidgets import QDialog
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Set Center and Rotation")
+        dlg.setWindowFlags(
+            Qt.Window | Qt.WindowMinimizeButtonHint |
+            Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint |
+            Qt.WindowStaysOnTopHint
+        )
+        dlg.setAttribute(Qt.WA_DeleteOnClose, False)
+        self._cr_dialog = dlg
+
+        splitter = QSplitter(Qt.Horizontal, dlg)
+        outer = QHBoxLayout(dlg)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(splitter)
+
+        splitter.addWidget(self.image_viewer)
+
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setFixedWidth(500)
+        settings_content = QWidget()
+        settings_layout = QVBoxLayout(settings_content)
+        settings_layout.addWidget(self.image_viewer.display_panel)
+        settings_layout.addWidget(self.workspace._blank_mask_widget)
+        settings_layout.addWidget(self.workspace._center_widget)
+        settings_layout.addWidget(self.workspace._rotation_widget)
+        settings_layout.addStretch()
+        settings_scroll.setWidget(settings_content)
+        splitter.addWidget(settings_scroll)
+
+        splitter.setSizes([800, 500])
+        dlg.finished.connect(self._on_cr_dialog_closed)
+        dlg.resize(1300, 700)
+        dlg.show()
+
+    def _on_cr_dialog_closed(self):
+        """Reparent widgets back to main window when the dialog closes."""
+        self._viewer_container_layout.addWidget(self.image_viewer)
+
+        self._movable_settings_layout.addWidget(self.image_viewer.display_panel)
+        self._movable_settings_layout.addWidget(self.workspace._blank_mask_widget)
+
+        self.workspace._center_widget.setParent(None)
+        self.workspace._rotation_widget.setParent(None)
+
+        self._cr_dialog = None
 
     def _refresh_current_display(self):
         """Re-render the currently displayed image using cached geometry.
