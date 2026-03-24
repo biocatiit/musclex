@@ -14,7 +14,6 @@ from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
-from musclex.ui.GlobalSettingsDialog import GlobalSettingsDialog
 from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
 
@@ -388,21 +387,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         misaligned_detection_layout.setContentsMargins(8, 6, 8, 6)
         misaligned_detection_layout.setSpacing(4)
 
-        # Row 1: Global Settings button + live center/rotation readout
-        global_row = QHBoxLayout()
-        global_row.setSpacing(8)
-        self.global_settings_btn = QPushButton("Global Settings")
-        global_row.addWidget(self.global_settings_btn)
-        self._global_center_label = QLabel("Center: —")
-        self._global_center_label.setStyleSheet("font-size: 11px;")
-        global_row.addWidget(self._global_center_label)
-        self._global_rotation_label = QLabel("Rotation: —")
-        self._global_rotation_label.setStyleSheet("font-size: 11px;")
-        global_row.addWidget(self._global_rotation_label)
-        global_row.addStretch()
-        misaligned_detection_layout.addLayout(global_row)
-
-        # Row 2: Start Detection button + Calculate Image Difference button
+        # Row 1: Start Detection button + Calculate Image Difference button
         detection_row = QHBoxLayout()
         self.start_detection_btn = QPushButton("Start Detection")
         self.start_detection_btn.setCheckable(True)
@@ -546,44 +531,34 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.radio_bin_images.toggled.connect(self._on_bin_images_toggled)
         self.binning_spin.valueChanged.connect(self._on_binning_factor_changed)
 
-        self.global_settings_btn.clicked.connect(self._open_global_settings)
         self.start_detection_btn.toggled.connect(self._on_detection_btn_toggled)
         self.calc_diff_btn.clicked.connect(self._on_calc_diff_btn_clicked)
         self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
 
     # ------------------------------------------------------------------
-    # Global settings dialog
+    # Global base helpers
     # ------------------------------------------------------------------
-
-    def _open_global_settings(self):
-        image_data = self.workspace._current_image_data
-        if image_data is None:
-            return
-        dlg = GlobalSettingsDialog(self, self.workspace, image_data)
-        dlg.globalBaseChanged.connect(self._on_global_base_changed)
-        dlg.exec()
 
     def _on_global_base_changed(self):
         self._sync_global_settings_state()
         self._update_table_data()
 
     def _sync_global_settings_state(self):
-        """Read the saved global base and update _base_image_filename + UI labels."""
+        """Read the saved global base and update _base_image_filename."""
         base = self.workspace.settings_manager.get_global_base()
         self._base_image_filename = base.get('base_image')
 
-        center = base.get('center')
-        rotation = base.get('rotation')
+    def _get_base_center(self):
+        """Return the effective center of the global base image, or None."""
+        if not self._base_image_filename:
+            return None
+        return self._get_effective_center(self._base_image_filename)
 
-        if center is not None:
-            self._global_center_label.setText(f"Center: ({center[0]:.1f}, {center[1]:.1f})")
-        else:
-            self._global_center_label.setText("Center: —")
-
-        if rotation is not None:
-            self._global_rotation_label.setText(f"Rotation: {rotation:.2f}°")
-        else:
-            self._global_rotation_label.setText("Rotation: —")
+    def _get_base_rotation(self):
+        """Return the effective rotation of the global base image, or None."""
+        if not self._base_image_filename:
+            return None
+        return self._get_effective_rotation(self._base_image_filename)
 
     # ------------------------------------------------------------------
     # Folder loaded → switch to table view
@@ -763,9 +738,8 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _fill_distance_deviation(self, row, name):
         """Fill COL_CENTER_DIST and COL_DEVIATION relative to the global base."""
-        base_info = self.workspace.settings_manager.get_global_base()
-        base_center = base_info.get('center')
-        base_rotation = base_info.get('rotation')
+        base_center = self._get_base_center()
+        base_rotation = self._get_base_rotation()
 
         # --- distance ---
         if base_center:
@@ -1005,10 +979,12 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         selected_rows = sorted(set(idx.row() for idx in self.table.selectedIndexes()))
 
-        # Set Center and Rotation (single row only)
+        # Single-row actions
         set_cr_act = None
+        set_global_act = None
         if len(selected_rows) == 1:
             set_cr_act = menu.addAction("Set Center and Rotation")
+            set_global_act = menu.addAction("Set as Global")
             menu.addSeparator()
 
         # Group action (≥2 rows selected)
@@ -1060,6 +1036,13 @@ class AddIntensitiesSingleExp(QMainWindow):
                     self._apply_ignore(r)
         elif chosen == set_cr_act:
             self._open_center_rotation_dialog(selected_rows[0])
+        elif chosen == set_global_act:
+            row = selected_rows[0]
+            if row < len(self.img_list):
+                img_name = os.path.basename(self.img_list[row])
+                self.workspace.settings_manager.set_global_base(img_name)
+                self.workspace.settings_manager.save_global_base()
+                self._on_global_base_changed()
 
     # ------------------------------------------------------------------
     # Center/Rotation dialog (reparent viewer + settings into popup)
@@ -1302,8 +1285,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         base = os.path.basename(img_name)
         if not sm.has_transform(base):
             return img
-        base_info = sm.get_global_base()
-        base_center = base_info.get('center')
+        base_center = self._get_base_center()
         if base_center is None:
             return img
         tx = base_center[0] - center[0]
@@ -1631,9 +1613,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.calc_diff_btn.setEnabled(False)
 
         sm = self.workspace.settings_manager
-        base_info = sm.get_global_base()
-        base_center = base_info.get('center')
-        base_rotation = base_info.get('rotation')
+        base_center = self._get_base_center()
+        base_rotation = self._get_base_rotation()
         dir_path = str(fm.dir_path)
 
         for pair_idx, (idx_a, idx_b) in enumerate(
@@ -1841,9 +1822,9 @@ class AddIntensitiesSingleExp(QMainWindow):
 
         # Transform base
         sm = self.workspace.settings_manager
-        base_info = sm.get_global_base()
-        base_center = list(base_info['center']) if base_info.get('center') else None
-        base_rotation = base_info.get('rotation')
+        _bc = self._get_base_center()
+        base_center = list(_bc) if _bc else None
+        base_rotation = self._get_base_rotation()
 
         self._in_sum_batch = True
         self.sumTaskManager.clear()

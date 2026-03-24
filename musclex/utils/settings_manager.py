@@ -198,13 +198,8 @@ class SettingsManager:
         """Return the global base dict (may be empty)."""
         return self._global_base
 
-    def set_global_base(self, center, rotation, base_filename: str,
-                        center_source: str = '', rotation_source: str = ''):
+    def set_global_base(self, base_filename: str):
         self._global_base = {
-            'center': list(center) if center else None,
-            'center_source': center_source,
-            'rotation': rotation,
-            'rotation_source': rotation_source,
             'base_image': base_filename,
         }
 
