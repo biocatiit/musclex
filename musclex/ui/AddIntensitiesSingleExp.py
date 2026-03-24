@@ -7,13 +7,13 @@ from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel, QProgressBar,
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
-    QScrollArea, QFrame, QStackedWidget, QCheckBox, QGroupBox, QStatusBar,
+    QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
     QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem, QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
 from musclex import __version__
-from musclex.ui.widgets import ProcessingWorkspace
+from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
 from musclex.ui.GlobalSettingsDialog import GlobalSettingsDialog
 from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
@@ -373,8 +373,8 @@ class AddIntensitiesSingleExp(QMainWindow):
         right_container_layout.setSpacing(4)
 
         # Misaligned Detection group box
-        self.misaligned_detection_group = QGroupBox("Misaligned Detection")
-        misaligned_detection_layout = QVBoxLayout(self.misaligned_detection_group)
+        self.misaligned_detection_group = CollapsibleGroupBox("Misaligned Detection")
+        misaligned_detection_layout = QVBoxLayout()
         misaligned_detection_layout.setContentsMargins(8, 6, 8, 6)
         misaligned_detection_layout.setSpacing(4)
 
@@ -453,6 +453,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._dev_thresh_chk.toggled.connect(self._on_dev_threshold_toggled)
         self._dev_thresh_spin.valueChanged.connect(self._on_dev_threshold_changed)
 
+        self.misaligned_detection_group.set_content_layout(misaligned_detection_layout)
         right_container_layout.addWidget(self.misaligned_detection_group)
 
         # Image viewer in a container (allows reparenting to dialog)
