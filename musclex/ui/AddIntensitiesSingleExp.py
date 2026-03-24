@@ -548,6 +548,15 @@ class AddIntensitiesSingleExp(QMainWindow):
         base = self.workspace.settings_manager.get_global_base()
         self._base_image_filename = base.get('base_image')
 
+    def _auto_set_global_base_if_missing(self):
+        """If no global base is recorded yet, set the first image as the default."""
+        if self._base_image_filename or not self.img_list:
+            return
+        first_name = os.path.basename(self.img_list[0])
+        self.workspace.settings_manager.set_global_base(first_name)
+        self.workspace.settings_manager.save_global_base()
+        self._base_image_filename = first_name
+
     def _get_base_center(self):
         """Return the effective center of the global base image, or None."""
         if not self._base_image_filename:
@@ -572,6 +581,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._compute_most_common_size()
         self._compute_diff_percentile_threshold()
         self._sync_global_settings_state()
+        self._auto_set_global_base_if_missing()
         self._init_table()
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
