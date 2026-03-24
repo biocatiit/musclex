@@ -1099,6 +1099,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         settings_scroll.setWidget(settings_content)
         splitter.addWidget(settings_scroll)
 
+        _cs = self.image_viewer.canvas.size()
+        self._viewer_canvas_w_before = _cs.width()
+        self._viewer_canvas_h_before = _cs.height()
         splitter.setSizes([800, 500])
         dlg.finished.connect(self._on_cr_dialog_closed)
         dlg.resize(1300, 700)
@@ -1106,6 +1109,18 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _on_cr_dialog_closed(self):
         """Reparent widgets back to main window when the dialog closes."""
+        # Reset the figure's remembered size to pre-dialog dimensions so that
+        # FigureCanvas.sizeHint() reports the original small size.  Without this,
+        # sizeHint() returns the dialog's ~700 px height and Qt layout over-allocates
+        # vertical space, causing aspect='equal' letterboxing.
+        saved_w = getattr(self, '_viewer_canvas_w_before', 0)
+        saved_h = getattr(self, '_viewer_canvas_h_before', 0)
+        if saved_w > 0 and saved_h > 0:
+            dpi = self.image_viewer.figure.dpi
+            self.image_viewer.figure.set_size_inches(
+                saved_w / dpi, saved_h / dpi, forward=False
+            )
+
         self._viewer_container_layout.addWidget(self.image_viewer)
 
         self._movable_settings_layout.addWidget(self.image_viewer.display_panel)

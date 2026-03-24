@@ -111,6 +111,7 @@ class ImageViewerWidget(QWidget):
         self.figure = plt.figure()
         self.axes = self.figure.add_subplot(111)
         self.axes.set_aspect('equal', adjustable='box')
+        self.figure.subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.05)
         self.canvas = FigureCanvas(self.figure)
         
         # Built-in tool manager (publicly accessible)
