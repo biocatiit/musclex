@@ -635,9 +635,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._result_viewer = ImageViewerWidget(show_display_panel=True)
         self._result_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
+        # Right side: viewer on top, display_panel below (mirrors Origin layout)
+        right_area = QWidget()
+        right_layout = QVBoxLayout(right_area)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(4)
+        right_layout.addWidget(self._result_viewer, 1)
+        if self._result_viewer.display_panel is not None:
+            right_layout.addWidget(self._result_viewer.display_panel, 0)
+
         splitter.addWidget(self._result_table)
-        splitter.addWidget(self._result_viewer)
-        splitter.setSizes([400, 700])
+        splitter.addWidget(right_area)
+        splitter.setSizes([550, 550])
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
 
