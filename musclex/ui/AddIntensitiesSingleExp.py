@@ -485,15 +485,22 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._right_panel_layout.addWidget(self._movable_settings_container)
 
         self._right_panel_layout.addWidget(self.misaligned_detection_group)
-        self.centerChkBx = QCheckBox("Center")
+        self.centerChkBx = QCheckBox("Original Center")
         self.centerChkBx.setChecked(False)
-        self.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
         self.centerChkBx.stateChanged.connect(self._redraw_overlays)
 
-        self.baseCenterChkBx = QCheckBox("Base Center")
+        self.baseCenterChkBx = QCheckBox("Global Base Center")
         self.baseCenterChkBx.setChecked(False)
-        self.image_viewer.display_panel.add_to_top_slot(self.baseCenterChkBx)
         self.baseCenterChkBx.stateChanged.connect(self._redraw_overlays)
+
+        _center_row = QWidget()
+        _center_row_layout = QHBoxLayout(_center_row)
+        _center_row_layout.setContentsMargins(0, 0, 0, 0)
+        _center_row_layout.setSpacing(8)
+        _center_row_layout.addWidget(self.centerChkBx)
+        _center_row_layout.addWidget(self.baseCenterChkBx)
+        _center_row_layout.addStretch()
+        self.image_viewer.display_panel.add_to_top_slot(_center_row)
 
 
 
@@ -1000,7 +1007,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         set_global_act = None
         if len(selected_rows) == 1:
             set_cr_act = menu.addAction("Set Center and Rotation")
-            set_global_act = menu.addAction("Set as Global")
+            set_global_act = menu.addAction("Set as Global Base")
             menu.addSeparator()
 
         # Group action (≥2 rows selected)
