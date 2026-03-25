@@ -235,12 +235,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         "Center Mode",
         "distance",
         "Auto Center",
-        "Auto-Manual Distance",
+        "Auto-Manual\nDistance",
         "Rotation",
-        "Rotation Mode",
-        "Rotation Difference",
+        "Rotation\nMode",
+        "Rotation\nDifference",
         "Size",
-        "Image Difference",
+        "Image\nDifference",
     ]
 
     # Visual style for group cells
@@ -389,7 +389,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         right_container_layout.addWidget(self._viewer_container, 0)
 
         # Misaligned Detection group box
-        self.misaligned_detection_group = CollapsibleGroupBox("Misaligned Detection")
+        self.misaligned_detection_group = CollapsibleGroupBox("Detect Misaligned Images")
         misaligned_detection_layout = QVBoxLayout()
         misaligned_detection_layout.setContentsMargins(8, 6, 8, 6)
         misaligned_detection_layout.setSpacing(4)
