@@ -9,13 +9,16 @@ from PySide6.QtWidgets import (
     QSizePolicy, QMenu, QRadioButton, QSpinBox, QDoubleSpinBox, QWidget, QSplitter,
     QScrollArea, QFrame, QStackedWidget, QCheckBox, QStatusBar,
     QProgressDialog, QStyledItemDelegate, QStyleOptionViewItem, QMessageBox,
+    QTabBar,
 )
 from PySide6.QtCore import Qt, Signal, QRunnable, QObject, QThreadPool, QTimer
 from PySide6.QtGui import QColor, QBrush, QFont
 from musclex import __version__
 from musclex.ui.widgets import ProcessingWorkspace, CollapsibleGroupBox
+from musclex.ui.widgets.image_viewer_widget import ImageViewerWidget
 from musclex.utils.task_manager import ProcessingTaskManager
 from musclex.utils.image_processor import rotateImageAboutPoint
+from musclex.utils.file_manager import load_image_via_spec
 
 
 class _ElideMiddleDelegate(QStyledItemDelegate):
@@ -301,6 +304,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._sum_nonmasked_pixels = 0
         self._sum_blank_weight = 1.0
 
+        # Result tab state
+        self._result_entries: list = []
+        # Each entry: {'filename': str, 'n_images': int, 'total_intensity': float, 'date': str}
+        self._aise_results_dir: str = ""
+
         # Threshold highlighting
         self._dist_threshold_enabled = True
         self._dist_threshold = 5.0
@@ -494,7 +502,22 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([900, 500])
         right_container.setMinimumWidth(400)
-        root.addWidget(self.splitter)
+
+        # ── Tab bar ────────────────────────────────────────────────────────
+        self._tab_bar = QTabBar()
+        self._tab_bar.addTab("Origin")
+        self._tab_bar.addTab("Result")
+        self._tab_bar.setExpanding(False)
+        root.addWidget(self._tab_bar)
+
+        # Main stack: page 0 = splitter (Origin), page 1 = Result page
+        self._result_page = self._build_result_page()
+        self._main_stack = QStackedWidget()
+        self._main_stack.addWidget(self.splitter)      # page 0
+        self._main_stack.addWidget(self._result_page)  # page 1
+        root.addWidget(self._main_stack)
+
+        self._tab_bar.currentChanged.connect(self._on_main_tab_changed)
         self._movable_settings_container = QWidget()
         self._movable_settings_layout = QVBoxLayout(self._movable_settings_container)
         self._movable_settings_layout.setContentsMargins(0, 0, 0, 0)
@@ -587,6 +610,102 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.sum_images_btn.toggled.connect(self._on_sum_btn_toggled)
 
     # ------------------------------------------------------------------
+    # Result page construction
+    # ------------------------------------------------------------------
+
+    def _build_result_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        splitter = QSplitter(Qt.Horizontal)
+
+        self._result_table = QTableWidget()
+        self._result_table.setColumnCount(4)
+        self._result_table.setHorizontalHeaderLabels(
+            ["Filename", "N Images", "Total Intensity", "Date"])
+        self._result_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._result_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._result_table.setAlternatingRowColors(True)
+        self._result_table.verticalHeader().setDefaultSectionSize(22)
+        self._result_table.horizontalHeader().setStretchLastSection(True)
+        self._result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._result_table.itemSelectionChanged.connect(self._on_result_row_selected)
+
+        self._result_viewer = ImageViewerWidget(show_display_panel=True)
+        self._result_viewer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        splitter.addWidget(self._result_table)
+        splitter.addWidget(self._result_viewer)
+        splitter.setSizes([400, 700])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+
+        layout.addWidget(splitter)
+        return page
+
+    # ------------------------------------------------------------------
+    # Tab switching
+    # ------------------------------------------------------------------
+
+    def _on_main_tab_changed(self, index: int):
+        self._main_stack.setCurrentIndex(index)
+        if index == 1:
+            self._refresh_result_tab()
+
+    def _refresh_result_tab(self):
+        """Populate the result table from memory or CSV."""
+        if not self._result_entries and self._aise_results_dir:
+            csv_path = os.path.join(self._aise_results_dir, 'intensities.csv')
+            if os.path.exists(csv_path):
+                import csv as _csv
+                seen = {}
+                try:
+                    with open(csv_path, newline='') as f:
+                        for row in _csv.reader(f):
+                            if not row or row[0] == 'Filename':
+                                continue
+                            seen[row[0]] = {
+                                'filename': row[0],
+                                'date': row[1] if len(row) > 1 else '',
+                                'total_intensity': row[2] if len(row) > 2 else '',
+                                'n_images': row[7] if len(row) > 7 else '',
+                            }
+                    self._result_entries = list(seen.values())
+                except Exception as e:
+                    print(f"Could not read intensities.csv: {e}")
+
+        self._result_table.setRowCount(0)
+        for entry in self._result_entries:
+            row = self._result_table.rowCount()
+            self._result_table.insertRow(row)
+            self._result_table.setItem(row, 0, QTableWidgetItem(str(entry['filename'])))
+            self._result_table.setItem(row, 1, QTableWidgetItem(str(entry['n_images'])))
+            self._result_table.setItem(row, 2, QTableWidgetItem(str(entry['total_intensity'])))
+            self._result_table.setItem(row, 3, QTableWidgetItem(str(entry['date'])))
+
+        if self._result_table.rowCount() > 0:
+            self._result_table.selectRow(0)
+
+    def _on_result_row_selected(self):
+        """Load and display the selected result image."""
+        row = self._result_table.currentRow()
+        if row < 0 or row >= len(self._result_entries):
+            return
+        entry = self._result_entries[row]
+        if not self._aise_results_dir:
+            return
+        full_path = os.path.join(self._aise_results_dir, entry['filename'])
+        if not os.path.exists(full_path):
+            return
+        try:
+            img = load_image_via_spec(
+                self._aise_results_dir, entry['filename'], ("tiff", full_path))
+            self._result_viewer.display_image(img)
+        except Exception as e:
+            print(f"Could not load result image {entry['filename']}: {e}")
+
+    # ------------------------------------------------------------------
     # Global base helpers
     # ------------------------------------------------------------------
 
@@ -636,6 +755,9 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._init_table()
         self._sync_table_selection()
         self._left_stack.setCurrentIndex(1)
+        # Reset result state when a new folder is loaded
+        self._result_entries = []
+        self._aise_results_dir = os.path.join(str(dir_path), "aise_results")
 
     def _on_scan_complete(self):
         """Refresh the file list once the background scan finishes."""
@@ -2056,9 +2178,10 @@ class AddIntensitiesSingleExp(QMainWindow):
                 total_intensity = result.get('total_intensity', 0.0)
                 nonmasked = self._sum_nonmasked_pixels
                 avg_mask = (total_intensity / nonmasked) if nonmasked > 0 else 0.0
+                _timestamp = _dt.now().strftime("%m/%d/%Y %H:%M:%S")
                 self._sum_csv_rows.append([
                     os.path.basename(result['output_path']),
-                    _dt.now().strftime("%m/%d/%Y %H:%M:%S"),
+                    _timestamp,
                     total_intensity,       # Original Image Intensity (Total)
                     total_intensity,       # Masked Image Intensity (Total)
                     nonmasked,             # Number of Pixels Not Masked
@@ -2068,6 +2191,12 @@ class AddIntensitiesSingleExp(QMainWindow):
                     False,                 # Drawn Mask (matches old code default)
                     False,                 # Computed Mask (matches old code default)
                 ])
+                self._result_entries.append({
+                    'filename': os.path.basename(result['output_path']),
+                    'n_images': result['n_images'],
+                    'total_intensity': total_intensity,
+                    'date': _timestamp,
+                })
 
             stats = self.sumTaskManager.get_statistics()
             done = stats['completed'] + stats['failed']
