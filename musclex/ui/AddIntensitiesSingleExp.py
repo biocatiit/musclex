@@ -400,10 +400,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         detection_row = QHBoxLayout()
         self.start_detection_btn = QPushButton("Start Detection")
         self.start_detection_btn.setCheckable(True)
+        self.start_detection_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         detection_row.addWidget(self.start_detection_btn)
         self.calc_diff_btn = QPushButton("Calculate Image Difference")
+        self.calc_diff_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         detection_row.addWidget(self.calc_diff_btn)
-        detection_row.addStretch()
         misaligned_detection_layout.addLayout(detection_row)
 
         # Row 3: Auto-Manual distance threshold
@@ -1844,9 +1845,25 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _on_sum_btn_toggled(self, checked):
         if checked:
-            if not self._in_sum_batch:
-                self.sum_images_btn.setText("Stop")
-                self._on_sum_images_clicked()
+            if self._in_sum_batch:
+                return
+            # Validate preconditions before committing the toggle
+            if not self._groups:
+                QMessageBox.information(self, "Sum Images",
+                                        "No groups defined. Please create groups first.")
+                self.sum_images_btn.blockSignals(True)
+                self.sum_images_btn.setChecked(False)
+                self.sum_images_btn.blockSignals(False)
+                return
+            fm = self.workspace.navigator.file_manager
+            if fm is None or not fm.specs:
+                QMessageBox.warning(self, "Sum Images", "No folder loaded.")
+                self.sum_images_btn.blockSignals(True)
+                self.sum_images_btn.setChecked(False)
+                self.sum_images_btn.blockSignals(False)
+                return
+            self.sum_images_btn.setText("Stop")
+            self._on_sum_images_clicked()
         else:
             self._stop_sum()
 
