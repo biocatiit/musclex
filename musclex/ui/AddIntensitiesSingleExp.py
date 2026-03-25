@@ -302,11 +302,13 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._sum_blank_weight = 1.0
 
         # Threshold highlighting
-        self._dist_threshold_enabled = False
+        self._dist_threshold_enabled = True
         self._dist_threshold = 5.0
-        self._rot_diff_threshold_enabled = False
+        self._rot_diff_threshold_enabled = True
         self._rot_diff_threshold = 2.0
-        self._diff_percentile_threshold: float = None  # 80th pct of all diff values
+        self._diff_percentile_threshold: float = None  # 80th pct of all diff values (auto-computed)
+        self._diff_thresh_enabled = True
+        self._diff_thresh_value = 0.0
 
         self._cr_dialog = None
 
@@ -404,21 +406,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         detection_row.addStretch()
         misaligned_detection_layout.addLayout(detection_row)
 
-        # Row 2b: Auto diff threshold readout (80th percentile)
-        diff_thresh_row = QHBoxLayout()
-        diff_thresh_row.setSpacing(6)
-        diff_thresh_row.addWidget(QLabel("Image diff threshold (80th pct):"))
-        self._diff_thresh_label = QLabel("—")
-        self._diff_thresh_label.setStyleSheet("font-size: 11px; color: #555;")
-        diff_thresh_row.addWidget(self._diff_thresh_label)
-        diff_thresh_row.addStretch()
-        misaligned_detection_layout.addLayout(diff_thresh_row)
-
         # Row 3: Distance threshold
         dist_thresh_row = QHBoxLayout()
         dist_thresh_row.setSpacing(6)
         self._dist_thresh_chk = QCheckBox("Distance threshold:")
-        self._dist_thresh_chk.setChecked(False)
+        self._dist_thresh_chk.setChecked(True)
         dist_thresh_row.addWidget(self._dist_thresh_chk)
         self._dist_thresh_spin = QDoubleSpinBox()
         self._dist_thresh_spin.setRange(0.0, 10000.0)
@@ -426,7 +418,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._dist_thresh_spin.setSingleStep(0.5)
         self._dist_thresh_spin.setValue(self._dist_threshold)
         self._dist_thresh_spin.setSuffix(" px")
-        self._dist_thresh_spin.setEnabled(False)
+        self._dist_thresh_spin.setEnabled(True)
         self._dist_thresh_spin.setFixedWidth(100)
         dist_thresh_row.addWidget(self._dist_thresh_spin)
         dist_thresh_row.addStretch()
@@ -436,7 +428,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         dev_thresh_row = QHBoxLayout()
         dev_thresh_row.setSpacing(6)
         self._rot_diff_thresh_chk = QCheckBox("Rotation Difference threshold:")
-        self._rot_diff_thresh_chk.setChecked(False)
+        self._rot_diff_thresh_chk.setChecked(True)
         dev_thresh_row.addWidget(self._rot_diff_thresh_chk)
         self._rot_diff_thresh_spin = QDoubleSpinBox()
         self._rot_diff_thresh_spin.setRange(0.0, 360.0)
@@ -444,16 +436,35 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._rot_diff_thresh_spin.setSingleStep(0.5)
         self._rot_diff_thresh_spin.setValue(self._rot_diff_threshold)
         self._rot_diff_thresh_spin.setSuffix(" °")
-        self._rot_diff_thresh_spin.setEnabled(False)
+        self._rot_diff_thresh_spin.setEnabled(True)
         self._rot_diff_thresh_spin.setFixedWidth(100)
         dev_thresh_row.addWidget(self._rot_diff_thresh_spin)
         dev_thresh_row.addStretch()
         misaligned_detection_layout.addLayout(dev_thresh_row)
 
+        # Row 5: Image diff threshold (80th pct, user-adjustable)
+        diff_thresh_row = QHBoxLayout()
+        diff_thresh_row.setSpacing(6)
+        self._diff_thresh_chk = QCheckBox("Image diff threshold (80th pct):")
+        self._diff_thresh_chk.setChecked(True)
+        diff_thresh_row.addWidget(self._diff_thresh_chk)
+        self._diff_thresh_spin = QDoubleSpinBox()
+        self._diff_thresh_spin.setRange(0.0, 1e9)
+        self._diff_thresh_spin.setDecimals(4)
+        self._diff_thresh_spin.setSingleStep(0.001)
+        self._diff_thresh_spin.setValue(self._diff_thresh_value)
+        self._diff_thresh_spin.setEnabled(True)
+        self._diff_thresh_spin.setFixedWidth(120)
+        diff_thresh_row.addWidget(self._diff_thresh_spin)
+        diff_thresh_row.addStretch()
+        misaligned_detection_layout.addLayout(diff_thresh_row)
+
         self._dist_thresh_chk.toggled.connect(self._on_dist_threshold_toggled)
         self._dist_thresh_spin.valueChanged.connect(self._on_dist_threshold_changed)
         self._rot_diff_thresh_chk.toggled.connect(self._on_rot_diff_threshold_toggled)
         self._rot_diff_thresh_spin.valueChanged.connect(self._on_rot_diff_threshold_changed)
+        self._diff_thresh_chk.toggled.connect(self._on_diff_thresh_toggled)
+        self._diff_thresh_spin.valueChanged.connect(self._on_diff_thresh_changed)
 
         self.misaligned_detection_group.set_content_layout(misaligned_detection_layout)
 
@@ -810,7 +821,7 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _compute_diff_percentile_threshold(self):
         """Compute the 80th-percentile of all cached diff values (mirrors old detectImages logic).
-        Updates self._diff_percentile_threshold and the UI label."""
+        Updates self._diff_percentile_threshold and syncs the spinbox to the computed value."""
         sm = self.workspace.settings_manager
         values = [
             sm.get_image_diff(os.path.basename(name))
@@ -819,10 +830,12 @@ class AddIntensitiesSingleExp(QMainWindow):
         values = [v for v in values if v is not None]
         if len(values) >= 2:
             self._diff_percentile_threshold = float(np.percentile(values, 80))
-            self._diff_thresh_label.setText(f"{self._diff_percentile_threshold:.4f}")
+            self._diff_thresh_spin.blockSignals(True)
+            self._diff_thresh_spin.setValue(self._diff_percentile_threshold)
+            self._diff_thresh_spin.blockSignals(False)
+            self._diff_thresh_value = self._diff_percentile_threshold
         else:
             self._diff_percentile_threshold = None
-            self._diff_thresh_label.setText("—")
 
     def _fill_size_column(self, row, name):
         """Fill COL_SIZE with cached image dimensions (WxH) if available.
@@ -837,14 +850,15 @@ class AddIntensitiesSingleExp(QMainWindow):
 
     def _fill_diff_column(self, row, name):
         """Fill COL_IMAGE_DIFF with the cached mean-abs-diff value (if available).
-        Cells whose value exceeds the 80th-percentile threshold are highlighted red."""
+        Cells whose value exceeds the user-controlled threshold are highlighted red."""
         sm = self.workspace.settings_manager
         val = sm.get_image_diff(os.path.basename(name))
         text = f"{val:.4f}" if val is not None else ""
         item = QTableWidgetItem(text)
         if (val is not None
-                and self._diff_percentile_threshold is not None
-                and val > self._diff_percentile_threshold):
+                and self._diff_thresh_enabled
+                and self._diff_thresh_value > 0
+                and val > self._diff_thresh_value):
             item.setBackground(QBrush(QColor(255, 100, 100)))
             item.setForeground(QBrush(QColor(255, 255, 255)))
         self.table.setItem(row, self.COL_IMAGE_DIFF, item)
@@ -1401,8 +1415,18 @@ class AddIntensitiesSingleExp(QMainWindow):
         if self._rot_diff_threshold_enabled:
             self._apply_threshold_highlighting()
 
+    def _on_diff_thresh_toggled(self, checked):
+        self._diff_thresh_spin.setEnabled(checked)
+        self._diff_thresh_enabled = checked
+        self._apply_threshold_highlighting()
+
+    def _on_diff_thresh_changed(self, value):
+        self._diff_thresh_value = value
+        if self._diff_thresh_enabled:
+            self._apply_threshold_highlighting()
+
     def _apply_threshold_highlighting(self):
-        """Re-apply (or clear) red highlighting for distance and rotation difference columns."""
+        """Re-apply (or clear) red highlighting for distance, rotation difference, and image diff columns."""
         _red_bg = QBrush(QColor(255, 100, 100))
         _red_fg = QBrush(QColor(255, 255, 255))
 
@@ -1432,6 +1456,20 @@ class AddIntensitiesSingleExp(QMainWindow):
                     else:
                         dev_item.setData(Qt.BackgroundRole, None)
                         dev_item.setData(Qt.ForegroundRole, None)
+                except ValueError:
+                    pass
+
+            # --- image diff ---
+            diff_item = self.table.item(row, self.COL_IMAGE_DIFF)
+            if diff_item and diff_item.text():
+                try:
+                    val = float(diff_item.text())
+                    if self._diff_thresh_enabled and self._diff_thresh_value > 0 and val > self._diff_thresh_value:
+                        diff_item.setBackground(_red_bg)
+                        diff_item.setForeground(_red_fg)
+                    else:
+                        diff_item.setData(Qt.BackgroundRole, None)
+                        diff_item.setData(Qt.ForegroundRole, None)
                 except ValueError:
                     pass
 
