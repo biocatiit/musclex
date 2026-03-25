@@ -524,13 +524,28 @@ class AddIntensitiesSingleExp(QMainWindow):
 
 
 
-        # Grouping mode selector
-        self.radio_manual = QRadioButton("Select Group Manually")
-        self.radio_manual.setChecked(True)
-        self._right_panel_layout.addWidget(self.radio_manual)
+        # Image Operations collapsible group
+        self._img_ops_group = CollapsibleGroupBox("Image Operations", start_expanded=True)
+        _img_ops_layout = QVBoxLayout()
+        _img_ops_layout.setSpacing(4)
+        _img_ops_layout.setContentsMargins(4, 4, 4, 4)
 
+        # Grouping mode selector
+        _grouping_label = QLabel("Grouping Mode:")
+        _grouping_label.setStyleSheet("font-weight: bold; color: gray;")
+        _img_ops_layout.addWidget(_grouping_label)
+
+        _grouping_row = QWidget()
+        _grouping_row_layout = QHBoxLayout(_grouping_row)
+        _grouping_row_layout.setContentsMargins(0, 0, 0, 0)
+        _grouping_row_layout.setSpacing(12)
+        self.radio_manual = QRadioButton("Select Group Graphically")
+        self.radio_manual.setChecked(True)
         self.radio_bin_images = QRadioButton("Bin Images")
-        self._right_panel_layout.addWidget(self.radio_bin_images)
+        _grouping_row_layout.addWidget(self.radio_manual)
+        _grouping_row_layout.addWidget(self.radio_bin_images)
+        _grouping_row_layout.addStretch()
+        _img_ops_layout.addWidget(_grouping_row)
 
         # Binning factor row (shown only when Bin Images is selected)
         self._binning_row = QWidget()
@@ -544,13 +559,16 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.binning_spin.setValue(2)
         binning_layout.addWidget(self.binning_spin)
         self._binning_row.setVisible(False)
-        self._right_panel_layout.addWidget(self._binning_row)
-        self._right_panel_layout.addStretch()
+        _img_ops_layout.addWidget(self._binning_row)
 
         self.avg_instead_of_sum_chk = QCheckBox("Compute Average Instead of Sum")
         self.compress_chk = QCheckBox("Compress the Resulting Images")
-        self._right_panel_layout.addWidget(self.avg_instead_of_sum_chk)
-        self._right_panel_layout.addWidget(self.compress_chk)
+        _img_ops_layout.addWidget(self.avg_instead_of_sum_chk)
+        _img_ops_layout.addWidget(self.compress_chk)
+
+        self._img_ops_group.setLayout(_img_ops_layout)
+        self._right_panel_layout.addWidget(self._img_ops_group)
+        self._right_panel_layout.addStretch()
 
         self.sum_images_btn = QPushButton("Sum Images")
         self.sum_images_btn.setCheckable(True)
