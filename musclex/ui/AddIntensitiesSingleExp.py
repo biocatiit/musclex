@@ -63,7 +63,15 @@ def _compute_image_diff(args):
         img_b = load_image_via_spec(dir_path, img_name_b, spec_b).astype(_np.float32)
         ta = _transform_img(img_a, center_a, rotation_a, base_center, base_rotation)
         tb = _transform_img(img_b, center_b, rotation_b, base_center, base_rotation)
-        diff = float(_np.mean(_np.abs(ta - tb)))
+        h, w = ta.shape[:2]
+        if base_center is not None:
+            cy, cx = base_center[1], base_center[0]
+        else:
+            cy, cx = h / 2.0, w / 2.0
+        ys, xs = _np.ogrid[:h, :w]
+        mask = (xs - cx) ** 2 + (ys - cy) ** 2 <= 100 ** 2
+        absdiff = _np.abs(ta - tb)
+        diff = float(_np.mean(absdiff[mask]) if mask.any() else _np.mean(absdiff))
         return {'pair_index': pair_index, 'diff': diff, 'error': None}
     except Exception as e:
         traceback.print_exc()
