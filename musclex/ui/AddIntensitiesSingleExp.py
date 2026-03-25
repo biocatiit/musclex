@@ -710,6 +710,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         try:
             img = load_image_via_spec(
                 self._aise_results_dir, entry['filename'], ("tiff", full_path))
+            # Mirror ImageNavigatorWidget behaviour: auto-scale intensity on new
+            # image unless "Persist intensities" is checked in the display panel.
+            if self._result_viewer.display_panel is not None:
+                self._result_viewer.display_panel.update_from_image(
+                    img, respect_persist=True)
             self._result_viewer.display_image(img)
         except Exception as e:
             print(f"Could not load result image {entry['filename']}: {e}")
