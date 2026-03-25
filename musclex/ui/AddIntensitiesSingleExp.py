@@ -256,6 +256,7 @@ class AddIntensitiesSingleExp(QMainWindow):
         self._current_center = None
         self._current_rotation = None
         self._base_image_filename = None
+        self._overlay_lines = []  # lines added by _redraw_overlays (global center crosshair)
         self._navigating_from_table = False  # guard against re-entrant navigation
 
         # Each entry: {'start': int, 'count': int, 'number': int}
@@ -488,6 +489,11 @@ class AddIntensitiesSingleExp(QMainWindow):
         self.centerChkBx.setChecked(False)
         self.image_viewer.display_panel.add_to_top_slot(self.centerChkBx)
         self.centerChkBx.stateChanged.connect(self._redraw_overlays)
+
+        self.baseCenterChkBx = QCheckBox("Base Center")
+        self.baseCenterChkBx.setChecked(False)
+        self.image_viewer.display_panel.add_to_top_slot(self.baseCenterChkBx)
+        self.baseCenterChkBx.stateChanged.connect(self._redraw_overlays)
 
 
 
@@ -1322,14 +1328,32 @@ class AddIntensitiesSingleExp(QMainWindow):
         return cv2.warpAffine(img, M, (w, h))
 
     def _redraw_overlays(self):
-        """Draw center circle if checkbox is checked; clear it otherwise."""
+        """Draw overlays: center circle and/or global center crosshair."""
         ax = self.image_viewer.axes
+
         for patch in list(ax.patches):
             patch.remove()
+        for line in self._overlay_lines:
+            try:
+                line.remove()
+            except ValueError:
+                pass
+        self._overlay_lines = []
+
         if self.centerChkBx.isChecked() and self._current_center is not None:
             cx, cy = self._current_center
             circle = mpatches.Circle((cx, cy), 10, color='g', fill=False, linewidth=1.5)
             ax.add_patch(circle)
+
+        if self.baseCenterChkBx.isChecked():
+            base_center = self._get_base_center()
+            if base_center is not None:
+                bx, by = base_center
+                arm = 20
+                h_line, = ax.plot([bx - arm, bx + arm], [by, by], color='r', linewidth=1.5)
+                v_line, = ax.plot([bx, bx], [by - arm, by + arm], color='r', linewidth=1.5)
+                self._overlay_lines.extend([h_line, v_line])
+
         self.image_viewer.canvas.draw_idle()
 
     # ------------------------------------------------------------------
